@@ -1,0 +1,11 @@
+{
+  "name": "ccpocket",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "bridge": "npm run dev --workspace=packages/bridge",
+    "bridge:build": "npm run build --workspace=packages/bridge"
+  }
+}
