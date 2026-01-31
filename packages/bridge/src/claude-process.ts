@@ -1,4 +1,5 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, execSync, type ChildProcess } from "node:child_process";
+import { existsSync, mkdirSync } from "node:fs";
 import { EventEmitter } from "node:events";
 import {
   parseClaudeEvent,
@@ -30,47 +31,69 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
       this.stop();
     }
 
+    // Ensure project directory exists
+    if (!existsSync(projectPath)) {
+      mkdirSync(projectPath, { recursive: true });
+    }
+
+    // Resolve claude CLI path
+    let claudePath = "claude";
+    try {
+      claudePath = execSync("which claude", { encoding: "utf-8" }).trim();
+    } catch {
+      console.warn("[claude-process] Could not resolve claude path, using 'claude'");
+    }
+
     const args = [
+      "-p",
       "--output-format",
       "stream-json",
+      "--input-format",
+      "stream-json",
       "--verbose",
-      "--project",
-      projectPath,
     ];
 
-    console.log(`[claude-process] Starting: claude ${args.join(" ")}`);
+    console.log(`[claude-process] Starting: ${claudePath} ${args.join(" ")} (cwd: ${projectPath})`);
 
-    this.process = spawn("claude", args, {
+    this.process = spawn(claudePath, args, {
       stdio: ["pipe", "pipe", "pipe"],
+      cwd: projectPath,
       env: { ...process.env },
     });
 
     this.setStatus("running");
     this.stdoutBuffer = "";
 
-    this.process.stdout?.on("data", (chunk: Buffer) => {
+    const currentProcess = this.process;
+
+    currentProcess.stdout?.on("data", (chunk: Buffer) => {
+      if (this.process !== currentProcess) return;
       this.handleStdout(chunk.toString());
     });
 
-    this.process.stderr?.on("data", (chunk: Buffer) => {
+    currentProcess.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString().trim();
       if (text) {
         console.error(`[claude-process] stderr: ${text}`);
       }
     });
 
-    this.process.on("exit", (code) => {
+    currentProcess.on("exit", (code) => {
       console.log(`[claude-process] Process exited with code ${code}`);
-      this.process = null;
-      this.setStatus("idle");
-      this.emit("exit", code);
+      if (this.process === currentProcess) {
+        this.process = null;
+        this.setStatus("idle");
+        this.emit("exit", code);
+      }
     });
 
-    this.process.on("error", (err) => {
+    currentProcess.on("error", (err) => {
       console.error(`[claude-process] Process error:`, err.message);
-      this.emitMessage({ type: "error", message: `Process error: ${err.message}` });
-      this.process = null;
-      this.setStatus("idle");
+      if (this.process === currentProcess) {
+        this.emitMessage({ type: "error", message: `Process error: ${err.message}` });
+        this.process = null;
+        this.setStatus("idle");
+      }
     });
   }
 
@@ -92,15 +115,24 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
   }
 
   sendInput(text: string): void {
-    this.writeStdin(text + "\n");
+    const msg = JSON.stringify({
+      type: "user",
+      message: {
+        role: "user",
+        content: [{ type: "text", text }],
+      },
+    });
+    this.writeStdin(msg + "\n");
   }
 
   approve(): void {
-    this.writeStdin("y\n");
+    // TODO: Tool approval handling in stream-json mode needs investigation
+    console.log("[claude-process] approve() called - not yet supported in stream-json mode");
   }
 
   reject(): void {
-    this.writeStdin("n\n");
+    // TODO: Tool rejection handling in stream-json mode needs investigation
+    console.log("[claude-process] reject() called - not yet supported in stream-json mode");
   }
 
   get isRunning(): boolean {
