@@ -137,6 +137,16 @@ flutter test apps/mobile                              # ユニットテスト
 ### 4. 動作確認 (シミュレーター/実機)
 状況に応じてモック確認とE2Eを選択する。
 
+#### エントリポイント一覧
+
+| ファイル | 用途 | 起動コマンド |
+|---------|------|-------------|
+| `lib/main.dart` | 通常起動 (本番/開発) | `flutter run` |
+| `lib/driver_main.dart` | Flutter Driver (MCP `flutter_driver`) | `flutter run -t lib/driver_main.dart` |
+| `lib/marionette_main.dart` | Marionette MCP | `flutter run -t lib/marionette_main.dart` |
+
+**注意**: `MarionetteBinding` と `enableFlutterDriverExtension()` は同時に使用不可 (バインディングの競合)。そのためエントリポイントを分離している。
+
 #### モック確認 (UI単体)
 - `lib/driver_main.dart` でFlutter Driver有効化済みアプリを起動
 - AppBarのモックプレビューボタンでモックデータ付きチャット画面を表示
@@ -147,6 +157,26 @@ flutter test apps/mobile                              # ユニットテスト
 - Bridge Serverを起動 (`npm run bridge`)
 - シミュレーターでアプリ起動し、実際のClaude CLIセッションで動作確認
 - 承認フロー、AskUserQuestion、ストリーミング等の実際の挙動を検証
+
+#### Marionette MCP によるUI検証 (推奨)
+
+**起動手順**:
+1. `flutter run -t lib/marionette_main.dart` でアプリ起動
+2. Marionette MCPサーバーが自動でアプリのVM Serviceに接続
+
+**主要ツール (優先度順)**:
+- `get_interactive_elements` — タップ可能なボタン・入力欄等の一覧取得。**最優先で使う**
+- `get_logs` — アプリのログ取得
+- `tap` — 要素をタップ
+- `enter_text` — テキスト入力
+- `get_semantics_tree` — セマンティクスツリー取得
+- `screenshot` — スクリーンショット取得 (**最後の手段として使用**)
+
+**重要: スクリーンショットの使用制限**:
+- スクリーンショットは画像データをAPIに送信するため、**Claude CodeのAPI使用量を大幅に消費する**
+- 多用するとAPI制限に到達し、セッション全体が使用不能になる
+- **まず `get_interactive_elements` や `get_semantics_tree` でUI構造を把握** し、テキストベースで検証する
+- スクリーンショットはレイアウト・ビジュアル確認が本当に必要な場面のみに限定する
 
 #### MCP Flutter Driver利用時の注意
 - `tap` コマンドはタイムアウトしやすい (デフォルト5秒)
