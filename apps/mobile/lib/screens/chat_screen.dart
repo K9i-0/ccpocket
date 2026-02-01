@@ -5,9 +5,12 @@ import 'package:flutter/services.dart';
 
 import '../models/messages.dart';
 import '../services/bridge_service_base.dart';
+import '../services/chat_message_handler.dart';
 import '../services/notification_service.dart';
 import '../services/voice_input_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/approval_bar.dart';
+import '../widgets/chat_input_bar.dart';
 import '../widgets/file_mention_overlay.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/slash_command_overlay.dart';
@@ -16,9 +19,7 @@ import '../widgets/slash_command_sheet.dart'
         SlashCommand,
         SlashCommandCategory,
         SlashCommandSheet,
-        buildSlashCommand,
-        fallbackSlashCommands,
-        knownCommands;
+        fallbackSlashCommands;
 
 class ChatScreen extends StatefulWidget {
   final BridgeServiceBase bridge;
@@ -75,11 +76,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _pendingToolUseId;
   PermissionRequestMessage? _pendingPermission;
 
-  // Inline streaming
-  StreamingChatEntry? _currentStreaming;
-
-  // Thinking streaming (accumulated separately, merged into assistant message)
-  String _currentThinkingText = '';
+  // Message handler (pure logic, no Flutter dependency)
+  final ChatMessageHandler _messageHandler = ChatMessageHandler();
 
   // AskUserQuestion tracking
   String? _askToolUseId;
@@ -188,174 +186,118 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _onServerMessage(ServerMessage msg) {
+    final update = _messageHandler.handle(msg, isBackground: _isBackground);
+    _applyUpdate(update, msg);
+    _scrollToBottom();
+  }
+
+  void _applyUpdate(ChatStateUpdate update, ServerMessage originalMsg) {
     setState(() {
-      switch (msg) {
-        case StatusMessage(:final status):
-          _status = status;
-          if (status == ProcessStatus.waitingApproval) {
-            HapticFeedback.heavyImpact();
-            if (_isBackground) {
-              NotificationService.instance.show(
-                title: 'Approval Required',
-                body: 'Tool approval needed',
-                id: 1,
-              );
-            }
-          } else {
-            _pendingToolUseId = null;
-            _pendingPermission = null;
+      if (update.status != null) _status = update.status!;
+      if (update.resetPending) {
+        _pendingToolUseId = null;
+        _pendingPermission = null;
+      }
+      if (update.resetAsk) {
+        _askToolUseId = null;
+        _askInput = null;
+      }
+      if (update.resetStreaming) {
+        _messageHandler.currentStreaming = null;
+      }
+      if (update.pendingToolUseId != null) {
+        _pendingToolUseId = update.pendingToolUseId;
+      }
+      if (update.pendingPermission != null) {
+        _pendingPermission = update.pendingPermission;
+      }
+      if (update.askToolUseId != null) {
+        _askToolUseId = update.askToolUseId;
+        _askInput = update.askInput;
+      }
+      if (update.costDelta != null) _totalCost += update.costDelta!;
+      if (update.inPlanMode != null) _inPlanMode = update.inPlanMode!;
+      if (update.slashCommands != null) _slashCommands = update.slashCommands!;
+
+      // Mark user messages as sent
+      if (update.markUserMessagesSent) {
+        for (final e in _entries) {
+          if (e is UserChatEntry && e.status == MessageStatus.sending) {
+            e.status = MessageStatus.sent;
           }
-        case ThinkingDeltaMessage(:final text):
-          _currentThinkingText += text;
-        case StreamDeltaMessage(:final text):
-          if (_currentStreaming == null) {
-            _currentStreaming = StreamingChatEntry(text: text);
-            _addEntry(_currentStreaming!);
-          } else {
-            _currentStreaming!.text += text;
-          }
-        case AssistantServerMessage(:final message):
-          // Auto-collapse preceding tool result bubbles
-          _collapseToolResults.value++;
-          // Mark pending user messages as sent
-          for (final e in _entries) {
-            if (e is UserChatEntry && e.status == MessageStatus.sending) {
-              e.status = MessageStatus.sent;
-            }
-          }
-          // Inject accumulated thinking text as ThinkingContent
-          ServerMessage displayMsg = msg;
-          if (_currentThinkingText.isNotEmpty) {
-            final hasThinking = message.content.any(
-              (c) => c is ThinkingContent,
-            );
-            if (!hasThinking) {
-              final enrichedContent = <AssistantContent>[
-                ThinkingContent(thinking: _currentThinkingText),
-                ...message.content,
-              ];
-              displayMsg = AssistantServerMessage(
-                message: AssistantMessage(
-                  id: message.id,
-                  role: message.role,
-                  content: enrichedContent,
-                  model: message.model,
-                ),
-              );
-            }
-            _currentThinkingText = '';
-          }
-          // Replace streaming entry with final assistant entry
-          if (_currentStreaming != null) {
-            final idx = _entries.indexOf(_currentStreaming!);
+        }
+        // Replace streaming entry if handler consumed it
+        final streaming = _messageHandler.currentStreaming;
+        if (streaming == null && originalMsg is AssistantServerMessage) {
+          // Streaming was consumed — find and replace the entry
+          final oldStreaming = _entries.whereType<StreamingChatEntry>();
+          if (oldStreaming.isNotEmpty) {
+            final idx = _entries.indexOf(oldStreaming.first);
             if (idx >= 0) {
-              _entries[idx] = ServerChatEntry(displayMsg);
-            } else {
-              _addEntry(ServerChatEntry(displayMsg));
-            }
-            _currentStreaming = null;
-          } else {
-            _addEntry(ServerChatEntry(displayMsg));
-          }
-          for (final content in message.content) {
-            if (content is ToolUseContent) {
-              if (content.name == 'AskUserQuestion') {
-                _askToolUseId = content.id;
-                _askInput = content.input;
-                HapticFeedback.mediumImpact();
-                if (_isBackground) {
-                  NotificationService.instance.show(
-                    title: 'Claude is asking',
-                    body: 'Question needs your answer',
-                    id: 2,
-                  );
-                }
-              } else {
-                _pendingToolUseId = content.id;
-                // Track plan mode: EnterPlanMode sets it, ExitPlanMode clears on approve
-                if (content.name == 'EnterPlanMode') {
-                  _inPlanMode = true;
-                }
-              }
+              // Build display message (handler already enriched it)
+              _entries[idx] = update.entriesToAdd.isNotEmpty
+                  ? update.entriesToAdd.first
+                  : ServerChatEntry(originalMsg);
+              // Don't add again below
+              return;
             }
           }
-        case PastHistoryMessage(:final messages):
-          final pastEntries = <ChatEntry>[];
-          for (final m in messages) {
-            if (m.role == 'user') {
-              final texts = m.content
-                  .whereType<TextContent>()
-                  .map((c) => c.text)
-                  .toList();
-              if (texts.isNotEmpty) {
-                pastEntries.add(UserChatEntry(texts.join('\n')));
-              }
-            } else if (m.role == 'assistant') {
-              pastEntries.add(
-                ServerChatEntry(
-                  AssistantServerMessage(
-                    message: AssistantMessage(
-                      id: '',
-                      role: 'assistant',
-                      content: m.content,
-                      model: '',
-                    ),
-                  ),
-                ),
-              );
-            }
-          }
-          // Bulk insert at beginning
-          _entries.insertAll(0, pastEntries);
-          for (var i = 0; i < pastEntries.length; i++) {
-            _listKey.currentState?.insertItem(i, duration: Duration.zero);
-          }
-        case HistoryMessage(:final messages):
-          for (final m in messages) {
-            if (m is! StatusMessage) {
-              _addEntry(ServerChatEntry(m));
-            }
-            if (m is StatusMessage) {
-              _status = m.status;
-            }
-          }
-        case SystemMessage(:final subtype, :final slashCommands, :final skills):
-          if (subtype == 'init' && slashCommands.isNotEmpty) {
-            _slashCommands = _buildCommandList(slashCommands, skills);
-          }
-          _addEntry(ServerChatEntry(msg));
-        case PermissionRequestMessage(:final toolUseId):
-          _addEntry(ServerChatEntry(msg));
-          _pendingToolUseId = toolUseId;
-          _pendingPermission = msg;
-        case ResultMessage(:final subtype, :final cost):
-          if (cost != null) _totalCost += cost;
-          if (subtype == 'stopped') {
-            _status = ProcessStatus.idle;
-            _pendingToolUseId = null;
-            _pendingPermission = null;
-            _askToolUseId = null;
-            _askInput = null;
-            _currentStreaming = null;
-            _inPlanMode = false;
-            _planFeedbackController.clear();
-          }
-          HapticFeedback.lightImpact();
-          if (_isBackground && subtype != 'stopped') {
-            NotificationService.instance.show(
-              title: 'Session Complete',
-              body: cost != null
-                  ? 'Session done (\$${cost.toStringAsFixed(4)})'
-                  : 'Session done',
-              id: 3,
-            );
-          }
-          _addEntry(ServerChatEntry(msg));
-        default:
-          _addEntry(ServerChatEntry(msg));
+        }
+      }
+
+      // Prepend entries (past history)
+      if (update.entriesToPrepend.isNotEmpty) {
+        _entries.insertAll(0, update.entriesToPrepend);
+        for (var i = 0; i < update.entriesToPrepend.length; i++) {
+          _listKey.currentState?.insertItem(i, duration: Duration.zero);
+        }
+      }
+
+      // Add entries
+      for (final entry in update.entriesToAdd) {
+        _addEntry(entry);
       }
     });
-    _scrollToBottom();
+
+    // Execute side effects outside setState
+    _executeSideEffects(update.sideEffects);
+  }
+
+  void _executeSideEffects(Set<ChatSideEffect> effects) {
+    for (final effect in effects) {
+      switch (effect) {
+        case ChatSideEffect.heavyHaptic:
+          HapticFeedback.heavyImpact();
+        case ChatSideEffect.mediumHaptic:
+          HapticFeedback.mediumImpact();
+        case ChatSideEffect.lightHaptic:
+          HapticFeedback.lightImpact();
+        case ChatSideEffect.collapseToolResults:
+          _collapseToolResults.value++;
+        case ChatSideEffect.clearPlanFeedback:
+          _planFeedbackController.clear();
+        case ChatSideEffect.notifyApprovalRequired:
+          NotificationService.instance.show(
+            title: 'Approval Required',
+            body: 'Tool approval needed',
+            id: 1,
+          );
+        case ChatSideEffect.notifyAskQuestion:
+          NotificationService.instance.show(
+            title: 'Claude is asking',
+            body: 'Question needs your answer',
+            id: 2,
+          );
+        case ChatSideEffect.notifySessionComplete:
+          NotificationService.instance.show(
+            title: 'Session Complete',
+            body: 'Session done',
+            id: 3,
+          );
+        case ChatSideEffect.scrollToBottom:
+          _scrollToBottom();
+      }
+    }
   }
 
   void _onInputChanged() {
@@ -498,7 +440,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Built-in/skill commands: send immediately
     _inputController.clear();
     setState(() {
-      _currentStreaming = null;
+      _messageHandler.currentStreaming = null;
       _addEntry(
         UserChatEntry(
           command,
@@ -511,22 +453,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ClientMessage.input(command, sessionId: widget.sessionId),
     );
     _scrollToBottom();
-  }
-
-  List<SlashCommand> _buildCommandList(
-    List<String> commands,
-    List<String> skills,
-  ) {
-    final skillSet = skills.toSet();
-    final knownNames = knownCommands.keys.toSet();
-    return commands.map((name) {
-      final category = skillSet.contains(name)
-          ? SlashCommandCategory.skill
-          : knownNames.contains(name)
-          ? SlashCommandCategory.builtin
-          : SlashCommandCategory.project;
-      return buildSlashCommand(name, category: category);
-    }).toList();
   }
 
   void _onConnectionChange(BridgeConnectionState state) {
@@ -610,7 +536,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       status: connected ? MessageStatus.sending : MessageStatus.failed,
     );
     setState(() {
-      _currentStreaming = null;
+      _messageHandler.currentStreaming = null;
       _addEntry(entry);
     });
     widget.bridge.send(ClientMessage.input(text, sessionId: widget.sessionId));
@@ -689,7 +615,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _pendingPermission = null;
       _askToolUseId = null;
       _askInput = null;
-      _currentStreaming = null;
+      _messageHandler.currentStreaming = null;
       _inPlanMode = false;
     });
   }
@@ -698,7 +624,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     HapticFeedback.mediumImpact();
     widget.bridge.interrupt(widget.sessionId);
     setState(() {
-      _currentStreaming = null;
+      _messageHandler.currentStreaming = null;
     });
   }
 
@@ -710,19 +636,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         onSelect: _onSlashCommandSelected,
       ),
     );
-  }
-
-  String _extractPermissionSummary(PermissionRequestMessage perm) {
-    final input = perm.input;
-    final summaryParts = <String>[];
-    for (final key in ['command', 'file_path', 'path', 'pattern', 'url']) {
-      if (input.containsKey(key)) {
-        final val = input[key].toString();
-        final display = val.length > 60 ? '${val.substring(0, 60)}...' : val;
-        summaryParts.add(display);
-      }
-    }
-    return summaryParts.isNotEmpty ? summaryParts.join(' | ') : perm.toolName;
   }
 
   @override
@@ -1091,313 +1004,30 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool get _isPlanApproval => _pendingPermission?.toolName == 'ExitPlanMode';
 
   Widget _buildApprovalBar(AppColors appColors) {
-    final summary = _pendingPermission != null
-        ? (_isPlanApproval
-              ? 'Review the plan above and approve or continue planning'
-              : _extractPermissionSummary(_pendingPermission!))
-        : 'Tool execution requires approval';
-    final toolName = _isPlanApproval
-        ? 'Plan Approval'
-        : _pendingPermission?.toolName;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            appColors.approvalBar,
-            appColors.approvalBar.withValues(alpha: 0.7),
-          ],
-        ),
-        border: Border(
-          top: BorderSide(color: appColors.approvalBarBorder, width: 1.5),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color:
-                        (_isPlanApproval
-                                ? Theme.of(context).colorScheme.primary
-                                : appColors.permissionIcon)
-                            .withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    _isPlanApproval ? Icons.assignment : Icons.shield,
-                    color: _isPlanApproval
-                        ? Theme.of(context).colorScheme.primary
-                        : appColors.permissionIcon,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        toolName ?? 'Approval Required',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        summary,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: appColors.subtleText,
-                        ),
-                        maxLines: _isPlanApproval ? 2 : 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            if (_isPlanApproval) ...[
-              const SizedBox(height: 6),
-              TextField(
-                key: const ValueKey('plan_feedback_input'),
-                controller: _planFeedbackController,
-                decoration: InputDecoration(
-                  hintText: 'Feedback for plan revision...',
-                  hintStyle: TextStyle(
-                    fontSize: 12,
-                    color: appColors.subtleText,
-                  ),
-                  filled: true,
-                  fillColor: Theme.of(context).colorScheme.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                ),
-                style: const TextStyle(fontSize: 13),
-                maxLines: 3,
-                minLines: 1,
-              ),
-            ],
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    key: const ValueKey('reject_button'),
-                    onPressed: _rejectToolUse,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    child: Text(
-                      _isPlanApproval ? 'Keep Planning' : 'Reject',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    key: const ValueKey('approve_button'),
-                    onPressed: _approveToolUse,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    child: Text(
-                      _isPlanApproval ? 'Accept Plan' : 'Approve',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (!_isPlanApproval) ...[
-              const SizedBox(height: 2),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  key: const ValueKey('approve_always_button'),
-                  onPressed: _approveAlwaysToolUse,
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 4,
-                      horizontal: 8,
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: appColors.subtleText,
-                    textStyle: const TextStyle(fontSize: 11),
-                  ),
-                  child: const Text('Allow for this session'),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return ApprovalBar(
+      appColors: appColors,
+      pendingPermission: _pendingPermission,
+      isPlanApproval: _isPlanApproval,
+      planFeedbackController: _planFeedbackController,
+      onApprove: _approveToolUse,
+      onReject: _rejectToolUse,
+      onApproveAlways: _approveAlwaysToolUse,
     );
   }
 
   Widget _buildInputBar() {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: EdgeInsets.only(
-        left: 8,
-        right: 8,
-        top: 8,
-        bottom: MediaQuery.of(context).padding.bottom + 8,
-      ),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Material(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(20),
-            child: InkWell(
-              key: const ValueKey('slash_command_button'),
-              borderRadius: BorderRadius.circular(20),
-              onTap: _showSlashCommandSheet,
-              child: Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                child: Text(
-                  '/',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: cs.primary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: CompositedTransformTarget(
-              link: _inputLayerLink,
-              child: TextField(
-                key: const ValueKey('message_input'),
-                controller: _inputController,
-                decoration: InputDecoration(
-                  hintText: 'Message Claude...',
-                  filled: true,
-                  fillColor: cs.surfaceContainerLow,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(
-                      color: cs.outlineVariant,
-                      width: 0.5,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(
-                      color: cs.primary.withValues(alpha: 0.5),
-                      width: 1.5,
-                    ),
-                  ),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                ),
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendMessage(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (_status != ProcessStatus.idle && !_hasInputText)
-            GestureDetector(
-              onLongPress: _stopSession,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: cs.error,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: IconButton(
-                  key: const ValueKey('stop_button'),
-                  onPressed: _interruptSession,
-                  icon: Icon(Icons.stop_rounded, color: cs.onError, size: 20),
-                  constraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
-                  ),
-                  padding: EdgeInsets.zero,
-                  tooltip: 'Tap: interrupt, Hold: stop',
-                ),
-              ),
-            )
-          else if (!_hasInputText && _isVoiceAvailable)
-            Container(
-              decoration: BoxDecoration(
-                color: _isRecording ? cs.error : cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: IconButton(
-                key: const ValueKey('voice_button'),
-                onPressed: _toggleVoiceInput,
-                icon: Icon(
-                  _isRecording ? Icons.stop : Icons.mic,
-                  color: _isRecording ? cs.onError : cs.primary,
-                  size: 20,
-                ),
-                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                padding: EdgeInsets.zero,
-              ),
-            )
-          else
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [cs.primary, cs.primary.withValues(alpha: 0.8)],
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: IconButton(
-                key: const ValueKey('send_button'),
-                onPressed: _sendMessage,
-                icon: Icon(Icons.arrow_upward, color: cs.onPrimary, size: 20),
-                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                padding: EdgeInsets.zero,
-              ),
-            ),
-        ],
-      ),
+    return ChatInputBar(
+      inputController: _inputController,
+      inputLayerLink: _inputLayerLink,
+      status: _status,
+      hasInputText: _hasInputText,
+      isVoiceAvailable: _isVoiceAvailable,
+      isRecording: _isRecording,
+      onSend: _sendMessage,
+      onStop: _stopSession,
+      onInterrupt: _interruptSession,
+      onToggleVoice: _toggleVoiceInput,
+      onShowSlashCommands: _showSlashCommandSheet,
     );
   }
 }

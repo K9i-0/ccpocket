@@ -9,6 +9,8 @@ import '../models/messages.dart';
 import '../services/bridge_service.dart';
 import '../services/server_discovery_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/horizontal_chip_bar.dart';
+import '../widgets/new_session_sheet.dart';
 import '../widgets/session_card.dart';
 import '../services/connection_url_parser.dart';
 import 'chat_screen.dart';
@@ -477,272 +479,19 @@ class _SessionListScreenState extends State<SessionListScreen> {
     _bridge.requestRecentSessions();
   }
 
-  void _showNewSessionDialog() {
-    final pathController = TextEditingController();
-    var permissionMode = PermissionMode.acceptEdits;
-    var continueMode = false;
-    final projects = _recentProjects;
-
-    showModalBottomSheet(
+  void _showNewSessionDialog() async {
+    final result = await showNewSessionSheet(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        final appColors = Theme.of(context).extension<AppColors>()!;
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final hasPath = pathController.text.trim().isNotEmpty;
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Drag handle
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Container(
-                          width: 32,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: appColors.subtleText.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Title
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'New Session',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Recent projects
-                    if (projects.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'Recent Projects',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: appColors.subtleText,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      for (final project in projects)
-                        _buildProjectTile(
-                          context,
-                          project,
-                          pathController,
-                          appColors,
-                          setSheetState,
-                        ),
-                      // Divider
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Divider(
-                                color: appColors.subtleText.withValues(
-                                  alpha: 0.2,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: Text(
-                                'or enter path',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: appColors.subtleText,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Divider(
-                                color: appColors.subtleText.withValues(
-                                  alpha: 0.2,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    // Manual path input
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: TextField(
-                        key: const ValueKey('dialog_project_path'),
-                        controller: pathController,
-                        decoration: const InputDecoration(
-                          labelText: 'Project Path',
-                          hintText: '/path/to/your/project',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        onChanged: (_) => setSheetState(() {}),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Options row
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<PermissionMode>(
-                              key: const ValueKey('dialog_permission_mode'),
-                              initialValue: permissionMode,
-                              decoration: const InputDecoration(
-                                labelText: 'Permission',
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                              items: PermissionMode.values
-                                  .map(
-                                    (m) => DropdownMenuItem(
-                                      value: m,
-                                      child: Text(
-                                        m.label,
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setSheetState(() => permissionMode = value);
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          FilterChip(
-                            label: const Text(
-                              'Continue',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            selected: continueMode,
-                            onSelected: (val) =>
-                                setSheetState(() => continueMode = val),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Actions
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: FilledButton(
-                              key: const ValueKey('dialog_start_button'),
-                              onPressed: hasPath
-                                  ? () {
-                                      final path = pathController.text.trim();
-                                      Navigator.pop(context);
-                                      _pendingResumeProjectPath = path;
-                                      _bridge.send(
-                                        ClientMessage.start(
-                                          path,
-                                          continueMode: continueMode
-                                              ? true
-                                              : null,
-                                          permissionMode: permissionMode.value,
-                                        ),
-                                      );
-                                    }
-                                  : null,
-                              child: const Text('Start'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+      recentProjects: _recentProjects,
     );
-  }
-
-  Widget _buildProjectTile(
-    BuildContext context,
-    ({String path, String name}) project,
-    TextEditingController pathController,
-    AppColors appColors,
-    StateSetter setSheetState,
-  ) {
-    final isSelected = pathController.text == project.path;
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      leading: Icon(
-        Icons.folder_outlined,
-        size: 22,
-        color: isSelected
-            ? Theme.of(context).colorScheme.primary
-            : appColors.subtleText,
+    if (result == null) return;
+    _pendingResumeProjectPath = result.projectPath;
+    _bridge.send(
+      ClientMessage.start(
+        result.projectPath,
+        continueMode: result.continueMode ? true : null,
+        permissionMode: result.permissionMode.value,
       ),
-      title: Text(
-        project.name,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-          color: isSelected ? Theme.of(context).colorScheme.primary : null,
-        ),
-      ),
-      subtitle: Text(
-        shortenPath(project.path),
-        style: TextStyle(fontSize: 11, color: appColors.subtleText),
-      ),
-      trailing: isSelected
-          ? Icon(
-              Icons.check_circle,
-              size: 20,
-              color: Theme.of(context).colorScheme.primary,
-            )
-          : null,
-      onTap: () {
-        pathController.text = project.path;
-        setSheetState(() {});
-      },
     );
   }
 
@@ -1213,164 +962,84 @@ class _SessionListScreenState extends State<SessionListScreen> {
   }
 
   Widget _buildProjectFilterChips(AppColors appColors) {
+    final cs = Theme.of(context).colorScheme;
     final counts = _projectCounts;
-    return SizedBox(
+    return HorizontalChipBar(
       height: 36,
-      child: ShaderMask(
-        shaderCallback: (bounds) => LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            Colors.white,
-            Colors.white,
-            Colors.white,
-            Colors.white.withValues(alpha: 0.0),
-          ],
-          stops: const [0.0, 0.85, 0.92, 1.0],
-        ).createShader(bounds),
-        blendMode: BlendMode.dstIn,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.only(left: 4, right: 28),
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: ChoiceChip(
-                label: Text('All (${_recentSessions.length})'),
-                selected: _selectedProject == null,
-                onSelected: (_) => setState(() {
-                  _selectedProject = null;
-                  _selectedBranch = null;
-                }),
-                labelStyle: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: _selectedProject == null
-                      ? Theme.of(context).colorScheme.onPrimary
-                      : appColors.subtleText,
-                ),
-                selectedColor: Theme.of(context).colorScheme.primary,
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
-            for (final entry in counts.entries)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: ChoiceChip(
-                  label: Text(entry.key),
-                  selected: _selectedProject == entry.key,
-                  onSelected: (_) => setState(() {
-                    _selectedProject = entry.key;
-                    _selectedBranch = null;
-                  }),
-                  labelStyle: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: _selectedProject == entry.key
-                        ? Theme.of(context).colorScheme.onPrimary
-                        : appColors.subtleText,
-                  ),
-                  selectedColor: Theme.of(context).colorScheme.primary,
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-          ],
+      fontSize: 12,
+      showFade: true,
+      selectedColor: cs.primary,
+      selectedTextColor: cs.onPrimary,
+      unselectedTextColor: appColors.subtleText,
+      items: [
+        ChipItem(
+          label: 'All (${_recentSessions.length})',
+          isSelected: _selectedProject == null,
+          onSelected: () => setState(() {
+            _selectedProject = null;
+            _selectedBranch = null;
+          }),
         ),
-      ),
+        for (final entry in counts.entries)
+          ChipItem(
+            label: entry.key,
+            isSelected: _selectedProject == entry.key,
+            onSelected: () => setState(() {
+              _selectedProject = entry.key;
+              _selectedBranch = null;
+            }),
+          ),
+      ],
     );
   }
 
   Widget _buildBranchFilterChips(AppColors appColors) {
-    final branches = _branchChips;
-    return SizedBox(
-      height: 32,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.only(left: 4, right: 28),
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: ChoiceChip(
-              avatar: Icon(
-                Icons.account_tree,
-                size: 14,
-                color: appColors.subtleText,
-              ),
-              label: const Text('All branches'),
-              selected: _selectedBranch == null,
-              onSelected: (_) => setState(() => _selectedBranch = null),
-              labelStyle: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: _selectedBranch == null
-                    ? Theme.of(context).colorScheme.onSecondary
-                    : appColors.subtleText,
-              ),
-              selectedColor: Theme.of(context).colorScheme.secondary,
-              visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
+    final cs = Theme.of(context).colorScheme;
+    return HorizontalChipBar(
+      selectedColor: cs.secondary,
+      selectedTextColor: cs.onSecondary,
+      unselectedTextColor: appColors.subtleText,
+      items: [
+        ChipItem(
+          label: 'All branches',
+          isSelected: _selectedBranch == null,
+          onSelected: () => setState(() => _selectedBranch = null),
+          avatar: Icon(
+            Icons.account_tree,
+            size: 14,
+            color: appColors.subtleText,
           ),
-          for (final branch in branches)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: ChoiceChip(
-                label: Text(branch),
-                selected: _selectedBranch == branch,
-                onSelected: (_) => setState(() => _selectedBranch = branch),
-                labelStyle: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: _selectedBranch == branch
-                      ? Theme.of(context).colorScheme.onSecondary
-                      : appColors.subtleText,
-                ),
-                selectedColor: Theme.of(context).colorScheme.secondary,
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
-        ],
-      ),
+        ),
+        for (final branch in _branchChips)
+          ChipItem(
+            label: branch,
+            isSelected: _selectedBranch == branch,
+            onSelected: () => setState(() => _selectedBranch = branch),
+          ),
+      ],
     );
   }
 
   Widget _buildDateFilterChips(AppColors appColors) {
+    final cs = Theme.of(context).colorScheme;
     const filters = [
       (DateFilter.all, 'All time'),
       (DateFilter.today, 'Today'),
       (DateFilter.thisWeek, 'This week'),
       (DateFilter.thisMonth, 'This month'),
     ];
-    return SizedBox(
-      height: 32,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.only(left: 4, right: 28),
-        children: [
-          for (final (filter, label) in filters)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: ChoiceChip(
-                label: Text(label),
-                selected: _dateFilter == filter,
-                onSelected: (_) => setState(() => _dateFilter = filter),
-                labelStyle: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: _dateFilter == filter
-                      ? Theme.of(context).colorScheme.onTertiary
-                      : appColors.subtleText,
-                ),
-                selectedColor: Theme.of(context).colorScheme.tertiary,
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
-        ],
-      ),
+    return HorizontalChipBar(
+      selectedColor: cs.tertiary,
+      selectedTextColor: cs.onTertiary,
+      unselectedTextColor: appColors.subtleText,
+      items: [
+        for (final (filter, label) in filters)
+          ChipItem(
+            label: label,
+            isSelected: _dateFilter == filter,
+            onSelected: () => setState(() => _dateFilter = filter),
+          ),
+      ],
     );
   }
 
