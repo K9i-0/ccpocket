@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ccpocket.bridge</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Update this path to your node binary -->
+        <string>/usr/local/bin/node</string>
+        <!-- Update this path to the built bridge entry point -->
+        <string>/Users/YOUR_USERNAME/Workspace/ccpocket/packages/bridge/dist/index.js</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <!-- Update this to your ccpocket project root -->
+    <string>/Users/YOUR_USERNAME/Workspace/ccpocket</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>BRIDGE_PORT</key>
+        <string>8765</string>
+        <key>BRIDGE_HOST</key>
+        <string>0.0.0.0</string>
+        <!-- Set your API key for authentication -->
+        <key>BRIDGE_API_KEY</key>
+        <string>YOUR_SECRET_KEY_HERE</string>
+        <!-- Ensure claude CLI is in PATH -->
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    </dict>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/ccpocket-bridge.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/ccpocket-bridge.stderr.log</string>
+</dict>
+</plist>

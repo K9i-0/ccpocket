@@ -9,34 +9,58 @@ import {
   type ClaudeEvent,
   type AssistantMessageEvent,
   type AssistantToolUseContent,
+  type PermissionMode,
 } from "./parser.js";
+
+export interface StartOptions {
+  sessionId?: string;
+  continueMode?: boolean;
+  permissionMode?: PermissionMode;
+}
 
 export interface ClaudeProcessEvents {
   message: [ServerMessage];
   status: [ProcessStatus];
   exit: [number | null];
+  permission_request: [PermissionRequest];
 }
+
+export interface PermissionRequest {
+  toolUseId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  resolve: (decision: PermissionDecision) => void;
+}
+
+export type PermissionDecision =
+  | { behavior: "allow"; updatedInput?: Record<string, unknown> }
+  | { behavior: "deny"; message: string };
 
 export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
   private process: ChildProcess | null = null;
   private _status: ProcessStatus = "idle";
   private stdoutBuffer = "";
+  private stderrBuffer = "";
+  private _sessionId: string | null = null;
+  private pendingPermissions = new Map<string, PermissionRequest>();
 
   get status(): ProcessStatus {
     return this._status;
   }
 
-  start(projectPath: string): void {
+  get sessionId(): string | null {
+    return this._sessionId;
+  }
+
+  start(projectPath: string, options?: StartOptions): void {
     if (this.process) {
       this.stop();
     }
 
-    // Ensure project directory exists
     if (!existsSync(projectPath)) {
       mkdirSync(projectPath, { recursive: true });
     }
 
-    // Resolve claude CLI path
     let claudePath = "claude";
     try {
       claudePath = execSync("which claude", { encoding: "utf-8" }).trim();
@@ -51,7 +75,20 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
       "--input-format",
       "stream-json",
       "--verbose",
+      "--include-partial-messages",
     ];
+
+    // Permission mode
+    if (options?.permissionMode) {
+      args.push("--permission-mode", options.permissionMode);
+    }
+
+    // Session resume
+    if (options?.sessionId) {
+      args.push("--resume", options.sessionId);
+    } else if (options?.continueMode) {
+      args.push("--continue");
+    }
 
     console.log(`[claude-process] Starting: ${claudePath} ${args.join(" ")} (cwd: ${projectPath})`);
 
@@ -63,6 +100,9 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
 
     this.setStatus("running");
     this.stdoutBuffer = "";
+    this.stderrBuffer = "";
+    this._sessionId = null;
+    this.pendingPermissions.clear();
 
     const currentProcess = this.process;
 
@@ -72,9 +112,12 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
     });
 
     currentProcess.stderr?.on("data", (chunk: Buffer) => {
-      const text = chunk.toString().trim();
-      if (text) {
-        console.error(`[claude-process] stderr: ${text}`);
+      if (this.process !== currentProcess) return;
+      const text = chunk.toString();
+      // Log non-empty stderr for debugging
+      const trimmed = text.trim();
+      if (trimmed) {
+        console.error(`[claude-process] stderr: ${trimmed.slice(0, 500)}`);
       }
     });
 
@@ -103,6 +146,7 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
       this.process.kill("SIGTERM");
       this.process = null;
       this.setStatus("idle");
+      this.pendingPermissions.clear();
     }
   }
 
@@ -125,14 +169,55 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
     this.writeStdin(msg + "\n");
   }
 
-  approve(): void {
-    // TODO: Tool approval handling in stream-json mode needs investigation
-    console.log("[claude-process] approve() called - not yet supported in stream-json mode");
+  /**
+   * Send a tool_result back to Claude (for AskUserQuestion responses etc.)
+   */
+  sendToolResult(toolUseId: string, result: string): void {
+    const msg = JSON.stringify({
+      type: "user",
+      message: {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: toolUseId, content: result }],
+      },
+    });
+    this.writeStdin(msg + "\n");
   }
 
-  reject(): void {
-    // TODO: Tool rejection handling in stream-json mode needs investigation
-    console.log("[claude-process] reject() called - not yet supported in stream-json mode");
+  /**
+   * Approve a pending permission request.
+   */
+  approve(toolUseId?: string): void {
+    this.resolvePendingPermission(toolUseId, { behavior: "allow" });
+  }
+
+  /**
+   * Reject a pending permission request.
+   */
+  reject(toolUseId?: string, message?: string): void {
+    this.resolvePendingPermission(toolUseId, {
+      behavior: "deny",
+      message: message ?? "User rejected this action",
+    });
+  }
+
+  private resolvePendingPermission(toolUseId: string | undefined, decision: PermissionDecision): void {
+    if (toolUseId) {
+      const pending = this.pendingPermissions.get(toolUseId);
+      if (pending) {
+        pending.resolve(decision);
+        this.pendingPermissions.delete(toolUseId);
+        return;
+      }
+    }
+    // If no specific ID, resolve the first pending request
+    const first = this.pendingPermissions.values().next();
+    if (!first.done) {
+      first.value.resolve(decision);
+      this.pendingPermissions.delete(first.value.toolUseId);
+    } else {
+      const action = decision.behavior === "allow" ? "approve" : "reject";
+      console.log(`[claude-process] ${action}() called but no pending permission requests`);
+    }
   }
 
   get isRunning(): boolean {
@@ -143,7 +228,6 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
     this.stdoutBuffer += data;
 
     const lines = this.stdoutBuffer.split("\n");
-    // Keep the last incomplete line in the buffer
     this.stdoutBuffer = lines.pop() ?? "";
 
     for (const line of lines) {
@@ -154,6 +238,13 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
   private processLine(line: string): void {
     const event = parseClaudeEvent(line);
     if (!event) return;
+
+    // Capture session_id from system/init and result events
+    if (event.type === "system" && event.subtype === "init") {
+      this._sessionId = event.session_id;
+    } else if (event.type === "result" && "session_id" in event) {
+      this._sessionId = event.session_id;
+    }
 
     this.updateStatusFromEvent(event);
 
@@ -167,7 +258,6 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
       const toolResults = event.message.content.filter(
         (c) => c.type === "tool_result"
       );
-      // First one is already handled by claudeEventToServerMessage
       for (let i = 1; i < toolResults.length; i++) {
         const tr = toolResults[i];
         if (tr.type === "tool_result") {
@@ -184,14 +274,10 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
   private updateStatusFromEvent(event: ClaudeEvent): void {
     switch (event.type) {
       case "assistant": {
-        const hasToolUse = (event as AssistantMessageEvent).message.content.some(
-          (c): c is AssistantToolUseContent => c.type === "tool_use"
-        );
-        if (hasToolUse) {
-          this.setStatus("waiting_approval");
-        } else {
-          this.setStatus("running");
-        }
+        // In stream-json mode, tool execution is handled by the CLI internally.
+        // Don't set waiting_approval here — only set it when an explicit
+        // permission_request is emitted (e.g. from stderr MCP JSON-RPC).
+        this.setStatus("running");
         break;
       }
       case "user":
@@ -200,6 +286,7 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
       case "result":
         this.setStatus("idle");
         break;
+      // stream_event doesn't change status
     }
   }
 

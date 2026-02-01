@@ -1,3 +1,8 @@
+import type { ImageRef } from "./image-store.js";
+
+// Re-export for convenience
+export type { ImageRef } from "./image-store.js";
+
 // ---- Claude CLI stream-json event types ----
 
 export interface SystemInitEvent {
@@ -50,9 +55,10 @@ export interface ResultSuccessEvent {
   type: "result";
   subtype: "success";
   result: string;
-  cost_usd: number;
+  total_cost_usd: number;
   duration_ms: number;
   duration_api_ms: number;
+  num_turns: number;
   is_error: boolean;
   session_id: string;
 }
@@ -65,29 +71,77 @@ export interface ResultErrorEvent {
   session_id: string;
 }
 
+// ---- Partial message (stream_event) types ----
+
+export interface StreamEventMessage {
+  type: "stream_event";
+  event: StreamEvent;
+  parent_tool_use_id: string | null;
+  uuid: string;
+  session_id: string;
+}
+
+export type StreamEvent =
+  | { type: "message_start"; message: Record<string, unknown> }
+  | { type: "content_block_start"; index: number; content_block: StreamContentBlock }
+  | { type: "content_block_delta"; index: number; delta: StreamDelta }
+  | { type: "content_block_stop"; index: number }
+  | { type: "message_delta"; delta: Record<string, unknown>; usage?: Record<string, unknown> }
+  | { type: "message_stop" };
+
+export interface StreamContentBlock {
+  type: "text" | "tool_use";
+  id?: string;
+  name?: string;
+  text?: string;
+}
+
+export interface StreamDelta {
+  type: "text_delta" | "input_json_delta";
+  text?: string;
+  partial_json?: string;
+}
+
 export type ClaudeEvent =
   | SystemInitEvent
   | AssistantMessageEvent
   | UserToolResultEvent
   | ResultSuccessEvent
-  | ResultErrorEvent;
+  | ResultErrorEvent
+  | StreamEventMessage;
 
 // ---- Client <-> Server message types ----
 
+export type PermissionMode =
+  | "default"
+  | "acceptEdits"
+  | "bypassPermissions"
+  | "plan"
+  | "delegate"
+  | "dontAsk";
+
 export type ClientMessage =
-  | { type: "start"; projectPath: string }
-  | { type: "input"; text: string }
-  | { type: "approve"; id: string }
-  | { type: "reject"; id: string };
+  | { type: "start"; projectPath: string; sessionId?: string; continue?: boolean; permissionMode?: PermissionMode }
+  | { type: "input"; text: string; sessionId?: string }
+  | { type: "approve"; id: string; sessionId?: string }
+  | { type: "reject"; id: string; message?: string; sessionId?: string }
+  | { type: "answer"; toolUseId: string; result: string; sessionId?: string }
+  | { type: "list_sessions" }
+  | { type: "stop_session"; sessionId: string }
+  | { type: "get_history"; sessionId: string }
+  | { type: "list_recent_sessions"; limit?: number }
+  | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode };
 
 export type ServerMessage =
-  | { type: "system"; subtype: string; sessionId?: string; model?: string }
+  | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string }
   | { type: "assistant"; message: AssistantMessageEvent["message"] }
-  | { type: "tool_result"; toolUseId: string; content: string }
-  | { type: "result"; subtype: string; result?: string; error?: string; cost?: number; duration?: number }
+  | { type: "tool_result"; toolUseId: string; content: string; images?: ImageRef[] }
+  | { type: "result"; subtype: string; result?: string; error?: string; cost?: number; duration?: number; sessionId?: string }
   | { type: "error"; message: string }
   | { type: "status"; status: ProcessStatus }
-  | { type: "history"; messages: ServerMessage[] };
+  | { type: "history"; messages: ServerMessage[] }
+  | { type: "permission_request"; toolUseId: string; toolName: string; input: Record<string, unknown> }
+  | { type: "stream_delta"; text: string };
 
 export type ProcessStatus = "idle" | "running" | "waiting_approval";
 
@@ -128,8 +182,6 @@ export function claudeEventToServerMessage(event: ClaudeEvent): ServerMessage | 
         (c): c is UserToolResultContent => c.type === "tool_result"
       );
       if (results.length === 0) return null;
-      // Send each tool result as a separate message; return the first one here
-      // Additional results should be handled by the caller if needed
       const first = results[0];
       return {
         type: "tool_result",
@@ -145,8 +197,9 @@ export function claudeEventToServerMessage(event: ClaudeEvent): ServerMessage | 
           type: "result",
           subtype: "success",
           result: success.result,
-          cost: success.cost_usd,
+          cost: success.total_cost_usd,
           duration: success.duration_ms,
+          sessionId: success.session_id,
         };
       } else {
         const error = event as ResultErrorEvent;
@@ -154,8 +207,24 @@ export function claudeEventToServerMessage(event: ClaudeEvent): ServerMessage | 
           type: "result",
           subtype: "error",
           error: error.error,
+          sessionId: error.session_id,
         };
       }
+
+    case "stream_event": {
+      // Extract text deltas for real-time streaming display
+      if (
+        event.event.type === "content_block_delta" &&
+        event.event.delta.type === "text_delta" &&
+        event.event.delta.text
+      ) {
+        return {
+          type: "stream_delta",
+          text: event.event.delta.text,
+        };
+      }
+      return null;
+    }
 
     default:
       return null;
@@ -164,9 +233,43 @@ export function claudeEventToServerMessage(event: ClaudeEvent): ServerMessage | 
 
 export function parseClientMessage(data: string): ClientMessage | null {
   try {
-    const msg = JSON.parse(data) as ClientMessage;
-    if (!msg.type) return null;
-    return msg;
+    const msg = JSON.parse(data) as Record<string, unknown>;
+    if (!msg.type || typeof msg.type !== "string") return null;
+
+    switch (msg.type) {
+      case "start":
+        if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "input":
+        if (typeof msg.text !== "string") return null;
+        break;
+      case "approve":
+        if (typeof msg.id !== "string") return null;
+        break;
+      case "reject":
+        if (typeof msg.id !== "string") return null;
+        break;
+      case "answer":
+        if (typeof msg.toolUseId !== "string" || typeof msg.result !== "string") return null;
+        break;
+      case "list_sessions":
+        break;
+      case "stop_session":
+        if (typeof msg.sessionId !== "string") return null;
+        break;
+      case "get_history":
+        if (typeof msg.sessionId !== "string") return null;
+        break;
+      case "list_recent_sessions":
+        break;
+      case "resume_session":
+        if (typeof msg.sessionId !== "string" || typeof msg.projectPath !== "string") return null;
+        break;
+      default:
+        return null;
+    }
+
+    return msg as unknown as ClientMessage;
   } catch {
     return null;
   }

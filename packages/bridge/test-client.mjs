@@ -22,7 +22,7 @@ ws.on("open", () => {
 ws.on("message", (data) => {
   const msg = JSON.parse(data.toString());
   received.push(msg);
-  console.log(`[test] Received: ${JSON.stringify(msg)}`);
+  console.log(`[test] Received: ${JSON.stringify(msg).slice(0, 200)}`);
 });
 
 ws.on("error", (err) => {
@@ -32,11 +32,10 @@ ws.on("error", (err) => {
 
 // Wait for initial messages, then run tests
 setTimeout(async () => {
-  console.log("\n=== Test 1: Initial status message ===");
-  assert(received.length >= 1, "Received at least 1 message on connect");
-  const statusMsg = received.find((m) => m.type === "status");
-  assert(statusMsg !== undefined, "Received status message");
-  assert(statusMsg?.status === "idle", "Initial status is idle");
+  console.log("\n=== Test 1: Session list on connect ===");
+  const sessionList = received.find((m) => m.type === "session_list");
+  assert(sessionList !== undefined, "Received session_list on connect");
+  assert(Array.isArray(sessionList?.sessions), "session_list contains sessions array");
 
   console.log("\n=== Test 2: Invalid JSON ===");
   received.length = 0;
@@ -49,28 +48,54 @@ setTimeout(async () => {
     "Error message is correct"
   );
 
-  console.log("\n=== Test 3: Input before start ===");
+  console.log("\n=== Test 3: List sessions ===");
   received.length = 0;
-  ws.send(JSON.stringify({ type: "input", text: "hello" }));
+  ws.send(JSON.stringify({ type: "list_sessions" }));
   await sleep(500);
-  const inputError = received.find((m) => m.type === "error");
-  assert(inputError !== undefined, "Received error for input before start");
+  const listResp = received.find((m) => m.type === "session_list");
+  assert(listResp !== undefined, "Received session_list response");
 
-  console.log("\n=== Test 4: Start Claude CLI ===");
+  console.log("\n=== Test 4: Start session ===");
   received.length = 0;
-  ws.send(JSON.stringify({ type: "start", projectPath: "/tmp/test-project" }));
-  await sleep(5000);
-  const hasStatus = received.some((m) => m.type === "status");
-  assert(hasStatus, "Received status update after start");
-  const runningOrSystem = received.some(
-    (m) =>
-      (m.type === "status" && m.status === "running") ||
-      m.type === "system" ||
-      m.type === "error"
+  ws.send(
+    JSON.stringify({
+      type: "start",
+      projectPath: "/tmp/test-project",
+      permissionMode: "default",
+    })
   );
-  assert(runningOrSystem, "Claude CLI started (status/system/error received)");
+  await sleep(5000);
+  const sessionCreated = received.find(
+    (m) => m.type === "system" && m.subtype === "session_created"
+  );
+  assert(sessionCreated !== undefined, "Received session_created event");
 
-  console.log(`\n=== Results: ${testsPassed} passed, ${testsFailed} failed ===`);
+  const sessionId = sessionCreated?.sessionId;
+  console.log(`  Session ID: ${sessionId}`);
+
+  if (sessionId) {
+    console.log("\n=== Test 5: Session appears in list ===");
+    received.length = 0;
+    ws.send(JSON.stringify({ type: "list_sessions" }));
+    await sleep(500);
+    const listAfter = received.find((m) => m.type === "session_list");
+    const found = listAfter?.sessions?.some((s) => s.id === sessionId);
+    assert(found, "New session appears in session list");
+
+    console.log("\n=== Test 6: Stop session ===");
+    received.length = 0;
+    ws.send(JSON.stringify({ type: "stop_session", sessionId }));
+    await sleep(1000);
+    ws.send(JSON.stringify({ type: "list_sessions" }));
+    await sleep(500);
+    const listAfterStop = received.find((m) => m.type === "session_list");
+    const notFound = !listAfterStop?.sessions?.some((s) => s.id === sessionId);
+    assert(notFound, "Stopped session removed from list");
+  }
+
+  console.log(
+    `\n=== Results: ${testsPassed} passed, ${testsFailed} failed ===`
+  );
   ws.close();
   process.exit(testsFailed > 0 ? 1 : 0);
 }, 1000);
