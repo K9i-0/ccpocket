@@ -154,21 +154,13 @@ export class GalleryStore {
   handleRequest(req: IncomingMessage, res: ServerResponse): boolean {
     const url = req.url ?? "";
 
+    // Match /api/gallery/:id (alphanumeric, hyphens, underscores)
+    const imageMatch = url.match(/^\/api\/gallery\/([a-zA-Z0-9_-]+)$/);
+
     // GET /api/gallery/:id — serve image file
-    const imageMatch = url.match(/^\/api\/gallery\/([a-f0-9-]+)$/);
     if (imageMatch && req.method === "GET") {
       const id = imageMatch[1];
       return this.serveImage(id, res);
-    }
-
-    // GET /api/gallery — list images
-    if (url.startsWith("/api/gallery") && req.method === "GET") {
-      const parsedUrl = new URL(url, `http://${req.headers.host ?? "localhost"}`);
-      const project = parsedUrl.searchParams.get("project") ?? undefined;
-      const images = this.list({ projectPath: project });
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ images }));
-      return true;
     }
 
     // DELETE /api/gallery/:id
@@ -186,6 +178,16 @@ export class GalleryStore {
         res.writeHead(500, { "Content-Type": "text/plain" });
         res.end("Internal Server Error");
       });
+      return true;
+    }
+
+    // GET /api/gallery — list images (exact path or with query string)
+    if ((url === "/api/gallery" || url.startsWith("/api/gallery?")) && req.method === "GET") {
+      const parsedUrl = new URL(url, `http://${req.headers.host ?? "localhost"}`);
+      const project = parsedUrl.searchParams.get("project") ?? undefined;
+      const images = this.list({ projectPath: project });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ images }));
       return true;
     }
 
