@@ -447,6 +447,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  void _approveAlwaysToolUse() {
+    if (_pendingToolUseId != null) {
+      HapticFeedback.mediumImpact();
+      widget.bridge.send(
+        ClientMessage.approveAlways(
+          _pendingToolUseId!,
+          sessionId: widget.sessionId,
+        ),
+      );
+      setState(() {
+        _pendingToolUseId = null;
+        _pendingPermission = null;
+      });
+    }
+  }
+
   void _answerQuestion(String toolUseId, String result) {
     widget.bridge.send(
       ClientMessage.answer(toolUseId, result, sessionId: widget.sessionId),
@@ -826,6 +842,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
             ],
           ),
+          if (!_isPlanApproval) ...[
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                key: const ValueKey('approve_always_button'),
+                onPressed: _approveAlwaysToolUse,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  foregroundColor: appColors.subtleText,
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+                child: const Text('Allow for this session'),
+              ),
+            ),
+          ],
         ],
       ),
     );

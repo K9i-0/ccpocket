@@ -446,6 +446,12 @@ class ClientMessage {
     return ClientMessage._(json);
   }
 
+  factory ClientMessage.approveAlways(String id, {String? sessionId}) {
+    final json = <String, dynamic>{'type': 'approve_always', 'id': id};
+    if (sessionId != null) json['sessionId'] = sessionId;
+    return ClientMessage._(json);
+  }
+
   factory ClientMessage.reject(
     String id, {
     String? message,
