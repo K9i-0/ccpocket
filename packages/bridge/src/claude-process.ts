@@ -13,6 +13,43 @@ import {
   type PermissionMode,
 } from "./parser.js";
 
+// Tools that are auto-approved in acceptEdits mode
+const ACCEPT_EDITS_AUTO_APPROVE = new Set([
+  "Read", "Glob", "Grep",
+  "Edit", "Write", "NotebookEdit",
+  "TaskCreate", "TaskUpdate", "TaskList", "TaskGet",
+  "EnterPlanMode", "AskUserQuestion",
+  "WebSearch", "WebFetch",
+  "Task", "Skill",
+]);
+
+/**
+ * Determine whether a tool needs user approval given the current permission mode.
+ */
+function toolNeedsApproval(toolName: string, mode: PermissionMode | undefined): boolean {
+  if (!mode) return true; // default: ask for everything
+
+  switch (mode) {
+    case "bypassPermissions":
+    case "dontAsk":
+      return false; // auto-approve everything
+
+    case "acceptEdits":
+      // ExitPlanMode always needs approval (plan review)
+      if (toolName === "ExitPlanMode") return true;
+      // Known safe tools are auto-approved
+      if (ACCEPT_EDITS_AUTO_APPROVE.has(toolName)) return false;
+      // MCP tools and unknown tools need approval
+      return true;
+
+    case "default":
+    case "plan":
+    case "delegate":
+    default:
+      return true; // ask for everything
+  }
+}
+
 export interface StartOptions {
   sessionId?: string;
   continueMode?: boolean;
@@ -44,6 +81,7 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
   private stderrBuffer = "";
   private _sessionId: string | null = null;
   private pendingPermissions = new Map<string, PermissionRequest>();
+  private _permissionMode: PermissionMode | undefined;
 
   get status(): ProcessStatus {
     return this._status;
@@ -104,6 +142,7 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
     this.stderrBuffer = "";
     this._sessionId = null;
     this.pendingPermissions.clear();
+    this._permissionMode = options?.permissionMode;
 
     const currentProcess = this.process;
 
@@ -186,28 +225,51 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
 
   /**
    * Approve a pending permission request.
+   * In acceptEdits mode this is a no-op on the CLI side (tool runs automatically),
+   * but we still clear the pendingPermission tracking.
    */
   approve(toolUseId?: string): void {
-    this.resolvePendingPermission(toolUseId, { behavior: "allow" });
+    const resolved = this.resolvePendingPermission(toolUseId, { behavior: "allow" });
+    if (resolved && this.pendingPermissions.size === 0) {
+      this.setStatus("running");
+    }
   }
 
   /**
    * Reject a pending permission request.
+   * Sends a tool_result with the rejection message to abort the tool.
    */
   reject(toolUseId?: string, message?: string): void {
-    this.resolvePendingPermission(toolUseId, {
+    const id = toolUseId ?? this.firstPendingId();
+    const rejectMsg = message ?? "User rejected this action";
+    const resolved = this.resolvePendingPermission(toolUseId, {
       behavior: "deny",
-      message: message ?? "User rejected this action",
+      message: rejectMsg,
     });
+    // Send tool_result to CLI so it knows the tool was rejected
+    if (resolved && id) {
+      this.sendToolResult(id, `User rejected: ${rejectMsg}`);
+    }
+    if (this.pendingPermissions.size === 0) {
+      this.setStatus("running");
+    }
   }
 
-  private resolvePendingPermission(toolUseId: string | undefined, decision: PermissionDecision): void {
+  private firstPendingId(): string | undefined {
+    const first = this.pendingPermissions.values().next();
+    return first.done ? undefined : first.value.toolUseId;
+  }
+
+  /**
+   * Resolve a pending permission. Returns true if a permission was found and resolved.
+   */
+  private resolvePendingPermission(toolUseId: string | undefined, decision: PermissionDecision): boolean {
     if (toolUseId) {
       const pending = this.pendingPermissions.get(toolUseId);
       if (pending) {
         pending.resolve(decision);
         this.pendingPermissions.delete(toolUseId);
-        return;
+        return true;
       }
     }
     // If no specific ID, resolve the first pending request
@@ -215,10 +277,11 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
     if (!first.done) {
       first.value.resolve(decision);
       this.pendingPermissions.delete(first.value.toolUseId);
-    } else {
-      const action = decision.behavior === "allow" ? "approve" : "reject";
-      console.log(`[claude-process] ${action}() called but no pending permission requests`);
+      return true;
     }
+    const action = decision.behavior === "allow" ? "approve" : "reject";
+    console.log(`[claude-process] ${action}() called but no pending permission requests`);
+    return false;
   }
 
   get isRunning(): boolean {
@@ -254,6 +317,11 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
       this.emitMessage(serverMsg);
     }
 
+    // After assistant message, check if any tool_use blocks need approval
+    if (event.type === "assistant") {
+      this.checkToolApprovals(event);
+    }
+
     // Handle multiple tool results in a single user event
     if (event.type === "user") {
       const toolResults = event.message.content.filter(
@@ -269,6 +337,52 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
           });
         }
       }
+      // Clear pending permissions for tool_results that came back from CLI
+      // (tool was auto-executed by CLI, so no approval needed)
+      for (const tr of toolResults) {
+        if (tr.type === "tool_result") {
+          this.pendingPermissions.delete(tr.tool_use_id);
+        }
+      }
+      if (this.pendingPermissions.size === 0 && this._status === "waiting_approval") {
+        this.setStatus("running");
+      }
+    }
+  }
+
+  /**
+   * Check tool_use blocks in an assistant message and emit permission_request
+   * for tools that need approval based on the current permission mode.
+   */
+  private checkToolApprovals(event: AssistantMessageEvent): void {
+    for (const content of event.message.content) {
+      if (content.type !== "tool_use") continue;
+      const toolUse = content as AssistantToolUseContent;
+
+      // AskUserQuestion is handled by a separate UI flow — skip
+      if (toolUse.name === "AskUserQuestion") continue;
+
+      if (!toolNeedsApproval(toolUse.name, this._permissionMode)) continue;
+
+      // Already pending (e.g. from a duplicate event)
+      if (this.pendingPermissions.has(toolUse.id)) continue;
+
+      const permReq: PermissionRequest = {
+        toolUseId: toolUse.id,
+        toolName: toolUse.name,
+        input: toolUse.input,
+        resolve: () => {}, // placeholder — replaced by caller
+      };
+      this.pendingPermissions.set(toolUse.id, permReq);
+
+      this.emitMessage({
+        type: "permission_request",
+        toolUseId: toolUse.id,
+        toolName: toolUse.name,
+        input: toolUse.input,
+      });
+
+      this.setStatus("waiting_approval");
     }
   }
 
@@ -281,16 +395,19 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
         }
         break;
       case "assistant": {
-        // In stream-json mode, tool execution is handled by the CLI internally.
-        // Don't set waiting_approval here — only set it when an explicit
-        // permission_request is emitted (e.g. from stderr MCP JSON-RPC).
+        // Don't override waiting_approval if we have pending permissions
+        if (this.pendingPermissions.size > 0) break;
         this.setStatus("running");
         break;
       }
       case "user":
+        // Don't override waiting_approval if we have pending permissions
+        if (this.pendingPermissions.size > 0) break;
         this.setStatus("running");
         break;
       case "result":
+        // Result always clears pending state
+        this.pendingPermissions.clear();
         this.setStatus("idle");
         break;
       // stream_event doesn't change status
