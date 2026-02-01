@@ -131,6 +131,21 @@ class ImageRef {
   }
 }
 
+// ---- Helpers ----
+
+/// Normalize tool_result content: Claude CLI may send String or List of content blocks.
+String _normalizeToolResultContent(dynamic content) {
+  if (content is String) return content;
+  if (content is List) {
+    return content
+        .whereType<Map<String, dynamic>>()
+        .where((c) => c['type'] == 'text')
+        .map((c) => c['text']?.toString() ?? '')
+        .join('\n');
+  }
+  return content?.toString() ?? '';
+}
+
 // ---- Server messages ----
 
 sealed class ServerMessage {
@@ -149,7 +164,7 @@ sealed class ServerMessage {
       ),
       'tool_result' => ToolResultMessage(
         toolUseId: json['toolUseId'] as String,
-        content: json['content'] as String,
+        content: _normalizeToolResultContent(json['content']),
         toolName: json['toolName'] as String?,
         images: (json['images'] as List?)
             ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))

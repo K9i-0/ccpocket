@@ -4,6 +4,7 @@ import { EventEmitter } from "node:events";
 import {
   parseClaudeEvent,
   claudeEventToServerMessage,
+  normalizeToolResultContent,
   type ServerMessage,
   type ProcessStatus,
   type ClaudeEvent,
@@ -264,7 +265,7 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
           this.emitMessage({
             type: "tool_result",
             toolUseId: tr.tool_use_id,
-            content: tr.content,
+            content: normalizeToolResultContent(tr.content),
           });
         }
       }
@@ -273,6 +274,12 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
 
   private updateStatusFromEvent(event: ClaudeEvent): void {
     switch (event.type) {
+      case "system":
+        // After init, Claude CLI is idle and waiting for user input
+        if (event.subtype === "init") {
+          this.setStatus("idle");
+        }
+        break;
       case "assistant": {
         // In stream-json mode, tool execution is handled by the CLI internally.
         // Don't set waiting_approval here — only set it when an explicit

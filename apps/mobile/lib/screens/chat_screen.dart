@@ -43,6 +43,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final LayerLink _inputLayerLink = LayerLink();
 
   ProcessStatus _status = ProcessStatus.idle;
+  bool _hasInputText = false;
   String? _pendingToolUseId;
   PermissionRequestMessage? _pendingPermission;
 
@@ -288,6 +289,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _onInputChanged() {
+    final hasText = _inputController.text.trim().isNotEmpty;
+    if (hasText != _hasInputText) {
+      setState(() => _hasInputText = hasText);
+    }
     final text = _inputController.text;
     if (text.startsWith('/') && text.isNotEmpty) {
       final query = text.toLowerCase();
@@ -895,7 +900,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(width: 8),
-          if (_status != ProcessStatus.idle)
+          if (_status != ProcessStatus.idle && !_hasInputText)
             Container(
               decoration: BoxDecoration(
                 color: cs.error,

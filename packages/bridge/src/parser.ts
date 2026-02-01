@@ -45,7 +45,7 @@ export interface AssistantMessageEvent {
 export interface UserToolResultContent {
   type: "tool_result";
   tool_use_id: string;
-  content: string;
+  content: string | unknown[];
 }
 
 export interface UserToolResultEvent {
@@ -153,6 +153,19 @@ export type ServerMessage =
 
 export type ProcessStatus = "idle" | "running" | "waiting_approval";
 
+// ---- Helpers ----
+
+/** Normalize tool_result content: Claude CLI may send string or array of content blocks. */
+export function normalizeToolResultContent(content: string | unknown[]): string {
+  if (Array.isArray(content)) {
+    return (content as Array<Record<string, unknown>>)
+      .filter((c) => c.type === "text")
+      .map((c) => c.text as string)
+      .join("\n");
+  }
+  return typeof content === "string" ? content : String(content ?? "");
+}
+
 // ---- Parser ----
 
 export function parseClaudeEvent(line: string): ClaudeEvent | null {
@@ -194,7 +207,7 @@ export function claudeEventToServerMessage(event: ClaudeEvent): ServerMessage | 
       return {
         type: "tool_result",
         toolUseId: first.tool_use_id,
-        content: first.content,
+        content: normalizeToolResultContent(first.content),
       };
     }
 
