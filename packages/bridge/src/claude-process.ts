@@ -24,6 +24,58 @@ const ACCEPT_EDITS_AUTO_APPROVE = new Set([
 ]);
 
 /**
+ * Parse a permission rule in ToolName(ruleContent) format.
+ * Matches the CLI's internal pzT() function: /^([^(]+)\(([^)]+)\)$/
+ */
+function parseRule(rule: string): { toolName: string; ruleContent?: string } {
+  const match = rule.match(/^([^(]+)\(([^)]+)\)$/);
+  if (!match || !match[1] || !match[2]) return { toolName: rule };
+  return { toolName: match[1], ruleContent: match[2] };
+}
+
+/**
+ * Check if a tool invocation matches any session allow rule.
+ */
+function matchesSessionRule(
+  toolName: string,
+  input: Record<string, unknown>,
+  rules: Set<string>,
+): boolean {
+  for (const rule of rules) {
+    const parsed = parseRule(rule);
+    if (parsed.toolName !== toolName) continue;
+
+    // No ruleContent → matches any invocation of this tool
+    if (!parsed.ruleContent) return true;
+
+    // Bash: prefix matching with ":*" suffix
+    if (toolName === "Bash" && typeof input.command === "string") {
+      if (parsed.ruleContent.endsWith(":*")) {
+        const prefix = parsed.ruleContent.slice(0, -2);
+        const firstWord = (input.command as string).trim().split(/\s+/)[0] ?? "";
+        if (firstWord === prefix) return true;
+      } else {
+        if (input.command === parsed.ruleContent) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Build a session allow rule string from a tool name and input.
+ * Bash: uses first word as prefix (e.g., "Bash(npm:*)")
+ * Others: tool name only (e.g., "Edit")
+ */
+function buildSessionRule(toolName: string, input: Record<string, unknown>): string {
+  if (toolName === "Bash" && typeof input.command === "string") {
+    const firstWord = (input.command as string).trim().split(/\s+/)[0] ?? "";
+    if (firstWord) return `${toolName}(${firstWord}:*)`;
+  }
+  return toolName;
+}
+
+/**
  * Determine whether a tool needs user approval given the current permission mode.
  */
 function toolNeedsApproval(toolName: string, mode: PermissionMode | undefined): boolean {
@@ -82,6 +134,7 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
   private _sessionId: string | null = null;
   private pendingPermissions = new Map<string, PermissionRequest>();
   private _permissionMode: PermissionMode | undefined;
+  private sessionAllowRules = new Set<string>();
 
   get status(): ProcessStatus {
     return this._status;
@@ -143,6 +196,7 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
     this._sessionId = null;
     this.pendingPermissions.clear();
     this._permissionMode = options?.permissionMode;
+    this.sessionAllowRules.clear();
 
     const currentProcess = this.process;
 
@@ -229,6 +283,24 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
    * but we still clear the pendingPermission tracking.
    */
   approve(toolUseId?: string): void {
+    const resolved = this.resolvePendingPermission(toolUseId, { behavior: "allow" });
+    if (resolved && this.pendingPermissions.size === 0) {
+      this.setStatus("running");
+    }
+  }
+
+  /**
+   * Approve a pending permission request and add a session-scoped allow rule
+   * so the same tool+command pattern is auto-approved for the rest of the session.
+   */
+  approveAlways(toolUseId?: string): void {
+    const id = toolUseId ?? this.firstPendingId();
+    const pending = id ? this.pendingPermissions.get(id) : undefined;
+    if (pending) {
+      const rule = buildSessionRule(pending.toolName, pending.input);
+      this.sessionAllowRules.add(rule);
+      console.log(`[claude-process] Added session allow rule: ${rule}`);
+    }
     const resolved = this.resolvePendingPermission(toolUseId, { behavior: "allow" });
     if (resolved && this.pendingPermissions.size === 0) {
       this.setStatus("running");
@@ -363,6 +435,9 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
       if (toolUse.name === "AskUserQuestion") continue;
 
       if (!toolNeedsApproval(toolUse.name, this._permissionMode)) continue;
+
+      // Check session allow rules
+      if (matchesSessionRule(toolUse.name, toolUse.input, this.sessionAllowRules)) continue;
 
       // Already pending (e.g. from a duplicate event)
       if (this.pendingPermissions.has(toolUse.id)) continue;

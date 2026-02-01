@@ -119,6 +119,16 @@ export class BridgeWebSocketServer {
         break;
       }
 
+      case "approve_always": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session) {
+          this.send(ws, { type: "error", message: "No active session." });
+          return;
+        }
+        session.process.approveAlways(msg.id);
+        break;
+      }
+
       case "reject": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {

@@ -131,6 +131,7 @@ export type ClientMessage =
   | { type: "start"; projectPath: string; sessionId?: string; continue?: boolean; permissionMode?: PermissionMode }
   | { type: "input"; text: string; sessionId?: string }
   | { type: "approve"; id: string; sessionId?: string }
+  | { type: "approve_always"; id: string; sessionId?: string }
   | { type: "reject"; id: string; message?: string; sessionId?: string }
   | { type: "answer"; toolUseId: string; result: string; sessionId?: string }
   | { type: "list_sessions" }
@@ -270,6 +271,9 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (typeof msg.text !== "string") return null;
         break;
       case "approve":
+        if (typeof msg.id !== "string") return null;
+        break;
+      case "approve_always":
         if (typeof msg.id !== "string") return null;
         break;
       case "reject":
