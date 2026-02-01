@@ -7,14 +7,18 @@ RecentSession _session({
   required String projectPath,
   String sessionId = 'sess',
   String firstPrompt = '',
+  String gitBranch = 'main',
+  String? summary,
+  String modified = '2025-01-01T00:00:00Z',
 }) {
   return RecentSession(
     sessionId: sessionId,
     firstPrompt: firstPrompt,
+    summary: summary,
     messageCount: 0,
     created: '2025-01-01T00:00:00Z',
-    modified: '2025-01-01T00:00:00Z',
-    gitBranch: 'main',
+    modified: modified,
+    gitBranch: gitBranch,
     projectPath: projectPath,
     isSidechain: false,
   );
@@ -92,6 +96,156 @@ void main() {
 
     test('returns original if no HOME match', () {
       expect(shortenPath('/tmp/foo'), '/tmp/foo');
+    });
+  });
+
+  group('branchesForProject', () {
+    final branchSessions = [
+      _session(
+        projectPath: '/home/user/app',
+        sessionId: 'b1',
+        gitBranch: 'main',
+      ),
+      _session(
+        projectPath: '/home/user/app',
+        sessionId: 'b2',
+        gitBranch: 'feat/login',
+      ),
+      _session(
+        projectPath: '/home/user/app',
+        sessionId: 'b3',
+        gitBranch: 'main',
+      ),
+      _session(
+        projectPath: '/home/user/other',
+        sessionId: 'b4',
+        gitBranch: 'develop',
+      ),
+    ];
+
+    test('returns unique branches for all projects', () {
+      final branches = branchesForProject(branchSessions, null);
+      expect(branches, ['main', 'feat/login', 'develop']);
+    });
+
+    test('filters branches by project name', () {
+      final branches = branchesForProject(branchSessions, 'app');
+      expect(branches, ['main', 'feat/login']);
+    });
+
+    test('returns empty for unknown project', () {
+      expect(branchesForProject(branchSessions, 'nope'), isEmpty);
+    });
+  });
+
+  group('filterByBranch', () {
+    final branchSessions = [
+      _session(
+        projectPath: '/home/user/app',
+        sessionId: 'b1',
+        gitBranch: 'main',
+      ),
+      _session(
+        projectPath: '/home/user/app',
+        sessionId: 'b2',
+        gitBranch: 'feat/login',
+      ),
+    ];
+
+    test('null branch returns all sessions', () {
+      expect(filterByBranch(branchSessions, null), branchSessions);
+    });
+
+    test('filters by exact branch name', () {
+      final filtered = filterByBranch(branchSessions, 'main');
+      expect(filtered, hasLength(1));
+      expect(filtered.first.sessionId, 'b1');
+    });
+  });
+
+  group('filterByQuery', () {
+    final querySessions = [
+      _session(
+        projectPath: '/home/user/app',
+        sessionId: 'q1',
+        firstPrompt: 'Fix the login bug',
+        summary: 'Fixed auth issue',
+      ),
+      _session(
+        projectPath: '/home/user/app',
+        sessionId: 'q2',
+        firstPrompt: 'Add dark mode',
+      ),
+      _session(
+        projectPath: '/home/user/app',
+        sessionId: 'q3',
+        firstPrompt: 'Refactor tests',
+        summary: 'Login flow refactored',
+      ),
+    ];
+
+    test('empty query returns all sessions', () {
+      expect(filterByQuery(querySessions, ''), querySessions);
+    });
+
+    test('matches firstPrompt case-insensitively', () {
+      final filtered = filterByQuery(querySessions, 'LOGIN');
+      expect(filtered, hasLength(2));
+      expect(filtered.map((s) => s.sessionId), containsAll(['q1', 'q3']));
+    });
+
+    test('matches summary', () {
+      final filtered = filterByQuery(querySessions, 'auth');
+      expect(filtered, hasLength(1));
+      expect(filtered.first.sessionId, 'q1');
+    });
+
+    test('no match returns empty', () {
+      expect(filterByQuery(querySessions, 'zzzzz'), isEmpty);
+    });
+  });
+
+  group('filterByDate', () {
+    test('DateFilter.all returns all sessions', () {
+      expect(filterByDate(sessions, DateFilter.all), sessions);
+    });
+
+    test('filters by today', () {
+      final now = DateTime.now();
+      final todaySessions = [
+        _session(
+          projectPath: '/home/user/app',
+          sessionId: 'd1',
+          modified: now.toIso8601String(),
+        ),
+        _session(
+          projectPath: '/home/user/app',
+          sessionId: 'd2',
+          modified: '2020-01-01T00:00:00Z',
+        ),
+      ];
+      final filtered = filterByDate(todaySessions, DateFilter.today);
+      expect(filtered, hasLength(1));
+      expect(filtered.first.sessionId, 'd1');
+    });
+
+    test('filters by this month', () {
+      final now = DateTime.now();
+      final monthSessions = [
+        _session(
+          projectPath: '/home/user/app',
+          sessionId: 'm1',
+          modified: now.toIso8601String(),
+        ),
+        _session(
+          projectPath: '/home/user/app',
+          sessionId: 'm2',
+          modified: '2020-06-15T00:00:00Z',
+        ),
+      ];
+      final filtered = filterByDate(monthSessions, DateFilter.thisMonth);
+      expect(filtered, hasLength(1));
+      expect(filtered.first.sessionId, 'm1');
     });
   });
 }

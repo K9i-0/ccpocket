@@ -77,6 +77,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Bulk loading flag (skip animation during history load)
   bool _bulkLoading = true;
 
+  // Notifier to auto-collapse ToolResultBubbles on new assistant message
+  final ValueNotifier<int> _collapseToolResults = ValueNotifier<int>(0);
+
   StreamSubscription<ServerMessage>? _messageSub;
   StreamSubscription<BridgeConnectionState>? _connectionSub;
 
@@ -115,6 +118,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _removeSlashOverlay();
     _messageSub?.cancel();
     _connectionSub?.cancel();
+    _collapseToolResults.dispose();
     _inputController.removeListener(_onInputChanged);
     _inputController.dispose();
     _scrollController.dispose();
@@ -166,6 +170,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _currentStreaming!.text += text;
           }
         case AssistantServerMessage(:final message):
+          // Auto-collapse preceding tool result bubbles
+          _collapseToolResults.value++;
           // Mark pending user messages as sent
           for (final e in _entries) {
             if (e is UserChatEntry && e.status == MessageStatus.sending) {
@@ -550,47 +556,86 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    return Scaffold(
-      appBar: AppBar(
-        title: _buildAppBarTitle(),
-        actions: [
-          if (_totalCost > 0) _buildCostBadge(),
-          _buildStatusIndicator(appColors),
-        ],
-      ),
-      body: Column(
-        children: [
-          if (_bridgeState == BridgeConnectionState.reconnecting ||
-              _bridgeState == BridgeConnectionState.disconnected)
-            _buildReconnectBanner(appColors),
-          Expanded(
-            child: Stack(
-              children: [
-                _buildMessageList(),
-                if (_isScrolledUp)
-                  Positioned(
-                    right: 12,
-                    bottom: 12,
-                    child: FloatingActionButton.small(
-                      onPressed: _scrollToBottom,
-                      child: const Icon(Icons.keyboard_arrow_down),
-                    ),
-                  ),
-              ],
-            ),
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (_slashOverlay != null) {
+            _removeSlashOverlay();
+          } else {
+            Navigator.of(context).maybePop();
+          }
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          appBar: AppBar(
+            title: _buildAppBarTitle(),
+            actions: [
+              if (_totalCost > 0) _buildCostBadge(),
+              _buildStatusIndicator(appColors),
+            ],
           ),
-          if (_askToolUseId != null && _askInput != null)
-            AskUserQuestionWidget(
-              toolUseId: _askToolUseId!,
-              input: _askInput!,
-              onAnswer: _answerQuestion,
-            ),
-          if (_status == ProcessStatus.waitingApproval &&
-              _pendingToolUseId != null)
-            _buildApprovalBar(appColors),
-          if (_askToolUseId == null && _status != ProcessStatus.waitingApproval)
-            _buildInputBar(),
-        ],
+          body: Column(
+            children: [
+              if (_bridgeState == BridgeConnectionState.reconnecting ||
+                  _bridgeState == BridgeConnectionState.disconnected)
+                _buildReconnectBanner(appColors),
+              Expanded(
+                child: Stack(
+                  children: [
+                    _buildMessageList(),
+                    if (_isScrolledUp)
+                      Positioned(
+                        right: 12,
+                        bottom: 12,
+                        child: FloatingActionButton.small(
+                          onPressed: _scrollToBottom,
+                          child: const Icon(Icons.keyboard_arrow_down),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (_askToolUseId != null && _askInput != null)
+                AskUserQuestionWidget(
+                  toolUseId: _askToolUseId!,
+                  input: _askInput!,
+                  onAnswer: _answerQuestion,
+                ),
+              if (_status == ProcessStatus.waitingApproval &&
+                  _pendingToolUseId != null)
+                Dismissible(
+                  key: ValueKey('approval_$_pendingToolUseId'),
+                  direction: DismissDirection.horizontal,
+                  confirmDismiss: (direction) async {
+                    if (direction == DismissDirection.startToEnd) {
+                      _approveToolUse();
+                    } else {
+                      _rejectToolUse();
+                    }
+                    return false; // don't remove from tree, state handles it
+                  },
+                  background: Container(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.only(left: 24),
+                    color: Colors.green.withValues(alpha: 0.2),
+                    child: const Icon(Icons.check_circle, color: Colors.green),
+                  ),
+                  secondaryBackground: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 24),
+                    color: Colors.red.withValues(alpha: 0.2),
+                    child: const Icon(Icons.cancel, color: Colors.red),
+                  ),
+                  child: _buildApprovalBar(appColors),
+                ),
+              if (_askToolUseId == null &&
+                  _status != ProcessStatus.waitingApproval)
+                _buildInputBar(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -718,6 +763,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             previous: previous,
             httpBaseUrl: widget.bridge.httpBaseUrl,
             onRetryMessage: _retryMessage,
+            collapseToolResults: _collapseToolResults,
           );
           if (_bulkLoading || animation.isCompleted) return child;
           return SlideTransition(

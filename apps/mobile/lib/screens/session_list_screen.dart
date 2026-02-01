@@ -59,6 +59,69 @@ String shortenPath(String path) {
   return path;
 }
 
+/// Unique branch names for a given project (null project = all branches).
+List<String> branchesForProject(
+  List<RecentSession> sessions,
+  String? projectName,
+) {
+  final filtered = projectName == null
+      ? sessions
+      : sessions.where((s) => s.projectName == projectName);
+  final seen = <String>{};
+  final result = <String>[];
+  for (final s in filtered) {
+    if (s.gitBranch.isNotEmpty && seen.add(s.gitBranch)) {
+      result.add(s.gitBranch);
+    }
+  }
+  return result;
+}
+
+/// Filter sessions by branch name (null = no filter).
+List<RecentSession> filterByBranch(
+  List<RecentSession> sessions,
+  String? branch,
+) {
+  if (branch == null) return sessions;
+  return sessions.where((s) => s.gitBranch == branch).toList();
+}
+
+/// Filter sessions by text query (matches firstPrompt and summary).
+List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
+  if (query.isEmpty) return sessions;
+  final q = query.toLowerCase();
+  return sessions.where((s) {
+    return s.firstPrompt.toLowerCase().contains(q) ||
+        (s.summary?.toLowerCase().contains(q) ?? false);
+  }).toList();
+}
+
+/// Date filter period.
+enum DateFilter { all, today, thisWeek, thisMonth }
+
+/// Filter sessions by date period.
+List<RecentSession> filterByDate(
+  List<RecentSession> sessions,
+  DateFilter filter,
+) {
+  if (filter == DateFilter.all) return sessions;
+  final now = DateTime.now();
+  final threshold = switch (filter) {
+    DateFilter.today => DateTime(now.year, now.month, now.day),
+    DateFilter.thisWeek => DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1)),
+    DateFilter.thisMonth => DateTime(now.year, now.month),
+    DateFilter.all => now, // unreachable
+  };
+  return sessions.where((s) {
+    final modified = DateTime.tryParse(s.modified);
+    return modified != null && modified.isAfter(threshold);
+  }).toList();
+}
+
 // ---- Screen ----
 
 class SessionListScreen extends StatefulWidget {
@@ -89,6 +152,10 @@ class _SessionListScreenState extends State<SessionListScreen> {
   List<DiscoveredServer> _discoveredServers = [];
   bool _isAutoConnecting = false;
   String? _selectedProject; // null = show all
+  String? _selectedBranch; // null = show all
+  DateFilter _dateFilter = DateFilter.all;
+  String _searchQuery = '';
+  bool _isSearching = false;
 
   // Cache for resume navigation
   String? _pendingResumeProjectPath;
@@ -107,11 +174,19 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
   Map<String, int> get _projectCounts => projectCounts(_recentSessions);
 
-  List<RecentSession> get _filteredRecentSessions =>
-      filterByProject(_recentSessions, _selectedProject);
+  List<RecentSession> get _filteredRecentSessions {
+    var sessions = filterByProject(_recentSessions, _selectedProject);
+    sessions = filterByBranch(sessions, _selectedBranch);
+    sessions = filterByDate(sessions, _dateFilter);
+    sessions = filterByQuery(sessions, _searchQuery);
+    return sessions;
+  }
 
   List<({String path, String name})> get _recentProjects =>
       recentProjects(_recentSessions);
+
+  List<String> get _branchChips =>
+      branchesForProject(_recentSessions, _selectedProject);
 
   @override
   void initState() {
@@ -245,6 +320,10 @@ class _SessionListScreenState extends State<SessionListScreen> {
       _sessions = [];
       _recentSessions = [];
       _selectedProject = null;
+      _selectedBranch = null;
+      _dateFilter = DateFilter.all;
+      _searchQuery = '';
+      _isSearching = false;
     });
   }
 
@@ -585,7 +664,17 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ccpocket'),
+        title: _isSearching
+            ? TextField(
+                key: const ValueKey('search_field'),
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Search sessions...',
+                  border: InputBorder.none,
+                ),
+                onChanged: (v) => setState(() => _searchQuery = v),
+              )
+            : const Text('ccpocket'),
         actions: [
           if (kDebugMode)
             IconButton(
@@ -596,6 +685,16 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 MaterialPageRoute(builder: (_) => const MockPreviewScreen()),
               ),
               tooltip: 'Mock Preview',
+            ),
+          if (showConnectedUI && _recentSessions.isNotEmpty)
+            IconButton(
+              key: const ValueKey('search_button'),
+              icon: Icon(_isSearching ? Icons.close : Icons.search),
+              onPressed: () => setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) _searchQuery = '';
+              }),
+              tooltip: 'Search',
             ),
           if (showConnectedUI)
             IconButton(
@@ -874,9 +973,16 @@ class _SessionListScreenState extends State<SessionListScreen> {
           if (_projectCounts.length > 1) ...[
             const SizedBox(height: 8),
             _buildProjectFilterChips(appColors),
-            const SizedBox(height: 8),
-          ] else
+          ],
+          // Branch filter chips (show when branches exist for selection)
+          if (_branchChips.length > 1) ...[
             const SizedBox(height: 4),
+            _buildBranchFilterChips(appColors),
+          ],
+          // Date filter chips
+          const SizedBox(height: 4),
+          _buildDateFilterChips(appColors),
+          const SizedBox(height: 8),
           for (final session in _filteredRecentSessions)
             RecentSessionCard(
               session: session,
@@ -963,7 +1069,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
   Widget _buildProjectFilterChips(AppColors appColors) {
     final counts = _projectCounts;
-    final surfaceColor = Theme.of(context).colorScheme.surface;
     return SizedBox(
       height: 36,
       child: ShaderMask(
@@ -988,7 +1093,10 @@ class _SessionListScreenState extends State<SessionListScreen> {
               child: ChoiceChip(
                 label: Text('All (${_recentSessions.length})'),
                 selected: _selectedProject == null,
-                onSelected: (_) => setState(() => _selectedProject = null),
+                onSelected: (_) => setState(() {
+                  _selectedProject = null;
+                  _selectedBranch = null;
+                }),
                 labelStyle: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -1007,8 +1115,10 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 child: ChoiceChip(
                   label: Text(entry.key),
                   selected: _selectedProject == entry.key,
-                  onSelected: (_) =>
-                      setState(() => _selectedProject = entry.key),
+                  onSelected: (_) => setState(() {
+                    _selectedProject = entry.key;
+                    _selectedBranch = null;
+                  }),
                   labelStyle: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -1023,6 +1133,98 @@ class _SessionListScreenState extends State<SessionListScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBranchFilterChips(AppColors appColors) {
+    final branches = _branchChips;
+    return SizedBox(
+      height: 32,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(left: 4, right: 28),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: ChoiceChip(
+              avatar: Icon(
+                Icons.account_tree,
+                size: 14,
+                color: appColors.subtleText,
+              ),
+              label: const Text('All branches'),
+              selected: _selectedBranch == null,
+              onSelected: (_) => setState(() => _selectedBranch = null),
+              labelStyle: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: _selectedBranch == null
+                    ? Theme.of(context).colorScheme.onSecondary
+                    : appColors.subtleText,
+              ),
+              selectedColor: Theme.of(context).colorScheme.secondary,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          for (final branch in branches)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
+                label: Text(branch),
+                selected: _selectedBranch == branch,
+                onSelected: (_) => setState(() => _selectedBranch = branch),
+                labelStyle: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: _selectedBranch == branch
+                      ? Theme.of(context).colorScheme.onSecondary
+                      : appColors.subtleText,
+                ),
+                selectedColor: Theme.of(context).colorScheme.secondary,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateFilterChips(AppColors appColors) {
+    const filters = [
+      (DateFilter.all, 'All time'),
+      (DateFilter.today, 'Today'),
+      (DateFilter.thisWeek, 'This week'),
+      (DateFilter.thisMonth, 'This month'),
+    ];
+    return SizedBox(
+      height: 32,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(left: 4, right: 28),
+        children: [
+          for (final (filter, label) in filters)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
+                label: Text(label),
+                selected: _dateFilter == filter,
+                onSelected: (_) => setState(() => _dateFilter = filter),
+                labelStyle: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: _dateFilter == filter
+                      ? Theme.of(context).colorScheme.onTertiary
+                      : appColors.subtleText,
+                ),
+                selectedColor: Theme.of(context).colorScheme.tertiary,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+        ],
       ),
     );
   }

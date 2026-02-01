@@ -1,23 +1,75 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import 'image_preview.dart';
 
+/// Three-level expansion state for tool result content.
+enum ToolResultExpansion { collapsed, preview, expanded }
+
 class ToolResultBubble extends StatefulWidget {
   final ToolResultMessage message;
   final String? httpBaseUrl;
-  const ToolResultBubble({super.key, required this.message, this.httpBaseUrl});
+
+  /// When this notifier's value changes, the bubble auto-collapses.
+  /// ChatScreen increments it whenever a new assistant message arrives.
+  final ValueNotifier<int>? collapseNotifier;
+
+  const ToolResultBubble({
+    super.key,
+    required this.message,
+    this.httpBaseUrl,
+    this.collapseNotifier,
+  });
 
   @override
-  State<ToolResultBubble> createState() => _ToolResultBubbleState();
+  State<ToolResultBubble> createState() => ToolResultBubbleState();
 }
 
-class _ToolResultBubbleState extends State<ToolResultBubble> {
-  bool _expanded = false;
+class ToolResultBubbleState extends State<ToolResultBubble> {
+  ToolResultExpansion _expansion = ToolResultExpansion.collapsed;
 
   static const _previewLines = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.collapseNotifier?.addListener(_onCollapseSignal);
+  }
+
+  @override
+  void didUpdateWidget(ToolResultBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.collapseNotifier != widget.collapseNotifier) {
+      oldWidget.collapseNotifier?.removeListener(_onCollapseSignal);
+      widget.collapseNotifier?.addListener(_onCollapseSignal);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.collapseNotifier?.removeListener(_onCollapseSignal);
+    super.dispose();
+  }
+
+  void _onCollapseSignal() {
+    if (_expansion != ToolResultExpansion.collapsed) {
+      setState(() => _expansion = ToolResultExpansion.collapsed);
+    }
+  }
+
+  void _cycleExpansion() {
+    setState(() {
+      _expansion = switch (_expansion) {
+        ToolResultExpansion.collapsed => ToolResultExpansion.preview,
+        ToolResultExpansion.preview => ToolResultExpansion.expanded,
+        ToolResultExpansion.expanded => ToolResultExpansion.collapsed,
+      };
+    });
+    HapticFeedback.selectionClick();
+  }
 
   IconData _toolIcon(String? name) {
     return switch (name) {
@@ -70,13 +122,30 @@ class _ToolResultBubbleState extends State<ToolResultBubble> {
         : content;
     final summary = _buildSummary(content, toolName);
 
+    final chevronIcon = switch (_expansion) {
+      ToolResultExpansion.collapsed => Icons.chevron_right,
+      ToolResultExpansion.preview => Icons.expand_more,
+      ToolResultExpansion.expanded => Icons.expand_less,
+    };
+
     return Container(
       margin: const EdgeInsets.symmetric(
         vertical: 2,
         horizontal: AppSpacing.bubbleMarginH,
       ),
       child: InkWell(
-        onTap: () => setState(() => _expanded = !_expanded),
+        onTap: _cycleExpansion,
+        onLongPress: content.isNotEmpty
+            ? () {
+                Clipboard.setData(ClipboardData(text: content));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Copied to clipboard'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              }
+            : null,
         borderRadius: BorderRadius.circular(AppSpacing.codeRadius),
         child: Container(
           padding: const EdgeInsets.all(10),
@@ -95,7 +164,7 @@ class _ToolResultBubbleState extends State<ToolResultBubble> {
                 ),
                 const SizedBox(height: 8),
               ],
-              // Header row: icon + tool name + summary badge + expand icon
+              // Header row: icon + tool name + summary badge + chevron
               Row(
                 children: [
                   Icon(
@@ -127,16 +196,37 @@ class _ToolResultBubbleState extends State<ToolResultBubble> {
                     ),
                   ),
                   const Spacer(),
-                  Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
-                    size: 16,
-                    color: appColors.subtleText,
-                  ),
+                  Icon(chevronIcon, size: 16, color: appColors.subtleText),
                 ],
               ),
-              const SizedBox(height: 6),
-              // Content
-              if (_expanded)
+              // Content: only shown in preview / expanded states
+              if (_expansion == ToolResultExpansion.preview) ...[
+                const SizedBox(height: 6),
+                Text(
+                  previewText,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    color: appColors.toolResultText,
+                    height: 1.4,
+                  ),
+                  maxLines: _previewLines,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (hasMore)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '... ${lines.length - _previewLines} more lines',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontStyle: FontStyle.italic,
+                        color: appColors.subtleText,
+                      ),
+                    ),
+                  ),
+              ] else if (_expansion == ToolResultExpansion.expanded) ...[
+                const SizedBox(height: 6),
                 SelectableText(
                   content,
                   style: TextStyle(
@@ -145,36 +235,8 @@ class _ToolResultBubbleState extends State<ToolResultBubble> {
                     color: appColors.toolResultTextExpanded,
                     height: 1.4,
                   ),
-                )
-              else
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      previewText,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontFamily: 'monospace',
-                        color: appColors.toolResultText,
-                        height: 1.4,
-                      ),
-                      maxLines: _previewLines,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (hasMore)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '... ${lines.length - _previewLines} more lines',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontStyle: FontStyle.italic,
-                            color: appColors.subtleText,
-                          ),
-                        ),
-                      ),
-                  ],
                 ),
+              ],
             ],
           ),
         ),
