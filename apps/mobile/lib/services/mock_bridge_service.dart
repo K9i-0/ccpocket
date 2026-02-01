@@ -129,6 +129,15 @@ class MockBridgeService implements BridgeServiceBase {
   }
 
   @override
+  void interrupt(String sessionId) {
+    // Simulate interrupt: stop running and go idle
+    _scheduleMessage(
+      const Duration(milliseconds: 200),
+      const StatusMessage(status: ProcessStatus.idle),
+    );
+  }
+
+  @override
   void requestSessionList() {
     // No-op for mock
   }

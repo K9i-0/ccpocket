@@ -590,6 +590,12 @@ class ClientMessage {
   factory ClientMessage.listFiles(String projectPath) =>
       ClientMessage._({'type': 'list_files', 'projectPath': projectPath});
 
+  factory ClientMessage.interrupt({String? sessionId}) {
+    final json = <String, dynamic>{'type': 'interrupt'};
+    if (sessionId != null) json['sessionId'] = sessionId;
+    return ClientMessage._(json);
+  }
+
   String toJson() => jsonEncode(_json);
 }
 

@@ -243,6 +243,16 @@ export class BridgeWebSocketServer {
         break;
       }
 
+      case "interrupt": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session) {
+          this.send(ws, { type: "error", message: "No active session." });
+          return;
+        }
+        session.process.interrupt();
+        break;
+      }
+
       case "list_files": {
         execFile("git", ["ls-files"], { cwd: msg.projectPath, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
           if (err) {

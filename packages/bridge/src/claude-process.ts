@@ -244,6 +244,19 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
     }
   }
 
+  /**
+   * Interrupt the current Claude generation by sending SIGINT.
+   * This is the equivalent of pressing Escape/Ctrl+C in the CLI.
+   * Claude will stop the current turn and wait for new user input.
+   */
+  interrupt(): void {
+    if (this.process) {
+      console.log("[claude-process] Sending SIGINT to interrupt");
+      this.process.kill("SIGINT");
+      this.pendingPermissions.clear();
+    }
+  }
+
   writeStdin(text: string): void {
     if (!this.process?.stdin?.writable) {
       console.error("[claude-process] Cannot write: stdin not writable");

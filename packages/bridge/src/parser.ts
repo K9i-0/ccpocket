@@ -142,7 +142,8 @@ export type ClientMessage =
   | { type: "list_recent_sessions"; limit?: number }
   | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode }
   | { type: "list_gallery"; project?: string }
-  | { type: "list_files"; projectPath: string };
+  | { type: "list_files"; projectPath: string }
+  | { type: "interrupt"; sessionId?: string };
 
 export type ServerMessage =
   | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string; slashCommands?: string[]; skills?: string[] }
@@ -306,6 +307,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "list_files":
         if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "interrupt":
         break;
       default:
         return null;

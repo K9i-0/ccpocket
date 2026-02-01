@@ -218,6 +218,11 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.listFiles(projectPath));
   }
 
+  @override
+  void interrupt(String sessionId) {
+    send(ClientMessage.interrupt(sessionId: sessionId));
+  }
+
   /// Try to auto-connect using saved preferences.
   Future<bool> autoConnect() async {
     final prefs = await SharedPreferences.getInstance();

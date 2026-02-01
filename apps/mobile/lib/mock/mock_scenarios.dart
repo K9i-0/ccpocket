@@ -178,7 +178,8 @@ final _askUserMultiQuestion = MockScenario(
                     'options': [
                       {
                         'label': 'SQLite (Recommended)',
-                        'description': 'Lightweight, embedded, no server needed.',
+                        'description':
+                            'Lightweight, embedded, no server needed.',
                       },
                       {
                         'label': 'PostgreSQL',
@@ -387,11 +388,32 @@ final _thinkingBlock = MockScenario(
 final _planMode = MockScenario(
   name: 'Plan Mode',
   icon: Icons.assignment,
-  description: 'Plan creation with approval flow',
+  description: 'Plan creation with EnterPlanMode → ExitPlanMode approval',
   steps: [
     MockStep(
       delay: const Duration(milliseconds: 300),
       message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    // EnterPlanMode triggers plan mode indicator
+    MockStep(
+      delay: const Duration(milliseconds: 600),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-plan-enter',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text: 'Let me plan the implementation before writing code.',
+            ),
+            const ToolUseContent(
+              id: 'tool-enter-plan-1',
+              name: 'EnterPlanMode',
+              input: {},
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
     ),
     MockStep(
       delay: const Duration(milliseconds: 1000),

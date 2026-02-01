@@ -66,6 +66,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   List<SessionInfo> _otherSessions = [];
   StreamSubscription<List<SessionInfo>>? _sessionListSub;
 
+  // Plan mode
+  bool _inPlanMode = false;
+  final TextEditingController _planFeedbackController = TextEditingController();
+
   ProcessStatus _status = ProcessStatus.idle;
   bool _hasInputText = false;
   String? _pendingToolUseId;
@@ -161,6 +165,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _collapseToolResults.dispose();
     _inputController.removeListener(_onInputChanged);
     _inputController.dispose();
+    _planFeedbackController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -267,6 +272,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 }
               } else {
                 _pendingToolUseId = content.id;
+                // Track plan mode: EnterPlanMode sets it, ExitPlanMode clears on approve
+                if (content.name == 'EnterPlanMode') {
+                  _inPlanMode = true;
+                }
               }
             }
           }
@@ -328,6 +337,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _askToolUseId = null;
             _askInput = null;
             _currentStreaming = null;
+            _inPlanMode = false;
+            _planFeedbackController.clear();
           }
           HapticFeedback.lightImpact();
           if (_isBackground && subtype != 'stopped') {
@@ -609,24 +620,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _approveToolUse() {
     if (_pendingToolUseId != null) {
+      // Approving ExitPlanMode means plan is accepted → exit plan mode
+      if (_isPlanApproval) {
+        _inPlanMode = false;
+      }
       widget.bridge.send(
         ClientMessage.approve(_pendingToolUseId!, sessionId: widget.sessionId),
       );
       setState(() {
         _pendingToolUseId = null;
         _pendingPermission = null;
+        _planFeedbackController.clear();
       });
     }
   }
 
   void _rejectToolUse() {
     if (_pendingToolUseId != null) {
+      final feedback = _isPlanApproval
+          ? _planFeedbackController.text.trim()
+          : null;
       widget.bridge.send(
-        ClientMessage.reject(_pendingToolUseId!, sessionId: widget.sessionId),
+        ClientMessage.reject(
+          _pendingToolUseId!,
+          message: feedback != null && feedback.isNotEmpty ? feedback : null,
+          sessionId: widget.sessionId,
+        ),
       );
       setState(() {
         _pendingToolUseId = null;
         _pendingPermission = null;
+        _planFeedbackController.clear();
       });
     }
   }
@@ -665,6 +689,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _pendingPermission = null;
       _askToolUseId = null;
       _askInput = null;
+      _currentStreaming = null;
+      _inPlanMode = false;
+    });
+  }
+
+  void _interruptSession() {
+    HapticFeedback.mediumImpact();
+    widget.bridge.interrupt(widget.sessionId);
+    setState(() {
       _currentStreaming = null;
     });
   }
@@ -711,6 +744,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           appBar: AppBar(
             title: _buildAppBarTitle(),
             actions: [
+              if (_inPlanMode) _buildPlanModeChip(appColors),
               if (_otherSessions.isNotEmpty) _buildSessionSwitcher(appColors),
               if (_totalCost > 0) _buildCostBadge(),
               _buildStatusIndicator(appColors),
@@ -954,6 +988,35 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildPlanModeChip(AppColors appColors) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: cs.tertiary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.assignment, size: 12, color: cs.tertiary),
+            const SizedBox(width: 4),
+            Text(
+              'Plan',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: cs.tertiary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMessageList() {
     return NotificationListener<ScrollStartNotification>(
       onNotification: (notification) {
@@ -1089,23 +1152,50 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      if (_pendingPermission != null && !_isPlanApproval) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          summary,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: appColors.subtleText,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 2),
+                      Text(
+                        summary,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: appColors.subtleText,
                         ),
-                      ],
+                        maxLines: _isPlanApproval ? 2 : 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 6),
+            if (_isPlanApproval) ...[
+              const SizedBox(height: 6),
+              TextField(
+                key: const ValueKey('plan_feedback_input'),
+                controller: _planFeedbackController,
+                decoration: InputDecoration(
+                  hintText: 'Feedback for plan revision...',
+                  hintStyle: TextStyle(
+                    fontSize: 12,
+                    color: appColors.subtleText,
+                  ),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                style: const TextStyle(fontSize: 13),
+                maxLines: 3,
+                minLines: 1,
+              ),
+            ],
             const SizedBox(height: 6),
             Row(
               children: [
@@ -1250,17 +1340,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
           const SizedBox(width: 8),
           if (_status != ProcessStatus.idle && !_hasInputText)
-            Container(
-              decoration: BoxDecoration(
-                color: cs.error,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: IconButton(
-                key: const ValueKey('stop_button'),
-                onPressed: _stopSession,
-                icon: Icon(Icons.stop_rounded, color: cs.onError, size: 20),
-                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                padding: EdgeInsets.zero,
+            GestureDetector(
+              onLongPress: _stopSession,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: cs.error,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: IconButton(
+                  key: const ValueKey('stop_button'),
+                  onPressed: _interruptSession,
+                  icon: Icon(Icons.stop_rounded, color: cs.onError, size: 20),
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                  padding: EdgeInsets.zero,
+                  tooltip: 'Tap: interrupt, Hold: stop',
+                ),
               ),
             )
           else if (!_hasInputText && _isVoiceAvailable)

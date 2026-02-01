@@ -12,6 +12,7 @@ abstract class BridgeServiceBase {
   void stopSession(String sessionId);
   void requestFileList(String projectPath);
   void requestSessionList();
+  void interrupt(String sessionId);
 
   /// Stream of file paths from the project.
   Stream<List<String>> get fileList;
