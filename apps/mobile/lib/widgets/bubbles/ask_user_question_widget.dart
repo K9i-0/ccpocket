@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,7 +24,16 @@ class AskUserQuestionWidget extends StatefulWidget {
 class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   final TextEditingController _textController = TextEditingController();
   bool _answered = false;
-  final Set<String> _selectedLabels = {};
+
+  // Per-question answer tracking
+  // key: question text, value: selected label(s)
+  final Map<String, String> _answers = {};
+  final Map<String, Set<String>> _multiAnswers = {};
+
+  List<dynamic> get _questions =>
+      widget.input['questions'] as List<dynamic>? ?? [];
+
+  bool get _isSingleQuestion => _questions.length <= 1;
 
   @override
   void dispose() {
@@ -37,10 +48,60 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
     widget.onAnswer(widget.toolUseId, answer);
   }
 
+  void _sendAllAnswers() {
+    if (_answered) return;
+    final answers = <String, String>{};
+    for (final q in _questions) {
+      final question = (q as Map<String, dynamic>)['question'] as String? ?? '';
+      final multiSelect = q['multiSelect'] as bool? ?? false;
+      if (multiSelect) {
+        final selected = _multiAnswers[question] ?? {};
+        answers[question] = selected.toList().join(', ');
+      } else {
+        answers[question] = _answers[question] ?? '';
+      }
+    }
+    _sendAnswer(jsonEncode({'questions': _questions, 'answers': answers}));
+  }
+
+  bool get _allQuestionsAnswered {
+    for (final q in _questions) {
+      final question = (q as Map<String, dynamic>)['question'] as String? ?? '';
+      final multiSelect = q['multiSelect'] as bool? ?? false;
+      if (multiSelect) {
+        if ((_multiAnswers[question] ?? {}).isEmpty) return false;
+      } else {
+        if (!_answers.containsKey(question)) return false;
+      }
+    }
+    return true;
+  }
+
+  void _selectOption(String question, String label, {required bool multi}) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (multi) {
+        final set = _multiAnswers.putIfAbsent(question, () => {});
+        if (set.contains(label)) {
+          set.remove(label);
+          if (set.isEmpty) _multiAnswers.remove(question);
+        } else {
+          set.add(label);
+        }
+      } else {
+        if (_isSingleQuestion) {
+          // Single question → send immediately
+          _sendAnswer(label);
+          return;
+        }
+        _answers[question] = label;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final questions = widget.input['questions'] as List<dynamic>? ?? [];
 
     if (_answered) {
       return Container(
@@ -131,7 +192,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final q in questions) ...[
+                  for (final q in _questions) ...[
                     _buildQuestion(q as Map<String, dynamic>, appColors),
                     const SizedBox(height: 8),
                   ],
@@ -140,14 +201,35 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
             ),
           ),
           const SizedBox(height: 8),
-          // Free text input
+          // Submit all answers button (multi-question mode)
+          if (!_isSingleQuestion) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _allQuestionsAnswered ? _sendAllAnswers : null,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: Text(
+                  _allQuestionsAnswered
+                      ? 'Submit All Answers'
+                      : 'Answer all questions to submit',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          // Free text input (always available for single question, or as "Other")
           Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _textController,
                   decoration: InputDecoration(
-                    hintText: 'Type your answer...',
+                    hintText: _isSingleQuestion
+                        ? 'Type your answer...'
+                        : 'Or type a custom answer...',
                     filled: true,
                     fillColor: Theme.of(
                       context,
@@ -200,27 +282,56 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
     final options = q['options'] as List<dynamic>? ?? [];
     final multiSelect = q['multiSelect'] as bool? ?? false;
 
+    final isAnswered = multiSelect
+        ? (_multiAnswers[question] ?? {}).isNotEmpty
+        : _answers.containsKey(question);
+    final answerLabel = multiSelect
+        ? (_multiAnswers[question] ?? {}).join(', ')
+        : _answers[question];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (header != null && header.isNotEmpty) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: appColors.askIcon.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              header,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: appColors.askIcon,
+        // Header chip + answered indicator
+        Row(
+          children: [
+            if (header != null && header.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: appColors.askIcon.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  header,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: appColors.askIcon,
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 6),
-        ],
+            ],
+            if (!_isSingleQuestion && isAnswered) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.check_circle, size: 14, color: Colors.green[400]),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  answerLabel ?? '',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.green[400],
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (header != null && header.isNotEmpty) const SizedBox(height: 6),
         Text(
           question,
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
@@ -231,25 +342,9 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
             _buildOptionTile(
               opt as Map<String, dynamic>,
               appColors,
+              question: question,
               multiSelect: multiSelect,
             ),
-          if (multiSelect && _selectedLabels.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () =>
-                    _sendAnswer(_selectedLabels.toList().join(', ')),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: Text(
-                  'Submit (${_selectedLabels.length} selected)',
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-            ),
-          ],
         ],
       ],
     );
@@ -258,11 +353,14 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   Widget _buildOptionTile(
     Map<String, dynamic> opt,
     AppColors appColors, {
+    required String question,
     required bool multiSelect,
   }) {
     final label = opt['label'] as String? ?? '';
     final description = opt['description'] as String? ?? '';
-    final isSelected = _selectedLabels.contains(label);
+    final isSelected = multiSelect
+        ? (_multiAnswers[question] ?? {}).contains(label)
+        : _answers[question] == label;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -273,20 +371,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
-          onTap: () {
-            if (multiSelect) {
-              HapticFeedback.selectionClick();
-              setState(() {
-                if (isSelected) {
-                  _selectedLabels.remove(label);
-                } else {
-                  _selectedLabels.add(label);
-                }
-              });
-            } else {
-              _sendAnswer(label);
-            }
-          },
+          onTap: () => _selectOption(question, label, multi: multiSelect),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
@@ -341,12 +426,14 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                     ],
                   ),
                 ),
-                if (!multiSelect)
+                if (!multiSelect && !isSelected)
                   Icon(
                     Icons.chevron_right,
                     size: 18,
                     color: appColors.subtleText,
                   ),
+                if (!multiSelect && isSelected)
+                  Icon(Icons.check_circle, size: 18, color: appColors.askIcon),
               ],
             ),
           ),
