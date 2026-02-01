@@ -34,12 +34,14 @@ const IMAGE_PATH_RE =
 export class ImageStore {
   private store = new Map<string, StoredImage>();
 
-  /** Extract image file paths from text. */
-  extractImagePaths(text: string): string[] {
-    const matches = text.match(IMAGE_PATH_RE);
+  /** Extract local image file paths from text (ignores URLs). */
+  extractImagePaths(text: unknown): string[] {
+    const str = typeof text === "string" ? text : JSON.stringify(text ?? "");
+    const matches = str.match(IMAGE_PATH_RE);
     if (!matches) return [];
-    // Deduplicate
-    return [...new Set(matches)];
+    // Filter out URLs (paths starting with //) and deduplicate
+    const localPaths = matches.filter((p) => !p.startsWith("//"));
+    return [...new Set(localPaths)];
   }
 
   /** Read files from disk, assign UUIDs, store in memory. */
