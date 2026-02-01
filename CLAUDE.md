@@ -117,6 +117,43 @@ launchctl list | grep ccpocket
 launchctl unload ~/Library/LaunchAgents/com.ccpocket.bridge.plist
 ```
 
+## 開発ワークフロー
+
+### 1. 設計フェーズ
+- 複雑な実装はプロトコル仕様・設計ドキュメント作成から始める
+- `docs/` 配下に仕様を残し、再調査コストを下げる
+
+### 2. 実装フェーズ
+- こまめにコミット (機能単位で分割)
+
+### 3. 静的検証
+```bash
+npx tsc --noEmit -p packages/bridge/tsconfig.json   # TypeScript型チェック
+dart analyze apps/mobile                              # Dart静的解析
+dart format apps/mobile                               # フォーマット
+flutter test apps/mobile                              # ユニットテスト
+```
+
+### 4. 動作確認 (シミュレーター/実機)
+状況に応じてモック確認とE2Eを選択する。
+
+#### モック確認 (UI単体)
+- `lib/driver_main.dart` でFlutter Driver有効化済みアプリを起動
+- AppBarのモックプレビューボタンでモックデータ付きチャット画面を表示
+- MCP `flutter_driver` の `screenshot` コマンドでスクリーンショット取得・目視確認
+- ウィジェットテスト (`flutter test`) で自動検証
+
+#### E2E確認 (Bridge Server接続)
+- Bridge Serverを起動 (`npm run bridge`)
+- シミュレーターでアプリ起動し、実際のClaude CLIセッションで動作確認
+- 承認フロー、AskUserQuestion、ストリーミング等の実際の挙動を検証
+
+#### MCP Flutter Driver利用時の注意
+- `tap` コマンドはタイムアウトしやすい (デフォルト5秒)
+- `screenshot` と `get_health` は安定して動作する
+- タップが失敗する場合は `ensureVisible` → `tap` の順で試す
+- ウィジェットテストの方が信頼性が高い
+
 ## 規約
 
 - コミット: Conventional Commits (`type(scope): description`)

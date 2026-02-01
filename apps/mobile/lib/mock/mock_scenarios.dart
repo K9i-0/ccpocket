@@ -30,6 +30,7 @@ class MockScenario {
 final List<MockScenario> mockScenarios = [
   _approvalFlow,
   _askUserQuestion,
+  _askUserMultiQuestion,
   _imageResult,
   _streaming,
   _thinkingBlock,
@@ -132,6 +133,78 @@ final _askUserQuestion = MockScenario(
                       },
                     ],
                     'multiSelect': false,
+                  },
+                ],
+              },
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 2b. AskUserQuestion (Multi-question)
+// ---------------------------------------------------------------------------
+final _askUserMultiQuestion = MockScenario(
+  name: 'Multi-Question',
+  icon: Icons.quiz_outlined,
+  description: 'Multiple questions requiring batch answers',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 800),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-ask-multi-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text: 'I need a few decisions before proceeding.',
+            ),
+            const ToolUseContent(
+              id: 'tool-ask-multi-1',
+              name: 'AskUserQuestion',
+              input: {
+                'questions': [
+                  {
+                    'question': 'Which database should we use?',
+                    'header': 'Database',
+                    'options': [
+                      {
+                        'label': 'SQLite (Recommended)',
+                        'description': 'Lightweight, embedded, no server needed.',
+                      },
+                      {
+                        'label': 'PostgreSQL',
+                        'description': 'Full-featured relational database.',
+                      },
+                    ],
+                    'multiSelect': false,
+                  },
+                  {
+                    'question': 'Which features do you want to enable?',
+                    'header': 'Features',
+                    'options': [
+                      {
+                        'label': 'Authentication',
+                        'description': 'User login and registration.',
+                      },
+                      {
+                        'label': 'Push Notifications',
+                        'description': 'Firebase Cloud Messaging.',
+                      },
+                      {
+                        'label': 'Analytics',
+                        'description': 'Usage tracking and reporting.',
+                      },
+                    ],
+                    'multiSelect': true,
                   },
                 ],
               },
