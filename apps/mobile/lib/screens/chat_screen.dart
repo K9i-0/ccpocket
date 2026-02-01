@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 import '../models/messages.dart';
 import '../services/bridge_service_base.dart';
 import '../services/notification_service.dart';
+import '../services/voice_input_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/file_mention_overlay.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/slash_command_overlay.dart';
 import '../widgets/slash_command_sheet.dart'
@@ -50,6 +52,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final LayerLink _inputLayerLink = LayerLink();
   List<SlashCommand> _slashCommands = List.of(fallbackSlashCommands);
 
+  // File mention overlay
+  OverlayEntry? _fileMentionOverlay;
+  List<String> _projectFiles = [];
+  StreamSubscription<List<String>>? _fileListSub;
+
+  // Voice input
+  final VoiceInputService _voiceInput = VoiceInputService();
+  bool _isVoiceAvailable = false;
+  bool _isRecording = false;
+
+  // Parallel sessions
+  List<SessionInfo> _otherSessions = [];
+  StreamSubscription<List<SessionInfo>>? _sessionListSub;
+
   ProcessStatus _status = ProcessStatus.idle;
   bool _hasInputText = false;
   String? _pendingToolUseId;
@@ -91,6 +107,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _inputController.addListener(_onInputChanged);
     _messageSub = widget.bridge.messages.listen(_onServerMessage);
     _connectionSub = widget.bridge.connectionStatus.listen(_onConnectionChange);
+    _fileListSub = widget.bridge.fileList.listen((files) {
+      _projectFiles = files;
+    });
+    // Request file list for @-mention autocomplete
+    if (widget.projectPath != null && widget.projectPath!.isNotEmpty) {
+      widget.bridge.requestFileList(widget.projectPath!);
+    }
+    // Initialize voice input
+    _voiceInput.initialize().then((available) {
+      if (mounted) setState(() => _isVoiceAvailable = available);
+    });
+    // Subscribe to session list for parallel session indicator
+    _sessionListSub = widget.bridge.sessionList.listen((sessions) {
+      setState(() {
+        _otherSessions = sessions
+            .where((s) => s.id != widget.sessionId)
+            .toList();
+      });
+    });
+    widget.bridge.requestSessionList();
     // Consume buffered past history from resume_session
     final pastHistory = widget.bridge.pendingPastHistory;
     if (pastHistory != null) {
@@ -116,8 +152,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _scrollOffsets[widget.sessionId] = _scrollController.offset;
     }
     _removeSlashOverlay();
+    _removeFileMentionOverlay();
     _messageSub?.cancel();
     _connectionSub?.cancel();
+    _fileListSub?.cancel();
+    _sessionListSub?.cancel();
+    _voiceInput.dispose();
     _collapseToolResults.dispose();
     _inputController.removeListener(_onInputChanged);
     _inputController.dispose();
@@ -323,9 +363,42 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       } else {
         _removeSlashOverlay();
       }
+      _removeFileMentionOverlay();
     } else {
       _removeSlashOverlay();
+      // Detect @mention: find the last '@' before cursor and extract query
+      final mentionQuery = _extractMentionQuery(text);
+      if (mentionQuery != null && _projectFiles.isNotEmpty) {
+        final q = mentionQuery.toLowerCase();
+        final filtered = _projectFiles
+            .where((f) => f.toLowerCase().contains(q))
+            .take(15)
+            .toList();
+        if (filtered.isNotEmpty) {
+          _showFileMentionOverlay(filtered);
+        } else {
+          _removeFileMentionOverlay();
+        }
+      } else {
+        _removeFileMentionOverlay();
+      }
     }
+  }
+
+  /// Extract the file query after the last '@' before cursor position.
+  /// Returns null if no active @-mention is being typed.
+  String? _extractMentionQuery(String text) {
+    final cursorPos = _inputController.selection.baseOffset;
+    if (cursorPos < 0) return null;
+    final beforeCursor = text.substring(0, cursorPos);
+    final atIndex = beforeCursor.lastIndexOf('@');
+    if (atIndex < 0) return null;
+    // '@' must be at start or preceded by a space
+    if (atIndex > 0 && beforeCursor[atIndex - 1] != ' ') return null;
+    final query = beforeCursor.substring(atIndex + 1);
+    // No spaces in the query (file paths don't have spaces)
+    if (query.contains(' ')) return null;
+    return query;
   }
 
   void _showSlashOverlay(List<SlashCommand> filtered) {
@@ -353,6 +426,49 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _removeSlashOverlay() {
     _slashOverlay?.remove();
     _slashOverlay = null;
+  }
+
+  void _showFileMentionOverlay(List<String> filtered) {
+    _removeFileMentionOverlay();
+    _fileMentionOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        width: MediaQuery.of(context).size.width - 16,
+        child: CompositedTransformFollower(
+          link: _inputLayerLink,
+          showWhenUnlinked: false,
+          offset: const Offset(0, -8),
+          followerAnchor: Alignment.bottomLeft,
+          targetAnchor: Alignment.topLeft,
+          child: FileMentionOverlay(
+            filteredFiles: filtered,
+            onSelect: _onFileMentionSelected,
+            onDismiss: _removeFileMentionOverlay,
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_fileMentionOverlay!);
+  }
+
+  void _removeFileMentionOverlay() {
+    _fileMentionOverlay?.remove();
+    _fileMentionOverlay = null;
+  }
+
+  void _onFileMentionSelected(String filePath) {
+    _removeFileMentionOverlay();
+    final text = _inputController.text;
+    final cursorPos = _inputController.selection.baseOffset;
+    final beforeCursor = text.substring(0, cursorPos);
+    final atIndex = beforeCursor.lastIndexOf('@');
+    if (atIndex < 0) return;
+    final afterCursor = text.substring(cursorPos);
+    final newText = '${text.substring(0, atIndex)}@$filePath $afterCursor';
+    _inputController.text = newText;
+    final newCursor = atIndex + 1 + filePath.length + 1;
+    _inputController.selection = TextSelection.fromPosition(
+      TextPosition(offset: newCursor),
+    );
   }
 
   void _onSlashCommandSelected(String command) {
@@ -447,6 +563,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
       }
     });
+  }
+
+  void _toggleVoiceInput() {
+    if (_isRecording) {
+      _voiceInput.stopListening();
+      setState(() => _isRecording = false);
+    } else {
+      HapticFeedback.mediumImpact();
+      setState(() => _isRecording = true);
+      _voiceInput.startListening(
+        onResult: (text, isFinal) {
+          setState(() => _inputController.text = text);
+          if (isFinal) {
+            _inputController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _inputController.text.length),
+            );
+          }
+        },
+        onDone: () {
+          if (mounted) setState(() => _isRecording = false);
+        },
+      );
+    }
   }
 
   void _sendMessage() {
@@ -572,6 +711,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           appBar: AppBar(
             title: _buildAppBarTitle(),
             actions: [
+              if (_otherSessions.isNotEmpty) _buildSessionSwitcher(appColors),
               if (_totalCost > 0) _buildCostBadge(),
               _buildStatusIndicator(appColors),
             ],
@@ -670,6 +810,76 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     }
     return Text('Session ${widget.sessionId.substring(0, 8)}');
+  }
+
+  Widget _buildSessionSwitcher(AppColors appColors) {
+    final approvalCount = _otherSessions
+        .where((s) => s.status == 'waiting_approval')
+        .length;
+    return PopupMenuButton<String>(
+      key: const ValueKey('session_switcher'),
+      icon: Badge(
+        isLabelVisible: approvalCount > 0,
+        label: Text('$approvalCount'),
+        backgroundColor: appColors.statusApproval,
+        child: Text(
+          '${_otherSessions.length + 1}',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: appColors.subtleText,
+          ),
+        ),
+      ),
+      tooltip: 'Switch session',
+      onSelected: (sessionId) {
+        final session = _otherSessions.firstWhere((s) => s.id == sessionId);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatScreen(
+              bridge: widget.bridge,
+              sessionId: sessionId,
+              projectPath: session.projectPath,
+            ),
+          ),
+        );
+      },
+      itemBuilder: (context) => _otherSessions.map((s) {
+        final projectName = s.projectPath.split('/').last;
+        final isApproval = s.status == 'waiting_approval';
+        return PopupMenuItem<String>(
+          value: s.id,
+          child: Row(
+            children: [
+              if (isApproval)
+                Icon(
+                  Icons.warning_amber,
+                  size: 16,
+                  color: appColors.statusApproval,
+                )
+              else
+                Icon(Icons.terminal, size: 16, color: appColors.subtleText),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  projectName,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isApproval ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                s.id.substring(0, 6),
+                style: TextStyle(fontSize: 10, color: appColors.subtleText),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
   }
 
   Widget _buildCostBadge() {
@@ -1049,6 +1259,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 key: const ValueKey('stop_button'),
                 onPressed: _stopSession,
                 icon: Icon(Icons.stop_rounded, color: cs.onError, size: 20),
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                padding: EdgeInsets.zero,
+              ),
+            )
+          else if (!_hasInputText && _isVoiceAvailable)
+            Container(
+              decoration: BoxDecoration(
+                color: _isRecording ? cs.error : cs.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: IconButton(
+                key: const ValueKey('voice_button'),
+                onPressed: _toggleVoiceInput,
+                icon: Icon(
+                  _isRecording ? Icons.stop : Icons.mic,
+                  color: _isRecording ? cs.onError : cs.primary,
+                  size: 20,
+                ),
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 padding: EdgeInsets.zero,
               ),

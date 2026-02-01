@@ -118,6 +118,22 @@ class MockBridgeService implements BridgeServiceBase {
   }
 
   @override
+  Stream<List<String>> get fileList => const Stream.empty();
+
+  @override
+  Stream<List<SessionInfo>> get sessionList => const Stream.empty();
+
+  @override
+  void requestFileList(String projectPath) {
+    // No-op for mock
+  }
+
+  @override
+  void requestSessionList() {
+    // No-op for mock
+  }
+
+  @override
   void requestSessionHistory(String sessionId) {
     // No-op for mock — history is empty
   }

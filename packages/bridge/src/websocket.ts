@@ -1,4 +1,5 @@
 import type { Server as HttpServer } from "node:http";
+import { execFile } from "node:child_process";
 import { WebSocketServer, WebSocket } from "ws";
 import { SessionManager, type SessionInfo } from "./session.js";
 import { parseClientMessage, type ClientMessage, type ServerMessage } from "./parser.js";
@@ -239,6 +240,18 @@ export class BridgeWebSocketServer {
         } else {
           this.send(ws, { type: "gallery_list", images: [] } as Record<string, unknown>);
         }
+        break;
+      }
+
+      case "list_files": {
+        execFile("git", ["ls-files"], { cwd: msg.projectPath, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
+          if (err) {
+            this.send(ws, { type: "error", message: `Failed to list files: ${err.message}` });
+            return;
+          }
+          const files = stdout.trim().split("\n").filter(Boolean);
+          this.send(ws, { type: "file_list", files } as Record<string, unknown>);
+        });
         break;
       }
     }

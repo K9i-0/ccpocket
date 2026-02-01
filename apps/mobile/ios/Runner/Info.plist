@@ -54,6 +54,10 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>QR code scanning requires camera access to connect to bridge server</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Voice input requires microphone access to transcribe speech to text</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Speech recognition is used to convert voice input to text messages</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_ccpocket._tcp</string>

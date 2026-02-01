@@ -260,6 +260,9 @@ sealed class ServerMessage {
       'gallery_new_image' => GalleryNewImageMessage(
         image: GalleryImage.fromJson(json['image'] as Map<String, dynamic>),
       ),
+      'file_list' => FileListMessage(
+        files: (json['files'] as List).cast<String>(),
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -380,6 +383,11 @@ class GalleryListMessage implements ServerMessage {
 class GalleryNewImageMessage implements ServerMessage {
   final GalleryImage image;
   const GalleryNewImageMessage({required this.image});
+}
+
+class FileListMessage implements ServerMessage {
+  final List<String> files;
+  const FileListMessage({required this.files});
 }
 
 class PastMessage {
@@ -578,6 +586,9 @@ class ClientMessage {
     if (project != null) json['project'] = project;
     return ClientMessage._(json);
   }
+
+  factory ClientMessage.listFiles(String projectPath) =>
+      ClientMessage._({'type': 'list_files', 'projectPath': projectPath});
 
   String toJson() => jsonEncode(_json);
 }

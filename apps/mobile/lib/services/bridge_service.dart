@@ -18,6 +18,7 @@ class BridgeService implements BridgeServiceBase {
   final _recentSessionsController =
       StreamController<List<RecentSession>>.broadcast();
   final _galleryController = StreamController<List<GalleryImage>>.broadcast();
+  final _fileListController = StreamController<List<String>>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
@@ -41,10 +42,13 @@ class BridgeService implements BridgeServiceBase {
   @override
   Stream<BridgeConnectionState> get connectionStatus =>
       _connectionController.stream;
+  @override
   Stream<List<SessionInfo>> get sessionList => _sessionListController.stream;
   Stream<List<RecentSession>> get recentSessionsStream =>
       _recentSessionsController.stream;
   Stream<List<GalleryImage>> get galleryStream => _galleryController.stream;
+  @override
+  Stream<List<String>> get fileList => _fileListController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
@@ -108,6 +112,8 @@ class BridgeService implements BridgeServiceBase {
               case GalleryNewImageMessage(:final image):
                 _galleryImages = [image, ..._galleryImages];
                 _galleryController.add(_galleryImages);
+              case FileListMessage(:final files):
+                _fileListController.add(files);
               default:
                 _messageController.add(msg);
             }
@@ -170,6 +176,7 @@ class BridgeService implements BridgeServiceBase {
     }
   }
 
+  @override
   void requestSessionList() {
     send(ClientMessage.listSessions());
   }
@@ -204,6 +211,11 @@ class BridgeService implements BridgeServiceBase {
 
   void requestGallery({String? project}) {
     send(ClientMessage.listGallery(project: project));
+  }
+
+  @override
+  void requestFileList(String projectPath) {
+    send(ClientMessage.listFiles(projectPath));
   }
 
   /// Try to auto-connect using saved preferences.
@@ -248,5 +260,6 @@ class BridgeService implements BridgeServiceBase {
     _sessionListController.close();
     _recentSessionsController.close();
     _galleryController.close();
+    _fileListController.close();
   }
 }
