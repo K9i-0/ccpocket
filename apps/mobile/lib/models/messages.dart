@@ -126,6 +126,43 @@ class ImageRef {
   }
 }
 
+// ---- Gallery image ----
+
+class GalleryImage {
+  final String id;
+  final String url;
+  final String mimeType;
+  final String projectPath;
+  final String projectName;
+  final String? sessionId;
+  final String addedAt;
+  final int sizeBytes;
+
+  const GalleryImage({
+    required this.id,
+    required this.url,
+    required this.mimeType,
+    required this.projectPath,
+    required this.projectName,
+    this.sessionId,
+    required this.addedAt,
+    required this.sizeBytes,
+  });
+
+  factory GalleryImage.fromJson(Map<String, dynamic> json) {
+    return GalleryImage(
+      id: json['id'] as String,
+      url: json['url'] as String,
+      mimeType: json['mimeType'] as String,
+      projectPath: json['projectPath'] as String,
+      projectName: json['projectName'] as String,
+      sessionId: json['sessionId'] as String?,
+      addedAt: json['addedAt'] as String,
+      sizeBytes: json['sizeBytes'] as int? ?? 0,
+    );
+  }
+}
+
 // ---- Helpers ----
 
 /// Normalize tool_result content: Claude CLI may send String or List of content blocks.
@@ -214,6 +251,14 @@ sealed class ServerMessage {
         messages: (json['messages'] as List)
             .map((m) => PastMessage.fromJson(m as Map<String, dynamic>))
             .toList(),
+      ),
+      'gallery_list' => GalleryListMessage(
+        images: (json['images'] as List)
+            .map((i) => GalleryImage.fromJson(i as Map<String, dynamic>))
+            .toList(),
+      ),
+      'gallery_new_image' => GalleryNewImageMessage(
+        image: GalleryImage.fromJson(json['image'] as Map<String, dynamic>),
       ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
@@ -325,6 +370,16 @@ class PastHistoryMessage implements ServerMessage {
     required this.claudeSessionId,
     required this.messages,
   });
+}
+
+class GalleryListMessage implements ServerMessage {
+  final List<GalleryImage> images;
+  const GalleryListMessage({required this.images});
+}
+
+class GalleryNewImageMessage implements ServerMessage {
+  final GalleryImage image;
+  const GalleryNewImageMessage({required this.image});
 }
 
 class PastMessage {
@@ -515,6 +570,12 @@ class ClientMessage {
       'projectPath': projectPath,
     };
     if (permissionMode != null) json['permissionMode'] = permissionMode;
+    return ClientMessage._(json);
+  }
+
+  factory ClientMessage.listGallery({String? project}) {
+    final json = <String, dynamic>{'type': 'list_gallery'};
+    if (project != null) json['project'] = project;
     return ClientMessage._(json);
   }
 

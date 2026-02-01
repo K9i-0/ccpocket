@@ -140,7 +140,8 @@ export type ClientMessage =
   | { type: "stop_session"; sessionId: string }
   | { type: "get_history"; sessionId: string }
   | { type: "list_recent_sessions"; limit?: number }
-  | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode };
+  | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode }
+  | { type: "list_gallery"; project?: string };
 
 export type ServerMessage =
   | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string; slashCommands?: string[]; skills?: string[] }
@@ -298,6 +299,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "resume_session":
         if (typeof msg.sessionId !== "string" || typeof msg.projectPath !== "string") return null;
+        break;
+      case "list_gallery":
         break;
       default:
         return null;

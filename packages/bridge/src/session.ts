@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { ClaudeProcess, type StartOptions } from "./claude-process.js";
 import type { ServerMessage, ProcessStatus, AssistantToolUseContent } from "./parser.js";
 import type { ImageStore } from "./image-store.js";
+import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
 
 export interface SessionInfo {
   id: string;
@@ -25,17 +26,25 @@ export interface SessionSummary {
 
 const MAX_HISTORY_PER_SESSION = 100;
 
+export type GalleryImageCallback = (meta: GalleryImageMeta) => void;
+
 export class SessionManager {
   private sessions = new Map<string, SessionInfo>();
   private onMessage: (sessionId: string, msg: ServerMessage) => void;
   private imageStore: ImageStore | null;
+  private galleryStore: GalleryStore | null;
+  private onGalleryImage: GalleryImageCallback | null;
 
   constructor(
     onMessage: (sessionId: string, msg: ServerMessage) => void,
     imageStore?: ImageStore,
+    galleryStore?: GalleryStore,
+    onGalleryImage?: GalleryImageCallback,
   ) {
     this.onMessage = onMessage;
     this.imageStore = imageStore ?? null;
+    this.galleryStore = galleryStore ?? null;
+    this.onGalleryImage = onGalleryImage ?? null;
   }
 
   create(projectPath: string, options?: StartOptions): string {
@@ -91,6 +100,20 @@ export class SessionManager {
             const images = await this.imageStore.registerImages(paths);
             if (images.length > 0) {
               msg = { ...msg, images };
+            }
+
+            // Also register in GalleryStore (disk-persistent)
+            if (this.galleryStore) {
+              for (const p of paths) {
+                const meta = await this.galleryStore.addImage(
+                  p,
+                  session.projectPath,
+                  session.claudeSessionId,
+                );
+                if (meta && this.onGalleryImage) {
+                  this.onGalleryImage(meta);
+                }
+              }
             }
           }
         }

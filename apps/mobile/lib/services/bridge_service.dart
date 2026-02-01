@@ -17,11 +17,13 @@ class BridgeService implements BridgeServiceBase {
       StreamController<List<SessionInfo>>.broadcast();
   final _recentSessionsController =
       StreamController<List<RecentSession>>.broadcast();
+  final _galleryController = StreamController<List<GalleryImage>>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
   List<SessionInfo> _sessions = [];
   List<RecentSession> _recentSessions = [];
+  List<GalleryImage> _galleryImages = [];
 
   // Auto-reconnect
   String? _lastUrl;
@@ -42,11 +44,13 @@ class BridgeService implements BridgeServiceBase {
   Stream<List<SessionInfo>> get sessionList => _sessionListController.stream;
   Stream<List<RecentSession>> get recentSessionsStream =>
       _recentSessionsController.stream;
+  Stream<List<GalleryImage>> get galleryStream => _galleryController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
   List<SessionInfo> get sessions => _sessions;
   List<RecentSession> get recentSessions => _recentSessions;
+  List<GalleryImage> get galleryImages => _galleryImages;
 
   /// Derive HTTP base URL from the WebSocket URL.
   /// e.g. ws://host:8765?token=x -> http://host:8765
@@ -98,6 +102,12 @@ class BridgeService implements BridgeServiceBase {
                 _recentSessionsController.add(sessions);
               case PastHistoryMessage():
                 pendingPastHistory = msg;
+              case GalleryListMessage(:final images):
+                _galleryImages = images;
+                _galleryController.add(images);
+              case GalleryNewImageMessage(:final image):
+                _galleryImages = [image, ..._galleryImages];
+                _galleryController.add(_galleryImages);
               default:
                 _messageController.add(msg);
             }
@@ -192,6 +202,10 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.stopSession(sessionId));
   }
 
+  void requestGallery({String? project}) {
+    send(ClientMessage.listGallery(project: project));
+  }
+
   /// Try to auto-connect using saved preferences.
   Future<bool> autoConnect() async {
     final prefs = await SharedPreferences.getInstance();
@@ -233,5 +247,6 @@ class BridgeService implements BridgeServiceBase {
     _connectionController.close();
     _sessionListController.close();
     _recentSessionsController.close();
+    _galleryController.close();
   }
 }

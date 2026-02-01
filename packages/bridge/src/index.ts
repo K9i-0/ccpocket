@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { BridgeWebSocketServer } from "./websocket.js";
 import { ImageStore } from "./image-store.js";
+import { GalleryStore } from "./gallery-store.js";
 import { printStartupInfo } from "./startup-info.js";
 import { MdnsAdvertiser } from "./mdns.js";
 
@@ -17,11 +18,22 @@ if (API_KEY) {
 }
 
 const imageStore = new ImageStore();
+const galleryStore = new GalleryStore();
 const mdns = new MdnsAdvertiser();
 
+// Initialize gallery store (async)
+galleryStore.init().then(() => {
+  console.log("[bridge] Gallery store initialized");
+}).catch((err) => {
+  console.error("[bridge] Failed to initialize gallery store:", err);
+});
+
 const httpServer = createServer((req, res) => {
-  // Serve images via ImageStore
+  // Serve images via ImageStore (in-memory, session-scoped)
   if (imageStore.handleRequest(req, res)) return;
+
+  // Serve gallery images via GalleryStore (disk-persistent)
+  if (galleryStore.handleRequest(req, res)) return;
 
   // Default 404 for unknown HTTP requests
   res.writeHead(404, { "Content-Type": "text/plain" });
@@ -32,6 +44,7 @@ const wsServer = new BridgeWebSocketServer({
   server: httpServer,
   apiKey: API_KEY,
   imageStore,
+  galleryStore,
 });
 
 httpServer.listen(PORT, HOST, () => {

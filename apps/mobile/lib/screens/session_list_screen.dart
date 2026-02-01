@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../widgets/session_card.dart';
 import '../services/connection_url_parser.dart';
 import 'chat_screen.dart';
+import 'gallery_screen.dart';
 import 'mock_preview_screen.dart';
 import 'qr_scan_screen.dart';
 
@@ -595,6 +596,18 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 MaterialPageRoute(builder: (_) => const MockPreviewScreen()),
               ),
               tooltip: 'Mock Preview',
+            ),
+          if (showConnectedUI)
+            IconButton(
+              key: const ValueKey('gallery_button'),
+              icon: const Icon(Icons.photo_library_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => GalleryScreen(bridge: _bridge),
+                ),
+              ),
+              tooltip: 'Gallery',
             ),
           if (showConnectedUI)
             IconButton(

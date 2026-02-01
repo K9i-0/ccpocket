@@ -4,27 +4,42 @@ import { SessionManager, type SessionInfo } from "./session.js";
 import { parseClientMessage, type ClientMessage, type ServerMessage } from "./parser.js";
 import { getAllRecentSessions, getSessionHistory } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
+import type { GalleryStore } from "./gallery-store.js";
 
 export interface BridgeServerOptions {
   server: HttpServer;
   apiKey?: string;
   imageStore?: ImageStore;
+  galleryStore?: GalleryStore;
 }
 
 export class BridgeWebSocketServer {
   private wss: WebSocketServer;
   private sessionManager: SessionManager;
   private apiKey: string | null;
+  private galleryStore: GalleryStore | null;
 
   constructor(options: BridgeServerOptions) {
-    const { server, apiKey, imageStore } = options;
+    const { server, apiKey, imageStore, galleryStore } = options;
     this.apiKey = apiKey ?? null;
+    this.galleryStore = galleryStore ?? null;
 
     this.wss = new WebSocketServer({ server });
 
-    this.sessionManager = new SessionManager((sessionId, msg) => {
-      this.broadcastSessionMessage(sessionId, msg);
-    }, imageStore);
+    this.sessionManager = new SessionManager(
+      (sessionId, msg) => {
+        this.broadcastSessionMessage(sessionId, msg);
+      },
+      imageStore,
+      galleryStore,
+      // Broadcast gallery_new_image when a new image is added
+      (meta) => {
+        if (this.galleryStore) {
+          const info = this.galleryStore.metaToInfo(meta);
+          this.broadcast({ type: "gallery_new_image", image: info });
+        }
+      },
+    );
 
     this.wss.on("connection", (ws, req) => {
       // API key authentication
@@ -216,6 +231,16 @@ export class BridgeWebSocketServer {
         });
         break;
       }
+
+      case "list_gallery": {
+        if (this.galleryStore) {
+          const images = this.galleryStore.list({ projectPath: msg.project });
+          this.send(ws, { type: "gallery_list", images } as Record<string, unknown>);
+        } else {
+          this.send(ws, { type: "gallery_list", images: [] } as Record<string, unknown>);
+        }
+        break;
+      }
     }
   }
 
@@ -241,6 +266,15 @@ export class BridgeWebSocketServer {
   private broadcastSessionMessage(sessionId: string, msg: ServerMessage): void {
     // Wrap the message with sessionId
     const data = JSON.stringify({ ...msg, sessionId });
+    for (const client of this.wss.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(data);
+      }
+    }
+  }
+
+  private broadcast(msg: Record<string, unknown>): void {
+    const data = JSON.stringify(msg);
     for (const client of this.wss.clients) {
       if (client.readyState === WebSocket.OPEN) {
         client.send(data);

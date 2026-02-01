@@ -119,6 +119,8 @@ class ServerMessageWidget extends StatelessWidget {
       RecentSessionsMessage() => const SizedBox.shrink(),
       PastHistoryMessage() => const SizedBox.shrink(),
       SessionListMessage() => const SizedBox.shrink(),
+      GalleryListMessage() => const SizedBox.shrink(),
+      GalleryNewImageMessage() => const SizedBox.shrink(),
     };
   }
 }
