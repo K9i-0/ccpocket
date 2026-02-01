@@ -16,23 +16,30 @@ Widget _wrap(Widget child) {
 void main() {
   group('AskUserQuestionWidget - single question', () {
     testWidgets('shows question text and options', (tester) async {
-      await tester.pumpWidget(_wrap(AskUserQuestionWidget(
-        toolUseId: 'test-1',
-        input: {
-          'questions': [
-            {
-              'question': 'Which framework?',
-              'header': 'Framework',
-              'options': [
-                {'label': 'Flutter', 'description': 'Cross-platform'},
-                {'label': 'React Native', 'description': 'JavaScript based'},
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-1',
+            input: {
+              'questions': [
+                {
+                  'question': 'Which framework?',
+                  'header': 'Framework',
+                  'options': [
+                    {'label': 'Flutter', 'description': 'Cross-platform'},
+                    {
+                      'label': 'React Native',
+                      'description': 'JavaScript based',
+                    },
+                  ],
+                  'multiSelect': false,
+                },
               ],
-              'multiSelect': false,
-            }
-          ]
-        },
-        onAnswer: (_, __) {},
-      )));
+            },
+            onAnswer: (_, __) {},
+          ),
+        ),
+      );
 
       expect(find.text('Claude is asking'), findsOneWidget);
       expect(find.text('Which framework?'), findsOneWidget);
@@ -43,31 +50,36 @@ void main() {
       expect(find.text('JavaScript based'), findsOneWidget);
     });
 
-    testWidgets('tapping option sends answer immediately for single question',
-        (tester) async {
+    testWidgets('tapping option sends answer immediately for single question', (
+      tester,
+    ) async {
       String? answeredId;
       String? answeredResult;
 
-      await tester.pumpWidget(_wrap(AskUserQuestionWidget(
-        toolUseId: 'test-2',
-        input: {
-          'questions': [
-            {
-              'question': 'Pick one',
-              'header': 'Choice',
-              'options': [
-                {'label': 'A', 'description': 'Option A'},
-                {'label': 'B', 'description': 'Option B'},
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-2',
+            input: {
+              'questions': [
+                {
+                  'question': 'Pick one',
+                  'header': 'Choice',
+                  'options': [
+                    {'label': 'A', 'description': 'Option A'},
+                    {'label': 'B', 'description': 'Option B'},
+                  ],
+                  'multiSelect': false,
+                },
               ],
-              'multiSelect': false,
-            }
-          ]
-        },
-        onAnswer: (id, result) {
-          answeredId = id;
-          answeredResult = result;
-        },
-      )));
+            },
+            onAnswer: (id, result) {
+              answeredId = id;
+              answeredResult = result;
+            },
+          ),
+        ),
+      );
 
       // Tap option A
       await tester.tap(find.text('A'));
@@ -82,29 +94,32 @@ void main() {
     testWidgets('free text input sends answer', (tester) async {
       String? answeredResult;
 
-      await tester.pumpWidget(_wrap(AskUserQuestionWidget(
-        toolUseId: 'test-3',
-        input: {
-          'questions': [
-            {
-              'question': 'What is your name?',
-              'header': 'Name',
-              'options': [
-                {'label': 'Alice', 'description': ''},
-                {'label': 'Bob', 'description': ''},
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-3',
+            input: {
+              'questions': [
+                {
+                  'question': 'What is your name?',
+                  'header': 'Name',
+                  'options': [
+                    {'label': 'Alice', 'description': ''},
+                    {'label': 'Bob', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
               ],
-              'multiSelect': false,
-            }
-          ]
-        },
-        onAnswer: (_, result) {
-          answeredResult = result;
-        },
-      )));
+            },
+            onAnswer: (_, result) {
+              answeredResult = result;
+            },
+          ),
+        ),
+      );
 
       // Type custom text and tap Send
-      await tester.enterText(
-          find.byType(TextField), 'Charlie');
+      await tester.enterText(find.byType(TextField), 'Charlie');
       await tester.tap(find.text('Send'));
       await tester.pumpAndSettle();
 
@@ -115,32 +130,36 @@ void main() {
 
   group('AskUserQuestionWidget - multiple questions', () {
     testWidgets('shows all questions and submit button', (tester) async {
-      await tester.pumpWidget(_wrap(AskUserQuestionWidget(
-        toolUseId: 'test-4',
-        input: {
-          'questions': [
-            {
-              'question': 'Color?',
-              'header': 'Color',
-              'options': [
-                {'label': 'Red', 'description': ''},
-                {'label': 'Blue', 'description': ''},
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-4',
+            input: {
+              'questions': [
+                {
+                  'question': 'Color?',
+                  'header': 'Color',
+                  'options': [
+                    {'label': 'Red', 'description': ''},
+                    {'label': 'Blue', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
+                {
+                  'question': 'Size?',
+                  'header': 'Size',
+                  'options': [
+                    {'label': 'Small', 'description': ''},
+                    {'label': 'Large', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
               ],
-              'multiSelect': false,
             },
-            {
-              'question': 'Size?',
-              'header': 'Size',
-              'options': [
-                {'label': 'Small', 'description': ''},
-                {'label': 'Large', 'description': ''},
-              ],
-              'multiSelect': false,
-            },
-          ]
-        },
-        onAnswer: (_, __) {},
-      )));
+            onAnswer: (_, __) {},
+          ),
+        ),
+      );
 
       expect(find.text('Color?'), findsOneWidget);
       expect(find.text('Size?'), findsOneWidget);
@@ -152,36 +171,41 @@ void main() {
       expect(find.text('Answer all questions to submit'), findsOneWidget);
     });
 
-    testWidgets('tapping option does not send immediately for multi-question',
-        (tester) async {
+    testWidgets('tapping option does not send immediately for multi-question', (
+      tester,
+    ) async {
       bool answered = false;
 
-      await tester.pumpWidget(_wrap(AskUserQuestionWidget(
-        toolUseId: 'test-5',
-        input: {
-          'questions': [
-            {
-              'question': 'Color?',
-              'header': 'Color',
-              'options': [
-                {'label': 'Red', 'description': ''},
-                {'label': 'Blue', 'description': ''},
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-5',
+            input: {
+              'questions': [
+                {
+                  'question': 'Color?',
+                  'header': 'Color',
+                  'options': [
+                    {'label': 'Red', 'description': ''},
+                    {'label': 'Blue', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
+                {
+                  'question': 'Size?',
+                  'header': 'Size',
+                  'options': [
+                    {'label': 'Small', 'description': ''},
+                    {'label': 'Large', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
               ],
-              'multiSelect': false,
             },
-            {
-              'question': 'Size?',
-              'header': 'Size',
-              'options': [
-                {'label': 'Small', 'description': ''},
-                {'label': 'Large', 'description': ''},
-              ],
-              'multiSelect': false,
-            },
-          ]
-        },
-        onAnswer: (_, __) => answered = true,
-      )));
+            onAnswer: (_, __) => answered = true,
+          ),
+        ),
+      );
 
       // Tap one option — should NOT send
       await tester.tap(find.text('Red'));
@@ -192,36 +216,41 @@ void main() {
       expect(find.text('Answer all questions to submit'), findsOneWidget);
     });
 
-    testWidgets('answering all questions enables submit and sends JSON',
-        (tester) async {
+    testWidgets('answering all questions enables submit and sends JSON', (
+      tester,
+    ) async {
       String? answeredResult;
 
-      await tester.pumpWidget(_wrap(AskUserQuestionWidget(
-        toolUseId: 'test-6',
-        input: {
-          'questions': [
-            {
-              'question': 'Color?',
-              'header': 'Color',
-              'options': [
-                {'label': 'Red', 'description': ''},
-                {'label': 'Blue', 'description': ''},
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-6',
+            input: {
+              'questions': [
+                {
+                  'question': 'Color?',
+                  'header': 'Color',
+                  'options': [
+                    {'label': 'Red', 'description': ''},
+                    {'label': 'Blue', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
+                {
+                  'question': 'Size?',
+                  'header': 'Size',
+                  'options': [
+                    {'label': 'Small', 'description': ''},
+                    {'label': 'Large', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
               ],
-              'multiSelect': false,
             },
-            {
-              'question': 'Size?',
-              'header': 'Size',
-              'options': [
-                {'label': 'Small', 'description': ''},
-                {'label': 'Large', 'description': ''},
-              ],
-              'multiSelect': false,
-            },
-          ]
-        },
-        onAnswer: (_, result) => answeredResult = result,
-      )));
+            onAnswer: (_, result) => answeredResult = result,
+          ),
+        ),
+      );
 
       // Answer both questions
       await tester.tap(find.text('Red'));
@@ -256,27 +285,33 @@ void main() {
   });
 
   group('AskUserQuestionWidget - multiSelect', () {
-    testWidgets('multi-select allows toggling multiple options', (tester) async {
+    testWidgets('multi-select allows toggling multiple options', (
+      tester,
+    ) async {
       String? answeredResult;
 
-      await tester.pumpWidget(_wrap(AskUserQuestionWidget(
-        toolUseId: 'test-7',
-        input: {
-          'questions': [
-            {
-              'question': 'Pick features',
-              'header': 'Features',
-              'options': [
-                {'label': 'Auth', 'description': 'Authentication'},
-                {'label': 'DB', 'description': 'Database'},
-                {'label': 'API', 'description': 'REST API'},
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-7',
+            input: {
+              'questions': [
+                {
+                  'question': 'Pick features',
+                  'header': 'Features',
+                  'options': [
+                    {'label': 'Auth', 'description': 'Authentication'},
+                    {'label': 'DB', 'description': 'Database'},
+                    {'label': 'API', 'description': 'REST API'},
+                  ],
+                  'multiSelect': true,
+                },
               ],
-              'multiSelect': true,
             },
-          ]
-        },
-        onAnswer: (_, result) => answeredResult = result,
-      )));
+            onAnswer: (_, result) => answeredResult = result,
+          ),
+        ),
+      );
 
       // Select Auth and API
       await tester.tap(find.text('Auth'));
@@ -294,30 +329,40 @@ void main() {
       // only auto-sends for non-multi. Multi stores in _multiAnswers.
       // And _isSingleQuestion hides the Submit button.
       // So user has to type in text field to send. Let's verify checkbox state.
-      expect(find.byIcon(Icons.check_box), findsNWidgets(2)); // Auth + API selected
-      expect(find.byIcon(Icons.check_box_outline_blank), findsOneWidget); // DB unselected
+      expect(
+        find.byIcon(Icons.check_box),
+        findsNWidgets(2),
+      ); // Auth + API selected
+      expect(
+        find.byIcon(Icons.check_box_outline_blank),
+        findsOneWidget,
+      ); // DB unselected
     });
   });
 
   group('AskUserQuestionWidget - answered state', () {
     testWidgets('shows answered state after answering', (tester) async {
-      await tester.pumpWidget(_wrap(AskUserQuestionWidget(
-        toolUseId: 'test-8',
-        input: {
-          'questions': [
-            {
-              'question': 'Yes or No?',
-              'header': 'Confirm',
-              'options': [
-                {'label': 'Yes', 'description': ''},
-                {'label': 'No', 'description': ''},
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-8',
+            input: {
+              'questions': [
+                {
+                  'question': 'Yes or No?',
+                  'header': 'Confirm',
+                  'options': [
+                    {'label': 'Yes', 'description': ''},
+                    {'label': 'No', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
               ],
-              'multiSelect': false,
-            }
-          ]
-        },
-        onAnswer: (_, __) {},
-      )));
+            },
+            onAnswer: (_, __) {},
+          ),
+        ),
+      );
 
       // Before answering
       expect(find.text('Claude is asking'), findsOneWidget);

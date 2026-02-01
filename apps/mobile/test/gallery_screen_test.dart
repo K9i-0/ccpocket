@@ -39,10 +39,7 @@ class _MockBridgeService extends BridgeService {
 }
 
 Widget _wrapWithTheme(Widget child) {
-  return MaterialApp(
-    theme: AppTheme.darkTheme,
-    home: child,
-  );
+  return MaterialApp(theme: AppTheme.darkTheme, home: child);
 }
 
 void main() {

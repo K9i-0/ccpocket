@@ -90,8 +90,11 @@ void main() {
     test('known names classify as builtin', () {
       for (final name in ['compact', 'plan', 'clear', 'help', 'review']) {
         final cmd = buildSlashCommand(name);
-        expect(cmd.category, SlashCommandCategory.builtin,
-            reason: '$name should be builtin');
+        expect(
+          cmd.category,
+          SlashCommandCategory.builtin,
+          reason: '$name should be builtin',
+        );
       }
     });
 
