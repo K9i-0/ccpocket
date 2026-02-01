@@ -151,6 +151,14 @@ sealed class ServerMessage {
         sessionId: json['sessionId'] as String?,
         model: json['model'] as String?,
         projectPath: json['projectPath'] as String?,
+        slashCommands:
+            (json['slashCommands'] as List?)
+                ?.map((e) => e as String)
+                .toList() ??
+            const [],
+        skills:
+            (json['skills'] as List?)?.map((e) => e as String).toList() ??
+            const [],
       ),
       'assistant' => AssistantServerMessage(
         message: AssistantMessage.fromJson(
@@ -217,11 +225,15 @@ class SystemMessage implements ServerMessage {
   final String? sessionId;
   final String? model;
   final String? projectPath;
+  final List<String> slashCommands;
+  final List<String> skills;
   const SystemMessage({
     required this.subtype,
     this.sessionId,
     this.model,
     this.projectPath,
+    this.slashCommands = const [],
+    this.skills = const [],
   });
 }
 

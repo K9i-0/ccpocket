@@ -9,7 +9,14 @@ import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/slash_command_overlay.dart';
-import '../widgets/slash_command_sheet.dart';
+import '../widgets/slash_command_sheet.dart'
+    show
+        SlashCommand,
+        SlashCommandCategory,
+        SlashCommandSheet,
+        buildSlashCommand,
+        fallbackSlashCommands,
+        knownCommands;
 
 class ChatScreen extends StatefulWidget {
   final BridgeServiceBase bridge;
@@ -41,6 +48,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Slash command overlay
   OverlayEntry? _slashOverlay;
   final LayerLink _inputLayerLink = LayerLink();
+  List<SlashCommand> _slashCommands = List.of(fallbackSlashCommands);
 
   ProcessStatus _status = ProcessStatus.idle;
   bool _hasInputText = false;
@@ -256,7 +264,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               _status = m.status;
             }
           }
-        case SystemMessage():
+        case SystemMessage(:final subtype, :final slashCommands, :final skills):
+          if (subtype == 'init' && slashCommands.isNotEmpty) {
+            _slashCommands = _buildCommandList(slashCommands, skills);
+          }
           _addEntry(ServerChatEntry(msg));
         case PermissionRequestMessage(:final toolUseId):
           _addEntry(ServerChatEntry(msg));
@@ -298,7 +309,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final text = _inputController.text;
     if (text.startsWith('/') && text.isNotEmpty) {
       final query = text.toLowerCase();
-      final filtered = slashCommands
+      final filtered = _slashCommands
           .where((c) => c.command.toLowerCase().startsWith(query))
           .toList();
       if (filtered.isNotEmpty) {
@@ -340,6 +351,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _onSlashCommandSelected(String command) {
     _removeSlashOverlay();
+    final cmd = _slashCommands.where((c) => c.command == command).firstOrNull;
+
+    // Project commands: place in input field for argument editing
+    if (cmd != null && cmd.category == SlashCommandCategory.project) {
+      _inputController.text = '$command ';
+      _inputController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _inputController.text.length),
+      );
+      return;
+    }
+
+    // Built-in/skill commands: send immediately
     _inputController.clear();
     setState(() {
       _currentStreaming = null;
@@ -355,6 +378,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ClientMessage.input(command, sessionId: widget.sessionId),
     );
     _scrollToBottom();
+  }
+
+  List<SlashCommand> _buildCommandList(
+    List<String> commands,
+    List<String> skills,
+  ) {
+    final skillSet = skills.toSet();
+    final knownNames = knownCommands.keys.toSet();
+    return commands.map((name) {
+      final category = skillSet.contains(name)
+          ? SlashCommandCategory.skill
+          : knownNames.contains(name)
+          ? SlashCommandCategory.builtin
+          : SlashCommandCategory.project;
+      return buildSlashCommand(name, category: category);
+    }).toList();
   }
 
   void _onConnectionChange(BridgeConnectionState state) {
@@ -489,16 +528,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     showModalBottomSheet(
       context: context,
       builder: (_) => SlashCommandSheet(
-        onSelect: (command) {
-          setState(() {
-            _currentStreaming = null;
-            _addEntry(UserChatEntry(command));
-          });
-          widget.bridge.send(
-            ClientMessage.input(command, sessionId: widget.sessionId),
-          );
-          _scrollToBottom();
-        },
+        commands: _slashCommands,
+        onSelect: _onSlashCommandSelected,
       ),
     );
   }

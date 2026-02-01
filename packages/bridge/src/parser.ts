@@ -11,6 +11,8 @@ export interface SystemInitEvent {
   session_id: string;
   tools: string[];
   model: string;
+  slash_commands?: string[];
+  skills?: string[];
 }
 
 export interface AssistantTextContent {
@@ -141,7 +143,7 @@ export type ClientMessage =
   | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode };
 
 export type ServerMessage =
-  | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string }
+  | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string; slashCommands?: string[]; skills?: string[] }
   | { type: "assistant"; message: AssistantMessageEvent["message"] }
   | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[] }
   | { type: "result"; subtype: string; result?: string; error?: string; cost?: number; duration?: number; sessionId?: string }
@@ -191,6 +193,8 @@ export function claudeEventToServerMessage(event: ClaudeEvent): ServerMessage | 
         subtype: event.subtype,
         sessionId: event.session_id,
         model: event.model,
+        ...(event.slash_commands ? { slashCommands: event.slash_commands } : {}),
+        ...(event.skills ? { skills: event.skills } : {}),
       };
 
     case "assistant":

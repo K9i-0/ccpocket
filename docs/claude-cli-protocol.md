@@ -82,11 +82,36 @@ Emitted once at startup after initialization.
 {
   type: "system";
   subtype: "init";
-  session_id: string;     // Unique session identifier
-  tools: string[];        // Available tool names
-  model: string;          // Active model name
+  session_id: string;          // Unique session identifier
+  tools: string[];             // Available tool names
+  model: string;               // Active model name
+  slash_commands?: string[];   // Available slash command names (without "/")
+  skills?: string[];           // User-invocable skill names
+  agents?: string[];           // Available agent types
+  mcp_servers?: Array<{ name: string; status: string }>;
+  permissionMode?: string;     // Current permission mode
+  claude_code_version?: string;
 }
 ```
+
+**Example:**
+```json
+{
+  "type": "system",
+  "subtype": "init",
+  "session_id": "abc-123",
+  "tools": ["Bash", "Read", "Edit", "Write", "Glob", "Grep"],
+  "model": "claude-opus-4-5-20251101",
+  "slash_commands": ["compact", "context", "cost", "init", "review", "pr-comments", "release-notes", "security-review", "keybindings-help"],
+  "skills": ["keybindings-help"],
+  "agents": ["Bash", "general-purpose", "Plan", "Explore"]
+}
+```
+
+**Notes:**
+- `slash_commands` includes both built-in commands and custom commands from `.claude/commands/` directories
+- `skills` contains only user-invocable skills (those with `user-invocable: true` or not set to false)
+- Fields added in CLI v2.1.x; older versions may omit them
 
 ### 3.2 Assistant Message Event
 
@@ -517,3 +542,109 @@ The ccpocket Bridge Server translates between Flutter mobile app (WebSocket) and
   - `D5` — Default `canUseTool` function
 - **Telemetry prefix**: `tengu_` (e.g., `tengu_bash_tool_command_executed`)
 - **Settings files**: `~/.claude/settings.json`, `.claude/settings.json`, `.claude/settings.local.json`
+
+---
+
+## 9. Slash Commands & Skills
+
+### 9.1 Command Discovery
+
+Available commands are reported in the `system.init` event's `slash_commands` array.
+This includes both built-in commands and custom commands from `.claude/commands/` directories.
+Commands are sent to the CLI as plain text user input (e.g., `"/review"`). The CLI handles interpretation.
+
+### 9.2 Built-in Commands
+
+| Command | Description |
+|---------|-------------|
+| `/compact [instructions]` | Summarize conversation to free context |
+| `/context` | Show context usage and excluded skills |
+| `/cost` | Show token usage and cost |
+| `/clear` | Clear conversation history |
+| `/help` | Show all available commands |
+| `/plan` | Switch to Plan mode |
+| `/model` | Switch model (Sonnet, Opus, Haiku) |
+| `/status` | Show version and connectivity |
+| `/config` | Open settings panel |
+| `/permissions` | View and update tool permissions |
+| `/init` | Initialize project with CLAUDE.md |
+| `/memory` | Open CLAUDE.md for editing |
+| `/review` | Code review of current changes |
+| `/pr-comments` | PR comments |
+| `/release-notes` | Generate release notes |
+| `/security-review` | Security review |
+| `/resume` | Resume a previous session |
+| `/rename` | Rename current session |
+| `/rewind` | Rewind to a previous point |
+| `/export [filename]` | Export conversation |
+| `/doctor` | Run health checks |
+| `/add-dir` | Add working directories |
+| `/mcp` | Manage MCP servers |
+| `/vim` | Enable vim mode |
+| `/login` | Switch Anthropic accounts |
+
+### 9.3 Custom Commands (`.claude/commands/`)
+
+Markdown files placed in these directories become slash commands:
+
+| Directory | Scope |
+|-----------|-------|
+| `<project>/.claude/commands/` | Project-level (committable) |
+| `~/.claude/commands/` | User-level (global) |
+
+**File format:**
+```markdown
+---
+description: Brief description for /help listing
+allowed-tools: Read, Grep, Glob, Bash(git:*)
+---
+Prompt content sent to Claude when command is invoked.
+Use $ARGUMENTS for all arguments, or $1, $2 for positional.
+```
+
+- Filename (minus `.md`) becomes the command name: `review-pr.md` → `/review-pr`
+- Subdirectories create namespaced commands: `db/migrate.md` → `/db:migrate`
+- Frontmatter is optional; body is the prompt text
+
+### 9.4 Skills (`.claude/skills/`)
+
+Skills are the evolution of custom commands with richer capabilities:
+
+```
+.claude/skills/
+  my-skill/
+    SKILL.md           # Required: skill definition
+    scripts/           # Optional: executable scripts
+    references/        # Optional: documentation
+    templates/         # Optional: templates
+```
+
+**SKILL.md frontmatter:**
+
+| Field | Description |
+|-------|-------------|
+| `name` | Skill identifier (max 64 chars, lowercase/numbers/hyphens) |
+| `description` | How Claude decides when to auto-invoke (max 1024 chars) |
+| `disable-model-invocation` | If true, only user can invoke |
+| `user-invocable` | If false, only Claude can invoke |
+| `allowed-tools` | Restrict available tools |
+| `context: fork` | Run as isolated subagent |
+| `agent` | Specify agent type (e.g., Explore) |
+
+**Skill locations scanned:**
+- `<project>/.claude/skills/` — project skills
+- `~/.claude/skills/` — user skills
+- `~/.config/claude/skills/` — user skills (alternative)
+- Plugin-provided skills
+
+**Progressive loading:** At startup, only `name` and `description` are loaded. Full content is loaded on demand.
+
+### 9.5 Execution
+
+All commands (built-in, custom, skills) are executed by sending the command text as a regular user text message via stdin:
+
+```json
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"/review main"}]}}
+```
+
+The CLI internally detects the `/` prefix, matches the command, loads the markdown content, substitutes `$ARGUMENTS`, and processes it as a prompt.

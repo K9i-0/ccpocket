@@ -35,6 +35,11 @@ class SlashCommandOverlay extends StatelessWidget {
           itemCount: filteredCommands.length,
           itemBuilder: (context, index) {
             final cmd = filteredCommands[index];
+            final iconColor = switch (cmd.category) {
+              SlashCommandCategory.project => Colors.teal,
+              SlashCommandCategory.skill => Colors.amber,
+              SlashCommandCategory.builtin => appColors.subtleText,
+            };
             return InkWell(
               borderRadius: BorderRadius.circular(8),
               onTap: () => onSelect(cmd.command),
@@ -45,7 +50,7 @@ class SlashCommandOverlay extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(cmd.icon, size: 18, color: appColors.subtleText),
+                    Icon(cmd.icon, size: 18, color: iconColor),
                     const SizedBox(width: 10),
                     Text(
                       cmd.command,
@@ -56,6 +61,29 @@ class SlashCommandOverlay extends StatelessWidget {
                         color: cs.primary,
                       ),
                     ),
+                    if (cmd.category != SlashCommandCategory.builtin) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: iconColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          cmd.category == SlashCommandCategory.project
+                              ? 'project'
+                              : 'skill',
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w600,
+                            color: iconColor,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
