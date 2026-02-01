@@ -1,17 +1,13 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:marionette_flutter/marionette_flutter.dart';
+import 'package:flutter_driver/driver_extension.dart';
 
 import 'screens/session_list_screen.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
-  if (kDebugMode) {
-    MarionetteBinding.ensureInitialized();
-  } else {
-    WidgetsFlutterBinding.ensureInitialized();
-  }
+  enableFlutterDriverExtension();
+  WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.instance.init();
   runApp(const CcpocketApp());
 }

@@ -77,6 +77,39 @@ enum ProcessStatus {
   }
 }
 
+// ---- Permission mode ----
+
+enum PermissionMode {
+  acceptEdits('acceptEdits', 'Accept Edits'),
+  bypassPermissions('bypassPermissions', 'Bypass All'),
+  plan('plan', 'Plan Only'),
+  defaultMode('default', 'Default (非推奨)'),
+  delegate('delegate', 'Delegate'),
+  dontAsk('dontAsk', "Don't Ask");
+
+  final String value;
+  final String label;
+  const PermissionMode(this.value, this.label);
+}
+
+// ---- Image reference ----
+
+class ImageRef {
+  final String id;
+  final String url;
+  final String mimeType;
+
+  const ImageRef({required this.id, required this.url, required this.mimeType});
+
+  factory ImageRef.fromJson(Map<String, dynamic> json) {
+    return ImageRef(
+      id: json['id'] as String,
+      url: json['url'] as String,
+      mimeType: json['mimeType'] as String,
+    );
+  }
+}
+
 // ---- Server messages ----
 
 sealed class ServerMessage {
@@ -86,6 +119,7 @@ sealed class ServerMessage {
         subtype: json['subtype'] as String? ?? '',
         sessionId: json['sessionId'] as String?,
         model: json['model'] as String?,
+        projectPath: json['projectPath'] as String?,
       ),
       'assistant' => AssistantServerMessage(
         message: AssistantMessage.fromJson(
@@ -95,6 +129,9 @@ sealed class ServerMessage {
       'tool_result' => ToolResultMessage(
         toolUseId: json['toolUseId'] as String,
         content: json['content'] as String,
+        images: (json['images'] as List?)
+            ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))
+            .toList() ?? const [],
       ),
       'result' => ResultMessage(
         subtype: json['subtype'] as String? ?? '',
@@ -102,6 +139,7 @@ sealed class ServerMessage {
         error: json['error'] as String?,
         cost: (json['cost'] as num?)?.toDouble(),
         duration: (json['duration'] as num?)?.toDouble(),
+        sessionId: json['sessionId'] as String?,
       ),
       'error' => ErrorMessage(message: json['message'] as String),
       'status' => StatusMessage(
@@ -110,6 +148,28 @@ sealed class ServerMessage {
       'history' => HistoryMessage(
         messages: (json['messages'] as List)
             .map((m) => ServerMessage.fromJson(m as Map<String, dynamic>))
+            .toList(),
+      ),
+      'permission_request' => PermissionRequestMessage(
+        toolUseId: json['toolUseId'] as String,
+        toolName: json['toolName'] as String,
+        input: Map<String, dynamic>.from(json['input'] as Map),
+      ),
+      'stream_delta' => StreamDeltaMessage(text: json['text'] as String),
+      'session_list' => SessionListMessage(
+        sessions: (json['sessions'] as List)
+            .map((s) => SessionInfo.fromJson(s as Map<String, dynamic>))
+            .toList(),
+      ),
+      'recent_sessions' => RecentSessionsMessage(
+        sessions: (json['sessions'] as List)
+            .map((s) => RecentSession.fromJson(s as Map<String, dynamic>))
+            .toList(),
+      ),
+      'past_history' => PastHistoryMessage(
+        claudeSessionId: json['claudeSessionId'] as String? ?? '',
+        messages: (json['messages'] as List)
+            .map((m) => PastMessage.fromJson(m as Map<String, dynamic>))
             .toList(),
       ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
@@ -121,10 +181,12 @@ class SystemMessage implements ServerMessage {
   final String subtype;
   final String? sessionId;
   final String? model;
+  final String? projectPath;
   const SystemMessage({
     required this.subtype,
     this.sessionId,
     this.model,
+    this.projectPath,
   });
 }
 
@@ -136,7 +198,12 @@ class AssistantServerMessage implements ServerMessage {
 class ToolResultMessage implements ServerMessage {
   final String toolUseId;
   final String content;
-  const ToolResultMessage({required this.toolUseId, required this.content});
+  final List<ImageRef> images;
+  const ToolResultMessage({
+    required this.toolUseId,
+    required this.content,
+    this.images = const [],
+  });
 }
 
 class ResultMessage implements ServerMessage {
@@ -145,12 +212,14 @@ class ResultMessage implements ServerMessage {
   final String? error;
   final double? cost;
   final double? duration;
+  final String? sessionId;
   const ResultMessage({
     required this.subtype,
     this.result,
     this.error,
     this.cost,
     this.duration,
+    this.sessionId,
   });
 }
 
@@ -169,37 +238,247 @@ class HistoryMessage implements ServerMessage {
   const HistoryMessage({required this.messages});
 }
 
+class PermissionRequestMessage implements ServerMessage {
+  final String toolUseId;
+  final String toolName;
+  final Map<String, dynamic> input;
+  const PermissionRequestMessage({
+    required this.toolUseId,
+    required this.toolName,
+    required this.input,
+  });
+}
+
+class StreamDeltaMessage implements ServerMessage {
+  final String text;
+  const StreamDeltaMessage({required this.text});
+}
+
+class SessionListMessage implements ServerMessage {
+  final List<SessionInfo> sessions;
+  const SessionListMessage({required this.sessions});
+}
+
+class RecentSessionsMessage implements ServerMessage {
+  final List<RecentSession> sessions;
+  const RecentSessionsMessage({required this.sessions});
+}
+
+class PastHistoryMessage implements ServerMessage {
+  final String claudeSessionId;
+  final List<PastMessage> messages;
+  const PastHistoryMessage({
+    required this.claudeSessionId,
+    required this.messages,
+  });
+}
+
+class PastMessage {
+  final String role;
+  final List<AssistantContent> content;
+  const PastMessage({required this.role, required this.content});
+
+  factory PastMessage.fromJson(Map<String, dynamic> json) {
+    final contentList = (json['content'] as List? ?? [])
+        .map((c) => AssistantContent.fromJson(c as Map<String, dynamic>))
+        .toList();
+    return PastMessage(
+      role: json['role'] as String? ?? '',
+      content: contentList,
+    );
+  }
+}
+
+// ---- Recent session (from sessions-index.json) ----
+
+class RecentSession {
+  final String sessionId;
+  final String? summary;
+  final String firstPrompt;
+  final int messageCount;
+  final String created;
+  final String modified;
+  final String gitBranch;
+  final String projectPath;
+  final bool isSidechain;
+
+  const RecentSession({
+    required this.sessionId,
+    this.summary,
+    required this.firstPrompt,
+    required this.messageCount,
+    required this.created,
+    required this.modified,
+    required this.gitBranch,
+    required this.projectPath,
+    required this.isSidechain,
+  });
+
+  factory RecentSession.fromJson(Map<String, dynamic> json) {
+    return RecentSession(
+      sessionId: json['sessionId'] as String,
+      summary: json['summary'] as String?,
+      firstPrompt: json['firstPrompt'] as String? ?? '',
+      messageCount: json['messageCount'] as int? ?? 0,
+      created: json['created'] as String? ?? '',
+      modified: json['modified'] as String? ?? '',
+      gitBranch: json['gitBranch'] as String? ?? '',
+      projectPath: json['projectPath'] as String? ?? '',
+      isSidechain: json['isSidechain'] as bool? ?? false,
+    );
+  }
+
+  /// Extract project name from path (last segment)
+  String get projectName {
+    final parts = projectPath.split('/');
+    return parts.isNotEmpty ? parts.last : projectPath;
+  }
+
+  /// Display text: summary if available, otherwise firstPrompt
+  String get displayText {
+    if (summary != null && summary!.isNotEmpty) return summary!;
+    if (firstPrompt.isNotEmpty) return firstPrompt;
+    return '(no description)';
+  }
+}
+
+// ---- Session info (for multi-session) ----
+
+class SessionInfo {
+  final String id;
+  final String projectPath;
+  final String? claudeSessionId;
+  final String status;
+  final String createdAt;
+  final String lastActivityAt;
+
+  const SessionInfo({
+    required this.id,
+    required this.projectPath,
+    this.claudeSessionId,
+    required this.status,
+    required this.createdAt,
+    required this.lastActivityAt,
+  });
+
+  factory SessionInfo.fromJson(Map<String, dynamic> json) {
+    return SessionInfo(
+      id: json['id'] as String,
+      projectPath: json['projectPath'] as String,
+      claudeSessionId: json['claudeSessionId'] as String?,
+      status: json['status'] as String? ?? 'idle',
+      createdAt: json['createdAt'] as String? ?? '',
+      lastActivityAt: json['lastActivityAt'] as String? ?? '',
+    );
+  }
+}
+
 // ---- Client messages ----
 
 class ClientMessage {
   final Map<String, dynamic> _json;
   ClientMessage._(this._json);
 
-  factory ClientMessage.start(String projectPath) =>
-      ClientMessage._({'type': 'start', 'projectPath': projectPath});
+  factory ClientMessage.start(
+    String projectPath, {
+    String? sessionId,
+    bool? continueMode,
+    String? permissionMode,
+  }) {
+    final json = <String, dynamic>{'type': 'start', 'projectPath': projectPath};
+    if (sessionId != null) json['sessionId'] = sessionId;
+    if (continueMode == true) json['continue'] = true;
+    if (permissionMode != null) json['permissionMode'] = permissionMode;
+    return ClientMessage._(json);
+  }
 
-  factory ClientMessage.input(String text) =>
-      ClientMessage._({'type': 'input', 'text': text});
+  factory ClientMessage.input(String text, {String? sessionId}) {
+    final json = <String, dynamic>{'type': 'input', 'text': text};
+    if (sessionId != null) json['sessionId'] = sessionId;
+    return ClientMessage._(json);
+  }
 
-  factory ClientMessage.approve(String id) =>
-      ClientMessage._({'type': 'approve', 'id': id});
+  factory ClientMessage.approve(String id, {String? sessionId}) {
+    final json = <String, dynamic>{'type': 'approve', 'id': id};
+    if (sessionId != null) json['sessionId'] = sessionId;
+    return ClientMessage._(json);
+  }
 
-  factory ClientMessage.reject(String id) =>
-      ClientMessage._({'type': 'reject', 'id': id});
+  factory ClientMessage.reject(String id, {String? message, String? sessionId}) {
+    final json = <String, dynamic>{'type': 'reject', 'id': id};
+    if (message != null) json['message'] = message;
+    if (sessionId != null) json['sessionId'] = sessionId;
+    return ClientMessage._(json);
+  }
+
+  factory ClientMessage.answer(String toolUseId, String result, {String? sessionId}) {
+    final json = <String, dynamic>{
+      'type': 'answer',
+      'toolUseId': toolUseId,
+      'result': result,
+    };
+    if (sessionId != null) json['sessionId'] = sessionId;
+    return ClientMessage._(json);
+  }
+
+  factory ClientMessage.getHistory(String sessionId) =>
+      ClientMessage._({'type': 'get_history', 'sessionId': sessionId});
+
+  factory ClientMessage.listSessions() =>
+      ClientMessage._({'type': 'list_sessions'});
+
+  factory ClientMessage.stopSession(String sessionId) =>
+      ClientMessage._({'type': 'stop_session', 'sessionId': sessionId});
+
+  factory ClientMessage.listRecentSessions({int? limit}) {
+    final json = <String, dynamic>{'type': 'list_recent_sessions'};
+    if (limit != null) json['limit'] = limit;
+    return ClientMessage._(json);
+  }
+
+  factory ClientMessage.resumeSession(
+    String sessionId,
+    String projectPath, {
+    String? permissionMode,
+  }) {
+    final json = <String, dynamic>{
+      'type': 'resume_session',
+      'sessionId': sessionId,
+      'projectPath': projectPath,
+    };
+    if (permissionMode != null) json['permissionMode'] = permissionMode;
+    return ClientMessage._(json);
+  }
 
   String toJson() => jsonEncode(_json);
 }
 
 // ---- Chat entry (for UI display) ----
 
-sealed class ChatEntry {}
+sealed class ChatEntry {
+  DateTime get timestamp;
+}
 
 class ServerChatEntry implements ChatEntry {
   final ServerMessage message;
-  const ServerChatEntry(this.message);
+  @override
+  final DateTime timestamp;
+  ServerChatEntry(this.message, {DateTime? timestamp})
+      : timestamp = timestamp ?? DateTime.now();
 }
 
 class UserChatEntry implements ChatEntry {
   final String text;
-  const UserChatEntry(this.text);
+  @override
+  final DateTime timestamp;
+  UserChatEntry(this.text, {DateTime? timestamp})
+      : timestamp = timestamp ?? DateTime.now();
+}
+
+class StreamingChatEntry implements ChatEntry {
+  String text;
+  @override
+  final DateTime timestamp;
+  StreamingChatEntry({this.text = '', DateTime? timestamp})
+      : timestamp = timestamp ?? DateTime.now();
 }

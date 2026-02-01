@@ -36,9 +36,15 @@ dependencies:
   cupertino_icons: ^1.0.8
   web_socket_channel: ^3.0.3
   marionette_flutter: ^0.3.0
+  shared_preferences: ^2.5.0
+  flutter_local_notifications: ^20.0.0
+  flutter_markdown: ^0.7.7+1
+  google_fonts: ^8.0.0
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  flutter_driver:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to
