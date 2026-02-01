@@ -8,13 +8,6 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/messages.dart';
 import 'bridge_service_base.dart';
 
-enum BridgeConnectionState {
-  disconnected,
-  connecting,
-  connected,
-  reconnecting,
-}
-
 class BridgeService implements BridgeServiceBase {
   WebSocketChannel? _channel;
   final _messageController = StreamController<ServerMessage>.broadcast();
@@ -25,6 +18,7 @@ class BridgeService implements BridgeServiceBase {
       StreamController<List<RecentSession>>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
+  final List<ClientMessage> _messageQueue = [];
   List<SessionInfo> _sessions = [];
   List<RecentSession> _recentSessions = [];
 
@@ -41,11 +35,13 @@ class BridgeService implements BridgeServiceBase {
 
   @override
   Stream<ServerMessage> get messages => _messageController.stream;
+  @override
   Stream<BridgeConnectionState> get connectionStatus => _connectionController.stream;
   Stream<List<SessionInfo>> get sessionList => _sessionListController.stream;
   Stream<List<RecentSession>> get recentSessionsStream =>
       _recentSessionsController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
+  @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
   List<SessionInfo> get sessions => _sessions;
   List<RecentSession> get recentSessions => _recentSessions;
@@ -84,6 +80,7 @@ class BridgeService implements BridgeServiceBase {
       _channel = WebSocketChannel.connect(Uri.parse(url));
       _setBridgeConnectionState(BridgeConnectionState.connected);
       _reconnectAttempt = 0;
+      _flushMessageQueue();
 
       _channel!.stream.listen(
         (data) {
@@ -150,6 +147,17 @@ class BridgeService implements BridgeServiceBase {
   void send(ClientMessage message) {
     if (_channel != null && isConnected) {
       _channel!.sink.add(message.toJson());
+    } else {
+      _messageQueue.add(message);
+    }
+  }
+
+  void _flushMessageQueue() {
+    if (_messageQueue.isEmpty || !isConnected) return;
+    final queued = List<ClientMessage>.from(_messageQueue);
+    _messageQueue.clear();
+    for (final msg in queued) {
+      send(msg);
     }
   }
 

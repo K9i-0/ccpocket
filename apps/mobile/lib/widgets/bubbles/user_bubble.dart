@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 
 class UserBubble extends StatelessWidget {
   final String text;
-  const UserBubble({super.key, required this.text});
+  final MessageStatus status;
+  final VoidCallback? onRetry;
+  const UserBubble({
+    super.key,
+    required this.text,
+    this.status = MessageStatus.sent,
+    this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -23,29 +31,75 @@ class UserBubble extends StatelessWidget {
             ),
           );
         },
-        child: Container(
-          margin: const EdgeInsets.symmetric(
-            vertical: AppSpacing.bubbleMarginV,
-            horizontal: AppSpacing.bubbleMarginH,
-          ),
-          padding: const EdgeInsets.symmetric(
-            vertical: AppSpacing.bubblePaddingV,
-            horizontal: AppSpacing.bubblePaddingH,
-          ),
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width *
-                AppSpacing.maxBubbleWidthFraction,
-          ),
-          decoration: BoxDecoration(
-            color: appColors.userBubble,
-            borderRadius: AppSpacing.userBubbleBorderRadius,
-          ),
-          child: Text(
-            text,
-            style: TextStyle(color: appColors.userBubbleText),
-          ),
+        onTap: status == MessageStatus.failed ? onRetry : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(
+                vertical: AppSpacing.bubbleMarginV,
+                horizontal: AppSpacing.bubbleMarginH,
+              ),
+              padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.bubblePaddingV,
+                horizontal: AppSpacing.bubblePaddingH,
+              ),
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width *
+                    AppSpacing.maxBubbleWidthFraction,
+              ),
+              decoration: BoxDecoration(
+                color: appColors.userBubble,
+                borderRadius: AppSpacing.userBubbleBorderRadius,
+              ),
+              child: Text(
+                text,
+                style: TextStyle(color: appColors.userBubbleText),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.bubbleMarginH),
+              child: _buildStatusIndicator(context, appColors),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Widget _buildStatusIndicator(BuildContext context, AppColors appColors) {
+    return switch (status) {
+      MessageStatus.sending => SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+            color: appColors.subtleText,
+          ),
+        ),
+      MessageStatus.sent => Icon(
+          Icons.check,
+          size: 14,
+          color: appColors.subtleText,
+        ),
+      MessageStatus.failed => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 14,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Tap to retry',
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+          ],
+        ),
+    };
   }
 }

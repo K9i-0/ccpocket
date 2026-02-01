@@ -60,6 +60,19 @@ class AssistantMessage {
   }
 }
 
+// ---- Bridge connection state ----
+
+enum BridgeConnectionState {
+  disconnected,
+  connecting,
+  connected,
+  reconnecting,
+}
+
+// ---- Message status (for user messages) ----
+
+enum MessageStatus { sending, sent, failed }
+
 // ---- Process status ----
 
 enum ProcessStatus {
@@ -469,10 +482,16 @@ class ServerChatEntry implements ChatEntry {
 
 class UserChatEntry implements ChatEntry {
   final String text;
+  final String? sessionId;
+  MessageStatus status;
   @override
   final DateTime timestamp;
-  UserChatEntry(this.text, {DateTime? timestamp})
-      : timestamp = timestamp ?? DateTime.now();
+  UserChatEntry(
+    this.text, {
+    DateTime? timestamp,
+    this.sessionId,
+    this.status = MessageStatus.sending,
+  }) : timestamp = timestamp ?? DateTime.now();
 }
 
 class StreamingChatEntry implements ChatEntry {

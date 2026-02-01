@@ -18,11 +18,13 @@ class ChatEntryWidget extends StatelessWidget {
   final ChatEntry entry;
   final ChatEntry? previous;
   final String? httpBaseUrl;
+  final void Function(UserChatEntry)? onRetryMessage;
   const ChatEntryWidget({
     super.key,
     required this.entry,
     this.previous,
     this.httpBaseUrl,
+    this.onRetryMessage,
   });
 
   @override
@@ -33,7 +35,12 @@ class ChatEntryWidget extends StatelessWidget {
         switch (entry) {
           ServerChatEntry(:final message) =>
             ServerMessageWidget(message: message, httpBaseUrl: httpBaseUrl),
-          UserChatEntry(:final text) => UserBubble(text: text),
+          final UserChatEntry user => UserBubble(
+              text: user.text,
+              status: user.status,
+              onRetry:
+                  onRetryMessage != null ? () => onRetryMessage!(user) : null,
+            ),
           StreamingChatEntry(:final text) => StreamingBubble(text: text),
         },
       ],

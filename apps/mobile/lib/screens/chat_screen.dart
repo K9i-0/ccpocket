@@ -8,6 +8,7 @@ import '../services/bridge_service_base.dart';
 import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/message_bubble.dart';
+import '../widgets/slash_command_overlay.dart';
 import '../widgets/slash_command_sheet.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -29,11 +30,17 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
+  static final Map<String, double> _scrollOffsets = {};
+
   AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   final List<ChatEntry> _entries = [];
   final _listKey = GlobalKey<AnimatedListState>();
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+
+  // Slash command overlay
+  OverlayEntry? _slashOverlay;
+  final LayerLink _inputLayerLink = LayerLink();
 
   ProcessStatus _status = ProcessStatus.idle;
   String? _pendingToolUseId;
@@ -52,17 +59,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Scroll tracking
   bool _isScrolledUp = false;
 
+  // Bridge connection state
+  BridgeConnectionState _bridgeState = BridgeConnectionState.connected;
+
   // Bulk loading flag (skip animation during history load)
   bool _bulkLoading = true;
 
   StreamSubscription<ServerMessage>? _messageSub;
+  StreamSubscription<BridgeConnectionState>? _connectionSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
+    _inputController.addListener(_onInputChanged);
     _messageSub = widget.bridge.messages.listen(_onServerMessage);
+    _connectionSub = widget.bridge.connectionStatus.listen(_onConnectionChange);
     // Consume buffered past history from resume_session
     final pastHistory = widget.bridge.pendingPastHistory;
     if (pastHistory != null) {
@@ -71,16 +84,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     // Request in-memory history for this session
     widget.bridge.requestSessionHistory(widget.sessionId);
-    // Enable animation after initial load
+    // Enable animation after initial load & restore scroll position
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bulkLoading = false;
+      final savedOffset = _scrollOffsets[widget.sessionId];
+      if (savedOffset != null && _scrollController.hasClients) {
+        _scrollController.jumpTo(savedOffset);
+      }
     });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    if (_scrollController.hasClients) {
+      _scrollOffsets[widget.sessionId] = _scrollController.offset;
+    }
+    _removeSlashOverlay();
     _messageSub?.cancel();
+    _connectionSub?.cancel();
+    _inputController.removeListener(_onInputChanged);
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -129,6 +152,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _currentStreaming!.text += text;
           }
         case AssistantServerMessage(:final message):
+          // Mark pending user messages as sent
+          for (final e in _entries) {
+            if (e is UserChatEntry && e.status == MessageStatus.sending) {
+              e.status = MessageStatus.sent;
+            }
+          }
           // Replace streaming entry with final assistant entry
           if (_currentStreaming != null) {
             final idx = _entries.indexOf(_currentStreaming!);
@@ -225,6 +254,89 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _scrollToBottom();
   }
 
+  void _onInputChanged() {
+    final text = _inputController.text;
+    if (text.startsWith('/') && text.isNotEmpty) {
+      final query = text.toLowerCase();
+      final filtered = slashCommands
+          .where((c) => c.command.toLowerCase().startsWith(query))
+          .toList();
+      if (filtered.isNotEmpty) {
+        _showSlashOverlay(filtered);
+      } else {
+        _removeSlashOverlay();
+      }
+    } else {
+      _removeSlashOverlay();
+    }
+  }
+
+  void _showSlashOverlay(List<SlashCommand> filtered) {
+    _removeSlashOverlay();
+    _slashOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        width: MediaQuery.of(context).size.width - 16,
+        child: CompositedTransformFollower(
+          link: _inputLayerLink,
+          showWhenUnlinked: false,
+          offset: const Offset(0, -8),
+          followerAnchor: Alignment.bottomLeft,
+          targetAnchor: Alignment.topLeft,
+          child: SlashCommandOverlay(
+            filteredCommands: filtered,
+            onSelect: _onSlashCommandSelected,
+            onDismiss: _removeSlashOverlay,
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_slashOverlay!);
+  }
+
+  void _removeSlashOverlay() {
+    _slashOverlay?.remove();
+    _slashOverlay = null;
+  }
+
+  void _onSlashCommandSelected(String command) {
+    _removeSlashOverlay();
+    _inputController.clear();
+    setState(() {
+      _currentStreaming = null;
+      _addEntry(UserChatEntry(
+        command,
+        sessionId: widget.sessionId,
+        status: MessageStatus.sending,
+      ));
+    });
+    widget.bridge.send(
+      ClientMessage.input(command, sessionId: widget.sessionId),
+    );
+    _scrollToBottom();
+  }
+
+  void _onConnectionChange(BridgeConnectionState state) {
+    setState(() => _bridgeState = state);
+    if (state == BridgeConnectionState.connected) {
+      _retryFailedMessages();
+    }
+  }
+
+  void _retryFailedMessages() {
+    for (final entry in _entries) {
+      if (entry is UserChatEntry && entry.status == MessageStatus.failed) {
+        _retryMessage(entry);
+      }
+    }
+  }
+
+  void _retryMessage(UserChatEntry entry) {
+    setState(() => entry.status = MessageStatus.sending);
+    widget.bridge.send(
+      ClientMessage.input(entry.text, sessionId: entry.sessionId ?? widget.sessionId),
+    );
+  }
+
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
@@ -235,6 +347,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _scrollToBottom() {
+    if (_isScrolledUp) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -250,9 +363,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
     HapticFeedback.lightImpact();
+    final connected = widget.bridge.isConnected;
+    final entry = UserChatEntry(
+      text,
+      sessionId: widget.sessionId,
+      status: connected ? MessageStatus.sending : MessageStatus.failed,
+    );
     setState(() {
       _currentStreaming = null;
-      _addEntry(UserChatEntry(text));
+      _addEntry(entry);
     });
     widget.bridge.send(
       ClientMessage.input(text, sessionId: widget.sessionId),
@@ -339,6 +458,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       body: Column(
         children: [
+          if (_bridgeState == BridgeConnectionState.reconnecting ||
+              _bridgeState == BridgeConnectionState.disconnected)
+            _buildReconnectBanner(appColors),
           Expanded(
             child: Stack(
               children: [
@@ -484,6 +606,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             entry: entry,
             previous: previous,
             httpBaseUrl: widget.bridge.httpBaseUrl,
+            onRetryMessage: _retryMessage,
           );
           if (_bulkLoading || animation.isCompleted) return child;
           return SlideTransition(
@@ -497,6 +620,41 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             child: FadeTransition(opacity: animation, child: child),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildReconnectBanner(AppColors appColors) {
+    final isReconnecting =
+        _bridgeState == BridgeConnectionState.reconnecting;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Theme.of(context).colorScheme.error.withValues(alpha: 0.12),
+      child: Row(
+        children: [
+          if (isReconnecting)
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Icon(
+              Icons.cloud_off,
+              size: 16,
+              color: Theme.of(context).colorScheme.error,
+            ),
+          const SizedBox(width: 8),
+          Text(
+            isReconnecting ? 'Reconnecting...' : 'Disconnected',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -637,8 +795,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: TextField(
-              key: const ValueKey('message_input'),
+            child: CompositedTransformTarget(
+              link: _inputLayerLink,
+              child: TextField(
+                key: const ValueKey('message_input'),
               controller: _inputController,
               decoration: InputDecoration(
                 hintText: 'Message Claude...',
@@ -670,6 +830,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _sendMessage(),
+            ),
             ),
           ),
           const SizedBox(width: 8),

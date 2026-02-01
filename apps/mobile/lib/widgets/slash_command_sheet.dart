@@ -15,7 +15,7 @@ class SlashCommand {
   });
 }
 
-const _commands = [
+const slashCommands = [
   SlashCommand(command: '/compact', description: 'Compact conversation', icon: Icons.compress),
   SlashCommand(
     command: '/plan',
@@ -67,7 +67,7 @@ class SlashCommandSheet extends StatelessWidget {
               ),
             ),
           ),
-          for (final cmd in _commands)
+          for (final cmd in slashCommands)
             ListTile(
               leading: Icon(cmd.icon, size: 22),
               title: Text(

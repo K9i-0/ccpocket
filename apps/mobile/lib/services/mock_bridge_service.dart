@@ -16,6 +16,13 @@ class MockBridgeService implements BridgeServiceBase {
   String? get httpBaseUrl => null;
 
   @override
+  bool get isConnected => true;
+
+  @override
+  Stream<BridgeConnectionState> get connectionStatus =>
+      Stream.value(BridgeConnectionState.connected);
+
+  @override
   PastHistoryMessage? pendingPastHistory;
 
   @override

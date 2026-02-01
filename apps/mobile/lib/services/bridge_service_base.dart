@@ -5,6 +5,8 @@ import '../models/messages.dart';
 abstract class BridgeServiceBase {
   Stream<ServerMessage> get messages;
   String? get httpBaseUrl;
+  bool get isConnected;
+  Stream<BridgeConnectionState> get connectionStatus;
   void send(ClientMessage message);
   void requestSessionHistory(String sessionId);
 
