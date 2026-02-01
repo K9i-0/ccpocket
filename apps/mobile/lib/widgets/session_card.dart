@@ -190,11 +190,13 @@ class _StatusDotState extends State<_StatusDot>
 class RecentSessionCard extends StatelessWidget {
   final RecentSession session;
   final VoidCallback onTap;
+  final bool hideProjectBadge;
 
   const RecentSessionCard({
     super.key,
     required this.session,
     required this.onTap,
+    this.hideProjectBadge = false,
   });
 
   @override
@@ -209,25 +211,28 @@ class RecentSessionCard extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                session.projectName,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: Theme.of(context).colorScheme.primary,
+            if (!hideProjectBadge) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                overflow: TextOverflow.ellipsis,
+                child: Text(
+                  session.projectName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            const Spacer(),
+              const Spacer(),
+            ] else
+              const Spacer(),
             Text(
               dateStr,
               style: TextStyle(fontSize: 11, color: appColors.subtleText),

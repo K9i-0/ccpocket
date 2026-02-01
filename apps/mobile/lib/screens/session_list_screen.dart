@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,10 +15,62 @@ import 'chat_screen.dart';
 import 'mock_preview_screen.dart';
 import 'qr_scan_screen.dart';
 
+// ---- Testable helpers (top-level) ----
+
+/// Project name → session count, preserving first-seen order.
+Map<String, int> projectCounts(List<RecentSession> sessions) {
+  final counts = <String, int>{};
+  for (final s in sessions) {
+    counts[s.projectName] = (counts[s.projectName] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/// Filter sessions by project name (null = no filter).
+List<RecentSession> filterByProject(
+  List<RecentSession> sessions,
+  String? projectName,
+) {
+  if (projectName == null) return sessions;
+  return sessions.where((s) => s.projectName == projectName).toList();
+}
+
+/// Unique project paths in first-seen order.
+List<({String path, String name})> recentProjects(
+  List<RecentSession> sessions,
+) {
+  final seen = <String>{};
+  final result = <({String path, String name})>[];
+  for (final s in sessions) {
+    if (seen.add(s.projectPath)) {
+      result.add((path: s.projectPath, name: s.projectName));
+    }
+  }
+  return result;
+}
+
+/// Shorten absolute path by replacing $HOME with ~.
+String shortenPath(String path) {
+  final home = Platform.environment['HOME'] ?? '';
+  if (home.isNotEmpty && path.startsWith(home)) {
+    return '~${path.substring(home.length)}';
+  }
+  return path;
+}
+
+// ---- Screen ----
+
 class SessionListScreen extends StatefulWidget {
   final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
 
-  const SessionListScreen({super.key, this.deepLinkNotifier});
+  /// Pre-populated sessions for UI testing (skips bridge connection).
+  final List<RecentSession>? debugRecentSessions;
+
+  const SessionListScreen({
+    super.key,
+    this.deepLinkNotifier,
+    this.debugRecentSessions,
+  });
 
   @override
   State<SessionListScreen> createState() => _SessionListScreenState();
@@ -34,6 +87,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
   List<RecentSession> _recentSessions = [];
   List<DiscoveredServer> _discoveredServers = [];
   bool _isAutoConnecting = false;
+  String? _selectedProject; // null = show all
 
   // Cache for resume navigation
   String? _pendingResumeProjectPath;
@@ -50,9 +104,22 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
   bool get _isConnected => _connectionState == BridgeConnectionState.connected;
 
+  Map<String, int> get _projectCounts => projectCounts(_recentSessions);
+
+  List<RecentSession> get _filteredRecentSessions =>
+      filterByProject(_recentSessions, _selectedProject);
+
+  List<({String path, String name})> get _recentProjects =>
+      recentProjects(_recentSessions);
+
   @override
   void initState() {
     super.initState();
+    // Pre-populate with debug data if provided (skips bridge).
+    if (widget.debugRecentSessions != null) {
+      _recentSessions = widget.debugRecentSessions!;
+      _connectionState = BridgeConnectionState.connected;
+    }
     _connectionSub = _bridge.connectionStatus.listen((state) {
       setState(() {
         _connectionState = state;
@@ -176,6 +243,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
     setState(() {
       _sessions = [];
       _recentSessions = [];
+      _selectedProject = null;
     });
   }
 
@@ -186,100 +254,270 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
   void _showNewSessionDialog() {
     final pathController = TextEditingController();
-    final sessionIdController = TextEditingController();
     var permissionMode = PermissionMode.acceptEdits;
     var continueMode = false;
+    final projects = _recentProjects;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('New Session'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  key: const ValueKey('dialog_project_path'),
-                  controller: pathController,
-                  decoration: const InputDecoration(
-                    labelText: 'Project Path',
-                    hintText: '/path/to/your/project',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        final appColors = Theme.of(context).extension<AppColors>()!;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final hasPath = pathController.text.trim().isNotEmpty;
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Drag handle
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Container(
+                          width: 32,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: appColors.subtleText.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Title
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'New Session',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Recent projects
+                    if (projects.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Recent Projects',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: appColors.subtleText,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      for (final project in projects)
+                        _buildProjectTile(
+                          context,
+                          project,
+                          pathController,
+                          appColors,
+                          setSheetState,
+                        ),
+                      // Divider
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Divider(
+                                color: appColors.subtleText.withValues(
+                                  alpha: 0.2,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Text(
+                                'or enter path',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: appColors.subtleText,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(
+                                color: appColors.subtleText.withValues(
+                                  alpha: 0.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    // Manual path input
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextField(
+                        key: const ValueKey('dialog_project_path'),
+                        controller: pathController,
+                        decoration: const InputDecoration(
+                          labelText: 'Project Path',
+                          hintText: '/path/to/your/project',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onChanged: (_) => setSheetState(() {}),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Options row
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<PermissionMode>(
+                              key: const ValueKey('dialog_permission_mode'),
+                              initialValue: permissionMode,
+                              decoration: const InputDecoration(
+                                labelText: 'Permission',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              items: PermissionMode.values
+                                  .map(
+                                    (m) => DropdownMenuItem(
+                                      value: m,
+                                      child: Text(
+                                        m.label,
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setSheetState(() => permissionMode = value);
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          FilterChip(
+                            label: const Text(
+                              'Continue',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                            selected: continueMode,
+                            onSelected: (val) =>
+                                setSheetState(() => continueMode = val),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Actions
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              key: const ValueKey('dialog_start_button'),
+                              onPressed: hasPath
+                                  ? () {
+                                      final path = pathController.text.trim();
+                                      Navigator.pop(context);
+                                      _pendingResumeProjectPath = path;
+                                      _bridge.send(
+                                        ClientMessage.start(
+                                          path,
+                                          continueMode: continueMode
+                                              ? true
+                                              : null,
+                                          permissionMode: permissionMode.value,
+                                        ),
+                                      );
+                                    }
+                                  : null,
+                              child: const Text('Start'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const ValueKey('dialog_session_id'),
-                  controller: sessionIdController,
-                  decoration: const InputDecoration(
-                    labelText: 'Session ID (optional, for resume)',
-                    hintText: 'Leave empty for new session',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<PermissionMode>(
-                  key: const ValueKey('dialog_permission_mode'),
-                  initialValue: permissionMode,
-                  decoration: const InputDecoration(
-                    labelText: 'Permission Mode',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: PermissionMode.values
-                      .map(
-                        (m) => DropdownMenuItem(value: m, child: Text(m.label)),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setDialogState(() => permissionMode = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 8),
-                CheckboxListTile(
-                  key: const ValueKey('dialog_continue_mode'),
-                  title: const Text('Continue last session'),
-                  value: continueMode,
-                  onChanged: (val) =>
-                      setDialogState(() => continueMode = val ?? false),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              key: const ValueKey('dialog_start_button'),
-              onPressed: () {
-                final path = pathController.text.trim();
-                if (path.isEmpty) return;
-                Navigator.pop(context);
-                _pendingResumeProjectPath = path;
-                final sessionId = sessionIdController.text.trim();
-                _bridge.send(
-                  ClientMessage.start(
-                    path,
-                    sessionId: sessionId.isNotEmpty ? sessionId : null,
-                    continueMode: continueMode ? true : null,
-                    permissionMode: permissionMode.value,
-                  ),
-                );
-              },
-              child: const Text('Start'),
-            ),
-          ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildProjectTile(
+    BuildContext context,
+    ({String path, String name}) project,
+    TextEditingController pathController,
+    AppColors appColors,
+    StateSetter setSheetState,
+  ) {
+    final isSelected = pathController.text == project.path;
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: Icon(
+        Icons.folder_outlined,
+        size: 22,
+        color: isSelected
+            ? Theme.of(context).colorScheme.primary
+            : appColors.subtleText,
+      ),
+      title: Text(
+        project.name,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: isSelected ? Theme.of(context).colorScheme.primary : null,
         ),
       ),
+      subtitle: Text(
+        shortenPath(project.path),
+        style: TextStyle(fontSize: 11, color: appColors.subtleText),
+      ),
+      trailing: isSelected
+          ? Icon(
+              Icons.check_circle,
+              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+            )
+          : null,
+      onTap: () {
+        pathController.text = project.path;
+        setSheetState(() {});
+      },
     );
   }
 
@@ -620,11 +858,17 @@ class _SessionListScreenState extends State<SessionListScreen> {
             label: 'Recent Sessions',
             color: appColors.subtleText,
           ),
-          const SizedBox(height: 4),
-          for (final session in _recentSessions)
+          if (_projectCounts.length > 1) ...[
+            const SizedBox(height: 8),
+            _buildProjectFilterChips(appColors),
+            const SizedBox(height: 8),
+          ] else
+            const SizedBox(height: 4),
+          for (final session in _filteredRecentSessions)
             RecentSessionCard(
               session: session,
               onTap: () => _resumeSession(session),
+              hideProjectBadge: _selectedProject != null,
             ),
         ],
       ],
@@ -699,6 +943,72 @@ class _SessionListScreenState extends State<SessionListScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProjectFilterChips(AppColors appColors) {
+    final counts = _projectCounts;
+    final surfaceColor = Theme.of(context).colorScheme.surface;
+    return SizedBox(
+      height: 36,
+      child: ShaderMask(
+        shaderCallback: (bounds) => LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Colors.white,
+            Colors.white,
+            Colors.white,
+            Colors.white.withValues(alpha: 0.0),
+          ],
+          stops: const [0.0, 0.85, 0.92, 1.0],
+        ).createShader(bounds),
+        blendMode: BlendMode.dstIn,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.only(left: 4, right: 28),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
+                label: Text('All (${_recentSessions.length})'),
+                selected: _selectedProject == null,
+                onSelected: (_) => setState(() => _selectedProject = null),
+                labelStyle: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: _selectedProject == null
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : appColors.subtleText,
+                ),
+                selectedColor: Theme.of(context).colorScheme.primary,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+            for (final entry in counts.entries)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  label: Text(entry.key),
+                  selected: _selectedProject == entry.key,
+                  onSelected: (_) =>
+                      setState(() => _selectedProject = entry.key),
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: _selectedProject == entry.key
+                        ? Theme.of(context).colorScheme.onPrimary
+                        : appColors.subtleText,
+                  ),
+                  selectedColor: Theme.of(context).colorScheme.primary,
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+          ],
         ),
       ),
     );
