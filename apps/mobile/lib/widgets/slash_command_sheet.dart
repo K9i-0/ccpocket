@@ -159,12 +159,20 @@ class SlashCommandSheet extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (project.isNotEmpty) ...[
-                    _sectionHeader('Project', appColors, Colors.teal),
+                    _sectionHeader(
+                      'Project',
+                      appColors,
+                      Theme.of(context).colorScheme.secondary,
+                    ),
                     for (final cmd in project)
                       _commandTile(context, cmd, appColors),
                   ],
                   if (skills.isNotEmpty) ...[
-                    _sectionHeader('Skills', appColors, Colors.amber),
+                    _sectionHeader(
+                      'Skills',
+                      appColors,
+                      Theme.of(context).colorScheme.tertiary,
+                    ),
                     for (final cmd in skills)
                       _commandTile(context, cmd, appColors),
                   ],

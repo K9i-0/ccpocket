@@ -2,28 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ---------------------------------------------------------------------------
-// AppTheme: Indigo-Cyan design system (Poppins + Inter typography)
+// AppTheme: Graphite & Ember design system (Space Grotesk + IBM Plex Sans)
+//
+// Warm editorial palette. Dominant burnt-orange primary with muted teal
+// accent. Warm stone surfaces instead of cool slates. Inspired by IDE themes
+// and professional developer tools — deliberately avoids the "AI purple
+// gradient on white" cliché.
 // ---------------------------------------------------------------------------
 
 class AppTheme {
   static ThemeData get lightTheme {
     final colorScheme = ColorScheme.light(
-      surface: const Color(0xFFFAFAFC),
+      surface: const Color(0xFFFAFAF7), // warm ivory
       surfaceContainerLowest: Colors.white,
-      surfaceContainerLow: const Color(0xFFF8F9FB),
-      surfaceContainer: const Color(0xFFF1F5F9),
-      surfaceContainerHigh: const Color(0xFFE2E8F0),
-      surfaceContainerHighest: const Color(0xFFCBD5E1),
-      primary: const Color(0xFF4F46E5), // Indigo 600
+      surfaceContainerLow: const Color(0xFFF7F6F3), // warm paper
+      surfaceContainer: const Color(0xFFEDEBE8), // warm light grey
+      surfaceContainerHigh: const Color(0xFFE0DEDA), // warm mid grey
+      surfaceContainerHighest: const Color(0xFFD1CECC),
+      primary: const Color(0xFFC2410C), // Ember (Orange 700)
       onPrimary: Colors.white,
-      primaryContainer: const Color(0xFFE0E7FF),
-      secondary: const Color(0xFF0891B2), // Cyan 600
+      primaryContainer: const Color(0xFFFFEDD5), // Orange 100
+      secondary: const Color(0xFF0F766E), // Teal 700 (muted complement)
       onSecondary: Colors.white,
-      tertiary: const Color(0xFFDB2777), // Pink 600
-      error: const Color(0xFFDC2626), // Red 600
+      tertiary: const Color(0xFF92400E), // Amber 800 (subtle warm variant)
+      error: const Color(0xFFB91C1C), // Red 700
       onError: Colors.white,
-      outline: const Color(0xFF94A3B8),
-      outlineVariant: const Color(0xFFE2E8F0),
+      outline: const Color(0xFF9C9590), // warm grey
+      outlineVariant: const Color(0xFFE0DEDA),
     );
 
     return _buildTheme(colorScheme, Brightness.light, AppColors.light());
@@ -31,22 +36,22 @@ class AppTheme {
 
   static ThemeData get darkTheme {
     final colorScheme = ColorScheme.dark(
-      surface: const Color(0xFF0D0D12),
-      surfaceContainerLowest: const Color(0xFF0D0D12),
-      surfaceContainerLow: const Color(0xFF141419),
-      surfaceContainer: const Color(0xFF1A1A21),
-      surfaceContainerHigh: const Color(0xFF22222B),
-      surfaceContainerHighest: const Color(0xFF2A2A35),
-      primary: const Color(0xFF818CF8), // Indigo 400
+      surface: const Color(0xFF131211), // warm near-black
+      surfaceContainerLowest: const Color(0xFF131211),
+      surfaceContainerLow: const Color(0xFF1A1917), // warm dark
+      surfaceContainer: const Color(0xFF21201D), // warm dark grey
+      surfaceContainerHigh: const Color(0xFF2B2A26),
+      surfaceContainerHighest: const Color(0xFF353330),
+      primary: const Color(0xFFF97316), // Orange 500 (brighter for dark)
       onPrimary: Colors.white,
-      primaryContainer: const Color(0xFF4F46E5),
-      secondary: const Color(0xFF22D3EE), // Cyan 400
+      primaryContainer: const Color(0xFFC2410C),
+      secondary: const Color(0xFF2DD4BF), // Teal 300 (bright for dark)
       onSecondary: Colors.black,
-      tertiary: const Color(0xFFF472B6), // Pink 400
+      tertiary: const Color(0xFFFBBF24), // Amber 400
       error: const Color(0xFFF87171), // Red 400
       onError: Colors.black,
-      outline: const Color(0xFF4A4A5A),
-      outlineVariant: const Color(0xFF2A2A35),
+      outline: const Color(0xFF5C5750), // warm dark grey
+      outlineVariant: const Color(0xFF353330),
     );
 
     return _buildTheme(colorScheme, Brightness.dark, AppColors.dark());
@@ -219,91 +224,95 @@ class AppTheme {
   }
 
   static TextTheme _buildTextTheme(ColorScheme colorScheme) {
-    final baseTextTheme = GoogleFonts.interTextTheme();
+    final baseTextTheme = GoogleFonts.ibmPlexSansTextTheme();
 
+    // Headlines: Space Grotesk — geometric, distinctive, avoids generic Poppins
+    // Body/Labels: IBM Plex Sans — professional & readable, avoids generic Inter
     return baseTextTheme.copyWith(
-      displayLarge: GoogleFonts.poppins(
+      displayLarge: GoogleFonts.spaceGrotesk(
         fontSize: 57,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+        color: colorScheme.onSurface,
+      ),
+      displayMedium: GoogleFonts.spaceGrotesk(
+        fontSize: 45,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.25,
         color: colorScheme.onSurface,
       ),
-      displayMedium: GoogleFonts.poppins(
-        fontSize: 45,
-        fontWeight: FontWeight.w700,
-        color: colorScheme.onSurface,
-      ),
-      displaySmall: GoogleFonts.poppins(
+      displaySmall: GoogleFonts.spaceGrotesk(
         fontSize: 36,
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
-      headlineLarge: GoogleFonts.poppins(
+      headlineLarge: GoogleFonts.spaceGrotesk(
         fontSize: 32,
         fontWeight: FontWeight.w700,
+        letterSpacing: -0.25,
         color: colorScheme.onSurface,
       ),
-      headlineMedium: GoogleFonts.poppins(
+      headlineMedium: GoogleFonts.spaceGrotesk(
         fontSize: 28,
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
-      headlineSmall: GoogleFonts.poppins(
+      headlineSmall: GoogleFonts.spaceGrotesk(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
-      titleLarge: GoogleFonts.inter(
+      titleLarge: GoogleFonts.ibmPlexSans(
         fontSize: 22,
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
       ),
-      titleMedium: GoogleFonts.inter(
+      titleMedium: GoogleFonts.ibmPlexSans(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.15,
         color: colorScheme.onSurface,
       ),
-      titleSmall: GoogleFonts.inter(
+      titleSmall: GoogleFonts.ibmPlexSans(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.1,
         color: colorScheme.onSurface,
       ),
-      bodyLarge: GoogleFonts.inter(
+      bodyLarge: GoogleFonts.ibmPlexSans(
         fontSize: 16,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 0.5,
-        color: colorScheme.onSurface,
-      ),
-      bodyMedium: GoogleFonts.inter(
-        fontSize: 14,
         fontWeight: FontWeight.w400,
         letterSpacing: 0.25,
         color: colorScheme.onSurface,
       ),
-      bodySmall: GoogleFonts.inter(
+      bodyMedium: GoogleFonts.ibmPlexSans(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0.15,
+        color: colorScheme.onSurface,
+      ),
+      bodySmall: GoogleFonts.ibmPlexSans(
         fontSize: 12,
         fontWeight: FontWeight.w400,
-        letterSpacing: 0.4,
+        letterSpacing: 0.25,
         color: colorScheme.onSurfaceVariant,
       ),
-      labelLarge: GoogleFonts.inter(
+      labelLarge: GoogleFonts.ibmPlexSans(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.1,
         color: colorScheme.onSurface,
       ),
-      labelMedium: GoogleFonts.inter(
+      labelMedium: GoogleFonts.ibmPlexSans(
         fontSize: 12,
         fontWeight: FontWeight.w500,
-        letterSpacing: 0.5,
+        letterSpacing: 0.4,
         color: colorScheme.onSurface,
       ),
-      labelSmall: GoogleFonts.inter(
+      labelSmall: GoogleFonts.ibmPlexSans(
         fontSize: 11,
         fontWeight: FontWeight.w500,
-        letterSpacing: 0.5,
+        letterSpacing: 0.4,
         color: colorScheme.onSurfaceVariant,
       ),
     );
@@ -312,7 +321,7 @@ class AppTheme {
 
 // ---------------------------------------------------------------------------
 // AppColors: Semantic color tokens (ThemeExtension)
-// Harmonised with the Indigo-Cyan palette
+// Harmonised with the Graphite & Ember palette
 // ---------------------------------------------------------------------------
 
 class AppColors extends ThemeExtension<AppColors> {
@@ -401,70 +410,70 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.toolResultTextExpanded,
   });
 
-  // ---- Light (Indigo-Cyan palette) ----
+  // ---- Light (Graphite & Ember palette) ----
   factory AppColors.light() => const AppColors(
-    userBubble: Color(0xFF4F46E5), // Indigo 600
+    userBubble: Color(0xFFC2410C), // Ember (Orange 700)
     userBubbleText: Color(0xFFFFFFFF),
-    assistantBubble: Color(0xFFE0E7FF), // Indigo 100
-    toolBubble: Color(0xFFECFDF5), // Emerald 50
-    toolBubbleBorder: Color(0xFF6EE7B7), // Emerald 300
-    toolIcon: Color(0xFF059669), // Emerald 600
+    assistantBubble: Color(0xFFF5F0EB), // warm cream
+    toolBubble: Color(0xFFF0FDF4), // Green 50
+    toolBubbleBorder: Color(0xFF86EFAC), // Green 300
+    toolIcon: Color(0xFF16A34A), // Green 600
     errorBubble: Color(0xFFFEF2F2), // Red 50
     errorBubbleBorder: Color(0xFFFCA5A5), // Red 300
-    errorText: Color(0xFFDC2626), // Red 600
-    permissionBubble: Color(0xFFFFFBEB), // Amber 50
-    permissionBubbleBorder: Color(0xFFFCD34D), // Amber 300
-    permissionIcon: Color(0xFFD97706), // Amber 600
-    askBubble: Color(0xFFEDE9FE), // Violet 100
-    askBubbleBorder: Color(0xFFC4B5FD), // Violet 300
-    askIcon: Color(0xFF7C3AED), // Violet 600
-    systemChip: Color(0xFFE0F2FE), // Sky 100
-    successChip: Color(0xFFD1FAE5), // Emerald 100
+    errorText: Color(0xFFB91C1C), // Red 700
+    permissionBubble: Color(0xFFFFF7ED), // Orange 50
+    permissionBubbleBorder: Color(0xFFFDBA74), // Orange 300
+    permissionIcon: Color(0xFFC2410C), // Ember (match primary)
+    askBubble: Color(0xFFFFF7ED), // Orange 50
+    askBubbleBorder: Color(0xFFFDBA74), // Orange 300
+    askIcon: Color(0xFF9A3412), // Orange 800
+    systemChip: Color(0xFFF0F9FF), // Sky 50 (neutral)
+    successChip: Color(0xFFF0FDF4), // Green 50
     errorChip: Color(0xFFFEE2E2), // Red 100
-    approvalBar: Color(0xFFFEF3C7), // Amber 100
-    approvalBarBorder: Color(0xFFFCD34D), // Amber 300
-    statusRunning: Color(0xFF059669), // Emerald 600
-    statusApproval: Color(0xFFD97706), // Amber 600
-    statusIdle: Color(0xFF94A3B8), // Slate 400
-    subtleText: Color(0xFF64748B), // Slate 500
-    codeBackground: Color(0xFFF1F5F9), // Slate 100
-    codeBorder: Color(0xFFE2E8F0), // Slate 200
-    toolResultBackground: Color(0xFFF1F5F9),
-    toolResultText: Color(0xFF64748B),
-    toolResultTextExpanded: Color(0xFF334155), // Slate 700
+    approvalBar: Color(0xFFFFF7ED), // Orange 50
+    approvalBarBorder: Color(0xFFFDBA74), // Orange 300
+    statusRunning: Color(0xFF16A34A), // Green 600
+    statusApproval: Color(0xFFC2410C), // Ember
+    statusIdle: Color(0xFF9C9590), // warm grey
+    subtleText: Color(0xFF78716C), // Stone 500
+    codeBackground: Color(0xFFF5F0EB), // warm cream
+    codeBorder: Color(0xFFE0DEDA), // warm grey
+    toolResultBackground: Color(0xFFF5F0EB),
+    toolResultText: Color(0xFF78716C), // Stone 500
+    toolResultTextExpanded: Color(0xFF44403C), // Stone 700
   );
 
-  // ---- Dark (Indigo-Cyan palette) ----
+  // ---- Dark (Graphite & Ember palette) ----
   factory AppColors.dark() => const AppColors(
-    userBubble: Color(0xFF818CF8), // Indigo 400
+    userBubble: Color(0xFFF97316), // Orange 500
     userBubbleText: Color(0xFFFFFFFF),
-    assistantBubble: Color(0xFF1E1B4B), // Indigo 950
-    toolBubble: Color(0xFF0C2A1E), // Deep emerald
-    toolBubbleBorder: Color(0xFF1A5C3A),
-    toolIcon: Color(0xFF6EE7B7), // Emerald 300
+    assistantBubble: Color(0xFF1E1D1A), // warm very dark
+    toolBubble: Color(0xFF0A1F12), // deep green
+    toolBubbleBorder: Color(0xFF1A5C35),
+    toolIcon: Color(0xFF86EFAC), // Green 300
     errorBubble: Color(0xFF2A1215),
     errorBubbleBorder: Color(0xFF5C2020),
     errorText: Color(0xFFFCA5A5), // Red 300
-    permissionBubble: Color(0xFF2A2410),
-    permissionBubbleBorder: Color(0xFF5C4A1A),
-    permissionIcon: Color(0xFFFCD34D), // Amber 300
-    askBubble: Color(0xFF1E1533),
-    askBubbleBorder: Color(0xFF4C3A6B),
-    askIcon: Color(0xFFC4B5FD), // Violet 300
-    systemChip: Color(0xFF0C1929),
-    successChip: Color(0xFF0C2A1E),
+    permissionBubble: Color(0xFF261A0B), // deep warm
+    permissionBubbleBorder: Color(0xFF5C3D15),
+    permissionIcon: Color(0xFFFDBA74), // Orange 300
+    askBubble: Color(0xFF261A0B), // deep warm
+    askBubbleBorder: Color(0xFF5C3D15),
+    askIcon: Color(0xFFFDBA74), // Orange 300
+    systemChip: Color(0xFF0F1A16), // warm dark green
+    successChip: Color(0xFF0A1F12),
     errorChip: Color(0xFF2A1215),
-    approvalBar: Color(0xFF2A2410),
-    approvalBarBorder: Color(0xFF5C4A1A),
-    statusRunning: Color(0xFF6EE7B7), // Emerald 300
-    statusApproval: Color(0xFFFCD34D), // Amber 300
-    statusIdle: Color(0xFF4A4A5A),
-    subtleText: Color(0xFF94A3B8), // Slate 400
-    codeBackground: Color(0xFF141419),
-    codeBorder: Color(0xFF2A2A35),
-    toolResultBackground: Color(0xFF141419),
-    toolResultText: Color(0xFF94A3B8),
-    toolResultTextExpanded: Color(0xFFCBD5E1), // Slate 300
+    approvalBar: Color(0xFF261A0B),
+    approvalBarBorder: Color(0xFF5C3D15),
+    statusRunning: Color(0xFF86EFAC), // Green 300
+    statusApproval: Color(0xFFFDBA74), // Orange 300
+    statusIdle: Color(0xFF5C5750), // warm dark grey
+    subtleText: Color(0xFFA8A29E), // Stone 400
+    codeBackground: Color(0xFF1A1917),
+    codeBorder: Color(0xFF353330),
+    toolResultBackground: Color(0xFF1A1917),
+    toolResultText: Color(0xFFA8A29E), // Stone 400
+    toolResultTextExpanded: Color(0xFFD6D3D1), // Stone 300
   );
 
   @override

@@ -301,9 +301,12 @@ class _SessionListScreenState extends State<SessionListScreen> {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Theme.of(ctx).colorScheme.primary,
+            ),
             SizedBox(width: 8),
             Expanded(child: Text('Server Unreachable')),
           ],

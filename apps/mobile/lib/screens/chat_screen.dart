@@ -706,14 +706,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   background: Container(
                     alignment: Alignment.centerLeft,
                     padding: const EdgeInsets.only(left: 24),
-                    color: Colors.green.withValues(alpha: 0.2),
-                    child: const Icon(Icons.check_circle, color: Colors.green),
+                    color: appColors.statusRunning.withValues(alpha: 0.2),
+                    child: Icon(
+                      Icons.check_circle,
+                      color: appColors.statusRunning,
+                    ),
                   ),
                   secondaryBackground: Container(
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.only(right: 24),
-                    color: Colors.red.withValues(alpha: 0.2),
-                    child: const Icon(Icons.cancel, color: Colors.red),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.error.withValues(alpha: 0.2),
+                    child: Icon(
+                      Icons.cancel,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                   child: _buildApprovalBar(appColors),
                 ),

@@ -35,9 +35,10 @@ class SlashCommandOverlay extends StatelessWidget {
           itemCount: filteredCommands.length,
           itemBuilder: (context, index) {
             final cmd = filteredCommands[index];
+            final cs = Theme.of(context).colorScheme;
             final iconColor = switch (cmd.category) {
-              SlashCommandCategory.project => Colors.teal,
-              SlashCommandCategory.skill => Colors.amber,
+              SlashCommandCategory.project => cs.secondary,
+              SlashCommandCategory.skill => cs.tertiary,
               SlashCommandCategory.builtin => appColors.subtleText,
             };
             return InkWell(
