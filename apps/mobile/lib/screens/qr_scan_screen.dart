@@ -49,15 +49,10 @@ class _QrScanScreenState extends State<QrScanScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scan QR Code'),
-      ),
+      appBar: AppBar(title: const Text('Scan QR Code')),
       body: Stack(
         children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
-          ),
+          MobileScanner(controller: _controller, onDetect: _onDetect),
           // Scan frame overlay
           Center(
             child: Container(

@@ -70,12 +70,7 @@ class AssistantMessage {
 
 // ---- Bridge connection state ----
 
-enum BridgeConnectionState {
-  disconnected,
-  connecting,
-  connected,
-  reconnecting,
-}
+enum BridgeConnectionState { disconnected, connecting, connected, reconnecting }
 
 // ---- Message status (for user messages) ----
 
@@ -166,9 +161,11 @@ sealed class ServerMessage {
         toolUseId: json['toolUseId'] as String,
         content: _normalizeToolResultContent(json['content']),
         toolName: json['toolName'] as String?,
-        images: (json['images'] as List?)
-            ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))
-            .toList() ?? const [],
+        images:
+            (json['images'] as List?)
+                ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))
+                .toList() ??
+            const [],
       ),
       'result' => ResultMessage(
         subtype: json['subtype'] as String? ?? '',
@@ -449,14 +446,22 @@ class ClientMessage {
     return ClientMessage._(json);
   }
 
-  factory ClientMessage.reject(String id, {String? message, String? sessionId}) {
+  factory ClientMessage.reject(
+    String id, {
+    String? message,
+    String? sessionId,
+  }) {
     final json = <String, dynamic>{'type': 'reject', 'id': id};
     if (message != null) json['message'] = message;
     if (sessionId != null) json['sessionId'] = sessionId;
     return ClientMessage._(json);
   }
 
-  factory ClientMessage.answer(String toolUseId, String result, {String? sessionId}) {
+  factory ClientMessage.answer(
+    String toolUseId,
+    String result, {
+    String? sessionId,
+  }) {
     final json = <String, dynamic>{
       'type': 'answer',
       'toolUseId': toolUseId,
@@ -509,7 +514,7 @@ class ServerChatEntry implements ChatEntry {
   @override
   final DateTime timestamp;
   ServerChatEntry(this.message, {DateTime? timestamp})
-      : timestamp = timestamp ?? DateTime.now();
+    : timestamp = timestamp ?? DateTime.now();
 }
 
 class UserChatEntry implements ChatEntry {
@@ -531,5 +536,5 @@ class StreamingChatEntry implements ChatEntry {
   @override
   final DateTime timestamp;
   StreamingChatEntry({this.text = '', DateTime? timestamp})
-      : timestamp = timestamp ?? DateTime.now();
+    : timestamp = timestamp ?? DateTime.now();
 }

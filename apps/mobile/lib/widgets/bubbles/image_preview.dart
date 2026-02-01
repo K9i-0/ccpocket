@@ -17,10 +17,7 @@ class ImagePreviewWidget extends StatelessWidget {
     if (images.isEmpty) return const SizedBox.shrink();
 
     if (images.length == 1) {
-      return _SingleImage(
-        image: images.first,
-        httpBaseUrl: httpBaseUrl,
-      );
+      return _SingleImage(image: images.first, httpBaseUrl: httpBaseUrl);
     }
 
     return SizedBox(
@@ -73,9 +70,7 @@ class _SingleImage extends StatelessWidget {
                 color: Theme.of(context).colorScheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Center(
-                child: Icon(Icons.broken_image, size: 32),
-              ),
+              child: const Center(child: Icon(Icons.broken_image, size: 32)),
             ),
           ),
         ),
@@ -123,9 +118,7 @@ class _ImageThumbnail extends StatelessWidget {
               color: Theme.of(context).colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Center(
-              child: Icon(Icons.broken_image, size: 24),
-            ),
+            child: const Center(child: Icon(Icons.broken_image, size: 24)),
           ),
         ),
       ),
@@ -134,11 +127,9 @@ class _ImageThumbnail extends StatelessWidget {
 }
 
 void _openFullScreen(BuildContext context, String url) {
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => FullScreenImageViewer(url: url),
-    ),
-  );
+  Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => FullScreenImageViewer(url: url)));
 }
 
 class FullScreenImageViewer extends StatelessWidget {

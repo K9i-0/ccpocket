@@ -22,9 +22,7 @@ MarkdownStyleSheet buildMarkdownStyle(BuildContext context) {
     ),
     codeblockPadding: const EdgeInsets.all(12),
     blockquoteDecoration: BoxDecoration(
-      border: Border(
-        left: BorderSide(color: appColors.subtleText, width: 3),
-      ),
+      border: Border(left: BorderSide(color: appColors.subtleText, width: 3)),
     ),
     blockquotePadding: const EdgeInsets.only(left: 12, top: 4, bottom: 4),
     listBullet: baseStyle.copyWith(fontSize: 14),

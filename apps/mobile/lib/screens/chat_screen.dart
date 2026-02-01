@@ -167,7 +167,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           // Inject accumulated thinking text as ThinkingContent
           ServerMessage displayMsg = msg;
           if (_currentThinkingText.isNotEmpty) {
-            final hasThinking = message.content.any((c) => c is ThinkingContent);
+            final hasThinking = message.content.any(
+              (c) => c is ThinkingContent,
+            );
             if (!hasThinking) {
               final enrichedContent = <AssistantContent>[
                 ThinkingContent(thinking: _currentThinkingText),
@@ -341,11 +343,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _inputController.clear();
     setState(() {
       _currentStreaming = null;
-      _addEntry(UserChatEntry(
-        command,
-        sessionId: widget.sessionId,
-        status: MessageStatus.sending,
-      ));
+      _addEntry(
+        UserChatEntry(
+          command,
+          sessionId: widget.sessionId,
+          status: MessageStatus.sending,
+        ),
+      );
     });
     widget.bridge.send(
       ClientMessage.input(command, sessionId: widget.sessionId),
@@ -371,7 +375,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _retryMessage(UserChatEntry entry) {
     setState(() => entry.status = MessageStatus.sending);
     widget.bridge.send(
-      ClientMessage.input(entry.text, sessionId: entry.sessionId ?? widget.sessionId),
+      ClientMessage.input(
+        entry.text,
+        sessionId: entry.sessionId ?? widget.sessionId,
+      ),
     );
   }
 
@@ -411,9 +418,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _currentStreaming = null;
       _addEntry(entry);
     });
-    widget.bridge.send(
-      ClientMessage.input(text, sessionId: widget.sessionId),
-    );
+    widget.bridge.send(ClientMessage.input(text, sessionId: widget.sessionId));
     _inputController.clear();
     _scrollToBottom();
   }
@@ -556,7 +561,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               color: Colors.transparent,
               child: Text(
                 projectName,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -619,7 +627,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 color: color,
                 shape: BoxShape.circle,
                 boxShadow: _status == ProcessStatus.running
-                    ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 4)]
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                        ),
+                      ]
                     : null,
               ),
             ),
@@ -660,13 +673,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           );
           if (_bulkLoading || animation.isCompleted) return child;
           return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.3),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOut,
-            )),
+            position:
+                Tween<Offset>(
+                  begin: const Offset(0, 0.3),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                ),
             child: FadeTransition(opacity: animation, child: child),
           );
         },
@@ -675,8 +688,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildReconnectBanner(AppColors appColors) {
-    final isReconnecting =
-        _bridgeState == BridgeConnectionState.reconnecting;
+    final isReconnecting = _bridgeState == BridgeConnectionState.reconnecting;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -709,14 +721,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  bool get _isPlanApproval =>
-      _pendingPermission?.toolName == 'ExitPlanMode';
+  bool get _isPlanApproval => _pendingPermission?.toolName == 'ExitPlanMode';
 
   Widget _buildApprovalBar(AppColors appColors) {
     final summary = _pendingPermission != null
         ? (_isPlanApproval
-            ? 'Review the plan above and approve or continue planning'
-            : _extractPermissionSummary(_pendingPermission!))
+              ? 'Review the plan above and approve or continue planning'
+              : _extractPermissionSummary(_pendingPermission!))
         : 'Tool execution requires approval';
     final toolName = _isPlanApproval
         ? 'Plan Approval'
@@ -745,10 +756,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: (_isPlanApproval
-                      ? Theme.of(context).colorScheme.primary
-                      : appColors.permissionIcon)
-                      .withValues(alpha: 0.15),
+                  color:
+                      (_isPlanApproval
+                              ? Theme.of(context).colorScheme.primary
+                              : appColors.permissionIcon)
+                          .withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -775,7 +787,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       const SizedBox(height: 2),
                       Text(
                         summary,
-                        style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: appColors.subtleText,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -865,38 +880,38 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               link: _inputLayerLink,
               child: TextField(
                 key: const ValueKey('message_input'),
-              controller: _inputController,
-              decoration: InputDecoration(
-                hintText: 'Message Claude...',
-                filled: true,
-                fillColor: cs.surfaceContainerLow,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(
-                    color: cs.outlineVariant,
-                    width: 0.5,
+                controller: _inputController,
+                decoration: InputDecoration(
+                  hintText: 'Message Claude...',
+                  filled: true,
+                  fillColor: cs.surfaceContainerLow,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide(
+                      color: cs.outlineVariant,
+                      width: 0.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide(
+                      color: cs.primary.withValues(alpha: 0.5),
+                      width: 1.5,
+                    ),
+                  ),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
                   ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(
-                    color: cs.primary.withValues(alpha: 0.5),
-                    width: 1.5,
-                  ),
-                ),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _sendMessage(),
               ),
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _sendMessage(),
-            ),
             ),
           ),
           const SizedBox(width: 8),

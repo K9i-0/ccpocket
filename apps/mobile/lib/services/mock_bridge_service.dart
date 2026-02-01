@@ -93,7 +93,8 @@ class MockBridgeService implements BridgeServiceBase {
               role: 'assistant',
               content: [
                 TextContent(
-                  text: 'Thank you for your answer: "$result". '
+                  text:
+                      'Thank you for your answer: "$result". '
                       'I will proceed accordingly.',
                 ),
               ],

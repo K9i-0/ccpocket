@@ -16,7 +16,11 @@ class SlashCommand {
 }
 
 const slashCommands = [
-  SlashCommand(command: '/compact', description: 'Compact conversation', icon: Icons.compress),
+  SlashCommand(
+    command: '/compact',
+    description: 'Compact conversation',
+    icon: Icons.compress,
+  ),
   SlashCommand(
     command: '/plan',
     description: 'Switch to Plan mode',

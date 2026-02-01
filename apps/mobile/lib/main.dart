@@ -48,8 +48,10 @@ class _CcpocketAppState extends State<CcpocketApp> {
   Future<void> _initDeepLinks() async {
     // Handle cold start
     try {
-      final initialUri = await _appLinks.getInitialLink()
-          .timeout(const Duration(seconds: 3), onTimeout: () => null);
+      final initialUri = await _appLinks.getInitialLink().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => null,
+      );
       if (initialUri != null) {
         _handleUri(initialUri);
       }

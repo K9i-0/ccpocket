@@ -57,7 +57,9 @@ final _approvalFlow = MockScenario(
           id: 'mock-approval-1',
           role: 'assistant',
           content: [
-            const TextContent(text: 'I need to run a command to check the project structure.'),
+            const TextContent(
+              text: 'I need to run a command to check the project structure.',
+            ),
             const ToolUseContent(
               id: 'tool-bash-1',
               name: 'Bash',
@@ -109,7 +111,8 @@ final _askUserQuestion = MockScenario(
               input: {
                 'questions': [
                   {
-                    'question': 'Which state management solution should we use?',
+                    'question':
+                        'Which state management solution should we use?',
                     'header': 'State Mgmt',
                     'options': [
                       {
@@ -160,7 +163,9 @@ final _imageResult = MockScenario(
           id: 'mock-img-1',
           role: 'assistant',
           content: [
-            const TextContent(text: 'Let me take a screenshot of the current state.'),
+            const TextContent(
+              text: 'Let me take a screenshot of the current state.',
+            ),
             const ToolUseContent(
               id: 'tool-screenshot-1',
               name: 'Screenshot',
@@ -199,7 +204,8 @@ final _imageResult = MockScenario(
           role: 'assistant',
           content: [
             const TextContent(
-              text: 'Here are the screenshots. The UI looks correct '
+              text:
+                  'Here are the screenshots. The UI looks correct '
                   'with proper layout and spacing.',
             ),
           ],
@@ -392,7 +398,8 @@ final _errorScenario = MockScenario(
     MockStep(
       delay: const Duration(milliseconds: 1500),
       message: const ErrorMessage(
-        message: 'Error: ENOENT: no such file or directory, '
+        message:
+            'Error: ENOENT: no such file or directory, '
             'open \'/nonexistent/config.yaml\'',
       ),
     ),
@@ -432,7 +439,8 @@ final _fullConversation = MockScenario(
           role: 'assistant',
           content: [
             const TextContent(
-              text: 'I\'ll help you understand the project structure. '
+              text:
+                  'I\'ll help you understand the project structure. '
                   'Let me start by reading the main entry point.',
             ),
             const ToolUseContent(
@@ -450,7 +458,8 @@ final _fullConversation = MockScenario(
       message: const ToolResultMessage(
         toolUseId: 'tool-read-main',
         toolName: 'Read',
-        content: 'import \'package:flutter/material.dart\';\n\n'
+        content:
+            'import \'package:flutter/material.dart\';\n\n'
             'void main() {\n'
             '  runApp(const MyApp());\n'
             '}\n',
@@ -464,7 +473,8 @@ final _fullConversation = MockScenario(
           role: 'assistant',
           content: [
             const TextContent(
-              text: 'The project has a standard Flutter structure. '
+              text:
+                  'The project has a standard Flutter structure. '
                   'The `main.dart` file contains the app entry point '
                   'with `runApp`. The app uses Material Design widgets.',
             ),

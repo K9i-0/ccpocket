@@ -98,10 +98,8 @@ class MockPreviewScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => _MockChatWrapper(
-          mockService: mockService,
-          scenario: scenario,
-        ),
+        builder: (_) =>
+            _MockChatWrapper(mockService: mockService, scenario: scenario),
       ),
     );
   }
@@ -112,10 +110,7 @@ class _MockChatWrapper extends StatefulWidget {
   final MockBridgeService mockService;
   final MockScenario scenario;
 
-  const _MockChatWrapper({
-    required this.mockService,
-    required this.scenario,
-  });
+  const _MockChatWrapper({required this.mockService, required this.scenario});
 
   @override
   State<_MockChatWrapper> createState() => _MockChatWrapperState();
@@ -141,7 +136,8 @@ class _MockChatWrapperState extends State<_MockChatWrapper> {
   Widget build(BuildContext context) {
     return ChatScreen(
       bridge: widget.mockService,
-      sessionId: 'mock-${widget.scenario.name.toLowerCase().replaceAll(' ', '-')}',
+      sessionId:
+          'mock-${widget.scenario.name.toLowerCase().replaceAll(' ', '-')}',
       projectPath: '/mock/preview',
     );
   }

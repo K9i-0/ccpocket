@@ -31,16 +31,20 @@ class ChatEntryWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        if (_shouldShowTimestamp()) _TimestampWidget(timestamp: entry.timestamp),
+        if (_shouldShowTimestamp())
+          _TimestampWidget(timestamp: entry.timestamp),
         switch (entry) {
-          ServerChatEntry(:final message) =>
-            ServerMessageWidget(message: message, httpBaseUrl: httpBaseUrl),
+          ServerChatEntry(:final message) => ServerMessageWidget(
+            message: message,
+            httpBaseUrl: httpBaseUrl,
+          ),
           final UserChatEntry user => UserBubble(
-              text: user.text,
-              status: user.status,
-              onRetry:
-                  onRetryMessage != null ? () => onRetryMessage!(user) : null,
-            ),
+            text: user.text,
+            status: user.status,
+            onRetry: onRetryMessage != null
+                ? () => onRetryMessage!(user)
+                : null,
+          ),
           StreamingChatEntry(:final text) => StreamingBubble(text: text),
         },
       ],
@@ -99,13 +103,17 @@ class ServerMessageWidget extends StatelessWidget {
     return switch (message) {
       final SystemMessage msg => SystemChip(message: msg),
       final AssistantServerMessage msg => AssistantBubble(message: msg),
-      final ToolResultMessage msg =>
-        ToolResultBubble(message: msg, httpBaseUrl: httpBaseUrl),
+      final ToolResultMessage msg => ToolResultBubble(
+        message: msg,
+        httpBaseUrl: httpBaseUrl,
+      ),
       final ResultMessage msg => ResultChip(message: msg),
       final ErrorMessage msg => ErrorBubble(message: msg),
       final StatusMessage msg => StatusChip(message: msg),
       HistoryMessage() => const SizedBox.shrink(),
-      final PermissionRequestMessage msg => PermissionRequestBubble(message: msg),
+      final PermissionRequestMessage msg => PermissionRequestBubble(
+        message: msg,
+      ),
       StreamDeltaMessage() => const SizedBox.shrink(),
       ThinkingDeltaMessage() => const SizedBox.shrink(),
       RecentSessionsMessage() => const SizedBox.shrink(),

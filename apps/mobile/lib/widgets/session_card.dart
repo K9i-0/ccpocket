@@ -40,59 +40,68 @@ class RunningSessionCard extends StatelessWidget {
       child: IntrinsicHeight(
         child: Row(
           children: [
-            Container(
-              width: 3,
-              color: statusColor,
-            ),
+            Container(width: 3, color: statusColor),
             Expanded(
               child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: _StatusDot(color: statusColor, animate: session.status == 'running'),
-        title: Hero(
-          tag: 'project_name_${session.id}',
-          child: Material(
-            color: Colors.transparent,
-            child: Text(
-              projectName,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-            ),
-          ),
-        ),
-        subtitle: Text(
-          elapsed,
-          style: TextStyle(fontSize: 12, color: appColors.subtleText),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                statusLabel,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                onTap: onTap,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                leading: _StatusDot(
                   color: statusColor,
+                  animate: session.status == 'running',
+                ),
+                title: Hero(
+                  tag: 'project_name_${session.id}',
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Text(
+                      projectName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+                subtitle: Text(
+                  elapsed,
+                  style: TextStyle(fontSize: 12, color: appColors.subtleText),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.stop_circle_outlined, size: 20),
+                      onPressed: onStop,
+                      tooltip: 'Stop session',
+                      color: Theme.of(context).colorScheme.error,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: 4),
-            IconButton(
-              icon: const Icon(Icons.stop_circle_outlined, size: 20),
-              onPressed: onStop,
-              tooltip: 'Stop session',
-              color: Theme.of(context).colorScheme.error,
-              visualDensity: VisualDensity.compact,
-            ),
-          ],
-        ),
-            ),
-          ),
           ],
         ),
       ),
@@ -135,9 +144,10 @@ class _StatusDotState extends State<_StatusDot>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    _animation = Tween(begin: 0.4, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween(
+      begin: 0.4,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     if (widget.animate) _controller.repeat(reverse: true);
   }
 
@@ -202,7 +212,9 @@ class RecentSessionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(

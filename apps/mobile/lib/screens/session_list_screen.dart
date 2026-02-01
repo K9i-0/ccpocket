@@ -341,8 +341,8 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final showConnectedUI = _isConnected ||
-        _connectionState == BridgeConnectionState.reconnecting;
+    final showConnectedUI =
+        _isConnected || _connectionState == BridgeConnectionState.reconnecting;
 
     return Scaffold(
       appBar: AppBar(
@@ -403,7 +403,9 @@ class _SessionListScreenState extends State<SessionListScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -423,7 +425,11 @@ class _SessionListScreenState extends State<SessionListScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: Divider(color: Theme.of(context).colorScheme.outlineVariant)),
+                Expanded(
+                  child: Divider(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
@@ -434,7 +440,11 @@ class _SessionListScreenState extends State<SessionListScreen> {
                     ),
                   ),
                 ),
-                Expanded(child: Divider(color: Theme.of(context).colorScheme.outlineVariant)),
+                Expanded(
+                  child: Divider(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -547,8 +557,16 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 ),
               ),
               trailing: server.authRequired
-                  ? Icon(Icons.lock, size: 16, color: Theme.of(context).colorScheme.outline)
-                  : Icon(Icons.lock_open, size: 16, color: Theme.of(context).colorScheme.outline),
+                  ? Icon(
+                      Icons.lock,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.outline,
+                    )
+                  : Icon(
+                      Icons.lock_open,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
               onTap: () => _connectToDiscovered(server),
             ),
           ),
@@ -560,7 +578,8 @@ class _SessionListScreenState extends State<SessionListScreen> {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final hasRunningSessions = _sessions.isNotEmpty;
     final hasRecentSessions = _recentSessions.isNotEmpty;
-    final isReconnecting = _connectionState == BridgeConnectionState.reconnecting;
+    final isReconnecting =
+        _connectionState == BridgeConnectionState.reconnecting;
 
     if (!hasRunningSessions && !hasRecentSessions) {
       return ListView(
@@ -629,10 +648,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
           const SizedBox(width: 8),
           Text(
             'Reconnecting...',
-            style: TextStyle(
-              fontSize: 13,
-              color: appColors.statusApproval,
-            ),
+            style: TextStyle(fontSize: 13, color: appColors.statusApproval),
           ),
         ],
       ),
@@ -652,7 +668,9 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -664,19 +682,13 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 const SizedBox(height: 16),
                 const Text(
                   'Ready to start',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Press the + button to create a new session and start coding with Claude.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: appColors.subtleText,
-                  ),
+                  style: TextStyle(fontSize: 14, color: appColors.subtleText),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(

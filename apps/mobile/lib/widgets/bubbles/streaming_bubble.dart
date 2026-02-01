@@ -49,7 +49,8 @@ class _StreamingBubbleState extends State<StreamingBubble>
           horizontal: AppSpacing.bubblePaddingH,
         ),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width *
+          maxWidth:
+              MediaQuery.of(context).size.width *
               AppSpacing.maxBubbleWidthFraction,
         ),
         decoration: BoxDecoration(

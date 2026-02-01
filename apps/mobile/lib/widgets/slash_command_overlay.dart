@@ -27,10 +27,7 @@ class SlashCommandOverlay extends StatelessWidget {
         constraints: const BoxConstraints(maxHeight: 220),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: cs.outlineVariant,
-            width: 0.5,
-          ),
+          border: Border.all(color: cs.outlineVariant, width: 0.5),
         ),
         child: ListView.builder(
           shrinkWrap: true,

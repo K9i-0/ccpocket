@@ -34,7 +34,8 @@ class AssistantBubble extends StatelessWidget {
                   horizontal: AppSpacing.bubblePaddingH,
                 ),
                 constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width *
+                  maxWidth:
+                      MediaQuery.of(context).size.width *
                       AppSpacing.maxBubbleWidthFraction,
                 ),
                 decoration: BoxDecoration(
@@ -74,9 +75,7 @@ class _PlanReadyTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(
-          color: cs.primary.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [

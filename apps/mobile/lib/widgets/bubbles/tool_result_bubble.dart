@@ -123,10 +123,7 @@ class _ToolResultBubbleState extends State<ToolResultBubble> {
                     ),
                     child: Text(
                       summary,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: appColors.toolIcon,
-                      ),
+                      style: TextStyle(fontSize: 10, color: appColors.toolIcon),
                     ),
                   ),
                   const Spacer(),

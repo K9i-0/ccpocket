@@ -54,11 +54,7 @@ class _ThinkingBubbleState extends State<ThinkingBubble> {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.psychology,
-                      size: 16,
-                      color: thinkingColor,
-                    ),
+                    Icon(Icons.psychology, size: 16, color: thinkingColor),
                     const SizedBox(width: 6),
                     Text(
                       'Thinking',
@@ -80,17 +76,12 @@ class _ThinkingBubbleState extends State<ThinkingBubble> {
                       ),
                       child: Text(
                         '$lineCount lines',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: thinkingColor,
-                        ),
+                        style: TextStyle(fontSize: 10, color: thinkingColor),
                       ),
                     ),
                     const Spacer(),
                     Icon(
-                      _expanded
-                          ? Icons.expand_less
-                          : Icons.expand_more,
+                      _expanded ? Icons.expand_less : Icons.expand_more,
                       size: 18,
                       color: thinkingColor.withValues(alpha: 0.6),
                     ),

@@ -21,10 +21,12 @@ class _PermissionRequestBubbleState extends State<PermissionRequestBubble> {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final inputStr =
-        const JsonEncoder.withIndent('  ').convert(widget.message.input);
-    final preview =
-        inputStr.length > 200 ? '${inputStr.substring(0, 200)}...' : inputStr;
+    final inputStr = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(widget.message.input);
+    final preview = inputStr.length > 200
+        ? '${inputStr.substring(0, 200)}...'
+        : inputStr;
     return Container(
       margin: const EdgeInsets.symmetric(
         vertical: AppSpacing.bubbleMarginV,

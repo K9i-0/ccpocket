@@ -11,7 +11,8 @@ import 'bridge_service_base.dart';
 class BridgeService implements BridgeServiceBase {
   WebSocketChannel? _channel;
   final _messageController = StreamController<ServerMessage>.broadcast();
-  final _connectionController = StreamController<BridgeConnectionState>.broadcast();
+  final _connectionController =
+      StreamController<BridgeConnectionState>.broadcast();
   final _sessionListController =
       StreamController<List<SessionInfo>>.broadcast();
   final _recentSessionsController =
@@ -36,7 +37,8 @@ class BridgeService implements BridgeServiceBase {
   @override
   Stream<ServerMessage> get messages => _messageController.stream;
   @override
-  Stream<BridgeConnectionState> get connectionStatus => _connectionController.stream;
+  Stream<BridgeConnectionState> get connectionStatus =>
+      _connectionController.stream;
   Stream<List<SessionInfo>> get sessionList => _sessionListController.stream;
   Stream<List<RecentSession>> get recentSessionsStream =>
       _recentSessionsController.stream;
@@ -131,10 +133,7 @@ class BridgeService implements BridgeServiceBase {
     if (_intentionalDisconnect || _lastUrl == null) return;
 
     _reconnectAttempt++;
-    final delay = min(
-      pow(2, _reconnectAttempt).toInt(),
-      _maxReconnectDelay,
-    );
+    final delay = min(pow(2, _reconnectAttempt).toInt(), _maxReconnectDelay);
     _setBridgeConnectionState(BridgeConnectionState.reconnecting);
     _reconnectTimer = Timer(Duration(seconds: delay), () {
       if (_lastUrl != null && !_intentionalDisconnect) {
@@ -179,11 +178,13 @@ class BridgeService implements BridgeServiceBase {
     String projectPath, {
     String? permissionMode,
   }) {
-    send(ClientMessage.resumeSession(
-      sessionId,
-      projectPath,
-      permissionMode: permissionMode,
-    ));
+    send(
+      ClientMessage.resumeSession(
+        sessionId,
+        projectPath,
+        permissionMode: permissionMode,
+      ),
+    );
   }
 
   @override

@@ -45,7 +45,8 @@ class UserBubble extends StatelessWidget {
                 horizontal: AppSpacing.bubblePaddingH,
               ),
               constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width *
+                maxWidth:
+                    MediaQuery.of(context).size.width *
                     AppSpacing.maxBubbleWidthFraction,
               ),
               decoration: BoxDecoration(
@@ -70,36 +71,36 @@ class UserBubble extends StatelessWidget {
   Widget _buildStatusIndicator(BuildContext context, AppColors appColors) {
     return switch (status) {
       MessageStatus.sending => SizedBox(
-          width: 12,
-          height: 12,
-          child: CircularProgressIndicator(
-            strokeWidth: 1.5,
-            color: appColors.subtleText,
-          ),
-        ),
-      MessageStatus.sent => Icon(
-          Icons.check,
-          size: 14,
+        width: 12,
+        height: 12,
+        child: CircularProgressIndicator(
+          strokeWidth: 1.5,
           color: appColors.subtleText,
         ),
+      ),
+      MessageStatus.sent => Icon(
+        Icons.check,
+        size: 14,
+        color: appColors.subtleText,
+      ),
       MessageStatus.failed => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 14,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 14,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Tap to retry',
+            style: TextStyle(
+              fontSize: 11,
               color: Theme.of(context).colorScheme.error,
             ),
-            const SizedBox(width: 4),
-            Text(
-              'Tap to retry',
-              style: TextStyle(
-                fontSize: 11,
-                color: Theme.of(context).colorScheme.error,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
     };
   }
 }
