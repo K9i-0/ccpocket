@@ -40,6 +40,9 @@ dependencies:
   flutter_local_notifications: ^20.0.0
   flutter_markdown: ^0.7.7+1
   google_fonts: ^8.0.0
+  bonsoir: ^6.0.1
+  mobile_scanner: ^7.1.4
+  app_links: ^7.0.0
 
 dev_dependencies:
   flutter_test:

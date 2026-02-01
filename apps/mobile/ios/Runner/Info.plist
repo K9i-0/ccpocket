@@ -41,6 +41,25 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.ccpocket.connect</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ccpocket</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>QR code scanning requires camera access to connect to bridge server</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_ccpocket._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Searching for ccpocket bridge servers on your local network</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

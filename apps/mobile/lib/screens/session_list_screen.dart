@@ -6,13 +6,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/messages.dart';
 import '../services/bridge_service.dart';
+import '../services/server_discovery_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/session_card.dart';
+import '../services/connection_url_parser.dart';
 import 'chat_screen.dart';
 import 'mock_preview_screen.dart';
+import 'qr_scan_screen.dart';
 
 class SessionListScreen extends StatefulWidget {
-  const SessionListScreen({super.key});
+  final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
+
+  const SessionListScreen({super.key, this.deepLinkNotifier});
 
   @override
   State<SessionListScreen> createState() => _SessionListScreenState();
@@ -20,14 +25,14 @@ class SessionListScreen extends StatefulWidget {
 
 class _SessionListScreenState extends State<SessionListScreen> {
   final BridgeService _bridge = BridgeService();
-  final TextEditingController _urlController = TextEditingController(
-    text: 'ws://localhost:8765',
-  );
+  final TextEditingController _urlController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
+  final ServerDiscoveryService _discovery = ServerDiscoveryService();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   List<SessionInfo> _sessions = [];
   List<RecentSession> _recentSessions = [];
+  List<DiscoveredServer> _discoveredServers = [];
   bool _isAutoConnecting = false;
 
   // Cache for resume navigation
@@ -38,6 +43,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
   StreamSubscription<List<SessionInfo>>? _sessionListSub;
   StreamSubscription<List<RecentSession>>? _recentSessionsSub;
   StreamSubscription<ServerMessage>? _messageSub;
+  StreamSubscription<List<DiscoveredServer>>? _discoverySub;
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyApiKey = 'bridge_api_key';
@@ -77,7 +83,24 @@ class _SessionListScreenState extends State<SessionListScreen> {
         }
       }
     });
+    _discoverySub = _discovery.servers.listen((servers) {
+      setState(() => _discoveredServers = servers);
+    });
+    _discovery.startDiscovery();
+    widget.deepLinkNotifier?.addListener(_onDeepLink);
     _loadPreferencesAndAutoConnect();
+  }
+
+  void _onDeepLink() {
+    final params = widget.deepLinkNotifier?.value;
+    if (params == null) return;
+    // Reset notifier to avoid re-triggering
+    widget.deepLinkNotifier?.value = null;
+    _urlController.text = params.serverUrl;
+    if (params.token != null) {
+      _apiKeyController.text = params.token!;
+    }
+    _connect();
   }
 
   Future<void> _loadPreferencesAndAutoConnect() async {
@@ -99,21 +122,14 @@ class _SessionListScreenState extends State<SessionListScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _connectionSub?.cancel();
-    _sessionListSub?.cancel();
-    _recentSessionsSub?.cancel();
-    _messageSub?.cancel();
-    _bridge.dispose();
-    _urlController.dispose();
-    _apiKeyController.dispose();
-    super.dispose();
-  }
-
   void _connect() {
     var url = _urlController.text.trim();
     if (url.isEmpty) return;
+    // Allow shorthand: just IP or host:port without ws:// prefix
+    if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+      url = 'ws://$url';
+      _urlController.text = url;
+    }
     final apiKey = _apiKeyController.text.trim();
     if (apiKey.isNotEmpty) {
       final sep = url.contains('?') ? '&' : '?';
@@ -124,6 +140,35 @@ class _SessionListScreenState extends State<SessionListScreen> {
       _urlController.text.trim(),
       _apiKeyController.text.trim(),
     );
+  }
+
+  Future<void> _scanQrCode() async {
+    final result = await Navigator.push<ConnectionParams>(
+      context,
+      MaterialPageRoute(builder: (_) => const QrScanScreen()),
+    );
+    if (result != null && mounted) {
+      _urlController.text = result.serverUrl;
+      if (result.token != null) {
+        _apiKeyController.text = result.token!;
+      }
+      _connect();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.deepLinkNotifier?.removeListener(_onDeepLink);
+    _connectionSub?.cancel();
+    _sessionListSub?.cancel();
+    _recentSessionsSub?.cancel();
+    _messageSub?.cancel();
+    _discoverySub?.cancel();
+    _discovery.dispose();
+    _bridge.dispose();
+    _urlController.dispose();
+    _apiKeyController.dispose();
+    super.dispose();
   }
 
   void _disconnect() {
@@ -373,12 +418,33 @@ class _SessionListScreenState extends State<SessionListScreen> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 24),
+          if (_discoveredServers.isNotEmpty) ...[
+            _buildDiscoveredServers(),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: Divider(color: Theme.of(context).colorScheme.outlineVariant)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    'or enter manually',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                ),
+                Expanded(child: Divider(color: Theme.of(context).colorScheme.outlineVariant)),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
           TextField(
             key: const ValueKey('server_url_field'),
             controller: _urlController,
             decoration: const InputDecoration(
               labelText: 'Server URL',
-              hintText: 'ws://localhost:8765',
+              hintText: 'ws://<host-ip>:8765',
               prefixIcon: Icon(Icons.dns),
               border: OutlineInputBorder(),
             ),
@@ -408,8 +474,85 @@ class _SessionListScreenState extends State<SessionListScreen> {
               label: const Text('Connect'),
             ),
           ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              key: const ValueKey('scan_qr_button'),
+              onPressed: _scanQrCode,
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Scan QR Code'),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  void _connectToDiscovered(DiscoveredServer server) {
+    _urlController.text = server.wsUrl;
+    _apiKeyController.clear();
+    if (server.authRequired) {
+      // Let user fill in the API key manually
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This server requires an API key')),
+      );
+      return;
+    }
+    _connect();
+  }
+
+  Widget _buildDiscoveredServers() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.wifi_find,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Discovered Servers',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        for (final server in _discoveredServers)
+          Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              dense: true,
+              leading: Icon(
+                Icons.dns,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: Text(
+                server.name,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              subtitle: Text(
+                server.wsUrl,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+              trailing: server.authRequired
+                  ? Icon(Icons.lock, size: 16, color: Theme.of(context).colorScheme.outline)
+                  : Icon(Icons.lock_open, size: 16, color: Theme.of(context).colorScheme.outline),
+              onTap: () => _connectToDiscovered(server),
+            ),
+          ),
+      ],
     );
   }
 

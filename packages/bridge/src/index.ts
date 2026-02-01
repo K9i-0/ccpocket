@@ -1,6 +1,8 @@
 import { createServer } from "node:http";
 import { BridgeWebSocketServer } from "./websocket.js";
 import { ImageStore } from "./image-store.js";
+import { printStartupInfo } from "./startup-info.js";
+import { MdnsAdvertiser } from "./mdns.js";
 
 const PORT = parseInt(process.env.BRIDGE_PORT ?? "8765", 10);
 const HOST = process.env.BRIDGE_HOST ?? "0.0.0.0";
@@ -15,6 +17,7 @@ if (API_KEY) {
 }
 
 const imageStore = new ImageStore();
+const mdns = new MdnsAdvertiser();
 
 const httpServer = createServer((req, res) => {
   // Serve images via ImageStore
@@ -33,10 +36,13 @@ const wsServer = new BridgeWebSocketServer({
 
 httpServer.listen(PORT, HOST, () => {
   console.log(`[bridge] Ready. Listening on http://${HOST}:${PORT} (HTTP + WebSocket)`);
+  mdns.start(PORT, API_KEY);
+  printStartupInfo(PORT, HOST, API_KEY);
 });
 
 function shutdown() {
   console.log("\n[bridge] Shutting down gracefully...");
+  mdns.stop();
   wsServer.close();
   httpServer.close();
   process.exit(0);
