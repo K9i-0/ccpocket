@@ -557,7 +557,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           if (_status == ProcessStatus.waitingApproval &&
               _pendingToolUseId != null)
             _buildApprovalBar(appColors),
-          _buildInputBar(),
+          if (_askToolUseId == null && _status != ProcessStatus.waitingApproval)
+            _buildInputBar(),
         ],
       ),
     );
@@ -749,7 +750,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ? 'Plan Approval'
         : _pendingPermission?.toolName;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -763,102 +764,116 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           top: BorderSide(color: appColors.approvalBarBorder, width: 1.5),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color:
-                      (_isPlanApproval
-                              ? Theme.of(context).colorScheme.primary
-                              : appColors.permissionIcon)
-                          .withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color:
+                        (_isPlanApproval
+                                ? Theme.of(context).colorScheme.primary
+                                : appColors.permissionIcon)
+                            .withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _isPlanApproval ? Icons.assignment : Icons.shield,
+                    color: _isPlanApproval
+                        ? Theme.of(context).colorScheme.primary
+                        : appColors.permissionIcon,
+                    size: 18,
+                  ),
                 ),
-                child: Icon(
-                  _isPlanApproval ? Icons.assignment : Icons.shield,
-                  color: _isPlanApproval
-                      ? Theme.of(context).colorScheme.primary
-                      : appColors.permissionIcon,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      toolName ?? 'Approval Required',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (_pendingPermission != null) ...[
-                      const SizedBox(height: 2),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        summary,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: appColors.subtleText,
+                        toolName ?? 'Approval Required',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
+                      if (_pendingPermission != null && !_isPlanApproval) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          summary,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: appColors.subtleText,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  key: const ValueKey('reject_button'),
-                  onPressed: _rejectToolUse,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: Text(_isPlanApproval ? 'Keep Planning' : 'Reject'),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  key: const ValueKey('approve_button'),
-                  onPressed: _approveToolUse,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: Text(_isPlanApproval ? 'Accept Plan' : 'Approve'),
-                ),
-              ),
-            ],
-          ),
-          if (!_isPlanApproval) ...[
-            const SizedBox(height: 6),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                key: const ValueKey('approve_always_button'),
-                onPressed: _approveAlwaysToolUse,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  foregroundColor: appColors.subtleText,
-                  textStyle: const TextStyle(fontSize: 12),
-                ),
-                child: const Text('Allow for this session'),
-              ),
+              ],
             ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    key: const ValueKey('reject_button'),
+                    onPressed: _rejectToolUse,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    child: Text(
+                      _isPlanApproval ? 'Keep Planning' : 'Reject',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    key: const ValueKey('approve_button'),
+                    onPressed: _approveToolUse,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    child: Text(
+                      _isPlanApproval ? 'Accept Plan' : 'Approve',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (!_isPlanApproval) ...[
+              const SizedBox(height: 2),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  key: const ValueKey('approve_always_button'),
+                  onPressed: _approveAlwaysToolUse,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 4,
+                      horizontal: 8,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    foregroundColor: appColors.subtleText,
+                    textStyle: const TextStyle(fontSize: 11),
+                  ),
+                  child: const Text('Allow for this session'),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

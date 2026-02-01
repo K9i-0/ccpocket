@@ -24,6 +24,7 @@ class AskUserQuestionWidget extends StatefulWidget {
 class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   final TextEditingController _textController = TextEditingController();
   bool _answered = false;
+  bool _showCustomInput = false;
 
   // Per-question answer tracking
   // key: question text, value: selected label(s)
@@ -105,7 +106,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
 
     if (_answered) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: appColors.askBubble.withValues(alpha: 0.5),
           border: Border(
@@ -138,7 +139,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -160,7 +161,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
                   color: appColors.askIcon.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
@@ -182,11 +183,11 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           // Questions (scrollable if many options)
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.4,
+              maxHeight: MediaQuery.of(context).size.height * 0.35,
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -194,13 +195,13 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                 children: [
                   for (final q in _questions) ...[
                     _buildQuestion(q as Map<String, dynamic>, appColors),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                   ],
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           // Submit all answers button (multi-question mode)
           if (!_isSingleQuestion) ...[
             SizedBox(
@@ -208,7 +209,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
               child: FilledButton(
                 onPressed: _allQuestionsAnswered ? _sendAllAnswers : null,
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                 ),
                 child: Text(
                   _allQuestionsAnswered
@@ -218,61 +219,87 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
           ],
-          // Free text input (always available for single question, or as "Other")
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _textController,
-                  decoration: InputDecoration(
-                    hintText: _isSingleQuestion
-                        ? 'Type your answer...'
-                        : 'Or type a custom answer...',
-                    filled: true,
-                    fillColor: Theme.of(
-                      context,
-                    ).colorScheme.surface.withValues(alpha: 0.8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+          // Free text input
+          if (_isSingleQuestion) ...[
+            // Single question: always show text input
+            _buildTextInputRow(),
+          ] else ...[
+            // Multi-question: collapsible "Other answer..." toggle
+            if (!_showCustomInput)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => setState(() => _showCustomInput = true),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 4,
+                      horizontal: 8,
                     ),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    foregroundColor: appColors.subtleText,
+                    textStyle: const TextStyle(fontSize: 11),
                   ),
-                  style: const TextStyle(fontSize: 13),
-                  onSubmitted: (text) {
-                    if (text.trim().isNotEmpty) {
-                      _sendAnswer(text.trim());
-                    }
-                  },
+                  child: const Text('Other answer...'),
                 ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: () {
-                  final text = _textController.text.trim();
-                  if (text.isNotEmpty) {
-                    _sendAnswer(text);
-                  }
-                },
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  minimumSize: Size.zero,
-                ),
-                child: const Text('Send', style: TextStyle(fontSize: 13)),
-              ),
-            ],
-          ),
+              )
+            else
+              _buildTextInputRow(),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildTextInputRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _textController,
+            decoration: InputDecoration(
+              hintText: _isSingleQuestion
+                  ? 'Type your answer...'
+                  : 'Or type a custom answer...',
+              filled: true,
+              fillColor: Theme.of(
+                context,
+              ).colorScheme.surface.withValues(alpha: 0.8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+            ),
+            style: const TextStyle(fontSize: 13),
+            onSubmitted: (text) {
+              if (text.trim().isNotEmpty) {
+                _sendAnswer(text.trim());
+              }
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton(
+          onPressed: () {
+            final text = _textController.text.trim();
+            if (text.isNotEmpty) {
+              _sendAnswer(text);
+            }
+          },
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            minimumSize: Size.zero,
+          ),
+          child: const Text('Send', style: TextStyle(fontSize: 13)),
+        ),
+      ],
     );
   }
 
@@ -331,13 +358,13 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
             ],
           ],
         ),
-        if (header != null && header.isNotEmpty) const SizedBox(height: 6),
+        if (header != null && header.isNotEmpty) const SizedBox(height: 4),
         Text(
           question,
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
         if (options.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           for (final opt in options)
             _buildOptionTile(
               opt as Map<String, dynamic>,
@@ -363,7 +390,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
         : _answers[question] == label;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Material(
         color: isSelected
             ? appColors.askIcon.withValues(alpha: 0.1)
@@ -373,7 +400,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
           borderRadius: BorderRadius.circular(10),
           onTap: () => _selectOption(question, label, multi: multiSelect),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
@@ -392,12 +419,12 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                     isSelected
                         ? Icons.check_box
                         : Icons.check_box_outline_blank,
-                    size: 20,
+                    size: 18,
                     color: isSelected
                         ? appColors.askIcon
                         : appColors.subtleText,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                 ],
                 Expanded(
                   child: Column(
