@@ -25,7 +25,12 @@ export interface AssistantToolUseContent {
   input: Record<string, unknown>;
 }
 
-export type AssistantContent = AssistantTextContent | AssistantToolUseContent;
+export interface AssistantThinkingContent {
+  type: "thinking";
+  thinking: string;
+}
+
+export type AssistantContent = AssistantTextContent | AssistantToolUseContent | AssistantThinkingContent;
 
 export interface AssistantMessageEvent {
   type: "assistant";
@@ -90,15 +95,17 @@ export type StreamEvent =
   | { type: "message_stop" };
 
 export interface StreamContentBlock {
-  type: "text" | "tool_use";
+  type: "text" | "tool_use" | "thinking";
   id?: string;
   name?: string;
   text?: string;
+  thinking?: string;
 }
 
 export interface StreamDelta {
-  type: "text_delta" | "input_json_delta";
+  type: "text_delta" | "input_json_delta" | "thinking_delta";
   text?: string;
+  thinking?: string;
   partial_json?: string;
 }
 
@@ -135,13 +142,14 @@ export type ClientMessage =
 export type ServerMessage =
   | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string }
   | { type: "assistant"; message: AssistantMessageEvent["message"] }
-  | { type: "tool_result"; toolUseId: string; content: string; images?: ImageRef[] }
+  | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[] }
   | { type: "result"; subtype: string; result?: string; error?: string; cost?: number; duration?: number; sessionId?: string }
   | { type: "error"; message: string }
   | { type: "status"; status: ProcessStatus }
   | { type: "history"; messages: ServerMessage[] }
   | { type: "permission_request"; toolUseId: string; toolName: string; input: Record<string, unknown> }
-  | { type: "stream_delta"; text: string };
+  | { type: "stream_delta"; text: string }
+  | { type: "thinking_delta"; text: string };
 
 export type ProcessStatus = "idle" | "running" | "waiting_approval";
 
@@ -212,16 +220,21 @@ export function claudeEventToServerMessage(event: ClaudeEvent): ServerMessage | 
       }
 
     case "stream_event": {
-      // Extract text deltas for real-time streaming display
-      if (
-        event.event.type === "content_block_delta" &&
-        event.event.delta.type === "text_delta" &&
-        event.event.delta.text
-      ) {
-        return {
-          type: "stream_delta",
-          text: event.event.delta.text,
-        };
+      if (event.event.type === "content_block_delta") {
+        // Extract text deltas for real-time streaming display
+        if (event.event.delta.type === "text_delta" && event.event.delta.text) {
+          return {
+            type: "stream_delta",
+            text: event.event.delta.text,
+          };
+        }
+        // Extract thinking deltas for real-time thinking display
+        if (event.event.delta.type === "thinking_delta" && event.event.delta.thinking) {
+          return {
+            type: "thinking_delta",
+            text: event.event.delta.thinking,
+          };
+        }
       }
       return null;
     }

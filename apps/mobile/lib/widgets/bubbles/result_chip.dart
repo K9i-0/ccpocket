@@ -17,17 +17,25 @@ class ResultChip extends StatelessWidget {
     if (message.duration != null) {
       parts.add('${(message.duration! / 1000).toStringAsFixed(1)}s');
     }
-    final label = message.subtype == 'success'
-        ? 'Done${parts.isNotEmpty ? ' (${parts.join(", ")})' : ''}'
-        : 'Error: ${message.error ?? 'unknown'}';
+    final String label;
+    final Color chipColor;
+    switch (message.subtype) {
+      case 'success':
+        label = 'Done${parts.isNotEmpty ? ' (${parts.join(", ")})' : ''}';
+        chipColor = appColors.successChip;
+      case 'stopped':
+        label = 'Stopped';
+        chipColor = appColors.subtleText.withValues(alpha: 0.2);
+      default:
+        label = 'Error: ${message.error ?? 'unknown'}';
+        chipColor = appColors.errorChip;
+    }
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Chip(
           label: Text(label, style: const TextStyle(fontSize: 12)),
-          backgroundColor: message.subtype == 'success'
-              ? appColors.successChip
-              : appColors.errorChip,
+          backgroundColor: chipColor,
           side: BorderSide.none,
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,

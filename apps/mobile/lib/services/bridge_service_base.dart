@@ -9,6 +9,7 @@ abstract class BridgeServiceBase {
   Stream<BridgeConnectionState> get connectionStatus;
   void send(ClientMessage message);
   void requestSessionHistory(String sessionId);
+  void stopSession(String sessionId);
 
   /// Buffered past history from resume_session, consumed by ChatScreen.
   PastHistoryMessage? pendingPastHistory;

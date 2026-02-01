@@ -186,6 +186,7 @@ class BridgeService implements BridgeServiceBase {
     ));
   }
 
+  @override
   void stopSession(String sessionId) {
     send(ClientMessage.stopSession(sessionId));
   }

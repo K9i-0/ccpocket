@@ -145,8 +145,15 @@ export class BridgeWebSocketServer {
       }
 
       case "stop_session": {
-        const destroyed = this.sessionManager.destroy(msg.sessionId);
-        if (destroyed) {
+        const session = this.sessionManager.get(msg.sessionId);
+        if (session) {
+          // Notify clients before destroying (destroy removes listeners)
+          this.broadcastSessionMessage(msg.sessionId, {
+            type: "result",
+            subtype: "stopped",
+            sessionId: session.claudeSessionId,
+          });
+          this.sessionManager.destroy(msg.sessionId);
           this.sendSessionList(ws);
         } else {
           this.send(ws, { type: "error", message: `Session ${msg.sessionId} not found` });

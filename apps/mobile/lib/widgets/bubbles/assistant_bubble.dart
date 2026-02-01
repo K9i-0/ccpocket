@@ -8,6 +8,7 @@ import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/markdown_style.dart';
+import 'thinking_bubble.dart';
 
 class AssistantBubble extends StatelessWidget {
   final AssistantServerMessage message;
@@ -47,12 +48,50 @@ class AssistantBubble extends StatelessWidget {
                 ),
               ),
             ),
-            ToolUseContent(:final name, :final input) => ToolUseTile(
-              name: name,
-              input: input,
+            ToolUseContent(:final name, :final input) =>
+              name == 'ExitPlanMode'
+                  ? _PlanReadyTile()
+                  : ToolUseTile(name: name, input: input),
+            ThinkingContent(:final thinking) => ThinkingBubble(
+              thinking: thinking,
             ),
           },
       ],
+    );
+  }
+}
+
+class _PlanReadyTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(
+        vertical: AppSpacing.bubbleMarginV,
+        horizontal: AppSpacing.bubbleMarginH,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        border: Border.all(
+          color: cs.primary.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.assignment, size: 18, color: cs.primary),
+          const SizedBox(width: 8),
+          Text(
+            'Plan ready for review',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: cs.primary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -49,6 +49,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Inline streaming
   StreamingChatEntry? _currentStreaming;
 
+  // Thinking streaming (accumulated separately, merged into assistant message)
+  String _currentThinkingText = '';
+
   // AskUserQuestion tracking
   String? _askToolUseId;
   Map<String, dynamic>? _askInput;
@@ -144,6 +147,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             _pendingToolUseId = null;
             _pendingPermission = null;
           }
+        case ThinkingDeltaMessage(:final text):
+          _currentThinkingText += text;
         case StreamDeltaMessage(:final text):
           if (_currentStreaming == null) {
             _currentStreaming = StreamingChatEntry(text: text);
@@ -158,17 +163,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               e.status = MessageStatus.sent;
             }
           }
+          // Inject accumulated thinking text as ThinkingContent
+          ServerMessage displayMsg = msg;
+          if (_currentThinkingText.isNotEmpty) {
+            final hasThinking = message.content.any((c) => c is ThinkingContent);
+            if (!hasThinking) {
+              final enrichedContent = <AssistantContent>[
+                ThinkingContent(thinking: _currentThinkingText),
+                ...message.content,
+              ];
+              displayMsg = AssistantServerMessage(
+                message: AssistantMessage(
+                  id: message.id,
+                  role: message.role,
+                  content: enrichedContent,
+                  model: message.model,
+                ),
+              );
+            }
+            _currentThinkingText = '';
+          }
           // Replace streaming entry with final assistant entry
           if (_currentStreaming != null) {
             final idx = _entries.indexOf(_currentStreaming!);
             if (idx >= 0) {
-              _entries[idx] = ServerChatEntry(msg);
+              _entries[idx] = ServerChatEntry(displayMsg);
             } else {
-              _addEntry(ServerChatEntry(msg));
+              _addEntry(ServerChatEntry(displayMsg));
             }
             _currentStreaming = null;
           } else {
-            _addEntry(ServerChatEntry(msg));
+            _addEntry(ServerChatEntry(displayMsg));
           }
           for (final content in message.content) {
             if (content is ToolUseContent) {
@@ -234,10 +259,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _addEntry(ServerChatEntry(msg));
           _pendingToolUseId = toolUseId;
           _pendingPermission = msg;
-        case ResultMessage(:final cost):
+        case ResultMessage(:final subtype, :final cost):
           if (cost != null) _totalCost += cost;
+          if (subtype == 'stopped') {
+            _status = ProcessStatus.idle;
+            _pendingToolUseId = null;
+            _pendingPermission = null;
+            _askToolUseId = null;
+            _askInput = null;
+            _currentStreaming = null;
+          }
           HapticFeedback.lightImpact();
-          if (_isBackground) {
+          if (_isBackground && subtype != 'stopped') {
             NotificationService.instance.show(
               title: 'Session Complete',
               body: cost != null
@@ -411,6 +444,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     setState(() {
       _askToolUseId = null;
       _askInput = null;
+    });
+  }
+
+  void _stopSession() {
+    HapticFeedback.mediumImpact();
+    widget.bridge.stopSession(widget.sessionId);
+    setState(() {
+      _pendingToolUseId = null;
+      _pendingPermission = null;
+      _askToolUseId = null;
+      _askInput = null;
+      _currentStreaming = null;
     });
   }
 
@@ -659,11 +704,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
+  bool get _isPlanApproval =>
+      _pendingPermission?.toolName == 'ExitPlanMode';
+
   Widget _buildApprovalBar(AppColors appColors) {
     final summary = _pendingPermission != null
-        ? _extractPermissionSummary(_pendingPermission!)
+        ? (_isPlanApproval
+            ? 'Review the plan above and approve or continue planning'
+            : _extractPermissionSummary(_pendingPermission!))
         : 'Tool execution requires approval';
-    final toolName = _pendingPermission?.toolName;
+    final toolName = _isPlanApproval
+        ? 'Plan Approval'
+        : _pendingPermission?.toolName;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
@@ -688,10 +740,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: appColors.permissionIcon.withValues(alpha: 0.15),
+                  color: (_isPlanApproval
+                      ? Theme.of(context).colorScheme.primary
+                      : appColors.permissionIcon)
+                      .withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.shield, color: appColors.permissionIcon, size: 18),
+                child: Icon(
+                  _isPlanApproval ? Icons.assignment : Icons.shield,
+                  color: _isPlanApproval
+                      ? Theme.of(context).colorScheme.primary
+                      : appColors.permissionIcon,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -729,7 +790,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: const Text('Reject'),
+                  child: Text(_isPlanApproval ? 'Keep Planning' : 'Reject'),
                 ),
               ),
               const SizedBox(width: 10),
@@ -740,7 +801,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: const Text('Approve'),
+                  child: Text(_isPlanApproval ? 'Accept Plan' : 'Approve'),
                 ),
               ),
             ],
@@ -834,23 +895,38 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [cs.primary, cs.primary.withValues(alpha: 0.8)],
+          if (_status != ProcessStatus.idle)
+            Container(
+              decoration: BoxDecoration(
+                color: cs.error,
+                borderRadius: BorderRadius.circular(20),
               ),
-              borderRadius: BorderRadius.circular(20),
+              child: IconButton(
+                key: const ValueKey('stop_button'),
+                onPressed: _stopSession,
+                icon: Icon(Icons.stop_rounded, color: cs.onError, size: 20),
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                padding: EdgeInsets.zero,
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [cs.primary, cs.primary.withValues(alpha: 0.8)],
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: IconButton(
+                key: const ValueKey('send_button'),
+                onPressed: _sendMessage,
+                icon: Icon(Icons.arrow_upward, color: cs.onPrimary, size: 20),
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                padding: EdgeInsets.zero,
+              ),
             ),
-            child: IconButton(
-              key: const ValueKey('send_button'),
-              onPressed: _sendMessage,
-              icon: Icon(Icons.arrow_upward, color: cs.onPrimary, size: 20),
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              padding: EdgeInsets.zero,
-            ),
-          ),
         ],
       ),
     );

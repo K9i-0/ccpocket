@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { ClaudeProcess, type StartOptions } from "./claude-process.js";
-import type { ServerMessage, ProcessStatus } from "./parser.js";
+import type { ServerMessage, ProcessStatus, AssistantToolUseContent } from "./parser.js";
 import type { ImageStore } from "./image-store.js";
 
 export interface SessionInfo {
@@ -51,6 +51,9 @@ export class SessionManager {
       lastActivityAt: new Date(),
     };
 
+    // Cache tool_use id → name for enriching tool_result messages
+    const toolUseNames = new Map<string, string>();
+
     proc.on("message", async (msg) => {
       session.lastActivityAt = new Date();
 
@@ -60,6 +63,24 @@ export class SessionManager {
       }
       if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
         session.claudeSessionId = msg.sessionId;
+      }
+
+      // Cache tool_use names from assistant messages
+      if (msg.type === "assistant") {
+        for (const content of msg.message.content) {
+          if (content.type === "tool_use") {
+            const toolUse = content as AssistantToolUseContent;
+            toolUseNames.set(toolUse.id, toolUse.name);
+          }
+        }
+      }
+
+      // Enrich tool_result with toolName
+      if (msg.type === "tool_result") {
+        const cachedName = toolUseNames.get(msg.toolUseId);
+        if (cachedName) {
+          msg = { ...msg, toolName: cachedName };
+        }
       }
 
       // Extract images from tool_result content
@@ -73,8 +94,8 @@ export class SessionManager {
         }
       }
 
-      // Don't add stream_delta to history
-      if (msg.type !== "stream_delta") {
+      // Don't add streaming deltas to history
+      if (msg.type !== "stream_delta" && msg.type !== "thinking_delta") {
         session.history.push(msg);
         if (session.history.length > MAX_HISTORY_PER_SESSION) {
           session.history.shift();

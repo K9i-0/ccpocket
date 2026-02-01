@@ -121,6 +121,18 @@ class MockBridgeService implements BridgeServiceBase {
     // No-op for mock — history is empty
   }
 
+  @override
+  void stopSession(String sessionId) {
+    _scheduleMessage(
+      const Duration(milliseconds: 200),
+      const ResultMessage(subtype: 'stopped'),
+    );
+    _scheduleMessage(
+      const Duration(milliseconds: 300),
+      const StatusMessage(status: ProcessStatus.idle),
+    );
+  }
+
   /// Play a scenario: emit each step's message after its delay.
   void playScenario(MockScenario scenario) {
     if (scenario.streamingText != null) {

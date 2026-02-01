@@ -32,6 +32,8 @@ final List<MockScenario> mockScenarios = [
   _askUserQuestion,
   _imageResult,
   _streaming,
+  _thinkingBlock,
+  _planMode,
   _errorScenario,
   _fullConversation,
 ];
@@ -173,6 +175,7 @@ final _imageResult = MockScenario(
       delay: const Duration(milliseconds: 1200),
       message: const ToolResultMessage(
         toolUseId: 'tool-screenshot-1',
+        toolName: 'Screenshot',
         content: 'Screenshot captured successfully.',
         images: [
           ImageRef(
@@ -239,7 +242,125 @@ final _streaming = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// 5. Error
+// 5. Thinking Block
+// ---------------------------------------------------------------------------
+final _thinkingBlock = MockScenario(
+  name: 'Thinking Block',
+  icon: Icons.psychology,
+  description: 'Extended thinking with collapsible display',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 800),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-think-1',
+          role: 'assistant',
+          content: [
+            const ThinkingContent(
+              thinking:
+                  'Let me analyze this step by step.\n\n'
+                  '1. The user wants to understand the project structure.\n'
+                  '2. I should look at the directory layout first.\n'
+                  '3. Then examine key files like pubspec.yaml and main.dart.\n'
+                  '4. I need to identify the architecture pattern being used.\n'
+                  '5. Finally, I should summarize the dependencies and their purposes.\n\n'
+                  'The project appears to use a standard Flutter structure with:\n'
+                  '- lib/screens/ for UI screens\n'
+                  '- lib/models/ for data models\n'
+                  '- lib/services/ for business logic\n'
+                  '- lib/widgets/ for reusable components',
+            ),
+            const TextContent(
+              text:
+                  'I\'ve analyzed the project structure. Here\'s what I found:\n\n'
+                  '- **Architecture**: Clean separation with screens, models, services, and widgets\n'
+                  '- **State Management**: Uses StatefulWidget with service injection\n'
+                  '- **Navigation**: Standard Navigator-based routing',
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1500),
+      message: const ResultMessage(
+        subtype: 'success',
+        cost: 0.0089,
+        duration: 2.1,
+        sessionId: 'mock-session-think',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1700),
+      message: const StatusMessage(status: ProcessStatus.idle),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 6. Plan Mode
+// ---------------------------------------------------------------------------
+final _planMode = MockScenario(
+  name: 'Plan Mode',
+  icon: Icons.assignment,
+  description: 'Plan creation with approval flow',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1000),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-plan-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  'I\'ve analyzed the requirements. Here\'s my implementation plan:\n\n'
+                  '## Phase 1: Data Layer\n'
+                  '- Create `User` model class\n'
+                  '- Add SQLite repository with CRUD operations\n\n'
+                  '## Phase 2: UI\n'
+                  '- Build `UserListScreen` with search and filtering\n'
+                  '- Build `UserDetailScreen` with edit form\n\n'
+                  '## Phase 3: Integration\n'
+                  '- Wire up navigation between screens\n'
+                  '- Add error handling and loading states',
+            ),
+            const ToolUseContent(
+              id: 'tool-plan-exit-1',
+              name: 'ExitPlanMode',
+              input: {},
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1500),
+      message: const PermissionRequestMessage(
+        toolUseId: 'tool-plan-exit-1',
+        toolName: 'ExitPlanMode',
+        input: {},
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1700),
+      message: const StatusMessage(status: ProcessStatus.waitingApproval),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 7. Error
 // ---------------------------------------------------------------------------
 final _errorScenario = MockScenario(
   name: 'Error',
@@ -283,7 +404,7 @@ final _errorScenario = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// 6. Full Conversation
+// 8. Full Conversation
 // ---------------------------------------------------------------------------
 final _fullConversation = MockScenario(
   name: 'Full Conversation',
@@ -328,6 +449,7 @@ final _fullConversation = MockScenario(
       delay: const Duration(milliseconds: 2000),
       message: const ToolResultMessage(
         toolUseId: 'tool-read-main',
+        toolName: 'Read',
         content: 'import \'package:flutter/material.dart\';\n\n'
             'void main() {\n'
             '  runApp(const MyApp());\n'

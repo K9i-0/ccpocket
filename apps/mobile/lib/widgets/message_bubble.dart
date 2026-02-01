@@ -107,6 +107,7 @@ class ServerMessageWidget extends StatelessWidget {
       HistoryMessage() => const SizedBox.shrink(),
       final PermissionRequestMessage msg => PermissionRequestBubble(message: msg),
       StreamDeltaMessage() => const SizedBox.shrink(),
+      ThinkingDeltaMessage() => const SizedBox.shrink(),
       RecentSessionsMessage() => const SizedBox.shrink(),
       PastHistoryMessage() => const SizedBox.shrink(),
       SessionListMessage() => const SizedBox.shrink(),

@@ -11,6 +11,9 @@ sealed class AssistantContent {
         name: json['name'] as String,
         input: Map<String, dynamic>.from(json['input'] as Map),
       ),
+      'thinking' => ThinkingContent(
+        thinking: json['thinking'] as String? ?? '',
+      ),
       _ => TextContent(text: '[Unknown content type: ${json['type']}]'),
     };
   }
@@ -30,6 +33,11 @@ class ToolUseContent implements AssistantContent {
     required this.name,
     required this.input,
   });
+}
+
+class ThinkingContent implements AssistantContent {
+  final String thinking;
+  const ThinkingContent({required this.thinking});
 }
 
 // ---- Assistant message ----
@@ -142,6 +150,7 @@ sealed class ServerMessage {
       'tool_result' => ToolResultMessage(
         toolUseId: json['toolUseId'] as String,
         content: json['content'] as String,
+        toolName: json['toolName'] as String?,
         images: (json['images'] as List?)
             ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))
             .toList() ?? const [],
@@ -169,6 +178,7 @@ sealed class ServerMessage {
         input: Map<String, dynamic>.from(json['input'] as Map),
       ),
       'stream_delta' => StreamDeltaMessage(text: json['text'] as String),
+      'thinking_delta' => ThinkingDeltaMessage(text: json['text'] as String),
       'session_list' => SessionListMessage(
         sessions: (json['sessions'] as List)
             .map((s) => SessionInfo.fromJson(s as Map<String, dynamic>))
@@ -211,10 +221,12 @@ class AssistantServerMessage implements ServerMessage {
 class ToolResultMessage implements ServerMessage {
   final String toolUseId;
   final String content;
+  final String? toolName;
   final List<ImageRef> images;
   const ToolResultMessage({
     required this.toolUseId,
     required this.content,
+    this.toolName,
     this.images = const [],
   });
 }
@@ -265,6 +277,11 @@ class PermissionRequestMessage implements ServerMessage {
 class StreamDeltaMessage implements ServerMessage {
   final String text;
   const StreamDeltaMessage({required this.text});
+}
+
+class ThinkingDeltaMessage implements ServerMessage {
+  final String text;
+  const ThinkingDeltaMessage({required this.text});
 }
 
 class SessionListMessage implements ServerMessage {
