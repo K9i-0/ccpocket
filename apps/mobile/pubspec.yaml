@@ -44,6 +44,7 @@ dependencies:
   mobile_scanner: ^7.1.4
   app_links: ^7.0.0
   speech_to_text: ^7.3.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

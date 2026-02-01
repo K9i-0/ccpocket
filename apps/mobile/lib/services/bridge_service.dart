@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -244,6 +245,27 @@ class BridgeService implements BridgeServiceBase {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefKeyUrl, url);
     await prefs.setString(_prefKeyApiKey, apiKey);
+  }
+
+  /// Check if the Bridge server is reachable via /health endpoint.
+  /// Returns the health JSON on success, null on failure.
+  static Future<Map<String, dynamic>?> checkHealth(String wsUrl) async {
+    try {
+      final uri = Uri.tryParse(wsUrl);
+      if (uri == null) return null;
+      final scheme = uri.scheme == 'wss' ? 'https' : 'http';
+      final port = uri.hasPort ? ':${uri.port}' : '';
+      final healthUrl = '$scheme://${uri.host}$port/health';
+      final response = await http
+          .get(Uri.parse(healthUrl))
+          .timeout(const Duration(seconds: 3));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   void disconnect() {

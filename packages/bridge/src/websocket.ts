@@ -71,6 +71,16 @@ export class BridgeWebSocketServer {
     this.wss.close();
   }
 
+  /** Return session count for /health endpoint. */
+  get sessionCount(): number {
+    return this.sessionManager.list().length;
+  }
+
+  /** Return connected WebSocket client count. */
+  get clientCount(): number {
+    return this.wss.clients.size;
+  }
+
   private handleConnection(ws: WebSocket): void {
     // Send session list on connect
     this.sendSessionList(ws);

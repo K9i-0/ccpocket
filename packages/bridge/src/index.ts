@@ -28,7 +28,23 @@ galleryStore.init().then(() => {
   console.error("[bridge] Failed to initialize gallery store:", err);
 });
 
+const startedAt = Date.now();
+let wsServer: BridgeWebSocketServer | null = null;
+
 const httpServer = createServer((req, res) => {
+  // Health check endpoint
+  if (req.url === "/health" && req.method === "GET") {
+    const body = JSON.stringify({
+      status: "ok",
+      uptime: Math.floor((Date.now() - startedAt) / 1000),
+      sessions: wsServer?.sessionCount ?? 0,
+      clients: wsServer?.clientCount ?? 0,
+    });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(body);
+    return;
+  }
+
   // Serve images via ImageStore (in-memory, session-scoped)
   if (imageStore.handleRequest(req, res)) return;
 
@@ -40,7 +56,7 @@ const httpServer = createServer((req, res) => {
   res.end("Not Found");
 });
 
-const wsServer = new BridgeWebSocketServer({
+wsServer = new BridgeWebSocketServer({
   server: httpServer,
   apiKey: API_KEY,
   imageStore,
@@ -56,7 +72,7 @@ httpServer.listen(PORT, HOST, () => {
 function shutdown() {
   console.log("\n[bridge] Shutting down gracefully...");
   mdns.stop();
-  wsServer.close();
+  wsServer?.close();
   httpServer.close();
   process.exit(0);
 }

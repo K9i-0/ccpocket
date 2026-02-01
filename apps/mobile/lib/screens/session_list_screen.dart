@@ -265,7 +265,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
     }
   }
 
-  void _connect() {
+  Future<void> _connect() async {
     var url = _urlController.text.trim();
     if (url.isEmpty) return;
     // Allow shorthand: just IP or host:port without ws:// prefix
@@ -273,6 +273,14 @@ class _SessionListScreenState extends State<SessionListScreen> {
       url = 'ws://$url';
       _urlController.text = url;
     }
+
+    // Health check before connecting
+    final health = await BridgeService.checkHealth(url);
+    if (health == null && mounted) {
+      final shouldConnect = await _showSetupGuide(url);
+      if (shouldConnect != true) return;
+    }
+
     final apiKey = _apiKeyController.text.trim();
     if (apiKey.isNotEmpty) {
       final sep = url.contains('?') ? '&' : '?';
@@ -282,6 +290,143 @@ class _SessionListScreenState extends State<SessionListScreen> {
     _bridge.savePreferences(
       _urlController.text.trim(),
       _apiKeyController.text.trim(),
+    );
+  }
+
+  /// Show setup guide when health check fails. Returns true if user wants
+  /// to try connecting anyway.
+  Future<bool?> _showSetupGuide(String url) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Expanded(child: Text('Server Unreachable')),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Could not reach the Bridge server at:',
+                style: TextStyle(
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              SelectableText(
+                url,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(ctx).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Setup Steps:',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(ctx).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _setupStep(
+                ctx,
+                '1',
+                'Install and build the Bridge server',
+                'cd packages/bridge && npm install && npm run bridge:build',
+              ),
+              _setupStep(ctx, '2', 'Start the server', 'npm run bridge'),
+              _setupStep(
+                ctx,
+                '3',
+                'For persistent startup, use launchd',
+                'launchctl load ~/Library/LaunchAgents/com.ccpocket.bridge.plist',
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Make sure both devices are on the same network (or use Tailscale).',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Connect Anyway'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _setupStep(
+    BuildContext ctx,
+    String number,
+    String title,
+    String command,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 10,
+            backgroundColor: Theme.of(ctx).colorScheme.primaryContainer,
+            child: Text(
+              number,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(ctx).colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 13)),
+                const SizedBox(height: 2),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    command,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
