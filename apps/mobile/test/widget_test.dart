@@ -7,6 +7,9 @@ void main() {
   testWidgets('Initial screen shows connect UI', (WidgetTester tester) async {
     await tester.pumpWidget(const CcpocketApp());
 
+    // Advance past the deep-link timeout timer (3 seconds)
+    await tester.pump(const Duration(seconds: 4));
+
     // App title
     expect(find.text('ccpocket'), findsOneWidget);
 
