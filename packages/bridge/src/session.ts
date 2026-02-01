@@ -55,54 +55,58 @@ export class SessionManager {
     const toolUseNames = new Map<string, string>();
 
     proc.on("message", async (msg) => {
-      session.lastActivityAt = new Date();
+      try {
+        session.lastActivityAt = new Date();
 
-      // Capture Claude session_id from result events
-      if (msg.type === "result" && "sessionId" in msg && msg.sessionId) {
-        session.claudeSessionId = msg.sessionId;
-      }
-      if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
-        session.claudeSessionId = msg.sessionId;
-      }
+        // Capture Claude session_id from result events
+        if (msg.type === "result" && "sessionId" in msg && msg.sessionId) {
+          session.claudeSessionId = msg.sessionId;
+        }
+        if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
+          session.claudeSessionId = msg.sessionId;
+        }
 
-      // Cache tool_use names from assistant messages
-      if (msg.type === "assistant") {
-        for (const content of msg.message.content) {
-          if (content.type === "tool_use") {
-            const toolUse = content as AssistantToolUseContent;
-            toolUseNames.set(toolUse.id, toolUse.name);
+        // Cache tool_use names from assistant messages
+        if (msg.type === "assistant") {
+          for (const content of msg.message.content) {
+            if (content.type === "tool_use") {
+              const toolUse = content as AssistantToolUseContent;
+              toolUseNames.set(toolUse.id, toolUse.name);
+            }
           }
         }
-      }
 
-      // Enrich tool_result with toolName
-      if (msg.type === "tool_result") {
-        const cachedName = toolUseNames.get(msg.toolUseId);
-        if (cachedName) {
-          msg = { ...msg, toolName: cachedName };
-        }
-      }
-
-      // Extract images from tool_result content
-      if (msg.type === "tool_result" && this.imageStore) {
-        const paths = this.imageStore.extractImagePaths(msg.content);
-        if (paths.length > 0) {
-          const images = await this.imageStore.registerImages(paths);
-          if (images.length > 0) {
-            msg = { ...msg, images };
+        // Enrich tool_result with toolName
+        if (msg.type === "tool_result") {
+          const cachedName = toolUseNames.get(msg.toolUseId);
+          if (cachedName) {
+            msg = { ...msg, toolName: cachedName };
           }
         }
-      }
 
-      // Don't add streaming deltas to history
-      if (msg.type !== "stream_delta" && msg.type !== "thinking_delta") {
-        session.history.push(msg);
-        if (session.history.length > MAX_HISTORY_PER_SESSION) {
-          session.history.shift();
+        // Extract images from tool_result content
+        if (msg.type === "tool_result" && this.imageStore) {
+          const paths = this.imageStore.extractImagePaths(msg.content);
+          if (paths.length > 0) {
+            const images = await this.imageStore.registerImages(paths);
+            if (images.length > 0) {
+              msg = { ...msg, images };
+            }
+          }
         }
-      }
 
-      this.onMessage(id, msg);
+        // Don't add streaming deltas to history
+        if (msg.type !== "stream_delta" && msg.type !== "thinking_delta") {
+          session.history.push(msg);
+          if (session.history.length > MAX_HISTORY_PER_SESSION) {
+            session.history.shift();
+          }
+        }
+
+        this.onMessage(id, msg);
+      } catch (err) {
+        console.error(`[session] Error processing message for session ${id}:`, err);
+      }
     });
 
     proc.on("status", (status) => {
