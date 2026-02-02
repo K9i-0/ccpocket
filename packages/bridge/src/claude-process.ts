@@ -14,7 +14,7 @@ import {
 } from "./parser.js";
 
 // Tools that are auto-approved in acceptEdits mode
-const ACCEPT_EDITS_AUTO_APPROVE = new Set([
+export const ACCEPT_EDITS_AUTO_APPROVE = new Set([
   "Read", "Glob", "Grep",
   "Edit", "Write", "NotebookEdit",
   "TaskCreate", "TaskUpdate", "TaskList", "TaskGet",
@@ -27,7 +27,7 @@ const ACCEPT_EDITS_AUTO_APPROVE = new Set([
  * Parse a permission rule in ToolName(ruleContent) format.
  * Matches the CLI's internal pzT() function: /^([^(]+)\(([^)]+)\)$/
  */
-function parseRule(rule: string): { toolName: string; ruleContent?: string } {
+export function parseRule(rule: string): { toolName: string; ruleContent?: string } {
   const match = rule.match(/^([^(]+)\(([^)]+)\)$/);
   if (!match || !match[1] || !match[2]) return { toolName: rule };
   return { toolName: match[1], ruleContent: match[2] };
@@ -36,7 +36,7 @@ function parseRule(rule: string): { toolName: string; ruleContent?: string } {
 /**
  * Check if a tool invocation matches any session allow rule.
  */
-function matchesSessionRule(
+export function matchesSessionRule(
   toolName: string,
   input: Record<string, unknown>,
   rules: Set<string>,
@@ -67,7 +67,7 @@ function matchesSessionRule(
  * Bash: uses first word as prefix (e.g., "Bash(npm:*)")
  * Others: tool name only (e.g., "Edit")
  */
-function buildSessionRule(toolName: string, input: Record<string, unknown>): string {
+export function buildSessionRule(toolName: string, input: Record<string, unknown>): string {
   if (toolName === "Bash" && typeof input.command === "string") {
     const firstWord = (input.command as string).trim().split(/\s+/)[0] ?? "";
     if (firstWord) return `${toolName}(${firstWord}:*)`;
@@ -78,7 +78,7 @@ function buildSessionRule(toolName: string, input: Record<string, unknown>): str
 /**
  * Determine whether a tool needs user approval given the current permission mode.
  */
-function toolNeedsApproval(toolName: string, mode: PermissionMode | undefined): boolean {
+export function toolNeedsApproval(toolName: string, mode: PermissionMode | undefined): boolean {
   if (!mode) return true; // default: ask for everything
 
   switch (mode) {
@@ -135,6 +135,7 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
   private pendingPermissions = new Map<string, PermissionRequest>();
   private _permissionMode: PermissionMode | undefined;
   private sessionAllowRules = new Set<string>();
+  private initTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   get status(): ProcessStatus {
     return this._status;
@@ -190,13 +191,26 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
       env: { ...process.env },
     });
 
-    this.setStatus("running");
+    this.setStatus("starting");
     this.stdoutBuffer = "";
     this.stderrBuffer = "";
     this._sessionId = null;
     this.pendingPermissions.clear();
     this._permissionMode = options?.permissionMode;
     this.sessionAllowRules.clear();
+
+    // In -p mode with --input-format stream-json, Claude CLI won't emit
+    // system/init until the first user input. Set a fallback timeout to
+    // transition to "idle" if init hasn't arrived, since the process IS
+    // ready to accept input at that point.
+    if (this.initTimeoutId) clearTimeout(this.initTimeoutId);
+    this.initTimeoutId = setTimeout(() => {
+      if (this._status === "starting" && this.process === currentProcess) {
+        console.log("[claude-process] Init timeout: setting status to idle (process ready for input)");
+        this.setStatus("idle");
+      }
+      this.initTimeoutId = null;
+    }, 3000);
 
     const currentProcess = this.process;
 
@@ -218,6 +232,13 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
     currentProcess.on("exit", (code) => {
       console.log(`[claude-process] Process exited with code ${code}`);
       if (this.process === currentProcess) {
+        // If process exits while still "starting", Claude CLI failed to initialize
+        if (this._status === "starting") {
+          this.emitMessage({
+            type: "error",
+            message: `Claude process exited before initialization (code ${code})`,
+          });
+        }
         this.process = null;
         this.setStatus("idle");
         this.emit("exit", code);
@@ -235,6 +256,10 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
   }
 
   stop(): void {
+    if (this.initTimeoutId) {
+      clearTimeout(this.initTimeoutId);
+      this.initTimeoutId = null;
+    }
     if (this.process) {
       console.log("[claude-process] Stopping process");
       this.process.kill("SIGTERM");
@@ -479,6 +504,10 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
       case "system":
         // After init, Claude CLI is idle and waiting for user input
         if (event.subtype === "init") {
+          if (this.initTimeoutId) {
+            clearTimeout(this.initTimeoutId);
+            this.initTimeoutId = null;
+          }
           this.setStatus("idle");
         }
         break;

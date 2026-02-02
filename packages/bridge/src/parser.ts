@@ -158,7 +158,7 @@ export type ServerMessage =
   | { type: "thinking_delta"; text: string }
   | { type: "file_list"; files: string[] };
 
-export type ProcessStatus = "idle" | "running" | "waiting_approval";
+export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval";
 
 // ---- Helpers ----
 

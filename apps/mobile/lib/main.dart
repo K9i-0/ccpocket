@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 
 import 'screens/session_list_screen.dart';
@@ -24,7 +25,7 @@ void main() async {
   NotificationService.instance.init().catchError((e) {
     debugPrint('[main] NotificationService init failed: $e');
   });
-  runApp(const CcpocketApp());
+  runApp(const ProviderScope(child: CcpocketApp()));
 }
 
 class CcpocketApp extends StatefulWidget {

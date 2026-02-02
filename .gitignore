@@ -30,6 +30,9 @@ apps/mobile/.flutter-plugins-dependencies
 # TypeScript
 *.tsbuildinfo
 
+# Coverage
+coverage/
+
 # Logs
 *.log
 npm-debug.log*

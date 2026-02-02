@@ -151,6 +151,29 @@ void main() {
       expect(toggled, isTrue);
     });
 
+    testWidgets('shows disabled send button when starting', (tester) async {
+      await tester.pumpWidget(buildSubject(status: ProcessStatus.starting));
+
+      // Send button is visible but stop button is not
+      expect(find.byKey(const ValueKey('send_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('stop_button')), findsNothing);
+
+      // Send button should be disabled (onPressed is null)
+      final iconButton = tester.widget<IconButton>(
+        find.byKey(const ValueKey('send_button')),
+      );
+      expect(iconButton.onPressed, isNull);
+    });
+
+    testWidgets('text field is disabled when starting', (tester) async {
+      await tester.pumpWidget(buildSubject(status: ProcessStatus.starting));
+
+      final textField = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      expect(textField.enabled, isFalse);
+    });
+
     testWidgets('message input field exists', (tester) async {
       await tester.pumpWidget(buildSubject());
 

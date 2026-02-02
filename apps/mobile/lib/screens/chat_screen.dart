@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/messages.dart';
+import '../providers/bridge_providers.dart';
 import '../services/bridge_service_base.dart';
 import '../services/chat_message_handler.dart';
 import '../services/notification_service.dart';
@@ -21,25 +23,26 @@ import '../widgets/slash_command_sheet.dart'
         SlashCommandSheet,
         fallbackSlashCommands;
 
-class ChatScreen extends StatefulWidget {
-  final BridgeServiceBase bridge;
+class ChatScreen extends ConsumerStatefulWidget {
+  final BridgeServiceBase? bridge;
   final String sessionId;
   final String? projectPath;
   final String? gitBranch;
 
   const ChatScreen({
     super.key,
-    required this.bridge,
+    this.bridge,
     required this.sessionId,
     this.projectPath,
     this.gitBranch,
   });
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
+class _ChatScreenState extends ConsumerState<ChatScreen>
+    with WidgetsBindingObserver {
   static final Map<String, double> _scrollOffsets = {};
 
   AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
@@ -71,7 +74,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _inPlanMode = false;
   final TextEditingController _planFeedbackController = TextEditingController();
 
-  ProcessStatus _status = ProcessStatus.idle;
+  ProcessStatus _status = ProcessStatus.starting;
   bool _hasInputText = false;
   String? _pendingToolUseId;
   PermissionRequestMessage? _pendingPermission;
@@ -92,6 +95,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Bridge connection state
   BridgeConnectionState _bridgeState = BridgeConnectionState.connected;
 
+  // Status refresh timer: re-queries get_history while status is "starting"
+  // to handle lost broadcast messages or slow CLI initialization.
+  Timer? _statusRefreshTimer;
+
   // Bulk loading flag (skip animation during history load)
   bool _bulkLoading = true;
 
@@ -104,42 +111,57 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   StreamSubscription<ServerMessage>? _messageSub;
   StreamSubscription<BridgeConnectionState>? _connectionSub;
 
+  /// Bridge accessor: uses constructor-injected bridge (mock path) or provider.
+  BridgeServiceBase get _bridge =>
+      widget.bridge ?? ref.read(bridgeServiceProvider);
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
     _inputController.addListener(_onInputChanged);
-    _messageSub = widget.bridge.messages.listen(_onServerMessage);
-    _connectionSub = widget.bridge.connectionStatus.listen(_onConnectionChange);
-    _fileListSub = widget.bridge.fileList.listen((files) {
-      _projectFiles = files;
-    });
+    _messageSub = _bridge
+        .messagesForSession(widget.sessionId)
+        .listen(_onServerMessage);
+
+    // Mock path: manual subscriptions for connection, fileList, sessionList
+    if (widget.bridge != null) {
+      _connectionSub = widget.bridge!.connectionStatus.listen(
+        _onConnectionChange,
+      );
+      _fileListSub = widget.bridge!.fileList.listen((files) {
+        _projectFiles = files;
+      });
+      _sessionListSub = widget.bridge!.sessionList.listen((sessions) {
+        setState(() {
+          _otherSessions = sessions
+              .where((s) => s.id != widget.sessionId)
+              .toList();
+        });
+      });
+    }
+
     // Request file list for @-mention autocomplete
     if (widget.projectPath != null && widget.projectPath!.isNotEmpty) {
-      widget.bridge.requestFileList(widget.projectPath!);
+      _bridge.requestFileList(widget.projectPath!);
     }
     // Initialize voice input
     _voiceInput.initialize().then((available) {
       if (mounted) setState(() => _isVoiceAvailable = available);
     });
-    // Subscribe to session list for parallel session indicator
-    _sessionListSub = widget.bridge.sessionList.listen((sessions) {
-      setState(() {
-        _otherSessions = sessions
-            .where((s) => s.id != widget.sessionId)
-            .toList();
-      });
-    });
-    widget.bridge.requestSessionList();
+    // Request session list
+    _bridge.requestSessionList();
     // Consume buffered past history from resume_session
-    final pastHistory = widget.bridge.pendingPastHistory;
+    final pastHistory = _bridge.pendingPastHistory;
     if (pastHistory != null) {
-      widget.bridge.pendingPastHistory = null;
+      _bridge.pendingPastHistory = null;
       _onServerMessage(pastHistory);
     }
     // Request in-memory history for this session
-    widget.bridge.requestSessionHistory(widget.sessionId);
+    _bridge.requestSessionHistory(widget.sessionId);
+    // Start status refresh timer (re-queries if stuck at "starting")
+    _startStatusRefreshTimer();
     // Enable animation after initial load & restore scroll position
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bulkLoading = false;
@@ -147,6 +169,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (savedOffset != null && _scrollController.hasClients) {
         _scrollController.jumpTo(savedOffset);
       }
+    });
+  }
+
+  void _startStatusRefreshTimer() {
+    _statusRefreshTimer?.cancel();
+    _statusRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_status != ProcessStatus.starting || !mounted) {
+        _statusRefreshTimer?.cancel();
+        _statusRefreshTimer = null;
+        return;
+      }
+      _bridge.requestSessionHistory(widget.sessionId);
     });
   }
 
@@ -158,6 +192,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     _removeSlashOverlay();
     _removeFileMentionOverlay();
+    _statusRefreshTimer?.cancel();
     _messageSub?.cancel();
     _connectionSub?.cancel();
     _fileListSub?.cancel();
@@ -200,7 +235,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _applyUpdate(ChatStateUpdate update, ServerMessage originalMsg) {
     setState(() {
-      if (update.status != null) _status = update.status!;
+      if (update.status != null) {
+        _status = update.status!;
+        if (_status != ProcessStatus.starting) {
+          _statusRefreshTimer?.cancel();
+          _statusRefreshTimer = null;
+        }
+      }
       if (update.resetPending) {
         _pendingToolUseId = null;
         _pendingPermission = null;
@@ -456,9 +497,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       );
     });
-    widget.bridge.send(
-      ClientMessage.input(command, sessionId: widget.sessionId),
-    );
+    _bridge.send(ClientMessage.input(command, sessionId: widget.sessionId));
     _scrollToBottom();
   }
 
@@ -479,7 +518,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _retryMessage(UserChatEntry entry) {
     setState(() => entry.status = MessageStatus.sending);
-    widget.bridge.send(
+    _bridge.send(
       ClientMessage.input(
         entry.text,
         sessionId: entry.sessionId ?? widget.sessionId,
@@ -536,7 +575,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
     HapticFeedback.lightImpact();
-    final connected = widget.bridge.isConnected;
+    final connected = _bridge.isConnected;
     final entry = UserChatEntry(
       text,
       sessionId: widget.sessionId,
@@ -546,7 +585,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _messageHandler.currentStreaming = null;
       _addEntry(entry);
     });
-    widget.bridge.send(ClientMessage.input(text, sessionId: widget.sessionId));
+    _bridge.send(ClientMessage.input(text, sessionId: widget.sessionId));
     _inputController.clear();
     _scrollToBottom();
   }
@@ -557,7 +596,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (_isPlanApproval) {
         _inPlanMode = false;
       }
-      widget.bridge.send(
+      _bridge.send(
         ClientMessage.approve(_pendingToolUseId!, sessionId: widget.sessionId),
       );
       setState(() {
@@ -573,7 +612,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final feedback = _isPlanApproval
           ? _planFeedbackController.text.trim()
           : null;
-      widget.bridge.send(
+      _bridge.send(
         ClientMessage.reject(
           _pendingToolUseId!,
           message: feedback != null && feedback.isNotEmpty ? feedback : null,
@@ -591,7 +630,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _approveAlwaysToolUse() {
     if (_pendingToolUseId != null) {
       HapticFeedback.mediumImpact();
-      widget.bridge.send(
+      _bridge.send(
         ClientMessage.approveAlways(
           _pendingToolUseId!,
           sessionId: widget.sessionId,
@@ -605,7 +644,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _answerQuestion(String toolUseId, String result) {
-    widget.bridge.send(
+    _bridge.send(
       ClientMessage.answer(toolUseId, result, sessionId: widget.sessionId),
     );
     setState(() {
@@ -616,7 +655,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _stopSession() {
     HapticFeedback.mediumImpact();
-    widget.bridge.stopSession(widget.sessionId);
+    _bridge.stopSession(widget.sessionId);
     setState(() {
       _pendingToolUseId = null;
       _pendingPermission = null;
@@ -629,7 +668,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _interruptSession() {
     HapticFeedback.mediumImpact();
-    widget.bridge.interrupt(widget.sessionId);
+    _bridge.interrupt(widget.sessionId);
     setState(() {
       _messageHandler.currentStreaming = null;
     });
@@ -648,6 +687,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+
+    // Provider-based state (only when not using mock bridge)
+    if (widget.bridge == null) {
+      ref.listen<AsyncValue<BridgeConnectionState>>(connectionStateProvider, (
+        prev,
+        next,
+      ) {
+        final state = next.valueOrNull;
+        if (state != null) _onConnectionChange(state);
+      });
+      ref.watch(fileListProvider).whenData((files) => _projectFiles = files);
+      ref.watch(sessionListProvider).whenData((sessions) {
+        _otherSessions = sessions
+            .where((s) => s.id != widget.sessionId)
+            .toList();
+      });
+    }
+
+    final bridgeState = widget.bridge != null
+        ? _bridgeState
+        : (ref.watch(connectionStateProvider).valueOrNull ??
+              BridgeConnectionState.connected);
+
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
         const SingleActivator(LogicalKeyboardKey.escape): () {
@@ -672,8 +734,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
           body: Column(
             children: [
-              if (_bridgeState == BridgeConnectionState.reconnecting ||
-                  _bridgeState == BridgeConnectionState.disconnected)
+              if (bridgeState == BridgeConnectionState.reconnecting ||
+                  bridgeState == BridgeConnectionState.disconnected)
                 _buildReconnectBanner(appColors),
               Expanded(
                 child: Stack(
@@ -800,7 +862,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           context,
           MaterialPageRoute(
             builder: (_) => ChatScreen(
-              bridge: widget.bridge,
+              bridge: widget.bridge, // preserve mock bridge for switcher
               sessionId: sessionId,
               projectPath: session.projectPath,
             ),
@@ -868,6 +930,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Widget _buildStatusIndicator(AppColors appColors) {
     final (color, label) = switch (_status) {
+      ProcessStatus.starting => (appColors.statusStarting, 'Starting'),
       ProcessStatus.idle => (appColors.statusIdle, 'Idle'),
       ProcessStatus.running => (appColors.statusRunning, 'Running'),
       ProcessStatus.waitingApproval => (appColors.statusApproval, 'Approval'),
@@ -891,7 +954,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
-                boxShadow: _status == ProcessStatus.running
+                boxShadow:
+                    (_status == ProcessStatus.running ||
+                        _status == ProcessStatus.starting)
                     ? [
                         BoxShadow(
                           color: color.withValues(alpha: 0.5),
@@ -962,7 +1027,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           final child = ChatEntryWidget(
             entry: entry,
             previous: previous,
-            httpBaseUrl: widget.bridge.httpBaseUrl,
+            httpBaseUrl: _bridge.httpBaseUrl,
             onRetryMessage: _retryMessage,
             collapseToolResults: _collapseToolResults,
           );

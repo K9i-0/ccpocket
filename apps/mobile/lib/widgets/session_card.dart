@@ -20,12 +20,14 @@ class RunningSessionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final statusColor = switch (session.status) {
+      'starting' => appColors.statusStarting,
       'running' => appColors.statusRunning,
       'waiting_approval' => appColors.statusApproval,
       _ => appColors.statusIdle,
     };
 
     final statusLabel = switch (session.status) {
+      'starting' => 'Starting',
       'running' => 'Running',
       'waiting_approval' => 'Approval',
       _ => 'Idle',
@@ -54,7 +56,9 @@ class RunningSessionCard extends StatelessWidget {
                 children: [
                   _StatusDot(
                     color: statusColor,
-                    animate: session.status == 'running',
+                    animate:
+                        session.status == 'running' ||
+                        session.status == 'starting',
                   ),
                   const SizedBox(width: 6),
                   Text(

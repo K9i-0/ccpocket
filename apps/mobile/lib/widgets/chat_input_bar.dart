@@ -122,6 +122,7 @@ class ChatInputBar extends StatelessWidget {
               vertical: 10,
             ),
           ),
+          enabled: status != ProcessStatus.starting,
           textInputAction: TextInputAction.send,
           onSubmitted: (_) => onSend(),
         ),
@@ -130,6 +131,9 @@ class ChatInputBar extends StatelessWidget {
   }
 
   Widget _buildActionButton(ColorScheme cs) {
+    if (status == ProcessStatus.starting) {
+      return _buildSendButton(cs, enabled: false);
+    }
     if (status != ProcessStatus.idle && !hasInputText) {
       return _buildStopButton(cs);
     }
@@ -180,22 +184,26 @@ class ChatInputBar extends StatelessWidget {
     );
   }
 
-  Widget _buildSendButton(ColorScheme cs) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [cs.primary, cs.primary.withValues(alpha: 0.8)],
+  Widget _buildSendButton(ColorScheme cs, {bool enabled = true}) {
+    final opacity = enabled ? 1.0 : 0.4;
+    return Opacity(
+      opacity: opacity,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [cs.primary, cs.primary.withValues(alpha: 0.8)],
+          ),
+          borderRadius: BorderRadius.circular(20),
         ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: IconButton(
-        key: const ValueKey('send_button'),
-        onPressed: onSend,
-        icon: Icon(Icons.arrow_upward, color: cs.onPrimary, size: 20),
-        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-        padding: EdgeInsets.zero,
+        child: IconButton(
+          key: const ValueKey('send_button'),
+          onPressed: enabled ? onSend : null,
+          icon: Icon(Icons.arrow_upward, color: cs.onPrimary, size: 20),
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          padding: EdgeInsets.zero,
+        ),
       ),
     );
   }
