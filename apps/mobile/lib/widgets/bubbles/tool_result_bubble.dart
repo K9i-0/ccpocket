@@ -110,9 +110,73 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     return '$lineCount lines';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+  void _copyContent(BuildContext context) {
+    final content = widget.message.content;
+    if (content.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: content));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Copied to clipboard'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  /// Collapsed: inline log row — no card background.
+  Widget _buildCollapsed(AppColors appColors) {
+    final toolName = widget.message.toolName;
+    final summary = _buildSummary(widget.message.content, toolName);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.bubbleMarginH,
+        vertical: 1,
+      ),
+      child: InkWell(
+        onTap: _cycleExpansion,
+        onLongPress: () => _copyContent(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            children: [
+              // Colored dot
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: appColors.toolIcon,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Tool name
+              Text(
+                toolName ?? 'Tool Result',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Summary — plain text, no badge
+              Expanded(
+                child: Text(
+                  summary,
+                  style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              // Chevron
+              Icon(Icons.chevron_right, size: 14, color: appColors.subtleText),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Preview / Expanded: card with background + content.
+  Widget _buildCard(AppColors appColors) {
     final content = widget.message.content;
     final toolName = widget.message.toolName;
     final lines = content.split('\n');
@@ -122,11 +186,9 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
         : content;
     final summary = _buildSummary(content, toolName);
 
-    final chevronIcon = switch (_expansion) {
-      ToolResultExpansion.collapsed => Icons.chevron_right,
-      ToolResultExpansion.preview => Icons.expand_more,
-      ToolResultExpansion.expanded => Icons.expand_less,
-    };
+    final chevronIcon = _expansion == ToolResultExpansion.preview
+        ? Icons.expand_more
+        : Icons.expand_less;
 
     return Container(
       margin: const EdgeInsets.symmetric(
@@ -135,17 +197,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
       ),
       child: InkWell(
         onTap: _cycleExpansion,
-        onLongPress: content.isNotEmpty
-            ? () {
-                Clipboard.setData(ClipboardData(text: content));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Copied to clipboard'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              }
-            : null,
+        onLongPress: () => _copyContent(context),
         borderRadius: BorderRadius.circular(AppSpacing.codeRadius),
         child: Container(
           padding: const EdgeInsets.all(10),
@@ -164,7 +216,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
                 ),
                 const SizedBox(height: 8),
               ],
-              // Header row: icon + tool name + summary badge + chevron
+              // Header row
               Row(
                 children: [
                   Icon(
@@ -181,25 +233,15 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: appColors.toolIcon.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      summary,
-                      style: TextStyle(fontSize: 10, color: appColors.toolIcon),
-                    ),
+                  Text(
+                    summary,
+                    style: TextStyle(fontSize: 11, color: appColors.subtleText),
                   ),
                   const Spacer(),
                   Icon(chevronIcon, size: 16, color: appColors.subtleText),
                 ],
               ),
-              // Content: only shown in preview / expanded states
+              // Content
               if (_expansion == ToolResultExpansion.preview) ...[
                 const SizedBox(height: 6),
                 Text(
@@ -242,5 +284,15 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
         ),
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+
+    if (_expansion == ToolResultExpansion.collapsed) {
+      return _buildCollapsed(appColors);
+    }
+    return _buildCard(appColors);
   }
 }

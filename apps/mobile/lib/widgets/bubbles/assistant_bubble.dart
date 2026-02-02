@@ -95,72 +95,168 @@ class _PlanReadyTile extends StatelessWidget {
   }
 }
 
-class ToolUseTile extends StatelessWidget {
+class ToolUseTile extends StatefulWidget {
   final String name;
   final Map<String, dynamic> input;
   const ToolUseTile({super.key, required this.name, required this.input});
 
   @override
+  State<ToolUseTile> createState() => _ToolUseTileState();
+}
+
+class _ToolUseTileState extends State<ToolUseTile> {
+  bool _expanded = false;
+
+  String _inputSummary() {
+    final input = widget.input;
+    // Pick the most informative key for a one-line summary.
+    for (final key in [
+      'command',
+      'file_path',
+      'path',
+      'pattern',
+      'url',
+      'query',
+      'prompt',
+    ]) {
+      if (input.containsKey(key)) {
+        final val = input[key].toString();
+        return val.length > 60 ? '${val.substring(0, 60)}…' : val;
+      }
+    }
+    final keys = input.keys.take(3).join(', ');
+    return keys.isNotEmpty ? keys : '{}';
+  }
+
+  void _copyContent() {
+    final inputStr = const JsonEncoder.withIndent('  ').convert(widget.input);
+    Clipboard.setData(ClipboardData(text: '${widget.name}\n$inputStr'));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Copied'), duration: Duration(seconds: 1)),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final inputStr = const JsonEncoder.withIndent('  ').convert(input);
+    if (_expanded) return _buildCard(appColors);
+    return _buildCollapsed(appColors);
+  }
+
+  Widget _buildCollapsed(AppColors appColors) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.bubbleMarginH,
+        vertical: 1,
+      ),
+      child: InkWell(
+        onTap: () {
+          setState(() => _expanded = true);
+          HapticFeedback.selectionClick();
+        },
+        onLongPress: _copyContent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            children: [
+              // Colored dot
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: appColors.toolIcon,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Tool name
+              Text(
+                widget.name,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Input summary
+              Expanded(
+                child: Text(
+                  _inputSummary(),
+                  style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 14, color: appColors.subtleText),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCard(AppColors appColors) {
+    final inputStr = const JsonEncoder.withIndent('  ').convert(widget.input);
     final preview = inputStr.length > 200
         ? '${inputStr.substring(0, 200)}...'
         : inputStr;
-    return GestureDetector(
-      onLongPress: () {
-        Clipboard.setData(ClipboardData(text: '$name\n$inputStr'));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Copied'),
-            duration: Duration(seconds: 1),
+
+    return Container(
+      margin: const EdgeInsets.symmetric(
+        vertical: 2,
+        horizontal: AppSpacing.bubbleMarginH,
+      ),
+      child: InkWell(
+        onTap: () {
+          setState(() => _expanded = false);
+          HapticFeedback.selectionClick();
+        },
+        onLongPress: _copyContent,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: appColors.toolBubble,
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            border: Border.all(color: appColors.toolBubbleBorder),
           ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(
-          vertical: AppSpacing.bubbleMarginV,
-          horizontal: AppSpacing.bubbleMarginH,
-        ),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: appColors.toolBubble,
-          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-          border: Border.all(color: appColors.toolBubbleBorder),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: appColors.toolIcon.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.build, size: 14, color: appColors.toolIcon),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  child: Icon(Icons.build, size: 14, color: appColors.toolIcon),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                  const SizedBox(width: 6),
+                  Text(
+                    _inputSummary(),
+                    style: TextStyle(fontSize: 11, color: appColors.subtleText),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              preview,
-              style: TextStyle(
-                fontSize: 11,
-                fontFamily: 'monospace',
-                color: appColors.subtleText,
+                  const Spacer(),
+                  Icon(
+                    Icons.expand_less,
+                    size: 16,
+                    color: appColors.subtleText,
+                  ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              Text(
+                preview,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  color: appColors.subtleText,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
