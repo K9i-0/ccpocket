@@ -200,6 +200,14 @@ export class BridgeWebSocketServer {
       case "get_history": {
         const session = this.sessionManager.get(msg.sessionId);
         if (session) {
+          // Send past conversation from disk (resume) before in-memory history
+          if (session.pastMessages && session.pastMessages.length > 0) {
+            this.send(ws, {
+              type: "past_history",
+              claudeSessionId: session.claudeSessionId ?? msg.sessionId,
+              messages: session.pastMessages,
+            } as Record<string, unknown>);
+          }
           this.send(ws, { type: "history", messages: session.history });
           this.send(ws, { type: "status", status: session.status });
         } else {
@@ -230,7 +238,7 @@ export class BridgeWebSocketServer {
           const sessionId = this.sessionManager.create(msg.projectPath, {
             sessionId: claudeSessionId,
             permissionMode: msg.permissionMode,
-          });
+          }, pastMessages);
           this.send(ws, {
             type: "system",
             subtype: "session_created",

@@ -107,6 +107,7 @@ class BridgeService implements BridgeServiceBase {
                 _recentSessionsController.add(sessions);
               case PastHistoryMessage():
                 pendingPastHistory = msg;
+                _messageController.add(msg);
               case GalleryListMessage(:final images):
                 _galleryImages = images;
                 _galleryController.add(images);

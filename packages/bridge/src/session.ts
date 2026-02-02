@@ -8,6 +8,8 @@ export interface SessionInfo {
   id: string;
   process: ClaudeProcess;
   history: ServerMessage[];
+  /** Past conversation loaded from disk on resume (SessionHistoryMessage[]). */
+  pastMessages?: unknown[];
   projectPath: string;
   claudeSessionId?: string;
   status: ProcessStatus;
@@ -47,13 +49,14 @@ export class SessionManager {
     this.onGalleryImage = onGalleryImage ?? null;
   }
 
-  create(projectPath: string, options?: StartOptions): string {
+  create(projectPath: string, options?: StartOptions, pastMessages?: unknown[]): string {
     const id = randomUUID().slice(0, 8);
     const proc = new ClaudeProcess();
     const session: SessionInfo = {
       id,
       process: proc,
       history: [],
+      pastMessages: pastMessages && pastMessages.length > 0 ? pastMessages : undefined,
       projectPath,
       status: "idle",
       createdAt: new Date(),

@@ -95,6 +95,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Bulk loading flag (skip animation during history load)
   bool _bulkLoading = true;
 
+  // Prevent duplicate past_history processing
+  bool _pastHistoryLoaded = false;
+
   // Notifier to auto-collapse ToolResultBubbles on new assistant message
   final ValueNotifier<int> _collapseToolResults = ValueNotifier<int>(0);
 
@@ -186,6 +189,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _onServerMessage(ServerMessage msg) {
+    // Skip duplicate past_history (may arrive from both buffer and stream)
+    if (msg is PastHistoryMessage && _pastHistoryLoaded) return;
+    if (msg is PastHistoryMessage) _pastHistoryLoaded = true;
+
     final update = _messageHandler.handle(msg, isBackground: _isBackground);
     _applyUpdate(update, msg);
     _scrollToBottom();
