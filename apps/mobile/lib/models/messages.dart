@@ -265,6 +265,9 @@ sealed class ServerMessage {
       'file_list' => FileListMessage(
         files: (json['files'] as List).cast<String>(),
       ),
+      'project_history' => ProjectHistoryMessage(
+        projects: (json['projects'] as List).cast<String>(),
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -402,6 +405,11 @@ class GalleryNewImageMessage implements ServerMessage {
 class FileListMessage implements ServerMessage {
   final List<String> files;
   const FileListMessage({required this.files});
+}
+
+class ProjectHistoryMessage implements ServerMessage {
+  final List<String> projects;
+  const ProjectHistoryMessage({required this.projects});
 }
 
 class PastMessage {
@@ -618,6 +626,15 @@ class ClientMessage {
     if (sessionId != null) json['sessionId'] = sessionId;
     return ClientMessage._(json);
   }
+
+  factory ClientMessage.listProjectHistory() =>
+      ClientMessage._({'type': 'list_project_history'});
+
+  factory ClientMessage.removeProjectHistory(String projectPath) =>
+      ClientMessage._({
+        'type': 'remove_project_history',
+        'projectPath': projectPath,
+      });
 
   String toJson() => jsonEncode(_json);
 }

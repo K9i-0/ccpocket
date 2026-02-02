@@ -193,4 +193,18 @@ describe("parseClientMessage", () => {
   it("returns null for invalid JSON", () => {
     expect(parseClientMessage("not json")).toBeNull();
   });
+
+  it("parses list_project_history message", () => {
+    const msg = parseClientMessage('{"type":"list_project_history"}');
+    expect(msg).toEqual({ type: "list_project_history" });
+  });
+
+  it("parses remove_project_history message", () => {
+    const msg = parseClientMessage('{"type":"remove_project_history","projectPath":"/p"}');
+    expect(msg).toEqual({ type: "remove_project_history", projectPath: "/p" });
+  });
+
+  it("rejects remove_project_history without projectPath", () => {
+    expect(parseClientMessage('{"type":"remove_project_history"}')).toBeNull();
+  });
 });

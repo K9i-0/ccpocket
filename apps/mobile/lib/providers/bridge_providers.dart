@@ -34,3 +34,8 @@ final galleryProvider = StreamProvider<List<GalleryImage>>((ref) {
 final fileListProvider = StreamProvider<List<String>>((ref) {
   return ref.watch(bridgeServiceProvider).fileList;
 });
+
+/// Stream of project history (Bridge-managed recent project paths).
+final projectHistoryProvider = StreamProvider<List<String>>((ref) {
+  return ref.watch(bridgeServiceProvider).projectHistoryStream;
+});

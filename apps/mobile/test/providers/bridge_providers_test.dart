@@ -74,4 +74,14 @@ void main() {
       expect(state, isA<AsyncLoading<List<String>>>());
     });
   });
+
+  group('projectHistoryProvider', () {
+    test('initial state is AsyncLoading', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final state = container.read(projectHistoryProvider);
+      expect(state, isA<AsyncLoading<List<String>>>());
+    });
+  });
 }

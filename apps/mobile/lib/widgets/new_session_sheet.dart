@@ -20,9 +20,12 @@ class NewSessionParams {
 /// Shows a modal bottom sheet for creating a new Claude Code session.
 ///
 /// Returns [NewSessionParams] if the user starts a session, or null on cancel.
+/// [projectHistory] is the Bridge-managed project history (preferred).
+/// [recentProjects] is the fallback from session-based history.
 Future<NewSessionParams?> showNewSessionSheet({
   required BuildContext context,
   required List<({String path, String name})> recentProjects,
+  List<String> projectHistory = const [],
 }) {
   return showModalBottomSheet<NewSessionParams>(
     context: context,
@@ -31,15 +34,21 @@ Future<NewSessionParams?> showNewSessionSheet({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (context) =>
-        _NewSessionSheetContent(recentProjects: recentProjects),
+    builder: (context) => _NewSessionSheetContent(
+      recentProjects: recentProjects,
+      projectHistory: projectHistory,
+    ),
   );
 }
 
 class _NewSessionSheetContent extends StatefulWidget {
   final List<({String path, String name})> recentProjects;
+  final List<String> projectHistory;
 
-  const _NewSessionSheetContent({required this.recentProjects});
+  const _NewSessionSheetContent({
+    required this.recentProjects,
+    this.projectHistory = const [],
+  });
 
   @override
   State<_NewSessionSheetContent> createState() =>
@@ -52,6 +61,26 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   var _continueMode = false;
 
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
+
+  /// Merge projectHistory (Bridge-managed, preferred) with recentProjects (session fallback).
+  /// projectHistory paths are shown first; recentProjects paths not already covered are appended.
+  List<({String path, String name})> get _effectiveProjects {
+    if (widget.projectHistory.isEmpty) return widget.recentProjects;
+    final seen = <String>{};
+    final result = <({String path, String name})>[];
+    for (final path in widget.projectHistory) {
+      if (seen.add(path)) {
+        final name = path.split('/').last;
+        result.add((path: path, name: name));
+      }
+    }
+    for (final project in widget.recentProjects) {
+      if (seen.add(project.path)) {
+        result.add(project);
+      }
+    }
+    return result;
+  }
 
   @override
   void dispose() {
@@ -86,7 +115,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             _buildDragHandle(appColors),
             _buildTitle(),
             const SizedBox(height: 12),
-            if (widget.recentProjects.isNotEmpty) ...[
+            if (_effectiveProjects.isNotEmpty) ...[
               _buildRecentProjectsSection(appColors),
               _buildDivider(appColors),
             ],
@@ -145,7 +174,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           ),
         ),
         const SizedBox(height: 4),
-        for (final project in widget.recentProjects)
+        for (final project in _effectiveProjects)
           _buildProjectTile(project, appColors),
       ],
     );

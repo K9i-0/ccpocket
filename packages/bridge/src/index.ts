@@ -4,6 +4,7 @@ import { ImageStore } from "./image-store.js";
 import { GalleryStore } from "./gallery-store.js";
 import { printStartupInfo } from "./startup-info.js";
 import { MdnsAdvertiser } from "./mdns.js";
+import { ProjectHistory } from "./project-history.js";
 
 const PORT = parseInt(process.env.BRIDGE_PORT ?? "8765", 10);
 const HOST = process.env.BRIDGE_HOST ?? "0.0.0.0";
@@ -19,13 +20,20 @@ if (API_KEY) {
 
 const imageStore = new ImageStore();
 const galleryStore = new GalleryStore();
+const projectHistory = new ProjectHistory();
 const mdns = new MdnsAdvertiser();
 
-// Initialize gallery store (async)
+// Initialize stores (async)
 galleryStore.init().then(() => {
   console.log("[bridge] Gallery store initialized");
 }).catch((err) => {
   console.error("[bridge] Failed to initialize gallery store:", err);
+});
+
+projectHistory.init().then(() => {
+  console.log("[bridge] Project history initialized");
+}).catch((err) => {
+  console.error("[bridge] Failed to initialize project history:", err);
 });
 
 const startedAt = Date.now();
@@ -61,6 +69,7 @@ wsServer = new BridgeWebSocketServer({
   apiKey: API_KEY,
   imageStore,
   galleryStore,
+  projectHistory,
 });
 
 httpServer.listen(PORT, HOST, () => {

@@ -22,12 +22,14 @@ class BridgeService implements BridgeServiceBase {
       StreamController<List<RecentSession>>.broadcast();
   final _galleryController = StreamController<List<GalleryImage>>.broadcast();
   final _fileListController = StreamController<List<String>>.broadcast();
+  final _projectHistoryController = StreamController<List<String>>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
   List<SessionInfo> _sessions = [];
   List<RecentSession> _recentSessions = [];
   List<GalleryImage> _galleryImages = [];
+  List<String> _projectHistory = [];
 
   // Auto-reconnect
   String? _lastUrl;
@@ -50,6 +52,8 @@ class BridgeService implements BridgeServiceBase {
   Stream<List<RecentSession>> get recentSessionsStream =>
       _recentSessionsController.stream;
   Stream<List<GalleryImage>> get galleryStream => _galleryController.stream;
+  Stream<List<String>> get projectHistoryStream =>
+      _projectHistoryController.stream;
   @override
   Stream<List<String>> get fileList => _fileListController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
@@ -58,6 +62,7 @@ class BridgeService implements BridgeServiceBase {
   List<SessionInfo> get sessions => _sessions;
   List<RecentSession> get recentSessions => _recentSessions;
   List<GalleryImage> get galleryImages => _galleryImages;
+  List<String> get projectHistory => _projectHistory;
 
   /// Derive HTTP base URL from the WebSocket URL.
   /// e.g. ws://host:8765?token=x -> http://host:8765
@@ -120,6 +125,9 @@ class BridgeService implements BridgeServiceBase {
                 _galleryController.add(_galleryImages);
               case FileListMessage(:final files):
                 _fileListController.add(files);
+              case ProjectHistoryMessage(:final projects):
+                _projectHistory = projects;
+                _projectHistoryController.add(projects);
               default:
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
@@ -218,6 +226,14 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.stopSession(sessionId));
   }
 
+  void requestProjectHistory() {
+    send(ClientMessage.listProjectHistory());
+  }
+
+  void removeProjectHistory(String path) {
+    send(ClientMessage.removeProjectHistory(path));
+  }
+
   void requestGallery({String? project}) {
     send(ClientMessage.listGallery(project: project));
   }
@@ -304,5 +320,6 @@ class BridgeService implements BridgeServiceBase {
     _recentSessionsController.close();
     _galleryController.close();
     _fileListController.close();
+    _projectHistoryController.close();
   }
 }

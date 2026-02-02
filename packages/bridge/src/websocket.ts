@@ -6,12 +6,14 @@ import { parseClientMessage, type ClientMessage, type ServerMessage } from "./pa
 import { getAllRecentSessions, getSessionHistory } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
+import type { ProjectHistory } from "./project-history.js";
 
 export interface BridgeServerOptions {
   server: HttpServer;
   apiKey?: string;
   imageStore?: ImageStore;
   galleryStore?: GalleryStore;
+  projectHistory?: ProjectHistory;
 }
 
 export class BridgeWebSocketServer {
@@ -19,11 +21,13 @@ export class BridgeWebSocketServer {
   private sessionManager: SessionManager;
   private apiKey: string | null;
   private galleryStore: GalleryStore | null;
+  private projectHistory: ProjectHistory | null;
 
   constructor(options: BridgeServerOptions) {
-    const { server, apiKey, imageStore, galleryStore } = options;
+    const { server, apiKey, imageStore, galleryStore, projectHistory } = options;
     this.apiKey = apiKey ?? null;
     this.galleryStore = galleryStore ?? null;
+    this.projectHistory = projectHistory ?? null;
 
     this.wss = new WebSocketServer({ server });
 
@@ -122,6 +126,7 @@ export class BridgeWebSocketServer {
           sessionId,
           projectPath: msg.projectPath,
         });
+        this.projectHistory?.addProject(msg.projectPath);
         break;
       }
 
@@ -246,6 +251,7 @@ export class BridgeWebSocketServer {
             sessionId,
             projectPath: msg.projectPath,
           });
+          this.projectHistory?.addProject(msg.projectPath);
         }).catch((err) => {
           this.send(ws, { type: "error", message: `Failed to load session history: ${err}` });
         });
@@ -269,6 +275,19 @@ export class BridgeWebSocketServer {
           return;
         }
         session.process.interrupt();
+        break;
+      }
+
+      case "list_project_history": {
+        const projects = this.projectHistory?.getProjects() ?? [];
+        this.send(ws, { type: "project_history", projects });
+        break;
+      }
+
+      case "remove_project_history": {
+        this.projectHistory?.removeProject(msg.projectPath);
+        const projects = this.projectHistory?.getProjects() ?? [];
+        this.send(ws, { type: "project_history", projects });
         break;
       }
 

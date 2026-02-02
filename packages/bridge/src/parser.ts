@@ -56,7 +56,9 @@ export type ClientMessage =
   | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode }
   | { type: "list_gallery"; project?: string }
   | { type: "list_files"; projectPath: string }
-  | { type: "interrupt"; sessionId?: string };
+  | { type: "interrupt"; sessionId?: string }
+  | { type: "list_project_history" }
+  | { type: "remove_project_history"; projectPath: string };
 
 export type ServerMessage =
   | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string; slashCommands?: string[]; skills?: string[] }
@@ -69,7 +71,8 @@ export type ServerMessage =
   | { type: "permission_request"; toolUseId: string; toolName: string; input: Record<string, unknown> }
   | { type: "stream_delta"; text: string }
   | { type: "thinking_delta"; text: string }
-  | { type: "file_list"; files: string[] };
+  | { type: "file_list"; files: string[] }
+  | { type: "project_history"; projects: string[] };
 
 export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval";
 
@@ -131,6 +134,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (typeof msg.projectPath !== "string") return null;
         break;
       case "interrupt":
+        break;
+      case "list_project_history":
+        break;
+      case "remove_project_history":
+        if (typeof msg.projectPath !== "string") return null;
         break;
       default:
         return null;

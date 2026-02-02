@@ -433,9 +433,11 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     final sessions =
         widget.debugRecentSessions ??
         (ref.read(recentSessionsProvider).valueOrNull ?? []);
+    final history = ref.read(projectHistoryProvider).valueOrNull ?? [];
     final result = await showNewSessionSheet(
       context: context,
       recentProjects: recentProjects(sessions),
+      projectHistory: history,
     );
     if (result == null) return;
     _pendingResumeProjectPath = result.projectPath;
@@ -530,6 +532,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
         final bridge = ref.read(bridgeServiceProvider);
         bridge.requestSessionList();
         bridge.requestRecentSessions();
+        bridge.requestProjectHistory();
       }
     });
 
