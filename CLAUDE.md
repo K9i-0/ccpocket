@@ -39,6 +39,16 @@ cd apps/mobile && flutter run    # アプリ起動
 cd apps/mobile && flutter test   # テスト実行
 ```
 
+### 開発用一括再起動
+```bash
+npm run dev                      # Bridge再起動 + Flutter (marionette) 起動
+npm run dev -- <device-id>       # デバイス指定付き
+```
+
+Bridge Serverの停止→再起動とFlutterアプリの起動を一括で行う。
+Flutterアプリ終了時にBridge Serverも自動停止する。
+スクリプト本体: `scripts/dev-restart.sh`
+
 ## 技術スタック
 
 - **Bridge Server**: TypeScript, WebSocket (ws), Node.js
