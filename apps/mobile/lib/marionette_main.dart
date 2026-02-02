@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 
 import 'screens/session_list_screen.dart';
@@ -8,7 +9,7 @@ import 'theme/app_theme.dart';
 void main() async {
   MarionetteBinding.ensureInitialized();
   await NotificationService.instance.init();
-  runApp(const CcpocketApp());
+  runApp(const ProviderScope(child: CcpocketApp()));
 }
 
 class CcpocketApp extends StatelessWidget {
