@@ -194,6 +194,18 @@ flutter test apps/mobile                              # ユニットテスト
 - タップが失敗する場合は `ensureVisible` → `tap` の順で試す
 - ウィジェットテストの方が信頼性が高い
 
+## カスタムスキル
+
+`.claude/skills/` にプロジェクト固有のスキル (スラッシュコマンド) を配置している。
+
+| スキル | 呼び出し | 説明 |
+|--------|---------|------|
+| test-bridge | `/test-bridge` | Bridge Server の Vitest テスト実行・TypeScript型チェック・テスト記述規約 |
+| test-flutter | `/test-flutter` | Flutter App のテスト実行・dart analyze・format・テスト記述規約 |
+
+実装後の検証では、変更領域に応じて対応するスキルを実行する。
+Bridge と Flutter の両方に影響がある場合は両方実行する。
+
 ## 規約
 
 - コミット: Conventional Commits (`type(scope): description`)
