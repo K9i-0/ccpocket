@@ -115,6 +115,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private _permissionMode: PermissionMode | undefined;
   private sessionAllowRules = new Set<string>();
 
+  private initTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
   // User message channel
   private userMessageResolve: ((msg: SDKUserMsg) => void) | null = null;
   private stopped = false;
@@ -150,6 +152,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
     console.log(`[sdk-process] Starting SDK query (cwd: ${projectPath}, mode: ${options?.permissionMode ?? "default"})`);
 
+    // In -p mode with --input-format stream-json, Claude CLI won't emit
+    // system/init until the first user input. Set a fallback timeout to
+    // transition to "idle" if init hasn't arrived, since the process IS
+    // ready to accept input at that point.
+    if (this.initTimeoutId) clearTimeout(this.initTimeoutId);
+    this.initTimeoutId = setTimeout(() => {
+      if (this._status === "starting") {
+        console.log("[sdk-process] Init timeout: setting status to idle (process ready for input)");
+        this.setStatus("idle");
+      }
+      this.initTimeoutId = null;
+    }, 3000);
+
     this.queryInstance = query({
       prompt: this.createUserMessageStream(),
       options: {
@@ -173,6 +188,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   }
 
   stop(): void {
+    if (this.initTimeoutId) {
+      clearTimeout(this.initTimeoutId);
+      this.initTimeoutId = null;
+    }
     this.stopped = true;
     if (this.queryInstance) {
       console.log("[sdk-process] Stopping query");
@@ -328,6 +347,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
       // Extract session ID from system/init
       if (message.type === "system" && "subtype" in message && (message as Record<string, unknown>).subtype === "init") {
+        if (this.initTimeoutId) {
+          clearTimeout(this.initTimeoutId);
+          this.initTimeoutId = null;
+        }
         this._sessionId = message.session_id;
         this.setStatus("idle");
       }
