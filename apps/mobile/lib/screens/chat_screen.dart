@@ -95,6 +95,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Bridge connection state
   BridgeConnectionState _bridgeState = BridgeConnectionState.connected;
 
+  // Status refresh timer: re-queries get_history while status is "starting"
+  // to handle lost broadcast messages or slow CLI initialization.
+  Timer? _statusRefreshTimer;
+
   // Bulk loading flag (skip animation during history load)
   bool _bulkLoading = true;
 
@@ -154,6 +158,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
     // Request in-memory history for this session
     _bridge.requestSessionHistory(widget.sessionId);
+    // Start status refresh timer (re-queries if stuck at "starting")
+    _startStatusRefreshTimer();
     // Enable animation after initial load & restore scroll position
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bulkLoading = false;
@@ -161,6 +167,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (savedOffset != null && _scrollController.hasClients) {
         _scrollController.jumpTo(savedOffset);
       }
+    });
+  }
+
+  void _startStatusRefreshTimer() {
+    _statusRefreshTimer?.cancel();
+    _statusRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_status != ProcessStatus.starting || !mounted) {
+        _statusRefreshTimer?.cancel();
+        _statusRefreshTimer = null;
+        return;
+      }
+      _bridge.requestSessionHistory(widget.sessionId);
     });
   }
 
@@ -172,6 +190,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
     _removeSlashOverlay();
     _removeFileMentionOverlay();
+    _statusRefreshTimer?.cancel();
     _messageSub?.cancel();
     _connectionSub?.cancel();
     _fileListSub?.cancel();
@@ -214,7 +233,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _applyUpdate(ChatStateUpdate update, ServerMessage originalMsg) {
     setState(() {
-      if (update.status != null) _status = update.status!;
+      if (update.status != null) {
+        _status = update.status!;
+        if (_status != ProcessStatus.starting) {
+          _statusRefreshTimer?.cancel();
+          _statusRefreshTimer = null;
+        }
+      }
       if (update.resetPending) {
         _pendingToolUseId = null;
         _pendingPermission = null;

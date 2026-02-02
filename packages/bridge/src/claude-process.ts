@@ -218,6 +218,13 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
     currentProcess.on("exit", (code) => {
       console.log(`[claude-process] Process exited with code ${code}`);
       if (this.process === currentProcess) {
+        // If process exits while still "starting", Claude CLI failed to initialize
+        if (this._status === "starting") {
+          this.emitMessage({
+            type: "error",
+            message: `Claude process exited before initialization (code ${code})`,
+          });
+        }
         this.process = null;
         this.setStatus("idle");
         this.emit("exit", code);
