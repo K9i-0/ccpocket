@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { ClaudeProcess, type StartOptions } from "./claude-process.js";
+import { SdkProcess, type StartOptions } from "./sdk-process.js";
 import type { ServerMessage, ProcessStatus, AssistantToolUseContent } from "./parser.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
 
 export interface SessionInfo {
   id: string;
-  process: ClaudeProcess;
+  process: SdkProcess;
   history: ServerMessage[];
   /** Past conversation loaded from disk on resume (SessionHistoryMessage[]). */
   pastMessages?: unknown[];
@@ -56,7 +56,7 @@ export class SessionManager {
 
   create(projectPath: string, options?: StartOptions, pastMessages?: unknown[]): string {
     const id = randomUUID().slice(0, 8);
-    const proc = new ClaudeProcess();
+    const proc = new SdkProcess();
 
     let gitBranch = "";
     try {
