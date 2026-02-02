@@ -430,7 +430,8 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   }
 
   void _showNewSessionDialog() async {
-    final sessions = widget.debugRecentSessions ??
+    final sessions =
+        widget.debugRecentSessions ??
         (ref.read(recentSessionsProvider).valueOrNull ?? []);
     final result = await showNewSessionSheet(
       context: context,
@@ -438,13 +439,15 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     );
     if (result == null) return;
     _pendingResumeProjectPath = result.projectPath;
-    ref.read(bridgeServiceProvider).send(
-      ClientMessage.start(
-        result.projectPath,
-        continueMode: result.continueMode ? true : null,
-        permissionMode: result.permissionMode.value,
-      ),
-    );
+    ref
+        .read(bridgeServiceProvider)
+        .send(
+          ClientMessage.start(
+            result.projectPath,
+            continueMode: result.continueMode ? true : null,
+            permissionMode: result.permissionMode.value,
+          ),
+        );
   }
 
   void _navigateToChat(
@@ -476,10 +479,9 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   void _resumeSession(RecentSession session) {
     _pendingResumeProjectPath = session.projectPath;
     _pendingResumeGitBranch = session.gitBranch;
-    ref.read(bridgeServiceProvider).resumeSession(
-      session.sessionId,
-      session.projectPath,
-    );
+    ref
+        .read(bridgeServiceProvider)
+        .resumeSession(session.sessionId, session.projectPath);
   }
 
   void _stopSession(String sessionId) {
@@ -513,8 +515,10 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   @override
   Widget build(BuildContext context) {
     // Side-effect: auto-request lists on connect
-    ref.listen<AsyncValue<BridgeConnectionState>>(connectionStateProvider,
-        (prev, next) {
+    ref.listen<AsyncValue<BridgeConnectionState>>(connectionStateProvider, (
+      prev,
+      next,
+    ) {
       final prevState = prev?.valueOrNull;
       final nextState = next.valueOrNull;
       if (nextState != null) {
@@ -535,9 +539,10 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     final connectionState = widget.debugRecentSessions != null
         ? BridgeConnectionState.connected
         : (ref.watch(connectionStateProvider).valueOrNull ??
-            BridgeConnectionState.disconnected);
+              BridgeConnectionState.disconnected);
     final sessions = ref.watch(sessionListProvider).valueOrNull ?? [];
-    final recentSessionsList = widget.debugRecentSessions ??
+    final recentSessionsList =
+        widget.debugRecentSessions ??
         (ref.watch(recentSessionsProvider).valueOrNull ?? []);
     final discoveredServers =
         ref.watch(serverDiscoveryProvider).valueOrNull ?? [];
@@ -587,9 +592,8 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => GalleryScreen(
-                    bridge: ref.read(bridgeServiceProvider),
-                  ),
+                  builder: (_) =>
+                      GalleryScreen(bridge: ref.read(bridgeServiceProvider)),
                 ),
               ),
               tooltip: 'Gallery',
@@ -831,10 +835,14 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
     // Compute derived state
     final allProjectCounts = projectCounts(recentSessionsList);
-    final allBranchChips =
-        branchesForProject(recentSessionsList, _selectedProject);
-    var filteredSessions =
-        filterByProject(recentSessionsList, _selectedProject);
+    final allBranchChips = branchesForProject(
+      recentSessionsList,
+      _selectedProject,
+    );
+    var filteredSessions = filterByProject(
+      recentSessionsList,
+      _selectedProject,
+    );
     filteredSessions = filterByBranch(filteredSessions, _selectedBranch);
     filteredSessions = filterByDate(filteredSessions, _dateFilter);
     filteredSessions = filterByQuery(filteredSessions, _searchQuery);
@@ -1015,8 +1023,10 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     List<RecentSession> recentSessionsList,
   ) {
     final cs = Theme.of(context).colorScheme;
-    final branchChipsList =
-        branchesForProject(recentSessionsList, _selectedProject);
+    final branchChipsList = branchesForProject(
+      recentSessionsList,
+      _selectedProject,
+    );
     return HorizontalChipBar(
       selectedColor: cs.secondary,
       selectedTextColor: cs.onSecondary,
