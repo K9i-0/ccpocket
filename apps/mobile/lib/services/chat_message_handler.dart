@@ -217,14 +217,25 @@ class ChatMessageHandler {
   ChatStateUpdate _handleHistory(List<ServerMessage> messages) {
     final entries = <ChatEntry>[];
     ProcessStatus? lastStatus;
+    List<SlashCommand>? commands;
     for (final m in messages) {
       if (m is StatusMessage) {
         lastStatus = m.status;
       } else {
         entries.add(ServerChatEntry(m));
+        // Restore slash commands from system.init in history
+        if (m is SystemMessage &&
+            m.subtype == 'init' &&
+            m.slashCommands.isNotEmpty) {
+          commands = _buildCommandList(m.slashCommands, m.skills);
+        }
       }
     }
-    return ChatStateUpdate(status: lastStatus, entriesToAdd: entries);
+    return ChatStateUpdate(
+      status: lastStatus,
+      entriesToAdd: entries,
+      slashCommands: commands,
+    );
   }
 
   ChatStateUpdate _handleSystem(
@@ -266,11 +277,16 @@ class ChatMessageHandler {
       resetAsk: isStopped,
       resetStreaming: isStopped,
       inPlanMode: isStopped ? false : null,
+      markUserMessagesSent: true,
       sideEffects: effects,
     );
   }
 
   /// Build slash command list from server-provided names.
+  ///
+  /// Only includes commands reported by the CLI via `system.init`.
+  /// Commands not in this list (e.g. /clear, /help, /plan) are CLI-interactive
+  /// only and return "Unknown skill" when sent through the SDK.
   static List<SlashCommand> _buildCommandList(
     List<String> commands,
     List<String> skills,
@@ -281,8 +297,8 @@ class ChatMessageHandler {
       final category = skillSet.contains(name)
           ? SlashCommandCategory.skill
           : knownNames.contains(name)
-          ? SlashCommandCategory.builtin
-          : SlashCommandCategory.project;
+              ? SlashCommandCategory.builtin
+              : SlashCommandCategory.project;
       return buildSlashCommand(name, category: category);
     }).toList();
   }

@@ -17,11 +17,7 @@ import '../widgets/file_mention_overlay.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/slash_command_overlay.dart';
 import '../widgets/slash_command_sheet.dart'
-    show
-        SlashCommand,
-        SlashCommandCategory,
-        SlashCommandSheet,
-        fallbackSlashCommands;
+    show SlashCommand, SlashCommandSheet, fallbackSlashCommands;
 
 class ChatScreen extends ConsumerStatefulWidget {
   final BridgeServiceBase? bridge;
@@ -474,31 +470,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _onSlashCommandSelected(String command) {
     _removeSlashOverlay();
-    final cmd = _slashCommands.where((c) => c.command == command).firstOrNull;
-
-    // Project commands: place in input field for argument editing
-    if (cmd != null && cmd.category == SlashCommandCategory.project) {
-      _inputController.text = '$command ';
-      _inputController.selection = TextSelection.fromPosition(
-        TextPosition(offset: _inputController.text.length),
-      );
-      return;
-    }
-
-    // Built-in/skill commands: send immediately
-    _inputController.clear();
-    setState(() {
-      _messageHandler.currentStreaming = null;
-      _addEntry(
-        UserChatEntry(
-          command,
-          sessionId: widget.sessionId,
-          status: MessageStatus.sending,
-        ),
-      );
-    });
-    _bridge.send(ClientMessage.input(command, sessionId: widget.sessionId));
-    _scrollToBottom();
+    // Place command in input field so the user can append arguments before sending.
+    _inputController.text = '$command ';
+    _inputController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _inputController.text.length),
+    );
   }
 
   void _onConnectionChange(BridgeConnectionState state) {

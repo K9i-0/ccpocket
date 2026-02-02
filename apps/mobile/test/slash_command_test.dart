@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/services/chat_message_handler.dart';
 import 'package:ccpocket/widgets/slash_command_sheet.dart';
 
 void main() {
@@ -108,19 +109,164 @@ void main() {
   });
 
   group('fallbackSlashCommands', () {
-    test('contains expected default commands', () {
+    test('contains SDK-compatible commands', () {
       expect(fallbackSlashCommands, hasLength(4));
-      final names = fallbackSlashCommands.map((c) => c.command).toList();
+      final names = fallbackSlashCommands.map((c) => c.command).toSet();
       expect(names, contains('/compact'));
-      expect(names, contains('/plan'));
-      expect(names, contains('/clear'));
-      expect(names, contains('/help'));
+      expect(names, contains('/review'));
+      expect(names, contains('/context'));
+      expect(names, contains('/cost'));
     });
 
     test('all fallback commands are builtin category', () {
       for (final cmd in fallbackSlashCommands) {
         expect(cmd.category, SlashCommandCategory.builtin);
       }
+    });
+  });
+
+  group('ChatMessageHandler slash command restoration from history', () {
+    test('restores slash commands from system.init in history', () {
+      final handler = ChatMessageHandler();
+      final historyMsg = HistoryMessage(
+        messages: [
+          const SystemMessage(
+            subtype: 'init',
+            sessionId: 'sess-1',
+            model: 'claude-sonnet',
+            slashCommands: ['compact', 'review', 'my-cmd'],
+            skills: ['review'],
+          ),
+          AssistantServerMessage(
+            message: AssistantMessage(
+              id: 'msg-1',
+              role: 'assistant',
+              content: [TextContent(text: 'Hello')],
+              model: 'claude-sonnet',
+            ),
+          ),
+        ],
+      );
+      final update = handler.handle(historyMsg, isBackground: false);
+
+      expect(update.slashCommands, isNotNull);
+      // Only server-provided commands (no knownCommands merge)
+      expect(update.slashCommands, hasLength(3));
+
+      final names = update.slashCommands!.map((c) => c.command).toSet();
+      expect(names, contains('/compact'));
+      expect(names, contains('/review'));
+      expect(names, contains('/my-cmd'));
+
+      // Category classification
+      final reviewCmd = update.slashCommands!.firstWhere(
+        (c) => c.command == '/review',
+      );
+      expect(reviewCmd.category, SlashCommandCategory.skill);
+
+      final compactCmd = update.slashCommands!.firstWhere(
+        (c) => c.command == '/compact',
+      );
+      expect(compactCmd.category, SlashCommandCategory.builtin);
+
+      final customCmd = update.slashCommands!.firstWhere(
+        (c) => c.command == '/my-cmd',
+      );
+      expect(customCmd.category, SlashCommandCategory.project);
+    });
+
+    test('returns null slashCommands when history has no system.init', () {
+      final handler = ChatMessageHandler();
+      final historyMsg = HistoryMessage(
+        messages: [
+          AssistantServerMessage(
+            message: AssistantMessage(
+              id: 'msg-1',
+              role: 'assistant',
+              content: [TextContent(text: 'Hello')],
+              model: 'claude-sonnet',
+            ),
+          ),
+        ],
+      );
+      final update = handler.handle(historyMsg, isBackground: false);
+      expect(update.slashCommands, isNull);
+    });
+
+    test(
+      'returns null slashCommands when system.init has empty slashCommands',
+      () {
+        final handler = ChatMessageHandler();
+        final historyMsg = HistoryMessage(
+          messages: [
+            const SystemMessage(
+              subtype: 'init',
+              sessionId: 'sess-1',
+              model: 'claude-sonnet',
+            ),
+          ],
+        );
+        final update = handler.handle(historyMsg, isBackground: false);
+        expect(update.slashCommands, isNull);
+      },
+    );
+  });
+
+  group('_buildCommandList server-only logic', () {
+    test('only includes server-provided commands', () {
+      final handler = ChatMessageHandler();
+      final update = handler.handle(
+        const SystemMessage(
+          subtype: 'init',
+          sessionId: 'sess-1',
+          model: 'claude-sonnet',
+          slashCommands: ['compact', 'my-custom'],
+          skills: [],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.slashCommands, isNotNull);
+      expect(update.slashCommands, hasLength(2));
+      final names = update.slashCommands!.map((c) => c.command).toSet();
+
+      expect(names, contains('/compact'));
+      expect(names, contains('/my-custom'));
+
+      // CLI-interactive-only commands should NOT be included
+      expect(names, isNot(contains('/help')));
+      expect(names, isNot(contains('/plan')));
+    });
+
+    test('categorises known, skill, and project commands correctly', () {
+      final handler = ChatMessageHandler();
+      final update = handler.handle(
+        const SystemMessage(
+          subtype: 'init',
+          sessionId: 'sess-1',
+          model: 'claude-sonnet',
+          slashCommands: ['deploy', 'compact', 'review'],
+          skills: ['review'],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.slashCommands, hasLength(3));
+
+      final deploy = update.slashCommands!.firstWhere(
+        (c) => c.command == '/deploy',
+      );
+      expect(deploy.category, SlashCommandCategory.project);
+
+      final compact = update.slashCommands!.firstWhere(
+        (c) => c.command == '/compact',
+      );
+      expect(compact.category, SlashCommandCategory.builtin);
+
+      final review = update.slashCommands!.firstWhere(
+        (c) => c.command == '/review',
+      );
+      expect(review.category, SlashCommandCategory.skill);
     });
   });
 }
