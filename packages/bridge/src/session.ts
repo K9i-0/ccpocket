@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { ClaudeProcess, type StartOptions } from "./claude-process.js";
 import type { ServerMessage, ProcessStatus, AssistantToolUseContent } from "./parser.js";
 import type { ImageStore } from "./image-store.js";
@@ -15,6 +16,7 @@ export interface SessionInfo {
   status: ProcessStatus;
   createdAt: Date;
   lastActivityAt: Date;
+  gitBranch: string;
 }
 
 export interface SessionSummary {
@@ -24,6 +26,9 @@ export interface SessionSummary {
   status: ProcessStatus;
   createdAt: string;
   lastActivityAt: string;
+  gitBranch: string;
+  lastMessage: string;
+  messageCount: number;
 }
 
 const MAX_HISTORY_PER_SESSION = 100;
@@ -52,6 +57,14 @@ export class SessionManager {
   create(projectPath: string, options?: StartOptions, pastMessages?: unknown[]): string {
     const id = randomUUID().slice(0, 8);
     const proc = new ClaudeProcess();
+
+    let gitBranch = "";
+    try {
+      gitBranch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+        cwd: projectPath, encoding: "utf-8",
+      }).trim();
+    } catch { /* not a git repo */ }
+
     const session: SessionInfo = {
       id,
       process: proc,
@@ -61,6 +74,7 @@ export class SessionManager {
       status: "idle",
       createdAt: new Date(),
       lastActivityAt: new Date(),
+      gitBranch,
     };
 
     // Cache tool_use id → name for enriching tool_result messages
@@ -162,7 +176,35 @@ export class SessionManager {
       status: s.status,
       createdAt: s.createdAt.toISOString(),
       lastActivityAt: s.lastActivityAt.toISOString(),
+      gitBranch: s.gitBranch,
+      lastMessage: this.extractLastMessage(s),
+      messageCount: (s.pastMessages?.length ?? 0) + s.history.length,
     }));
+  }
+
+  private extractLastMessage(s: SessionInfo): string {
+    // Search in-memory history (newest first) for assistant text
+    for (let i = s.history.length - 1; i >= 0; i--) {
+      const msg = s.history[i];
+      if (msg.type === "assistant") {
+        const textBlock = msg.message.content.find((c) => c.type === "text");
+        if (textBlock && "text" in textBlock && textBlock.text) {
+          return textBlock.text.slice(0, 100);
+        }
+      }
+    }
+    // Fallback to pastMessages (raw Claude CLI format)
+    if (s.pastMessages) {
+      for (let i = s.pastMessages.length - 1; i >= 0; i--) {
+        const msg = s.pastMessages[i] as Record<string, unknown>;
+        if (msg.role === "assistant") {
+          const content = msg.content as Array<Record<string, unknown>> | undefined;
+          const textBlock = content?.find((c) => c.type === "text");
+          if (textBlock?.text) return (textBlock.text as string).slice(0, 100);
+        }
+      }
+    }
+    return "";
   }
 
   destroy(id: string): boolean {

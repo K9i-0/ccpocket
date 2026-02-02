@@ -65,9 +65,71 @@ class RunningSessionCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                subtitle: Text(
-                  elapsed,
-                  style: TextStyle(fontSize: 12, color: appColors.subtleText),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      elapsed,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: appColors.subtleText,
+                      ),
+                    ),
+                    if (session.lastMessage.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        session.lastMessage,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: appColors.subtleText,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    if (session.gitBranch.isNotEmpty ||
+                        session.messageCount > 0) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          if (session.gitBranch.isNotEmpty) ...[
+                            Icon(
+                              Icons.fork_right,
+                              size: 13,
+                              color: appColors.subtleText,
+                            ),
+                            const SizedBox(width: 2),
+                            Flexible(
+                              child: Text(
+                                session.gitBranch,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: appColors.subtleText,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          if (session.messageCount > 0) ...[
+                            Icon(
+                              Icons.chat_bubble_outline,
+                              size: 12,
+                              color: appColors.subtleText,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${session.messageCount}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: appColors.subtleText,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,

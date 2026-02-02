@@ -480,6 +480,9 @@ class SessionInfo {
   final String status;
   final String createdAt;
   final String lastActivityAt;
+  final String gitBranch;
+  final String lastMessage;
+  final int messageCount;
 
   const SessionInfo({
     required this.id,
@@ -488,6 +491,9 @@ class SessionInfo {
     required this.status,
     required this.createdAt,
     required this.lastActivityAt,
+    this.gitBranch = '',
+    this.lastMessage = '',
+    this.messageCount = 0,
   });
 
   factory SessionInfo.fromJson(Map<String, dynamic> json) {
@@ -498,6 +504,9 @@ class SessionInfo {
       status: json['status'] as String? ?? 'idle',
       createdAt: json['createdAt'] as String? ?? '',
       lastActivityAt: json['lastActivityAt'] as String? ?? '',
+      gitBranch: json['gitBranch'] as String? ?? '',
+      lastMessage: json['lastMessage'] as String? ?? '',
+      messageCount: json['messageCount'] as int? ?? 0,
     );
   }
 }
