@@ -45,6 +45,7 @@ dependencies:
   app_links: ^7.0.0
   speech_to_text: ^7.3.0
   http: ^1.6.0
+  flutter_riverpod: ^2.6.1
 
 dev_dependencies:
   flutter_test:
