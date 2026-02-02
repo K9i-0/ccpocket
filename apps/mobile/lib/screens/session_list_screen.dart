@@ -64,33 +64,6 @@ String shortenPath(String path) {
   return path;
 }
 
-/// Unique branch names for a given project (null project = all branches).
-List<String> branchesForProject(
-  List<RecentSession> sessions,
-  String? projectName,
-) {
-  final filtered = projectName == null
-      ? sessions
-      : sessions.where((s) => s.projectName == projectName);
-  final seen = <String>{};
-  final result = <String>[];
-  for (final s in filtered) {
-    if (s.gitBranch.isNotEmpty && seen.add(s.gitBranch)) {
-      result.add(s.gitBranch);
-    }
-  }
-  return result;
-}
-
-/// Filter sessions by branch name (null = no filter).
-List<RecentSession> filterByBranch(
-  List<RecentSession> sessions,
-  String? branch,
-) {
-  if (branch == null) return sessions;
-  return sessions.where((s) => s.gitBranch == branch).toList();
-}
-
 /// Filter sessions by text query (matches firstPrompt and summary).
 List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
   if (query.isEmpty) return sessions;
@@ -151,7 +124,6 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
   String?
   _selectedProject; // null = show all (projectName for client-side filter)
-  String? _selectedBranch; // null = show all
   DateFilter _dateFilter = DateFilter.all;
   String _searchQuery = '';
   bool _isSearching = false;
@@ -439,7 +411,6 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     ref.read(bridgeServiceProvider).disconnect();
     setState(() {
       _selectedProject = null;
-      _selectedBranch = null;
       _dateFilter = DateFilter.all;
       _searchQuery = '';
       _isSearching = false;
@@ -878,15 +849,10 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
     // Compute derived state
     final bridge = ref.read(bridgeServiceProvider);
-    final allBranchChips = branchesForProject(
-      recentSessionsList,
-      _selectedProject,
-    );
     // When server-side filter is active, skip client-side project filter
     var filteredSessions = bridge.currentProjectFilter != null
         ? recentSessionsList
         : filterByProject(recentSessionsList, _selectedProject);
-    filteredSessions = filterByBranch(filteredSessions, _selectedBranch);
     filteredSessions = filterByDate(filteredSessions, _dateFilter);
     filteredSessions = filterByQuery(filteredSessions, _searchQuery);
 
@@ -932,11 +898,6 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
           if (_accumulatedProjectPaths.length > 1) ...[
             const SizedBox(height: 8),
             _buildProjectFilterChips(appColors, recentSessionsList),
-          ],
-          // Branch filter chips (show when branches exist for selection)
-          if (allBranchChips.length > 1) ...[
-            const SizedBox(height: 4),
-            _buildBranchFilterChips(appColors, recentSessionsList),
           ],
           // Date filter chips
           const SizedBox(height: 4),
@@ -1086,10 +1047,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
           label: 'All (${recentSessionsList.length})',
           isSelected: currentFilter == null,
           onSelected: () {
-            setState(() {
-              _selectedProject = null;
-              _selectedBranch = null;
-            });
+            setState(() => _selectedProject = null);
             bridge.switchProjectFilter(null);
           },
         ),
@@ -1100,46 +1058,9 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
                 : entry.name,
             isSelected: currentFilter == entry.path,
             onSelected: () {
-              setState(() {
-                _selectedProject = entry.name;
-                _selectedBranch = null;
-              });
+              setState(() => _selectedProject = entry.name);
               bridge.switchProjectFilter(entry.path);
             },
-          ),
-      ],
-    );
-  }
-
-  Widget _buildBranchFilterChips(
-    AppColors appColors,
-    List<RecentSession> recentSessionsList,
-  ) {
-    final cs = Theme.of(context).colorScheme;
-    final branchChipsList = branchesForProject(
-      recentSessionsList,
-      _selectedProject,
-    );
-    return HorizontalChipBar(
-      selectedColor: cs.secondary,
-      selectedTextColor: cs.onSecondary,
-      unselectedTextColor: appColors.subtleText,
-      items: [
-        ChipItem(
-          label: 'All branches',
-          isSelected: _selectedBranch == null,
-          onSelected: () => setState(() => _selectedBranch = null),
-          avatar: Icon(
-            Icons.account_tree,
-            size: 14,
-            color: appColors.subtleText,
-          ),
-        ),
-        for (final branch in branchChipsList)
-          ChipItem(
-            label: branch,
-            isSelected: _selectedBranch == branch,
-            onSelected: () => setState(() => _selectedBranch = branch),
           ),
       ],
     );

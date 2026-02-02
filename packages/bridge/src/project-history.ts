@@ -5,6 +5,15 @@ import { homedir } from "node:os";
 const DEFAULT_HISTORY_FILE = join(homedir(), ".ccpocket", "project-history.json");
 const MAX_PROJECTS = 20;
 
+/** Minimum path depth to be considered a valid project path (e.g. /Users/name/project = 3). */
+const MIN_PATH_SEGMENTS = 3;
+
+function isValidProjectPath(path: string): boolean {
+  if (!path.startsWith("/")) return false;
+  const segments = path.split("/").filter(Boolean);
+  return segments.length >= MIN_PATH_SEGMENTS;
+}
+
 export class ProjectHistory {
   private projects: string[] = [];
   private readonly filePath: string;
@@ -19,7 +28,12 @@ export class ProjectHistory {
       const data = await readFile(this.filePath, "utf-8");
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        this.projects = parsed.filter((p): p is string => typeof p === "string");
+        const raw = parsed.filter((p): p is string => typeof p === "string");
+        this.projects = raw.filter(isValidProjectPath);
+        // Persist cleaned data if invalid entries were removed
+        if (this.projects.length < raw.length) {
+          this.saveIndex().catch(() => {});
+        }
       }
     } catch {
       // File doesn't exist or is corrupt — start fresh
@@ -28,6 +42,7 @@ export class ProjectHistory {
   }
 
   addProject(path: string): void {
+    if (!isValidProjectPath(path)) return;
     // Remove existing entry (if any) and add to front
     this.projects = this.projects.filter((p) => p !== path);
     this.projects.unshift(path);
