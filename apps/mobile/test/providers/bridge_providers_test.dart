@@ -54,4 +54,24 @@ void main() {
       expect(state, isA<AsyncLoading<List<RecentSession>>>());
     });
   });
+
+  group('galleryProvider', () {
+    test('initial state is AsyncLoading', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final state = container.read(galleryProvider);
+      expect(state, isA<AsyncLoading<List<GalleryImage>>>());
+    });
+  });
+
+  group('fileListProvider', () {
+    test('initial state is AsyncLoading', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final state = container.read(fileListProvider);
+      expect(state, isA<AsyncLoading<List<String>>>());
+    });
+  });
 }

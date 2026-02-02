@@ -24,3 +24,13 @@ final sessionListProvider = StreamProvider<List<SessionInfo>>((ref) {
 final recentSessionsProvider = StreamProvider<List<RecentSession>>((ref) {
   return ref.watch(bridgeServiceProvider).recentSessionsStream;
 });
+
+/// Stream of gallery images.
+final galleryProvider = StreamProvider<List<GalleryImage>>((ref) {
+  return ref.watch(bridgeServiceProvider).galleryStream;
+});
+
+/// Stream of project file paths (for @-mention autocomplete).
+final fileListProvider = StreamProvider<List<String>>((ref) {
+  return ref.watch(bridgeServiceProvider).fileList;
+});
