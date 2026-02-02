@@ -1,0 +1,219 @@
+import { describe, it, expect } from "vitest";
+import {
+  parseRule,
+  matchesSessionRule,
+  buildSessionRule,
+  toolNeedsApproval,
+  ACCEPT_EDITS_AUTO_APPROVE,
+} from "./claude-process.js";
+
+// ---- ACCEPT_EDITS_AUTO_APPROVE ----
+
+describe("ACCEPT_EDITS_AUTO_APPROVE", () => {
+  it("contains file operation tools", () => {
+    expect(ACCEPT_EDITS_AUTO_APPROVE.has("Read")).toBe(true);
+    expect(ACCEPT_EDITS_AUTO_APPROVE.has("Edit")).toBe(true);
+    expect(ACCEPT_EDITS_AUTO_APPROVE.has("Write")).toBe(true);
+    expect(ACCEPT_EDITS_AUTO_APPROVE.has("Glob")).toBe(true);
+    expect(ACCEPT_EDITS_AUTO_APPROVE.has("Grep")).toBe(true);
+  });
+
+  it("contains task tools", () => {
+    expect(ACCEPT_EDITS_AUTO_APPROVE.has("TaskCreate")).toBe(true);
+    expect(ACCEPT_EDITS_AUTO_APPROVE.has("TaskUpdate")).toBe(true);
+    expect(ACCEPT_EDITS_AUTO_APPROVE.has("TaskList")).toBe(true);
+    expect(ACCEPT_EDITS_AUTO_APPROVE.has("TaskGet")).toBe(true);
+  });
+
+  it("does not contain Bash", () => {
+    expect(ACCEPT_EDITS_AUTO_APPROVE.has("Bash")).toBe(false);
+  });
+
+  it("does not contain ExitPlanMode", () => {
+    expect(ACCEPT_EDITS_AUTO_APPROVE.has("ExitPlanMode")).toBe(false);
+  });
+});
+
+// ---- parseRule ----
+
+describe("parseRule", () => {
+  it("parses simple tool name", () => {
+    expect(parseRule("Edit")).toEqual({ toolName: "Edit" });
+  });
+
+  it("parses ToolName(content) format", () => {
+    expect(parseRule("Bash(npm:*)")).toEqual({
+      toolName: "Bash",
+      ruleContent: "npm:*",
+    });
+  });
+
+  it("parses ToolName(content) with complex content", () => {
+    expect(parseRule("Bash(git commit -m:*)")).toEqual({
+      toolName: "Bash",
+      ruleContent: "git commit -m:*",
+    });
+  });
+
+  it("returns toolName only for empty parens (no content inside)", () => {
+    // Empty parens "Bash()" → regex requires [^)]+ so it won't match
+    expect(parseRule("Bash()")).toEqual({ toolName: "Bash()" });
+  });
+
+  it("handles tool name with no parens", () => {
+    expect(parseRule("WebSearch")).toEqual({ toolName: "WebSearch" });
+  });
+});
+
+// ---- matchesSessionRule ----
+
+describe("matchesSessionRule", () => {
+  it("matches exact tool name rule", () => {
+    const rules = new Set(["Edit"]);
+    expect(matchesSessionRule("Edit", {}, rules)).toBe(true);
+  });
+
+  it("does not match different tool name", () => {
+    const rules = new Set(["Edit"]);
+    expect(matchesSessionRule("Write", {}, rules)).toBe(false);
+  });
+
+  it("matches Bash prefix rule with :* suffix", () => {
+    const rules = new Set(["Bash(npm:*)"]);
+    expect(matchesSessionRule("Bash", { command: "npm install foo" }, rules)).toBe(true);
+  });
+
+  it("matches Bash prefix rule - first word match", () => {
+    const rules = new Set(["Bash(git:*)"]);
+    expect(matchesSessionRule("Bash", { command: "git status" }, rules)).toBe(true);
+  });
+
+  it("does not match Bash prefix rule with different command", () => {
+    const rules = new Set(["Bash(npm:*)"]);
+    expect(matchesSessionRule("Bash", { command: "git push" }, rules)).toBe(false);
+  });
+
+  it("matches Bash exact command rule", () => {
+    const rules = new Set(["Bash(ls -la)"]);
+    expect(matchesSessionRule("Bash", { command: "ls -la" }, rules)).toBe(true);
+  });
+
+  it("does not match Bash exact rule with different command", () => {
+    const rules = new Set(["Bash(ls -la)"]);
+    expect(matchesSessionRule("Bash", { command: "ls -l" }, rules)).toBe(false);
+  });
+
+  it("returns false for empty rules set", () => {
+    expect(matchesSessionRule("Edit", {}, new Set())).toBe(false);
+  });
+
+  it("matches when multiple rules exist", () => {
+    const rules = new Set(["Read", "Edit", "Bash(npm:*)"]);
+    expect(matchesSessionRule("Edit", {}, rules)).toBe(true);
+    expect(matchesSessionRule("Bash", { command: "npm test" }, rules)).toBe(true);
+  });
+
+  it("skips non-matching rules and finds match", () => {
+    const rules = new Set(["Read", "Bash(git:*)"]);
+    expect(matchesSessionRule("Bash", { command: "git log" }, rules)).toBe(true);
+  });
+
+  it("handles Bash rule when input has no command field", () => {
+    const rules = new Set(["Bash(npm:*)"]);
+    expect(matchesSessionRule("Bash", {}, rules)).toBe(false);
+  });
+
+  it("handles Bash rule when command is not a string", () => {
+    const rules = new Set(["Bash(npm:*)"]);
+    expect(matchesSessionRule("Bash", { command: 123 }, rules)).toBe(false);
+  });
+});
+
+// ---- buildSessionRule ----
+
+describe("buildSessionRule", () => {
+  it("builds Bash prefix rule from command", () => {
+    expect(buildSessionRule("Bash", { command: "npm install foo" })).toBe("Bash(npm:*)");
+  });
+
+  it("builds Bash prefix rule from single-word command", () => {
+    expect(buildSessionRule("Bash", { command: "ls" })).toBe("Bash(ls:*)");
+  });
+
+  it("returns tool name only for non-Bash tool", () => {
+    expect(buildSessionRule("Edit", { file_path: "/tmp/foo" })).toBe("Edit");
+  });
+
+  it("returns tool name only for Bash with no command", () => {
+    expect(buildSessionRule("Bash", {})).toBe("Bash");
+  });
+
+  it("returns tool name only for Bash with non-string command", () => {
+    expect(buildSessionRule("Bash", { command: 42 })).toBe("Bash");
+  });
+
+  it("handles Bash with whitespace-padded command", () => {
+    expect(buildSessionRule("Bash", { command: "  git status  " })).toBe("Bash(git:*)");
+  });
+
+  it("returns tool name for Bash with empty string command", () => {
+    expect(buildSessionRule("Bash", { command: "" })).toBe("Bash");
+  });
+});
+
+// ---- toolNeedsApproval ----
+
+describe("toolNeedsApproval", () => {
+  // bypassPermissions / dontAsk → always false
+  it("returns false for any tool in bypassPermissions mode", () => {
+    expect(toolNeedsApproval("Bash", "bypassPermissions")).toBe(false);
+    expect(toolNeedsApproval("UnknownTool", "bypassPermissions")).toBe(false);
+  });
+
+  it("returns false for any tool in dontAsk mode", () => {
+    expect(toolNeedsApproval("Bash", "dontAsk")).toBe(false);
+  });
+
+  // acceptEdits mode
+  it("auto-approves known safe tools in acceptEdits mode", () => {
+    expect(toolNeedsApproval("Read", "acceptEdits")).toBe(false);
+    expect(toolNeedsApproval("Edit", "acceptEdits")).toBe(false);
+    expect(toolNeedsApproval("Write", "acceptEdits")).toBe(false);
+    expect(toolNeedsApproval("Glob", "acceptEdits")).toBe(false);
+    expect(toolNeedsApproval("WebSearch", "acceptEdits")).toBe(false);
+    expect(toolNeedsApproval("Task", "acceptEdits")).toBe(false);
+  });
+
+  it("requires approval for Bash in acceptEdits mode", () => {
+    expect(toolNeedsApproval("Bash", "acceptEdits")).toBe(true);
+  });
+
+  it("requires approval for ExitPlanMode in acceptEdits mode", () => {
+    expect(toolNeedsApproval("ExitPlanMode", "acceptEdits")).toBe(true);
+  });
+
+  it("requires approval for unknown/MCP tools in acceptEdits mode", () => {
+    expect(toolNeedsApproval("mcp__some_tool", "acceptEdits")).toBe(true);
+    expect(toolNeedsApproval("CustomTool", "acceptEdits")).toBe(true);
+  });
+
+  // default / plan / delegate → always true
+  it("requires approval for all tools in default mode", () => {
+    expect(toolNeedsApproval("Read", "default")).toBe(true);
+    expect(toolNeedsApproval("Bash", "default")).toBe(true);
+  });
+
+  it("requires approval for all tools in plan mode", () => {
+    expect(toolNeedsApproval("Read", "plan")).toBe(true);
+  });
+
+  it("requires approval for all tools in delegate mode", () => {
+    expect(toolNeedsApproval("Read", "delegate")).toBe(true);
+  });
+
+  // undefined mode → true
+  it("requires approval when mode is undefined", () => {
+    expect(toolNeedsApproval("Read", undefined)).toBe(true);
+    expect(toolNeedsApproval("Bash", undefined)).toBe(true);
+  });
+});

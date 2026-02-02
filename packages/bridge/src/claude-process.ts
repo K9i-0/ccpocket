@@ -14,7 +14,7 @@ import {
 } from "./parser.js";
 
 // Tools that are auto-approved in acceptEdits mode
-const ACCEPT_EDITS_AUTO_APPROVE = new Set([
+export const ACCEPT_EDITS_AUTO_APPROVE = new Set([
   "Read", "Glob", "Grep",
   "Edit", "Write", "NotebookEdit",
   "TaskCreate", "TaskUpdate", "TaskList", "TaskGet",
@@ -27,7 +27,7 @@ const ACCEPT_EDITS_AUTO_APPROVE = new Set([
  * Parse a permission rule in ToolName(ruleContent) format.
  * Matches the CLI's internal pzT() function: /^([^(]+)\(([^)]+)\)$/
  */
-function parseRule(rule: string): { toolName: string; ruleContent?: string } {
+export function parseRule(rule: string): { toolName: string; ruleContent?: string } {
   const match = rule.match(/^([^(]+)\(([^)]+)\)$/);
   if (!match || !match[1] || !match[2]) return { toolName: rule };
   return { toolName: match[1], ruleContent: match[2] };
@@ -36,7 +36,7 @@ function parseRule(rule: string): { toolName: string; ruleContent?: string } {
 /**
  * Check if a tool invocation matches any session allow rule.
  */
-function matchesSessionRule(
+export function matchesSessionRule(
   toolName: string,
   input: Record<string, unknown>,
   rules: Set<string>,
@@ -67,7 +67,7 @@ function matchesSessionRule(
  * Bash: uses first word as prefix (e.g., "Bash(npm:*)")
  * Others: tool name only (e.g., "Edit")
  */
-function buildSessionRule(toolName: string, input: Record<string, unknown>): string {
+export function buildSessionRule(toolName: string, input: Record<string, unknown>): string {
   if (toolName === "Bash" && typeof input.command === "string") {
     const firstWord = (input.command as string).trim().split(/\s+/)[0] ?? "";
     if (firstWord) return `${toolName}(${firstWord}:*)`;
@@ -78,7 +78,7 @@ function buildSessionRule(toolName: string, input: Record<string, unknown>): str
 /**
  * Determine whether a tool needs user approval given the current permission mode.
  */
-function toolNeedsApproval(toolName: string, mode: PermissionMode | undefined): boolean {
+export function toolNeedsApproval(toolName: string, mode: PermissionMode | undefined): boolean {
   if (!mode) return true; // default: ask for everything
 
   switch (mode) {
