@@ -10,6 +10,31 @@ void main() {
     handler = ChatMessageHandler();
   });
 
+  group('ProcessStatus.fromString', () {
+    test('parses starting', () {
+      expect(ProcessStatus.fromString('starting'), ProcessStatus.starting);
+    });
+
+    test('parses idle', () {
+      expect(ProcessStatus.fromString('idle'), ProcessStatus.idle);
+    });
+
+    test('parses running', () {
+      expect(ProcessStatus.fromString('running'), ProcessStatus.running);
+    });
+
+    test('parses waiting_approval', () {
+      expect(
+        ProcessStatus.fromString('waiting_approval'),
+        ProcessStatus.waitingApproval,
+      );
+    });
+
+    test('unknown value defaults to idle', () {
+      expect(ProcessStatus.fromString('unknown'), ProcessStatus.idle);
+    });
+  });
+
   group('StatusMessage handling', () {
     test('waitingApproval triggers heavy haptic', () {
       final update = handler.handle(
@@ -38,6 +63,25 @@ void main() {
         isBackground: false,
       );
       expect(update.status, ProcessStatus.idle);
+      expect(update.resetPending, isTrue);
+    });
+
+    test('starting status resets pending state', () {
+      final update = handler.handle(
+        const StatusMessage(status: ProcessStatus.starting),
+        isBackground: false,
+      );
+      expect(update.status, ProcessStatus.starting);
+      expect(update.resetPending, isTrue);
+      expect(update.sideEffects, isEmpty);
+    });
+
+    test('running status resets pending state', () {
+      final update = handler.handle(
+        const StatusMessage(status: ProcessStatus.running),
+        isBackground: false,
+      );
+      expect(update.status, ProcessStatus.running);
       expect(update.resetPending, isTrue);
     });
   });

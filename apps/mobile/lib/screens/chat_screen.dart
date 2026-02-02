@@ -71,7 +71,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _inPlanMode = false;
   final TextEditingController _planFeedbackController = TextEditingController();
 
-  ProcessStatus _status = ProcessStatus.idle;
+  ProcessStatus _status = ProcessStatus.starting;
   bool _hasInputText = false;
   String? _pendingToolUseId;
   PermissionRequestMessage? _pendingPermission;
@@ -868,6 +868,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Widget _buildStatusIndicator(AppColors appColors) {
     final (color, label) = switch (_status) {
+      ProcessStatus.starting => (appColors.statusStarting, 'Starting'),
       ProcessStatus.idle => (appColors.statusIdle, 'Idle'),
       ProcessStatus.running => (appColors.statusRunning, 'Running'),
       ProcessStatus.waitingApproval => (appColors.statusApproval, 'Approval'),
@@ -891,7 +892,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
-                boxShadow: _status == ProcessStatus.running
+                boxShadow:
+                    (_status == ProcessStatus.running ||
+                        _status == ProcessStatus.starting)
                     ? [
                         BoxShadow(
                           color: color.withValues(alpha: 0.5),

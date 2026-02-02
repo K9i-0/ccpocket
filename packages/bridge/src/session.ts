@@ -71,7 +71,7 @@ export class SessionManager {
       history: [],
       pastMessages: pastMessages && pastMessages.length > 0 ? pastMessages : undefined,
       projectPath,
-      status: "idle",
+      status: "starting",
       createdAt: new Date(),
       lastActivityAt: new Date(),
       gitBranch,

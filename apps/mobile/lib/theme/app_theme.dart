@@ -362,6 +362,7 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color approvalBarBorder;
 
   // Status
+  final Color statusStarting;
   final Color statusRunning;
   final Color statusApproval;
   final Color statusIdle;
@@ -399,6 +400,7 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.errorChip,
     required this.approvalBar,
     required this.approvalBarBorder,
+    required this.statusStarting,
     required this.statusRunning,
     required this.statusApproval,
     required this.statusIdle,
@@ -432,6 +434,7 @@ class AppColors extends ThemeExtension<AppColors> {
     errorChip: Color(0xFFFEE2E2), // Red 100
     approvalBar: Color(0xFFFFF7ED), // Orange 50
     approvalBarBorder: Color(0xFFFDBA74), // Orange 300
+    statusStarting: Color(0xFF2563EB), // Blue 600
     statusRunning: Color(0xFF16A34A), // Green 600
     statusApproval: Color(0xFFC2410C), // Ember
     statusIdle: Color(0xFF9C9590), // warm grey
@@ -465,6 +468,7 @@ class AppColors extends ThemeExtension<AppColors> {
     errorChip: Color(0xFF2A1215),
     approvalBar: Color(0xFF261A0B),
     approvalBarBorder: Color(0xFF5C3D15),
+    statusStarting: Color(0xFF93C5FD), // Blue 300
     statusRunning: Color(0xFF86EFAC), // Green 300
     statusApproval: Color(0xFFFDBA74), // Orange 300
     statusIdle: Color(0xFF5C5750), // warm dark grey
@@ -498,6 +502,7 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? errorChip,
     Color? approvalBar,
     Color? approvalBarBorder,
+    Color? statusStarting,
     Color? statusRunning,
     Color? statusApproval,
     Color? statusIdle,
@@ -530,6 +535,7 @@ class AppColors extends ThemeExtension<AppColors> {
       errorChip: errorChip ?? this.errorChip,
       approvalBar: approvalBar ?? this.approvalBar,
       approvalBarBorder: approvalBarBorder ?? this.approvalBarBorder,
+      statusStarting: statusStarting ?? this.statusStarting,
       statusRunning: statusRunning ?? this.statusRunning,
       statusApproval: statusApproval ?? this.statusApproval,
       statusIdle: statusIdle ?? this.statusIdle,
@@ -587,6 +593,7 @@ class AppColors extends ThemeExtension<AppColors> {
         other.approvalBarBorder,
         t,
       )!,
+      statusStarting: Color.lerp(statusStarting, other.statusStarting, t)!,
       statusRunning: Color.lerp(statusRunning, other.statusRunning, t)!,
       statusApproval: Color.lerp(statusApproval, other.statusApproval, t)!,
       statusIdle: Color.lerp(statusIdle, other.statusIdle, t)!,

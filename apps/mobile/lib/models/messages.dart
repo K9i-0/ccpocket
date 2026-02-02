@@ -79,12 +79,14 @@ enum MessageStatus { sending, sent, failed }
 // ---- Process status ----
 
 enum ProcessStatus {
+  starting,
   idle,
   running,
   waitingApproval;
 
   static ProcessStatus fromString(String value) {
     return switch (value) {
+      'starting' => ProcessStatus.starting,
       'idle' => ProcessStatus.idle,
       'running' => ProcessStatus.running,
       'waiting_approval' => ProcessStatus.waitingApproval,

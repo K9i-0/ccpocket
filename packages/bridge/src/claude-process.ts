@@ -190,7 +190,7 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
       env: { ...process.env },
     });
 
-    this.setStatus("running");
+    this.setStatus("starting");
     this.stdoutBuffer = "";
     this.stderrBuffer = "";
     this._sessionId = null;
