@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/providers/bridge_providers.dart';
 import 'package:ccpocket/screens/gallery_screen.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
@@ -38,15 +40,18 @@ class _MockBridgeService extends BridgeService {
   }
 }
 
-Widget _wrapWithTheme(Widget child) {
-  return MaterialApp(theme: AppTheme.darkTheme, home: child);
+Widget _wrapWithTheme(Widget child, _MockBridgeService mock) {
+  return ProviderScope(
+    overrides: [bridgeServiceProvider.overrideWithValue(mock)],
+    child: MaterialApp(theme: AppTheme.darkTheme, home: child),
+  );
 }
 
 void main() {
   group('GalleryScreen', () {
     testWidgets('shows empty state when no images', (tester) async {
       final mock = _MockBridgeService();
-      await tester.pumpWidget(_wrapWithTheme(GalleryScreen(bridge: mock)));
+      await tester.pumpWidget(_wrapWithTheme(const GalleryScreen(), mock));
       await tester.pump();
 
       expect(find.text('No images yet'), findsOneWidget);
@@ -77,7 +82,7 @@ void main() {
         ),
       ]);
 
-      await tester.pumpWidget(_wrapWithTheme(GalleryScreen(bridge: mock)));
+      await tester.pumpWidget(_wrapWithTheme(const GalleryScreen(), mock));
       await tester.pump();
 
       // Should show project names
@@ -114,7 +119,7 @@ void main() {
         ),
       ]);
 
-      await tester.pumpWidget(_wrapWithTheme(GalleryScreen(bridge: mock)));
+      await tester.pumpWidget(_wrapWithTheme(const GalleryScreen(), mock));
       await tester.pump();
 
       // Tap project-a chip
@@ -144,7 +149,7 @@ void main() {
         ),
       ]);
 
-      await tester.pumpWidget(_wrapWithTheme(GalleryScreen(bridge: mock)));
+      await tester.pumpWidget(_wrapWithTheme(const GalleryScreen(), mock));
       await tester.pump();
 
       // Only 1 project: no filter chips

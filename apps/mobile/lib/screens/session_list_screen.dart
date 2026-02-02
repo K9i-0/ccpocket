@@ -455,12 +455,10 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     String? projectPath,
     String? gitBranch,
   }) {
-    final bridge = ref.read(bridgeServiceProvider);
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ChatScreen(
-          bridge: bridge,
           sessionId: sessionId,
           projectPath: projectPath,
           gitBranch: gitBranch,
@@ -591,10 +589,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
               icon: const Icon(Icons.photo_library_outlined),
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      GalleryScreen(bridge: ref.read(bridgeServiceProvider)),
-                ),
+                MaterialPageRoute(builder: (_) => const GalleryScreen()),
               ),
               tooltip: 'Gallery',
             ),

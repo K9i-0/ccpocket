@@ -1,53 +1,38 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/messages.dart';
-import '../services/bridge_service.dart';
+import '../providers/bridge_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bubbles/image_preview.dart';
 
-class GalleryScreen extends StatefulWidget {
-  final BridgeService bridge;
-
-  const GalleryScreen({super.key, required this.bridge});
+class GalleryScreen extends ConsumerStatefulWidget {
+  const GalleryScreen({super.key});
 
   @override
-  State<GalleryScreen> createState() => _GalleryScreenState();
+  ConsumerState<GalleryScreen> createState() => _GalleryScreenState();
 }
 
-class _GalleryScreenState extends State<GalleryScreen> {
-  List<GalleryImage> _images = [];
+class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   String? _selectedProject;
-  StreamSubscription<List<GalleryImage>>? _gallerySub;
 
   @override
   void initState() {
     super.initState();
-    _images = widget.bridge.galleryImages;
-    _gallerySub = widget.bridge.galleryStream.listen((images) {
-      setState(() => _images = images);
-    });
-    widget.bridge.requestGallery();
+    ref.read(bridgeServiceProvider).requestGallery();
   }
 
-  @override
-  void dispose() {
-    _gallerySub?.cancel();
-    super.dispose();
-  }
-
-  Map<String, int> get _projectCounts {
+  Map<String, int> _projectCounts(List<GalleryImage> images) {
     final counts = <String, int>{};
-    for (final img in _images) {
+    for (final img in images) {
       counts[img.projectName] = (counts[img.projectName] ?? 0) + 1;
     }
     return counts;
   }
 
-  List<GalleryImage> get _filteredImages {
-    if (_selectedProject == null) return _images;
-    return _images.where((img) => img.projectName == _selectedProject).toList();
+  List<GalleryImage> _filteredImages(List<GalleryImage> images) {
+    if (_selectedProject == null) return images;
+    return images.where((img) => img.projectName == _selectedProject).toList();
   }
 
   void _onFilterChanged(String? project) {
@@ -68,12 +53,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final images =
+        ref.watch(galleryProvider).valueOrNull ??
+        ref.read(bridgeServiceProvider).galleryImages;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Gallery')),
-      body: _images.isEmpty
+      body: images.isEmpty
           ? _buildEmptyState(appColors)
-          : _buildContent(appColors),
+          : _buildContent(appColors, images),
     );
   }
 
@@ -115,16 +103,16 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
-  Widget _buildContent(AppColors appColors) {
-    final filtered = _filteredImages;
-    final counts = _projectCounts;
+  Widget _buildContent(AppColors appColors, List<GalleryImage> images) {
+    final filtered = _filteredImages(images);
+    final counts = _projectCounts(images);
 
     return Column(
       children: [
         if (counts.length > 1)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: _buildFilterChips(appColors, counts),
+            child: _buildFilterChips(appColors, counts, images),
           ),
         Expanded(
           child: GridView.builder(
@@ -140,7 +128,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
               final image = filtered[index];
               return _GalleryTile(
                 image: image,
-                httpBaseUrl: widget.bridge.httpBaseUrl ?? '',
+                httpBaseUrl: ref.read(bridgeServiceProvider).httpBaseUrl ?? '',
                 timeAgo: _timeAgo(image.addedAt),
                 appColors: appColors,
               );
@@ -151,7 +139,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
-  Widget _buildFilterChips(AppColors appColors, Map<String, int> counts) {
+  Widget _buildFilterChips(
+    AppColors appColors,
+    Map<String, int> counts,
+    List<GalleryImage> images,
+  ) {
     return SizedBox(
       height: 36,
       child: ShaderMask(
@@ -174,7 +166,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: ChoiceChip(
-                label: Text('All (${_images.length})'),
+                label: Text('All (${images.length})'),
                 selected: _selectedProject == null,
                 onSelected: (_) => _onFilterChanged(null),
                 labelStyle: TextStyle(
