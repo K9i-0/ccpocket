@@ -121,7 +121,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
     _inputController.addListener(_onInputChanged);
-    _messageSub = _bridge.messages.listen(_onServerMessage);
+    _messageSub = _bridge
+        .messagesForSession(widget.sessionId)
+        .listen(_onServerMessage);
 
     // Mock path: manual subscriptions for connection, fileList, sessionList
     if (widget.bridge != null) {

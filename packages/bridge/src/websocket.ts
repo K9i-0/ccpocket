@@ -205,11 +205,12 @@ export class BridgeWebSocketServer {
             this.send(ws, {
               type: "past_history",
               claudeSessionId: session.claudeSessionId ?? msg.sessionId,
+              sessionId: msg.sessionId,
               messages: session.pastMessages,
             } as Record<string, unknown>);
           }
-          this.send(ws, { type: "history", messages: session.history });
-          this.send(ws, { type: "status", status: session.status });
+          this.send(ws, { type: "history", messages: session.history, sessionId: msg.sessionId } as Record<string, unknown>);
+          this.send(ws, { type: "status", status: session.status, sessionId: msg.sessionId } as Record<string, unknown>);
         } else {
           this.send(ws, { type: "error", message: `Session ${msg.sessionId} not found` });
         }

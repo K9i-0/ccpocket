@@ -12,6 +12,8 @@ import 'bridge_service_base.dart';
 class BridgeService implements BridgeServiceBase {
   WebSocketChannel? _channel;
   final _messageController = StreamController<ServerMessage>.broadcast();
+  final _taggedMessageController =
+      StreamController<(ServerMessage, String?)>.broadcast();
   final _connectionController =
       StreamController<BridgeConnectionState>.broadcast();
   final _sessionListController =
@@ -97,6 +99,7 @@ class BridgeService implements BridgeServiceBase {
         (data) {
           try {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
+            final sessionId = json['sessionId'] as String?;
             final msg = ServerMessage.fromJson(json);
             switch (msg) {
               case SessionListMessage(:final sessions):
@@ -107,6 +110,7 @@ class BridgeService implements BridgeServiceBase {
                 _recentSessionsController.add(sessions);
               case PastHistoryMessage():
                 pendingPastHistory = msg;
+                _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
               case GalleryListMessage(:final images):
                 _galleryImages = images;
@@ -117,10 +121,13 @@ class BridgeService implements BridgeServiceBase {
               case FileListMessage(:final files):
                 _fileListController.add(files);
               default:
+                _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
             }
           } catch (e) {
-            _messageController.add(ErrorMessage(message: 'Parse error: $e'));
+            final errorMsg = ErrorMessage(message: 'Parse error: $e');
+            _taggedMessageController.add((errorMsg, null));
+            _messageController.add(errorMsg);
           }
         },
         onError: (error) {
@@ -225,6 +232,13 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.interrupt(sessionId: sessionId));
   }
 
+  @override
+  Stream<ServerMessage> messagesForSession(String sessionId) {
+    return _taggedMessageController.stream
+        .where((pair) => pair.$2 == null || pair.$2 == sessionId)
+        .map((pair) => pair.$1);
+  }
+
   /// Try to auto-connect using saved preferences.
   Future<bool> autoConnect() async {
     final prefs = await SharedPreferences.getInstance();
@@ -284,6 +298,7 @@ class BridgeService implements BridgeServiceBase {
     _channel?.sink.close();
     _channel = null;
     _messageController.close();
+    _taggedMessageController.close();
     _connectionController.close();
     _sessionListController.close();
     _recentSessionsController.close();

@@ -148,6 +148,9 @@ class MockBridgeService implements BridgeServiceBase {
   }
 
   @override
+  Stream<ServerMessage> messagesForSession(String sessionId) => messages;
+
+  @override
   void stopSession(String sessionId) {
     _scheduleMessage(
       const Duration(milliseconds: 200),

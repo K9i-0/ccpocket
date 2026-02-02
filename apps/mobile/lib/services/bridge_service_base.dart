@@ -22,4 +22,8 @@ abstract class BridgeServiceBase {
 
   /// Buffered past history from resume_session, consumed by ChatScreen.
   PastHistoryMessage? pendingPastHistory;
+
+  /// Returns a stream of messages filtered to only include messages
+  /// belonging to the given [sessionId] (or messages with no sessionId).
+  Stream<ServerMessage> messagesForSession(String sessionId);
 }
