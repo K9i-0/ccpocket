@@ -33,135 +33,153 @@ class RunningSessionCard extends StatelessWidget {
 
     final projectName = session.projectPath.split('/').last;
     final elapsed = _formatElapsed(session.lastActivityAt);
+    final displayMessage = session.lastMessage
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 0),
       clipBehavior: Clip.antiAlias,
-      child: IntrinsicHeight(
-        child: Row(
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(width: 3, color: statusColor),
-            Expanded(
-              child: ListTile(
-                onTap: onTap,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                leading: _StatusDot(
-                  color: statusColor,
-                  animate: session.status == 'running',
-                ),
-                title: Hero(
-                  tag: 'project_name_${session.id}',
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Text(
-                      projectName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
+            // Status bar
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              color: statusColor.withValues(alpha: 0.12),
+              child: Row(
+                children: [
+                  _StatusDot(
+                    color: statusColor,
+                    animate: session.status == 'running',
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    statusLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: statusColor,
                     ),
                   ),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      elapsed,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: appColors.subtleText,
-                      ),
+                  const Spacer(),
+                  SizedBox(
+                    width: 28,
+                    height: 20,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      icon: Icon(Icons.stop_circle_outlined, size: 16),
+                      onPressed: onStop,
+                      tooltip: 'Stop session',
+                      color: Theme.of(context).colorScheme.error,
                     ),
-                    if (session.lastMessage.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                  ),
+                ],
+              ),
+            ),
+            // Content (same structure as RecentSessionCard)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title row: project badge + elapsed
+                  Row(
+                    children: [
+                      Hero(
+                        tag: 'project_name_${session.id}',
+                        child: Material(
+                          color: Colors.transparent,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              projectName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
                       Text(
-                        session.lastMessage,
+                        elapsed,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           color: appColors.subtleText,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    if (session.gitBranch.isNotEmpty ||
-                        session.messageCount > 0) ...[
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          if (session.gitBranch.isNotEmpty) ...[
-                            Icon(
-                              Icons.fork_right,
-                              size: 13,
-                              color: appColors.subtleText,
-                            ),
-                            const SizedBox(width: 2),
-                            Flexible(
-                              child: Text(
-                                session.gitBranch,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: appColors.subtleText,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                          ],
-                          if (session.messageCount > 0) ...[
-                            Icon(
-                              Icons.chat_bubble_outline,
-                              size: 12,
-                              color: appColors.subtleText,
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              '${session.messageCount}',
+                  ),
+                  // Last message
+                  if (displayMessage.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      displayMessage,
+                      style: const TextStyle(fontSize: 13),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  // Git branch + message count
+                  if (session.gitBranch.isNotEmpty ||
+                      session.messageCount > 0) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (session.gitBranch.isNotEmpty) ...[
+                          Icon(
+                            Icons.fork_right,
+                            size: 13,
+                            color: appColors.subtleText,
+                          ),
+                          const SizedBox(width: 2),
+                          Flexible(
+                            child: Text(
+                              session.gitBranch,
                               style: TextStyle(
                                 fontSize: 11,
                                 color: appColors.subtleText,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
+                          ),
+                          const SizedBox(width: 12),
                         ],
-                      ),
-                    ],
-                  ],
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        statusLabel,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: statusColor,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(Icons.stop_circle_outlined, size: 20),
-                      onPressed: onStop,
-                      tooltip: 'Stop session',
-                      color: Theme.of(context).colorScheme.error,
-                      visualDensity: VisualDensity.compact,
+                        if (session.messageCount > 0) ...[
+                          Icon(
+                            Icons.chat_bubble_outline,
+                            size: 12,
+                            color: appColors.subtleText,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${session.messageCount}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: appColors.subtleText,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
-                ),
+                ],
               ),
             ),
           ],

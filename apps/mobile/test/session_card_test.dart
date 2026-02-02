@@ -102,6 +102,29 @@ void main() {
       expect(find.byIcon(Icons.chat_bubble_outline), findsNothing);
     });
 
+    testWidgets('shows status bar with Running label', (tester) async {
+      final session = SessionInfo(
+        id: 'test-id',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(session: session, onTap: () {}, onStop: () {}),
+        ),
+      );
+
+      // Status label in bar
+      expect(find.text('Running'), findsOneWidget);
+      // Project name as badge
+      expect(find.text('my-app'), findsOneWidget);
+      // Stop button
+      expect(find.byIcon(Icons.stop_circle_outlined), findsOneWidget);
+    });
+
     testWidgets('hides lastMessage row when empty', (tester) async {
       final session = SessionInfo(
         id: 'test-id',

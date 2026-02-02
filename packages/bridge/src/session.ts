@@ -189,7 +189,7 @@ export class SessionManager {
       if (msg.type === "assistant") {
         const textBlock = msg.message.content.find((c) => c.type === "text");
         if (textBlock && "text" in textBlock && textBlock.text) {
-          return textBlock.text.slice(0, 100);
+          return textBlock.text.replace(/\s+/g, " ").trim().slice(0, 100);
         }
       }
     }
@@ -200,7 +200,7 @@ export class SessionManager {
         if (msg.role === "assistant") {
           const content = msg.content as Array<Record<string, unknown>> | undefined;
           const textBlock = content?.find((c) => c.type === "text");
-          if (textBlock?.text) return (textBlock.text as string).slice(0, 100);
+          if (textBlock?.text) return (textBlock.text as string).replace(/\s+/g, " ").trim().slice(0, 100);
         }
       }
     }
