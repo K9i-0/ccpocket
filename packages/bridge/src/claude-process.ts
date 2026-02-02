@@ -135,6 +135,7 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
   private pendingPermissions = new Map<string, PermissionRequest>();
   private _permissionMode: PermissionMode | undefined;
   private sessionAllowRules = new Set<string>();
+  private initTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   get status(): ProcessStatus {
     return this._status;
@@ -198,6 +199,19 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
     this._permissionMode = options?.permissionMode;
     this.sessionAllowRules.clear();
 
+    // In -p mode with --input-format stream-json, Claude CLI won't emit
+    // system/init until the first user input. Set a fallback timeout to
+    // transition to "idle" if init hasn't arrived, since the process IS
+    // ready to accept input at that point.
+    if (this.initTimeoutId) clearTimeout(this.initTimeoutId);
+    this.initTimeoutId = setTimeout(() => {
+      if (this._status === "starting" && this.process === currentProcess) {
+        console.log("[claude-process] Init timeout: setting status to idle (process ready for input)");
+        this.setStatus("idle");
+      }
+      this.initTimeoutId = null;
+    }, 3000);
+
     const currentProcess = this.process;
 
     currentProcess.stdout?.on("data", (chunk: Buffer) => {
@@ -242,6 +256,10 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
   }
 
   stop(): void {
+    if (this.initTimeoutId) {
+      clearTimeout(this.initTimeoutId);
+      this.initTimeoutId = null;
+    }
     if (this.process) {
       console.log("[claude-process] Stopping process");
       this.process.kill("SIGTERM");
@@ -486,6 +504,10 @@ export class ClaudeProcess extends EventEmitter<ClaudeProcessEvents> {
       case "system":
         // After init, Claude CLI is idle and waiting for user input
         if (event.subtype === "init") {
+          if (this.initTimeoutId) {
+            clearTimeout(this.initTimeoutId);
+            this.initTimeoutId = null;
+          }
           this.setStatus("idle");
         }
         break;
