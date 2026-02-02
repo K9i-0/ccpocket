@@ -3,9 +3,8 @@ import {
   parseRule,
   matchesSessionRule,
   buildSessionRule,
-  toolNeedsApproval,
   ACCEPT_EDITS_AUTO_APPROVE,
-} from "./claude-process.js";
+} from "./sdk-process.js";
 
 // ---- ACCEPT_EDITS_AUTO_APPROVE ----
 
@@ -56,7 +55,7 @@ describe("parseRule", () => {
   });
 
   it("returns toolName only for empty parens (no content inside)", () => {
-    // Empty parens "Bash()" → regex requires [^)]+ so it won't match
+    // Empty parens "Bash()" -> regex requires [^)]+ so it won't match
     expect(parseRule("Bash()")).toEqual({ toolName: "Bash()" });
   });
 
@@ -158,62 +157,5 @@ describe("buildSessionRule", () => {
 
   it("returns tool name for Bash with empty string command", () => {
     expect(buildSessionRule("Bash", { command: "" })).toBe("Bash");
-  });
-});
-
-// ---- toolNeedsApproval ----
-
-describe("toolNeedsApproval", () => {
-  // bypassPermissions / dontAsk → always false
-  it("returns false for any tool in bypassPermissions mode", () => {
-    expect(toolNeedsApproval("Bash", "bypassPermissions")).toBe(false);
-    expect(toolNeedsApproval("UnknownTool", "bypassPermissions")).toBe(false);
-  });
-
-  it("returns false for any tool in dontAsk mode", () => {
-    expect(toolNeedsApproval("Bash", "dontAsk")).toBe(false);
-  });
-
-  // acceptEdits mode
-  it("auto-approves known safe tools in acceptEdits mode", () => {
-    expect(toolNeedsApproval("Read", "acceptEdits")).toBe(false);
-    expect(toolNeedsApproval("Edit", "acceptEdits")).toBe(false);
-    expect(toolNeedsApproval("Write", "acceptEdits")).toBe(false);
-    expect(toolNeedsApproval("Glob", "acceptEdits")).toBe(false);
-    expect(toolNeedsApproval("WebSearch", "acceptEdits")).toBe(false);
-    expect(toolNeedsApproval("Task", "acceptEdits")).toBe(false);
-  });
-
-  it("requires approval for Bash in acceptEdits mode", () => {
-    expect(toolNeedsApproval("Bash", "acceptEdits")).toBe(true);
-  });
-
-  it("requires approval for ExitPlanMode in acceptEdits mode", () => {
-    expect(toolNeedsApproval("ExitPlanMode", "acceptEdits")).toBe(true);
-  });
-
-  it("requires approval for unknown/MCP tools in acceptEdits mode", () => {
-    expect(toolNeedsApproval("mcp__some_tool", "acceptEdits")).toBe(true);
-    expect(toolNeedsApproval("CustomTool", "acceptEdits")).toBe(true);
-  });
-
-  // default / plan / delegate → always true
-  it("requires approval for all tools in default mode", () => {
-    expect(toolNeedsApproval("Read", "default")).toBe(true);
-    expect(toolNeedsApproval("Bash", "default")).toBe(true);
-  });
-
-  it("requires approval for all tools in plan mode", () => {
-    expect(toolNeedsApproval("Read", "plan")).toBe(true);
-  });
-
-  it("requires approval for all tools in delegate mode", () => {
-    expect(toolNeedsApproval("Read", "delegate")).toBe(true);
-  });
-
-  // undefined mode → true
-  it("requires approval when mode is undefined", () => {
-    expect(toolNeedsApproval("Read", undefined)).toBe(true);
-    expect(toolNeedsApproval("Bash", undefined)).toBe(true);
   });
 });
