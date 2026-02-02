@@ -52,7 +52,7 @@ export type ClientMessage =
   | { type: "list_sessions" }
   | { type: "stop_session"; sessionId: string }
   | { type: "get_history"; sessionId: string }
-  | { type: "list_recent_sessions"; limit?: number }
+  | { type: "list_recent_sessions"; limit?: number; offset?: number; projectPath?: string }
   | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode }
   | { type: "list_gallery"; project?: string }
   | { type: "list_files"; projectPath: string }

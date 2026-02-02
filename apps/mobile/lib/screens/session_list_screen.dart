@@ -149,12 +149,17 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
 
-  String? _selectedProject; // null = show all
+  String?
+  _selectedProject; // null = show all (projectName for client-side filter)
   String? _selectedBranch; // null = show all
   DateFilter _dateFilter = DateFilter.all;
   String _searchQuery = '';
   bool _isSearching = false;
   bool _isAutoConnecting = false;
+  bool _isLoadingMore = false;
+
+  // Accumulated project paths: project history + paths from paging
+  Set<String> _accumulatedProjectPaths = {};
 
   // Cache for resume navigation
   String? _pendingResumeProjectPath;
@@ -162,6 +167,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
   // Only subscription that remains: session_created navigation
   StreamSubscription<ServerMessage>? _messageSub;
+  StreamSubscription<List<RecentSession>>? _recentSessionsSub;
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyApiKey = 'bridge_api_key';
@@ -183,6 +189,22 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
           _pendingResumeProjectPath = null;
           _pendingResumeGitBranch = null;
         }
+      }
+    });
+    // Accumulate project paths from loaded sessions
+    _recentSessionsSub = bridge.recentSessionsStream.listen((sessions) {
+      if (!mounted) return;
+      final newPaths = sessions
+          .map((s) => s.projectPath)
+          .where((p) => p.isNotEmpty)
+          .toSet();
+      if (newPaths.difference(_accumulatedProjectPaths).isNotEmpty) {
+        setState(() {
+          _accumulatedProjectPaths = {..._accumulatedProjectPaths, ...newPaths};
+          _isLoadingMore = false;
+        });
+      } else {
+        setState(() => _isLoadingMore = false);
       }
     });
     widget.deepLinkNotifier?.addListener(_onDeepLink);
@@ -407,6 +429,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   void dispose() {
     widget.deepLinkNotifier?.removeListener(_onDeepLink);
     _messageSub?.cancel();
+    _recentSessionsSub?.cancel();
     _urlController.dispose();
     _apiKeyController.dispose();
     super.dispose();
@@ -420,13 +443,19 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
       _dateFilter = DateFilter.all;
       _searchQuery = '';
       _isSearching = false;
+      _accumulatedProjectPaths = {};
+      _isLoadingMore = false;
     });
   }
 
   void _refresh() {
     final bridge = ref.read(bridgeServiceProvider);
     bridge.requestSessionList();
-    bridge.requestRecentSessions();
+    bridge.requestRecentSessions(
+      offset: 0,
+      projectPath: bridge.currentProjectFilter,
+    );
+    bridge.requestProjectHistory();
   }
 
   void _showNewSessionDialog() async {
@@ -514,6 +543,22 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Merge project history into accumulated paths
+    ref.listen<AsyncValue<List<String>>>(projectHistoryProvider, (prev, next) {
+      final projects = next.valueOrNull ?? [];
+      if (projects.isNotEmpty) {
+        final newPaths = projects.toSet();
+        if (newPaths.difference(_accumulatedProjectPaths).isNotEmpty) {
+          setState(() {
+            _accumulatedProjectPaths = {
+              ..._accumulatedProjectPaths,
+              ...newPaths,
+            };
+          });
+        }
+      }
+    });
+
     // Side-effect: auto-request lists on connect
     ref.listen<AsyncValue<BridgeConnectionState>>(connectionStateProvider, (
       prev,
@@ -531,7 +576,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
           nextState == BridgeConnectionState.connected) {
         final bridge = ref.read(bridgeServiceProvider);
         bridge.requestSessionList();
-        bridge.requestRecentSessions();
+        bridge.requestRecentSessions(offset: 0);
         bridge.requestProjectHistory();
       }
     });
@@ -832,15 +877,15 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
         connectionState == BridgeConnectionState.reconnecting;
 
     // Compute derived state
-    final allProjectCounts = projectCounts(recentSessionsList);
+    final bridge = ref.read(bridgeServiceProvider);
     final allBranchChips = branchesForProject(
       recentSessionsList,
       _selectedProject,
     );
-    var filteredSessions = filterByProject(
-      recentSessionsList,
-      _selectedProject,
-    );
+    // When server-side filter is active, skip client-side project filter
+    var filteredSessions = bridge.currentProjectFilter != null
+        ? recentSessionsList
+        : filterByProject(recentSessionsList, _selectedProject);
     filteredSessions = filterByBranch(filteredSessions, _selectedBranch);
     filteredSessions = filterByDate(filteredSessions, _dateFilter);
     filteredSessions = filterByQuery(filteredSessions, _searchQuery);
@@ -884,7 +929,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
             label: 'Recent Sessions',
             color: appColors.subtleText,
           ),
-          if (allProjectCounts.length > 1) ...[
+          if (_accumulatedProjectPaths.length > 1) ...[
             const SizedBox(height: 8),
             _buildProjectFilterChips(appColors, recentSessionsList),
           ],
@@ -903,9 +948,35 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
               onTap: () => _resumeSession(session),
               hideProjectBadge: _selectedProject != null,
             ),
+          if (ref.read(bridgeServiceProvider).recentSessionsHasMore) ...[
+            const SizedBox(height: 8),
+            Center(
+              child: _isLoadingMore
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : TextButton.icon(
+                      key: const ValueKey('load_more_button'),
+                      onPressed: _loadMore,
+                      icon: const Icon(Icons.expand_more, size: 18),
+                      label: const Text('Load More'),
+                    ),
+            ),
+            const SizedBox(height: 8),
+          ],
         ],
       ],
     );
+  }
+
+  void _loadMore() {
+    setState(() => _isLoadingMore = true);
+    ref.read(bridgeServiceProvider).loadMoreRecentSessions();
   }
 
   Widget _buildReconnectingBanner(AppColors appColors) {
@@ -986,7 +1057,23 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     List<RecentSession> recentSessionsList,
   ) {
     final cs = Theme.of(context).colorScheme;
-    final counts = projectCounts(recentSessionsList);
+    final bridge = ref.read(bridgeServiceProvider);
+    final currentFilter = bridge.currentProjectFilter;
+
+    // Build chip list from accumulated paths
+    // Count sessions from loaded data
+    final loadedCounts = projectCounts(recentSessionsList);
+
+    // Collect unique project entries: (path, name) from accumulated paths
+    final chipEntries = <({String path, String name})>[];
+    final seenNames = <String>{};
+    for (final path in _accumulatedProjectPaths) {
+      final name = path.split('/').last;
+      if (name.isNotEmpty && seenNames.add(name)) {
+        chipEntries.add((path: path, name: name));
+      }
+    }
+
     return HorizontalChipBar(
       height: 36,
       fontSize: 12,
@@ -997,20 +1084,28 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
       items: [
         ChipItem(
           label: 'All (${recentSessionsList.length})',
-          isSelected: _selectedProject == null,
-          onSelected: () => setState(() {
-            _selectedProject = null;
-            _selectedBranch = null;
-          }),
-        ),
-        for (final entry in counts.entries)
-          ChipItem(
-            label: entry.key,
-            isSelected: _selectedProject == entry.key,
-            onSelected: () => setState(() {
-              _selectedProject = entry.key;
+          isSelected: currentFilter == null,
+          onSelected: () {
+            setState(() {
+              _selectedProject = null;
               _selectedBranch = null;
-            }),
+            });
+            bridge.switchProjectFilter(null);
+          },
+        ),
+        for (final entry in chipEntries)
+          ChipItem(
+            label: loadedCounts.containsKey(entry.name)
+                ? '${entry.name} (${loadedCounts[entry.name]})'
+                : entry.name,
+            isSelected: currentFilter == entry.path,
+            onSelected: () {
+              setState(() {
+                _selectedProject = entry.name;
+                _selectedBranch = null;
+              });
+              bridge.switchProjectFilter(entry.path);
+            },
           ),
       ],
     );

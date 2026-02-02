@@ -146,6 +146,16 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "list_recent_sessions" });
   });
 
+  it("parses list_recent_sessions with offset and projectPath", () => {
+    const msg = parseClientMessage('{"type":"list_recent_sessions","limit":10,"offset":20,"projectPath":"/tmp/project"}');
+    expect(msg).toEqual({
+      type: "list_recent_sessions",
+      limit: 10,
+      offset: 20,
+      projectPath: "/tmp/project",
+    });
+  });
+
   it("parses resume_session message", () => {
     const msg = parseClientMessage('{"type":"resume_session","sessionId":"s3","projectPath":"/p"}');
     expect(msg).toEqual({ type: "resume_session", sessionId: "s3", projectPath: "/p" });

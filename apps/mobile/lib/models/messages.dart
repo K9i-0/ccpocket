@@ -247,6 +247,7 @@ sealed class ServerMessage {
         sessions: (json['sessions'] as List)
             .map((s) => RecentSession.fromJson(s as Map<String, dynamic>))
             .toList(),
+        hasMore: json['hasMore'] as bool? ?? false,
       ),
       'past_history' => PastHistoryMessage(
         claudeSessionId: json['claudeSessionId'] as String? ?? '',
@@ -380,7 +381,8 @@ class SessionListMessage implements ServerMessage {
 
 class RecentSessionsMessage implements ServerMessage {
   final List<RecentSession> sessions;
-  const RecentSessionsMessage({required this.sessions});
+  final bool hasMore;
+  const RecentSessionsMessage({required this.sessions, this.hasMore = false});
 }
 
 class PastHistoryMessage implements ServerMessage {
@@ -592,9 +594,15 @@ class ClientMessage {
   factory ClientMessage.stopSession(String sessionId) =>
       ClientMessage._({'type': 'stop_session', 'sessionId': sessionId});
 
-  factory ClientMessage.listRecentSessions({int? limit}) {
+  factory ClientMessage.listRecentSessions({
+    int? limit,
+    int? offset,
+    String? projectPath,
+  }) {
     final json = <String, dynamic>{'type': 'list_recent_sessions'};
     if (limit != null) json['limit'] = limit;
+    if (offset != null) json['offset'] = offset;
+    if (projectPath != null) json['projectPath'] = projectPath;
     return ClientMessage._(json);
   }
 

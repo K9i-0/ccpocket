@@ -223,8 +223,12 @@ export class BridgeWebSocketServer {
       }
 
       case "list_recent_sessions": {
-        getAllRecentSessions(msg.limit).then((sessions) => {
-          this.send(ws, { type: "recent_sessions", sessions } as Record<string, unknown>);
+        getAllRecentSessions({
+          limit: msg.limit,
+          offset: msg.offset,
+          projectPath: msg.projectPath,
+        }).then(({ sessions, hasMore }) => {
+          this.send(ws, { type: "recent_sessions", sessions, hasMore } as Record<string, unknown>);
         }).catch((err) => {
           this.send(ws, { type: "error", message: `Failed to list recent sessions: ${err}` });
         });

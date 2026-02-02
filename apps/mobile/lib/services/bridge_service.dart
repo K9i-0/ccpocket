@@ -31,6 +31,11 @@ class BridgeService implements BridgeServiceBase {
   List<GalleryImage> _galleryImages = [];
   List<String> _projectHistory = [];
 
+  // Pagination state
+  bool _recentSessionsHasMore = false;
+  bool _appendMode = false;
+  String? _currentProjectFilter;
+
   // Auto-reconnect
   String? _lastUrl;
   Timer? _reconnectTimer;
@@ -61,6 +66,8 @@ class BridgeService implements BridgeServiceBase {
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
   List<SessionInfo> get sessions => _sessions;
   List<RecentSession> get recentSessions => _recentSessions;
+  bool get recentSessionsHasMore => _recentSessionsHasMore;
+  String? get currentProjectFilter => _currentProjectFilter;
   List<GalleryImage> get galleryImages => _galleryImages;
   List<String> get projectHistory => _projectHistory;
 
@@ -110,9 +117,15 @@ class BridgeService implements BridgeServiceBase {
               case SessionListMessage(:final sessions):
                 _sessions = sessions;
                 _sessionListController.add(sessions);
-              case RecentSessionsMessage(:final sessions):
-                _recentSessions = sessions;
-                _recentSessionsController.add(sessions);
+              case RecentSessionsMessage(:final sessions, :final hasMore):
+                _recentSessionsHasMore = hasMore;
+                if (_appendMode) {
+                  _recentSessions = [..._recentSessions, ...sessions];
+                } else {
+                  _recentSessions = sessions;
+                }
+                _appendMode = false;
+                _recentSessionsController.add(_recentSessions);
               case PastHistoryMessage():
                 pendingPastHistory = msg;
                 _taggedMessageController.add((msg, sessionId));
@@ -198,8 +211,45 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.listSessions());
   }
 
-  void requestRecentSessions({int? limit}) {
-    send(ClientMessage.listRecentSessions(limit: limit));
+  void requestRecentSessions({int? limit, int? offset, String? projectPath}) {
+    if (offset == null || offset == 0) {
+      _appendMode = false;
+    }
+    send(
+      ClientMessage.listRecentSessions(
+        limit: limit,
+        offset: offset,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
+  /// Load the next page of recent sessions (append mode).
+  void loadMoreRecentSessions({int pageSize = 20}) {
+    _appendMode = true;
+    send(
+      ClientMessage.listRecentSessions(
+        limit: pageSize,
+        offset: _recentSessions.length,
+        projectPath: _currentProjectFilter,
+      ),
+    );
+  }
+
+  /// Switch project filter: resets session list and fetches from offset 0.
+  void switchProjectFilter(String? projectPath, {int pageSize = 20}) {
+    _currentProjectFilter = projectPath;
+    _appendMode = false;
+    _recentSessions = [];
+    _recentSessionsHasMore = false;
+    _recentSessionsController.add(_recentSessions);
+    send(
+      ClientMessage.listRecentSessions(
+        limit: pageSize,
+        offset: 0,
+        projectPath: projectPath,
+      ),
+    );
   }
 
   @override
