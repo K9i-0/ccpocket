@@ -3,9 +3,12 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/messages.dart';
+import '../providers/bridge_providers.dart';
+import '../providers/discovery_provider.dart';
 import '../services/bridge_service.dart';
 import '../services/server_discovery_service.dart';
 import '../theme/app_theme.dart';
@@ -126,7 +129,7 @@ List<RecentSession> filterByDate(
 
 // ---- Screen ----
 
-class SessionListScreen extends StatefulWidget {
+class SessionListScreen extends ConsumerStatefulWidget {
   final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
 
   /// Pre-populated sessions for UI testing (skips bridge connection).
@@ -139,84 +142,38 @@ class SessionListScreen extends StatefulWidget {
   });
 
   @override
-  State<SessionListScreen> createState() => _SessionListScreenState();
+  ConsumerState<SessionListScreen> createState() => _SessionListScreenState();
 }
 
-class _SessionListScreenState extends State<SessionListScreen> {
-  final BridgeService _bridge = BridgeService();
+class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
-  final ServerDiscoveryService _discovery = ServerDiscoveryService();
 
-  BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
-  List<SessionInfo> _sessions = [];
-  List<RecentSession> _recentSessions = [];
-  List<DiscoveredServer> _discoveredServers = [];
-  bool _isAutoConnecting = false;
   String? _selectedProject; // null = show all
   String? _selectedBranch; // null = show all
   DateFilter _dateFilter = DateFilter.all;
   String _searchQuery = '';
   bool _isSearching = false;
+  bool _isAutoConnecting = false;
 
   // Cache for resume navigation
   String? _pendingResumeProjectPath;
   String? _pendingResumeGitBranch;
 
-  StreamSubscription<BridgeConnectionState>? _connectionSub;
-  StreamSubscription<List<SessionInfo>>? _sessionListSub;
-  StreamSubscription<List<RecentSession>>? _recentSessionsSub;
+  // Only subscription that remains: session_created navigation
   StreamSubscription<ServerMessage>? _messageSub;
-  StreamSubscription<List<DiscoveredServer>>? _discoverySub;
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyApiKey = 'bridge_api_key';
 
-  bool get _isConnected => _connectionState == BridgeConnectionState.connected;
-
-  Map<String, int> get _projectCounts => projectCounts(_recentSessions);
-
-  List<RecentSession> get _filteredRecentSessions {
-    var sessions = filterByProject(_recentSessions, _selectedProject);
-    sessions = filterByBranch(sessions, _selectedBranch);
-    sessions = filterByDate(sessions, _dateFilter);
-    sessions = filterByQuery(sessions, _searchQuery);
-    return sessions;
-  }
-
-  List<({String path, String name})> get _recentProjects =>
-      recentProjects(_recentSessions);
-
-  List<String> get _branchChips =>
-      branchesForProject(_recentSessions, _selectedProject);
-
   @override
   void initState() {
     super.initState();
-    // Pre-populate with debug data if provided (skips bridge).
-    if (widget.debugRecentSessions != null) {
-      _recentSessions = widget.debugRecentSessions!;
-      _connectionState = BridgeConnectionState.connected;
-    }
-    _connectionSub = _bridge.connectionStatus.listen((state) {
-      setState(() {
-        _connectionState = state;
-        _isAutoConnecting = false;
-      });
-      if (state == BridgeConnectionState.connected) {
-        _bridge.requestSessionList();
-        _bridge.requestRecentSessions();
-      }
-    });
-    _sessionListSub = _bridge.sessionList.listen((sessions) {
-      setState(() => _sessions = sessions);
-    });
-    _recentSessionsSub = _bridge.recentSessionsStream.listen((sessions) {
-      setState(() => _recentSessions = sessions);
-    });
-    _messageSub = _bridge.messages.listen((msg) {
+    // session_created navigation (the only manual subscription)
+    final bridge = ref.read(bridgeServiceProvider);
+    _messageSub = bridge.messages.listen((msg) {
       if (msg is SystemMessage && msg.subtype == 'session_created') {
-        _bridge.requestSessionList();
+        bridge.requestSessionList();
         if (msg.sessionId != null) {
           _navigateToChat(
             msg.sessionId!,
@@ -228,10 +185,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
         }
       }
     });
-    _discoverySub = _discovery.servers.listen((servers) {
-      setState(() => _discoveredServers = servers);
-    });
-    _discovery.startDiscovery();
     widget.deepLinkNotifier?.addListener(_onDeepLink);
     _loadPreferencesAndAutoConnect();
   }
@@ -260,7 +213,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
     }
     if (url != null && url.isNotEmpty) {
       setState(() => _isAutoConnecting = true);
-      final attempted = await _bridge.autoConnect();
+      final attempted = await ref.read(bridgeServiceProvider).autoConnect();
       if (!attempted) {
         setState(() => _isAutoConnecting = false);
       }
@@ -288,8 +241,9 @@ class _SessionListScreenState extends State<SessionListScreen> {
       final sep = url.contains('?') ? '&' : '?';
       url = '$url${sep}token=$apiKey';
     }
-    _bridge.connect(url);
-    _bridge.savePreferences(
+    final bridge = ref.read(bridgeServiceProvider);
+    bridge.connect(url);
+    bridge.savePreferences(
       _urlController.text.trim(),
       _apiKeyController.text.trim(),
     );
@@ -452,23 +406,15 @@ class _SessionListScreenState extends State<SessionListScreen> {
   @override
   void dispose() {
     widget.deepLinkNotifier?.removeListener(_onDeepLink);
-    _connectionSub?.cancel();
-    _sessionListSub?.cancel();
-    _recentSessionsSub?.cancel();
     _messageSub?.cancel();
-    _discoverySub?.cancel();
-    _discovery.dispose();
-    _bridge.dispose();
     _urlController.dispose();
     _apiKeyController.dispose();
     super.dispose();
   }
 
   void _disconnect() {
-    _bridge.disconnect();
+    ref.read(bridgeServiceProvider).disconnect();
     setState(() {
-      _sessions = [];
-      _recentSessions = [];
       _selectedProject = null;
       _selectedBranch = null;
       _dateFilter = DateFilter.all;
@@ -478,18 +424,21 @@ class _SessionListScreenState extends State<SessionListScreen> {
   }
 
   void _refresh() {
-    _bridge.requestSessionList();
-    _bridge.requestRecentSessions();
+    final bridge = ref.read(bridgeServiceProvider);
+    bridge.requestSessionList();
+    bridge.requestRecentSessions();
   }
 
   void _showNewSessionDialog() async {
+    final sessions = widget.debugRecentSessions ??
+        (ref.read(recentSessionsProvider).valueOrNull ?? []);
     final result = await showNewSessionSheet(
       context: context,
-      recentProjects: _recentProjects,
+      recentProjects: recentProjects(sessions),
     );
     if (result == null) return;
     _pendingResumeProjectPath = result.projectPath;
-    _bridge.send(
+    ref.read(bridgeServiceProvider).send(
       ClientMessage.start(
         result.projectPath,
         continueMode: result.continueMode ? true : null,
@@ -503,18 +452,22 @@ class _SessionListScreenState extends State<SessionListScreen> {
     String? projectPath,
     String? gitBranch,
   }) {
+    final bridge = ref.read(bridgeServiceProvider);
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ChatScreen(
-          bridge: _bridge,
+          bridge: bridge,
           sessionId: sessionId,
           projectPath: projectPath,
           gitBranch: gitBranch,
         ),
       ),
     ).then((_) {
-      if (_isConnected) {
+      final isConnected =
+          ref.read(connectionStateProvider).valueOrNull ==
+          BridgeConnectionState.connected;
+      if (isConnected) {
         _refresh();
       }
     });
@@ -523,7 +476,10 @@ class _SessionListScreenState extends State<SessionListScreen> {
   void _resumeSession(RecentSession session) {
     _pendingResumeProjectPath = session.projectPath;
     _pendingResumeGitBranch = session.gitBranch;
-    _bridge.resumeSession(session.sessionId, session.projectPath);
+    ref.read(bridgeServiceProvider).resumeSession(
+      session.sessionId,
+      session.projectPath,
+    );
   }
 
   void _stopSession(String sessionId) {
@@ -545,7 +501,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
             ),
             onPressed: () {
               Navigator.pop(context);
-              _bridge.stopSession(sessionId);
+              ref.read(bridgeServiceProvider).stopSession(sessionId);
             },
             child: const Text('Stop'),
           ),
@@ -556,8 +512,39 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Side-effect: auto-request lists on connect
+    ref.listen<AsyncValue<BridgeConnectionState>>(connectionStateProvider,
+        (prev, next) {
+      final prevState = prev?.valueOrNull;
+      final nextState = next.valueOrNull;
+      if (nextState != null) {
+        // Clear auto-connecting spinner once we get any connection state update
+        if (_isAutoConnecting) {
+          setState(() => _isAutoConnecting = false);
+        }
+      }
+      if (prevState != BridgeConnectionState.connected &&
+          nextState == BridgeConnectionState.connected) {
+        final bridge = ref.read(bridgeServiceProvider);
+        bridge.requestSessionList();
+        bridge.requestRecentSessions();
+      }
+    });
+
+    // Read state from providers
+    final connectionState = widget.debugRecentSessions != null
+        ? BridgeConnectionState.connected
+        : (ref.watch(connectionStateProvider).valueOrNull ??
+            BridgeConnectionState.disconnected);
+    final sessions = ref.watch(sessionListProvider).valueOrNull ?? [];
+    final recentSessionsList = widget.debugRecentSessions ??
+        (ref.watch(recentSessionsProvider).valueOrNull ?? []);
+    final discoveredServers =
+        ref.watch(serverDiscoveryProvider).valueOrNull ?? [];
+
+    final isConnected = connectionState == BridgeConnectionState.connected;
     final showConnectedUI =
-        _isConnected || _connectionState == BridgeConnectionState.reconnecting;
+        isConnected || connectionState == BridgeConnectionState.reconnecting;
 
     return Scaffold(
       appBar: AppBar(
@@ -583,7 +570,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
               ),
               tooltip: 'Mock Preview',
             ),
-          if (showConnectedUI && _recentSessions.isNotEmpty)
+          if (showConnectedUI && recentSessionsList.isNotEmpty)
             IconButton(
               key: const ValueKey('search_button'),
               icon: Icon(_isSearching ? Icons.close : Icons.search),
@@ -600,7 +587,9 @@ class _SessionListScreenState extends State<SessionListScreen> {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => GalleryScreen(bridge: _bridge),
+                  builder: (_) => GalleryScreen(
+                    bridge: ref.read(bridgeServiceProvider),
+                  ),
                 ),
               ),
               tooltip: 'Gallery',
@@ -626,11 +615,15 @@ class _SessionListScreenState extends State<SessionListScreen> {
           : showConnectedUI
           ? RefreshIndicator(
               onRefresh: () async => _refresh(),
-              child: _buildHomeContent(),
+              child: _buildHomeContent(
+                connectionState: connectionState,
+                sessions: sessions,
+                recentSessionsList: recentSessionsList,
+              ),
             )
-          : _connectionState == BridgeConnectionState.connecting
+          : connectionState == BridgeConnectionState.connecting
           ? const Center(child: CircularProgressIndicator())
-          : _buildConnectForm(),
+          : _buildConnectForm(discoveredServers: discoveredServers),
       floatingActionButton: showConnectedUI
           ? FloatingActionButton(
               key: const ValueKey('new_session_fab'),
@@ -641,7 +634,9 @@ class _SessionListScreenState extends State<SessionListScreen> {
     );
   }
 
-  Widget _buildConnectForm() {
+  Widget _buildConnectForm({
+    required List<DiscoveredServer> discoveredServers,
+  }) {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -667,8 +662,8 @@ class _SessionListScreenState extends State<SessionListScreen> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 24),
-          if (_discoveredServers.isNotEmpty) ...[
-            _buildDiscoveredServers(),
+          if (discoveredServers.isNotEmpty) ...[
+            _buildDiscoveredServers(discoveredServers: discoveredServers),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -760,7 +755,9 @@ class _SessionListScreenState extends State<SessionListScreen> {
     _connect();
   }
 
-  Widget _buildDiscoveredServers() {
+  Widget _buildDiscoveredServers({
+    required List<DiscoveredServer> discoveredServers,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -783,7 +780,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        for (final server in _discoveredServers)
+        for (final server in discoveredServers)
           Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
@@ -821,12 +818,26 @@ class _SessionListScreenState extends State<SessionListScreen> {
     );
   }
 
-  Widget _buildHomeContent() {
+  Widget _buildHomeContent({
+    required BridgeConnectionState connectionState,
+    required List<SessionInfo> sessions,
+    required List<RecentSession> recentSessionsList,
+  }) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final hasRunningSessions = _sessions.isNotEmpty;
-    final hasRecentSessions = _recentSessions.isNotEmpty;
+    final hasRunningSessions = sessions.isNotEmpty;
+    final hasRecentSessions = recentSessionsList.isNotEmpty;
     final isReconnecting =
-        _connectionState == BridgeConnectionState.reconnecting;
+        connectionState == BridgeConnectionState.reconnecting;
+
+    // Compute derived state
+    final allProjectCounts = projectCounts(recentSessionsList);
+    final allBranchChips =
+        branchesForProject(recentSessionsList, _selectedProject);
+    var filteredSessions =
+        filterByProject(recentSessionsList, _selectedProject);
+    filteredSessions = filterByBranch(filteredSessions, _selectedBranch);
+    filteredSessions = filterByDate(filteredSessions, _dateFilter);
+    filteredSessions = filterByQuery(filteredSessions, _searchQuery);
 
     if (!hasRunningSessions && !hasRecentSessions) {
       return ListView(
@@ -852,7 +863,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
             color: appColors.statusRunning,
           ),
           const SizedBox(height: 4),
-          for (final session in _sessions)
+          for (final session in sessions)
             RunningSessionCard(
               session: session,
               onTap: () =>
@@ -867,20 +878,20 @@ class _SessionListScreenState extends State<SessionListScreen> {
             label: 'Recent Sessions',
             color: appColors.subtleText,
           ),
-          if (_projectCounts.length > 1) ...[
+          if (allProjectCounts.length > 1) ...[
             const SizedBox(height: 8),
-            _buildProjectFilterChips(appColors),
+            _buildProjectFilterChips(appColors, recentSessionsList),
           ],
           // Branch filter chips (show when branches exist for selection)
-          if (_branchChips.length > 1) ...[
+          if (allBranchChips.length > 1) ...[
             const SizedBox(height: 4),
-            _buildBranchFilterChips(appColors),
+            _buildBranchFilterChips(appColors, recentSessionsList),
           ],
           // Date filter chips
           const SizedBox(height: 4),
           _buildDateFilterChips(appColors),
           const SizedBox(height: 8),
-          for (final session in _filteredRecentSessions)
+          for (final session in filteredSessions)
             RecentSessionCard(
               session: session,
               onTap: () => _resumeSession(session),
@@ -964,9 +975,12 @@ class _SessionListScreenState extends State<SessionListScreen> {
     );
   }
 
-  Widget _buildProjectFilterChips(AppColors appColors) {
+  Widget _buildProjectFilterChips(
+    AppColors appColors,
+    List<RecentSession> recentSessionsList,
+  ) {
     final cs = Theme.of(context).colorScheme;
-    final counts = _projectCounts;
+    final counts = projectCounts(recentSessionsList);
     return HorizontalChipBar(
       height: 36,
       fontSize: 12,
@@ -976,7 +990,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
       unselectedTextColor: appColors.subtleText,
       items: [
         ChipItem(
-          label: 'All (${_recentSessions.length})',
+          label: 'All (${recentSessionsList.length})',
           isSelected: _selectedProject == null,
           onSelected: () => setState(() {
             _selectedProject = null;
@@ -996,8 +1010,13 @@ class _SessionListScreenState extends State<SessionListScreen> {
     );
   }
 
-  Widget _buildBranchFilterChips(AppColors appColors) {
+  Widget _buildBranchFilterChips(
+    AppColors appColors,
+    List<RecentSession> recentSessionsList,
+  ) {
     final cs = Theme.of(context).colorScheme;
+    final branchChipsList =
+        branchesForProject(recentSessionsList, _selectedProject);
     return HorizontalChipBar(
       selectedColor: cs.secondary,
       selectedTextColor: cs.onSecondary,
@@ -1013,7 +1032,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
             color: appColors.subtleText,
           ),
         ),
-        for (final branch in _branchChips)
+        for (final branch in branchChipsList)
           ChipItem(
             label: branch,
             isSelected: _selectedBranch == branch,
