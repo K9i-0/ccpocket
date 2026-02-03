@@ -55,13 +55,20 @@ class ChatInputBar extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildSlashButton(cs),
-          const SizedBox(width: 8),
           _buildTextField(cs),
-          const SizedBox(width: 8),
-          _buildActionButton(cs),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              _buildSlashButton(cs),
+              const SizedBox(width: 8),
+              if (status != ProcessStatus.starting) _buildExpandButton(cs),
+              const Spacer(),
+              _buildActionButton(cs),
+            ],
+          ),
         ],
       ),
     );
@@ -93,52 +100,55 @@ class ChatInputBar extends StatelessWidget {
   }
 
   Widget _buildTextField(ColorScheme cs) {
-    return Expanded(
-      child: CompositedTransformTarget(
-        link: inputLayerLink,
-        child: TextField(
-          key: const ValueKey('message_input'),
-          controller: inputController,
-          decoration: InputDecoration(
-            hintText: 'Message Claude...',
-            filled: true,
-            fillColor: cs.surfaceContainerLow,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
-              borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
-              borderSide: BorderSide(
-                color: cs.primary.withValues(alpha: 0.5),
-                width: 1.5,
-              ),
-            ),
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 10,
-            ),
-            suffixIcon: status != ProcessStatus.starting
-                ? IconButton(
-                    key: const ValueKey('expand_compose_button'),
-                    icon: Icon(Icons.open_in_full, size: 18, color: cs.outline),
-                    onPressed: onExpand,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                    padding: EdgeInsets.zero,
-                  )
-                : null,
+    return CompositedTransformTarget(
+      link: inputLayerLink,
+      child: TextField(
+        key: const ValueKey('message_input'),
+        controller: inputController,
+        decoration: InputDecoration(
+          hintText: 'Message Claude...',
+          filled: true,
+          fillColor: cs.surfaceContainerLow,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide.none,
           ),
-          enabled: status != ProcessStatus.starting,
-          textInputAction: TextInputAction.send,
-          onSubmitted: (_) => onSend(),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide(
+              color: cs.primary.withValues(alpha: 0.5),
+              width: 1.5,
+            ),
+          ),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 10,
+          ),
+        ),
+        enabled: status != ProcessStatus.starting,
+        textInputAction: TextInputAction.send,
+        onSubmitted: (_) => onSend(),
+      ),
+    );
+  }
+
+  Widget _buildExpandButton(ColorScheme cs) {
+    return Material(
+      color: cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        key: const ValueKey('expand_compose_button'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: onExpand,
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(Icons.open_in_full, size: 16, color: cs.outline),
         ),
       ),
     );
