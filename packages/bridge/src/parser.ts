@@ -132,6 +132,9 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "list_files":
         if (typeof msg.projectPath !== "string") return null;
         break;
+      case "get_diff":
+        if (typeof msg.projectPath !== "string") return null;
+        break;
       case "interrupt":
         break;
       default:
