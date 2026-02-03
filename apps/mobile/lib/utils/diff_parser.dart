@@ -1,4 +1,4 @@
-/// Unified diff parser — converts raw `git diff` output into structured data.
+// Unified diff parser — converts raw `git diff` output into structured data.
 
 enum DiffLineType { context, addition, deletion }
 
@@ -70,8 +70,7 @@ class DiffFile {
 }
 
 /// Regex for the hunk header: @@ -oldStart[,oldCount] +newStart[,newCount] @@
-final _hunkHeaderRegex =
-    RegExp(r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@');
+final _hunkHeaderRegex = RegExp(r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@');
 
 /// Parse unified diff text into a list of [DiffFile].
 ///
@@ -128,20 +127,21 @@ List<DiffFile> parseDiff(String diffText) {
     }
 
     if (isBinary) {
-      files.add(DiffFile(
-        filePath: filePath,
-        hunks: const [],
-        isBinary: true,
-        isNewFile: isNewFile,
-        isDeleted: isDeleted,
-      ));
+      files.add(
+        DiffFile(
+          filePath: filePath,
+          hunks: const [],
+          isBinary: true,
+          isNewFile: isNewFile,
+          isDeleted: isDeleted,
+        ),
+      );
       continue;
     }
 
     // Parse hunks
     final hunks = <DiffHunk>[];
-    while (
-        i < lines.length && !lines[i].startsWith('diff --git ')) {
+    while (i < lines.length && !lines[i].startsWith('diff --git ')) {
       if (lines[i].startsWith('@@')) {
         final hunk = _parseHunk(lines, i);
         hunks.add(hunk.hunk);
@@ -151,12 +151,14 @@ List<DiffFile> parseDiff(String diffText) {
       }
     }
 
-    files.add(DiffFile(
-      filePath: filePath,
-      hunks: hunks,
-      isNewFile: isNewFile,
-      isDeleted: isDeleted,
-    ));
+    files.add(
+      DiffFile(
+        filePath: filePath,
+        hunks: hunks,
+        isNewFile: isNewFile,
+        isDeleted: isDeleted,
+      ),
+    );
   }
 
   return files;
@@ -206,7 +208,9 @@ DiffFile _parseSingleFileDiff(List<String> lines) {
 
 /// Parse a single hunk starting at [startIndex].
 ({DiffHunk hunk, int nextIndex}) _parseHunk(
-    List<String> lines, int startIndex) {
+  List<String> lines,
+  int startIndex,
+) {
   final header = lines[startIndex];
   final match = _hunkHeaderRegex.firstMatch(header);
   final oldStart = match != null ? int.parse(match.group(1)!) : 1;
@@ -224,42 +228,53 @@ DiffFile _parseSingleFileDiff(List<String> lines) {
     if (line.startsWith('@@') || line.startsWith('diff --git ')) break;
 
     if (line.startsWith('+')) {
-      diffLines.add(DiffLine(
-        type: DiffLineType.addition,
-        content: line.substring(1),
-        newLineNumber: newLine,
-      ));
+      diffLines.add(
+        DiffLine(
+          type: DiffLineType.addition,
+          content: line.substring(1),
+          newLineNumber: newLine,
+        ),
+      );
       newLine++;
     } else if (line.startsWith('-')) {
-      diffLines.add(DiffLine(
-        type: DiffLineType.deletion,
-        content: line.substring(1),
-        oldLineNumber: oldLine,
-      ));
+      diffLines.add(
+        DiffLine(
+          type: DiffLineType.deletion,
+          content: line.substring(1),
+          oldLineNumber: oldLine,
+        ),
+      );
       oldLine++;
-    } else if (line.startsWith(' ') || line.isEmpty) {
-      // Context line (or empty line at end of diff)
-      final content = line.isEmpty ? '' : line.substring(1);
-      diffLines.add(DiffLine(
-        type: DiffLineType.context,
-        content: content,
-        oldLineNumber: oldLine,
-        newLineNumber: newLine,
-      ));
+    } else if (line.startsWith(' ')) {
+      final content = line.substring(1);
+      diffLines.add(
+        DiffLine(
+          type: DiffLineType.context,
+          content: content,
+          oldLineNumber: oldLine,
+          newLineNumber: newLine,
+        ),
+      );
       oldLine++;
       newLine++;
     } else if (line.startsWith(r'\')) {
       // "\ No newline at end of file" — skip
       i++;
       continue;
+    } else if (line.isEmpty) {
+      // Empty line — likely trailing newline, skip
+      i++;
+      continue;
     } else {
       // Unknown line format — treat as context
-      diffLines.add(DiffLine(
-        type: DiffLineType.context,
-        content: line,
-        oldLineNumber: oldLine,
-        newLineNumber: newLine,
-      ));
+      diffLines.add(
+        DiffLine(
+          type: DiffLineType.context,
+          content: line,
+          oldLineNumber: oldLine,
+          newLineNumber: newLine,
+        ),
+      );
       oldLine++;
       newLine++;
     }
@@ -285,37 +300,38 @@ DiffHunk _parseRawDiffLines(List<String> lines) {
 
   for (final line in lines) {
     if (line.startsWith('+') && !line.startsWith('+++')) {
-      diffLines.add(DiffLine(
-        type: DiffLineType.addition,
-        content: line.substring(1),
-        newLineNumber: newLine,
-      ));
+      diffLines.add(
+        DiffLine(
+          type: DiffLineType.addition,
+          content: line.substring(1),
+          newLineNumber: newLine,
+        ),
+      );
       newLine++;
     } else if (line.startsWith('-') && !line.startsWith('---')) {
-      diffLines.add(DiffLine(
-        type: DiffLineType.deletion,
-        content: line.substring(1),
-        oldLineNumber: oldLine,
-      ));
+      diffLines.add(
+        DiffLine(
+          type: DiffLineType.deletion,
+          content: line.substring(1),
+          oldLineNumber: oldLine,
+        ),
+      );
       oldLine++;
     } else if (!line.startsWith('---') && !line.startsWith('+++')) {
-      diffLines.add(DiffLine(
-        type: DiffLineType.context,
-        content: line.startsWith(' ') ? line.substring(1) : line,
-        oldLineNumber: oldLine,
-        newLineNumber: newLine,
-      ));
+      diffLines.add(
+        DiffLine(
+          type: DiffLineType.context,
+          content: line.startsWith(' ') ? line.substring(1) : line,
+          oldLineNumber: oldLine,
+          newLineNumber: newLine,
+        ),
+      );
       oldLine++;
       newLine++;
     }
   }
 
-  return DiffHunk(
-    header: '',
-    oldStart: 1,
-    newStart: 1,
-    lines: diffLines,
-  );
+  return DiffHunk(header: '', oldStart: 1, newStart: 1, lines: diffLines);
 }
 
 /// Extract file path from `diff --git a/path b/path`.

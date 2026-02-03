@@ -128,6 +128,7 @@ class ServerMessageWidget extends StatelessWidget {
       GalleryListMessage() => const SizedBox.shrink(),
       GalleryNewImageMessage() => const SizedBox.shrink(),
       FileListMessage() => const SizedBox.shrink(),
+      DiffResultMessage() => const SizedBox.shrink(),
     };
   }
 }

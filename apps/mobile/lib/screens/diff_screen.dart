@@ -24,12 +24,7 @@ class DiffScreen extends ConsumerStatefulWidget {
   /// Display title (e.g. file path for individual diff).
   final String? title;
 
-  const DiffScreen({
-    super.key,
-    this.initialDiff,
-    this.projectPath,
-    this.title,
-  });
+  const DiffScreen({super.key, this.initialDiff, this.projectPath, this.title});
 
   @override
   ConsumerState<DiffScreen> createState() => _DiffScreenState();
@@ -95,8 +90,7 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
             PopupMenuButton<int>(
               icon: const Icon(Icons.list),
               tooltip: 'Files',
-              onSelected: (index) =>
-                  setState(() => _selectedFileIndex = index),
+              onSelected: (index) => setState(() => _selectedFileIndex = index),
               itemBuilder: (_) => [
                 for (var i = 0; i < _diffFiles.length; i++)
                   PopupMenuItem(
@@ -170,10 +164,7 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
           const SizedBox(height: 12),
           Text(
             'No changes',
-            style: TextStyle(
-              fontSize: 16,
-              color: appColors.subtleText,
-            ),
+            style: TextStyle(fontSize: 16, color: appColors.subtleText),
           ),
         ],
       ),
@@ -194,8 +185,10 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: file.hunks.length,
-                  itemBuilder: (context, index) =>
-                      _HunkWidget(hunk: file.hunks[index], appColors: appColors),
+                  itemBuilder: (context, index) => _HunkWidget(
+                    hunk: file.hunks[index],
+                    appColors: appColors,
+                  ),
                 ),
         ),
       ],
@@ -208,9 +201,7 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: appColors.codeBackground,
-        border: Border(
-          bottom: BorderSide(color: appColors.codeBorder),
-        ),
+        border: Border(bottom: BorderSide(color: appColors.codeBorder)),
       ),
       child: Row(
         children: [
@@ -218,8 +209,8 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
             file.isNewFile
                 ? Icons.add_circle_outline
                 : file.isDeleted
-                    ? Icons.remove_circle_outline
-                    : Icons.edit_note,
+                ? Icons.remove_circle_outline
+                : Icons.edit_note,
             size: 16,
             color: appColors.subtleText,
           ),
@@ -246,8 +237,7 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
                 color: appColors.diffAdditionText,
               ),
             ),
-          if (stats.added > 0 && stats.removed > 0)
-            const SizedBox(width: 6),
+          if (stats.added > 0 && stats.removed > 0) const SizedBox(width: 6),
           if (stats.removed > 0)
             Text(
               '-${stats.removed}',
@@ -302,7 +292,8 @@ class _HunkWidget extends StatelessWidget {
             ),
           ),
         // Diff lines
-        for (final line in hunk.lines) _DiffLineWidget(line: line, appColors: appColors),
+        for (final line in hunk.lines)
+          _DiffLineWidget(line: line, appColors: appColors),
         const SizedBox(height: 4),
       ],
     );

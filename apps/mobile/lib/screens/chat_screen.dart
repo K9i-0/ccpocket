@@ -735,9 +735,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => DiffScreen(
-                          projectPath: widget.projectPath,
-                        ),
+                        builder: (_) =>
+                            DiffScreen(projectPath: widget.projectPath),
                       ),
                     );
                   },
