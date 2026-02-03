@@ -55,8 +55,9 @@ class ChatInputWithOverlays extends HookConsumerWidget {
     final slashCommands = ref
         .watch(chatSessionNotifierProvider(sessionId))
         .slashCommands;
-    final commands =
-        slashCommands.isNotEmpty ? slashCommands : fallbackSlashCommands;
+    final commands = slashCommands.isNotEmpty
+        ? slashCommands
+        : fallbackSlashCommands;
 
     // Input change listener
     useEffect(() {

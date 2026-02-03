@@ -42,8 +42,8 @@ class ChatScreen extends HookConsumerWidget {
 
     // Custom hooks
     final lifecycleState = useAppLifecycleState();
-    final isBackground = lifecycleState != null &&
-        lifecycleState != AppLifecycleState.resumed;
+    final isBackground =
+        lifecycleState != null && lifecycleState != AppLifecycleState.resumed;
     final scroll = useScrollTracking(sessionId);
 
     // Plan feedback controller (for plan approval rejection message)
@@ -54,29 +54,28 @@ class ChatScreen extends HookConsumerWidget {
     useEffect(() => collapseToolResults.dispose, const []);
 
     // --- Riverpod state ---
-    final sessionState = ref.watch(
-      chatSessionNotifierProvider(sessionId),
-    );
+    final sessionState = ref.watch(chatSessionNotifierProvider(sessionId));
     final bridgeState =
         ref.watch(connectionStateProvider).valueOrNull ??
         BridgeConnectionState.connected;
-    final otherSessions =
-        (ref.watch(sessionListProvider).valueOrNull ?? [])
-            .where((s) => s.id != sessionId)
-            .toList();
+    final otherSessions = (ref.watch(sessionListProvider).valueOrNull ?? [])
+        .where((s) => s.id != sessionId)
+        .toList();
 
     // --- Side effects subscription ---
     useEffect(() {
       final sub = ref
           .read(chatSessionNotifierProvider(sessionId).notifier)
           .sideEffects
-          .listen((effects) => _executeSideEffects(
-                effects,
-                isBackground: isBackground,
-                collapseToolResults: collapseToolResults,
-                planFeedbackController: planFeedbackController,
-                scrollToBottom: scroll.scrollToBottom,
-              ));
+          .listen(
+            (effects) => _executeSideEffects(
+              effects,
+              isBackground: isBackground,
+              collapseToolResults: collapseToolResults,
+              planFeedbackController: planFeedbackController,
+              scrollToBottom: scroll.scrollToBottom,
+            ),
+          );
       return sub.cancel;
     }, [sessionId]);
 
@@ -144,8 +143,9 @@ class ChatScreen extends HookConsumerWidget {
 
     void rejectToolUse() {
       if (pendingToolUseId == null) return;
-      final feedback =
-          isPlanApproval ? planFeedbackController.text.trim() : null;
+      final feedback = isPlanApproval
+          ? planFeedbackController.text.trim()
+          : null;
       ref
           .read(chatSessionNotifierProvider(sessionId).notifier)
           .reject(
@@ -246,9 +246,7 @@ class ChatScreen extends HookConsumerWidget {
                       onRetryMessage: (entry) {
                         ref
                             .read(
-                              chatSessionNotifierProvider(
-                                sessionId,
-                              ).notifier,
+                              chatSessionNotifierProvider(sessionId).notifier,
                             )
                             .retryMessage(entry);
                       },
@@ -394,9 +392,7 @@ void _executeSideEffects(
 }
 
 void _retryFailedMessages(WidgetRef ref, String sessionId) {
-  final notifier = ref.read(
-    chatSessionNotifierProvider(sessionId).notifier,
-  );
+  final notifier = ref.read(chatSessionNotifierProvider(sessionId).notifier);
   final entries = ref.read(chatSessionNotifierProvider(sessionId)).entries;
   for (final entry in entries) {
     if (entry is UserChatEntry && entry.status == MessageStatus.failed) {

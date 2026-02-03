@@ -194,12 +194,13 @@ class _ChatMessageListState extends ConsumerState<ChatMessageList> {
           );
           if (_bulkLoading || animation.isCompleted) return child;
           return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.3),
-              end: Offset.zero,
-            ).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOut),
-            ),
+            position:
+                Tween<Offset>(
+                  begin: const Offset(0, 0.3),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                ),
             child: FadeTransition(opacity: animation, child: child),
           );
         },
