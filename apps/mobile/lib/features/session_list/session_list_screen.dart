@@ -6,25 +6,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../features/session_list/state/session_list_state.dart';
-import '../features/session_list/widgets/date_filter_chips.dart';
-import '../features/session_list/widgets/project_filter_chips.dart';
-import '../features/session_list/widgets/section_header.dart';
-import '../features/session_list/widgets/session_list_empty_state.dart';
-import '../models/messages.dart';
-import '../providers/bridge_providers.dart';
-import '../providers/discovery_provider.dart';
-import '../services/bridge_service.dart';
-import '../services/server_discovery_service.dart';
-import '../theme/app_theme.dart';
-import '../widgets/new_session_sheet.dart';
-import '../widgets/session_card.dart';
-import '../services/connection_url_parser.dart';
-import '../services/url_history_service.dart';
-import 'chat_screen.dart';
-import 'gallery_screen.dart';
-import 'mock_preview_screen.dart';
-import 'qr_scan_screen.dart';
+import '../../models/messages.dart';
+import '../../providers/bridge_providers.dart';
+import '../../providers/discovery_provider.dart';
+import '../../screens/mock_preview_screen.dart';
+import '../../screens/qr_scan_screen.dart';
+import '../../services/bridge_service.dart';
+import '../../services/connection_url_parser.dart';
+import '../../services/server_discovery_service.dart';
+import '../../services/url_history_service.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/new_session_sheet.dart';
+import '../../widgets/session_card.dart';
+import '../chat/chat_screen.dart';
+import '../gallery/gallery_screen.dart';
+import 'state/session_list_state.dart';
+import 'widgets/date_filter_chips.dart';
+import 'widgets/project_filter_chips.dart';
+import 'widgets/section_header.dart';
+import 'widgets/session_list_empty_state.dart';
 
 // ---- Testable helpers (top-level) ----
 

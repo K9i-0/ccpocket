@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../features/gallery/widgets/gallery_empty_state.dart';
-import '../features/gallery/widgets/gallery_filter_chips.dart';
-import '../features/gallery/widgets/gallery_tile.dart';
-import '../models/messages.dart';
-import '../providers/bridge_providers.dart';
+import '../../models/messages.dart';
+import '../../providers/bridge_providers.dart';
+import 'widgets/gallery_empty_state.dart';
+import 'widgets/gallery_filter_chips.dart';
+import 'widgets/gallery_tile.dart';
 
 class GalleryScreen extends ConsumerStatefulWidget {
   final String? sessionId;

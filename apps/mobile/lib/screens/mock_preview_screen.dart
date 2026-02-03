@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../mock/mock_scenarios.dart';
 import '../services/mock_bridge_service.dart';
 import '../theme/app_theme.dart';
-import 'chat_screen.dart';
+import '../features/chat/chat_screen.dart';
 
 class MockPreviewScreen extends StatelessWidget {
   const MockPreviewScreen({super.key});

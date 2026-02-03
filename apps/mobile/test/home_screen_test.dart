@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/features/session_list/state/session_list_state.dart';
 import 'package:ccpocket/models/messages.dart';
-import 'package:ccpocket/screens/session_list_screen.dart';
+import 'package:ccpocket/features/session_list/session_list_screen.dart';
 
 RecentSession _session({
   required String projectPath,

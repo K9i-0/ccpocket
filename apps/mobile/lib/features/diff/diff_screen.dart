@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../features/diff/widgets/diff_file_header.dart';
-import '../features/diff/widgets/diff_hunk_widget.dart';
-import '../features/diff/widgets/diff_stats_badge.dart';
-import '../models/messages.dart';
-import '../providers/bridge_providers.dart';
-import '../theme/app_theme.dart';
-import '../utils/diff_parser.dart';
+import '../../models/messages.dart';
+import '../../providers/bridge_providers.dart';
+import '../../theme/app_theme.dart';
+import '../../utils/diff_parser.dart';
+import 'widgets/diff_file_header.dart';
+import 'widgets/diff_hunk_widget.dart';
+import 'widgets/diff_stats_badge.dart';
 
 /// Dedicated screen for viewing unified diffs.
 ///

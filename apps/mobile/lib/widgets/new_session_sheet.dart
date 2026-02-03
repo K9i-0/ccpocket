@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/messages.dart';
-import '../screens/session_list_screen.dart' show shortenPath;
+import '../features/session_list/session_list_screen.dart' show shortenPath;
 import '../theme/app_theme.dart';
 
 /// Result returned when the user submits the new session sheet.

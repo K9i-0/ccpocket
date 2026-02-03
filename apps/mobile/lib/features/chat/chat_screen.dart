@@ -4,28 +4,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/messages.dart';
-import '../providers/bridge_providers.dart';
-import 'diff_screen.dart';
-import 'gallery_screen.dart';
-import '../services/bridge_service_base.dart';
-import '../services/chat_message_handler.dart';
-import '../services/notification_service.dart';
-import '../services/voice_input_service.dart';
-import '../theme/app_theme.dart';
-import '../features/chat/widgets/chat_app_bar_title.dart';
-import '../features/chat/widgets/cost_badge.dart';
-import '../features/chat/widgets/plan_mode_chip.dart';
-import '../features/chat/widgets/reconnect_banner.dart';
-import '../features/chat/widgets/session_switcher.dart';
-import '../features/chat/widgets/status_indicator.dart';
-import '../widgets/approval_bar.dart';
-import '../widgets/chat_input_bar.dart';
-import '../widgets/file_mention_overlay.dart';
-import '../widgets/message_bubble.dart';
-import '../widgets/slash_command_overlay.dart';
-import '../widgets/slash_command_sheet.dart'
+import '../../models/messages.dart';
+import '../../providers/bridge_providers.dart';
+import '../../services/bridge_service_base.dart';
+import '../../services/chat_message_handler.dart';
+import '../../services/notification_service.dart';
+import '../../services/voice_input_service.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/approval_bar.dart';
+import '../../widgets/chat_input_bar.dart';
+import '../../widgets/file_mention_overlay.dart';
+import '../../widgets/message_bubble.dart';
+import '../../widgets/slash_command_overlay.dart';
+import '../../widgets/slash_command_sheet.dart'
     show SlashCommand, SlashCommandSheet, fallbackSlashCommands;
+import '../diff/diff_screen.dart';
+import '../gallery/gallery_screen.dart';
+import 'widgets/chat_app_bar_title.dart';
+import 'widgets/cost_badge.dart';
+import 'widgets/plan_mode_chip.dart';
+import 'widgets/reconnect_banner.dart';
+import 'widgets/session_switcher.dart';
+import 'widgets/status_indicator.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final BridgeServiceBase? bridge;
