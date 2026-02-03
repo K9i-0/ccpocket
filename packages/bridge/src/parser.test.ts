@@ -146,6 +146,16 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "list_recent_sessions" });
   });
 
+  it("parses list_recent_sessions with offset and projectPath", () => {
+    const msg = parseClientMessage('{"type":"list_recent_sessions","limit":10,"offset":20,"projectPath":"/tmp/project"}');
+    expect(msg).toEqual({
+      type: "list_recent_sessions",
+      limit: 10,
+      offset: 20,
+      projectPath: "/tmp/project",
+    });
+  });
+
   it("parses resume_session message", () => {
     const msg = parseClientMessage('{"type":"resume_session","sessionId":"s3","projectPath":"/p"}');
     expect(msg).toEqual({ type: "resume_session", sessionId: "s3", projectPath: "/p" });
@@ -192,5 +202,19 @@ describe("parseClientMessage", () => {
 
   it("returns null for invalid JSON", () => {
     expect(parseClientMessage("not json")).toBeNull();
+  });
+
+  it("parses list_project_history message", () => {
+    const msg = parseClientMessage('{"type":"list_project_history"}');
+    expect(msg).toEqual({ type: "list_project_history" });
+  });
+
+  it("parses remove_project_history message", () => {
+    const msg = parseClientMessage('{"type":"remove_project_history","projectPath":"/p"}');
+    expect(msg).toEqual({ type: "remove_project_history", projectPath: "/p" });
+  });
+
+  it("rejects remove_project_history without projectPath", () => {
+    expect(parseClientMessage('{"type":"remove_project_history"}')).toBeNull();
   });
 });

@@ -33,7 +33,24 @@ interface RawSessionEntry {
   isSidechain: boolean;
 }
 
-export async function getAllRecentSessions(limit = 30): Promise<SessionIndexEntry[]> {
+export interface GetRecentSessionsOptions {
+  limit?: number;       // default 20
+  offset?: number;      // default 0
+  projectPath?: string; // filter by project
+}
+
+export interface GetRecentSessionsResult {
+  sessions: SessionIndexEntry[];
+  hasMore: boolean;
+}
+
+export async function getAllRecentSessions(
+  options: GetRecentSessionsOptions = {},
+): Promise<GetRecentSessionsResult> {
+  const limit = options.limit ?? 20;
+  const offset = options.offset ?? 0;
+  const filterProjectPath = options.projectPath;
+
   const projectsDir = join(homedir(), ".claude", "projects");
   const entries: SessionIndexEntry[] = [];
 
@@ -42,7 +59,7 @@ export async function getAllRecentSessions(limit = 30): Promise<SessionIndexEntr
     projectDirs = await readdir(projectsDir);
   } catch {
     // ~/.claude/projects doesn't exist
-    return [];
+    return { sessions: [], hasMore: false };
   }
 
   for (const dirName of projectDirs) {
@@ -69,7 +86,7 @@ export async function getAllRecentSessions(limit = 30): Promise<SessionIndexEntr
     if (!Array.isArray(index.entries)) continue;
 
     for (const entry of index.entries) {
-      entries.push({
+      const mapped: SessionIndexEntry = {
         sessionId: entry.sessionId,
         summary: entry.summary,
         firstPrompt: entry.firstPrompt ?? "",
@@ -79,7 +96,14 @@ export async function getAllRecentSessions(limit = 30): Promise<SessionIndexEntr
         gitBranch: entry.gitBranch ?? "",
         projectPath: entry.projectPath ?? "",
         isSidechain: entry.isSidechain ?? false,
-      });
+      };
+
+      // Apply projectPath filter if specified
+      if (filterProjectPath && mapped.projectPath !== filterProjectPath) {
+        continue;
+      }
+
+      entries.push(mapped);
     }
   }
 
@@ -90,7 +114,10 @@ export async function getAllRecentSessions(limit = 30): Promise<SessionIndexEntr
     return tb - ta;
   });
 
-  return entries.slice(0, limit);
+  const sliced = entries.slice(offset, offset + limit);
+  const hasMore = offset + limit < entries.length;
+
+  return { sessions: sliced, hasMore };
 }
 
 // ---- Session history from JSONL files ----

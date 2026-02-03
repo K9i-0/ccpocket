@@ -263,6 +263,175 @@ void main() {
     });
   });
 
+  group('History handling — pending state restoration', () {
+    test('restores pending permission when status is waitingApproval', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            SystemMessage(subtype: 'session_created'),
+            PermissionRequestMessage(
+              toolUseId: 'tu-perm',
+              toolName: 'Bash',
+              input: {'command': 'rm -rf /'},
+            ),
+            StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.status, ProcessStatus.waitingApproval);
+      expect(update.pendingToolUseId, 'tu-perm');
+      expect(update.pendingPermission, isNotNull);
+      expect(update.pendingPermission!.toolName, 'Bash');
+    });
+
+    test('does NOT restore permission when status is not waitingApproval', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            PermissionRequestMessage(
+              toolUseId: 'tu-perm',
+              toolName: 'Bash',
+              input: {'command': 'ls'},
+            ),
+            StatusMessage(status: ProcessStatus.running),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.status, ProcessStatus.running);
+      expect(update.pendingToolUseId, isNull);
+      expect(update.pendingPermission, isNull);
+    });
+
+    test('clears pending permission after tool_result in history', () {
+      final update = handler.handle(
+        HistoryMessage(
+          messages: [
+            const PermissionRequestMessage(
+              toolUseId: 'tu-perm',
+              toolName: 'Bash',
+              input: {'command': 'ls'},
+            ),
+            const ToolResultMessage(toolUseId: 'tu-res', content: 'ok'),
+            const StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+      // Permission was resolved by tool_result, so don't restore it
+      expect(update.pendingToolUseId, isNull);
+      expect(update.pendingPermission, isNull);
+    });
+
+    test('restores AskUserQuestion state from history', () {
+      final update = handler.handle(
+        HistoryMessage(
+          messages: [
+            AssistantServerMessage(
+              message: AssistantMessage(
+                id: 'msg-1',
+                role: 'assistant',
+                content: [
+                  const ToolUseContent(
+                    id: 'tu-ask',
+                    name: 'AskUserQuestion',
+                    input: {
+                      'questions': [
+                        {'question': 'Which option?'},
+                      ],
+                    },
+                  ),
+                ],
+                model: 'test',
+              ),
+            ),
+            const StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.askToolUseId, 'tu-ask');
+      expect(update.askInput, isNotNull);
+    });
+
+    test('clears AskUserQuestion state after result in history', () {
+      final update = handler.handle(
+        HistoryMessage(
+          messages: [
+            AssistantServerMessage(
+              message: AssistantMessage(
+                id: 'msg-1',
+                role: 'assistant',
+                content: [
+                  const ToolUseContent(
+                    id: 'tu-ask',
+                    name: 'AskUserQuestion',
+                    input: {'questions': []},
+                  ),
+                ],
+                model: 'test',
+              ),
+            ),
+            const ResultMessage(subtype: 'success'),
+            const StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.askToolUseId, isNull);
+      expect(update.askInput, isNull);
+    });
+
+    test('restores only the last permission request', () {
+      final update = handler.handle(
+        HistoryMessage(
+          messages: [
+            const PermissionRequestMessage(
+              toolUseId: 'tu-old',
+              toolName: 'Read',
+              input: {'file_path': '/foo'},
+            ),
+            const ToolResultMessage(toolUseId: 'tu-res', content: 'ok'),
+            const PermissionRequestMessage(
+              toolUseId: 'tu-new',
+              toolName: 'Write',
+              input: {'file_path': '/bar'},
+            ),
+            const StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.pendingToolUseId, 'tu-new');
+      expect(update.pendingPermission!.toolName, 'Write');
+    });
+
+    test('restores slash commands alongside pending state', () {
+      final update = handler.handle(
+        HistoryMessage(
+          messages: [
+            const SystemMessage(
+              subtype: 'init',
+              slashCommands: ['test-flutter', 'test-bridge'],
+              skills: ['test-flutter'],
+            ),
+            const PermissionRequestMessage(
+              toolUseId: 'tu-perm',
+              toolName: 'Bash',
+              input: {'command': 'echo hi'},
+            ),
+            const StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.slashCommands, isNotNull);
+      expect(update.slashCommands!.length, 2);
+      expect(update.pendingToolUseId, 'tu-perm');
+    });
+  });
+
   group('PermissionRequestMessage.summary', () {
     test('extracts command from input', () {
       const perm = PermissionRequestMessage(

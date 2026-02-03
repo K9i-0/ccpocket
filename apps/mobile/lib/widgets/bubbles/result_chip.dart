@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../../models/messages.dart';
+import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/markdown_style.dart';
 
 class ResultChip extends StatelessWidget {
   final ResultMessage message;
@@ -30,17 +33,54 @@ class ResultChip extends StatelessWidget {
         label = 'Error: ${message.error ?? 'unknown'}';
         chipColor = appColors.errorChip;
     }
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Chip(
-          label: Text(label, style: const TextStyle(fontSize: 12)),
-          backgroundColor: chipColor,
-          side: BorderSide.none,
-          padding: EdgeInsets.zero,
-          visualDensity: VisualDensity.compact,
+
+    final resultText = message.result;
+    final hasResultText = resultText != null && resultText.trim().isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (hasResultText)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              margin: const EdgeInsets.symmetric(
+                vertical: AppSpacing.bubbleMarginV,
+                horizontal: AppSpacing.bubbleMarginH,
+              ),
+              padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.bubblePaddingV,
+                horizontal: AppSpacing.bubblePaddingH,
+              ),
+              constraints: BoxConstraints(
+                maxWidth:
+                    MediaQuery.of(context).size.width *
+                    AppSpacing.maxBubbleWidthFraction,
+              ),
+              decoration: BoxDecoration(
+                color: appColors.assistantBubble,
+                borderRadius: AppSpacing.assistantBubbleBorderRadius,
+              ),
+              child: MarkdownBody(
+                data: resultText,
+                selectable: true,
+                styleSheet: buildMarkdownStyle(context),
+              ),
+            ),
+          ),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Chip(
+              label: Text(label, style: const TextStyle(fontSize: 12)),
+              backgroundColor: chipColor,
+              side: BorderSide.none,
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }

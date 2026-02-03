@@ -22,12 +22,19 @@ class BridgeService implements BridgeServiceBase {
       StreamController<List<RecentSession>>.broadcast();
   final _galleryController = StreamController<List<GalleryImage>>.broadcast();
   final _fileListController = StreamController<List<String>>.broadcast();
+  final _projectHistoryController = StreamController<List<String>>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
   List<SessionInfo> _sessions = [];
   List<RecentSession> _recentSessions = [];
   List<GalleryImage> _galleryImages = [];
+  List<String> _projectHistory = [];
+
+  // Pagination state
+  bool _recentSessionsHasMore = false;
+  bool _appendMode = false;
+  String? _currentProjectFilter;
 
   // Auto-reconnect
   String? _lastUrl;
@@ -50,6 +57,8 @@ class BridgeService implements BridgeServiceBase {
   Stream<List<RecentSession>> get recentSessionsStream =>
       _recentSessionsController.stream;
   Stream<List<GalleryImage>> get galleryStream => _galleryController.stream;
+  Stream<List<String>> get projectHistoryStream =>
+      _projectHistoryController.stream;
   @override
   Stream<List<String>> get fileList => _fileListController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
@@ -57,7 +66,10 @@ class BridgeService implements BridgeServiceBase {
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
   List<SessionInfo> get sessions => _sessions;
   List<RecentSession> get recentSessions => _recentSessions;
+  bool get recentSessionsHasMore => _recentSessionsHasMore;
+  String? get currentProjectFilter => _currentProjectFilter;
   List<GalleryImage> get galleryImages => _galleryImages;
+  List<String> get projectHistory => _projectHistory;
 
   /// Derive HTTP base URL from the WebSocket URL.
   /// e.g. ws://host:8765?token=x -> http://host:8765
@@ -105,9 +117,15 @@ class BridgeService implements BridgeServiceBase {
               case SessionListMessage(:final sessions):
                 _sessions = sessions;
                 _sessionListController.add(sessions);
-              case RecentSessionsMessage(:final sessions):
-                _recentSessions = sessions;
-                _recentSessionsController.add(sessions);
+              case RecentSessionsMessage(:final sessions, :final hasMore):
+                _recentSessionsHasMore = hasMore;
+                if (_appendMode) {
+                  _recentSessions = [..._recentSessions, ...sessions];
+                } else {
+                  _recentSessions = sessions;
+                }
+                _appendMode = false;
+                _recentSessionsController.add(_recentSessions);
               case PastHistoryMessage():
                 pendingPastHistory = msg;
                 _taggedMessageController.add((msg, sessionId));
@@ -120,6 +138,9 @@ class BridgeService implements BridgeServiceBase {
                 _galleryController.add(_galleryImages);
               case FileListMessage(:final files):
                 _fileListController.add(files);
+              case ProjectHistoryMessage(:final projects):
+                _projectHistory = projects;
+                _projectHistoryController.add(projects);
               default:
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
@@ -190,8 +211,45 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.listSessions());
   }
 
-  void requestRecentSessions({int? limit}) {
-    send(ClientMessage.listRecentSessions(limit: limit));
+  void requestRecentSessions({int? limit, int? offset, String? projectPath}) {
+    if (offset == null || offset == 0) {
+      _appendMode = false;
+    }
+    send(
+      ClientMessage.listRecentSessions(
+        limit: limit,
+        offset: offset,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
+  /// Load the next page of recent sessions (append mode).
+  void loadMoreRecentSessions({int pageSize = 20}) {
+    _appendMode = true;
+    send(
+      ClientMessage.listRecentSessions(
+        limit: pageSize,
+        offset: _recentSessions.length,
+        projectPath: _currentProjectFilter,
+      ),
+    );
+  }
+
+  /// Switch project filter: resets session list and fetches from offset 0.
+  void switchProjectFilter(String? projectPath, {int pageSize = 20}) {
+    _currentProjectFilter = projectPath;
+    _appendMode = false;
+    _recentSessions = [];
+    _recentSessionsHasMore = false;
+    _recentSessionsController.add(_recentSessions);
+    send(
+      ClientMessage.listRecentSessions(
+        limit: pageSize,
+        offset: 0,
+        projectPath: projectPath,
+      ),
+    );
   }
 
   @override
@@ -216,6 +274,14 @@ class BridgeService implements BridgeServiceBase {
   @override
   void stopSession(String sessionId) {
     send(ClientMessage.stopSession(sessionId));
+  }
+
+  void requestProjectHistory() {
+    send(ClientMessage.listProjectHistory());
+  }
+
+  void removeProjectHistory(String path) {
+    send(ClientMessage.removeProjectHistory(path));
   }
 
   void requestGallery({String? project}) {
@@ -304,5 +370,6 @@ class BridgeService implements BridgeServiceBase {
     _recentSessionsController.close();
     _galleryController.close();
     _fileListController.close();
+    _projectHistoryController.close();
   }
 }

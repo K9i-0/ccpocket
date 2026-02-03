@@ -16,6 +16,7 @@ import '../widgets/horizontal_chip_bar.dart';
 import '../widgets/new_session_sheet.dart';
 import '../widgets/session_card.dart';
 import '../services/connection_url_parser.dart';
+import '../services/url_history_service.dart';
 import 'chat_screen.dart';
 import 'gallery_screen.dart';
 import 'mock_preview_screen.dart';
@@ -62,33 +63,6 @@ String shortenPath(String path) {
     return '~${path.substring(home.length)}';
   }
   return path;
-}
-
-/// Unique branch names for a given project (null project = all branches).
-List<String> branchesForProject(
-  List<RecentSession> sessions,
-  String? projectName,
-) {
-  final filtered = projectName == null
-      ? sessions
-      : sessions.where((s) => s.projectName == projectName);
-  final seen = <String>{};
-  final result = <String>[];
-  for (final s in filtered) {
-    if (s.gitBranch.isNotEmpty && seen.add(s.gitBranch)) {
-      result.add(s.gitBranch);
-    }
-  }
-  return result;
-}
-
-/// Filter sessions by branch name (null = no filter).
-List<RecentSession> filterByBranch(
-  List<RecentSession> sessions,
-  String? branch,
-) {
-  if (branch == null) return sessions;
-  return sessions.where((s) => s.gitBranch == branch).toList();
 }
 
 /// Filter sessions by text query (matches firstPrompt and summary).
@@ -149,12 +123,20 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
 
-  String? _selectedProject; // null = show all
-  String? _selectedBranch; // null = show all
+  String?
+  _selectedProject; // null = show all (projectName for client-side filter)
   DateFilter _dateFilter = DateFilter.all;
   String _searchQuery = '';
   bool _isSearching = false;
   bool _isAutoConnecting = false;
+  bool _isLoadingMore = false;
+
+  // Accumulated project paths: project history + paths from paging
+  Set<String> _accumulatedProjectPaths = {};
+
+  // URL history
+  UrlHistoryService? _urlHistoryService;
+  List<UrlHistoryEntry> _urlHistory = [];
 
   // Cache for resume navigation
   String? _pendingResumeProjectPath;
@@ -162,6 +144,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
   // Only subscription that remains: session_created navigation
   StreamSubscription<ServerMessage>? _messageSub;
+  StreamSubscription<List<RecentSession>>? _recentSessionsSub;
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyApiKey = 'bridge_api_key';
@@ -185,6 +168,22 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
         }
       }
     });
+    // Accumulate project paths from loaded sessions
+    _recentSessionsSub = bridge.recentSessionsStream.listen((sessions) {
+      if (!mounted) return;
+      final newPaths = sessions
+          .map((s) => s.projectPath)
+          .where((p) => p.isNotEmpty)
+          .toSet();
+      if (newPaths.difference(_accumulatedProjectPaths).isNotEmpty) {
+        setState(() {
+          _accumulatedProjectPaths = {..._accumulatedProjectPaths, ...newPaths};
+          _isLoadingMore = false;
+        });
+      } else {
+        setState(() => _isLoadingMore = false);
+      }
+    });
     widget.deepLinkNotifier?.addListener(_onDeepLink);
     _loadPreferencesAndAutoConnect();
   }
@@ -203,6 +202,8 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
   Future<void> _loadPreferencesAndAutoConnect() async {
     final prefs = await SharedPreferences.getInstance();
+    _urlHistoryService = UrlHistoryService(prefs);
+    setState(() => _urlHistory = _urlHistoryService!.load());
     final url = prefs.getString(_prefKeyUrl);
     final apiKey = prefs.getString(_prefKeyApiKey);
     if (url != null && url.isNotEmpty) {
@@ -236,7 +237,12 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
       if (shouldConnect != true) return;
     }
 
+    // Save to URL history on health check pass (or user choosing to connect)
     final apiKey = _apiKeyController.text.trim();
+    if (_urlHistoryService != null) {
+      await _urlHistoryService!.add(url, apiKey);
+      setState(() => _urlHistory = _urlHistoryService!.load());
+    }
     if (apiKey.isNotEmpty) {
       final sep = url.contains('?') ? '&' : '?';
       url = '$url${sep}token=$apiKey';
@@ -407,6 +413,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   void dispose() {
     widget.deepLinkNotifier?.removeListener(_onDeepLink);
     _messageSub?.cancel();
+    _recentSessionsSub?.cancel();
     _urlController.dispose();
     _apiKeyController.dispose();
     super.dispose();
@@ -416,26 +423,33 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     ref.read(bridgeServiceProvider).disconnect();
     setState(() {
       _selectedProject = null;
-      _selectedBranch = null;
       _dateFilter = DateFilter.all;
       _searchQuery = '';
       _isSearching = false;
+      _accumulatedProjectPaths = {};
+      _isLoadingMore = false;
     });
   }
 
   void _refresh() {
     final bridge = ref.read(bridgeServiceProvider);
     bridge.requestSessionList();
-    bridge.requestRecentSessions();
+    bridge.requestRecentSessions(
+      offset: 0,
+      projectPath: bridge.currentProjectFilter,
+    );
+    bridge.requestProjectHistory();
   }
 
   void _showNewSessionDialog() async {
     final sessions =
         widget.debugRecentSessions ??
         (ref.read(recentSessionsProvider).valueOrNull ?? []);
+    final history = ref.read(projectHistoryProvider).valueOrNull ?? [];
     final result = await showNewSessionSheet(
       context: context,
       recentProjects: recentProjects(sessions),
+      projectHistory: history,
     );
     if (result == null) return;
     _pendingResumeProjectPath = result.projectPath;
@@ -512,6 +526,22 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Merge project history into accumulated paths
+    ref.listen<AsyncValue<List<String>>>(projectHistoryProvider, (prev, next) {
+      final projects = next.valueOrNull ?? [];
+      if (projects.isNotEmpty) {
+        final newPaths = projects.toSet();
+        if (newPaths.difference(_accumulatedProjectPaths).isNotEmpty) {
+          setState(() {
+            _accumulatedProjectPaths = {
+              ..._accumulatedProjectPaths,
+              ...newPaths,
+            };
+          });
+        }
+      }
+    });
+
     // Side-effect: auto-request lists on connect
     ref.listen<AsyncValue<BridgeConnectionState>>(connectionStateProvider, (
       prev,
@@ -529,7 +559,8 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
           nextState == BridgeConnectionState.connected) {
         final bridge = ref.read(bridgeServiceProvider);
         bridge.requestSessionList();
-        bridge.requestRecentSessions();
+        bridge.requestRecentSessions(offset: 0);
+        bridge.requestProjectHistory();
       }
     });
 
@@ -690,6 +721,10 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
             ),
             const SizedBox(height: 16),
           ],
+          if (_urlHistory.isNotEmpty) ...[
+            _buildUrlHistory(),
+            const SizedBox(height: 16),
+          ],
           TextField(
             key: const ValueKey('server_url_field'),
             controller: _urlController,
@@ -817,6 +852,95 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     );
   }
 
+  void _selectUrlHistory(UrlHistoryEntry entry) {
+    _urlController.text = entry.url;
+    _apiKeyController.text = entry.apiKey;
+  }
+
+  Future<void> _removeUrlHistory(String url) async {
+    if (_urlHistoryService == null) return;
+    await _urlHistoryService!.remove(url);
+    setState(() => _urlHistory = _urlHistoryService!.load());
+  }
+
+  Widget _buildUrlHistory() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.history,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Recent Connections',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        for (final entry in _urlHistory)
+          Dismissible(
+            key: ValueKey(entry.url),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.error,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.delete,
+                color: Theme.of(context).colorScheme.onError,
+              ),
+            ),
+            onDismissed: (_) => _removeUrlHistory(entry.url),
+            child: Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                dense: true,
+                leading: Icon(
+                  Icons.link,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: Text(
+                  entry.url,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                subtitle: entry.apiKey.isNotEmpty
+                    ? Text(
+                        'With API Key',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      )
+                    : null,
+                trailing: Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+                onTap: () => _selectUrlHistory(entry),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildHomeContent({
     required BridgeConnectionState connectionState,
     required List<SessionInfo> sessions,
@@ -829,16 +953,11 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
         connectionState == BridgeConnectionState.reconnecting;
 
     // Compute derived state
-    final allProjectCounts = projectCounts(recentSessionsList);
-    final allBranchChips = branchesForProject(
-      recentSessionsList,
-      _selectedProject,
-    );
-    var filteredSessions = filterByProject(
-      recentSessionsList,
-      _selectedProject,
-    );
-    filteredSessions = filterByBranch(filteredSessions, _selectedBranch);
+    final bridge = ref.read(bridgeServiceProvider);
+    // When server-side filter is active, skip client-side project filter
+    var filteredSessions = bridge.currentProjectFilter != null
+        ? recentSessionsList
+        : filterByProject(recentSessionsList, _selectedProject);
     filteredSessions = filterByDate(filteredSessions, _dateFilter);
     filteredSessions = filterByQuery(filteredSessions, _searchQuery);
 
@@ -881,14 +1000,9 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
             label: 'Recent Sessions',
             color: appColors.subtleText,
           ),
-          if (allProjectCounts.length > 1) ...[
+          if (_accumulatedProjectPaths.length > 1) ...[
             const SizedBox(height: 8),
             _buildProjectFilterChips(appColors, recentSessionsList),
-          ],
-          // Branch filter chips (show when branches exist for selection)
-          if (allBranchChips.length > 1) ...[
-            const SizedBox(height: 4),
-            _buildBranchFilterChips(appColors, recentSessionsList),
           ],
           // Date filter chips
           const SizedBox(height: 4),
@@ -900,9 +1014,35 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
               onTap: () => _resumeSession(session),
               hideProjectBadge: _selectedProject != null,
             ),
+          if (ref.read(bridgeServiceProvider).recentSessionsHasMore) ...[
+            const SizedBox(height: 8),
+            Center(
+              child: _isLoadingMore
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : TextButton.icon(
+                      key: const ValueKey('load_more_button'),
+                      onPressed: _loadMore,
+                      icon: const Icon(Icons.expand_more, size: 18),
+                      label: const Text('Load More'),
+                    ),
+            ),
+            const SizedBox(height: 8),
+          ],
         ],
       ],
     );
+  }
+
+  void _loadMore() {
+    setState(() => _isLoadingMore = true);
+    ref.read(bridgeServiceProvider).loadMoreRecentSessions();
   }
 
   Widget _buildReconnectingBanner(AppColors appColors) {
@@ -983,7 +1123,23 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     List<RecentSession> recentSessionsList,
   ) {
     final cs = Theme.of(context).colorScheme;
-    final counts = projectCounts(recentSessionsList);
+    final bridge = ref.read(bridgeServiceProvider);
+    final currentFilter = bridge.currentProjectFilter;
+
+    // Build chip list from accumulated paths
+    // Count sessions from loaded data
+    final loadedCounts = projectCounts(recentSessionsList);
+
+    // Collect unique project entries: (path, name) from accumulated paths
+    final chipEntries = <({String path, String name})>[];
+    final seenNames = <String>{};
+    for (final path in _accumulatedProjectPaths) {
+      final name = path.split('/').last;
+      if (name.isNotEmpty && seenNames.add(name)) {
+        chipEntries.add((path: path, name: name));
+      }
+    }
+
     return HorizontalChipBar(
       height: 36,
       fontSize: 12,
@@ -994,54 +1150,22 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
       items: [
         ChipItem(
           label: 'All (${recentSessionsList.length})',
-          isSelected: _selectedProject == null,
-          onSelected: () => setState(() {
-            _selectedProject = null;
-            _selectedBranch = null;
-          }),
+          isSelected: currentFilter == null,
+          onSelected: () {
+            setState(() => _selectedProject = null);
+            bridge.switchProjectFilter(null);
+          },
         ),
-        for (final entry in counts.entries)
+        for (final entry in chipEntries)
           ChipItem(
-            label: entry.key,
-            isSelected: _selectedProject == entry.key,
-            onSelected: () => setState(() {
-              _selectedProject = entry.key;
-              _selectedBranch = null;
-            }),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildBranchFilterChips(
-    AppColors appColors,
-    List<RecentSession> recentSessionsList,
-  ) {
-    final cs = Theme.of(context).colorScheme;
-    final branchChipsList = branchesForProject(
-      recentSessionsList,
-      _selectedProject,
-    );
-    return HorizontalChipBar(
-      selectedColor: cs.secondary,
-      selectedTextColor: cs.onSecondary,
-      unselectedTextColor: appColors.subtleText,
-      items: [
-        ChipItem(
-          label: 'All branches',
-          isSelected: _selectedBranch == null,
-          onSelected: () => setState(() => _selectedBranch = null),
-          avatar: Icon(
-            Icons.account_tree,
-            size: 14,
-            color: appColors.subtleText,
-          ),
-        ),
-        for (final branch in branchChipsList)
-          ChipItem(
-            label: branch,
-            isSelected: _selectedBranch == branch,
-            onSelected: () => setState(() => _selectedBranch = branch),
+            label: loadedCounts.containsKey(entry.name)
+                ? '${entry.name} (${loadedCounts[entry.name]})'
+                : entry.name,
+            isSelected: currentFilter == entry.path,
+            onSelected: () {
+              setState(() => _selectedProject = entry.name);
+              bridge.switchProjectFilter(entry.path);
+            },
           ),
       ],
     );

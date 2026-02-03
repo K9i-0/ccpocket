@@ -217,14 +217,60 @@ class ChatMessageHandler {
   ChatStateUpdate _handleHistory(List<ServerMessage> messages) {
     final entries = <ChatEntry>[];
     ProcessStatus? lastStatus;
+    List<SlashCommand>? commands;
+
+    // Track the last pending permission / ask state in history so we can
+    // restore the approval bar or AskUserQuestion widget when resuming a
+    // session that was in waiting_approval state.
+    PermissionRequestMessage? lastPermission;
+    String? lastAskToolUseId;
+    Map<String, dynamic>? lastAskInput;
+
     for (final m in messages) {
       if (m is StatusMessage) {
         lastStatus = m.status;
       } else {
         entries.add(ServerChatEntry(m));
+        // Restore slash commands from system.init in history
+        if (m is SystemMessage &&
+            m.subtype == 'init' &&
+            m.slashCommands.isNotEmpty) {
+          commands = _buildCommandList(m.slashCommands, m.skills);
+        }
+        // Track pending permission request
+        if (m is PermissionRequestMessage) {
+          lastPermission = m;
+        }
+        // Track pending AskUserQuestion (tool_use in assistant message)
+        if (m is AssistantServerMessage) {
+          for (final content in m.message.content) {
+            if (content is ToolUseContent &&
+                content.name == 'AskUserQuestion') {
+              lastAskToolUseId = content.id;
+              lastAskInput = content.input;
+            }
+          }
+        }
+        // A tool_result or result message means the pending state was resolved
+        if (m is ToolResultMessage || m is ResultMessage) {
+          lastPermission = null;
+          lastAskToolUseId = null;
+          lastAskInput = null;
+        }
       }
     }
-    return ChatStateUpdate(status: lastStatus, entriesToAdd: entries);
+
+    // Only restore pending state if session is actually waiting
+    final bool isWaiting = lastStatus == ProcessStatus.waitingApproval;
+    return ChatStateUpdate(
+      status: lastStatus,
+      entriesToAdd: entries,
+      slashCommands: commands,
+      pendingToolUseId: isWaiting ? lastPermission?.toolUseId : null,
+      pendingPermission: isWaiting ? lastPermission : null,
+      askToolUseId: isWaiting ? lastAskToolUseId : null,
+      askInput: isWaiting ? lastAskInput : null,
+    );
   }
 
   ChatStateUpdate _handleSystem(
@@ -266,11 +312,16 @@ class ChatMessageHandler {
       resetAsk: isStopped,
       resetStreaming: isStopped,
       inPlanMode: isStopped ? false : null,
+      markUserMessagesSent: true,
       sideEffects: effects,
     );
   }
 
   /// Build slash command list from server-provided names.
+  ///
+  /// Only includes commands reported by the CLI via `system.init`.
+  /// Commands not in this list (e.g. /clear, /help, /plan) are CLI-interactive
+  /// only and return "Unknown skill" when sent through the SDK.
   static List<SlashCommand> _buildCommandList(
     List<String> commands,
     List<String> skills,

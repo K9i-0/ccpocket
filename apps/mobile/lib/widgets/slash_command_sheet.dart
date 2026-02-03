@@ -58,6 +58,9 @@ const knownCommands = <String, ({String description, IconData icon})>{
     description: 'Add directories',
     icon: Icons.create_new_folder_outlined,
   ),
+  'rewind': (description: 'Rewind to previous point', icon: Icons.undo),
+  'vim': (description: 'Enable vim mode', icon: Icons.keyboard),
+  'login': (description: 'Switch accounts', icon: Icons.login),
 };
 
 // ---- Factory ----
@@ -75,7 +78,8 @@ SlashCommand buildSlashCommand(
   );
 }
 
-// ---- Fallback (used before server connection) ----
+// ---- Fallback (used before server provides slash_commands via system.init) ----
+// Only includes commands known to work through the SDK query API.
 
 const fallbackSlashCommands = [
   SlashCommand(
@@ -84,19 +88,19 @@ const fallbackSlashCommands = [
     icon: Icons.compress,
   ),
   SlashCommand(
-    command: '/plan',
-    description: 'Switch to Plan mode',
-    icon: Icons.map_outlined,
+    command: '/review',
+    description: 'Code review',
+    icon: Icons.rate_review_outlined,
   ),
   SlashCommand(
-    command: '/clear',
-    description: 'Clear conversation',
-    icon: Icons.delete_outline,
+    command: '/context',
+    description: 'Show context usage',
+    icon: Icons.donut_large_outlined,
   ),
   SlashCommand(
-    command: '/help',
-    description: 'Show help',
-    icon: Icons.help_outline,
+    command: '/cost',
+    description: 'Show cost summary',
+    icon: Icons.attach_money,
   ),
 ];
 

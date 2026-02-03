@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/models/messages.dart';
@@ -99,70 +101,6 @@ void main() {
     });
   });
 
-  group('branchesForProject', () {
-    final branchSessions = [
-      _session(
-        projectPath: '/home/user/app',
-        sessionId: 'b1',
-        gitBranch: 'main',
-      ),
-      _session(
-        projectPath: '/home/user/app',
-        sessionId: 'b2',
-        gitBranch: 'feat/login',
-      ),
-      _session(
-        projectPath: '/home/user/app',
-        sessionId: 'b3',
-        gitBranch: 'main',
-      ),
-      _session(
-        projectPath: '/home/user/other',
-        sessionId: 'b4',
-        gitBranch: 'develop',
-      ),
-    ];
-
-    test('returns unique branches for all projects', () {
-      final branches = branchesForProject(branchSessions, null);
-      expect(branches, ['main', 'feat/login', 'develop']);
-    });
-
-    test('filters branches by project name', () {
-      final branches = branchesForProject(branchSessions, 'app');
-      expect(branches, ['main', 'feat/login']);
-    });
-
-    test('returns empty for unknown project', () {
-      expect(branchesForProject(branchSessions, 'nope'), isEmpty);
-    });
-  });
-
-  group('filterByBranch', () {
-    final branchSessions = [
-      _session(
-        projectPath: '/home/user/app',
-        sessionId: 'b1',
-        gitBranch: 'main',
-      ),
-      _session(
-        projectPath: '/home/user/app',
-        sessionId: 'b2',
-        gitBranch: 'feat/login',
-      ),
-    ];
-
-    test('null branch returns all sessions', () {
-      expect(filterByBranch(branchSessions, null), branchSessions);
-    });
-
-    test('filters by exact branch name', () {
-      final filtered = filterByBranch(branchSessions, 'main');
-      expect(filtered, hasLength(1));
-      expect(filtered.first.sessionId, 'b1');
-    });
-  });
-
   group('filterByQuery', () {
     final querySessions = [
       _session(
@@ -246,6 +184,71 @@ void main() {
       final filtered = filterByDate(monthSessions, DateFilter.thisMonth);
       expect(filtered, hasLength(1));
       expect(filtered.first.sessionId, 'm1');
+    });
+  });
+
+  group('RecentSessionsMessage.hasMore', () {
+    test('parses hasMore: true', () {
+      final json = {
+        'type': 'recent_sessions',
+        'sessions': <Map<String, dynamic>>[],
+        'hasMore': true,
+      };
+      final msg = ServerMessage.fromJson(json);
+      expect(msg, isA<RecentSessionsMessage>());
+      expect((msg as RecentSessionsMessage).hasMore, isTrue);
+    });
+
+    test('defaults hasMore to false when missing', () {
+      final json = {
+        'type': 'recent_sessions',
+        'sessions': <Map<String, dynamic>>[],
+      };
+      final msg = ServerMessage.fromJson(json);
+      expect(msg, isA<RecentSessionsMessage>());
+      expect((msg as RecentSessionsMessage).hasMore, isFalse);
+    });
+
+    test('parses hasMore: false', () {
+      final json = {
+        'type': 'recent_sessions',
+        'sessions': <Map<String, dynamic>>[],
+        'hasMore': false,
+      };
+      final msg = ServerMessage.fromJson(json);
+      expect(msg, isA<RecentSessionsMessage>());
+      expect((msg as RecentSessionsMessage).hasMore, isFalse);
+    });
+  });
+
+  group('ClientMessage.listRecentSessions', () {
+    test('serializes with no optional params', () {
+      final msg = ClientMessage.listRecentSessions();
+      final decoded = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(decoded['type'], 'list_recent_sessions');
+      expect(decoded.containsKey('offset'), isFalse);
+      expect(decoded.containsKey('projectPath'), isFalse);
+    });
+
+    test('serializes with offset and projectPath', () {
+      final msg = ClientMessage.listRecentSessions(
+        limit: 10,
+        offset: 20,
+        projectPath: '/tmp/project',
+      );
+      final decoded = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(decoded['type'], 'list_recent_sessions');
+      expect(decoded['limit'], 10);
+      expect(decoded['offset'], 20);
+      expect(decoded['projectPath'], '/tmp/project');
+    });
+
+    test('omits null optional params', () {
+      final msg = ClientMessage.listRecentSessions(limit: 5);
+      final decoded = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(decoded['limit'], 5);
+      expect(decoded.containsKey('offset'), isFalse);
+      expect(decoded.containsKey('projectPath'), isFalse);
     });
   });
 }
