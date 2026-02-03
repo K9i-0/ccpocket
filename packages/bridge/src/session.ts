@@ -4,6 +4,15 @@ import { SdkProcess, type StartOptions } from "./sdk-process.js";
 import type { ServerMessage, ProcessStatus, AssistantToolUseContent } from "./parser.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
+import { createWorktree, worktreeExists } from "./worktree.js";
+import type { WorktreeStore } from "./worktree-store.js";
+
+export interface WorktreeOptions {
+  useWorktree?: boolean;
+  worktreeBranch?: string;
+  /** Reuse an existing worktree path (skip creation). */
+  existingWorktreePath?: string;
+}
 
 export interface SessionInfo {
   id: string;
@@ -17,6 +26,10 @@ export interface SessionInfo {
   createdAt: Date;
   lastActivityAt: Date;
   gitBranch: string;
+  /** If this session uses a worktree, the path to it. */
+  worktreePath?: string;
+  /** Branch name of the worktree. */
+  worktreeBranch?: string;
 }
 
 export interface SessionSummary {
@@ -29,6 +42,8 @@ export interface SessionSummary {
   gitBranch: string;
   lastMessage: string;
   messageCount: number;
+  worktreePath?: string;
+  worktreeBranch?: string;
 }
 
 const MAX_HISTORY_PER_SESSION = 100;
@@ -41,6 +56,7 @@ export class SessionManager {
   private imageStore: ImageStore | null;
   private galleryStore: GalleryStore | null;
   private onGalleryImage: GalleryImageCallback | null;
+  private worktreeStore: WorktreeStore | null;
 
   /** Cache slash commands per project path for early loading on subsequent sessions. */
   private commandCache = new Map<string, { slashCommands: string[]; skills: string[] }>();
@@ -50,21 +66,52 @@ export class SessionManager {
     imageStore?: ImageStore,
     galleryStore?: GalleryStore,
     onGalleryImage?: GalleryImageCallback,
+    worktreeStore?: WorktreeStore,
   ) {
     this.onMessage = onMessage;
     this.imageStore = imageStore ?? null;
     this.galleryStore = galleryStore ?? null;
     this.onGalleryImage = onGalleryImage ?? null;
+    this.worktreeStore = worktreeStore ?? null;
   }
 
-  create(projectPath: string, options?: StartOptions, pastMessages?: unknown[]): string {
+  create(
+    projectPath: string,
+    options?: StartOptions,
+    pastMessages?: unknown[],
+    worktreeOpts?: WorktreeOptions,
+  ): string {
     const id = randomUUID().slice(0, 8);
     const proc = new SdkProcess();
+
+    // Handle worktree: reuse existing or create new
+    let wtPath: string | undefined;
+    let wtBranch: string | undefined;
+    if (worktreeOpts?.existingWorktreePath) {
+      // Reuse an existing worktree (resume case)
+      wtPath = worktreeOpts.existingWorktreePath;
+      wtBranch = worktreeOpts.worktreeBranch;
+      console.log(`[session] Reusing existing worktree at ${wtPath}`);
+    } else if (worktreeOpts?.useWorktree) {
+      // Create a new worktree
+      try {
+        const wt = createWorktree(projectPath, id, worktreeOpts.worktreeBranch);
+        wtPath = wt.worktreePath;
+        wtBranch = wt.branch;
+        console.log(`[session] Created worktree at ${wtPath} (branch: ${wtBranch})`);
+      } catch (err) {
+        console.error(`[session] Failed to create worktree:`, err);
+        // Fall through to use original projectPath
+      }
+    }
+
+    // Use worktree path as cwd if available
+    const effectiveCwd = wtPath ?? projectPath;
 
     let gitBranch = "";
     try {
       gitBranch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
-        cwd: projectPath, encoding: "utf-8",
+        cwd: effectiveCwd, encoding: "utf-8",
       }).trim();
     } catch { /* not a git repo */ }
 
@@ -78,6 +125,8 @@ export class SessionManager {
       createdAt: new Date(),
       lastActivityAt: new Date(),
       gitBranch,
+      worktreePath: wtPath,
+      worktreeBranch: wtBranch,
     };
 
     // Cache tool_use id → name for enriching tool_result messages
@@ -90,9 +139,11 @@ export class SessionManager {
         // Capture Claude session_id from result events
         if (msg.type === "result" && "sessionId" in msg && msg.sessionId) {
           session.claudeSessionId = msg.sessionId;
+          this.saveWorktreeMapping(session);
         }
         if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
           session.claudeSessionId = msg.sessionId;
+          this.saveWorktreeMapping(session);
         }
 
         // Inject Bridge-specific slash commands into any system message
@@ -177,9 +228,9 @@ export class SessionManager {
     });
 
     this.sessions.set(id, session);
-    proc.start(projectPath, options);
+    proc.start(effectiveCwd, options);
 
-    console.log(`[session] Created session ${id} for ${projectPath}`);
+    console.log(`[session] Created session ${id} for ${effectiveCwd}${wtPath ? ` (worktree of ${projectPath})` : ""}`);
     return id;
   }
 
@@ -198,6 +249,8 @@ export class SessionManager {
       gitBranch: s.gitBranch,
       lastMessage: this.extractLastMessage(s),
       messageCount: (s.pastMessages?.length ?? 0) + s.history.length,
+      worktreePath: s.worktreePath,
+      worktreeBranch: s.worktreeBranch,
     }));
   }
 
@@ -228,6 +281,22 @@ export class SessionManager {
 
   getCachedCommands(projectPath: string): { slashCommands: string[]; skills: string[] } | undefined {
     return this.commandCache.get(projectPath);
+  }
+
+  /** Get worktree store for external use (e.g., resume_session in websocket.ts). */
+  getWorktreeStore(): WorktreeStore | null {
+    return this.worktreeStore;
+  }
+
+  /** Save worktree mapping when claudeSessionId is captured. */
+  private saveWorktreeMapping(session: SessionInfo): void {
+    if (this.worktreeStore && session.claudeSessionId && session.worktreePath && session.worktreeBranch) {
+      this.worktreeStore.set(session.claudeSessionId, {
+        worktreePath: session.worktreePath,
+        worktreeBranch: session.worktreeBranch,
+        projectPath: session.projectPath,
+      });
+    }
   }
 
   destroy(id: string): boolean {

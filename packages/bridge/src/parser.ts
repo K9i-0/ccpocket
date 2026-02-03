@@ -1,4 +1,5 @@
 import type { ImageRef } from "./image-store.js";
+import type { WorktreeInfo } from "./worktree.js";
 
 // Re-export for convenience
 export type { ImageRef } from "./image-store.js";
@@ -43,7 +44,7 @@ export type PermissionMode =
   | "dontAsk";
 
 export type ClientMessage =
-  | { type: "start"; projectPath: string; sessionId?: string; continue?: boolean; permissionMode?: PermissionMode }
+  | { type: "start"; projectPath: string; sessionId?: string; continue?: boolean; permissionMode?: PermissionMode; useWorktree?: boolean; worktreeBranch?: string }
   | { type: "input"; text: string; sessionId?: string }
   | { type: "approve"; id: string; sessionId?: string }
   | { type: "approve_always"; id: string; sessionId?: string }
@@ -59,10 +60,12 @@ export type ClientMessage =
   | { type: "get_diff"; projectPath: string }
   | { type: "interrupt"; sessionId?: string }
   | { type: "list_project_history" }
-  | { type: "remove_project_history"; projectPath: string };
+  | { type: "remove_project_history"; projectPath: string }
+  | { type: "list_worktrees"; projectPath: string }
+  | { type: "remove_worktree"; projectPath: string; worktreePath: string };
 
 export type ServerMessage =
-  | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string; slashCommands?: string[]; skills?: string[] }
+  | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string }
   | { type: "assistant"; message: AssistantMessage }
   | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[] }
   | { type: "result"; subtype: string; result?: string; error?: string; cost?: number; duration?: number; sessionId?: string }
@@ -74,7 +77,9 @@ export type ServerMessage =
   | { type: "thinking_delta"; text: string }
   | { type: "file_list"; files: string[] }
   | { type: "project_history"; projects: string[] }
-  | { type: "diff_result"; diff: string; error?: string };
+  | { type: "diff_result"; diff: string; error?: string }
+  | { type: "worktree_list"; worktrees: WorktreeInfo[] }
+  | { type: "worktree_removed"; worktreePath: string };
 
 export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval";
 
@@ -144,6 +149,12 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "remove_project_history":
         if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "list_worktrees":
+        if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "remove_worktree":
+        if (typeof msg.projectPath !== "string" || typeof msg.worktreePath !== "string") return null;
         break;
       default:
         return null;

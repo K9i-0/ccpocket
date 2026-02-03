@@ -7,6 +7,8 @@ import { getAllRecentSessions, getSessionHistory } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
+import { WorktreeStore } from "./worktree-store.js";
+import { listWorktrees, removeWorktree, createWorktree, worktreeExists } from "./worktree.js";
 
 export interface BridgeServerOptions {
   server: HttpServer;
@@ -22,12 +24,14 @@ export class BridgeWebSocketServer {
   private apiKey: string | null;
   private galleryStore: GalleryStore | null;
   private projectHistory: ProjectHistory | null;
+  private worktreeStore: WorktreeStore;
 
   constructor(options: BridgeServerOptions) {
     const { server, apiKey, imageStore, galleryStore, projectHistory } = options;
     this.apiKey = apiKey ?? null;
     this.galleryStore = galleryStore ?? null;
     this.projectHistory = projectHistory ?? null;
+    this.worktreeStore = new WorktreeStore();
 
     this.wss = new WebSocketServer({ server });
 
@@ -44,6 +48,7 @@ export class BridgeWebSocketServer {
           this.broadcast({ type: "gallery_new_image", image: info });
         }
       },
+      this.worktreeStore,
     );
 
     this.wss.on("connection", (ws, req) => {
@@ -116,17 +121,30 @@ export class BridgeWebSocketServer {
     switch (msg.type) {
       case "start": {
         const cached = this.sessionManager.getCachedCommands(msg.projectPath);
-        const sessionId = this.sessionManager.create(msg.projectPath, {
-          sessionId: msg.sessionId,
-          continueMode: msg.continue,
-          permissionMode: msg.permissionMode,
-        });
+        const sessionId = this.sessionManager.create(
+          msg.projectPath,
+          {
+            sessionId: msg.sessionId,
+            continueMode: msg.continue,
+            permissionMode: msg.permissionMode,
+          },
+          undefined,
+          {
+            useWorktree: msg.useWorktree,
+            worktreeBranch: msg.worktreeBranch,
+          },
+        );
+        const createdSession = this.sessionManager.get(sessionId);
         this.send(ws, {
           type: "system",
           subtype: "session_created",
           sessionId,
           projectPath: msg.projectPath,
           ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
+          ...(createdSession?.worktreePath ? {
+            worktreePath: createdSession.worktreePath,
+            worktreeBranch: createdSession.worktreeBranch,
+          } : {}),
         });
         this.projectHistory?.addProject(msg.projectPath);
         break;
@@ -243,6 +261,23 @@ export class BridgeWebSocketServer {
       case "resume_session": {
         const claudeSessionId = msg.sessionId;
         const cached = this.sessionManager.getCachedCommands(msg.projectPath);
+
+        // Look up worktree mapping for this Claude session
+        const wtMapping = this.worktreeStore.get(claudeSessionId);
+        let worktreeOpts: { useWorktree?: boolean; worktreeBranch?: string; existingWorktreePath?: string } | undefined;
+        if (wtMapping) {
+          if (worktreeExists(wtMapping.worktreePath)) {
+            // Worktree exists — reuse it directly
+            worktreeOpts = {
+              existingWorktreePath: wtMapping.worktreePath,
+              worktreeBranch: wtMapping.worktreeBranch,
+            };
+          } else {
+            // Worktree was deleted — recreate on the same branch
+            worktreeOpts = { useWorktree: true, worktreeBranch: wtMapping.worktreeBranch };
+          }
+        }
+
         getSessionHistory(claudeSessionId).then((pastMessages) => {
           if (pastMessages.length > 0) {
             this.send(ws, {
@@ -251,16 +286,26 @@ export class BridgeWebSocketServer {
               messages: pastMessages,
             } as Record<string, unknown>);
           }
-          const sessionId = this.sessionManager.create(msg.projectPath, {
-            sessionId: claudeSessionId,
-            permissionMode: msg.permissionMode,
-          }, pastMessages);
+          const sessionId = this.sessionManager.create(
+            msg.projectPath,
+            {
+              sessionId: claudeSessionId,
+              permissionMode: msg.permissionMode,
+            },
+            pastMessages,
+            worktreeOpts,
+          );
+          const createdSession = this.sessionManager.get(sessionId);
           this.send(ws, {
             type: "system",
             subtype: "session_created",
             sessionId,
             projectPath: msg.projectPath,
             ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
+            ...(createdSession?.worktreePath ? {
+              worktreePath: createdSession.worktreePath,
+              worktreeBranch: createdSession.worktreeBranch,
+            } : {}),
           });
           this.projectHistory?.addProject(msg.projectPath);
         }).catch((err) => {
@@ -325,6 +370,27 @@ export class BridgeWebSocketServer {
           }
           this.send(ws, { type: "diff_result", diff: stdout });
         });
+        break;
+      }
+
+      case "list_worktrees": {
+        try {
+          const worktrees = listWorktrees(msg.projectPath);
+          this.send(ws, { type: "worktree_list", worktrees });
+        } catch (err) {
+          this.send(ws, { type: "error", message: `Failed to list worktrees: ${err}` });
+        }
+        break;
+      }
+
+      case "remove_worktree": {
+        try {
+          removeWorktree(msg.projectPath, msg.worktreePath);
+          this.worktreeStore.deleteByWorktreePath(msg.worktreePath);
+          this.send(ws, { type: "worktree_removed", worktreePath: msg.worktreePath });
+        } catch (err) {
+          this.send(ws, { type: "error", message: `Failed to remove worktree: ${err}` });
+        }
         break;
       }
     }
