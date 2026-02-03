@@ -18,10 +18,7 @@ void main() {
     });
 
     test('parses empty projects list', () {
-      final json = {
-        'type': 'project_history',
-        'projects': <String>[],
-      };
+      final json = {'type': 'project_history', 'projects': <String>[]};
       final msg = ServerMessage.fromJson(json);
       expect(msg, isA<ProjectHistoryMessage>());
       final historyMsg = msg as ProjectHistoryMessage;

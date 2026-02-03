@@ -28,7 +28,7 @@ class _MockBridgeService extends BridgeService {
   String? get httpBaseUrl => 'http://localhost:8765';
 
   @override
-  void requestGallery({String? project}) {
+  void requestGallery({String? project, String? sessionId}) {
     galleryRequested = true;
     // Immediately emit the mock images
     _galleryStreamController.add(_mockImages);
@@ -54,8 +54,8 @@ void main() {
       await tester.pumpWidget(_wrapWithTheme(const GalleryScreen(), mock));
       await tester.pump();
 
-      expect(find.text('No images yet'), findsOneWidget);
-      expect(find.text('Gallery'), findsOneWidget);
+      expect(find.text('No previews yet'), findsOneWidget);
+      expect(find.text('Preview'), findsOneWidget);
       expect(mock.galleryRequested, isTrue);
     });
 

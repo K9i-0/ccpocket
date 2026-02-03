@@ -137,9 +137,10 @@ new file mode 100644
       expect(files[0].isNewFile, true);
       expect(files[0].filePath, 'new_file.dart');
       expect(files[0].hunks[0].lines.length, 3);
-      expect(files[0].hunks[0].lines.every(
-        (l) => l.type == DiffLineType.addition,
-      ), true);
+      expect(
+        files[0].hunks[0].lines.every((l) => l.type == DiffLineType.addition),
+        true,
+      );
     });
 
     test('handles deleted file', () {
@@ -156,9 +157,10 @@ deleted file mode 100644
       expect(files.length, 1);
       expect(files[0].isDeleted, true);
       expect(files[0].hunks[0].lines.length, 2);
-      expect(files[0].hunks[0].lines.every(
-        (l) => l.type == DiffLineType.deletion,
-      ), true);
+      expect(
+        files[0].hunks[0].lines.every((l) => l.type == DiffLineType.deletion),
+        true,
+      );
     });
 
     test('handles binary file', () {
