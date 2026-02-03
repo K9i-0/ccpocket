@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/messages.dart';
 import '../providers/bridge_providers.dart';
-import 'compose_screen.dart';
 import 'diff_screen.dart';
 import '../services/bridge_service_base.dart';
 import '../services/chat_message_handler.dart';
@@ -546,32 +545,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           if (mounted) setState(() => _isRecording = false);
         },
       );
-    }
-  }
-
-  Future<void> _openCompose() async {
-    _removeSlashOverlay();
-    _removeFileMentionOverlay();
-    final currentText = _inputController.text;
-    final result = await Navigator.push<ComposeResult>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ComposeScreen(initialText: currentText),
-      ),
-    );
-    if (result == null) return;
-    _inputController.text = result.text;
-    _inputController.selection = TextSelection.fromPosition(
-      TextPosition(offset: result.text.length),
-    );
-    if (result.send) {
-      _sendMessage();
-    } else {
-      // Update hasInputText state for the returned text
-      final hasText = result.text.trim().isNotEmpty;
-      if (hasText != _hasInputText) {
-        setState(() => _hasInputText = hasText);
-      }
     }
   }
 
@@ -1126,7 +1099,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       onInterrupt: _interruptSession,
       onToggleVoice: _toggleVoiceInput,
       onShowSlashCommands: _showSlashCommandSheet,
-      onExpand: _openCompose,
     );
   }
 }

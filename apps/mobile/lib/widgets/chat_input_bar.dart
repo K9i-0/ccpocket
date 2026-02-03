@@ -17,7 +17,6 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onInterrupt;
   final VoidCallback onToggleVoice;
   final VoidCallback onShowSlashCommands;
-  final VoidCallback onExpand;
 
   const ChatInputBar({
     super.key,
@@ -32,7 +31,6 @@ class ChatInputBar extends StatelessWidget {
     required this.onInterrupt,
     required this.onToggleVoice,
     required this.onShowSlashCommands,
-    required this.onExpand,
   });
 
   @override
@@ -63,8 +61,6 @@ class ChatInputBar extends StatelessWidget {
           Row(
             children: [
               _buildSlashButton(cs),
-              const SizedBox(width: 8),
-              if (status != ProcessStatus.starting) _buildExpandButton(cs),
               const Spacer(),
               _buildActionButton(cs),
             ],
@@ -131,25 +127,10 @@ class ChatInputBar extends StatelessWidget {
           ),
         ),
         enabled: status != ProcessStatus.starting,
-        textInputAction: TextInputAction.send,
-        onSubmitted: (_) => onSend(),
-      ),
-    );
-  }
-
-  Widget _buildExpandButton(ColorScheme cs) {
-    return Material(
-      color: cs.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        key: const ValueKey('expand_compose_button'),
-        borderRadius: BorderRadius.circular(20),
-        onTap: onExpand,
-        child: SizedBox(
-          width: 36,
-          height: 36,
-          child: Icon(Icons.open_in_full, size: 16, color: cs.outline),
-        ),
+        maxLines: 6,
+        minLines: 1,
+        keyboardType: TextInputType.multiline,
+        textInputAction: TextInputAction.newline,
       ),
     );
   }

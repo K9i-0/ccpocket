@@ -27,7 +27,6 @@ void main() {
     VoidCallback? onInterrupt,
     VoidCallback? onToggleVoice,
     VoidCallback? onShowSlashCommands,
-    VoidCallback? onExpand,
   }) {
     return MaterialApp(
       home: Scaffold(
@@ -43,7 +42,6 @@ void main() {
           onInterrupt: onInterrupt ?? () {},
           onToggleVoice: onToggleVoice ?? () {},
           onShowSlashCommands: onShowSlashCommands ?? () {},
-          onExpand: onExpand ?? () {},
         ),
       ),
     );
@@ -182,27 +180,15 @@ void main() {
       expect(find.byKey(const ValueKey('message_input')), findsOneWidget);
     });
 
-    testWidgets('expand button is visible when idle', (tester) async {
+    testWidgets('text field supports multiline input', (tester) async {
       await tester.pumpWidget(buildSubject());
 
-      expect(
-        find.byKey(const ValueKey('expand_compose_button')),
-        findsOneWidget,
+      final textField = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
       );
-    });
-
-    testWidgets('expand button fires callback', (tester) async {
-      var expanded = false;
-      await tester.pumpWidget(buildSubject(onExpand: () => expanded = true));
-
-      await tester.tap(find.byKey(const ValueKey('expand_compose_button')));
-      expect(expanded, isTrue);
-    });
-
-    testWidgets('expand button hidden when starting', (tester) async {
-      await tester.pumpWidget(buildSubject(status: ProcessStatus.starting));
-
-      expect(find.byKey(const ValueKey('expand_compose_button')), findsNothing);
+      expect(textField.maxLines, 6);
+      expect(textField.minLines, 1);
+      expect(textField.keyboardType, TextInputType.multiline);
     });
 
     testWidgets('send button shows when running with text', (tester) async {
