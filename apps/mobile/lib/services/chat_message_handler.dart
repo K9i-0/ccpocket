@@ -218,6 +218,14 @@ class ChatMessageHandler {
     final entries = <ChatEntry>[];
     ProcessStatus? lastStatus;
     List<SlashCommand>? commands;
+
+    // Track the last pending permission / ask state in history so we can
+    // restore the approval bar or AskUserQuestion widget when resuming a
+    // session that was in waiting_approval state.
+    PermissionRequestMessage? lastPermission;
+    String? lastAskToolUseId;
+    Map<String, dynamic>? lastAskInput;
+
     for (final m in messages) {
       if (m is StatusMessage) {
         lastStatus = m.status;
@@ -229,12 +237,39 @@ class ChatMessageHandler {
             m.slashCommands.isNotEmpty) {
           commands = _buildCommandList(m.slashCommands, m.skills);
         }
+        // Track pending permission request
+        if (m is PermissionRequestMessage) {
+          lastPermission = m;
+        }
+        // Track pending AskUserQuestion (tool_use in assistant message)
+        if (m is AssistantServerMessage) {
+          for (final content in m.message.content) {
+            if (content is ToolUseContent &&
+                content.name == 'AskUserQuestion') {
+              lastAskToolUseId = content.id;
+              lastAskInput = content.input;
+            }
+          }
+        }
+        // A tool_result or result message means the pending state was resolved
+        if (m is ToolResultMessage || m is ResultMessage) {
+          lastPermission = null;
+          lastAskToolUseId = null;
+          lastAskInput = null;
+        }
       }
     }
+
+    // Only restore pending state if session is actually waiting
+    final bool isWaiting = lastStatus == ProcessStatus.waitingApproval;
     return ChatStateUpdate(
       status: lastStatus,
       entriesToAdd: entries,
       slashCommands: commands,
+      pendingToolUseId: isWaiting ? lastPermission?.toolUseId : null,
+      pendingPermission: isWaiting ? lastPermission : null,
+      askToolUseId: isWaiting ? lastAskToolUseId : null,
+      askInput: isWaiting ? lastAskInput : null,
     );
   }
 
@@ -297,8 +332,8 @@ class ChatMessageHandler {
       final category = skillSet.contains(name)
           ? SlashCommandCategory.skill
           : knownNames.contains(name)
-              ? SlashCommandCategory.builtin
-              : SlashCommandCategory.project;
+          ? SlashCommandCategory.builtin
+          : SlashCommandCategory.project;
       return buildSlashCommand(name, category: category);
     }).toList();
   }
