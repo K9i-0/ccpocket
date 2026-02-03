@@ -7,8 +7,9 @@ import '../../models/messages.dart';
 import '../../providers/bridge_providers.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/diff_parser.dart';
-import 'widgets/diff_file_header.dart';
-import 'widgets/diff_hunk_widget.dart';
+import 'widgets/diff_content_list.dart';
+import 'widgets/diff_empty_state.dart';
+import 'widgets/diff_error_state.dart';
 import 'widgets/diff_stats_badge.dart';
 
 /// Dedicated screen for viewing unified diffs.
@@ -97,174 +98,28 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
             ),
         ],
       ),
-      body: _buildBody(appColors),
-    );
-  }
-
-  Widget _buildBody(AppColors appColors) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null) {
-      return _buildError(appColors);
-    }
-    if (_diffFiles.isEmpty) {
-      return _buildEmpty(appColors);
-    }
-    return _buildDiffContent(appColors);
-  }
-
-  Widget _buildError(AppColors appColors) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: appColors.errorText),
-            const SizedBox(height: 12),
-            Text(
-              _error!,
-              style: TextStyle(color: appColors.errorText),
-              textAlign: TextAlign.center,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? DiffErrorState(error: _error!)
+          : _diffFiles.isEmpty
+          ? const DiffEmptyState()
+          : DiffContentList(
+              files: _diffFiles,
+              hiddenFileIndices: _hiddenFileIndices,
+              collapsedFileIndices: _collapsedFileIndices,
+              onToggleCollapse: (fileIdx) {
+                setState(() {
+                  if (_collapsedFileIndices.contains(fileIdx)) {
+                    _collapsedFileIndices.remove(fileIdx);
+                  } else {
+                    _collapsedFileIndices.add(fileIdx);
+                  }
+                });
+              },
+              onClearHidden: () => setState(() => _hiddenFileIndices.clear()),
             ),
-          ],
-        ),
-      ),
     );
-  }
-
-  Widget _buildEmpty(AppColors appColors) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.check_circle_outline, size: 48, color: appColors.toolIcon),
-          const SizedBox(height: 12),
-          Text(
-            'No changes',
-            style: TextStyle(fontSize: 16, color: appColors.subtleText),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDiffContent(AppColors appColors) {
-    // Single-file mode: no header needed
-    if (_diffFiles.length == 1) {
-      final file = _diffFiles.first;
-      return file.isBinary
-          ? _buildBinaryNotice(appColors)
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: file.hunks.length,
-              itemBuilder: (context, index) =>
-                  DiffHunkWidget(hunk: file.hunks[index]),
-            );
-    }
-
-    // Multi-file mode: all visible files in one scrollable list
-    final visibleFiles = <int>[];
-    for (var i = 0; i < _diffFiles.length; i++) {
-      if (!_hiddenFileIndices.contains(i)) visibleFiles.add(i);
-    }
-
-    if (visibleFiles.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.filter_list_off, size: 48, color: appColors.subtleText),
-            const SizedBox(height: 12),
-            Text(
-              'All files filtered out',
-              style: TextStyle(fontSize: 16, color: appColors.subtleText),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => setState(() => _hiddenFileIndices.clear()),
-              child: const Text('Show all'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _countListItems(visibleFiles),
-      itemBuilder: (context, index) =>
-          _buildListItem(index, visibleFiles, appColors),
-    );
-  }
-
-  /// Count total items: for each visible file, header + hunks (if expanded) + divider (except last).
-  int _countListItems(List<int> visibleFiles) {
-    var count = 0;
-    for (var i = 0; i < visibleFiles.length; i++) {
-      final fileIdx = visibleFiles[i];
-      final file = _diffFiles[fileIdx];
-      final collapsed = _collapsedFileIndices.contains(fileIdx);
-      count += 1; // header
-      if (!collapsed) {
-        count += file.isBinary ? 1 : file.hunks.length;
-      }
-      if (i < visibleFiles.length - 1) count += 1; // divider
-    }
-    return count;
-  }
-
-  /// Map a flat list index to the appropriate widget.
-  Widget _buildListItem(
-    int index,
-    List<int> visibleFiles,
-    AppColors appColors,
-  ) {
-    var offset = 0;
-    for (var i = 0; i < visibleFiles.length; i++) {
-      final fileIdx = visibleFiles[i];
-      final file = _diffFiles[fileIdx];
-      final collapsed = _collapsedFileIndices.contains(fileIdx);
-      final contentCount = collapsed
-          ? 0
-          : (file.isBinary ? 1 : file.hunks.length);
-      final sectionSize = 1 + contentCount; // header + content
-
-      if (index < offset + sectionSize) {
-        final localIdx = index - offset;
-        if (localIdx == 0) {
-          return DiffFileHeader(
-            file: file,
-            collapsed: collapsed,
-            onToggleCollapse: () {
-              setState(() {
-                if (collapsed) {
-                  _collapsedFileIndices.remove(fileIdx);
-                } else {
-                  _collapsedFileIndices.add(fileIdx);
-                }
-              });
-            },
-          );
-        }
-        if (file.isBinary) {
-          return _buildBinaryNotice(appColors);
-        }
-        return DiffHunkWidget(hunk: file.hunks[localIdx - 1]);
-      }
-
-      offset += sectionSize;
-
-      // Divider between files
-      if (i < visibleFiles.length - 1) {
-        if (index == offset) {
-          return Divider(height: 24, thickness: 1, color: appColors.codeBorder);
-        }
-        offset += 1;
-      }
-    }
-    return const SizedBox.shrink();
   }
 
   void _showFilterBottomSheet(AppColors appColors) {
@@ -352,15 +207,6 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
           },
         );
       },
-    );
-  }
-
-  Widget _buildBinaryNotice(AppColors appColors) {
-    return Center(
-      child: Text(
-        'Binary file — diff not available',
-        style: TextStyle(color: appColors.subtleText),
-      ),
     );
   }
 }
