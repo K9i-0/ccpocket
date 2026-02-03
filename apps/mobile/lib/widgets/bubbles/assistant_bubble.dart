@@ -8,29 +8,52 @@ import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/markdown_style.dart';
+import 'message_action_bar.dart';
 import 'thinking_bubble.dart';
 
-class AssistantBubble extends StatelessWidget {
+class AssistantBubble extends StatefulWidget {
   final AssistantServerMessage message;
   const AssistantBubble({super.key, required this.message});
 
   @override
+  State<AssistantBubble> createState() => _AssistantBubbleState();
+}
+
+class _AssistantBubbleState extends State<AssistantBubble> {
+  bool _plainTextMode = false;
+
+  String _allText() {
+    return widget.message.message.content
+        .whereType<TextContent>()
+        .map((c) => c.text)
+        .join('\n\n');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final contents = widget.message.message.content;
+    final hasTextContent = contents.any((c) => c is TextContent);
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final content in message.message.content)
+        for (final content in contents)
           switch (content) {
             TextContent(:final text) => Padding(
               padding: const EdgeInsets.symmetric(
                 vertical: AppSpacing.bubbleMarginV,
                 horizontal: AppSpacing.bubbleMarginH,
               ),
-              child: MarkdownBody(
-                data: text,
-                selectable: true,
-                styleSheet: buildMarkdownStyle(context),
-              ),
+              child: _plainTextMode
+                  ? SelectableText(
+                      text,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    )
+                  : MarkdownBody(
+                      data: text,
+                      selectable: true,
+                      styleSheet: buildMarkdownStyle(context),
+                    ),
             ),
             ToolUseContent(:final name, :final input) =>
               name == 'ExitPlanMode'
@@ -40,6 +63,14 @@ class AssistantBubble extends StatelessWidget {
               thinking: thinking,
             ),
           },
+        if (hasTextContent)
+          MessageActionBar(
+            textToCopy: _allText(),
+            isPlainTextMode: _plainTextMode,
+            onTogglePlainText: () {
+              setState(() => _plainTextMode = !_plainTextMode);
+            },
+          ),
       ],
     );
   }

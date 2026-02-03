@@ -41,7 +41,7 @@ class _StreamingBubbleState extends State<StreamingBubble>
         horizontal: AppSpacing.bubbleMarginH,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           MarkdownBody(
