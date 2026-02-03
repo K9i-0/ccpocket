@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { join } from "node:path";
-import { mkdirSync, writeFileSync, rmSync, existsSync, realpathSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync, existsSync, realpathSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -14,6 +14,7 @@ import {
   listWorktrees,
   removeWorktree,
   worktreeExists,
+  copyConfiguredFiles,
 } from "./worktree.js";
 
 // ---- parseGtrConfig ----
@@ -271,5 +272,219 @@ describe("worktreeExists", () => {
 
   it("returns false for non-existing directory", () => {
     expect(worktreeExists("/nonexistent/path/12345")).toBe(false);
+  });
+});
+
+// ---- copyConfiguredFiles ----
+
+describe("copyConfiguredFiles", () => {
+  let srcDir: string;
+  let destDir: string;
+
+  beforeEach(() => {
+    const rawSrc = join(tmpdir(), `cf-src-${randomUUID().slice(0, 8)}`);
+    const rawDest = join(tmpdir(), `cf-dest-${randomUUID().slice(0, 8)}`);
+    mkdirSync(rawSrc, { recursive: true });
+    mkdirSync(rawDest, { recursive: true });
+    srcDir = realpathSync(rawSrc);
+    destDir = realpathSync(rawDest);
+  });
+
+  afterEach(() => {
+    rmSync(srcDir, { recursive: true, force: true });
+    rmSync(destDir, { recursive: true, force: true });
+  });
+
+  it("copies files matching include patterns with nested paths", () => {
+    mkdirSync(join(srcDir, "sub", "dir"), { recursive: true });
+    writeFileSync(join(srcDir, "sub", "dir", ".env.example"), "SECRET=abc");
+
+    const config = parseGtrConfig(srcDir);
+    config.copy.include = ["**/.env.example"];
+
+    copyConfiguredFiles(srcDir, destDir, config);
+
+    expect(existsSync(join(destDir, "sub", "dir", ".env.example"))).toBe(true);
+    expect(readFileSync(join(destDir, "sub", "dir", ".env.example"), "utf-8")).toBe("SECRET=abc");
+  });
+
+  it("excludes files matching exclude patterns", () => {
+    writeFileSync(join(srcDir, "other.txt"), "keep");
+    writeFileSync(join(srcDir, "secret.txt"), "hidden");
+
+    const config = parseGtrConfig(srcDir);
+    config.copy.include = ["*.txt"];
+    config.copy.exclude = ["secret.txt"];
+
+    copyConfiguredFiles(srcDir, destDir, config);
+
+    expect(existsSync(join(destDir, "other.txt"))).toBe(true);
+    expect(existsSync(join(destDir, "secret.txt"))).toBe(false);
+  });
+
+  it("copies directories matching includeDirs", () => {
+    mkdirSync(join(srcDir, "vendor"), { recursive: true });
+    writeFileSync(join(srcDir, "vendor", "lib.js"), "module.exports = {};\n");
+    writeFileSync(join(srcDir, "vendor", "data.json"), "{}");
+
+    const config = parseGtrConfig(srcDir);
+    config.copy.includeDirs = ["vendor"];
+
+    copyConfiguredFiles(srcDir, destDir, config);
+
+    expect(existsSync(join(destDir, "vendor", "lib.js"))).toBe(true);
+    expect(existsSync(join(destDir, "vendor", "data.json"))).toBe(true);
+  });
+
+  it("excludes directories matching excludeDirs", () => {
+    mkdirSync(join(srcDir, "vendor"), { recursive: true });
+    writeFileSync(join(srcDir, "vendor", "lib.js"), "ok");
+    mkdirSync(join(srcDir, "cache"), { recursive: true });
+    writeFileSync(join(srcDir, "cache", "tmp.dat"), "cached");
+
+    const config = parseGtrConfig(srcDir);
+    config.copy.includeDirs = ["*"];
+    config.copy.excludeDirs = ["cache"];
+
+    copyConfiguredFiles(srcDir, destDir, config);
+
+    expect(existsSync(join(destDir, "vendor", "lib.js"))).toBe(true);
+    expect(existsSync(join(destDir, "cache"))).toBe(false);
+  });
+});
+
+// ---- createWorktree - hooks ----
+
+describe("createWorktree - hooks", () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    const rawDir = join(tmpdir(), `wt-hook-${randomUUID().slice(0, 8)}`);
+    mkdirSync(rawDir, { recursive: true });
+    projectDir = realpathSync(rawDir);
+    execFileSync("git", ["init"], { cwd: projectDir });
+    execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: projectDir });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: projectDir });
+    writeFileSync(join(projectDir, "README.md"), "# Test");
+    execFileSync("git", ["add", "."], { cwd: projectDir });
+    execFileSync("git", ["commit", "-m", "initial"], { cwd: projectDir });
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+    const wtRoot = worktreesRoot(projectDir);
+    if (existsSync(wtRoot)) {
+      rmSync(wtRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("runs postCreate hooks in worktree directory", () => {
+    writeFileSync(
+      join(projectDir, ".gtrconfig"),
+      ["[hook]", "postCreate = touch hook-ran.txt"].join("\n"),
+    );
+
+    const wt = createWorktree(projectDir, "hook-post");
+    expect(existsSync(join(wt.worktreePath, "hook-ran.txt"))).toBe(true);
+  });
+
+  it("runs preRemove hooks before removal", () => {
+    writeFileSync(
+      join(projectDir, ".gtrconfig"),
+      [
+        "[hook]",
+        "postCreate = touch marker.txt",
+        "preRemove = cp marker.txt ../preremove-ran.txt",
+      ].join("\n"),
+    );
+
+    const wt = createWorktree(projectDir, "hook-pre");
+    expect(existsSync(join(wt.worktreePath, "marker.txt"))).toBe(true);
+
+    removeWorktree(projectDir, wt.worktreePath);
+
+    const wtRoot = worktreesRoot(projectDir);
+    expect(existsSync(join(wtRoot, "preremove-ran.txt"))).toBe(true);
+  });
+
+  it("continues if postCreate hook fails", () => {
+    writeFileSync(
+      join(projectDir, ".gtrconfig"),
+      ["[hook]", "postCreate = false"].join("\n"),
+    );
+
+    const wt = createWorktree(projectDir, "hook-fail");
+    expect(existsSync(wt.worktreePath)).toBe(true);
+    expect(existsSync(join(wt.worktreePath, "README.md"))).toBe(true);
+  });
+});
+
+// ---- createWorktree - edge cases ----
+
+describe("createWorktree - edge cases", () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    const rawDir = join(tmpdir(), `wt-edge-${randomUUID().slice(0, 8)}`);
+    mkdirSync(rawDir, { recursive: true });
+    projectDir = realpathSync(rawDir);
+    execFileSync("git", ["init"], { cwd: projectDir });
+    execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: projectDir });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: projectDir });
+    writeFileSync(join(projectDir, "README.md"), "# Test");
+    execFileSync("git", ["add", "."], { cwd: projectDir });
+    execFileSync("git", ["commit", "-m", "initial"], { cwd: projectDir });
+  });
+
+  afterEach(() => {
+    rmSync(projectDir, { recursive: true, force: true });
+    const wtRoot = worktreesRoot(projectDir);
+    if (existsSync(wtRoot)) {
+      rmSync(wtRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("creates worktree when branch already exists from previous worktree", () => {
+    const wt1 = createWorktree(projectDir, "reuse-branch");
+    const branchName = wt1.branch;
+    removeWorktree(projectDir, wt1.worktreePath);
+
+    const wt2 = createWorktree(projectDir, "reuse-branch");
+    expect(wt2.branch).toBe(branchName);
+    expect(existsSync(wt2.worktreePath)).toBe(true);
+    expect(existsSync(join(wt2.worktreePath, "README.md"))).toBe(true);
+  });
+
+  it("multiple worktrees have independent file systems", () => {
+    const wt1 = createWorktree(projectDir, "indep1");
+    const wt2 = createWorktree(projectDir, "indep2");
+
+    writeFileSync(join(wt1.worktreePath, "only-in-wt1.txt"), "hello");
+
+    expect(existsSync(join(wt1.worktreePath, "only-in-wt1.txt"))).toBe(true);
+    expect(existsSync(join(wt2.worktreePath, "only-in-wt1.txt"))).toBe(false);
+  });
+
+  it("worktree HEAD matches project HEAD on creation", () => {
+    const projectHead = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: projectDir,
+      encoding: "utf-8",
+    }).trim();
+
+    const wt = createWorktree(projectDir, "head-check");
+    expect(wt.head).toBe(projectHead);
+  });
+
+  it("listWorktrees includes head commit for each worktree", () => {
+    createWorktree(projectDir, "list-head1");
+    createWorktree(projectDir, "list-head2");
+
+    const list = listWorktrees(projectDir);
+    expect(list).toHaveLength(2);
+    for (const wt of list) {
+      expect(wt.head).toBeTruthy();
+      expect(typeof wt.head).toBe("string");
+      expect(wt.head).toMatch(/^[0-9a-f]{40}$/);
+    }
   });
 });
