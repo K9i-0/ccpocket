@@ -46,6 +46,10 @@ dependencies:
   speech_to_text: ^7.3.0
   http: ^1.6.0
   flutter_riverpod: ^2.6.1
+  hooks_riverpod: ^2.6.1
+  flutter_hooks: ^0.21.3+1
+  freezed_annotation: ^3.1.0
+  riverpod_annotation: ^2.6.1
 
 dev_dependencies:
   flutter_test:
@@ -59,6 +63,10 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  freezed: ^3.1.0
+  build_runner: ^2.5.4
+  riverpod_generator: ^2.6.5
+  json_serializable: ^6.9.5
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
