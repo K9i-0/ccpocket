@@ -424,7 +424,10 @@ switch (_that) {
 case ApprovalNone():
 return none(_that);case ApprovalPermission():
 return permission(_that);case ApprovalAskUser():
-return askUser(_that);}
+return askUser(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
 }
 /// A variant of `map` that fallback to returning `null`.
 ///
@@ -489,7 +492,10 @@ switch (_that) {
 case ApprovalNone():
 return none();case ApprovalPermission():
 return permission(_that.toolUseId,_that.request);case ApprovalAskUser():
-return askUser(_that.toolUseId,_that.input);}
+return askUser(_that.toolUseId,_that.input);case _:
+  throw StateError('Unexpected subclass');
+
+}
 }
 /// A variant of `when` that fallback to returning `null`
 ///

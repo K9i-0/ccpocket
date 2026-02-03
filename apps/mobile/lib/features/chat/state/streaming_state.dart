@@ -5,7 +5,7 @@ part 'streaming_state.freezed.dart';
 /// High-frequency streaming state, kept in a separate provider to avoid
 /// rebuilding the entire message list on every delta.
 @freezed
-class StreamingState with _$StreamingState {
+abstract class StreamingState with _$StreamingState {
   const factory StreamingState({
     /// Accumulated assistant text from stream_delta messages.
     @Default('') String text,

@@ -7,7 +7,7 @@ part 'chat_session_state.freezed.dart';
 
 /// Core state for a single chat session, managed by [ChatSessionNotifier].
 @freezed
-class ChatSessionState with _$ChatSessionState {
+abstract class ChatSessionState with _$ChatSessionState {
   const factory ChatSessionState({
     // Process status
     @Default(ProcessStatus.starting) ProcessStatus status,
@@ -42,7 +42,7 @@ class ChatSessionState with _$ChatSessionState {
 ///
 /// Uses sealed union so the UI can pattern-match exhaustively.
 @freezed
-sealed class ApprovalState with _$ApprovalState {
+abstract class ApprovalState with _$ApprovalState {
   /// No pending approval.
   const factory ApprovalState.none() = ApprovalNone;
 
