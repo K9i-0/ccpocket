@@ -180,6 +180,22 @@ class RunningSessionCard extends StatelessWidget {
                             ),
                           ),
                         ],
+                        if (session.worktreePath != null) ...[
+                          const SizedBox(width: 12),
+                          Icon(
+                            Icons.account_tree_outlined,
+                            size: 12,
+                            color: appColors.subtleText,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            'worktree',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: appColors.subtleText,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],

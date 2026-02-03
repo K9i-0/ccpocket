@@ -28,12 +28,14 @@ class ChatScreen extends HookConsumerWidget {
   final String sessionId;
   final String? projectPath;
   final String? gitBranch;
+  final String? worktreePath;
 
   const ChatScreen({
     super.key,
     required this.sessionId,
     this.projectPath,
     this.gitBranch,
+    this.worktreePath,
   });
 
   @override
@@ -184,6 +186,7 @@ class ChatScreen extends HookConsumerWidget {
               sessionId: sessionId,
               projectPath: projectPath,
               gitBranch: gitBranch,
+              worktreePath: worktreePath,
             ),
             actions: [
               if (projectPath != null)

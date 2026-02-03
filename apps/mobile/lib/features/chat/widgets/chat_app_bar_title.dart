@@ -6,12 +6,14 @@ class ChatAppBarTitle extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
   final String? gitBranch;
+  final String? worktreePath;
 
   const ChatAppBarTitle({
     super.key,
     required this.sessionId,
     this.projectPath,
     this.gitBranch,
+    this.worktreePath,
   });
 
   @override
@@ -35,11 +37,34 @@ class ChatAppBarTitle extends StatelessWidget {
               ),
             ),
           ),
-          if (gitBranch != null && gitBranch!.isNotEmpty)
-            Text(
-              gitBranch!,
-              style: TextStyle(fontSize: 12, color: appColors.subtleText),
-            ),
+          Row(
+            children: [
+              if (gitBranch != null && gitBranch!.isNotEmpty)
+                Flexible(
+                  child: Text(
+                    gitBranch!,
+                    style:
+                        TextStyle(fontSize: 12, color: appColors.subtleText),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              if (worktreePath != null && worktreePath!.isNotEmpty) ...[
+                if (gitBranch != null && gitBranch!.isNotEmpty)
+                  const SizedBox(width: 6),
+                Icon(
+                  Icons.account_tree_outlined,
+                  size: 12,
+                  color: appColors.subtleText,
+                ),
+                const SizedBox(width: 2),
+                Text(
+                  'worktree',
+                  style:
+                      TextStyle(fontSize: 11, color: appColors.subtleText),
+                ),
+              ],
+            ],
+          ),
         ],
       );
     }

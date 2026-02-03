@@ -128,6 +128,31 @@ class ImageRef {
   }
 }
 
+// ---- Worktree info ----
+
+class WorktreeInfo {
+  final String worktreePath;
+  final String branch;
+  final String projectPath;
+  final String? head;
+
+  const WorktreeInfo({
+    required this.worktreePath,
+    required this.branch,
+    required this.projectPath,
+    this.head,
+  });
+
+  factory WorktreeInfo.fromJson(Map<String, dynamic> json) {
+    return WorktreeInfo(
+      worktreePath: json['worktreePath'] as String,
+      branch: json['branch'] as String,
+      projectPath: json['projectPath'] as String,
+      head: json['head'] as String?,
+    );
+  }
+}
+
 // ---- Gallery image ----
 
 class GalleryImage {
@@ -198,6 +223,8 @@ sealed class ServerMessage {
         skills:
             (json['skills'] as List?)?.map((e) => e as String).toList() ??
             const [],
+        worktreePath: json['worktreePath'] as String?,
+        worktreeBranch: json['worktreeBranch'] as String?,
       ),
       'assistant' => AssistantServerMessage(
         message: AssistantMessage.fromJson(
@@ -273,6 +300,14 @@ sealed class ServerMessage {
         diff: json['diff'] as String? ?? '',
         error: json['error'] as String?,
       ),
+      'worktree_list' => WorktreeListMessage(
+        worktrees: (json['worktrees'] as List)
+            .map((w) => WorktreeInfo.fromJson(w as Map<String, dynamic>))
+            .toList(),
+      ),
+      'worktree_removed' => WorktreeRemovedMessage(
+        worktreePath: json['worktreePath'] as String,
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -285,6 +320,8 @@ class SystemMessage implements ServerMessage {
   final String? projectPath;
   final List<String> slashCommands;
   final List<String> skills;
+  final String? worktreePath;
+  final String? worktreeBranch;
   const SystemMessage({
     required this.subtype,
     this.sessionId,
@@ -292,6 +329,8 @@ class SystemMessage implements ServerMessage {
     this.projectPath,
     this.slashCommands = const [],
     this.skills = const [],
+    this.worktreePath,
+    this.worktreeBranch,
   });
 }
 
@@ -424,6 +463,16 @@ class DiffResultMessage implements ServerMessage {
   const DiffResultMessage({required this.diff, this.error});
 }
 
+class WorktreeListMessage implements ServerMessage {
+  final List<WorktreeInfo> worktrees;
+  const WorktreeListMessage({required this.worktrees});
+}
+
+class WorktreeRemovedMessage implements ServerMessage {
+  final String worktreePath;
+  const WorktreeRemovedMessage({required this.worktreePath});
+}
+
 class PastMessage {
   final String role;
   final List<AssistantContent> content;
@@ -505,6 +554,8 @@ class SessionInfo {
   final String gitBranch;
   final String lastMessage;
   final int messageCount;
+  final String? worktreePath;
+  final String? worktreeBranch;
 
   const SessionInfo({
     required this.id,
@@ -516,6 +567,8 @@ class SessionInfo {
     this.gitBranch = '',
     this.lastMessage = '',
     this.messageCount = 0,
+    this.worktreePath,
+    this.worktreeBranch,
   });
 
   factory SessionInfo.fromJson(Map<String, dynamic> json) {
@@ -529,6 +582,8 @@ class SessionInfo {
       gitBranch: json['gitBranch'] as String? ?? '',
       lastMessage: json['lastMessage'] as String? ?? '',
       messageCount: json['messageCount'] as int? ?? 0,
+      worktreePath: json['worktreePath'] as String?,
+      worktreeBranch: json['worktreeBranch'] as String?,
     );
   }
 }
@@ -544,11 +599,17 @@ class ClientMessage {
     String? sessionId,
     bool? continueMode,
     String? permissionMode,
+    bool? useWorktree,
+    String? worktreeBranch,
   }) {
     final json = <String, dynamic>{'type': 'start', 'projectPath': projectPath};
     if (sessionId != null) json['sessionId'] = sessionId;
     if (continueMode == true) json['continue'] = true;
     if (permissionMode != null) json['permissionMode'] = permissionMode;
+    if (useWorktree == true) json['useWorktree'] = true;
+    if (worktreeBranch != null && worktreeBranch.isNotEmpty) {
+      json['worktreeBranch'] = worktreeBranch;
+    }
     return ClientMessage._(json);
   }
 
@@ -656,6 +717,19 @@ class ClientMessage {
       ClientMessage._({
         'type': 'remove_project_history',
         'projectPath': projectPath,
+      });
+
+  factory ClientMessage.listWorktrees(String projectPath) =>
+      ClientMessage._({'type': 'list_worktrees', 'projectPath': projectPath});
+
+  factory ClientMessage.removeWorktree(
+    String projectPath,
+    String worktreePath,
+  ) =>
+      ClientMessage._({
+        'type': 'remove_worktree',
+        'projectPath': projectPath,
+        'worktreePath': worktreePath,
       });
 
   String toJson() => jsonEncode(_json);

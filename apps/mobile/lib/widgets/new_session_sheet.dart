@@ -9,11 +9,15 @@ class NewSessionParams {
   final String projectPath;
   final PermissionMode permissionMode;
   final bool continueMode;
+  final bool useWorktree;
+  final String? worktreeBranch;
 
   const NewSessionParams({
     required this.projectPath,
     required this.permissionMode,
     required this.continueMode,
+    this.useWorktree = false,
+    this.worktreeBranch,
   });
 }
 
@@ -57,8 +61,10 @@ class _NewSessionSheetContent extends StatefulWidget {
 
 class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _pathController = TextEditingController();
+  final _branchController = TextEditingController();
   var _permissionMode = PermissionMode.acceptEdits;
   var _continueMode = false;
+  var _useWorktree = false;
 
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
 
@@ -85,17 +91,21 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   @override
   void dispose() {
     _pathController.dispose();
+    _branchController.dispose();
     super.dispose();
   }
 
   void _start() {
     final path = _pathController.text.trim();
+    final branch = _branchController.text.trim();
     Navigator.pop(
       context,
       NewSessionParams(
         projectPath: path,
         permissionMode: _permissionMode,
         continueMode: _continueMode,
+        useWorktree: _useWorktree,
+        worktreeBranch: branch.isNotEmpty ? branch : null,
       ),
     );
   }
@@ -256,40 +266,72 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   Widget _buildOptions() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: DropdownButtonFormField<PermissionMode>(
-              key: const ValueKey('dialog_permission_mode'),
-              initialValue: _permissionMode,
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<PermissionMode>(
+                  key: const ValueKey('dialog_permission_mode'),
+                  initialValue: _permissionMode,
+                  decoration: const InputDecoration(
+                    labelText: 'Permission',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: PermissionMode.values
+                      .map(
+                        (m) => DropdownMenuItem(
+                          value: m,
+                          child: Text(
+                            m.label,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) setState(() => _permissionMode = value);
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilterChip(
+                label: const Text('Continue', style: TextStyle(fontSize: 13)),
+                selected: _continueMode,
+                onSelected: (val) => setState(() => _continueMode = val),
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                key: const ValueKey('dialog_worktree'),
+                avatar: _useWorktree
+                    ? null
+                    : const Icon(Icons.account_tree_outlined, size: 16),
+                label:
+                    const Text('Worktree', style: TextStyle(fontSize: 13)),
+                selected: _useWorktree,
+                onSelected: (val) => setState(() => _useWorktree = val),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          if (_useWorktree) ...[
+            const SizedBox(height: 8),
+            TextField(
+              key: const ValueKey('dialog_worktree_branch'),
+              controller: _branchController,
               decoration: const InputDecoration(
-                labelText: 'Permission',
+                labelText: 'Branch (optional)',
+                hintText: 'ccpocket/<auto>',
                 border: OutlineInputBorder(),
                 isDense: true,
+                prefixIcon: Icon(Icons.account_tree_outlined, size: 18),
               ),
-              items: PermissionMode.values
-                  .map(
-                    (m) => DropdownMenuItem(
-                      value: m,
-                      child: Text(
-                        m.label,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) setState(() => _permissionMode = value);
-              },
+              style: const TextStyle(fontSize: 13),
             ),
-          ),
-          const SizedBox(width: 12),
-          FilterChip(
-            label: const Text('Continue', style: TextStyle(fontSize: 13)),
-            selected: _continueMode,
-            onSelected: (val) => setState(() => _continueMode = val),
-            visualDensity: VisualDensity.compact,
-          ),
+          ],
         ],
       ),
     );

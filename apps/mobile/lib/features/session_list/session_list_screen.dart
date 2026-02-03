@@ -151,6 +151,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
             msg.sessionId!,
             projectPath: msg.projectPath ?? _pendingResumeProjectPath,
             gitBranch: _pendingResumeGitBranch,
+            worktreePath: msg.worktreePath,
           );
           _pendingResumeProjectPath = null;
           _pendingResumeGitBranch = null;
@@ -420,6 +421,8 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
             result.projectPath,
             continueMode: result.continueMode ? true : null,
             permissionMode: result.permissionMode.value,
+            useWorktree: result.useWorktree ? true : null,
+            worktreeBranch: result.worktreeBranch,
           ),
         );
   }
@@ -428,6 +431,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     String sessionId, {
     String? projectPath,
     String? gitBranch,
+    String? worktreePath,
   }) {
     Navigator.push(
       context,
@@ -436,6 +440,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
           sessionId: sessionId,
           projectPath: projectPath,
           gitBranch: gitBranch,
+          worktreePath: worktreePath,
         ),
       ),
     ).then((_) {
@@ -605,8 +610,8 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
                     .read(bridgeServiceProvider)
                     .currentProjectFilter,
                 onNewSession: _showNewSessionDialog,
-                onTapRunning: (sessionId, {String? projectPath}) =>
-                    _navigateToChat(sessionId, projectPath: projectPath),
+                onTapRunning: (sessionId, {String? projectPath, String? worktreePath}) =>
+                    _navigateToChat(sessionId, projectPath: projectPath, worktreePath: worktreePath),
                 onStopSession: _stopSession,
                 onResumeSession: _resumeSession,
                 onSelectProject: (path) => ref
