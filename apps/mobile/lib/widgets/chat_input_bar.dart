@@ -7,7 +7,6 @@ import '../models/messages.dart';
 /// Pure presentation — all actions are dispatched via callbacks.
 class ChatInputBar extends StatelessWidget {
   final TextEditingController inputController;
-  final LayerLink inputLayerLink;
   final ProcessStatus status;
   final bool hasInputText;
   final bool isVoiceAvailable;
@@ -21,7 +20,6 @@ class ChatInputBar extends StatelessWidget {
   const ChatInputBar({
     super.key,
     required this.inputController,
-    required this.inputLayerLink,
     required this.status,
     required this.hasInputText,
     required this.isVoiceAvailable,
@@ -96,42 +94,39 @@ class ChatInputBar extends StatelessWidget {
   }
 
   Widget _buildTextField(ColorScheme cs) {
-    return CompositedTransformTarget(
-      link: inputLayerLink,
-      child: TextField(
-        key: const ValueKey('message_input'),
-        controller: inputController,
-        decoration: InputDecoration(
-          hintText: 'Message Claude...',
-          filled: true,
-          fillColor: cs.surfaceContainerLow,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide(
-              color: cs.primary.withValues(alpha: 0.5),
-              width: 1.5,
-            ),
-          ),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 10,
+    return TextField(
+      key: const ValueKey('message_input'),
+      controller: inputController,
+      decoration: InputDecoration(
+        hintText: 'Message Claude...',
+        filled: true,
+        fillColor: cs.surfaceContainerLow,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide(
+            color: cs.primary.withValues(alpha: 0.5),
+            width: 1.5,
           ),
         ),
-        enabled: status != ProcessStatus.starting,
-        maxLines: 6,
-        minLines: 1,
-        keyboardType: TextInputType.multiline,
-        textInputAction: TextInputAction.newline,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
       ),
+      enabled: status != ProcessStatus.starting,
+      maxLines: 6,
+      minLines: 1,
+      keyboardType: TextInputType.multiline,
+      textInputAction: TextInputAction.newline,
     );
   }
 
