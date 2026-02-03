@@ -32,7 +32,8 @@ class DiffScreen extends ConsumerStatefulWidget {
 
 class _DiffScreenState extends ConsumerState<DiffScreen> {
   List<DiffFile> _diffFiles = [];
-  int _selectedFileIndex = 0;
+  Set<int> _hiddenFileIndices = {};
+  Set<int> _collapsedFileIndices = {};
   bool _loading = false;
   String? _error;
   StreamSubscription<DiffResultMessage>? _diffSub;
@@ -87,34 +88,10 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
         title: Text(_screenTitle, overflow: TextOverflow.ellipsis),
         actions: [
           if (_diffFiles.length > 1)
-            PopupMenuButton<int>(
-              icon: const Icon(Icons.list),
-              tooltip: 'Files',
-              onSelected: (index) => setState(() => _selectedFileIndex = index),
-              itemBuilder: (_) => [
-                for (var i = 0; i < _diffFiles.length; i++)
-                  PopupMenuItem(
-                    value: i,
-                    child: Row(
-                      children: [
-                        if (i == _selectedFileIndex)
-                          const Icon(Icons.check, size: 16)
-                        else
-                          const SizedBox(width: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _diffFiles[i].filePath,
-                            style: const TextStyle(fontSize: 13),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        _StatsBadge(file: _diffFiles[i], appColors: appColors),
-                      ],
-                    ),
-                  ),
-              ],
+            IconButton(
+              icon: const Icon(Icons.filter_list),
+              tooltip: 'Filter files',
+              onPressed: () => _showFilterBottomSheet(appColors),
             ),
         ],
       ),
@@ -172,83 +149,276 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
   }
 
   Widget _buildDiffContent(AppColors appColors) {
-    final file = _diffFiles[_selectedFileIndex];
+    // Single-file mode: no header needed
+    if (_diffFiles.length == 1) {
+      final file = _diffFiles.first;
+      return file.isBinary
+          ? _buildBinaryNotice(appColors)
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: file.hunks.length,
+              itemBuilder: (context, index) =>
+                  _HunkWidget(hunk: file.hunks[index], appColors: appColors),
+            );
+    }
 
-    return Column(
-      children: [
-        // File header bar (for multi-file mode)
-        if (_diffFiles.length > 1) _buildFileHeader(file, appColors),
-        // Diff content
-        Expanded(
-          child: file.isBinary
-              ? _buildBinaryNotice(appColors)
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: file.hunks.length,
-                  itemBuilder: (context, index) => _HunkWidget(
-                    hunk: file.hunks[index],
-                    appColors: appColors,
-                  ),
-                ),
+    // Multi-file mode: all visible files in one scrollable list
+    final visibleFiles = <int>[];
+    for (var i = 0; i < _diffFiles.length; i++) {
+      if (!_hiddenFileIndices.contains(i)) visibleFiles.add(i);
+    }
+
+    if (visibleFiles.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.filter_list_off, size: 48, color: appColors.subtleText),
+            const SizedBox(height: 12),
+            Text(
+              'All files filtered out',
+              style: TextStyle(fontSize: 16, color: appColors.subtleText),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => setState(() => _hiddenFileIndices.clear()),
+              child: const Text('Show all'),
+            ),
+          ],
         ),
-      ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: _countListItems(visibleFiles),
+      itemBuilder: (context, index) =>
+          _buildListItem(index, visibleFiles, appColors),
     );
   }
 
-  Widget _buildFileHeader(DiffFile file, AppColors appColors) {
+  /// Count total items: for each visible file, header + hunks (if expanded) + divider (except last).
+  int _countListItems(List<int> visibleFiles) {
+    var count = 0;
+    for (var i = 0; i < visibleFiles.length; i++) {
+      final fileIdx = visibleFiles[i];
+      final file = _diffFiles[fileIdx];
+      final collapsed = _collapsedFileIndices.contains(fileIdx);
+      count += 1; // header
+      if (!collapsed) {
+        count += file.isBinary ? 1 : file.hunks.length;
+      }
+      if (i < visibleFiles.length - 1) count += 1; // divider
+    }
+    return count;
+  }
+
+  /// Map a flat list index to the appropriate widget.
+  Widget _buildListItem(
+    int index,
+    List<int> visibleFiles,
+    AppColors appColors,
+  ) {
+    var offset = 0;
+    for (var i = 0; i < visibleFiles.length; i++) {
+      final fileIdx = visibleFiles[i];
+      final file = _diffFiles[fileIdx];
+      final collapsed = _collapsedFileIndices.contains(fileIdx);
+      final contentCount = collapsed
+          ? 0
+          : (file.isBinary ? 1 : file.hunks.length);
+      final sectionSize = 1 + contentCount; // header + content
+
+      if (index < offset + sectionSize) {
+        final localIdx = index - offset;
+        if (localIdx == 0) {
+          return _buildFileHeader(file, fileIdx, appColors);
+        }
+        if (file.isBinary) {
+          return _buildBinaryNotice(appColors);
+        }
+        return _HunkWidget(
+          hunk: file.hunks[localIdx - 1],
+          appColors: appColors,
+        );
+      }
+
+      offset += sectionSize;
+
+      // Divider between files
+      if (i < visibleFiles.length - 1) {
+        if (index == offset) {
+          return Divider(height: 24, thickness: 1, color: appColors.codeBorder);
+        }
+        offset += 1;
+      }
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildFileHeader(DiffFile file, int fileIndex, AppColors appColors) {
     final stats = file.stats;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: appColors.codeBackground,
-        border: Border(bottom: BorderSide(color: appColors.codeBorder)),
+    final collapsed = _collapsedFileIndices.contains(fileIndex);
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (collapsed) {
+            _collapsedFileIndices.remove(fileIndex);
+          } else {
+            _collapsedFileIndices.add(fileIndex);
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: appColors.codeBackground,
+          border: Border(bottom: BorderSide(color: appColors.codeBorder)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              file.isNewFile
+                  ? Icons.add_circle_outline
+                  : file.isDeleted
+                  ? Icons.remove_circle_outline
+                  : Icons.edit_note,
+              size: 16,
+              color: appColors.subtleText,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                file.filePath,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w600,
+                  color: appColors.toolResultTextExpanded,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (stats.added > 0)
+              Text(
+                '+${stats.added}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: appColors.diffAdditionText,
+                ),
+              ),
+            if (stats.added > 0 && stats.removed > 0) const SizedBox(width: 6),
+            if (stats.removed > 0)
+              Text(
+                '-${stats.removed}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: appColors.diffDeletionText,
+                ),
+              ),
+            const SizedBox(width: 8),
+            Icon(
+              collapsed ? Icons.chevron_right : Icons.expand_more,
+              size: 20,
+              color: appColors.subtleText,
+            ),
+          ],
+        ),
       ),
-      child: Row(
-        children: [
-          Icon(
-            file.isNewFile
-                ? Icons.add_circle_outline
-                : file.isDeleted
-                ? Icons.remove_circle_outline
-                : Icons.edit_note,
-            size: 16,
-            color: appColors.subtleText,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              file.filePath,
-              style: TextStyle(
-                fontSize: 13,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w600,
-                color: appColors.toolResultTextExpanded,
+    );
+  }
+
+  void _showFilterBottomSheet(AppColors appColors) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Filter Files',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: appColors.toolResultTextExpanded,
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () {
+                            setSheetState(() => _hiddenFileIndices.clear());
+                            setState(() {});
+                          },
+                          child: const Text('All'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setSheetState(() {
+                              _hiddenFileIndices = Set<int>.from(
+                                List.generate(_diffFiles.length, (i) => i),
+                              );
+                            });
+                            setState(() {});
+                          },
+                          child: const Text('None'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _diffFiles.length,
+                      itemBuilder: (context, index) {
+                        final file = _diffFiles[index];
+                        final visible = !_hiddenFileIndices.contains(index);
+                        return CheckboxListTile(
+                          value: visible,
+                          onChanged: (checked) {
+                            setSheetState(() {
+                              if (checked == true) {
+                                _hiddenFileIndices.remove(index);
+                              } else {
+                                _hiddenFileIndices.add(index);
+                              }
+                            });
+                            setState(() {});
+                          },
+                          title: Text(
+                            file.filePath,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontFamily: 'monospace',
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          secondary: _StatsBadge(
+                            file: file,
+                            appColors: appColors,
+                          ),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (stats.added > 0)
-            Text(
-              '+${stats.added}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: appColors.diffAdditionText,
-              ),
-            ),
-          if (stats.added > 0 && stats.removed > 0) const SizedBox(width: 6),
-          if (stats.removed > 0)
-            Text(
-              '-${stats.removed}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: appColors.diffDeletionText,
-              ),
-            ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 

@@ -86,14 +86,14 @@ void main() {
   });
 
   group('DiffScreen - multi-file diff', () {
-    testWidgets('shows file selector for multi-file diffs', (tester) async {
+    testWidgets('shows filter button for multi-file diffs', (tester) async {
       await tester.pumpWidget(_wrap(
         const DiffScreen(initialDiff: _multiFileDiff),
       ));
       await tester.pumpAndSettle();
 
-      // File list icon should be present
-      expect(find.byIcon(Icons.list), findsOneWidget);
+      // Filter icon should be present
+      expect(find.byIcon(Icons.filter_list), findsOneWidget);
     });
 
     testWidgets('shows file header with stats', (tester) async {
