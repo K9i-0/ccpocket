@@ -269,6 +269,10 @@ sealed class ServerMessage {
       'project_history' => ProjectHistoryMessage(
         projects: (json['projects'] as List).cast<String>(),
       ),
+      'diff_result' => DiffResultMessage(
+        diff: json['diff'] as String? ?? '',
+        error: json['error'] as String?,
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -412,6 +416,12 @@ class FileListMessage implements ServerMessage {
 class ProjectHistoryMessage implements ServerMessage {
   final List<String> projects;
   const ProjectHistoryMessage({required this.projects});
+}
+
+class DiffResultMessage implements ServerMessage {
+  final String diff;
+  final String? error;
+  const DiffResultMessage({required this.diff, this.error});
 }
 
 class PastMessage {
@@ -628,6 +638,9 @@ class ClientMessage {
 
   factory ClientMessage.listFiles(String projectPath) =>
       ClientMessage._({'type': 'list_files', 'projectPath': projectPath});
+
+  factory ClientMessage.getDiff(String projectPath) =>
+      ClientMessage._({'type': 'get_diff', 'projectPath': projectPath});
 
   factory ClientMessage.interrupt({String? sessionId}) {
     final json = <String, dynamic>{'type': 'interrupt'};

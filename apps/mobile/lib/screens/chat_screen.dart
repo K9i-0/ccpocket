@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/messages.dart';
 import '../providers/bridge_providers.dart';
+import 'diff_screen.dart';
 import '../services/bridge_service_base.dart';
 import '../services/chat_message_handler.dart';
 import '../services/notification_service.dart';
@@ -702,6 +703,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           appBar: AppBar(
             title: _buildAppBarTitle(),
             actions: [
+              if (widget.projectPath != null)
+                IconButton(
+                  icon: const Icon(Icons.difference, size: 20),
+                  tooltip: 'View Changes',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            DiffScreen(projectPath: widget.projectPath),
+                      ),
+                    );
+                  },
+                ),
               if (_inPlanMode) _buildPlanModeChip(appColors),
               if (_otherSessions.isNotEmpty) _buildSessionSwitcher(appColors),
               if (_totalCost > 0) _buildCostBadge(),

@@ -306,6 +306,17 @@ export class BridgeWebSocketServer {
         });
         break;
       }
+
+      case "get_diff": {
+        execFile("git", ["diff", "--no-color"], { cwd: msg.projectPath, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
+          if (err) {
+            this.send(ws, { type: "diff_result", diff: "", error: `Failed to get diff: ${err.message}` });
+            return;
+          }
+          this.send(ws, { type: "diff_result", diff: stdout });
+        });
+        break;
+      }
     }
   }
 

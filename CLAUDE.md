@@ -18,9 +18,11 @@ ccpocket/
 │       ├── main.dart
 │       ├── screens/
 │       │   ├── session_list_screen.dart  # セッション一覧 (ホーム)
-│       │   └── chat_screen.dart          # チャット画面
+│       │   ├── chat_screen.dart          # チャット画面
+│       │   └── diff_screen.dart          # Diff表示画面
 │       ├── models/messages.dart          # メッセージ型定義
 │       ├── services/bridge_service.dart  # WebSocketクライアント
+│       ├── utils/diff_parser.dart        # Unified diffパーサー
 │       └── widgets/message_bubble.dart   # メッセージUI
 └── package.json        # npm workspaces root
 ```
@@ -88,6 +90,7 @@ Flutter App ←WebSocket→ websocket.ts ←→ session.ts ←→ claude-process
 - `list_sessions` - セッション一覧取得
 - `stop_session` - セッション停止 (sessionId)
 - `get_history` - セッション履歴取得 (sessionId)
+- `get_diff` - プロジェクトのgit diff取得 (projectPath)
 
 ### Server → Client メッセージ
 - `system` - システムイベント (init, session_created)
@@ -100,6 +103,7 @@ Flutter App ←WebSocket→ websocket.ts ←→ session.ts ←→ claude-process
 - `permission_request` - パーミッション要求
 - `stream_delta` - ストリーミングテキスト差分
 - `session_list` - セッション一覧
+- `diff_result` - git diff結果 (diff, error?)
 
 ## リモートアクセス設定
 

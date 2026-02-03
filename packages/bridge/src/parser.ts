@@ -56,6 +56,7 @@ export type ClientMessage =
   | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode }
   | { type: "list_gallery"; project?: string }
   | { type: "list_files"; projectPath: string }
+  | { type: "get_diff"; projectPath: string }
   | { type: "interrupt"; sessionId?: string }
   | { type: "list_project_history" }
   | { type: "remove_project_history"; projectPath: string };
@@ -72,7 +73,8 @@ export type ServerMessage =
   | { type: "stream_delta"; text: string }
   | { type: "thinking_delta"; text: string }
   | { type: "file_list"; files: string[] }
-  | { type: "project_history"; projects: string[] };
+  | { type: "project_history"; projects: string[] }
+  | { type: "diff_result"; diff: string; error?: string };
 
 export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval";
 
@@ -131,6 +133,9 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "list_gallery":
         break;
       case "list_files":
+        if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "get_diff":
         if (typeof msg.projectPath !== "string") return null;
         break;
       case "interrupt":
