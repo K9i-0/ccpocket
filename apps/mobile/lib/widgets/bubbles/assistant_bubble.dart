@@ -16,37 +16,20 @@ class AssistantBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final content in message.message.content)
           switch (content) {
-            TextContent(:final text) => Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                margin: const EdgeInsets.symmetric(
-                  vertical: AppSpacing.bubbleMarginV,
-                  horizontal: AppSpacing.bubbleMarginH,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppSpacing.bubblePaddingV,
-                  horizontal: AppSpacing.bubblePaddingH,
-                ),
-                constraints: BoxConstraints(
-                  maxWidth:
-                      MediaQuery.of(context).size.width *
-                      AppSpacing.maxBubbleWidthFraction,
-                ),
-                decoration: BoxDecoration(
-                  color: appColors.assistantBubble,
-                  borderRadius: AppSpacing.assistantBubbleBorderRadius,
-                ),
-                child: MarkdownBody(
-                  data: text,
-                  selectable: true,
-                  styleSheet: buildMarkdownStyle(context),
-                ),
+            TextContent(:final text) => Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.bubbleMarginV,
+                horizontal: AppSpacing.bubbleMarginH,
+              ),
+              child: MarkdownBody(
+                data: text,
+                selectable: true,
+                styleSheet: buildMarkdownStyle(context),
               ),
             ),
             ToolUseContent(:final name, :final input) =>

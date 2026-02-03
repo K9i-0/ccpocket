@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_driver/driver_extension.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'screens/session_list_screen.dart';
+import 'features/session_list/session_list_screen.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 

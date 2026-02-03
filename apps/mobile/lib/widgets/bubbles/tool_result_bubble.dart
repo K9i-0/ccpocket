@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/messages.dart';
-import '../../screens/diff_screen.dart';
+import '../../features/diff/diff_screen.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import 'image_preview.dart';

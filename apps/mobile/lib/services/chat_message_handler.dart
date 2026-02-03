@@ -175,7 +175,8 @@ class ChatMessageHandler {
     }
 
     return ChatStateUpdate(
-      entriesToAdd: replaceStreaming == null ? [entry] : [],
+      entriesToAdd: [entry],
+      resetStreaming: replaceStreaming != null,
       markUserMessagesSent: true,
       askToolUseId: askToolUseId,
       askInput: askInput,

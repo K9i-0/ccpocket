@@ -129,7 +129,12 @@ class BridgeService implements BridgeServiceBase {
                 _appendMode = false;
                 _recentSessionsController.add(_recentSessions);
               case PastHistoryMessage():
-                pendingPastHistory = msg;
+                // Only buffer for resume_session flow (no sessionId).
+                // get_history responses include sessionId and are already
+                // delivered via the tagged stream to the correct ChatScreen.
+                if (sessionId == null) {
+                  pendingPastHistory = msg;
+                }
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
               case GalleryListMessage(:final images):

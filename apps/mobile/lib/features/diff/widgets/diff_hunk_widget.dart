@@ -1,0 +1,137 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../theme/app_theme.dart';
+import '../../../utils/diff_parser.dart';
+
+class DiffHunkWidget extends StatelessWidget {
+  final DiffHunk hunk;
+
+  const DiffHunkWidget({super.key, required this.hunk});
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (hunk.header.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            color: appColors.codeBackground,
+            child: Text(
+              hunk.header,
+              style: TextStyle(
+                fontSize: 11,
+                fontFamily: 'monospace',
+                color: appColors.subtleText,
+              ),
+            ),
+          ),
+        for (final line in hunk.lines) DiffLineWidget(line: line),
+        const SizedBox(height: 4),
+      ],
+    );
+  }
+}
+
+class DiffLineWidget extends StatelessWidget {
+  final DiffLine line;
+
+  const DiffLineWidget({super.key, required this.line});
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final (bgColor, textColor, prefix) = switch (line.type) {
+      DiffLineType.addition => (
+        appColors.diffAdditionBackground,
+        appColors.diffAdditionText,
+        '+',
+      ),
+      DiffLineType.deletion => (
+        appColors.diffDeletionBackground,
+        appColors.diffDeletionText,
+        '-',
+      ),
+      DiffLineType.context => (
+        Colors.transparent,
+        appColors.toolResultTextExpanded,
+        ' ',
+      ),
+    };
+
+    return GestureDetector(
+      onLongPress: () {
+        Clipboard.setData(ClipboardData(text: line.content));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Line copied'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      },
+      child: Container(
+        color: bgColor,
+        padding: const EdgeInsets.symmetric(vertical: 1),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 40,
+              child: Text(
+                line.oldLineNumber?.toString() ?? '',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  color: appColors.subtleText,
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 40,
+              child: Text(
+                line.newLineNumber?.toString() ?? '',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  color: appColors.subtleText,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            SizedBox(
+              width: 12,
+              child: Text(
+                prefix,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Text(
+                  line.content,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    color: textColor,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -3,14 +3,14 @@ import 'dart:convert';
 
 import '../mock/mock_scenarios.dart';
 import '../models/messages.dart';
-import 'bridge_service_base.dart';
+import 'bridge_service.dart';
 
-class MockBridgeService implements BridgeServiceBase {
-  final _messageController = StreamController<ServerMessage>.broadcast();
+class MockBridgeService extends BridgeService {
+  final _mockMessageController = StreamController<ServerMessage>.broadcast();
   final List<Timer> _timers = [];
 
   @override
-  Stream<ServerMessage> get messages => _messageController.stream;
+  Stream<ServerMessage> get messages => _mockMessageController.stream;
 
   @override
   String? get httpBaseUrl => null;
@@ -21,9 +21,6 @@ class MockBridgeService implements BridgeServiceBase {
   @override
   Stream<BridgeConnectionState> get connectionStatus =>
       Stream.value(BridgeConnectionState.connected);
-
-  @override
-  PastHistoryMessage? pendingPastHistory;
 
   @override
   void send(ClientMessage message) {
@@ -214,18 +211,20 @@ class MockBridgeService implements BridgeServiceBase {
 
   void _scheduleMessage(Duration delay, ServerMessage message) {
     final timer = Timer(delay, () {
-      if (!_messageController.isClosed) {
-        _messageController.add(message);
+      if (!_mockMessageController.isClosed) {
+        _mockMessageController.add(message);
       }
     });
     _timers.add(timer);
   }
 
+  @override
   void dispose() {
     for (final timer in _timers) {
       timer.cancel();
     }
     _timers.clear();
-    _messageController.close();
+    _mockMessageController.close();
+    super.dispose();
   }
 }

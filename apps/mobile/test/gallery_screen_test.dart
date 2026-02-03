@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_providers.dart';
-import 'package:ccpocket/screens/gallery_screen.dart';
+import 'package:ccpocket/features/gallery/gallery_screen.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 
