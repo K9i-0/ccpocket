@@ -22,6 +22,8 @@ class BridgeService implements BridgeServiceBase {
       StreamController<List<RecentSession>>.broadcast();
   final _galleryController = StreamController<List<GalleryImage>>.broadcast();
   final _fileListController = StreamController<List<String>>.broadcast();
+  final _diffResultController =
+      StreamController<DiffResultMessage>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
@@ -52,6 +54,7 @@ class BridgeService implements BridgeServiceBase {
   Stream<List<GalleryImage>> get galleryStream => _galleryController.stream;
   @override
   Stream<List<String>> get fileList => _fileListController.stream;
+  Stream<DiffResultMessage> get diffResults => _diffResultController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
@@ -120,6 +123,8 @@ class BridgeService implements BridgeServiceBase {
                 _galleryController.add(_galleryImages);
               case FileListMessage(:final files):
                 _fileListController.add(files);
+              case DiffResultMessage():
+                _diffResultController.add(msg);
               default:
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
@@ -304,5 +309,6 @@ class BridgeService implements BridgeServiceBase {
     _recentSessionsController.close();
     _galleryController.close();
     _fileListController.close();
+    _diffResultController.close();
   }
 }
