@@ -27,6 +27,7 @@ void main() {
     VoidCallback? onInterrupt,
     VoidCallback? onToggleVoice,
     VoidCallback? onShowSlashCommands,
+    VoidCallback? onExpand,
   }) {
     return MaterialApp(
       home: Scaffold(
@@ -42,6 +43,7 @@ void main() {
           onInterrupt: onInterrupt ?? () {},
           onToggleVoice: onToggleVoice ?? () {},
           onShowSlashCommands: onShowSlashCommands ?? () {},
+          onExpand: onExpand ?? () {},
         ),
       ),
     );
@@ -178,6 +180,29 @@ void main() {
       await tester.pumpWidget(buildSubject());
 
       expect(find.byKey(const ValueKey('message_input')), findsOneWidget);
+    });
+
+    testWidgets('expand button is visible when idle', (tester) async {
+      await tester.pumpWidget(buildSubject());
+
+      expect(
+        find.byKey(const ValueKey('expand_compose_button')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('expand button fires callback', (tester) async {
+      var expanded = false;
+      await tester.pumpWidget(buildSubject(onExpand: () => expanded = true));
+
+      await tester.tap(find.byKey(const ValueKey('expand_compose_button')));
+      expect(expanded, isTrue);
+    });
+
+    testWidgets('expand button hidden when starting', (tester) async {
+      await tester.pumpWidget(buildSubject(status: ProcessStatus.starting));
+
+      expect(find.byKey(const ValueKey('expand_compose_button')), findsNothing);
     });
 
     testWidgets('send button shows when running with text', (tester) async {

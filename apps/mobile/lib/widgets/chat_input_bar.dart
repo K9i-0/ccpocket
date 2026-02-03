@@ -17,6 +17,7 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onInterrupt;
   final VoidCallback onToggleVoice;
   final VoidCallback onShowSlashCommands;
+  final VoidCallback onExpand;
 
   const ChatInputBar({
     super.key,
@@ -31,6 +32,7 @@ class ChatInputBar extends StatelessWidget {
     required this.onInterrupt,
     required this.onToggleVoice,
     required this.onShowSlashCommands,
+    required this.onExpand,
   });
 
   @override
@@ -121,6 +123,18 @@ class ChatInputBar extends StatelessWidget {
               horizontal: 16,
               vertical: 10,
             ),
+            suffixIcon: status != ProcessStatus.starting
+                ? IconButton(
+                    key: const ValueKey('expand_compose_button'),
+                    icon: Icon(Icons.open_in_full, size: 18, color: cs.outline),
+                    onPressed: onExpand,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    padding: EdgeInsets.zero,
+                  )
+                : null,
           ),
           enabled: status != ProcessStatus.starting,
           textInputAction: TextInputAction.send,
