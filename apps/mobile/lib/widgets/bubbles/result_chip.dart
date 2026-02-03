@@ -34,13 +34,17 @@ class ResultChip extends StatelessWidget {
         chipColor = appColors.errorChip;
     }
 
+    // Only show result text for non-success cases (errors, stopped).
+    // For success, the text is already displayed by AssistantBubble.
     final resultText = message.result;
-    final hasResultText = resultText != null && resultText.trim().isNotEmpty;
+    final showResultText = message.subtype != 'success' &&
+        resultText != null &&
+        resultText.trim().isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (hasResultText)
+        if (showResultText)
           Align(
             alignment: Alignment.centerLeft,
             child: Container(
@@ -62,7 +66,7 @@ class ResultChip extends StatelessWidget {
                 borderRadius: AppSpacing.assistantBubbleBorderRadius,
               ),
               child: MarkdownBody(
-                data: resultText,
+                data: resultText!,
                 selectable: true,
                 styleSheet: buildMarkdownStyle(context),
               ),
