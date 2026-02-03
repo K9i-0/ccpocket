@@ -1,5 +1,5 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { homedir } from "node:os";
 
 export interface SessionIndexEntry {
@@ -44,6 +44,126 @@ export interface GetRecentSessionsResult {
   hasMore: boolean;
 }
 
+/** Convert a filesystem path to Claude's project directory slug (e.g. /foo/bar → -foo-bar). */
+export function pathToSlug(p: string): string {
+  return p.replaceAll("/", "-");
+}
+
+/**
+ * Check if a directory slug represents a worktree directory for a given project slug.
+ * e.g. "-Users-x-proj-worktrees-branch" is a worktree dir for "-Users-x-proj".
+ */
+export function isWorktreeSlug(dirSlug: string, projectSlug: string): boolean {
+  return dirSlug.startsWith(projectSlug + "-worktrees-");
+}
+
+/**
+ * Scan a directory for JSONL session files and create SessionIndexEntry objects.
+ * Used as a fallback when sessions-index.json is missing (common for worktree sessions).
+ */
+export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]> {
+  const entries: SessionIndexEntry[] = [];
+
+  let files: string[];
+  try {
+    files = await readdir(dirPath);
+  } catch {
+    return entries;
+  }
+
+  for (const file of files) {
+    if (!file.endsWith(".jsonl")) continue;
+
+    const sessionId = basename(file, ".jsonl");
+    const filePath = join(dirPath, file);
+
+    let raw: string;
+    try {
+      raw = await readFile(filePath, "utf-8");
+    } catch {
+      continue;
+    }
+
+    const lines = raw.split("\n");
+    let firstPrompt = "";
+    let messageCount = 0;
+    let created = "";
+    let modified = "";
+    let gitBranch = "";
+    let projectPath = "";
+    let isSidechain = false;
+    let summary: string | undefined;
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+
+      let entry: Record<string, unknown>;
+      try {
+        entry = JSON.parse(line) as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+
+      const type = entry.type as string;
+
+      if (type === "summary" && entry.summary) {
+        summary = entry.summary as string;
+      }
+
+      if (type !== "user" && type !== "assistant") continue;
+      messageCount++;
+
+      const timestamp = entry.timestamp as string | undefined;
+      if (timestamp) {
+        if (!created) created = timestamp;
+        modified = timestamp;
+      }
+
+      if (!gitBranch && entry.gitBranch) {
+        gitBranch = entry.gitBranch as string;
+      }
+
+      if (!projectPath && entry.cwd) {
+        projectPath = entry.cwd as string;
+      }
+
+      if (type === "user" && !firstPrompt) {
+        const message = entry.message as
+          | { content?: Array<{ type: string; text?: string }> }
+          | undefined;
+        if (message?.content) {
+          const textBlock = message.content.find(
+            (c) => c.type === "text" && c.text,
+          );
+          if (textBlock?.text) {
+            firstPrompt = textBlock.text;
+          }
+        }
+      }
+
+      if (entry.isSidechain) {
+        isSidechain = true;
+      }
+    }
+
+    if (messageCount > 0) {
+      entries.push({
+        sessionId,
+        summary,
+        firstPrompt,
+        messageCount,
+        created,
+        modified,
+        gitBranch,
+        projectPath,
+        isSidechain,
+      });
+    }
+  }
+
+  return entries;
+}
+
 export async function getAllRecentSessions(
   options: GetRecentSessionsOptions = {},
 ): Promise<GetRecentSessionsResult> {
@@ -62,48 +182,68 @@ export async function getAllRecentSessions(
     return { sessions: [], hasMore: false };
   }
 
+  // Compute worktree slug prefix for projectPath filtering
+  const projectSlug = filterProjectPath
+    ? pathToSlug(filterProjectPath)
+    : null;
+
   for (const dirName of projectDirs) {
     // Skip hidden directories
     if (dirName.startsWith(".")) continue;
 
-    const indexPath = join(projectsDir, dirName, "sessions-index.json");
-    let raw: string;
+    // When filtering by project, skip unrelated directories early
+    const isProjectDir = projectSlug ? dirName === projectSlug : false;
+    const isWorktreeDir = projectSlug
+      ? isWorktreeSlug(dirName, projectSlug)
+      : false;
+    if (filterProjectPath && !isProjectDir && !isWorktreeDir) continue;
+
+    const dirPath = join(projectsDir, dirName);
+    const indexPath = join(dirPath, "sessions-index.json");
+    let raw: string | null = null;
     try {
       raw = await readFile(indexPath, "utf-8");
     } catch {
-      // No sessions-index.json for this project
-      continue;
+      // No sessions-index.json — will try JSONL scan for worktree dirs
     }
 
-    let index: RawSessionIndexFile;
-    try {
-      index = JSON.parse(raw) as RawSessionIndexFile;
-    } catch {
-      console.error(`[sessions-index] Failed to parse ${indexPath}`);
-      continue;
-    }
-
-    if (!Array.isArray(index.entries)) continue;
-
-    for (const entry of index.entries) {
-      const mapped: SessionIndexEntry = {
-        sessionId: entry.sessionId,
-        summary: entry.summary,
-        firstPrompt: entry.firstPrompt ?? "",
-        messageCount: entry.messageCount ?? 0,
-        created: entry.created ?? "",
-        modified: entry.modified ?? "",
-        gitBranch: entry.gitBranch ?? "",
-        projectPath: entry.projectPath ?? "",
-        isSidechain: entry.isSidechain ?? false,
-      };
-
-      // Apply projectPath filter if specified
-      if (filterProjectPath && mapped.projectPath !== filterProjectPath) {
+    if (raw !== null) {
+      // Parse sessions-index.json
+      let index: RawSessionIndexFile;
+      try {
+        index = JSON.parse(raw) as RawSessionIndexFile;
+      } catch {
+        console.error(`[sessions-index] Failed to parse ${indexPath}`);
         continue;
       }
 
-      entries.push(mapped);
+      if (!Array.isArray(index.entries)) continue;
+
+      for (const entry of index.entries) {
+        const mapped: SessionIndexEntry = {
+          sessionId: entry.sessionId,
+          summary: entry.summary,
+          firstPrompt: entry.firstPrompt ?? "",
+          messageCount: entry.messageCount ?? 0,
+          created: entry.created ?? "",
+          modified: entry.modified ?? "",
+          gitBranch: entry.gitBranch ?? "",
+          projectPath: entry.projectPath ?? "",
+          isSidechain: entry.isSidechain ?? false,
+        };
+
+        // Accept entries from the project dir or its worktree dirs
+        if (filterProjectPath && !isProjectDir && !isWorktreeDir) {
+          continue;
+        }
+
+        entries.push(mapped);
+      }
+    } else if (isWorktreeDir || !filterProjectPath) {
+      // No sessions-index.json: scan JSONL files directly
+      // This handles worktree sessions where Claude CLI didn't create an index
+      const scanned = await scanJsonlDir(dirPath);
+      entries.push(...scanned);
     }
   }
 
@@ -134,7 +274,8 @@ export interface SessionHistoryMessage {
 }
 
 /**
- * Find the JSONL file path for a given sessionId by searching sessions-index.json files.
+ * Find the JSONL file path for a given sessionId by searching sessions-index.json files,
+ * then falling back to scanning directories for the JSONL file directly.
  */
 async function findSessionJsonlPath(sessionId: string): Promise<string | null> {
   const projectsDir = join(homedir(), ".claude", "projects");
@@ -146,6 +287,7 @@ async function findSessionJsonlPath(sessionId: string): Promise<string | null> {
     return null;
   }
 
+  // First pass: check sessions-index.json files
   for (const dirName of projectDirs) {
     if (dirName.startsWith(".")) continue;
 
@@ -169,6 +311,21 @@ async function findSessionJsonlPath(sessionId: string): Promise<string | null> {
     const entry = index.entries.find((e) => e.sessionId === sessionId);
     if (entry?.fullPath) {
       return entry.fullPath;
+    }
+  }
+
+  // Fallback: scan directories for the JSONL file directly
+  // This handles worktree sessions without sessions-index.json
+  const jsonlFileName = `${sessionId}.jsonl`;
+  for (const dirName of projectDirs) {
+    if (dirName.startsWith(".")) continue;
+
+    const candidatePath = join(projectsDir, dirName, jsonlFileName);
+    try {
+      await stat(candidatePath);
+      return candidatePath;
+    } catch {
+      continue;
     }
   }
 
