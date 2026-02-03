@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/messages.dart';
+import '../../screens/diff_screen.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import 'image_preview.dart';
@@ -110,6 +111,53 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     return '$lineCount lines';
   }
 
+  /// Whether this tool result contains a viewable diff.
+  bool get _isDiffContent {
+    final toolName = widget.message.toolName;
+    if (toolName != 'Edit' && toolName != 'FileEdit') return false;
+    final content = widget.message.content;
+    // Check for unified diff markers
+    return content.contains('---') && content.contains('+++') ||
+        _hasDiffLines(content);
+  }
+
+  static bool _hasDiffLines(String content) {
+    final lines = content.split('\n');
+    for (final line in lines) {
+      if ((line.startsWith('+') && !line.startsWith('+++')) ||
+          (line.startsWith('-') && !line.startsWith('---'))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String? _extractFilePath() {
+    final content = widget.message.content;
+    final match = RegExp(r'\+\+\+ b/(.+)').firstMatch(content);
+    return match?.group(1);
+  }
+
+  void _openDiffScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DiffScreen(
+          initialDiff: widget.message.content,
+          title: _extractFilePath(),
+        ),
+      ),
+    );
+  }
+
+  void _onTap() {
+    if (_isDiffContent) {
+      _openDiffScreen();
+    } else {
+      _cycleExpansion();
+    }
+  }
+
   void _copyContent(BuildContext context) {
     final content = widget.message.content;
     if (content.isEmpty) return;
@@ -133,7 +181,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
         vertical: 1,
       ),
       child: InkWell(
-        onTap: _cycleExpansion,
+        onTap: _onTap,
         onLongPress: () => _copyContent(context),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
@@ -196,7 +244,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
         horizontal: AppSpacing.bubbleMarginH,
       ),
       child: InkWell(
-        onTap: _cycleExpansion,
+        onTap: _onTap,
         onLongPress: () => _copyContent(context),
         borderRadius: BorderRadius.circular(AppSpacing.codeRadius),
         child: Container(
