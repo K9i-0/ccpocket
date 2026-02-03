@@ -15,16 +15,12 @@ import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/server_discovery_service.dart';
 import '../../services/url_history_service.dart';
-import '../../theme/app_theme.dart';
 import '../../widgets/new_session_sheet.dart';
-import '../../widgets/session_card.dart';
 import '../chat/chat_screen.dart';
 import '../gallery/gallery_screen.dart';
 import 'state/session_list_state.dart';
-import 'widgets/date_filter_chips.dart';
-import 'widgets/project_filter_chips.dart';
-import 'widgets/section_header.dart';
-import 'widgets/session_list_empty_state.dart';
+import 'widgets/connect_form.dart';
+import 'widgets/home_content.dart';
 
 // ---- Testable helpers (top-level) ----
 
@@ -646,15 +642,49 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
           : showConnectedUI
           ? RefreshIndicator(
               onRefresh: () async => _refresh(),
-              child: _buildHomeContent(
+              child: HomeContent(
                 connectionState: connectionState,
                 sessions: sessions,
-                recentSessionsList: recentSessionsList,
+                recentSessions: recentSessionsList,
+                accumulatedProjectPaths: _accumulatedProjectPaths,
+                selectedProject: _selectedProject,
+                dateFilter: _dateFilter,
+                searchQuery: _searchQuery,
+                isLoadingMore: _isLoadingMore,
+                hasMoreSessions: ref
+                    .read(bridgeServiceProvider)
+                    .recentSessionsHasMore,
+                currentProjectFilter: ref
+                    .read(bridgeServiceProvider)
+                    .currentProjectFilter,
+                onNewSession: _showNewSessionDialog,
+                onTapRunning: (sessionId, {String? projectPath}) =>
+                    _navigateToChat(sessionId, projectPath: projectPath),
+                onStopSession: _stopSession,
+                onResumeSession: _resumeSession,
+                onSelectProject: (path) {
+                  setState(() => _selectedProject = path?.split('/').last);
+                  ref.read(bridgeServiceProvider).switchProjectFilter(path);
+                },
+                onSelectDateFilter: (f) => setState(() => _dateFilter = f),
+                onLoadMore: _loadMore,
               ),
             )
           : connectionState == BridgeConnectionState.connecting
           ? const Center(child: CircularProgressIndicator())
-          : _buildConnectForm(discoveredServers: discoveredServers),
+          : ConnectForm(
+              urlController: _urlController,
+              apiKeyController: _apiKeyController,
+              discoveredServers: discoveredServers,
+              urlHistory: _urlHistory,
+              onConnect: _connect,
+              onScanQrCode: _scanQrCode,
+              onConnectToDiscovered: _connectToDiscovered,
+              onSelectUrlHistory: _selectUrlHistory,
+              onRemoveUrlHistory: (url) async {
+                await _removeUrlHistory(url);
+              },
+            ),
       floatingActionButton: showConnectedUI
           ? FloatingActionButton(
               key: const ValueKey('new_session_fab'),
@@ -662,118 +692,6 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
               child: const Icon(Icons.add),
             )
           : null,
-    );
-  }
-
-  Widget _buildConnectForm({
-    required List<DiscoveredServer> discoveredServers,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.08),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.terminal,
-              size: 48,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Connect to Bridge Server',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 24),
-          if (discoveredServers.isNotEmpty) ...[
-            _buildDiscoveredServers(discoveredServers: discoveredServers),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Divider(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    'or enter manually',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Divider(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (_urlHistory.isNotEmpty) ...[
-            _buildUrlHistory(),
-            const SizedBox(height: 16),
-          ],
-          TextField(
-            key: const ValueKey('server_url_field'),
-            controller: _urlController,
-            decoration: const InputDecoration(
-              labelText: 'Server URL',
-              hintText: 'ws://<host-ip>:8765',
-              prefixIcon: Icon(Icons.dns),
-              border: OutlineInputBorder(),
-            ),
-            onSubmitted: (_) => _connect(),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            key: const ValueKey('api_key_field'),
-            controller: _apiKeyController,
-            decoration: const InputDecoration(
-              labelText: 'API Key (optional)',
-              hintText: 'Leave empty if no auth',
-              prefixIcon: Icon(Icons.key),
-              border: OutlineInputBorder(),
-            ),
-            obscureText: true,
-            onSubmitted: (_) => _connect(),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton.icon(
-              key: const ValueKey('connect_button'),
-              onPressed: _connect,
-              icon: const Icon(Icons.link),
-              label: const Text('Connect'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: OutlinedButton.icon(
-              key: const ValueKey('scan_qr_button'),
-              onPressed: _scanQrCode,
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Scan QR Code'),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -790,69 +708,6 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     _connect();
   }
 
-  Widget _buildDiscoveredServers({
-    required List<DiscoveredServer> discoveredServers,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.wifi_find,
-              size: 16,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'Discovered Servers',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        for (final server in discoveredServers)
-          Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              dense: true,
-              leading: Icon(
-                Icons.dns,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              title: Text(
-                server.name,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              subtitle: Text(
-                server.wsUrl,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
-              trailing: server.authRequired
-                  ? Icon(
-                      Icons.lock,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.outline,
-                    )
-                  : Icon(
-                      Icons.lock_open,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-              onTap: () => _connectToDiscovered(server),
-            ),
-          ),
-      ],
-    );
-  }
-
   void _selectUrlHistory(UrlHistoryEntry entry) {
     _urlController.text = entry.url;
     _apiKeyController.text = entry.apiKey;
@@ -864,220 +719,8 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     setState(() => _urlHistory = _urlHistoryService!.load());
   }
 
-  Widget _buildUrlHistory() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.history,
-              size: 16,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'Recent Connections',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        for (final entry in _urlHistory)
-          Dismissible(
-            key: ValueKey(entry.url),
-            direction: DismissDirection.endToStart,
-            background: Container(
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.error,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.delete,
-                color: Theme.of(context).colorScheme.onError,
-              ),
-            ),
-            onDismissed: (_) => _removeUrlHistory(entry.url),
-            child: Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                dense: true,
-                leading: Icon(
-                  Icons.link,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                title: Text(
-                  entry.url,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                subtitle: entry.apiKey.isNotEmpty
-                    ? Text(
-                        'With API Key',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                      )
-                    : null,
-                trailing: Icon(
-                  Icons.chevron_right,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-                onTap: () => _selectUrlHistory(entry),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildHomeContent({
-    required BridgeConnectionState connectionState,
-    required List<SessionInfo> sessions,
-    required List<RecentSession> recentSessionsList,
-  }) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    final hasRunningSessions = sessions.isNotEmpty;
-    final hasRecentSessions = recentSessionsList.isNotEmpty;
-    final isReconnecting =
-        connectionState == BridgeConnectionState.reconnecting;
-
-    // Compute derived state
-    final bridge = ref.read(bridgeServiceProvider);
-    // When server-side filter is active, skip client-side project filter
-    var filteredSessions = bridge.currentProjectFilter != null
-        ? recentSessionsList
-        : filterByProject(recentSessionsList, _selectedProject);
-    filteredSessions = filterByDate(filteredSessions, _dateFilter);
-    filteredSessions = filterByQuery(filteredSessions, _searchQuery);
-
-    if (!hasRunningSessions && !hasRecentSessions) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          if (isReconnecting) _buildReconnectingBanner(appColors),
-          const SizedBox(height: 80),
-          SessionListEmptyState(onNewSession: _showNewSessionDialog),
-        ],
-      );
-    }
-
-    return ListView(
-      key: const ValueKey('session_list'),
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(12),
-      children: [
-        if (isReconnecting) _buildReconnectingBanner(appColors),
-        if (hasRunningSessions) ...[
-          SectionHeader(
-            icon: Icons.play_circle_filled,
-            label: 'Running',
-            color: appColors.statusRunning,
-          ),
-          const SizedBox(height: 4),
-          for (final session in sessions)
-            RunningSessionCard(
-              session: session,
-              onTap: () =>
-                  _navigateToChat(session.id, projectPath: session.projectPath),
-              onStop: () => _stopSession(session.id),
-            ),
-          const SizedBox(height: 16),
-        ],
-        if (hasRecentSessions) ...[
-          SectionHeader(
-            icon: Icons.history,
-            label: 'Recent Sessions',
-            color: appColors.subtleText,
-          ),
-          if (_accumulatedProjectPaths.length > 1) ...[
-            const SizedBox(height: 8),
-            ProjectFilterChips(
-              accumulatedProjectPaths: _accumulatedProjectPaths,
-              recentSessions: recentSessionsList,
-              currentFilterPath: bridge.currentProjectFilter,
-              onSelected: (path) {
-                setState(() => _selectedProject = path?.split('/').last);
-                bridge.switchProjectFilter(path);
-              },
-            ),
-          ],
-          // Date filter chips
-          const SizedBox(height: 4),
-          DateFilterChips(
-            selected: _dateFilter,
-            onSelected: (f) => setState(() => _dateFilter = f),
-          ),
-          const SizedBox(height: 8),
-          for (final session in filteredSessions)
-            RecentSessionCard(
-              session: session,
-              onTap: () => _resumeSession(session),
-              hideProjectBadge: _selectedProject != null,
-            ),
-          if (ref.read(bridgeServiceProvider).recentSessionsHasMore) ...[
-            const SizedBox(height: 8),
-            Center(
-              child: _isLoadingMore
-                  ? const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : TextButton.icon(
-                      key: const ValueKey('load_more_button'),
-                      onPressed: _loadMore,
-                      icon: const Icon(Icons.expand_more, size: 18),
-                      label: const Text('Load More'),
-                    ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ],
-      ],
-    );
-  }
-
   void _loadMore() {
     setState(() => _isLoadingMore = true);
     ref.read(bridgeServiceProvider).loadMoreRecentSessions();
-  }
-
-  Widget _buildReconnectingBanner(AppColors appColors) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: appColors.approvalBar,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: appColors.statusApproval,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Reconnecting...',
-            style: TextStyle(fontSize: 13, color: appColors.statusApproval),
-          ),
-        ],
-      ),
-    );
   }
 }
