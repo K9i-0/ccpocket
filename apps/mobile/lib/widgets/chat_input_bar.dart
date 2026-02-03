@@ -53,13 +53,18 @@ class ChatInputBar extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildSlashButton(cs),
-          const SizedBox(width: 8),
           _buildTextField(cs),
-          const SizedBox(width: 8),
-          _buildActionButton(cs),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              _buildSlashButton(cs),
+              const Spacer(),
+              _buildActionButton(cs),
+            ],
+          ),
         ],
       ),
     );
@@ -91,41 +96,41 @@ class ChatInputBar extends StatelessWidget {
   }
 
   Widget _buildTextField(ColorScheme cs) {
-    return Expanded(
-      child: CompositedTransformTarget(
-        link: inputLayerLink,
-        child: TextField(
-          key: const ValueKey('message_input'),
-          controller: inputController,
-          decoration: InputDecoration(
-            hintText: 'Message Claude...',
-            filled: true,
-            fillColor: cs.surfaceContainerLow,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
-              borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
-              borderSide: BorderSide(
-                color: cs.primary.withValues(alpha: 0.5),
-                width: 1.5,
-              ),
-            ),
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 10,
+    return CompositedTransformTarget(
+      link: inputLayerLink,
+      child: TextField(
+        key: const ValueKey('message_input'),
+        controller: inputController,
+        decoration: InputDecoration(
+          hintText: 'Message Claude...',
+          filled: true,
+          fillColor: cs.surfaceContainerLow,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide(
+              color: cs.primary.withValues(alpha: 0.5),
+              width: 1.5,
             ),
           ),
-          enabled: status != ProcessStatus.starting,
-          textInputAction: TextInputAction.send,
-          onSubmitted: (_) => onSend(),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 10,
+          ),
         ),
+        enabled: status != ProcessStatus.starting,
+        maxLines: 6,
+        minLines: 1,
+        keyboardType: TextInputType.multiline,
+        textInputAction: TextInputAction.newline,
       ),
     );
   }

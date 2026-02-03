@@ -391,8 +391,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final beforeCursor = text.substring(0, cursorPos);
     final atIndex = beforeCursor.lastIndexOf('@');
     if (atIndex < 0) return null;
-    // '@' must be at start or preceded by a space
-    if (atIndex > 0 && beforeCursor[atIndex - 1] != ' ') return null;
+    // '@' must be at start or preceded by whitespace
+    if (atIndex > 0 && !RegExp(r'\s').hasMatch(beforeCursor[atIndex - 1])) {
+      return null;
+    }
     final query = beforeCursor.substring(atIndex + 1);
     // No spaces in the query (file paths don't have spaces)
     if (query.contains(' ')) return null;

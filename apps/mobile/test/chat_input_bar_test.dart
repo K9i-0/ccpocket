@@ -180,6 +180,17 @@ void main() {
       expect(find.byKey(const ValueKey('message_input')), findsOneWidget);
     });
 
+    testWidgets('text field supports multiline input', (tester) async {
+      await tester.pumpWidget(buildSubject());
+
+      final textField = tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      expect(textField.maxLines, 6);
+      expect(textField.minLines, 1);
+      expect(textField.keyboardType, TextInputType.multiline);
+    });
+
     testWidgets('send button shows when running with text', (tester) async {
       // When hasInputText=true, the stop condition (!hasInputText) is false,
       // so it falls through to send button even when running.
