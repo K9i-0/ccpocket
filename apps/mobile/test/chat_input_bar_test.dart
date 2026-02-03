@@ -6,11 +6,9 @@ import 'package:ccpocket/widgets/chat_input_bar.dart';
 
 void main() {
   late TextEditingController inputController;
-  late LayerLink layerLink;
 
   setUp(() {
     inputController = TextEditingController();
-    layerLink = LayerLink();
   });
 
   tearDown(() {
@@ -32,7 +30,6 @@ void main() {
       home: Scaffold(
         body: ChatInputBar(
           inputController: inputController,
-          inputLayerLink: layerLink,
           status: status,
           hasInputText: hasInputText,
           isVoiceAvailable: isVoiceAvailable,
