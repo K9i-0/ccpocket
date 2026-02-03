@@ -42,6 +42,9 @@ export class SessionManager {
   private galleryStore: GalleryStore | null;
   private onGalleryImage: GalleryImageCallback | null;
 
+  /** Cache slash commands per project path for early loading on subsequent sessions. */
+  private commandCache = new Map<string, { slashCommands: string[]; skills: string[] }>();
+
   constructor(
     onMessage: (sessionId: string, msg: ServerMessage) => void,
     imageStore?: ImageStore,
@@ -90,6 +93,15 @@ export class SessionManager {
         }
         if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
           session.claudeSessionId = msg.sessionId;
+        }
+
+        // Cache slash commands from system/init for early loading
+        if (msg.type === "system" && msg.subtype === "init" &&
+            msg.slashCommands && msg.slashCommands.length > 0) {
+          this.commandCache.set(projectPath, {
+            slashCommands: msg.slashCommands,
+            skills: msg.skills ?? [],
+          });
         }
 
         // Cache tool_use names from assistant messages
@@ -205,6 +217,10 @@ export class SessionManager {
       }
     }
     return "";
+  }
+
+  getCachedCommands(projectPath: string): { slashCommands: string[]; skills: string[] } | undefined {
+    return this.commandCache.get(projectPath);
   }
 
   destroy(id: string): boolean {

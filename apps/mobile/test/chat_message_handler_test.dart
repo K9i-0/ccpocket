@@ -432,6 +432,69 @@ void main() {
     });
   });
 
+  group('SystemMessage slash command handling', () {
+    test('init with slashCommands populates commands and adds entry', () {
+      final update = handler.handle(
+        const SystemMessage(
+          subtype: 'init',
+          slashCommands: ['compact', 'review', 'test-flutter'],
+          skills: ['test-flutter'],
+        ),
+        isBackground: false,
+      );
+      expect(update.slashCommands, isNotNull);
+      expect(update.slashCommands!.length, 3);
+      expect(update.entriesToAdd, hasLength(1));
+    });
+
+    test('session_created with cached slashCommands populates commands', () {
+      final update = handler.handle(
+        const SystemMessage(
+          subtype: 'session_created',
+          slashCommands: ['compact', 'review', 'test-flutter'],
+          skills: ['test-flutter'],
+        ),
+        isBackground: false,
+      );
+      expect(update.slashCommands, isNotNull);
+      expect(update.slashCommands!.length, 3);
+      // session_created should NOT add a visible chat entry
+      expect(update.entriesToAdd, isEmpty);
+    });
+
+    test('session_created without slashCommands does not set commands', () {
+      final update = handler.handle(
+        const SystemMessage(subtype: 'session_created'),
+        isBackground: false,
+      );
+      expect(update.slashCommands, isNull);
+      expect(update.entriesToAdd, isEmpty);
+    });
+
+    test('supported_commands populates commands without chat entry', () {
+      final update = handler.handle(
+        const SystemMessage(
+          subtype: 'supported_commands',
+          slashCommands: ['compact', 'review', 'plan'],
+        ),
+        isBackground: false,
+      );
+      expect(update.slashCommands, isNotNull);
+      expect(update.slashCommands!.length, 3);
+      // supported_commands should NOT add a visible chat entry
+      expect(update.entriesToAdd, isEmpty);
+    });
+
+    test('supported_commands with empty list does not set commands', () {
+      final update = handler.handle(
+        const SystemMessage(subtype: 'supported_commands'),
+        isBackground: false,
+      );
+      expect(update.slashCommands, isNull);
+      expect(update.entriesToAdd, isEmpty);
+    });
+  });
+
   group('PermissionRequestMessage.summary', () {
     test('extracts command from input', () {
       const perm = PermissionRequestMessage(

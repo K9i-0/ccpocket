@@ -280,11 +280,17 @@ class ChatMessageHandler {
     List<String> skills,
   ) {
     List<SlashCommand>? commands;
-    if (subtype == 'init' && slashCommands.isNotEmpty) {
+    if ((subtype == 'init' ||
+            subtype == 'session_created' ||
+            subtype == 'supported_commands') &&
+        slashCommands.isNotEmpty) {
       commands = _buildCommandList(slashCommands, skills);
     }
+    // Only add init as a visible chat entry; session_created and
+    // supported_commands are internal metadata messages.
+    final addEntry = subtype == 'init';
     return ChatStateUpdate(
-      entriesToAdd: [ServerChatEntry(msg)],
+      entriesToAdd: addEntry ? [ServerChatEntry(msg)] : [],
       slashCommands: commands,
     );
   }

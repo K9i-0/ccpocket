@@ -115,6 +115,7 @@ export class BridgeWebSocketServer {
   private handleClientMessage(msg: ClientMessage, ws: WebSocket): void {
     switch (msg.type) {
       case "start": {
+        const cached = this.sessionManager.getCachedCommands(msg.projectPath);
         const sessionId = this.sessionManager.create(msg.projectPath, {
           sessionId: msg.sessionId,
           continueMode: msg.continue,
@@ -125,6 +126,7 @@ export class BridgeWebSocketServer {
           subtype: "session_created",
           sessionId,
           projectPath: msg.projectPath,
+          ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
         });
         this.projectHistory?.addProject(msg.projectPath);
         break;
@@ -237,6 +239,7 @@ export class BridgeWebSocketServer {
 
       case "resume_session": {
         const claudeSessionId = msg.sessionId;
+        const cached = this.sessionManager.getCachedCommands(msg.projectPath);
         getSessionHistory(claudeSessionId).then((pastMessages) => {
           if (pastMessages.length > 0) {
             this.send(ws, {
@@ -254,6 +257,7 @@ export class BridgeWebSocketServer {
             subtype: "session_created",
             sessionId,
             projectPath: msg.projectPath,
+            ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
           });
           this.projectHistory?.addProject(msg.projectPath);
         }).catch((err) => {

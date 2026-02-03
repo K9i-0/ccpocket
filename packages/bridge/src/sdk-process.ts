@@ -185,6 +185,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.setStatus("idle");
       this.emit("exit", 1);
     });
+
+    // Proactively fetch supported commands via SDK API (non-blocking)
+    this.fetchSupportedCommands();
   }
 
   stop(): void {
@@ -317,6 +320,38 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   }
 
   // ---- Private ----
+
+  /**
+   * Proactively fetch supported commands from the SDK.
+   * This may resolve before the first user input, providing slash commands
+   * without waiting for system/init.
+   */
+  private fetchSupportedCommands(): void {
+    if (!this.queryInstance) return;
+
+    const TIMEOUT_MS = 10_000;
+    const timeoutPromise = new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), TIMEOUT_MS);
+    });
+
+    Promise.race([
+      this.queryInstance.supportedCommands(),
+      timeoutPromise,
+    ])
+      .then((result) => {
+        if (this.stopped || !result) return;
+        const slashCommands = result.map((cmd) => cmd.name);
+        console.log(`[sdk-process] supportedCommands() returned ${slashCommands.length} commands`);
+        this.emitMessage({
+          type: "system",
+          subtype: "supported_commands",
+          slashCommands,
+        });
+      })
+      .catch((err) => {
+        console.log(`[sdk-process] supportedCommands() failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
+      });
+  }
 
   private firstPendingId(): string | undefined {
     const first = this.pendingPermissions.keys().next();
