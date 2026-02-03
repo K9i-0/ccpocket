@@ -195,6 +195,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (_scrollController.hasClients) {
       _scrollOffsets[widget.sessionId] = _scrollController.offset;
     }
+    // Clear stale pendingPastHistory to prevent leak to next session
+    _bridge.pendingPastHistory = null;
     _removeSlashOverlay();
     _removeFileMentionOverlay();
     _statusRefreshTimer?.cancel();
