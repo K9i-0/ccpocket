@@ -57,7 +57,7 @@ void main() {
       expect(find.text('ls -la'), findsOneWidget);
       expect(find.text('Approve'), findsOneWidget);
       expect(find.text('Reject'), findsOneWidget);
-      expect(find.text('Allow for this session'), findsOneWidget);
+      expect(find.text('Always'), findsOneWidget);
     });
 
     testWidgets('shows plan approval labels', (tester) async {
@@ -75,8 +75,8 @@ void main() {
       expect(find.text('Plan Approval'), findsOneWidget);
       expect(find.text('Accept Plan'), findsOneWidget);
       expect(find.text('Keep Planning'), findsOneWidget);
-      // "Allow for this session" hidden for plan approval
-      expect(find.text('Allow for this session'), findsNothing);
+      // "Always" hidden for plan approval
+      expect(find.text('Always'), findsNothing);
     });
 
     testWidgets('shows feedback field for plan approval', (tester) async {

@@ -66,10 +66,6 @@ class ApprovalBar extends StatelessWidget {
             ],
             const SizedBox(height: 6),
             _buildButtons(context),
-            if (!isPlanApproval) ...[
-              const SizedBox(height: 2),
-              _buildApproveAlways(),
-            ],
           ],
         ),
       ),
@@ -142,6 +138,37 @@ class ApprovalBar extends StatelessWidget {
   }
 
   Widget _buildButtons(BuildContext context) {
+    if (isPlanApproval) {
+      return Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              key: const ValueKey('reject_button'),
+              onPressed: onReject,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              child: const Text(
+                'Keep Planning',
+                style: TextStyle(fontSize: 13),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: FilledButton(
+              key: const ValueKey('approve_button'),
+              onPressed: onApprove,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              child: const Text('Accept Plan', style: TextStyle(fontSize: 13)),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       children: [
         Expanded(
@@ -151,13 +178,10 @@ class ApprovalBar extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 10),
             ),
-            child: Text(
-              isPlanApproval ? 'Keep Planning' : 'Reject',
-              style: const TextStyle(fontSize: 13),
-            ),
+            child: const Text('Reject', style: TextStyle(fontSize: 13)),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
           child: FilledButton(
             key: const ValueKey('approve_button'),
@@ -165,31 +189,21 @@ class ApprovalBar extends StatelessWidget {
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 10),
             ),
-            child: Text(
-              isPlanApproval ? 'Accept Plan' : 'Approve',
-              style: const TextStyle(fontSize: 13),
+            child: const Text('Approve', style: TextStyle(fontSize: 13)),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: FilledButton.tonal(
+            key: const ValueKey('approve_always_button'),
+            onPressed: onApproveAlways,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 10),
             ),
+            child: const Text('Always', style: TextStyle(fontSize: 13)),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildApproveAlways() {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: TextButton(
-        key: const ValueKey('approve_always_button'),
-        onPressed: onApproveAlways,
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          foregroundColor: appColors.subtleText,
-          textStyle: const TextStyle(fontSize: 11),
-        ),
-        child: const Text('Allow for this session'),
-      ),
     );
   }
 }
