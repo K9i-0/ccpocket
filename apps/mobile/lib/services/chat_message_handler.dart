@@ -230,10 +230,18 @@ class ChatMessageHandler {
       if (m is StatusMessage) {
         lastStatus = m.status;
       } else {
-        entries.add(ServerChatEntry(m));
-        // Restore slash commands from system.init in history
+        // Don't add internal metadata messages as visible entries
+        if (m is! SystemMessage ||
+            (m.subtype != 'supported_commands' &&
+                m.subtype != 'session_created')) {
+          entries.add(ServerChatEntry(m));
+        }
+        // Restore slash commands from history (init, supported_commands, or
+        // session_created with cached commands)
         if (m is SystemMessage &&
-            m.subtype == 'init' &&
+            (m.subtype == 'init' ||
+                m.subtype == 'supported_commands' ||
+                m.subtype == 'session_created') &&
             m.slashCommands.isNotEmpty) {
           commands = _buildCommandList(m.slashCommands, m.skills);
         }

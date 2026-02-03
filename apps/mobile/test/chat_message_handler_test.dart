@@ -407,6 +407,23 @@ void main() {
       expect(update.pendingPermission!.toolName, 'Write');
     });
 
+    test('restores slash commands from supported_commands in history', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            SystemMessage(
+              subtype: 'supported_commands',
+              slashCommands: ['compact', 'review', 'plan'],
+            ),
+            StatusMessage(status: ProcessStatus.idle),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.slashCommands, isNotNull);
+      expect(update.slashCommands!.length, 3);
+    });
+
     test('restores slash commands alongside pending state', () {
       final update = handler.handle(
         HistoryMessage(
