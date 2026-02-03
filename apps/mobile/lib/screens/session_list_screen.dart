@@ -16,6 +16,7 @@ import '../widgets/horizontal_chip_bar.dart';
 import '../widgets/new_session_sheet.dart';
 import '../widgets/session_card.dart';
 import '../services/connection_url_parser.dart';
+import '../services/url_history_service.dart';
 import 'chat_screen.dart';
 import 'gallery_screen.dart';
 import 'mock_preview_screen.dart';
@@ -133,6 +134,10 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   // Accumulated project paths: project history + paths from paging
   Set<String> _accumulatedProjectPaths = {};
 
+  // URL history
+  UrlHistoryService? _urlHistoryService;
+  List<UrlHistoryEntry> _urlHistory = [];
+
   // Cache for resume navigation
   String? _pendingResumeProjectPath;
   String? _pendingResumeGitBranch;
@@ -197,6 +202,8 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
   Future<void> _loadPreferencesAndAutoConnect() async {
     final prefs = await SharedPreferences.getInstance();
+    _urlHistoryService = UrlHistoryService(prefs);
+    setState(() => _urlHistory = _urlHistoryService!.load());
     final url = prefs.getString(_prefKeyUrl);
     final apiKey = prefs.getString(_prefKeyApiKey);
     if (url != null && url.isNotEmpty) {
@@ -230,7 +237,12 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
       if (shouldConnect != true) return;
     }
 
+    // Save to URL history on health check pass (or user choosing to connect)
     final apiKey = _apiKeyController.text.trim();
+    if (_urlHistoryService != null) {
+      await _urlHistoryService!.add(url, apiKey);
+      setState(() => _urlHistory = _urlHistoryService!.load());
+    }
     if (apiKey.isNotEmpty) {
       final sep = url.contains('?') ? '&' : '?';
       url = '$url${sep}token=$apiKey';
@@ -709,6 +721,10 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
             ),
             const SizedBox(height: 16),
           ],
+          if (_urlHistory.isNotEmpty) ...[
+            _buildUrlHistory(),
+            const SizedBox(height: 16),
+          ],
           TextField(
             key: const ValueKey('server_url_field'),
             controller: _urlController,
@@ -830,6 +846,95 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
                       color: Theme.of(context).colorScheme.outline,
                     ),
               onTap: () => _connectToDiscovered(server),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _selectUrlHistory(UrlHistoryEntry entry) {
+    _urlController.text = entry.url;
+    _apiKeyController.text = entry.apiKey;
+  }
+
+  Future<void> _removeUrlHistory(String url) async {
+    if (_urlHistoryService == null) return;
+    await _urlHistoryService!.remove(url);
+    setState(() => _urlHistory = _urlHistoryService!.load());
+  }
+
+  Widget _buildUrlHistory() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.history,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Recent Connections',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        for (final entry in _urlHistory)
+          Dismissible(
+            key: ValueKey(entry.url),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.error,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.delete,
+                color: Theme.of(context).colorScheme.onError,
+              ),
+            ),
+            onDismissed: (_) => _removeUrlHistory(entry.url),
+            child: Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                dense: true,
+                leading: Icon(
+                  Icons.link,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: Text(
+                  entry.url,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                subtitle: entry.apiKey.isNotEmpty
+                    ? Text(
+                        'With API Key',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      )
+                    : null,
+                trailing: Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+                onTap: () => _selectUrlHistory(entry),
+              ),
             ),
           ),
       ],
