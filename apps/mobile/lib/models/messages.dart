@@ -725,12 +725,11 @@ class ClientMessage {
   factory ClientMessage.removeWorktree(
     String projectPath,
     String worktreePath,
-  ) =>
-      ClientMessage._({
-        'type': 'remove_worktree',
-        'projectPath': projectPath,
-        'worktreePath': worktreePath,
-      });
+  ) => ClientMessage._({
+    'type': 'remove_worktree',
+    'projectPath': projectPath,
+    'worktreePath': worktreePath,
+  });
 
   String toJson() => jsonEncode(_json);
 }

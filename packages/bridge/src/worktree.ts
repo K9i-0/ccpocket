@@ -1,5 +1,5 @@
 import { execFileSync, execSync } from "node:child_process";
-import { existsSync, readFileSync, mkdirSync, cpSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, cpSync, readdirSync, statSync, realpathSync } from "node:fs";
 import { join, dirname, basename, relative, resolve } from "node:path";
 
 // ---- Types ----
@@ -77,31 +77,47 @@ export function parseGtrConfig(projectPath: string): GtrConfig {
 
 // ---- Glob Matching ----
 
+const REGEX_SPECIAL = /[\\.+^$()|[\]]/g;
+
 /**
  * Simple glob pattern matcher supporting:
  * - `*` matches any characters except `/`
- * - `**` matches any path segments (including none)
+ * - `**` or `*` followed by `*` matches any path segments (including none)
  * - `?` matches a single character except `/`
  */
 export function matchGlob(pattern: string, filePath: string): boolean {
-  const regexStr = pattern
-    .split("**")
-    .map((segment) =>
-      segment
-        .split("*")
-        .map((part) => part.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\?/g, "[^/]"))
-        .join("[^/]*"),
-    )
-    .join(".*");
-
-  return new RegExp(`^${regexStr}$`).test(filePath);
+  let regex = "";
+  let i = 0;
+  while (i < pattern.length) {
+    if (pattern[i] === "*" && pattern[i + 1] === "*") {
+      if (pattern[i + 2] === "/") {
+        // zero or more directory segments
+        regex += "(.*/)?";
+        i += 3;
+      } else {
+        // match everything
+        regex += ".*";
+        i += 2;
+      }
+    } else if (pattern[i] === "*") {
+      regex += "[^/]*";
+      i++;
+    } else if (pattern[i] === "?") {
+      regex += "[^/]";
+      i++;
+    } else {
+      regex += pattern[i].replace(REGEX_SPECIAL, "\\$&");
+      i++;
+    }
+  }
+  return new RegExp("^" + regex + "$").test(filePath);
 }
 
 // ---- Worktree Path Computation ----
 
 /** Compute the worktrees root directory for a project. */
 export function worktreesRoot(projectPath: string): string {
-  return join(dirname(projectPath), `${basename(projectPath)}-worktrees`);
+  return join(dirname(projectPath), basename(projectPath) + "-worktrees");
 }
 
 /** Compute the full worktree path for a branch. Slashes in branch names are converted to dashes for the directory name. */
@@ -112,7 +128,7 @@ export function worktreePath(projectPath: string, branch: string): string {
 
 /** Generate a default branch name for a session. */
 export function defaultBranch(sessionId: string): string {
-  return `ccpocket/${sessionId}`;
+  return "ccpocket/" + sessionId;
 }
 
 // ---- File Copy ----
@@ -177,13 +193,18 @@ export function copyConfiguredFiles(
 
 // ---- Core Worktree Operations ----
 
+/** Resolve a project path, following symlinks to get the real path. */
+function resolveProject(projectPath: string): string {
+  return realpathSync(resolve(projectPath));
+}
+
 /** Create a git worktree for a session. */
 export function createWorktree(
   projectPath: string,
   sessionId: string,
   branch?: string,
 ): WorktreeInfo {
-  const resolvedProject = resolve(projectPath);
+  const resolvedProject = resolveProject(projectPath);
   const branchName = branch || defaultBranch(sessionId);
   const wtPath = worktreePath(resolvedProject, branchName);
 
@@ -222,7 +243,7 @@ export function createWorktree(
     try {
       execSync(cmd, { cwd: wtPath, encoding: "utf-8", stdio: "pipe" });
     } catch (err) {
-      console.error(`[worktree] postCreate hook failed: ${cmd}`, err);
+      console.error("[worktree] postCreate hook failed: " + cmd, err);
     }
   }
 
@@ -240,7 +261,7 @@ export function createWorktree(
 
 /** Remove a git worktree. */
 export function removeWorktree(projectPath: string, wtPath: string): void {
-  const resolvedProject = resolve(projectPath);
+  const resolvedProject = resolveProject(projectPath);
 
   // Run preRemove hooks
   const config = parseGtrConfig(resolvedProject);
@@ -248,7 +269,7 @@ export function removeWorktree(projectPath: string, wtPath: string): void {
     try {
       execSync(cmd, { cwd: wtPath, encoding: "utf-8", stdio: "pipe" });
     } catch (err) {
-      console.error(`[worktree] preRemove hook failed: ${cmd}`, err);
+      console.error("[worktree] preRemove hook failed: " + cmd, err);
     }
   }
 
@@ -260,7 +281,7 @@ export function removeWorktree(projectPath: string, wtPath: string): void {
 
 /** List worktrees for a project (only those under <project>-worktrees/). */
 export function listWorktrees(projectPath: string): WorktreeInfo[] {
-  const resolvedProject = resolve(projectPath);
+  const resolvedProject = resolveProject(projectPath);
   const wtRoot = worktreesRoot(resolvedProject);
 
   let output: string;
@@ -284,7 +305,7 @@ export function listWorktrees(projectPath: string): WorktreeInfo[] {
     } else if (line.startsWith("HEAD ")) {
       currentHead = line.slice("HEAD ".length);
     } else if (line.startsWith("branch ")) {
-      // branch refs/heads/feature/x → feature/x
+      // branch refs/heads/feature/x -> feature/x
       currentBranch = line.slice("branch ".length).replace(/^refs\/heads\//, "");
     } else if (line === "") {
       // End of entry

@@ -20,10 +20,8 @@ Future<void> showWorktreeListSheet({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (context) => _WorktreeListContent(
-      bridge: bridge,
-      projectPath: projectPath,
-    ),
+    builder: (context) =>
+        _WorktreeListContent(bridge: bridge, projectPath: projectPath),
   );
 }
 
@@ -31,10 +29,7 @@ class _WorktreeListContent extends StatefulWidget {
   final BridgeService bridge;
   final String projectPath;
 
-  const _WorktreeListContent({
-    required this.bridge,
-    required this.projectPath,
-  });
+  const _WorktreeListContent({required this.bridge, required this.projectPath});
 
   @override
   State<_WorktreeListContent> createState() => _WorktreeListContentState();
@@ -71,8 +66,10 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove Worktree'),
-        content: Text('Remove worktree on branch "${wt.branch}"?\n'
-            'Path: ${wt.worktreePath}'),
+        content: Text(
+          'Remove worktree on branch "${wt.branch}"?\n'
+          'Path: ${wt.worktreePath}',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -81,10 +78,7 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              widget.bridge.removeWorktree(
-                widget.projectPath,
-                wt.worktreePath,
-              );
+              widget.bridge.removeWorktree(widget.projectPath, wt.worktreePath);
             },
             child: Text(
               'Remove',

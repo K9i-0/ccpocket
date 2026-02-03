@@ -37,7 +37,8 @@ class ResultChip extends StatelessWidget {
     // Only show result text for non-success cases (errors, stopped).
     // For success, the text is already displayed by AssistantBubble.
     final resultText = message.result;
-    final showResultText = message.subtype != 'success' &&
+    final showResultText =
+        message.subtype != 'success' &&
         resultText != null &&
         resultText.trim().isNotEmpty;
 

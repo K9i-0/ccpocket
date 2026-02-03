@@ -23,7 +23,12 @@ class HomeContent extends StatelessWidget {
   final bool hasMoreSessions;
   final String? currentProjectFilter;
   final VoidCallback onNewSession;
-  final void Function(String sessionId, {String? projectPath, String? worktreePath}) onTapRunning;
+  final void Function(
+    String sessionId, {
+    String? projectPath,
+    String? worktreePath,
+  })
+  onTapRunning;
   final ValueChanged<String> onStopSession;
   final ValueChanged<RecentSession> onResumeSession;
   final ValueChanged<String?> onSelectProject;
@@ -93,8 +98,11 @@ class HomeContent extends StatelessWidget {
           for (final session in sessions)
             RunningSessionCard(
               session: session,
-              onTap: () =>
-                  onTapRunning(session.id, projectPath: session.projectPath, worktreePath: session.worktreePath),
+              onTap: () => onTapRunning(
+                session.id,
+                projectPath: session.projectPath,
+                worktreePath: session.worktreePath,
+              ),
               onStop: () => onStopSession(session.id),
             ),
           const SizedBox(height: 16),

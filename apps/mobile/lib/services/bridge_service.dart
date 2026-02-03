@@ -24,7 +24,8 @@ class BridgeService implements BridgeServiceBase {
   final _fileListController = StreamController<List<String>>.broadcast();
   final _projectHistoryController = StreamController<List<String>>.broadcast();
   final _diffResultController = StreamController<DiffResultMessage>.broadcast();
-  final _worktreeListController = StreamController<WorktreeListMessage>.broadcast();
+  final _worktreeListController =
+      StreamController<WorktreeListMessage>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
@@ -64,7 +65,8 @@ class BridgeService implements BridgeServiceBase {
   @override
   Stream<List<String>> get fileList => _fileListController.stream;
   Stream<DiffResultMessage> get diffResults => _diffResultController.stream;
-  Stream<WorktreeListMessage> get worktreeList => _worktreeListController.stream;
+  Stream<WorktreeListMessage> get worktreeList =>
+      _worktreeListController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;

@@ -309,8 +309,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 avatar: _useWorktree
                     ? null
                     : const Icon(Icons.account_tree_outlined, size: 16),
-                label:
-                    const Text('Worktree', style: TextStyle(fontSize: 13)),
+                label: const Text('Worktree', style: TextStyle(fontSize: 13)),
                 selected: _useWorktree,
                 onSelected: (val) => setState(() => _useWorktree = val),
                 visualDensity: VisualDensity.compact,

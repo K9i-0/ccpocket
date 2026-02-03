@@ -610,8 +610,13 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
                     .read(bridgeServiceProvider)
                     .currentProjectFilter,
                 onNewSession: _showNewSessionDialog,
-                onTapRunning: (sessionId, {String? projectPath, String? worktreePath}) =>
-                    _navigateToChat(sessionId, projectPath: projectPath, worktreePath: worktreePath),
+                onTapRunning:
+                    (sessionId, {String? projectPath, String? worktreePath}) =>
+                        _navigateToChat(
+                          sessionId,
+                          projectPath: projectPath,
+                          worktreePath: worktreePath,
+                        ),
                 onStopSession: _stopSession,
                 onResumeSession: _resumeSession,
                 onSelectProject: (path) => ref

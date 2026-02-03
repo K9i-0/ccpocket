@@ -43,8 +43,7 @@ class ChatAppBarTitle extends StatelessWidget {
                 Flexible(
                   child: Text(
                     gitBranch!,
-                    style:
-                        TextStyle(fontSize: 12, color: appColors.subtleText),
+                    style: TextStyle(fontSize: 12, color: appColors.subtleText),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -59,8 +58,7 @@ class ChatAppBarTitle extends StatelessWidget {
                 const SizedBox(width: 2),
                 Text(
                   'worktree',
-                  style:
-                      TextStyle(fontSize: 11, color: appColors.subtleText),
+                  style: TextStyle(fontSize: 11, color: appColors.subtleText),
                 ),
               ],
             ],
