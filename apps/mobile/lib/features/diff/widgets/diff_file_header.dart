@@ -33,8 +33,8 @@ class DiffFileHeader extends StatelessWidget {
               file.isNewFile
                   ? Icons.add_circle_outline
                   : file.isDeleted
-                      ? Icons.remove_circle_outline
-                      : Icons.edit_note,
+                  ? Icons.remove_circle_outline
+                  : Icons.edit_note,
               size: 16,
               color: appColors.subtleText,
             ),

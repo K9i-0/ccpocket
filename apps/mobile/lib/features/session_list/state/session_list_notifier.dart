@@ -26,8 +26,9 @@ class SessionListNotifier extends _$SessionListNotifier {
     _bridge = ref.read(bridgeServiceProvider);
 
     _recentSub = _bridge.recentSessionsStream.listen(_onSessionsUpdate);
-    _projectHistorySub =
-        _bridge.projectHistoryStream.listen(_onProjectHistoryUpdate);
+    _projectHistorySub = _bridge.projectHistoryStream.listen(
+      _onProjectHistoryUpdate,
+    );
 
     ref.onDispose(() {
       _recentSub?.cancel();
@@ -43,10 +44,9 @@ class SessionListNotifier extends _$SessionListNotifier {
         .where((p) => p.isNotEmpty)
         .toSet();
     final current = state.accumulatedProjectPaths;
-    final merged =
-        newPaths.difference(current).isNotEmpty
-            ? {...current, ...newPaths}
-            : current;
+    final merged = newPaths.difference(current).isNotEmpty
+        ? {...current, ...newPaths}
+        : current;
 
     state = state.copyWith(
       sessions: sessions,
@@ -72,8 +72,9 @@ class SessionListNotifier extends _$SessionListNotifier {
   /// Switch project filter. Resets sessions on the server side and fetches
   /// from offset 0 for the selected project.
   void selectProject(String? projectPath) {
-    final projectName =
-        projectPath != null ? projectPath.split('/').last : null;
+    final projectName = projectPath != null
+        ? projectPath.split('/').last
+        : null;
     state = state.copyWith(selectedProject: projectName);
     _bridge.switchProjectFilter(projectPath);
   }

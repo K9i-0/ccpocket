@@ -288,8 +288,6 @@ void main() {
     testWidgets('multi-select allows toggling multiple options', (
       tester,
     ) async {
-      String? answeredResult;
-
       await tester.pumpWidget(
         _wrap(
           AskUserQuestionWidget(
@@ -308,7 +306,7 @@ void main() {
                 },
               ],
             },
-            onAnswer: (_, result) => answeredResult = result,
+            onAnswer: (_, __) {},
           ),
         ),
       );

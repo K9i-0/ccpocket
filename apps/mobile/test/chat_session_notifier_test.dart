@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:ccpocket/features/chat/state/chat_session_notifier.dart';
 import 'package:ccpocket/features/chat/state/chat_session_state.dart';
-import 'package:ccpocket/features/chat/state/streaming_state.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_providers.dart';
 import 'package:ccpocket/services/bridge_service.dart';

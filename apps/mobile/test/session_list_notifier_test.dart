@@ -168,9 +168,7 @@ void main() {
       await Future.microtask(() {});
 
       // First, emit sessions to set some paths
-      mockBridge.emitSessions([
-        _session(id: 's1', projectPath: '/a/proj1'),
-      ]);
+      mockBridge.emitSessions([_session(id: 's1', projectPath: '/a/proj1')]);
       await Future.microtask(() {});
 
       // Then, project history adds more
@@ -246,10 +244,7 @@ void main() {
       await Future.microtask(() {});
 
       container.read(sessionListNotifierProvider.notifier).loadMore();
-      expect(
-        container.read(sessionListNotifierProvider).isLoadingMore,
-        isTrue,
-      );
+      expect(container.read(sessionListNotifierProvider).isLoadingMore, isTrue);
 
       // Sessions arrive, clearing loading state
       mockBridge.emitSessions([_session(id: 's1')]);

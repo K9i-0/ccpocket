@@ -28,8 +28,7 @@ class DiffHunkWidget extends StatelessWidget {
               ),
             ),
           ),
-        for (final line in hunk.lines)
-          DiffLineWidget(line: line),
+        for (final line in hunk.lines) DiffLineWidget(line: line),
         const SizedBox(height: 4),
       ],
     );

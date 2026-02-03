@@ -1008,8 +1008,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
               recentSessions: recentSessionsList,
               currentFilterPath: bridge.currentProjectFilter,
               onSelected: (path) {
-                setState(() =>
-                    _selectedProject = path?.split('/').last);
+                setState(() => _selectedProject = path?.split('/').last);
                 bridge.switchProjectFilter(path);
               },
             ),
@@ -1081,5 +1080,4 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
       ),
     );
   }
-
 }

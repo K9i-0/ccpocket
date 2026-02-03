@@ -26,8 +26,7 @@ class ProjectFilterChips extends StatelessWidget {
     // Count sessions from loaded data
     final loadedCounts = <String, int>{};
     for (final s in recentSessions) {
-      loadedCounts[s.projectName] =
-          (loadedCounts[s.projectName] ?? 0) + 1;
+      loadedCounts[s.projectName] = (loadedCounts[s.projectName] ?? 0) + 1;
     }
 
     // Collect unique project entries from accumulated paths
