@@ -21,6 +21,7 @@ import '../../widgets/slash_command_sheet.dart'
 import '../diff/diff_screen.dart';
 import '../gallery/gallery_screen.dart';
 import 'widgets/chat_app_bar_title.dart';
+import 'widgets/chat_message_list.dart';
 import 'widgets/cost_badge.dart';
 import 'widgets/plan_mode_chip.dart';
 import 'widgets/reconnect_banner.dart';
@@ -772,7 +773,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               Expanded(
                 child: Stack(
                   children: [
-                    _buildMessageList(),
+                    ChatMessageList(
+                      listKey: _listKey,
+                      scrollController: _scrollController,
+                      entries: _entries,
+                      bulkLoading: _bulkLoading,
+                      httpBaseUrl: _bridge.httpBaseUrl,
+                      onRetryMessage: _retryMessage,
+                      collapseToolResults: _collapseToolResults,
+                    ),
                     if (_isScrolledUp)
                       Positioned(
                         right: 12,
@@ -824,11 +833,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       color: Theme.of(context).colorScheme.error,
                     ),
                   ),
-                  child: _buildApprovalBar(appColors),
+                  child: ApprovalBar(
+                    appColors: appColors,
+                    pendingPermission: _pendingPermission,
+                    isPlanApproval: _isPlanApproval,
+                    planFeedbackController: _planFeedbackController,
+                    onApprove: _approveToolUse,
+                    onReject: _rejectToolUse,
+                    onApproveAlways: _approveAlwaysToolUse,
+                  ),
                 ),
               if (_askToolUseId == null &&
                   _status != ProcessStatus.waitingApproval)
-                _buildInputBar(),
+                ChatInputBar(
+                  inputController: _inputController,
+                  inputLayerLink: _inputLayerLink,
+                  status: _status,
+                  hasInputText: _hasInputText,
+                  isVoiceAvailable: _isVoiceAvailable,
+                  isRecording: _isRecording,
+                  onSend: _sendMessage,
+                  onStop: _stopSession,
+                  onInterrupt: _interruptSession,
+                  onToggleVoice: _toggleVoiceInput,
+                  onShowSlashCommands: _showSlashCommandSheet,
+                ),
             ],
           ),
         ),
@@ -836,70 +865,5 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  Widget _buildMessageList() {
-    return NotificationListener<ScrollStartNotification>(
-      onNotification: (notification) {
-        FocusScope.of(context).unfocus();
-        return false;
-      },
-      child: AnimatedList(
-        key: _listKey,
-        controller: _scrollController,
-        padding: const EdgeInsets.only(top: 8, bottom: 8),
-        initialItemCount: _entries.length,
-        itemBuilder: (context, index, animation) {
-          final entry = _entries[index];
-          final previous = index > 0 ? _entries[index - 1] : null;
-          final child = ChatEntryWidget(
-            entry: entry,
-            previous: previous,
-            httpBaseUrl: _bridge.httpBaseUrl,
-            onRetryMessage: _retryMessage,
-            collapseToolResults: _collapseToolResults,
-          );
-          if (_bulkLoading || animation.isCompleted) return child;
-          return SlideTransition(
-            position:
-                Tween<Offset>(
-                  begin: const Offset(0, 0.3),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                ),
-            child: FadeTransition(opacity: animation, child: child),
-          );
-        },
-      ),
-    );
-  }
-
   bool get _isPlanApproval => _pendingPermission?.toolName == 'ExitPlanMode';
-
-  Widget _buildApprovalBar(AppColors appColors) {
-    return ApprovalBar(
-      appColors: appColors,
-      pendingPermission: _pendingPermission,
-      isPlanApproval: _isPlanApproval,
-      planFeedbackController: _planFeedbackController,
-      onApprove: _approveToolUse,
-      onReject: _rejectToolUse,
-      onApproveAlways: _approveAlwaysToolUse,
-    );
-  }
-
-  Widget _buildInputBar() {
-    return ChatInputBar(
-      inputController: _inputController,
-      inputLayerLink: _inputLayerLink,
-      status: _status,
-      hasInputText: _hasInputText,
-      isVoiceAvailable: _isVoiceAvailable,
-      isRecording: _isRecording,
-      onSend: _sendMessage,
-      onStop: _stopSession,
-      onInterrupt: _interruptSession,
-      onToggleVoice: _toggleVoiceInput,
-      onShowSlashCommands: _showSlashCommandSheet,
-    );
-  }
 }
