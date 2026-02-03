@@ -379,6 +379,12 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color toolResultText;
   final Color toolResultTextExpanded;
 
+  // Diff viewer
+  final Color diffAdditionBackground;
+  final Color diffAdditionText;
+  final Color diffDeletionBackground;
+  final Color diffDeletionText;
+
   const AppColors({
     required this.userBubble,
     required this.userBubbleText,
@@ -410,6 +416,10 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.toolResultBackground,
     required this.toolResultText,
     required this.toolResultTextExpanded,
+    required this.diffAdditionBackground,
+    required this.diffAdditionText,
+    required this.diffDeletionBackground,
+    required this.diffDeletionText,
   });
 
   // ---- Light (Graphite & Ember palette) ----
@@ -444,6 +454,10 @@ class AppColors extends ThemeExtension<AppColors> {
     toolResultBackground: Color(0xFFF5F0EB),
     toolResultText: Color(0xFF78716C), // Stone 500
     toolResultTextExpanded: Color(0xFF44403C), // Stone 700
+    diffAdditionBackground: Color(0xFFDCFCE7), // Green 100
+    diffAdditionText: Color(0xFF166534), // Green 800
+    diffDeletionBackground: Color(0xFFFEE2E2), // Red 100
+    diffDeletionText: Color(0xFF991B1B), // Red 800
   );
 
   // ---- Dark (Graphite & Ember palette) ----
@@ -478,6 +492,10 @@ class AppColors extends ThemeExtension<AppColors> {
     toolResultBackground: Color(0xFF1A1917),
     toolResultText: Color(0xFFA8A29E), // Stone 400
     toolResultTextExpanded: Color(0xFFD6D3D1), // Stone 300
+    diffAdditionBackground: Color(0xFF14532D), // Green 900
+    diffAdditionText: Color(0xFF86EFAC), // Green 300
+    diffDeletionBackground: Color(0xFF7F1D1D), // Red 900
+    diffDeletionText: Color(0xFFFCA5A5), // Red 300
   );
 
   @override
@@ -512,6 +530,10 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? toolResultBackground,
     Color? toolResultText,
     Color? toolResultTextExpanded,
+    Color? diffAdditionBackground,
+    Color? diffAdditionText,
+    Color? diffDeletionBackground,
+    Color? diffDeletionText,
   }) {
     return AppColors(
       userBubble: userBubble ?? this.userBubble,
@@ -546,6 +568,12 @@ class AppColors extends ThemeExtension<AppColors> {
       toolResultText: toolResultText ?? this.toolResultText,
       toolResultTextExpanded:
           toolResultTextExpanded ?? this.toolResultTextExpanded,
+      diffAdditionBackground:
+          diffAdditionBackground ?? this.diffAdditionBackground,
+      diffAdditionText: diffAdditionText ?? this.diffAdditionText,
+      diffDeletionBackground:
+          diffDeletionBackground ?? this.diffDeletionBackground,
+      diffDeletionText: diffDeletionText ?? this.diffDeletionText,
     );
   }
 
@@ -609,6 +637,26 @@ class AppColors extends ThemeExtension<AppColors> {
       toolResultTextExpanded: Color.lerp(
         toolResultTextExpanded,
         other.toolResultTextExpanded,
+        t,
+      )!,
+      diffAdditionBackground: Color.lerp(
+        diffAdditionBackground,
+        other.diffAdditionBackground,
+        t,
+      )!,
+      diffAdditionText: Color.lerp(
+        diffAdditionText,
+        other.diffAdditionText,
+        t,
+      )!,
+      diffDeletionBackground: Color.lerp(
+        diffDeletionBackground,
+        other.diffDeletionBackground,
+        t,
+      )!,
+      diffDeletionText: Color.lerp(
+        diffDeletionText,
+        other.diffDeletionText,
         t,
       )!,
     );
