@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/diff/widgets/diff_file_header.dart';
+import '../features/diff/widgets/diff_hunk_widget.dart';
+import '../features/diff/widgets/diff_stats_badge.dart';
 import '../models/messages.dart';
 import '../providers/bridge_providers.dart';
 import '../theme/app_theme.dart';
@@ -158,7 +160,7 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: file.hunks.length,
               itemBuilder: (context, index) =>
-                  _HunkWidget(hunk: file.hunks[index], appColors: appColors),
+                  DiffHunkWidget(hunk: file.hunks[index]),
             );
     }
 
@@ -232,15 +234,24 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
       if (index < offset + sectionSize) {
         final localIdx = index - offset;
         if (localIdx == 0) {
-          return _buildFileHeader(file, fileIdx, appColors);
+          return DiffFileHeader(
+            file: file,
+            collapsed: collapsed,
+            onToggleCollapse: () {
+              setState(() {
+                if (collapsed) {
+                  _collapsedFileIndices.remove(fileIdx);
+                } else {
+                  _collapsedFileIndices.add(fileIdx);
+                }
+              });
+            },
+          );
         }
         if (file.isBinary) {
           return _buildBinaryNotice(appColors);
         }
-        return _HunkWidget(
-          hunk: file.hunks[localIdx - 1],
-          appColors: appColors,
-        );
+        return DiffHunkWidget(hunk: file.hunks[localIdx - 1]);
       }
 
       offset += sectionSize;
@@ -254,81 +265,6 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
       }
     }
     return const SizedBox.shrink();
-  }
-
-  Widget _buildFileHeader(DiffFile file, int fileIndex, AppColors appColors) {
-    final stats = file.stats;
-    final collapsed = _collapsedFileIndices.contains(fileIndex);
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          if (collapsed) {
-            _collapsedFileIndices.remove(fileIndex);
-          } else {
-            _collapsedFileIndices.add(fileIndex);
-          }
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: appColors.codeBackground,
-          border: Border(bottom: BorderSide(color: appColors.codeBorder)),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              file.isNewFile
-                  ? Icons.add_circle_outline
-                  : file.isDeleted
-                  ? Icons.remove_circle_outline
-                  : Icons.edit_note,
-              size: 16,
-              color: appColors.subtleText,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                file.filePath,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w600,
-                  color: appColors.toolResultTextExpanded,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (stats.added > 0)
-              Text(
-                '+${stats.added}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: appColors.diffAdditionText,
-                ),
-              ),
-            if (stats.added > 0 && stats.removed > 0) const SizedBox(width: 6),
-            if (stats.removed > 0)
-              Text(
-                '-${stats.removed}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: appColors.diffDeletionText,
-                ),
-              ),
-            const SizedBox(width: 8),
-            Icon(
-              collapsed ? Icons.chevron_right : Icons.expand_more,
-              size: 20,
-              color: appColors.subtleText,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _showFilterBottomSheet(AppColors appColors) {
@@ -403,10 +339,7 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
-                          secondary: _StatsBadge(
-                            file: file,
-                            appColors: appColors,
-                          ),
+                          secondary: DiffStatsBadge(file: file),
                           controlAffinity: ListTileControlAffinity.leading,
                           dense: true,
                         );
@@ -428,202 +361,6 @@ class _DiffScreenState extends ConsumerState<DiffScreen> {
         'Binary file — diff not available',
         style: TextStyle(color: appColors.subtleText),
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Hunk widget
-// ---------------------------------------------------------------------------
-
-class _HunkWidget extends StatelessWidget {
-  final DiffHunk hunk;
-  final AppColors appColors;
-
-  const _HunkWidget({required this.hunk, required this.appColors});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Hunk header
-        if (hunk.header.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            color: appColors.codeBackground,
-            child: Text(
-              hunk.header,
-              style: TextStyle(
-                fontSize: 11,
-                fontFamily: 'monospace',
-                color: appColors.subtleText,
-              ),
-            ),
-          ),
-        // Diff lines
-        for (final line in hunk.lines)
-          _DiffLineWidget(line: line, appColors: appColors),
-        const SizedBox(height: 4),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Individual diff line
-// ---------------------------------------------------------------------------
-
-class _DiffLineWidget extends StatelessWidget {
-  final DiffLine line;
-  final AppColors appColors;
-
-  const _DiffLineWidget({required this.line, required this.appColors});
-
-  @override
-  Widget build(BuildContext context) {
-    final (bgColor, textColor, prefix) = switch (line.type) {
-      DiffLineType.addition => (
-        appColors.diffAdditionBackground,
-        appColors.diffAdditionText,
-        '+',
-      ),
-      DiffLineType.deletion => (
-        appColors.diffDeletionBackground,
-        appColors.diffDeletionText,
-        '-',
-      ),
-      DiffLineType.context => (
-        Colors.transparent,
-        appColors.toolResultTextExpanded,
-        ' ',
-      ),
-    };
-
-    return GestureDetector(
-      onLongPress: () {
-        Clipboard.setData(ClipboardData(text: line.content));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Line copied'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      },
-      child: Container(
-        color: bgColor,
-        padding: const EdgeInsets.symmetric(vertical: 1),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Old line number
-            SizedBox(
-              width: 40,
-              child: Text(
-                line.oldLineNumber?.toString() ?? '',
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontFamily: 'monospace',
-                  color: appColors.subtleText,
-                ),
-              ),
-            ),
-            // New line number
-            SizedBox(
-              width: 40,
-              child: Text(
-                line.newLineNumber?.toString() ?? '',
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontFamily: 'monospace',
-                  color: appColors.subtleText,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            // Prefix
-            SizedBox(
-              width: 12,
-              child: Text(
-                prefix,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w600,
-                  color: textColor,
-                  height: 1.4,
-                ),
-              ),
-            ),
-            // Content — horizontal scroll for long lines
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Text(
-                  line.content,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                    color: textColor,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Stats badge (used in file selector popup)
-// ---------------------------------------------------------------------------
-
-class _StatsBadge extends StatelessWidget {
-  final DiffFile file;
-  final AppColors appColors;
-
-  const _StatsBadge({required this.file, required this.appColors});
-
-  @override
-  Widget build(BuildContext context) {
-    final stats = file.stats;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (stats.added > 0)
-          Text(
-            '+${stats.added}',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: appColors.diffAdditionText,
-            ),
-          ),
-        if (stats.added > 0 && stats.removed > 0) const SizedBox(width: 4),
-        if (stats.removed > 0)
-          Text(
-            '-${stats.removed}',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: appColors.diffDeletionText,
-            ),
-          ),
-        if (file.isBinary)
-          Text(
-            'binary',
-            style: TextStyle(
-              fontSize: 11,
-              fontStyle: FontStyle.italic,
-              color: appColors.subtleText,
-            ),
-          ),
-      ],
     );
   }
 }
