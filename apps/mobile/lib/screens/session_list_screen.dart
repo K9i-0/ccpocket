@@ -6,13 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../features/session_list/state/session_list_state.dart';
+import '../features/session_list/widgets/date_filter_chips.dart';
+import '../features/session_list/widgets/project_filter_chips.dart';
+import '../features/session_list/widgets/section_header.dart';
+import '../features/session_list/widgets/session_list_empty_state.dart';
 import '../models/messages.dart';
 import '../providers/bridge_providers.dart';
 import '../providers/discovery_provider.dart';
 import '../services/bridge_service.dart';
 import '../services/server_discovery_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/horizontal_chip_bar.dart';
 import '../widgets/new_session_sheet.dart';
 import '../widgets/session_card.dart';
 import '../services/connection_url_parser.dart';
@@ -74,9 +78,6 @@ List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
         (s.summary?.toLowerCase().contains(q) ?? false);
   }).toList();
 }
-
-/// Date filter period.
-enum DateFilter { all, today, thisWeek, thisMonth }
 
 /// Filter sessions by date period.
 List<RecentSession> filterByDate(
@@ -967,7 +968,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
         children: [
           if (isReconnecting) _buildReconnectingBanner(appColors),
           const SizedBox(height: 80),
-          _buildEmptyState(appColors),
+          SessionListEmptyState(onNewSession: _showNewSessionDialog),
         ],
       );
     }
@@ -979,7 +980,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
       children: [
         if (isReconnecting) _buildReconnectingBanner(appColors),
         if (hasRunningSessions) ...[
-          _buildSectionHeader(
+          SectionHeader(
             icon: Icons.play_circle_filled,
             label: 'Running',
             color: appColors.statusRunning,
@@ -995,18 +996,30 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
           const SizedBox(height: 16),
         ],
         if (hasRecentSessions) ...[
-          _buildSectionHeader(
+          SectionHeader(
             icon: Icons.history,
             label: 'Recent Sessions',
             color: appColors.subtleText,
           ),
           if (_accumulatedProjectPaths.length > 1) ...[
             const SizedBox(height: 8),
-            _buildProjectFilterChips(appColors, recentSessionsList),
+            ProjectFilterChips(
+              accumulatedProjectPaths: _accumulatedProjectPaths,
+              recentSessions: recentSessionsList,
+              currentFilterPath: bridge.currentProjectFilter,
+              onSelected: (path) {
+                setState(() =>
+                    _selectedProject = path?.split('/').last);
+                bridge.switchProjectFilter(path);
+              },
+            ),
           ],
           // Date filter chips
           const SizedBox(height: 4),
-          _buildDateFilterChips(appColors),
+          DateFilterChips(
+            selected: _dateFilter,
+            onSelected: (f) => setState(() => _dateFilter = f),
+          ),
           const SizedBox(height: 8),
           for (final session in filteredSessions)
             RecentSessionCard(
@@ -1069,167 +1082,4 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     );
   }
 
-  Widget _buildEmptyState(AppColors appColors) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.08),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.rocket_launch_outlined,
-                    size: 40,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Ready to start',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Press the + button to create a new session and start coding with Claude.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: appColors.subtleText),
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: _showNewSessionDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text('New Session'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProjectFilterChips(
-    AppColors appColors,
-    List<RecentSession> recentSessionsList,
-  ) {
-    final cs = Theme.of(context).colorScheme;
-    final bridge = ref.read(bridgeServiceProvider);
-    final currentFilter = bridge.currentProjectFilter;
-
-    // Build chip list from accumulated paths
-    // Count sessions from loaded data
-    final loadedCounts = projectCounts(recentSessionsList);
-
-    // Collect unique project entries: (path, name) from accumulated paths
-    final chipEntries = <({String path, String name})>[];
-    final seenNames = <String>{};
-    for (final path in _accumulatedProjectPaths) {
-      final name = path.split('/').last;
-      if (name.isNotEmpty && seenNames.add(name)) {
-        chipEntries.add((path: path, name: name));
-      }
-    }
-
-    return HorizontalChipBar(
-      height: 36,
-      fontSize: 12,
-      showFade: true,
-      selectedColor: cs.primary,
-      selectedTextColor: cs.onPrimary,
-      unselectedTextColor: appColors.subtleText,
-      items: [
-        ChipItem(
-          label: 'All (${recentSessionsList.length})',
-          isSelected: currentFilter == null,
-          onSelected: () {
-            setState(() => _selectedProject = null);
-            bridge.switchProjectFilter(null);
-          },
-        ),
-        for (final entry in chipEntries)
-          ChipItem(
-            label: loadedCounts.containsKey(entry.name)
-                ? '${entry.name} (${loadedCounts[entry.name]})'
-                : entry.name,
-            isSelected: currentFilter == entry.path,
-            onSelected: () {
-              setState(() => _selectedProject = entry.name);
-              bridge.switchProjectFilter(entry.path);
-            },
-          ),
-      ],
-    );
-  }
-
-  Widget _buildDateFilterChips(AppColors appColors) {
-    final cs = Theme.of(context).colorScheme;
-    const filters = [
-      (DateFilter.all, 'All time'),
-      (DateFilter.today, 'Today'),
-      (DateFilter.thisWeek, 'This week'),
-      (DateFilter.thisMonth, 'This month'),
-    ];
-    return HorizontalChipBar(
-      selectedColor: cs.tertiary,
-      selectedTextColor: cs.onTertiary,
-      unselectedTextColor: appColors.subtleText,
-      items: [
-        for (final (filter, label) in filters)
-          ChipItem(
-            label: label,
-            isSelected: _dateFilter == filter,
-            onSelected: () => setState(() => _dateFilter = filter),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, top: 12, bottom: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [color.withValues(alpha: 0.4), Colors.transparent],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
