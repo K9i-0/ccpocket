@@ -16,14 +16,27 @@ ccpocket/
 ├── apps/mobile/        # Flutter Mobile App
 │   └── lib/
 │       ├── main.dart
-│       ├── screens/
-│       │   ├── session_list_screen.dart  # セッション一覧 (ホーム)
-│       │   ├── chat_screen.dart          # チャット画面
-│       │   └── diff_screen.dart          # Diff表示画面
-│       ├── models/messages.dart          # メッセージ型定義
-│       ├── services/bridge_service.dart  # WebSocketクライアント
-│       ├── utils/diff_parser.dart        # Unified diffパーサー
-│       └── widgets/message_bubble.dart   # メッセージUI
+│       ├── features/                      # Feature-first ディレクトリ
+│       │   ├── chat/                      # チャット画面
+│       │   │   ├── chat_screen.dart
+│       │   │   ├── state/                 # Freezed state + Notifier
+│       │   │   └── widgets/               # 抽出Widget
+│       │   ├── session_list/              # セッション一覧 (ホーム)
+│       │   │   ├── session_list_screen.dart
+│       │   │   ├── state/
+│       │   │   └── widgets/
+│       │   ├── diff/                      # Diff表示画面
+│       │   │   ├── diff_screen.dart
+│       │   │   ├── state/
+│       │   │   └── widgets/
+│       │   └── gallery/                   # ギャラリー画面
+│       │       ├── gallery_screen.dart
+│       │       └── widgets/
+│       ├── models/messages.dart           # メッセージ型定義
+│       ├── providers/                     # グローバルprovider
+│       ├── services/bridge_service.dart   # WebSocketクライアント
+│       ├── utils/diff_parser.dart         # Unified diffパーサー
+│       └── widgets/                       # 共有Widget
 └── package.json        # npm workspaces root
 ```
 
