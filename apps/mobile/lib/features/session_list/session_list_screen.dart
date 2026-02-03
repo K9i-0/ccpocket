@@ -18,6 +18,7 @@ import '../../services/url_history_service.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../chat/chat_screen.dart';
 import '../gallery/gallery_screen.dart';
+import 'state/session_list_notifier.dart';
 import 'state/session_list_state.dart';
 import 'widgets/connect_form.dart';
 import 'widgets/home_content.dart';
@@ -120,16 +121,8 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
 
-  String?
-  _selectedProject; // null = show all (projectName for client-side filter)
-  DateFilter _dateFilter = DateFilter.all;
-  String _searchQuery = '';
   bool _isSearching = false;
   bool _isAutoConnecting = false;
-  bool _isLoadingMore = false;
-
-  // Accumulated project paths: project history + paths from paging
-  Set<String> _accumulatedProjectPaths = {};
 
   // URL history
   UrlHistoryService? _urlHistoryService;
@@ -141,7 +134,6 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
   // Only subscription that remains: session_created navigation
   StreamSubscription<ServerMessage>? _messageSub;
-  StreamSubscription<List<RecentSession>>? _recentSessionsSub;
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyApiKey = 'bridge_api_key';
@@ -163,22 +155,6 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
           _pendingResumeProjectPath = null;
           _pendingResumeGitBranch = null;
         }
-      }
-    });
-    // Accumulate project paths from loaded sessions
-    _recentSessionsSub = bridge.recentSessionsStream.listen((sessions) {
-      if (!mounted) return;
-      final newPaths = sessions
-          .map((s) => s.projectPath)
-          .where((p) => p.isNotEmpty)
-          .toSet();
-      if (newPaths.difference(_accumulatedProjectPaths).isNotEmpty) {
-        setState(() {
-          _accumulatedProjectPaths = {..._accumulatedProjectPaths, ...newPaths};
-          _isLoadingMore = false;
-        });
-      } else {
-        setState(() => _isLoadingMore = false);
       }
     });
     widget.deepLinkNotifier?.addListener(_onDeepLink);
@@ -410,7 +386,6 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   void dispose() {
     widget.deepLinkNotifier?.removeListener(_onDeepLink);
     _messageSub?.cancel();
-    _recentSessionsSub?.cancel();
     _urlController.dispose();
     _apiKeyController.dispose();
     super.dispose();
@@ -418,30 +393,18 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
   void _disconnect() {
     ref.read(bridgeServiceProvider).disconnect();
-    setState(() {
-      _selectedProject = null;
-      _dateFilter = DateFilter.all;
-      _searchQuery = '';
-      _isSearching = false;
-      _accumulatedProjectPaths = {};
-      _isLoadingMore = false;
-    });
+    ref.read(sessionListNotifierProvider.notifier).resetFilters();
+    setState(() => _isSearching = false);
   }
 
   void _refresh() {
-    final bridge = ref.read(bridgeServiceProvider);
-    bridge.requestSessionList();
-    bridge.requestRecentSessions(
-      offset: 0,
-      projectPath: bridge.currentProjectFilter,
-    );
-    bridge.requestProjectHistory();
+    ref.read(sessionListNotifierProvider.notifier).refresh();
   }
 
   void _showNewSessionDialog() async {
     final sessions =
         widget.debugRecentSessions ??
-        (ref.read(recentSessionsProvider).valueOrNull ?? []);
+        ref.read(sessionListNotifierProvider).sessions;
     final history = ref.read(projectHistoryProvider).valueOrNull ?? [];
     final result = await showNewSessionSheet(
       context: context,
@@ -523,22 +486,6 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Merge project history into accumulated paths
-    ref.listen<AsyncValue<List<String>>>(projectHistoryProvider, (prev, next) {
-      final projects = next.valueOrNull ?? [];
-      if (projects.isNotEmpty) {
-        final newPaths = projects.toSet();
-        if (newPaths.difference(_accumulatedProjectPaths).isNotEmpty) {
-          setState(() {
-            _accumulatedProjectPaths = {
-              ..._accumulatedProjectPaths,
-              ...newPaths,
-            };
-          });
-        }
-      }
-    });
-
     // Side-effect: auto-request lists on connect
     ref.listen<AsyncValue<BridgeConnectionState>>(connectionStateProvider, (
       prev,
@@ -554,22 +501,18 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
       }
       if (prevState != BridgeConnectionState.connected &&
           nextState == BridgeConnectionState.connected) {
-        final bridge = ref.read(bridgeServiceProvider);
-        bridge.requestSessionList();
-        bridge.requestRecentSessions(offset: 0);
-        bridge.requestProjectHistory();
+        ref.read(sessionListNotifierProvider.notifier).refresh();
       }
     });
 
     // Read state from providers
+    final slState = ref.watch(sessionListNotifierProvider);
     final connectionState = widget.debugRecentSessions != null
         ? BridgeConnectionState.connected
         : (ref.watch(connectionStateProvider).valueOrNull ??
               BridgeConnectionState.disconnected);
     final sessions = ref.watch(sessionListProvider).valueOrNull ?? [];
-    final recentSessionsList =
-        widget.debugRecentSessions ??
-        (ref.watch(recentSessionsProvider).valueOrNull ?? []);
+    final recentSessionsList = widget.debugRecentSessions ?? slState.sessions;
     final discoveredServers =
         ref.watch(serverDiscoveryProvider).valueOrNull ?? [];
 
@@ -587,7 +530,9 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
                   hintText: 'Search sessions...',
                   border: InputBorder.none,
                 ),
-                onChanged: (v) => setState(() => _searchQuery = v),
+                onChanged: (v) => ref
+                    .read(sessionListNotifierProvider.notifier)
+                    .setSearchQuery(v),
               )
             : const Text('ccpocket'),
         actions: [
@@ -605,10 +550,14 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
             IconButton(
               key: const ValueKey('search_button'),
               icon: Icon(_isSearching ? Icons.close : Icons.search),
-              onPressed: () => setState(() {
-                _isSearching = !_isSearching;
-                if (!_isSearching) _searchQuery = '';
-              }),
+              onPressed: () {
+                setState(() => _isSearching = !_isSearching);
+                if (!_isSearching) {
+                  ref
+                      .read(sessionListNotifierProvider.notifier)
+                      .setSearchQuery('');
+                }
+              },
               tooltip: 'Search',
             ),
           if (showConnectedUI)
@@ -646,14 +595,12 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
                 connectionState: connectionState,
                 sessions: sessions,
                 recentSessions: recentSessionsList,
-                accumulatedProjectPaths: _accumulatedProjectPaths,
-                selectedProject: _selectedProject,
-                dateFilter: _dateFilter,
-                searchQuery: _searchQuery,
-                isLoadingMore: _isLoadingMore,
-                hasMoreSessions: ref
-                    .read(bridgeServiceProvider)
-                    .recentSessionsHasMore,
+                accumulatedProjectPaths: slState.accumulatedProjectPaths,
+                selectedProject: slState.selectedProject,
+                dateFilter: slState.dateFilter,
+                searchQuery: slState.searchQuery,
+                isLoadingMore: slState.isLoadingMore,
+                hasMoreSessions: slState.hasMore,
                 currentProjectFilter: ref
                     .read(bridgeServiceProvider)
                     .currentProjectFilter,
@@ -662,12 +609,14 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
                     _navigateToChat(sessionId, projectPath: projectPath),
                 onStopSession: _stopSession,
                 onResumeSession: _resumeSession,
-                onSelectProject: (path) {
-                  setState(() => _selectedProject = path?.split('/').last);
-                  ref.read(bridgeServiceProvider).switchProjectFilter(path);
-                },
-                onSelectDateFilter: (f) => setState(() => _dateFilter = f),
-                onLoadMore: _loadMore,
+                onSelectProject: (path) => ref
+                    .read(sessionListNotifierProvider.notifier)
+                    .selectProject(path),
+                onSelectDateFilter: (f) => ref
+                    .read(sessionListNotifierProvider.notifier)
+                    .setDateFilter(f),
+                onLoadMore: () =>
+                    ref.read(sessionListNotifierProvider.notifier).loadMore(),
               ),
             )
           : connectionState == BridgeConnectionState.connecting
@@ -717,10 +666,5 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     if (_urlHistoryService == null) return;
     await _urlHistoryService!.remove(url);
     setState(() => _urlHistory = _urlHistoryService!.load());
-  }
-
-  void _loadMore() {
-    setState(() => _isLoadingMore = true);
-    ref.read(bridgeServiceProvider).loadMoreRecentSessions();
   }
 }
