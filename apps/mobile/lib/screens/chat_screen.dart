@@ -13,6 +13,12 @@ import '../services/chat_message_handler.dart';
 import '../services/notification_service.dart';
 import '../services/voice_input_service.dart';
 import '../theme/app_theme.dart';
+import '../features/chat/widgets/chat_app_bar_title.dart';
+import '../features/chat/widgets/cost_badge.dart';
+import '../features/chat/widgets/plan_mode_chip.dart';
+import '../features/chat/widgets/reconnect_banner.dart';
+import '../features/chat/widgets/session_switcher.dart';
+import '../features/chat/widgets/status_indicator.dart';
 import '../widgets/approval_bar.dart';
 import '../widgets/chat_input_bar.dart';
 import '../widgets/file_mention_overlay.dart';
@@ -704,7 +710,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         autofocus: true,
         child: Scaffold(
           appBar: AppBar(
-            title: _buildAppBarTitle(),
+            title: ChatAppBarTitle(
+              sessionId: widget.sessionId,
+              projectPath: widget.projectPath,
+              gitBranch: widget.gitBranch,
+            ),
             actions: [
               if (widget.projectPath != null)
                 IconButton(
@@ -733,17 +743,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   );
                 },
               ),
-              if (_inPlanMode) _buildPlanModeChip(appColors),
-              if (_otherSessions.isNotEmpty) _buildSessionSwitcher(appColors),
-              if (_totalCost > 0) _buildCostBadge(),
-              _buildStatusIndicator(appColors),
+              if (_inPlanMode) const PlanModeChip(),
+              if (_otherSessions.isNotEmpty)
+                SessionSwitcher(
+                  otherSessions: _otherSessions,
+                  onSessionSelected: (session) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatScreen(
+                          bridge: widget.bridge,
+                          sessionId: session.id,
+                          projectPath: session.projectPath,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              if (_totalCost > 0) CostBadge(totalCost: _totalCost),
+              StatusIndicator(status: _status),
             ],
           ),
           body: Column(
             children: [
               if (bridgeState == BridgeConnectionState.reconnecting ||
                   bridgeState == BridgeConnectionState.disconnected)
-                _buildReconnectBanner(appColors),
+                ReconnectBanner(bridgeState: bridgeState),
               Expanded(
                 child: Stack(
                   children: [
@@ -811,212 +836,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  Widget _buildAppBarTitle() {
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    final projectPath = widget.projectPath;
-    if (projectPath != null && projectPath.isNotEmpty) {
-      final projectName = projectPath.split('/').last;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Hero(
-            tag: 'project_name_${widget.sessionId}',
-            child: Material(
-              color: Colors.transparent,
-              child: Text(
-                projectName,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          if (widget.gitBranch != null && widget.gitBranch!.isNotEmpty)
-            Text(
-              widget.gitBranch!,
-              style: TextStyle(fontSize: 12, color: appColors.subtleText),
-            ),
-        ],
-      );
-    }
-    return Text('Session ${widget.sessionId.substring(0, 8)}');
-  }
-
-  Widget _buildSessionSwitcher(AppColors appColors) {
-    final approvalCount = _otherSessions
-        .where((s) => s.status == 'waiting_approval')
-        .length;
-    return PopupMenuButton<String>(
-      key: const ValueKey('session_switcher'),
-      icon: Badge(
-        isLabelVisible: approvalCount > 0,
-        label: Text('$approvalCount'),
-        backgroundColor: appColors.statusApproval,
-        child: Text(
-          '${_otherSessions.length + 1}',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: appColors.subtleText,
-          ),
-        ),
-      ),
-      tooltip: 'Switch session',
-      onSelected: (sessionId) {
-        final session = _otherSessions.firstWhere((s) => s.id == sessionId);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChatScreen(
-              bridge: widget.bridge, // preserve mock bridge for switcher
-              sessionId: sessionId,
-              projectPath: session.projectPath,
-            ),
-          ),
-        );
-      },
-      itemBuilder: (context) => _otherSessions.map((s) {
-        final projectName = s.projectPath.split('/').last;
-        final isApproval = s.status == 'waiting_approval';
-        return PopupMenuItem<String>(
-          value: s.id,
-          child: Row(
-            children: [
-              if (isApproval)
-                Icon(
-                  Icons.warning_amber,
-                  size: 16,
-                  color: appColors.statusApproval,
-                )
-              else
-                Icon(Icons.terminal, size: 16, color: appColors.subtleText),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  projectName,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isApproval ? FontWeight.w700 : FontWeight.w400,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                s.id.substring(0, 6),
-                style: TextStyle(fontSize: 10, color: appColors.subtleText),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildCostBadge() {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: cs.secondary.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          '\$${_totalCost.toStringAsFixed(4)}',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: cs.secondary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusIndicator(AppColors appColors) {
-    final (color, label) = switch (_status) {
-      ProcessStatus.starting => (appColors.statusStarting, 'Starting'),
-      ProcessStatus.idle => (appColors.statusIdle, 'Idle'),
-      ProcessStatus.running => (appColors.statusRunning, 'Running'),
-      ProcessStatus.waitingApproval => (appColors.statusApproval, 'Approval'),
-    };
-    return Padding(
-      key: const ValueKey('status_indicator'),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                boxShadow:
-                    (_status == ProcessStatus.running ||
-                        _status == ProcessStatus.starting)
-                    ? [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.5),
-                          blurRadius: 4,
-                        ),
-                      ]
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlanModeChip(AppColors appColors) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: cs.tertiary.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.assignment, size: 12, color: cs.tertiary),
-            const SizedBox(width: 4),
-            Text(
-              'Plan',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: cs.tertiary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildMessageList() {
     return NotificationListener<ScrollStartNotification>(
       onNotification: (notification) {
@@ -1050,40 +869,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             child: FadeTransition(opacity: animation, child: child),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildReconnectBanner(AppColors appColors) {
-    final isReconnecting = _bridgeState == BridgeConnectionState.reconnecting;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Theme.of(context).colorScheme.error.withValues(alpha: 0.12),
-      child: Row(
-        children: [
-          if (isReconnecting)
-            const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            Icon(
-              Icons.cloud_off,
-              size: 16,
-              color: Theme.of(context).colorScheme.error,
-            ),
-          const SizedBox(width: 8),
-          Text(
-            isReconnecting ? 'Reconnecting...' : 'Disconnected',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: Theme.of(context).colorScheme.error,
-            ),
-          ),
-        ],
       ),
     );
   }
