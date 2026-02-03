@@ -617,12 +617,12 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
           if (showConnectedUI)
             IconButton(
               key: const ValueKey('gallery_button'),
-              icon: const Icon(Icons.photo_library_outlined),
+              icon: const Icon(Icons.preview),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const GalleryScreen()),
               ),
-              tooltip: 'Gallery',
+              tooltip: 'Preview',
             ),
           if (showConnectedUI)
             IconButton(

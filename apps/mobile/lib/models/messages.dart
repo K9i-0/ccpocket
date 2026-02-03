@@ -630,9 +630,10 @@ class ClientMessage {
     return ClientMessage._(json);
   }
 
-  factory ClientMessage.listGallery({String? project}) {
+  factory ClientMessage.listGallery({String? project, String? sessionId}) {
     final json = <String, dynamic>{'type': 'list_gallery'};
     if (project != null) json['project'] = project;
+    if (sessionId != null) json['sessionId'] = sessionId;
     return ClientMessage._(json);
   }
 

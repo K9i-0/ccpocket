@@ -95,12 +95,19 @@ export class SessionManager {
           session.claudeSessionId = msg.sessionId;
         }
 
-        // Cache slash commands from system/init for early loading
-        if (msg.type === "system" && msg.subtype === "init" &&
-            msg.slashCommands && msg.slashCommands.length > 0) {
+        // Inject Bridge-specific slash commands into any system message
+        // that carries a slashCommands list (init, supported_commands).
+        if (
+          msg.type === "system" &&
+          (msg.subtype === "init" || msg.subtype === "supported_commands") &&
+          msg.slashCommands
+        ) {
+          const bridgeCommands = ["preview"];
+          const allCommands = [...msg.slashCommands, ...bridgeCommands];
+          msg = { ...msg, slashCommands: allCommands };
           this.commandCache.set(projectPath, {
-            slashCommands: msg.slashCommands,
-            skills: msg.skills ?? [],
+            slashCommands: allCommands,
+            skills: msg.skills ?? this.commandCache.get(projectPath)?.skills ?? [],
           });
         }
 
@@ -137,7 +144,7 @@ export class SessionManager {
                 const meta = await this.galleryStore.addImage(
                   p,
                   session.projectPath,
-                  session.claudeSessionId,
+                  session.id,
                 );
                 if (meta && this.onGalleryImage) {
                   this.onGalleryImage(meta);

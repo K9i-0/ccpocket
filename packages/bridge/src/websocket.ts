@@ -138,7 +138,10 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "No active session. Send 'start' first." });
           return;
         }
-        session.process.sendInput(msg.text);
+        const text = msg.text.startsWith("/preview")
+          ? this.expandPreviewCommand(session, msg.text)
+          : msg.text;
+        session.process.sendInput(text);
         break;
       }
 
@@ -268,7 +271,10 @@ export class BridgeWebSocketServer {
 
       case "list_gallery": {
         if (this.galleryStore) {
-          const images = this.galleryStore.list({ projectPath: msg.project });
+          const images = this.galleryStore.list({
+            projectPath: msg.project,
+            sessionId: msg.sessionId,
+          });
           this.send(ws, { type: "gallery_list", images } as Record<string, unknown>);
         } else {
           this.send(ws, { type: "gallery_list", images: [] } as Record<string, unknown>);
@@ -366,5 +372,29 @@ export class BridgeWebSocketServer {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg));
     }
+  }
+
+  /** Broadcast a gallery_new_image message to all connected clients. */
+  broadcastGalleryNewImage(image: import("./gallery-store.js").GalleryImageInfo): void {
+    this.broadcast({ type: "gallery_new_image", image });
+  }
+
+  private expandPreviewCommand(session: SessionInfo, raw: string): string {
+    const extra = raw.replace(/^\/preview\s*/, "").trim();
+    const port = process.env.BRIDGE_PORT ?? "8765";
+    const lines = [
+      "Take a screenshot of the current app/UI state and upload it to CC Pocket Preview so the user can see it on their mobile device.",
+      "",
+      "Upload command:",
+      `curl -s -X POST http://localhost:${port}/api/gallery/upload \\`,
+      `  -H 'Content-Type: application/json' \\`,
+      `  -d '{"filePath":"<screenshot_path>","projectPath":"${session.projectPath}"}'`,
+      "",
+      "Replace <screenshot_path> with the actual file path of the screenshot.",
+    ];
+    if (extra) {
+      lines.push("", `User's additional request: ${extra}`);
+    }
+    return lines.join("\n");
   }
 }

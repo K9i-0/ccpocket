@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/messages.dart';
 import '../providers/bridge_providers.dart';
 import 'diff_screen.dart';
+import 'gallery_screen.dart';
 import '../services/bridge_service_base.dart';
 import '../services/chat_message_handler.dart';
 import '../services/notification_service.dart';
@@ -719,6 +720,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     );
                   },
                 ),
+              IconButton(
+                icon: const Icon(Icons.preview, size: 20),
+                tooltip: 'Preview',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          GalleryScreen(sessionId: widget.sessionId),
+                    ),
+                  );
+                },
+              ),
               if (_inPlanMode) _buildPlanModeChip(appColors),
               if (_otherSessions.isNotEmpty) _buildSessionSwitcher(appColors),
               if (_totalCost > 0) _buildCostBadge(),

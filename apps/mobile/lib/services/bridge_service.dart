@@ -288,8 +288,8 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.removeProjectHistory(path));
   }
 
-  void requestGallery({String? project}) {
-    send(ClientMessage.listGallery(project: project));
+  void requestGallery({String? project, String? sessionId}) {
+    send(ClientMessage.listGallery(project: project, sessionId: sessionId));
   }
 
   @override

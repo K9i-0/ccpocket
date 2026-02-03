@@ -5,10 +5,7 @@ import 'package:ccpocket/screens/diff_screen.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 
 Widget _wrap(Widget child) {
-  return MaterialApp(
-    theme: AppTheme.darkTheme,
-    home: child,
-  );
+  return MaterialApp(theme: AppTheme.darkTheme, home: child);
 }
 
 const _sampleDiff = '''
@@ -44,9 +41,9 @@ diff --git a/file_b.dart b/file_b.dart
 void main() {
   group('DiffScreen - individual diff mode', () {
     testWidgets('displays diff content with color coding', (tester) async {
-      await tester.pumpWidget(_wrap(
-        const DiffScreen(initialDiff: _sampleDiff),
-      ));
+      await tester.pumpWidget(
+        _wrap(const DiffScreen(initialDiff: _sampleDiff)),
+      );
       await tester.pumpAndSettle();
 
       // File name should appear
@@ -64,21 +61,18 @@ void main() {
     });
 
     testWidgets('displays title when provided', (tester) async {
-      await tester.pumpWidget(_wrap(
-        const DiffScreen(
-          initialDiff: _sampleDiff,
-          title: 'Custom Title',
+      await tester.pumpWidget(
+        _wrap(
+          const DiffScreen(initialDiff: _sampleDiff, title: 'Custom Title'),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Custom Title'), findsOneWidget);
     });
 
     testWidgets('shows empty state when no changes', (tester) async {
-      await tester.pumpWidget(_wrap(
-        const DiffScreen(initialDiff: ''),
-      ));
+      await tester.pumpWidget(_wrap(const DiffScreen(initialDiff: '')));
       await tester.pumpAndSettle();
 
       expect(find.text('No changes'), findsOneWidget);
@@ -87,9 +81,9 @@ void main() {
 
   group('DiffScreen - multi-file diff', () {
     testWidgets('shows filter button for multi-file diffs', (tester) async {
-      await tester.pumpWidget(_wrap(
-        const DiffScreen(initialDiff: _multiFileDiff),
-      ));
+      await tester.pumpWidget(
+        _wrap(const DiffScreen(initialDiff: _multiFileDiff)),
+      );
       await tester.pumpAndSettle();
 
       // Filter icon should be present
@@ -97,9 +91,9 @@ void main() {
     });
 
     testWidgets('shows file header with stats', (tester) async {
-      await tester.pumpWidget(_wrap(
-        const DiffScreen(initialDiff: _multiFileDiff),
-      ));
+      await tester.pumpWidget(
+        _wrap(const DiffScreen(initialDiff: _multiFileDiff)),
+      );
       await tester.pumpAndSettle();
 
       // First file should be displayed initially
@@ -109,9 +103,9 @@ void main() {
 
   group('DiffScreen - line numbers', () {
     testWidgets('displays line numbers for context lines', (tester) async {
-      await tester.pumpWidget(_wrap(
-        const DiffScreen(initialDiff: _sampleDiff),
-      ));
+      await tester.pumpWidget(
+        _wrap(const DiffScreen(initialDiff: _sampleDiff)),
+      );
       await tester.pumpAndSettle();
 
       // Line number 1 should appear (context line "void main() {")

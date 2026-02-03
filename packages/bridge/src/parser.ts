@@ -54,7 +54,7 @@ export type ClientMessage =
   | { type: "get_history"; sessionId: string }
   | { type: "list_recent_sessions"; limit?: number; offset?: number; projectPath?: string }
   | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode }
-  | { type: "list_gallery"; project?: string }
+  | { type: "list_gallery"; project?: string; sessionId?: string }
   | { type: "list_files"; projectPath: string }
   | { type: "get_diff"; projectPath: string }
   | { type: "interrupt"; sessionId?: string }

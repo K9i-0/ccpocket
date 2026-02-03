@@ -102,10 +102,13 @@ export class GalleryStore {
     }
   }
 
-  list(options?: { projectPath?: string }): GalleryImageInfo[] {
+  list(options?: { projectPath?: string; sessionId?: string }): GalleryImageInfo[] {
     let items = this.index;
     if (options?.projectPath) {
       items = items.filter((m) => m.projectPath === options.projectPath);
+    }
+    if (options?.sessionId) {
+      items = items.filter((m) => m.sessionId === options.sessionId);
     }
     // Return newest first
     return [...items]
@@ -217,6 +220,55 @@ export class GalleryStore {
         res.end("Not Found");
       });
 
+    return true;
+  }
+
+  /**
+   * Handle POST /api/gallery/upload.
+   * Accepts JSON body: { filePath: string, projectPath: string, sessionId?: string }
+   * Returns true if the request was handled.
+   */
+  handleUploadRequest(
+    req: IncomingMessage,
+    res: ServerResponse,
+    onNewImage?: (meta: GalleryImageMeta) => void,
+  ): boolean {
+    const url = req.url ?? "";
+    if (url !== "/api/gallery/upload" || req.method !== "POST") return false;
+
+    let body = "";
+    req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+    req.on("end", async () => {
+      try {
+        const parsed = JSON.parse(body) as {
+          filePath?: string;
+          projectPath?: string;
+          sessionId?: string;
+        };
+        if (!parsed.filePath || !parsed.projectPath) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "filePath and projectPath are required" }));
+          return;
+        }
+        const meta = await this.addImage(
+          parsed.filePath,
+          parsed.projectPath,
+          parsed.sessionId,
+        );
+        if (!meta) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Failed to add image (unsupported format or file not found)" }));
+          return;
+        }
+        const info = this.metaToInfo(meta);
+        if (onNewImage) onNewImage(meta);
+        res.writeHead(201, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ image: info }));
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body" }));
+      }
+    });
     return true;
   }
 

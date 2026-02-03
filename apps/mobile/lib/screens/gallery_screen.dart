@@ -7,7 +7,9 @@ import '../theme/app_theme.dart';
 import '../widgets/bubbles/image_preview.dart';
 
 class GalleryScreen extends ConsumerStatefulWidget {
-  const GalleryScreen({super.key});
+  final String? sessionId;
+
+  const GalleryScreen({super.key, this.sessionId});
 
   @override
   ConsumerState<GalleryScreen> createState() => _GalleryScreenState();
@@ -16,10 +18,12 @@ class GalleryScreen extends ConsumerStatefulWidget {
 class _GalleryScreenState extends ConsumerState<GalleryScreen> {
   String? _selectedProject;
 
+  bool get _isSessionMode => widget.sessionId != null;
+
   @override
   void initState() {
     super.initState();
-    ref.read(bridgeServiceProvider).requestGallery();
+    ref.read(bridgeServiceProvider).requestGallery(sessionId: widget.sessionId);
   }
 
   Map<String, int> _projectCounts(List<GalleryImage> images) {
@@ -58,7 +62,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
         ref.read(bridgeServiceProvider).galleryImages;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Gallery')),
+      appBar: AppBar(title: const Text('Preview')),
       body: images.isEmpty
           ? _buildEmptyState(appColors)
           : _buildContent(appColors, images),
@@ -81,19 +85,21 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                Icons.photo_library_outlined,
+                Icons.preview,
                 size: 40,
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
             const SizedBox(height: 16),
             const Text(
-              'No images yet',
+              'No previews yet',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
-              'Images from Claude sessions will appear here automatically.',
+              _isSessionMode
+                  ? 'Use /preview command to capture screenshots from this session.'
+                  : 'Screenshots from Claude sessions will appear here.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: appColors.subtleText),
             ),
@@ -109,7 +115,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
 
     return Column(
       children: [
-        if (counts.length > 1)
+        if (!_isSessionMode && counts.length > 1)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: _buildFilterChips(appColors, counts, images),

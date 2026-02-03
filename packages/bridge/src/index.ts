@@ -59,6 +59,14 @@ const httpServer = createServer((req, res) => {
   // Serve gallery images via GalleryStore (disk-persistent)
   if (galleryStore.handleRequest(req, res)) return;
 
+  // Upload images via POST /api/gallery/upload
+  if (galleryStore.handleUploadRequest(req, res, (meta) => {
+    if (wsServer) {
+      const info = galleryStore.metaToInfo(meta);
+      wsServer.broadcastGalleryNewImage(info);
+    }
+  })) return;
+
   // Default 404 for unknown HTTP requests
   res.writeHead(404, { "Content-Type": "text/plain" });
   res.end("Not Found");
