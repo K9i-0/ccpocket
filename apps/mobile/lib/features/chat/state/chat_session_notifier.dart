@@ -22,16 +22,19 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
   late final BridgeService _bridge;
   StreamSubscription<ServerMessage>? _subscription;
   bool _pastHistoryLoaded = false;
+  Timer? _statusRefreshTimer;
 
   @override
   ChatSessionState build(String sessionId) {
     _handler = ChatMessageHandler();
-    _bridge = ref.read(bridgeServiceProvider);
+    _bridge = ref.watch(bridgeServiceProvider);
 
     // Subscribe to messages for this session
     _subscription = _bridge.messagesForSession(sessionId).listen(_onMessage);
     ref.onDispose(() {
+      _statusRefreshTimer?.cancel();
       _subscription?.cancel();
+      _sideEffectsController.close();
     });
 
     // Consume buffered past history from resume_session flow synchronously
@@ -41,7 +44,7 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
     if (pastHistory != null) {
       _bridge.pendingPastHistory = null;
       _pastHistoryLoaded = true;
-      final update = _handler.handle(pastHistory, isBackground: false);
+      final update = _handler.handle(pastHistory, isBackground: true);
       if (update.entriesToPrepend.isNotEmpty) {
         initialState = initialState.copyWith(entries: update.entriesToPrepend);
       }
@@ -50,7 +53,21 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
     // Request in-memory history from the bridge server
     _bridge.requestSessionHistory(sessionId);
 
+    // Re-query history while status is "starting" to handle lost broadcasts
+    _startStatusRefreshTimer();
+
     return initialState;
+  }
+
+  void _startStatusRefreshTimer() {
+    _statusRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (state.status != ProcessStatus.starting) {
+        _statusRefreshTimer?.cancel();
+        _statusRefreshTimer = null;
+        return;
+      }
+      _bridge.requestSessionHistory(sessionId);
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -64,7 +81,7 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
       _pastHistoryLoaded = true;
     }
 
-    final update = _handler.handle(msg, isBackground: false);
+    final update = _handler.handle(msg, isBackground: true);
     _applyUpdate(update, msg);
   }
 
@@ -162,6 +179,12 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
       );
     }
 
+    // Stop status refresh timer when status changes from starting
+    if (update.status != null && update.status != ProcessStatus.starting) {
+      _statusRefreshTimer?.cancel();
+      _statusRefreshTimer = null;
+    }
+
     // --- Apply state update ---
     state = current.copyWith(
       status: update.status ?? current.status,
@@ -238,6 +261,26 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
   /// Stop the session.
   void stop() {
     _bridge.stopSession(sessionId);
+  }
+
+  /// Retry a failed user message.
+  void retryMessage(UserChatEntry entry) {
+    state = state.copyWith(
+      entries: state.entries.map((e) {
+        if (identical(e, entry)) {
+          return UserChatEntry(
+            entry.text,
+            sessionId: entry.sessionId ?? sessionId,
+            status: MessageStatus.sending,
+            timestamp: entry.timestamp,
+          );
+        }
+        return e;
+      }).toList(),
+    );
+    _bridge.send(
+      ClientMessage.input(entry.text, sessionId: entry.sessionId ?? sessionId),
+    );
   }
 }
 

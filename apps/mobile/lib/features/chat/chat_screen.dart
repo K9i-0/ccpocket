@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/messages.dart';
 import '../../providers/bridge_providers.dart';
-import '../../services/bridge_service_base.dart';
+import '../../services/bridge_service.dart';
 import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
 import '../../services/voice_input_service.dart';
@@ -20,6 +20,9 @@ import '../../widgets/slash_command_sheet.dart'
     show SlashCommand, SlashCommandSheet, fallbackSlashCommands;
 import '../diff/diff_screen.dart';
 import '../gallery/gallery_screen.dart';
+import 'state/chat_session_notifier.dart';
+import 'state/chat_session_state.dart';
+import 'state/streaming_state.dart';
 import 'widgets/chat_app_bar_title.dart';
 import 'widgets/chat_message_list.dart';
 import 'widgets/cost_badge.dart';
@@ -29,14 +32,12 @@ import 'widgets/session_switcher.dart';
 import 'widgets/status_indicator.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
-  final BridgeServiceBase? bridge;
   final String sessionId;
   final String? projectPath;
   final String? gitBranch;
 
   const ChatScreen({
     super.key,
-    this.bridge,
     required this.sessionId,
     this.projectPath,
     this.gitBranch,
@@ -59,12 +60,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Slash command overlay
   OverlayEntry? _slashOverlay;
   final LayerLink _inputLayerLink = LayerLink();
-  List<SlashCommand> _slashCommands = List.of(fallbackSlashCommands);
 
   // File mention overlay
   OverlayEntry? _fileMentionOverlay;
   List<String> _projectFiles = [];
-  StreamSubscription<List<String>>? _fileListSub;
 
   // Voice input
   final VoiceInputService _voiceInput = VoiceInputService();
@@ -73,52 +72,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   // Parallel sessions
   List<SessionInfo> _otherSessions = [];
-  StreamSubscription<List<SessionInfo>>? _sessionListSub;
 
-  // Plan mode
-  bool _inPlanMode = false;
+  // Plan mode feedback
   final TextEditingController _planFeedbackController = TextEditingController();
 
-  ProcessStatus _status = ProcessStatus.starting;
   bool _hasInputText = false;
-  String? _pendingToolUseId;
-  PermissionRequestMessage? _pendingPermission;
-
-  // Message handler (pure logic, no Flutter dependency)
-  final ChatMessageHandler _messageHandler = ChatMessageHandler();
-
-  // AskUserQuestion tracking
-  String? _askToolUseId;
-  Map<String, dynamic>? _askInput;
-
-  // Cost tracking
-  double _totalCost = 0;
 
   // Scroll tracking
   bool _isScrolledUp = false;
 
-  // Bridge connection state
-  BridgeConnectionState _bridgeState = BridgeConnectionState.connected;
-
-  // Status refresh timer: re-queries get_history while status is "starting"
-  // to handle lost broadcast messages or slow CLI initialization.
-  Timer? _statusRefreshTimer;
-
   // Bulk loading flag (skip animation during history load)
   bool _bulkLoading = true;
-
-  // Prevent duplicate past_history processing
-  bool _pastHistoryLoaded = false;
 
   // Notifier to auto-collapse ToolResultBubbles on new assistant message
   final ValueNotifier<int> _collapseToolResults = ValueNotifier<int>(0);
 
-  StreamSubscription<ServerMessage>? _messageSub;
-  StreamSubscription<BridgeConnectionState>? _connectionSub;
+  // Side effects subscription
+  StreamSubscription<Set<ChatSideEffect>>? _sideEffectsSub;
 
-  /// Bridge accessor: uses constructor-injected bridge (mock path) or provider.
-  BridgeServiceBase get _bridge =>
-      widget.bridge ?? ref.read(bridgeServiceProvider);
+  BridgeService get _bridge => ref.read(bridgeServiceProvider);
 
   @override
   void initState() {
@@ -126,26 +98,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
     _inputController.addListener(_onInputChanged);
-    _messageSub = _bridge
-        .messagesForSession(widget.sessionId)
-        .listen(_onServerMessage);
-
-    // Mock path: manual subscriptions for connection, fileList, sessionList
-    if (widget.bridge != null) {
-      _connectionSub = widget.bridge!.connectionStatus.listen(
-        _onConnectionChange,
-      );
-      _fileListSub = widget.bridge!.fileList.listen((files) {
-        _projectFiles = files;
-      });
-      _sessionListSub = widget.bridge!.sessionList.listen((sessions) {
-        setState(() {
-          _otherSessions = sessions
-              .where((s) => s.id != widget.sessionId)
-              .toList();
-        });
-      });
-    }
 
     // Request file list for @-mention autocomplete
     if (widget.projectPath != null && widget.projectPath!.isNotEmpty) {
@@ -157,16 +109,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
     // Request session list
     _bridge.requestSessionList();
-    // Consume buffered past history from resume_session
-    final pastHistory = _bridge.pendingPastHistory;
-    if (pastHistory != null) {
-      _bridge.pendingPastHistory = null;
-      _onServerMessage(pastHistory);
-    }
-    // Request in-memory history for this session
-    _bridge.requestSessionHistory(widget.sessionId);
-    // Start status refresh timer (re-queries if stuck at "starting")
-    _startStatusRefreshTimer();
     // Enable animation after initial load & restore scroll position
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bulkLoading = false;
@@ -174,18 +116,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (savedOffset != null && _scrollController.hasClients) {
         _scrollController.jumpTo(savedOffset);
       }
-    });
-  }
-
-  void _startStatusRefreshTimer() {
-    _statusRefreshTimer?.cancel();
-    _statusRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (_status != ProcessStatus.starting || !mounted) {
-        _statusRefreshTimer?.cancel();
-        _statusRefreshTimer = null;
-        return;
-      }
-      _bridge.requestSessionHistory(widget.sessionId);
+      // Subscribe to side effects from notifier
+      _sideEffectsSub = ref
+          .read(chatSessionNotifierProvider(widget.sessionId).notifier)
+          .sideEffects
+          .listen(_executeSideEffects);
     });
   }
 
@@ -195,15 +130,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (_scrollController.hasClients) {
       _scrollOffsets[widget.sessionId] = _scrollController.offset;
     }
-    // Clear stale pendingPastHistory to prevent leak to next session
-    _bridge.pendingPastHistory = null;
     _removeSlashOverlay();
     _removeFileMentionOverlay();
-    _statusRefreshTimer?.cancel();
-    _messageSub?.cancel();
-    _connectionSub?.cancel();
-    _fileListSub?.cancel();
-    _sessionListSub?.cancel();
+    _sideEffectsSub?.cancel();
     _voiceInput.dispose();
     _collapseToolResults.dispose();
     _inputController.removeListener(_onInputChanged);
@@ -220,103 +149,114 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   bool get _isBackground => _lifecycleState != AppLifecycleState.resumed;
 
-  void _addEntry(ChatEntry entry) {
-    _entries.add(entry);
-    _listKey.currentState?.insertItem(
-      _entries.length - 1,
-      duration: _bulkLoading
-          ? Duration.zero
-          : const Duration(milliseconds: 250),
-    );
-  }
+  // ---------------------------------------------------------------------------
+  // Entry reconciliation (AnimatedList ↔ notifier state)
+  // ---------------------------------------------------------------------------
 
-  void _onServerMessage(ServerMessage msg) {
-    // Skip duplicate past_history (may arrive from both buffer and stream)
-    if (msg is PastHistoryMessage && _pastHistoryLoaded) return;
-    if (msg is PastHistoryMessage) _pastHistoryLoaded = true;
+  /// Reconcile _entries with notifier entries.
+  ///
+  /// Handles three mutation patterns:
+  /// 1. Append: new entries added at end (first element identical)
+  /// 2. Prepend: history loaded at start (first element changed)
+  /// 3. In-place update: same length (e.g., user message status change)
+  void _reconcileEntries(
+    List<ChatEntry> oldEntries,
+    List<ChatEntry> newEntries,
+  ) {
+    if (identical(oldEntries, newEntries)) return;
 
-    final update = _messageHandler.handle(msg, isBackground: _isBackground);
-    _applyUpdate(update, msg);
+    // Temporarily remove streaming entry if present
+    final hasStreaming =
+        _entries.isNotEmpty && _entries.last is StreamingChatEntry;
+    StreamingChatEntry? streamingEntry;
+    if (hasStreaming) {
+      streamingEntry = _entries.removeLast() as StreamingChatEntry;
+    }
+
+    final oldLen = _entries.length;
+    final newLen = newEntries.length;
+    final diff = newLen - oldLen;
+
+    if (diff > 0) {
+      if (oldLen > 0 && identical(newEntries[0], oldEntries[0])) {
+        // Append: update existing entries, then add new ones
+        for (var i = 0; i < oldLen; i++) {
+          _entries[i] = newEntries[i];
+        }
+        for (var i = oldLen; i < newLen; i++) {
+          _entries.add(newEntries[i]);
+          _listKey.currentState?.insertItem(
+            _entries.length - 1,
+            duration: _bulkLoading
+                ? Duration.zero
+                : const Duration(milliseconds: 250),
+          );
+        }
+      } else {
+        // Prepend: insert at beginning, then update shifted entries
+        _entries.insertAll(0, newEntries.sublist(0, diff));
+        for (var i = 0; i < diff; i++) {
+          _listKey.currentState?.insertItem(i, duration: Duration.zero);
+        }
+        for (var i = diff; i < newLen; i++) {
+          _entries[i] = newEntries[i];
+        }
+      }
+    } else {
+      // In-place update (same length or shrink)
+      for (var i = 0; i < newLen && i < _entries.length; i++) {
+        _entries[i] = newEntries[i];
+      }
+    }
+
+    // Restore streaming entry
+    if (streamingEntry != null) {
+      _entries.add(streamingEntry);
+    }
+
+    setState(() {});
     _scrollToBottom();
   }
 
-  void _applyUpdate(ChatStateUpdate update, ServerMessage originalMsg) {
-    setState(() {
-      if (update.status != null) {
-        _status = update.status!;
-        if (_status != ProcessStatus.starting) {
-          _statusRefreshTimer?.cancel();
-          _statusRefreshTimer = null;
-        }
-      }
-      if (update.resetPending) {
-        _pendingToolUseId = null;
-        _pendingPermission = null;
-      }
-      if (update.resetAsk) {
-        _askToolUseId = null;
-        _askInput = null;
-      }
-      if (update.resetStreaming) {
-        _messageHandler.currentStreaming = null;
-      }
-      if (update.pendingToolUseId != null) {
-        _pendingToolUseId = update.pendingToolUseId;
-      }
-      if (update.pendingPermission != null) {
-        _pendingPermission = update.pendingPermission;
-      }
-      if (update.askToolUseId != null) {
-        _askToolUseId = update.askToolUseId;
-        _askInput = update.askInput;
-      }
-      if (update.costDelta != null) _totalCost += update.costDelta!;
-      if (update.inPlanMode != null) _inPlanMode = update.inPlanMode!;
-      if (update.slashCommands != null) _slashCommands = update.slashCommands!;
+  // ---------------------------------------------------------------------------
+  // Streaming entry management
+  // ---------------------------------------------------------------------------
 
-      // Mark user messages as sent
-      if (update.markUserMessagesSent) {
-        for (final e in _entries) {
-          if (e is UserChatEntry && e.status == MessageStatus.sending) {
-            e.status = MessageStatus.sent;
-          }
-        }
-        // Replace streaming entry if handler consumed it
-        final streaming = _messageHandler.currentStreaming;
-        if (streaming == null && originalMsg is AssistantServerMessage) {
-          // Streaming was consumed — find and replace the entry
-          final oldStreaming = _entries.whereType<StreamingChatEntry>();
-          if (oldStreaming.isNotEmpty) {
-            final idx = _entries.indexOf(oldStreaming.first);
-            if (idx >= 0) {
-              // Build display message (handler already enriched it)
-              _entries[idx] = update.entriesToAdd.isNotEmpty
-                  ? update.entriesToAdd.first
-                  : ServerChatEntry(originalMsg);
-              // Don't add again below
-              return;
-            }
-          }
-        }
-      }
+  void _onStreamingStateChange(StreamingState? prev, StreamingState next) {
+    final wasStreaming = prev?.isStreaming ?? false;
 
-      // Prepend entries (past history)
-      if (update.entriesToPrepend.isNotEmpty) {
-        _entries.insertAll(0, update.entriesToPrepend);
-        for (var i = 0; i < update.entriesToPrepend.length; i++) {
-          _listKey.currentState?.insertItem(i, duration: Duration.zero);
-        }
+    if (next.isStreaming) {
+      if (_entries.isNotEmpty && _entries.last is StreamingChatEntry) {
+        // Update existing streaming entry in place
+        _entries[_entries.length - 1] = StreamingChatEntry(text: next.text);
+      } else {
+        // Add new streaming entry
+        _entries.add(StreamingChatEntry(text: next.text));
+        _listKey.currentState?.insertItem(
+          _entries.length - 1,
+          duration: Duration.zero,
+        );
       }
-
-      // Add entries
-      for (final entry in update.entriesToAdd) {
-        _addEntry(entry);
+      setState(() {});
+      _scrollToBottom();
+    } else if (wasStreaming && !next.isStreaming) {
+      // Streaming ended → remove streaming entry
+      if (_entries.isNotEmpty && _entries.last is StreamingChatEntry) {
+        final idx = _entries.length - 1;
+        _entries.removeAt(idx);
+        _listKey.currentState?.removeItem(
+          idx,
+          (_, _) => const SizedBox.shrink(),
+          duration: Duration.zero,
+        );
+        setState(() {});
       }
-    });
-
-    // Execute side effects outside setState
-    _executeSideEffects(update.sideEffects);
+    }
   }
+
+  // ---------------------------------------------------------------------------
+  // Side effects
+  // ---------------------------------------------------------------------------
 
   void _executeSideEffects(Set<ChatSideEffect> effects) {
     for (final effect in effects) {
@@ -332,28 +272,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         case ChatSideEffect.clearPlanFeedback:
           _planFeedbackController.clear();
         case ChatSideEffect.notifyApprovalRequired:
-          NotificationService.instance.show(
-            title: 'Approval Required',
-            body: 'Tool approval needed',
-            id: 1,
-          );
+          if (_isBackground) {
+            NotificationService.instance.show(
+              title: 'Approval Required',
+              body: 'Tool approval needed',
+              id: 1,
+            );
+          }
         case ChatSideEffect.notifyAskQuestion:
-          NotificationService.instance.show(
-            title: 'Claude is asking',
-            body: 'Question needs your answer',
-            id: 2,
-          );
+          if (_isBackground) {
+            NotificationService.instance.show(
+              title: 'Claude is asking',
+              body: 'Question needs your answer',
+              id: 2,
+            );
+          }
         case ChatSideEffect.notifySessionComplete:
-          NotificationService.instance.show(
-            title: 'Session Complete',
-            body: 'Session done',
-            id: 3,
-          );
+          if (_isBackground) {
+            NotificationService.instance.show(
+              title: 'Session Complete',
+              body: 'Session done',
+              id: 3,
+            );
+          }
         case ChatSideEffect.scrollToBottom:
           _scrollToBottom();
       }
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Input handling
+  // ---------------------------------------------------------------------------
 
   void _onInputChanged() {
     final hasText = _inputController.text.trim().isNotEmpty;
@@ -361,9 +311,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       setState(() => _hasInputText = hasText);
     }
     final text = _inputController.text;
+    final slashCommands = _currentSlashCommands;
     if (text.startsWith('/') && text.isNotEmpty) {
       final query = text.toLowerCase();
-      final filtered = _slashCommands
+      final filtered = slashCommands
           .where((c) => c.command.toLowerCase().startsWith(query))
           .toList();
       if (filtered.isNotEmpty) {
@@ -391,6 +342,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _removeFileMentionOverlay();
       }
     }
+  }
+
+  /// Get slash commands: prefer notifier state, fall back to defaults.
+  List<SlashCommand> get _currentSlashCommands {
+    final commands = ref
+        .read(chatSessionNotifierProvider(widget.sessionId))
+        .slashCommands;
+    return commands.isNotEmpty ? commands : fallbackSlashCommands;
   }
 
   /// Extract the file query after the last '@' before cursor position.
@@ -490,30 +449,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Connection / retry
+  // ---------------------------------------------------------------------------
+
   void _onConnectionChange(BridgeConnectionState state) {
-    setState(() => _bridgeState = state);
     if (state == BridgeConnectionState.connected) {
       _retryFailedMessages();
     }
   }
 
   void _retryFailedMessages() {
+    final notifier = ref.read(
+      chatSessionNotifierProvider(widget.sessionId).notifier,
+    );
     for (final entry in _entries) {
       if (entry is UserChatEntry && entry.status == MessageStatus.failed) {
-        _retryMessage(entry);
+        notifier.retryMessage(entry);
       }
     }
   }
 
-  void _retryMessage(UserChatEntry entry) {
-    setState(() => entry.status = MessageStatus.sending);
-    _bridge.send(
-      ClientMessage.input(
-        entry.text,
-        sessionId: entry.sessionId ?? widget.sessionId,
-      ),
-    );
-  }
+  // ---------------------------------------------------------------------------
+  // Scroll
+  // ---------------------------------------------------------------------------
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
@@ -536,6 +495,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // Voice input
+  // ---------------------------------------------------------------------------
 
   void _toggleVoiceInput() {
     if (_isRecording) {
@@ -560,144 +523,168 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Actions → Notifier
+  // ---------------------------------------------------------------------------
+
   void _sendMessage() {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
     HapticFeedback.lightImpact();
-    final connected = _bridge.isConnected;
-    final entry = UserChatEntry(
-      text,
-      sessionId: widget.sessionId,
-      status: connected ? MessageStatus.sending : MessageStatus.failed,
-    );
-    setState(() {
-      _messageHandler.currentStreaming = null;
-      _addEntry(entry);
-    });
-    _bridge.send(ClientMessage.input(text, sessionId: widget.sessionId));
+    ref
+        .read(chatSessionNotifierProvider(widget.sessionId).notifier)
+        .sendMessage(text);
     _inputController.clear();
     _scrollToBottom();
   }
 
   void _approveToolUse() {
-    if (_pendingToolUseId != null) {
-      // Approving ExitPlanMode means plan is accepted → exit plan mode
-      if (_isPlanApproval) {
-        _inPlanMode = false;
-      }
-      _bridge.send(
-        ClientMessage.approve(_pendingToolUseId!, sessionId: widget.sessionId),
+    final sessionState = ref.read(
+      chatSessionNotifierProvider(widget.sessionId),
+    );
+    final approval = sessionState.approval;
+    if (approval is ApprovalPermission) {
+      final notifier = ref.read(
+        chatSessionNotifierProvider(widget.sessionId).notifier,
       );
-      setState(() {
-        _pendingToolUseId = null;
-        _pendingPermission = null;
-        _planFeedbackController.clear();
-      });
+      notifier.approve(approval.toolUseId);
+      _planFeedbackController.clear();
     }
   }
 
   void _rejectToolUse() {
-    if (_pendingToolUseId != null) {
-      final feedback = _isPlanApproval
-          ? _planFeedbackController.text.trim()
-          : null;
-      _bridge.send(
-        ClientMessage.reject(
-          _pendingToolUseId!,
-          message: feedback != null && feedback.isNotEmpty ? feedback : null,
-          sessionId: widget.sessionId,
-        ),
+    final sessionState = ref.read(
+      chatSessionNotifierProvider(widget.sessionId),
+    );
+    final approval = sessionState.approval;
+    if (approval is ApprovalPermission) {
+      final notifier = ref.read(
+        chatSessionNotifierProvider(widget.sessionId).notifier,
       );
-      setState(() {
-        _pendingToolUseId = null;
-        _pendingPermission = null;
-        _planFeedbackController.clear();
-      });
+      final isPlan = approval.request.toolName == 'ExitPlanMode';
+      final feedback = isPlan ? _planFeedbackController.text.trim() : null;
+      notifier.reject(
+        approval.toolUseId,
+        message: feedback != null && feedback.isNotEmpty ? feedback : null,
+      );
+      _planFeedbackController.clear();
     }
   }
 
   void _approveAlwaysToolUse() {
-    if (_pendingToolUseId != null) {
+    final sessionState = ref.read(
+      chatSessionNotifierProvider(widget.sessionId),
+    );
+    final approval = sessionState.approval;
+    if (approval is ApprovalPermission) {
       HapticFeedback.mediumImpact();
-      _bridge.send(
-        ClientMessage.approveAlways(
-          _pendingToolUseId!,
-          sessionId: widget.sessionId,
-        ),
-      );
-      setState(() {
-        _pendingToolUseId = null;
-        _pendingPermission = null;
-      });
+      ref
+          .read(chatSessionNotifierProvider(widget.sessionId).notifier)
+          .approveAlways(approval.toolUseId);
     }
   }
 
   void _answerQuestion(String toolUseId, String result) {
-    _bridge.send(
-      ClientMessage.answer(toolUseId, result, sessionId: widget.sessionId),
-    );
-    setState(() {
-      _askToolUseId = null;
-      _askInput = null;
-    });
+    ref
+        .read(chatSessionNotifierProvider(widget.sessionId).notifier)
+        .answer(toolUseId, result);
   }
 
   void _stopSession() {
     HapticFeedback.mediumImpact();
-    _bridge.stopSession(widget.sessionId);
-    setState(() {
-      _pendingToolUseId = null;
-      _pendingPermission = null;
-      _askToolUseId = null;
-      _askInput = null;
-      _messageHandler.currentStreaming = null;
-      _inPlanMode = false;
-    });
+    ref.read(chatSessionNotifierProvider(widget.sessionId).notifier).stop();
   }
 
   void _interruptSession() {
     HapticFeedback.mediumImpact();
-    _bridge.interrupt(widget.sessionId);
-    setState(() {
-      _messageHandler.currentStreaming = null;
-    });
+    ref
+        .read(chatSessionNotifierProvider(widget.sessionId).notifier)
+        .interrupt();
   }
 
   void _showSlashCommandSheet() {
     showModalBottomSheet(
       context: context,
       builder: (_) => SlashCommandSheet(
-        commands: _slashCommands,
+        commands: _currentSlashCommands,
         onSelect: _onSlashCommandSelected,
       ),
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
 
-    // Provider-based state (only when not using mock bridge)
-    if (widget.bridge == null) {
-      ref.listen<AsyncValue<BridgeConnectionState>>(connectionStateProvider, (
-        prev,
-        next,
-      ) {
-        final state = next.valueOrNull;
-        if (state != null) _onConnectionChange(state);
-      });
-      ref.watch(fileListProvider).whenData((files) => _projectFiles = files);
-      ref.watch(sessionListProvider).whenData((sessions) {
-        _otherSessions = sessions
-            .where((s) => s.id != widget.sessionId)
-            .toList();
-      });
+    // Watch notifier state
+    final sessionState = ref.watch(
+      chatSessionNotifierProvider(widget.sessionId),
+    );
+
+    // Entry reconciliation
+    ref.listen<ChatSessionState>(
+      chatSessionNotifierProvider(widget.sessionId),
+      (prev, next) => _reconcileEntries(prev?.entries ?? [], next.entries),
+    );
+
+    // Streaming state
+    ref.listen<StreamingState>(
+      streamingStateNotifierProvider(widget.sessionId),
+      _onStreamingStateChange,
+    );
+
+    // Connection state
+    ref.listen<AsyncValue<BridgeConnectionState>>(connectionStateProvider, (
+      prev,
+      next,
+    ) {
+      final state = next.valueOrNull;
+      if (state != null) _onConnectionChange(state);
+    });
+    ref.watch(fileListProvider).whenData((files) => _projectFiles = files);
+    ref.watch(sessionListProvider).whenData((sessions) {
+      _otherSessions = sessions.where((s) => s.id != widget.sessionId).toList();
+    });
+
+    final bridgeState =
+        ref.watch(connectionStateProvider).valueOrNull ??
+        BridgeConnectionState.connected;
+
+    // Destructure approval state
+    final status = sessionState.status;
+    final approval = sessionState.approval;
+    final inPlanMode = sessionState.inPlanMode;
+    final totalCost = sessionState.totalCost;
+
+    // Approval state pattern matching
+    String? pendingToolUseId;
+    PermissionRequestMessage? pendingPermission;
+    String? askToolUseId;
+    Map<String, dynamic>? askInput;
+
+    switch (approval) {
+      case ApprovalPermission(:final toolUseId, :final request):
+        pendingToolUseId = toolUseId;
+        pendingPermission = request;
+        askToolUseId = null;
+        askInput = null;
+      case ApprovalAskUser(:final toolUseId, :final input):
+        pendingToolUseId = null;
+        pendingPermission = null;
+        askToolUseId = toolUseId;
+        askInput = input;
+      case ApprovalNone():
+        pendingToolUseId = null;
+        pendingPermission = null;
+        askToolUseId = null;
+        askInput = null;
     }
 
-    final bridgeState = widget.bridge != null
-        ? _bridgeState
-        : (ref.watch(connectionStateProvider).valueOrNull ??
-              BridgeConnectionState.connected);
+    final isPlanApproval = pendingPermission?.toolName == 'ExitPlanMode';
 
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
@@ -746,7 +733,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   );
                 },
               ),
-              if (_inPlanMode) const PlanModeChip(),
+              if (inPlanMode) const PlanModeChip(),
               if (_otherSessions.isNotEmpty)
                 SessionSwitcher(
                   otherSessions: _otherSessions,
@@ -755,7 +742,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       context,
                       MaterialPageRoute(
                         builder: (_) => ChatScreen(
-                          bridge: widget.bridge,
                           sessionId: session.id,
                           projectPath: session.projectPath,
                         ),
@@ -763,8 +749,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     );
                   },
                 ),
-              if (_totalCost > 0) CostBadge(totalCost: _totalCost),
-              StatusIndicator(status: _status),
+              if (totalCost > 0) CostBadge(totalCost: totalCost),
+              StatusIndicator(status: status),
             ],
           ),
           body: Column(
@@ -781,7 +767,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       entries: _entries,
                       bulkLoading: _bulkLoading,
                       httpBaseUrl: _bridge.httpBaseUrl,
-                      onRetryMessage: _retryMessage,
+                      onRetryMessage: (entry) {
+                        ref
+                            .read(
+                              chatSessionNotifierProvider(
+                                widget.sessionId,
+                              ).notifier,
+                            )
+                            .retryMessage(entry);
+                      },
                       collapseToolResults: _collapseToolResults,
                     ),
                     if (_isScrolledUp)
@@ -796,16 +790,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   ],
                 ),
               ),
-              if (_askToolUseId != null && _askInput != null)
+              if (askToolUseId != null && askInput != null)
                 AskUserQuestionWidget(
-                  toolUseId: _askToolUseId!,
-                  input: _askInput!,
+                  toolUseId: askToolUseId,
+                  input: askInput,
                   onAnswer: _answerQuestion,
                 ),
-              if (_status == ProcessStatus.waitingApproval &&
-                  _pendingToolUseId != null)
+              if (status == ProcessStatus.waitingApproval &&
+                  pendingToolUseId != null)
                 Dismissible(
-                  key: ValueKey('approval_$_pendingToolUseId'),
+                  key: ValueKey('approval_$pendingToolUseId'),
                   direction: DismissDirection.horizontal,
                   confirmDismiss: (direction) async {
                     if (direction == DismissDirection.startToEnd) {
@@ -837,20 +831,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   ),
                   child: ApprovalBar(
                     appColors: appColors,
-                    pendingPermission: _pendingPermission,
-                    isPlanApproval: _isPlanApproval,
+                    pendingPermission: pendingPermission,
+                    isPlanApproval: isPlanApproval,
                     planFeedbackController: _planFeedbackController,
                     onApprove: _approveToolUse,
                     onReject: _rejectToolUse,
                     onApproveAlways: _approveAlwaysToolUse,
                   ),
                 ),
-              if (_askToolUseId == null &&
-                  _status != ProcessStatus.waitingApproval)
+              if (askToolUseId == null &&
+                  status != ProcessStatus.waitingApproval)
                 ChatInputBar(
                   inputController: _inputController,
                   inputLayerLink: _inputLayerLink,
-                  status: _status,
+                  status: status,
                   hasInputText: _hasInputText,
                   isVoiceAvailable: _isVoiceAvailable,
                   isRecording: _isRecording,
@@ -866,6 +860,4 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
-
-  bool get _isPlanApproval => _pendingPermission?.toolName == 'ExitPlanMode';
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/chat/state/chat_session_notifier.dart';
 import '../mock/mock_scenarios.dart';
+import '../providers/bridge_providers.dart';
 import '../services/mock_bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../features/chat/chat_screen.dart';
@@ -134,11 +137,26 @@ class _MockChatWrapperState extends State<_MockChatWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return ChatScreen(
-      bridge: widget.mockService,
-      sessionId:
-          'mock-${widget.scenario.name.toLowerCase().replaceAll(' ', '-')}',
-      projectPath: '/mock/preview',
+    final sessionId =
+        'mock-${widget.scenario.name.toLowerCase().replaceAll(' ', '-')}';
+    return ProviderScope(
+      overrides: [
+        bridgeServiceProvider.overrideWithValue(widget.mockService),
+        connectionStateProvider.overrideWith(
+          (ref) => widget.mockService.connectionStatus,
+        ),
+        fileListProvider.overrideWith((ref) => widget.mockService.fileList),
+        sessionListProvider.overrideWith(
+          (ref) => widget.mockService.sessionList,
+        ),
+        chatSessionNotifierProvider(
+          sessionId,
+        ).overrideWith(() => ChatSessionNotifier()),
+        streamingStateNotifierProvider(
+          sessionId,
+        ).overrideWith(() => StreamingStateNotifier()),
+      ],
+      child: ChatScreen(sessionId: sessionId, projectPath: '/mock/preview'),
     );
   }
 }

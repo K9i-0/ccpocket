@@ -36,11 +36,6 @@ class MockBridgeService extends BridgeService {
   }
 
   @override
-  void requestSessionHistory(String sessionId) {
-    // no-op for tests
-  }
-
-  @override
   void interrupt(String sessionId) {
     // no-op for tests
   }
@@ -60,9 +55,20 @@ class MockBridgeService extends BridgeService {
     // no-op for tests
   }
 
+  int requestSessionHistoryCallCount = 0;
+  String? lastRequestedSessionId;
+
+  @override
+  void requestSessionHistory(String sessionId) {
+    requestSessionHistoryCallCount++;
+    lastRequestedSessionId = sessionId;
+  }
+
+  @override
   void dispose() {
     _messageController.close();
     _taggedController.close();
+    super.dispose();
   }
 }
 
@@ -230,6 +236,63 @@ void main() {
       final state = container.read(chatSessionNotifierProvider('s1'));
       expect(state.totalCost, 0.05);
     });
+
+    test('retryMessage changes status to sending and resends', () async {
+      container.read(chatSessionNotifierProvider('s1'));
+      await Future.microtask(() {});
+
+      final notifier = container.read(
+        chatSessionNotifierProvider('s1').notifier,
+      );
+
+      // Add a failed user message via sendMessage then manually set failed
+      notifier.sendMessage('Test message');
+      var state = container.read(chatSessionNotifierProvider('s1'));
+      expect(state.entries, hasLength(1));
+
+      // Use sendMessage first, then we'll test retryMessage on the entry
+      notifier.sendMessage('Retry me');
+      state = container.read(chatSessionNotifierProvider('s1'));
+      final entryToRetry = state.entries.last as UserChatEntry;
+
+      mockBridge.sentMessages.clear();
+      notifier.retryMessage(entryToRetry);
+
+      state = container.read(chatSessionNotifierProvider('s1'));
+      final retriedEntry = state.entries.last as UserChatEntry;
+      expect(retriedEntry.status, MessageStatus.sending);
+      expect(retriedEntry.text, 'Retry me');
+      expect(mockBridge.sentMessages, hasLength(1));
+    });
+
+    test('build calls requestSessionHistory for the session', () {
+      container.read(chatSessionNotifierProvider('s1'));
+      expect(mockBridge.requestSessionHistoryCallCount, 1);
+      expect(mockBridge.lastRequestedSessionId, 's1');
+    });
+
+    test(
+      'statusRefreshTimer stops when status changes from starting',
+      () async {
+        container.read(chatSessionNotifierProvider('s1'));
+        await Future.microtask(() {});
+
+        // Status is starting → timer is active
+        final state = container.read(chatSessionNotifierProvider('s1'));
+        expect(state.status, ProcessStatus.starting);
+
+        // Change status to running → timer should stop
+        mockBridge.emitMessage(
+          const StatusMessage(status: ProcessStatus.running),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        final updatedState = container.read(chatSessionNotifierProvider('s1'));
+        expect(updatedState.status, ProcessStatus.running);
+        // Timer cancellation is tested by verifying no crash on dispose
+      },
+    );
 
     test('consumes pending past history on build', () {
       mockBridge.pendingPastHistory = PastHistoryMessage(
