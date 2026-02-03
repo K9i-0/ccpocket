@@ -95,17 +95,20 @@ export class SessionManager {
           session.claudeSessionId = msg.sessionId;
         }
 
-        // Inject Bridge-specific slash commands and cache for early loading
-        if (msg.type === "system" && msg.subtype === "init") {
-          const bridgeCommands = ["/preview"];
-          const allCommands = [...(msg.slashCommands ?? []), ...bridgeCommands];
+        // Inject Bridge-specific slash commands into any system message
+        // that carries a slashCommands list (init, supported_commands).
+        if (
+          msg.type === "system" &&
+          (msg.subtype === "init" || msg.subtype === "supported_commands") &&
+          msg.slashCommands
+        ) {
+          const bridgeCommands = ["preview"];
+          const allCommands = [...msg.slashCommands, ...bridgeCommands];
           msg = { ...msg, slashCommands: allCommands };
-          if (allCommands.length > 0) {
-            this.commandCache.set(projectPath, {
-              slashCommands: allCommands,
-              skills: msg.skills ?? [],
-            });
-          }
+          this.commandCache.set(projectPath, {
+            slashCommands: allCommands,
+            skills: msg.skills ?? this.commandCache.get(projectPath)?.skills ?? [],
+          });
         }
 
         // Cache tool_use names from assistant messages
