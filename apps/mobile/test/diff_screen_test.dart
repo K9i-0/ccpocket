@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/features/diff/diff_screen.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 
 Widget _wrap(Widget child) {
-  return MaterialApp(theme: AppTheme.darkTheme, home: child);
+  return ProviderScope(
+    child: MaterialApp(theme: AppTheme.darkTheme, home: child),
+  );
 }
 
 const _sampleDiff = '''
