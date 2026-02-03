@@ -11,6 +11,7 @@ import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/approval_bar.dart';
 import '../../widgets/message_bubble.dart';
+import '../../widgets/worktree_list_sheet.dart';
 import '../diff/diff_screen.dart';
 import '../gallery/gallery_screen.dart';
 import 'state/chat_session_notifier.dart';
@@ -199,6 +200,18 @@ class ChatScreen extends HookConsumerWidget {
                       MaterialPageRoute(
                         builder: (_) => DiffScreen(projectPath: projectPath),
                       ),
+                    );
+                  },
+                ),
+              if (projectPath != null)
+                IconButton(
+                  icon: const Icon(Icons.account_tree_outlined, size: 20),
+                  tooltip: 'Worktrees',
+                  onPressed: () {
+                    showWorktreeListSheet(
+                      context: context,
+                      bridge: ref.read(bridgeServiceProvider),
+                      projectPath: projectPath!,
                     );
                   },
                 ),

@@ -24,6 +24,7 @@ class BridgeService implements BridgeServiceBase {
   final _fileListController = StreamController<List<String>>.broadcast();
   final _projectHistoryController = StreamController<List<String>>.broadcast();
   final _diffResultController = StreamController<DiffResultMessage>.broadcast();
+  final _worktreeListController = StreamController<WorktreeListMessage>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
@@ -63,6 +64,7 @@ class BridgeService implements BridgeServiceBase {
   @override
   Stream<List<String>> get fileList => _fileListController.stream;
   Stream<DiffResultMessage> get diffResults => _diffResultController.stream;
+  Stream<WorktreeListMessage> get worktreeList => _worktreeListController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
@@ -150,6 +152,10 @@ class BridgeService implements BridgeServiceBase {
                 _projectHistoryController.add(projects);
               case DiffResultMessage():
                 _diffResultController.add(msg);
+              case WorktreeListMessage():
+                _worktreeListController.add(msg);
+              case WorktreeRemovedMessage():
+                _messageController.add(msg);
               default:
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
@@ -293,6 +299,14 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.removeProjectHistory(path));
   }
 
+  void requestWorktreeList(String projectPath) {
+    send(ClientMessage.listWorktrees(projectPath));
+  }
+
+  void removeWorktree(String projectPath, String worktreePath) {
+    send(ClientMessage.removeWorktree(projectPath, worktreePath));
+  }
+
   void requestGallery({String? project, String? sessionId}) {
     send(ClientMessage.listGallery(project: project, sessionId: sessionId));
   }
@@ -381,5 +395,6 @@ class BridgeService implements BridgeServiceBase {
     _fileListController.close();
     _projectHistoryController.close();
     _diffResultController.close();
+    _worktreeListController.close();
   }
 }
