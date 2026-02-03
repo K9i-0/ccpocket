@@ -56,6 +56,7 @@ export type ClientMessage =
   | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode }
   | { type: "list_gallery"; project?: string }
   | { type: "list_files"; projectPath: string }
+  | { type: "get_diff"; projectPath: string }
   | { type: "interrupt"; sessionId?: string };
 
 export type ServerMessage =
@@ -69,7 +70,8 @@ export type ServerMessage =
   | { type: "permission_request"; toolUseId: string; toolName: string; input: Record<string, unknown> }
   | { type: "stream_delta"; text: string }
   | { type: "thinking_delta"; text: string }
-  | { type: "file_list"; files: string[] };
+  | { type: "file_list"; files: string[] }
+  | { type: "diff_result"; diff: string; error?: string };
 
 export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval";
 
