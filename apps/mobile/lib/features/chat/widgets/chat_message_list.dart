@@ -9,8 +9,8 @@ class ChatMessageList extends StatelessWidget {
   final List<ChatEntry> entries;
   final bool bulkLoading;
   final String? httpBaseUrl;
-  final ValueChanged<ChatEntry> onRetryMessage;
-  final bool collapseToolResults;
+  final void Function(UserChatEntry)? onRetryMessage;
+  final ValueNotifier<int>? collapseToolResults;
 
   const ChatMessageList({
     super.key,

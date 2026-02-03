@@ -4,7 +4,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../models/messages.dart';
 import '../../../providers/bridge_providers.dart';
-import '../../../services/bridge_service.dart';
 import '../../../utils/diff_parser.dart';
 import 'diff_view_state.dart';
 

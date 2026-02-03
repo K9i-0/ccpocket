@@ -45,9 +45,7 @@ ProviderContainer _createContainer({String? initialDiff}) {
   final container = ProviderContainer();
   addTearDown(container.dispose);
   // Access the provider to initialise it.
-  container.read(
-    diffViewNotifierProvider(initialDiff: initialDiff),
-  );
+  container.read(diffViewNotifierProvider(initialDiff: initialDiff));
   return container;
 }
 
@@ -69,9 +67,7 @@ void main() {
     test('returns empty files for empty diff', () {
       final container = _createContainer(initialDiff: '');
 
-      final state = container.read(
-        diffViewNotifierProvider(initialDiff: ''),
-      );
+      final state = container.read(diffViewNotifierProvider(initialDiff: ''));
 
       expect(state.files, isEmpty);
       expect(state.loading, false);

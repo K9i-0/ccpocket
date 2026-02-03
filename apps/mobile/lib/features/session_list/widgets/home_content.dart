@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/messages.dart';
-import '../../../services/bridge_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/session_card.dart';
 import '../session_list_screen.dart';

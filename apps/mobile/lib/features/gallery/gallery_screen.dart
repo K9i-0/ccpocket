@@ -33,8 +33,7 @@ class GalleryScreen extends HookConsumerWidget {
               images: images,
               selectedProject: selectedProject.value,
               isSessionMode: isSessionMode,
-              httpBaseUrl:
-                  ref.read(bridgeServiceProvider).httpBaseUrl ?? '',
+              httpBaseUrl: ref.read(bridgeServiceProvider).httpBaseUrl ?? '',
               onProjectSelected: (p) => selectedProject.value = p,
             ),
     );
