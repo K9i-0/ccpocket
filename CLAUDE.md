@@ -206,6 +206,7 @@ flutter test apps/mobile                              # ユニットテスト
 |--------|---------|------|
 | test-bridge | `/test-bridge` | Bridge Server の Vitest テスト実行・TypeScript型チェック・テスト記述規約 |
 | test-flutter | `/test-flutter` | Flutter App のテスト実行・dart analyze・format・テスト記述規約 |
+| impl-flutter-ui | `/impl-flutter-ui` | Flutter UI実装のアーキテクチャ規約・コンポーネント分割・状態管理ガイド |
 
 実装後の検証では、変更領域に応じて対応するスキルを実行する。
 Bridge と Flutter の両方に影響がある場合は両方実行する。
