@@ -419,7 +419,6 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
         .send(
           ClientMessage.start(
             result.projectPath,
-            continueMode: result.continueMode ? true : null,
             permissionMode: result.permissionMode.value,
             useWorktree: result.useWorktree ? true : null,
             worktreeBranch: result.worktreeBranch,

@@ -8,14 +8,12 @@ import '../theme/app_theme.dart';
 class NewSessionParams {
   final String projectPath;
   final PermissionMode permissionMode;
-  final bool continueMode;
   final bool useWorktree;
   final String? worktreeBranch;
 
   const NewSessionParams({
     required this.projectPath,
     required this.permissionMode,
-    required this.continueMode,
     this.useWorktree = false,
     this.worktreeBranch,
   });
@@ -63,7 +61,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _pathController = TextEditingController();
   final _branchController = TextEditingController();
   var _permissionMode = PermissionMode.acceptEdits;
-  var _continueMode = false;
   var _useWorktree = false;
 
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
@@ -103,7 +100,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       NewSessionParams(
         projectPath: path,
         permissionMode: _permissionMode,
-        continueMode: _continueMode,
         useWorktree: _useWorktree,
         worktreeBranch: branch.isNotEmpty ? branch : null,
       ),
@@ -270,6 +266,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: DropdownButtonFormField<PermissionMode>(
@@ -298,13 +295,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               ),
               const SizedBox(width: 12),
               FilterChip(
-                label: const Text('Continue', style: TextStyle(fontSize: 13)),
-                selected: _continueMode,
-                onSelected: (val) => setState(() => _continueMode = val),
-                visualDensity: VisualDensity.compact,
-              ),
-              const SizedBox(width: 8),
-              FilterChip(
                 key: const ValueKey('dialog_worktree'),
                 avatar: _useWorktree
                     ? null
@@ -312,7 +302,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 label: const Text('Worktree', style: TextStyle(fontSize: 13)),
                 selected: _useWorktree,
                 onSelected: (val) => setState(() => _useWorktree = val),
-                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
