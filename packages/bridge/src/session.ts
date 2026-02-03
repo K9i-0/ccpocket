@@ -95,13 +95,17 @@ export class SessionManager {
           session.claudeSessionId = msg.sessionId;
         }
 
-        // Cache slash commands from system/init for early loading
-        if (msg.type === "system" && msg.subtype === "init" &&
-            msg.slashCommands && msg.slashCommands.length > 0) {
-          this.commandCache.set(projectPath, {
-            slashCommands: msg.slashCommands,
-            skills: msg.skills ?? [],
-          });
+        // Inject Bridge-specific slash commands and cache for early loading
+        if (msg.type === "system" && msg.subtype === "init") {
+          const bridgeCommands = ["/preview"];
+          const allCommands = [...(msg.slashCommands ?? []), ...bridgeCommands];
+          msg = { ...msg, slashCommands: allCommands };
+          if (allCommands.length > 0) {
+            this.commandCache.set(projectPath, {
+              slashCommands: allCommands,
+              skills: msg.skills ?? [],
+            });
+          }
         }
 
         // Cache tool_use names from assistant messages
@@ -137,7 +141,7 @@ export class SessionManager {
                 const meta = await this.galleryStore.addImage(
                   p,
                   session.projectPath,
-                  session.claudeSessionId,
+                  session.id,
                 );
                 if (meta && this.onGalleryImage) {
                   this.onGalleryImage(meta);
