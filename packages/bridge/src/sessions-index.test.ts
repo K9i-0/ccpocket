@@ -18,6 +18,12 @@ describe("pathToSlug", () => {
   it("handles paths with hyphens", () => {
     expect(pathToSlug("/Users/x/my-project")).toBe("-Users-x-my-project");
   });
+
+  it("converts underscores to hyphens", () => {
+    expect(pathToSlug("/Users/x/flutter_claude_sandbox")).toBe(
+      "-Users-x-flutter-claude-sandbox",
+    );
+  });
 });
 
 describe("isWorktreeSlug", () => {

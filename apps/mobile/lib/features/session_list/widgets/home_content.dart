@@ -71,7 +71,9 @@ class HomeContent extends StatelessWidget {
     filteredSessions = filterByDate(filteredSessions, dateFilter);
     filteredSessions = filterByQuery(filteredSessions, searchQuery);
 
-    if (!hasRunningSessions && !hasRecentSessions) {
+    final hasActiveFilter = currentProjectFilter != null;
+
+    if (!hasRunningSessions && !hasRecentSessions && !hasActiveFilter) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
@@ -107,7 +109,7 @@ class HomeContent extends StatelessWidget {
             ),
           const SizedBox(height: 16),
         ],
-        if (hasRecentSessions) ...[
+        if (hasRecentSessions || hasActiveFilter) ...[
           SectionHeader(
             icon: Icons.history,
             label: 'Recent Sessions',

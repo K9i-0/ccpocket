@@ -25,6 +25,7 @@ export class BridgeWebSocketServer {
   private galleryStore: GalleryStore | null;
   private projectHistory: ProjectHistory | null;
   private worktreeStore: WorktreeStore;
+  private recentSessionsRequestId = 0;
 
   constructor(options: BridgeServerOptions) {
     const { server, apiKey, imageStore, galleryStore, projectHistory } = options;
@@ -246,13 +247,17 @@ export class BridgeWebSocketServer {
       }
 
       case "list_recent_sessions": {
+        const requestId = ++this.recentSessionsRequestId;
         getAllRecentSessions({
           limit: msg.limit,
           offset: msg.offset,
           projectPath: msg.projectPath,
         }).then(({ sessions, hasMore }) => {
+          // Drop stale responses when rapid filter switches cause out-of-order completion
+          if (requestId !== this.recentSessionsRequestId) return;
           this.send(ws, { type: "recent_sessions", sessions, hasMore } as Record<string, unknown>);
         }).catch((err) => {
+          if (requestId !== this.recentSessionsRequestId) return;
           this.send(ws, { type: "error", message: `Failed to list recent sessions: ${err}` });
         });
         break;

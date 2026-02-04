@@ -253,13 +253,11 @@ class BridgeService implements BridgeServiceBase {
     );
   }
 
-  /// Switch project filter: resets session list and fetches from offset 0.
+  /// Switch project filter: fetches from offset 0 for the new project.
+  /// Old sessions remain visible until the server response arrives.
   void switchProjectFilter(String? projectPath, {int pageSize = 20}) {
     _currentProjectFilter = projectPath;
     _appendMode = false;
-    _recentSessions = [];
-    _recentSessionsHasMore = false;
-    _recentSessionsController.add(_recentSessions);
     send(
       ClientMessage.listRecentSessions(
         limit: pageSize,

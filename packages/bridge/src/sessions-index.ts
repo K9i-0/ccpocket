@@ -46,7 +46,7 @@ export interface GetRecentSessionsResult {
 
 /** Convert a filesystem path to Claude's project directory slug (e.g. /foo/bar → -foo-bar). */
 export function pathToSlug(p: string): string {
-  return p.replaceAll("/", "-");
+  return p.replaceAll("/", "-").replaceAll("_", "-");
 }
 
 /**
