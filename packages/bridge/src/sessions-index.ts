@@ -236,16 +236,11 @@ export async function getAllRecentSessions(
           isSidechain: entry.isSidechain ?? false,
         };
 
-        // Accept entries from the project dir or its worktree dirs
-        if (filterProjectPath && !isProjectDir && !isWorktreeDir) {
-          continue;
-        }
-
         entries.push(mapped);
       }
-    } else if (isWorktreeDir || !filterProjectPath) {
-      // No sessions-index.json: scan JSONL files directly
-      // This handles worktree sessions where Claude CLI didn't create an index
+    } else {
+      // No sessions-index.json: scan JSONL files directly.
+      // Directories are already filtered above, so all remaining dirs are relevant.
       const scanned = await scanJsonlDir(dirPath);
       entries.push(...scanned);
     }
