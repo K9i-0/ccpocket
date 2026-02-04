@@ -226,6 +226,23 @@ void main() {
       expect(update.entriesToPrepend[0], isA<UserChatEntry>());
       expect(update.entriesToPrepend[1], isA<ServerChatEntry>());
     });
+
+    test('past user messages have sent status (not sending)', () {
+      final update = handler.handle(
+        const PastHistoryMessage(
+          claudeSessionId: 'sess-1',
+          messages: [
+            PastMessage(
+              role: 'user',
+              content: [TextContent(text: 'Hello')],
+            ),
+          ],
+        ),
+        isBackground: false,
+      );
+      final userEntry = update.entriesToPrepend[0] as UserChatEntry;
+      expect(userEntry.status, MessageStatus.sent);
+    });
   });
 
   group('ResultMessage handling', () {
