@@ -129,14 +129,18 @@ export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]
 
       if (type === "user" && !firstPrompt) {
         const message = entry.message as
-          | { content?: Array<{ type: string; text?: string }> }
+          | { content?: unknown }
           | undefined;
         if (message?.content) {
-          const textBlock = message.content.find(
-            (c) => c.type === "text" && c.text,
-          );
-          if (textBlock?.text) {
-            firstPrompt = textBlock.text;
+          if (typeof message.content === "string") {
+            firstPrompt = message.content;
+          } else if (Array.isArray(message.content)) {
+            const textBlock = (
+              message.content as Array<{ type: string; text?: string }>
+            ).find((c) => c.type === "text" && c.text);
+            if (textBlock?.text) {
+              firstPrompt = textBlock.text;
+            }
           }
         }
       }

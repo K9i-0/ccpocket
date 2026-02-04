@@ -201,6 +201,28 @@ describe("scanJsonlDir", () => {
     expect(result[0].firstPrompt).toBe("valid line");
   });
 
+  it("handles string content in user messages", async () => {
+    const lines = [
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: "plain string prompt",
+        },
+        cwd: "/proj",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+    ];
+    writeFileSync(
+      join(testDir, "string-content.jsonl"),
+      lines.join("\n"),
+    );
+
+    const result = await scanJsonlDir(testDir);
+    expect(result).toHaveLength(1);
+    expect(result[0].firstPrompt).toBe("plain string prompt");
+  });
+
   it("detects sidechain sessions", async () => {
     const lines = [
       JSON.stringify({
