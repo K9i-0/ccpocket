@@ -61,6 +61,9 @@ class ChatScreen extends HookConsumerWidget {
     final editedPlanText = useMemoized(() => ValueNotifier<String?>(null));
     useEffect(() => editedPlanText.dispose, const []);
 
+    // Clear context toggle for plan approval
+    final clearContext = useState(false);
+
     // --- Riverpod state ---
     final sessionState = ref.watch(chatSessionNotifierProvider(sessionId));
     final bridgeState =
@@ -153,9 +156,14 @@ class ChatScreen extends HookConsumerWidget {
           : null;
       ref
           .read(chatSessionNotifierProvider(sessionId).notifier)
-          .approve(pendingToolUseId, updatedInput: updatedInput);
+          .approve(
+            pendingToolUseId,
+            updatedInput: updatedInput,
+            clearContext: isPlanApproval && clearContext.value,
+          );
       editedPlanText.value = null;
       planFeedbackController.clear();
+      clearContext.value = false;
     }
 
     void rejectToolUse() {
@@ -266,6 +274,24 @@ class ChatScreen extends HookConsumerWidget {
               if (bridgeState == BridgeConnectionState.reconnecting ||
                   bridgeState == BridgeConnectionState.disconnected)
                 ReconnectBanner(bridgeState: bridgeState),
+              if (status == ProcessStatus.clearing)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text('Clearing context...'),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: Stack(
                   children: [
@@ -352,6 +378,10 @@ class ChatScreen extends HookConsumerWidget {
                     onApprove: approveToolUse,
                     onReject: rejectToolUse,
                     onApproveAlways: approveAlwaysToolUse,
+                    clearContext: clearContext.value,
+                    onClearContextChanged: isPlanApproval
+                        ? (v) => clearContext.value = v
+                        : null,
                     onViewPlan: isPlanApproval
                         ? () async {
                             final originalText = _extractPlanText(
@@ -441,7 +471,11 @@ void _executeSideEffects(
 }
 
 /// Walk entries in reverse to find the latest [AssistantServerMessage] that
-/// contains an `ExitPlanMode` tool use, then join its [TextContent] blocks.
+/// contains an `ExitPlanMode` tool use, then extract the plan text.
+///
+/// Tries TextContent first; if it's too short (real SDK writes the plan to a
+/// file via Write tool), falls back to the Write tool's `content` input for
+/// files in `.claude/plans/`.
 String? _extractPlanText(List<ChatEntry> entries) {
   for (var i = entries.length - 1; i >= 0; i--) {
     final entry = entries[i];
@@ -452,12 +486,28 @@ String? _extractPlanText(List<ChatEntry> entries) {
         (c) => c is ToolUseContent && c.name == 'ExitPlanMode',
       );
       if (hasExitPlan) {
-        return contents
+        final textPlan = contents
             .whereType<TextContent>()
             .map((c) => c.text)
             .join('\n\n');
+        if (textPlan.split('\n').length >= 10) return textPlan;
+        // Fall back to Write tool content targeting .claude/plans/
+        final writtenPlan = _extractPlanFromWriteTool(contents);
+        return writtenPlan ?? textPlan;
       }
     }
+  }
+  return null;
+}
+
+/// Extract plan text from a Write tool that targets .claude/plans/.
+String? _extractPlanFromWriteTool(List<AssistantContent> contents) {
+  for (final c in contents) {
+    if (c is! ToolUseContent || c.name != 'Write') continue;
+    final filePath = c.input['file_path']?.toString() ?? '';
+    if (!filePath.contains('.claude/plans/')) continue;
+    final content = c.input['content']?.toString();
+    if (content != null && content.isNotEmpty) return content;
   }
   return null;
 }

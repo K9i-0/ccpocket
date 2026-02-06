@@ -29,6 +29,18 @@ class AssistantBubble extends StatefulWidget {
 class _AssistantBubbleState extends State<AssistantBubble> {
   bool _plainTextMode = false;
 
+  /// Extract plan text from a Write tool that targets .claude/plans/.
+  static String? _extractPlanFromWriteTool(List<AssistantContent> contents) {
+    for (final c in contents) {
+      if (c is! ToolUseContent || c.name != 'Write') continue;
+      final filePath = c.input['file_path']?.toString() ?? '';
+      if (!filePath.contains('.claude/plans/')) continue;
+      final content = c.input['content']?.toString();
+      if (content != null && content.isNotEmpty) return content;
+    }
+    return null;
+  }
+
   String _allText() {
     return widget.message.message.content
         .whereType<TextContent>()
@@ -56,10 +68,20 @@ class _AssistantBubbleState extends State<AssistantBubble> {
     List<AssistantContent> contents,
     bool hasTextContent,
   ) {
-    final originalPlanText = contents
+    var originalPlanText = contents
         .whereType<TextContent>()
         .map((c) => c.text)
         .join('\n\n');
+
+    // Real SDK: plan is written to a file via Write tool, TextContent is just
+    // a short description.  Fall back to Write tool's content if TextContent
+    // doesn't look like an actual plan (< 10 lines).
+    if (originalPlanText.split('\n').length < 10) {
+      final writtenPlan = _extractPlanFromWriteTool(contents);
+      if (writtenPlan != null) {
+        originalPlanText = writtenPlan;
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
