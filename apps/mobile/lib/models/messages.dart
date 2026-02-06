@@ -619,8 +619,13 @@ class ClientMessage {
     return ClientMessage._(json);
   }
 
-  factory ClientMessage.approve(String id, {String? sessionId}) {
+  factory ClientMessage.approve(
+    String id, {
+    Map<String, dynamic>? updatedInput,
+    String? sessionId,
+  }) {
     final json = <String, dynamic>{'type': 'approve', 'id': id};
+    if (updatedInput != null) json['updatedInput'] = updatedInput;
     if (sessionId != null) json['sessionId'] = sessionId;
     return ClientMessage._(json);
   }

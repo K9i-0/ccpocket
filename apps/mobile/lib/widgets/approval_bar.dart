@@ -117,7 +117,7 @@ class ApprovalBar extends StatelessWidget {
           IconButton(
             key: const ValueKey('view_plan_header_button'),
             icon: Icon(Icons.open_in_full, size: 18, color: cs.primary),
-            tooltip: 'View Plan',
+            tooltip: 'View / Edit Plan',
             onPressed: onViewPlan,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,

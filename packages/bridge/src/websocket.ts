@@ -170,7 +170,7 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "No active session." });
           return;
         }
-        session.process.approve(msg.id);
+        session.process.approve(msg.id, msg.updatedInput);
         break;
       }
 

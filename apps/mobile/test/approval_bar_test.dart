@@ -229,5 +229,24 @@ void main() {
         findsNothing,
       );
     });
+
+    testWidgets('View Plan button has View / Edit tooltip', (tester) async {
+      await tester.pumpWidget(
+        buildSubject(
+          pendingPermission: const PermissionRequestMessage(
+            toolUseId: 'tu-1',
+            toolName: 'ExitPlanMode',
+            input: {},
+          ),
+          isPlanApproval: true,
+          onViewPlan: () {},
+        ),
+      );
+
+      final iconButton = tester.widget<IconButton>(
+        find.byKey(const ValueKey('view_plan_header_button')),
+      );
+      expect(iconButton.tooltip, 'View / Edit Plan');
+    });
   });
 }

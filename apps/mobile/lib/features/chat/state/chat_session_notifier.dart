@@ -225,8 +225,15 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
   }
 
   /// Approve a pending tool execution.
-  void approve(String toolUseId) {
-    _bridge.send(ClientMessage.approve(toolUseId, sessionId: sessionId));
+  /// If [updatedInput] is provided, the original tool input is merged with it.
+  void approve(String toolUseId, {Map<String, dynamic>? updatedInput}) {
+    _bridge.send(
+      ClientMessage.approve(
+        toolUseId,
+        updatedInput: updatedInput,
+        sessionId: sessionId,
+      ),
+    );
     state = state.copyWith(approval: const ApprovalState.none());
   }
 

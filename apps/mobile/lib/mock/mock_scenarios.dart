@@ -487,7 +487,7 @@ final _planMode = MockScenario(
             const ToolUseContent(
               id: 'tool-plan-exit-1',
               name: 'ExitPlanMode',
-              input: {},
+              input: {'plan': 'User Management Feature Implementation Plan'},
             ),
           ],
           model: 'claude-sonnet-4-20250514',
@@ -499,7 +499,7 @@ final _planMode = MockScenario(
       message: const PermissionRequestMessage(
         toolUseId: 'tool-plan-exit-1',
         toolName: 'ExitPlanMode',
-        input: {},
+        input: {'plan': 'User Management Feature Implementation Plan'},
       ),
     ),
     MockStep(

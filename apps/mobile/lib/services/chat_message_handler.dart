@@ -195,10 +195,9 @@ class ChatMessageHandler {
             .map((c) => c.text)
             .toList();
         if (texts.isNotEmpty) {
-          entries.add(UserChatEntry(
-            texts.join('\n'),
-            status: MessageStatus.sent,
-          ));
+          entries.add(
+            UserChatEntry(texts.join('\n'), status: MessageStatus.sent),
+          );
         }
       } else if (m.role == 'assistant') {
         entries.add(

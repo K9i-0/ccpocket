@@ -339,12 +339,27 @@ class ChatScreen extends HookConsumerWidget {
                     onReject: rejectToolUse,
                     onApproveAlways: approveAlwaysToolUse,
                     onViewPlan: isPlanApproval
-                        ? () {
+                        ? () async {
                             final planText = _extractPlanText(
                               sessionState.entries,
                             );
-                            if (planText != null) {
-                              showPlanDetailSheet(context, planText);
+                            if (planText == null) return;
+                            final edited = await showPlanDetailSheet(
+                              context,
+                              planText,
+                            );
+                            if (edited != null && pendingToolUseId != null) {
+                              ref
+                                  .read(
+                                    chatSessionNotifierProvider(
+                                      sessionId,
+                                    ).notifier,
+                                  )
+                                  .approve(
+                                    pendingToolUseId,
+                                    updatedInput: {'plan': edited},
+                                  );
+                              planFeedbackController.clear();
                             }
                           }
                         : null,

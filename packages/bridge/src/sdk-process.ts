@@ -238,7 +238,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
    * Approve a pending permission request.
    * With the SDK, this actually blocks tool execution until approved.
    */
-  approve(toolUseId?: string): void {
+  approve(toolUseId?: string, updatedInput?: Record<string, unknown>): void {
     const id = toolUseId ?? this.firstPendingId();
     const pending = id ? this.pendingPermissions.get(id) : undefined;
     if (!pending) {
@@ -246,10 +246,14 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       return;
     }
 
+    const mergedInput = updatedInput
+      ? { ...pending.input, ...updatedInput }
+      : pending.input;
+
     this.pendingPermissions.delete(id!);
     pending.resolve({
       behavior: "allow",
-      updatedInput: pending.input,
+      updatedInput: mergedInput,
     });
 
     if (this.pendingPermissions.size === 0) {
