@@ -185,6 +185,12 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
       _statusRefreshTimer = null;
     }
 
+    // --- Update hidden tool use IDs (for subagent summary compression) ---
+    var hiddenToolUseIds = current.hiddenToolUseIds;
+    if (update.toolUseIdsToHide.isNotEmpty) {
+      hiddenToolUseIds = {...hiddenToolUseIds, ...update.toolUseIdsToHide};
+    }
+
     // --- Apply state update ---
     state = current.copyWith(
       status: update.status ?? current.status,
@@ -194,6 +200,7 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
       inPlanMode: update.inPlanMode ?? current.inPlanMode,
       slashCommands: update.slashCommands ?? current.slashCommands,
       claudeSessionId: update.resultSessionId ?? current.claudeSessionId,
+      hiddenToolUseIds: hiddenToolUseIds,
     );
 
     // --- Fire side effects ---

@@ -29,6 +29,9 @@ abstract class ChatSessionState with _$ChatSessionState {
     @Default(false) bool inPlanMode,
     @Default(false) bool collapseToolResults,
 
+    // Tool use IDs hidden by tool_use_summary (subagent compression)
+    @Default({}) Set<String> hiddenToolUseIds,
+
     // Cost tracking
     @Default(0.0) double totalCost,
     Duration? totalDuration,

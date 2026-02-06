@@ -4,6 +4,7 @@ import {
   matchesSessionRule,
   buildSessionRule,
   ACCEPT_EDITS_AUTO_APPROVE,
+  sdkMessageToServerMessage,
 } from "./sdk-process.js";
 
 // ---- ACCEPT_EDITS_AUTO_APPROVE ----
@@ -157,5 +158,60 @@ describe("buildSessionRule", () => {
 
   it("returns tool name for Bash with empty string command", () => {
     expect(buildSessionRule("Bash", { command: "" })).toBe("Bash");
+  });
+});
+
+// ---- sdkMessageToServerMessage ----
+
+describe("sdkMessageToServerMessage", () => {
+  describe("tool_use_summary handling", () => {
+    it("converts SDKToolUseSummaryMessage to ServerMessage", () => {
+      const sdkMsg = {
+        type: "tool_use_summary" as const,
+        summary: "Read 3 files and analyzed code",
+        preceding_tool_use_ids: ["tu-1", "tu-2", "tu-3"],
+        uuid: "test-uuid" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg);
+
+      expect(serverMsg).toEqual({
+        type: "tool_use_summary",
+        summary: "Read 3 files and analyzed code",
+        precedingToolUseIds: ["tu-1", "tu-2", "tu-3"],
+      });
+    });
+
+    it("handles empty preceding_tool_use_ids", () => {
+      const sdkMsg = {
+        type: "tool_use_summary" as const,
+        summary: "Quick analysis completed",
+        preceding_tool_use_ids: [],
+        uuid: "test-uuid" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg);
+
+      expect(serverMsg).toEqual({
+        type: "tool_use_summary",
+        summary: "Quick analysis completed",
+        precedingToolUseIds: [],
+      });
+    });
+  });
+
+  describe("returns null for unhandled message types", () => {
+    it("returns null for unknown message type", () => {
+      const sdkMsg = {
+        type: "unknown_type" as const,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toBeNull();
+    });
   });
 });

@@ -77,6 +77,106 @@ export interface StartOptions {
   permissionMode?: PermissionMode;
 }
 
+/**
+ * Convert SDK messages to the ServerMessage format used by the WebSocket protocol.
+ * Exported for testing.
+ */
+export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null {
+  switch (msg.type) {
+    case "system": {
+      const sys = msg as Record<string, unknown>;
+      if (sys.subtype === "init") {
+        return {
+          type: "system",
+          subtype: "init",
+          sessionId: msg.session_id,
+          model: sys.model as string,
+          ...(sys.slash_commands ? { slashCommands: sys.slash_commands as string[] } : {}),
+          ...(sys.skills ? { skills: sys.skills as string[] } : {}),
+        };
+      }
+      return null;
+    }
+
+    case "assistant": {
+      const ast = msg as { message: Record<string, unknown> };
+      return {
+        type: "assistant",
+        message: ast.message as ServerMessage extends { type: "assistant" } ? ServerMessage["message"] : never,
+      } as ServerMessage;
+    }
+
+    case "user": {
+      const usr = msg as { message: { content?: unknown[] } };
+      const content = usr.message?.content;
+      if (!Array.isArray(content)) return null;
+
+      const results = content.filter(
+        (c: unknown) => (c as Record<string, unknown>).type === "tool_result"
+      );
+      if (results.length === 0) return null;
+
+      const first = results[0] as Record<string, unknown>;
+      return {
+        type: "tool_result",
+        toolUseId: first.tool_use_id as string,
+        content: normalizeToolResultContent(first.content as string | unknown[]),
+      };
+    }
+
+    case "result": {
+      const res = msg as Record<string, unknown>;
+      if (res.subtype === "success") {
+        return {
+          type: "result",
+          subtype: "success",
+          result: res.result as string,
+          cost: res.total_cost_usd as number,
+          duration: res.duration_ms as number,
+          sessionId: msg.session_id,
+        };
+      }
+      // All other result subtypes are errors
+      return {
+        type: "result",
+        subtype: "error",
+        error: Array.isArray(res.errors) ? (res.errors as string[]).join("\n") : "Unknown error",
+        sessionId: msg.session_id,
+      };
+    }
+
+    case "stream_event": {
+      const stream = msg as { event: Record<string, unknown> };
+      const event = stream.event;
+      if (event.type === "content_block_delta") {
+        const delta = event.delta as Record<string, unknown>;
+        if (delta.type === "text_delta" && delta.text) {
+          return { type: "stream_delta", text: delta.text as string };
+        }
+        if (delta.type === "thinking_delta" && delta.thinking) {
+          return { type: "thinking_delta", text: delta.thinking as string };
+        }
+      }
+      return null;
+    }
+
+    case "tool_use_summary": {
+      const summary = msg as {
+        summary: string;
+        preceding_tool_use_ids: string[];
+      };
+      return {
+        type: "tool_use_summary",
+        summary: summary.summary,
+        precedingToolUseIds: summary.preceding_tool_use_ids,
+      };
+    }
+
+    default:
+      return null;
+  }
+}
+
 export interface SdkProcessEvents {
   message: [ServerMessage];
   status: [ProcessStatus];
@@ -379,7 +479,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       if (this.stopped) break;
 
       // Convert SDK message to ServerMessage
-      const serverMsg = this.sdkMessageToServerMessage(message);
+      const serverMsg = sdkMessageToServerMessage(message);
       if (serverMsg) {
         this.emitMessage(serverMsg);
       }
@@ -465,105 +565,6 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         }
       }, { once: true });
     });
-  }
-
-  /**
-   * Convert SDK messages to the ServerMessage format used by the WebSocket protocol.
-   */
-  private sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null {
-    switch (msg.type) {
-      case "system": {
-        const sys = msg as Record<string, unknown>;
-        if (sys.subtype === "init") {
-          return {
-            type: "system",
-            subtype: "init",
-            sessionId: msg.session_id,
-            model: sys.model as string,
-            ...(sys.slash_commands ? { slashCommands: sys.slash_commands as string[] } : {}),
-            ...(sys.skills ? { skills: sys.skills as string[] } : {}),
-          };
-        }
-        return null;
-      }
-
-      case "assistant": {
-        const ast = msg as { message: Record<string, unknown> };
-        return {
-          type: "assistant",
-          message: ast.message as ServerMessage extends { type: "assistant" } ? ServerMessage["message"] : never,
-        } as ServerMessage;
-      }
-
-      case "user": {
-        const usr = msg as { message: { content?: unknown[] } };
-        const content = usr.message?.content;
-        if (!Array.isArray(content)) return null;
-
-        const results = content.filter(
-          (c: unknown) => (c as Record<string, unknown>).type === "tool_result"
-        );
-        if (results.length === 0) return null;
-
-        const first = results[0] as Record<string, unknown>;
-        const serverMsg: ServerMessage = {
-          type: "tool_result",
-          toolUseId: first.tool_use_id as string,
-          content: normalizeToolResultContent(first.content as string | unknown[]),
-        };
-
-        // Emit additional tool results
-        for (let i = 1; i < results.length; i++) {
-          const tr = results[i] as Record<string, unknown>;
-          this.emitMessage({
-            type: "tool_result",
-            toolUseId: tr.tool_use_id as string,
-            content: normalizeToolResultContent(tr.content as string | unknown[]),
-          });
-        }
-
-        return serverMsg;
-      }
-
-      case "result": {
-        const res = msg as Record<string, unknown>;
-        if (res.subtype === "success") {
-          return {
-            type: "result",
-            subtype: "success",
-            result: res.result as string,
-            cost: res.total_cost_usd as number,
-            duration: res.duration_ms as number,
-            sessionId: msg.session_id,
-          };
-        }
-        // All other result subtypes are errors
-        return {
-          type: "result",
-          subtype: "error",
-          error: Array.isArray(res.errors) ? (res.errors as string[]).join("\n") : "Unknown error",
-          sessionId: msg.session_id,
-        };
-      }
-
-      case "stream_event": {
-        const stream = msg as { event: Record<string, unknown> };
-        const event = stream.event;
-        if (event.type === "content_block_delta") {
-          const delta = event.delta as Record<string, unknown>;
-          if (delta.type === "text_delta" && delta.text) {
-            return { type: "stream_delta", text: delta.text as string };
-          }
-          if (delta.type === "thinking_delta" && delta.thinking) {
-            return { type: "thinking_delta", text: delta.thinking as string };
-          }
-        }
-        return null;
-      }
-
-      default:
-        return null;
-    }
   }
 
   private updateStatusFromMessage(msg: SDKMessage): void {

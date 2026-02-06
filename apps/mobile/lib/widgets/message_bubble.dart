@@ -10,6 +10,7 @@ import 'bubbles/status_chip.dart';
 import 'bubbles/streaming_bubble.dart';
 import 'bubbles/system_chip.dart';
 import 'bubbles/tool_result_bubble.dart';
+import 'bubbles/tool_use_summary_bubble.dart';
 import 'bubbles/user_bubble.dart';
 
 export 'bubbles/ask_user_question_widget.dart';
@@ -21,6 +22,10 @@ class ChatEntryWidget extends StatelessWidget {
   final void Function(UserChatEntry)? onRetryMessage;
   final ValueNotifier<int>? collapseToolResults;
   final ValueNotifier<String?>? editedPlanText;
+
+  /// Tool use IDs that should be hidden (replaced by a tool_use_summary).
+  final Set<String> hiddenToolUseIds;
+
   const ChatEntryWidget({
     super.key,
     required this.entry,
@@ -29,6 +34,7 @@ class ChatEntryWidget extends StatelessWidget {
     this.onRetryMessage,
     this.collapseToolResults,
     this.editedPlanText,
+    this.hiddenToolUseIds = const {},
   });
 
   @override
@@ -43,6 +49,7 @@ class ChatEntryWidget extends StatelessWidget {
             httpBaseUrl: httpBaseUrl,
             collapseToolResults: collapseToolResults,
             editedPlanText: editedPlanText,
+            hiddenToolUseIds: hiddenToolUseIds,
           ),
           final UserChatEntry user => UserBubble(
             text: user.text,
@@ -100,12 +107,17 @@ class ServerMessageWidget extends StatelessWidget {
   final String? httpBaseUrl;
   final ValueNotifier<int>? collapseToolResults;
   final ValueNotifier<String?>? editedPlanText;
+
+  /// Tool use IDs that should be hidden (replaced by a tool_use_summary).
+  final Set<String> hiddenToolUseIds;
+
   const ServerMessageWidget({
     super.key,
     required this.message,
     this.httpBaseUrl,
     this.collapseToolResults,
     this.editedPlanText,
+    this.hiddenToolUseIds = const {},
   });
 
   @override
@@ -116,11 +128,15 @@ class ServerMessageWidget extends StatelessWidget {
         message: msg,
         editedPlanText: editedPlanText,
       ),
-      final ToolResultMessage msg => ToolResultBubble(
-        message: msg,
-        httpBaseUrl: httpBaseUrl,
-        collapseNotifier: collapseToolResults,
-      ),
+      // Hide tool results that are summarized by a tool_use_summary
+      final ToolResultMessage msg =>
+        hiddenToolUseIds.contains(msg.toolUseId)
+            ? const SizedBox.shrink()
+            : ToolResultBubble(
+                message: msg,
+                httpBaseUrl: httpBaseUrl,
+                collapseNotifier: collapseToolResults,
+              ),
       final ResultMessage msg => ResultChip(message: msg),
       final ErrorMessage msg => ErrorBubble(message: msg),
       final StatusMessage msg => StatusChip(message: msg),
@@ -141,6 +157,7 @@ class ServerMessageWidget extends StatelessWidget {
       DiffResultMessage() => const SizedBox.shrink(),
       WorktreeListMessage() => const SizedBox.shrink(),
       WorktreeRemovedMessage() => const SizedBox.shrink(),
+      final ToolUseSummaryMessage msg => ToolUseSummaryBubble(message: msg),
     };
   }
 }

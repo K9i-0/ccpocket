@@ -308,6 +308,11 @@ sealed class ServerMessage {
       'worktree_removed' => WorktreeRemovedMessage(
         worktreePath: json['worktreePath'] as String,
       ),
+      'tool_use_summary' => ToolUseSummaryMessage(
+        summary: json['summary'] as String,
+        precedingToolUseIds:
+            (json['precedingToolUseIds'] as List?)?.cast<String>() ?? const [],
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -471,6 +476,21 @@ class WorktreeListMessage implements ServerMessage {
 class WorktreeRemovedMessage implements ServerMessage {
   final String worktreePath;
   const WorktreeRemovedMessage({required this.worktreePath});
+}
+
+/// Summary of tool uses within a subagent (Task tool).
+/// This message replaces multiple tool_result messages with a compressed summary.
+class ToolUseSummaryMessage implements ServerMessage {
+  /// Human-readable summary of the tools used (e.g., "Read 3 files and analyzed code")
+  final String summary;
+
+  /// IDs of the tool_use calls that this summary replaces
+  final List<String> precedingToolUseIds;
+
+  const ToolUseSummaryMessage({
+    required this.summary,
+    this.precedingToolUseIds = const [],
+  });
 }
 
 class PastMessage {
