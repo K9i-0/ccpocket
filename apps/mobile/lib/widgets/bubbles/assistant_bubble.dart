@@ -8,7 +8,9 @@ import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/markdown_style.dart';
+import '../plan_detail_sheet.dart';
 import 'message_action_bar.dart';
+import 'plan_card.dart';
 import 'thinking_bubble.dart';
 
 class AssistantBubble extends StatefulWidget {
@@ -33,7 +35,64 @@ class _AssistantBubbleState extends State<AssistantBubble> {
   Widget build(BuildContext context) {
     final contents = widget.message.message.content;
     final hasTextContent = contents.any((c) => c is TextContent);
+    final hasPlanExit = contents.any(
+      (c) => c is ToolUseContent && c.name == 'ExitPlanMode',
+    );
 
+    if (hasPlanExit) {
+      return _buildPlanLayout(context, contents, hasTextContent);
+    }
+
+    return _buildDefaultLayout(context, contents, hasTextContent);
+  }
+
+  Widget _buildPlanLayout(
+    BuildContext context,
+    List<AssistantContent> contents,
+    bool hasTextContent,
+  ) {
+    final planText = contents
+        .whereType<TextContent>()
+        .map((c) => c.text)
+        .join('\n\n');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Render thinking blocks and non-ExitPlanMode tool uses
+        for (final content in contents)
+          switch (content) {
+            ThinkingContent(:final thinking) => ThinkingBubble(
+              thinking: thinking,
+            ),
+            ToolUseContent(:final name, :final input) =>
+              name == 'ExitPlanMode'
+                  ? const SizedBox.shrink()
+                  : ToolUseTile(name: name, input: input),
+            TextContent() => const SizedBox.shrink(),
+          },
+        // Plan card replaces all text content
+        PlanCard(
+          planText: planText,
+          onViewFullPlan: () => showPlanDetailSheet(context, planText),
+        ),
+        if (hasTextContent)
+          MessageActionBar(
+            textToCopy: _allText(),
+            isPlainTextMode: _plainTextMode,
+            onTogglePlainText: () {
+              setState(() => _plainTextMode = !_plainTextMode);
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDefaultLayout(
+    BuildContext context,
+    List<AssistantContent> contents,
+    bool hasTextContent,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -55,10 +114,10 @@ class _AssistantBubbleState extends State<AssistantBubble> {
                       styleSheet: buildMarkdownStyle(context),
                     ),
             ),
-            ToolUseContent(:final name, :final input) =>
-              name == 'ExitPlanMode'
-                  ? _PlanReadyTile()
-                  : ToolUseTile(name: name, input: input),
+            ToolUseContent(:final name, :final input) => ToolUseTile(
+              name: name,
+              input: input,
+            ),
             ThinkingContent(:final thinking) => ThinkingBubble(
               thinking: thinking,
             ),
@@ -72,39 +131,6 @@ class _AssistantBubbleState extends State<AssistantBubble> {
             },
           ),
       ],
-    );
-  }
-}
-
-class _PlanReadyTile extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.symmetric(
-        vertical: AppSpacing.bubbleMarginV,
-        horizontal: AppSpacing.bubbleMarginH,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: cs.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.assignment, size: 18, color: cs.primary),
-          const SizedBox(width: 8),
-          Text(
-            'Plan ready for review',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: cs.primary,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -14,6 +14,7 @@ class ApprovalBar extends StatelessWidget {
   final VoidCallback onApprove;
   final VoidCallback onReject;
   final VoidCallback onApproveAlways;
+  final VoidCallback? onViewPlan;
 
   const ApprovalBar({
     super.key,
@@ -24,6 +25,7 @@ class ApprovalBar extends StatelessWidget {
     required this.onApprove,
     required this.onReject,
     required this.onApproveAlways,
+    this.onViewPlan,
   });
 
   @override
@@ -111,6 +113,15 @@ class ApprovalBar extends StatelessWidget {
             ],
           ),
         ),
+        if (isPlanApproval && onViewPlan != null)
+          IconButton(
+            key: const ValueKey('view_plan_header_button'),
+            icon: Icon(Icons.open_in_full, size: 18, color: cs.primary),
+            tooltip: 'View Plan',
+            onPressed: onViewPlan,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: EdgeInsets.zero,
+          ),
       ],
     );
   }

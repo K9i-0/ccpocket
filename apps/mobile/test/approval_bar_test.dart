@@ -22,6 +22,7 @@ void main() {
     VoidCallback? onApprove,
     VoidCallback? onReject,
     VoidCallback? onApproveAlways,
+    VoidCallback? onViewPlan,
   }) {
     return MaterialApp(
       theme: AppTheme.darkTheme,
@@ -34,6 +35,7 @@ void main() {
           onApprove: onApprove ?? () {},
           onReject: onReject ?? () {},
           onApproveAlways: onApproveAlways ?? () {},
+          onViewPlan: onViewPlan,
         ),
       ),
     );
@@ -164,6 +166,68 @@ void main() {
 
       expect(find.text('Tool execution requires approval'), findsOneWidget);
       expect(find.text('Approval Required'), findsOneWidget);
+    });
+
+    testWidgets(
+      'shows View Plan button when isPlanApproval and onViewPlan set',
+      (tester) async {
+        var viewedPlan = false;
+        await tester.pumpWidget(
+          buildSubject(
+            pendingPermission: const PermissionRequestMessage(
+              toolUseId: 'tu-1',
+              toolName: 'ExitPlanMode',
+              input: {},
+            ),
+            isPlanApproval: true,
+            onViewPlan: () => viewedPlan = true,
+          ),
+        );
+
+        final button = find.byKey(const ValueKey('view_plan_header_button'));
+        expect(button, findsOneWidget);
+
+        await tester.tap(button);
+        expect(viewedPlan, isTrue);
+      },
+    );
+
+    testWidgets('hides View Plan button when onViewPlan is null', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildSubject(
+          pendingPermission: const PermissionRequestMessage(
+            toolUseId: 'tu-1',
+            toolName: 'ExitPlanMode',
+            input: {},
+          ),
+          isPlanApproval: true,
+        ),
+      );
+
+      expect(
+        find.byKey(const ValueKey('view_plan_header_button')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('hides View Plan button for regular approval', (tester) async {
+      await tester.pumpWidget(
+        buildSubject(
+          pendingPermission: const PermissionRequestMessage(
+            toolUseId: 'tu-1',
+            toolName: 'Bash',
+            input: {'command': 'ls'},
+          ),
+          onViewPlan: () {},
+        ),
+      );
+
+      expect(
+        find.byKey(const ValueKey('view_plan_header_button')),
+        findsNothing,
+      );
     });
   });
 }

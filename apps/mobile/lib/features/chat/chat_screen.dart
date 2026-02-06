@@ -11,6 +11,7 @@ import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/approval_bar.dart';
 import '../../widgets/message_bubble.dart';
+import '../../widgets/plan_detail_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
 import '../diff/diff_screen.dart';
 import '../gallery/gallery_screen.dart';
@@ -337,6 +338,16 @@ class ChatScreen extends HookConsumerWidget {
                     onApprove: approveToolUse,
                     onReject: rejectToolUse,
                     onApproveAlways: approveAlwaysToolUse,
+                    onViewPlan: isPlanApproval
+                        ? () {
+                            final planText = _extractPlanText(
+                              sessionState.entries,
+                            );
+                            if (planText != null) {
+                              showPlanDetailSheet(context, planText);
+                            }
+                          }
+                        : null,
                   ),
                 ),
               if (askToolUseId == null &&
@@ -405,6 +416,28 @@ void _executeSideEffects(
         scrollToBottom();
     }
   }
+}
+
+/// Walk entries in reverse to find the latest [AssistantServerMessage] that
+/// contains an `ExitPlanMode` tool use, then join its [TextContent] blocks.
+String? _extractPlanText(List<ChatEntry> entries) {
+  for (var i = entries.length - 1; i >= 0; i--) {
+    final entry = entries[i];
+    if (entry is ServerChatEntry && entry.message is AssistantServerMessage) {
+      final assistant = entry.message as AssistantServerMessage;
+      final contents = assistant.message.content;
+      final hasExitPlan = contents.any(
+        (c) => c is ToolUseContent && c.name == 'ExitPlanMode',
+      );
+      if (hasExitPlan) {
+        return contents
+            .whereType<TextContent>()
+            .map((c) => c.text)
+            .join('\n\n');
+      }
+    }
+  }
+  return null;
 }
 
 void _retryFailedMessages(WidgetRef ref, String sessionId) {
