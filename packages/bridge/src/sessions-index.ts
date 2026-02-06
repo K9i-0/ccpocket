@@ -50,6 +50,15 @@ export function pathToSlug(p: string): string {
 }
 
 /**
+ * Normalize a worktree cwd back to the main project path.
+ * e.g. /path/to/project-worktrees/branch → /path/to/project
+ */
+export function normalizeWorktreePath(p: string): string {
+  const match = p.match(/^(.+)-worktrees\/[^/]+$/);
+  return match?.[1] ?? p;
+}
+
+/**
  * Check if a directory slug represents a worktree directory for a given project slug.
  * e.g. "-Users-x-proj-worktrees-branch" is a worktree dir for "-Users-x-proj".
  */
@@ -124,7 +133,7 @@ export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]
       }
 
       if (!projectPath && entry.cwd) {
-        projectPath = entry.cwd as string;
+        projectPath = normalizeWorktreePath(entry.cwd as string);
       }
 
       if (type === "user" && !firstPrompt) {
@@ -232,7 +241,7 @@ export async function getAllRecentSessions(
           created: entry.created ?? "",
           modified: entry.modified ?? "",
           gitBranch: entry.gitBranch ?? "",
-          projectPath: entry.projectPath ?? "",
+          projectPath: normalizeWorktreePath(entry.projectPath ?? ""),
           isSidechain: entry.isSidechain ?? false,
         };
 

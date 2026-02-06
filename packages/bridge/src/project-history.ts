@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
+import { normalizeWorktreePath } from "./sessions-index.js";
 
 const DEFAULT_HISTORY_FILE = join(homedir(), ".ccpocket", "project-history.json");
 const MAX_PROJECTS = 20;
@@ -29,7 +30,12 @@ export class ProjectHistory {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed)) {
         const raw = parsed.filter((p): p is string => typeof p === "string");
-        this.projects = raw.filter(isValidProjectPath);
+        // Normalize worktree paths and deduplicate (keep first occurrence)
+        const seen = new Set<string>();
+        this.projects = raw
+          .map(normalizeWorktreePath)
+          .filter(isValidProjectPath)
+          .filter((p) => seen.has(p) ? false : (seen.add(p), true));
         // Persist cleaned data if invalid entries were removed
         if (this.projects.length < raw.length) {
           this.saveIndex().catch(() => {});
@@ -42,10 +48,11 @@ export class ProjectHistory {
   }
 
   addProject(path: string): void {
-    if (!isValidProjectPath(path)) return;
+    const normalized = normalizeWorktreePath(path);
+    if (!isValidProjectPath(normalized)) return;
     // Remove existing entry (if any) and add to front
-    this.projects = this.projects.filter((p) => p !== path);
-    this.projects.unshift(path);
+    this.projects = this.projects.filter((p) => p !== normalized);
+    this.projects.unshift(normalized);
     // Enforce max limit
     if (this.projects.length > MAX_PROJECTS) {
       this.projects = this.projects.slice(0, MAX_PROJECTS);

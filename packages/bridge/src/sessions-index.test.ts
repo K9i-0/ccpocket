@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { pathToSlug, isWorktreeSlug, scanJsonlDir } from "./sessions-index.js";
+import { pathToSlug, isWorktreeSlug, normalizeWorktreePath, scanJsonlDir } from "./sessions-index.js";
 
 describe("pathToSlug", () => {
   it("converts a path to Claude directory slug", () => {
@@ -56,6 +56,43 @@ describe("isWorktreeSlug", () => {
         projectSlug,
       ),
     ).toBe(false);
+  });
+});
+
+describe("normalizeWorktreePath", () => {
+  it("normalizes a worktree path to the main project path", () => {
+    expect(
+      normalizeWorktreePath("/Users/x/Workspace/ccpocket-worktrees/notice"),
+    ).toBe("/Users/x/Workspace/ccpocket");
+  });
+
+  it("handles branch names with hyphens", () => {
+    expect(
+      normalizeWorktreePath("/Users/x/Workspace/gtri-worktrees/test-session-verify"),
+    ).toBe("/Users/x/Workspace/gtri");
+  });
+
+  it("returns the original path when not a worktree path", () => {
+    expect(
+      normalizeWorktreePath("/Users/x/Workspace/ccpocket"),
+    ).toBe("/Users/x/Workspace/ccpocket");
+  });
+
+  it("returns the original path for empty string", () => {
+    expect(normalizeWorktreePath("")).toBe("");
+  });
+
+  it("does not match paths ending with -worktrees (no branch segment)", () => {
+    expect(
+      normalizeWorktreePath("/Users/x/Workspace/ccpocket-worktrees"),
+    ).toBe("/Users/x/Workspace/ccpocket-worktrees");
+  });
+
+  it("does not match nested worktree-like paths", () => {
+    // Only the last -worktrees/branch segment should match
+    expect(
+      normalizeWorktreePath("/Users/x/Workspace/foo-worktrees/bar/baz"),
+    ).toBe("/Users/x/Workspace/foo-worktrees/bar/baz");
   });
 });
 
@@ -227,6 +264,29 @@ describe("scanJsonlDir", () => {
     const result = await scanJsonlDir(testDir);
     expect(result).toHaveLength(1);
     expect(result[0].firstPrompt).toBe("plain string prompt");
+  });
+
+  it("normalizes worktree cwd to main project path", async () => {
+    const lines = [
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "worktree prompt" }],
+        },
+        cwd: "/Users/x/Workspace/myproject-worktrees/feature-branch",
+        gitBranch: "feature-branch",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+    ];
+    writeFileSync(
+      join(testDir, "wt-session.jsonl"),
+      lines.join("\n"),
+    );
+
+    const result = await scanJsonlDir(testDir);
+    expect(result).toHaveLength(1);
+    expect(result[0].projectPath).toBe("/Users/x/Workspace/myproject");
   });
 
   it("detects sidechain sessions", async () => {
