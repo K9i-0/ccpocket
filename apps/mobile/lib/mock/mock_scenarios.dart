@@ -35,6 +35,7 @@ final List<MockScenario> mockScenarios = [
   _streaming,
   _thinkingBlock,
   _planMode,
+  _subagentSummary,
   _errorScenario,
   _fullConversation,
 ];
@@ -510,7 +511,150 @@ final _planMode = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// 7. Error
+// 7. Subagent Summary (tool_use_summary)
+// ---------------------------------------------------------------------------
+final _subagentSummary = MockScenario(
+  name: 'Subagent Summary',
+  icon: Icons.smart_toy_outlined,
+  description: 'Task tool with compressed subagent results',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    // Main agent starts Task tool
+    MockStep(
+      delay: const Duration(milliseconds: 600),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-subagent-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  'I\'ll explore the codebase to understand its structure. '
+                  'Let me launch an exploration agent.',
+            ),
+            const ToolUseContent(
+              id: 'tool-task-1',
+              name: 'Task',
+              input: {
+                'description': 'Explore codebase structure',
+                'prompt':
+                    'Explore the project directory, identify key files and architecture patterns.',
+                'subagent_type': 'Explore',
+              },
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    // Subagent tool results (these will be hidden by the summary)
+    MockStep(
+      delay: const Duration(milliseconds: 1200),
+      message: const ToolResultMessage(
+        toolUseId: 'subagent-read-1',
+        toolName: 'Read',
+        content: 'lib/main.dart:\nimport \'package:flutter/material.dart\';...',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1400),
+      message: const ToolResultMessage(
+        toolUseId: 'subagent-glob-1',
+        toolName: 'Glob',
+        content: 'Found 42 files matching **/*.dart',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1600),
+      message: const ToolResultMessage(
+        toolUseId: 'subagent-read-2',
+        toolName: 'Read',
+        content: 'pubspec.yaml:\nname: my_app\nversion: 1.0.0...',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1800),
+      message: const ToolResultMessage(
+        toolUseId: 'subagent-grep-1',
+        toolName: 'Grep',
+        content: 'Found 15 matches for "class.*extends StatelessWidget"',
+      ),
+    ),
+    // Tool use summary replaces the above tool results
+    MockStep(
+      delay: const Duration(milliseconds: 2200),
+      message: const ToolUseSummaryMessage(
+        summary:
+            'Read 4 files (main.dart, pubspec.yaml, etc.), '
+            'searched for widget patterns, '
+            'identified 42 Dart files in the project',
+        precedingToolUseIds: [
+          'subagent-read-1',
+          'subagent-glob-1',
+          'subagent-read-2',
+          'subagent-grep-1',
+        ],
+      ),
+    ),
+    // Task tool result
+    MockStep(
+      delay: const Duration(milliseconds: 2500),
+      message: const ToolResultMessage(
+        toolUseId: 'tool-task-1',
+        toolName: 'Task',
+        content:
+            'Exploration complete. The project is a Flutter application with:\n'
+            '- 42 Dart files organized in lib/\n'
+            '- Feature-first architecture (features/, widgets/, models/)\n'
+            '- 15 StatelessWidget components\n'
+            '- Dependencies: flutter_riverpod, freezed, go_router',
+      ),
+    ),
+    // Main agent continues
+    MockStep(
+      delay: const Duration(milliseconds: 3000),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-subagent-2',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  'Based on the exploration, here\'s what I found:\n\n'
+                  '**Project Structure:**\n'
+                  '- 42 Dart files with feature-first architecture\n'
+                  '- Uses Riverpod for state management\n'
+                  '- Freezed for immutable data classes\n'
+                  '- GoRouter for navigation\n\n'
+                  'The codebase follows Flutter best practices with '
+                  'clear separation of concerns.',
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 3500),
+      message: const ResultMessage(
+        subtype: 'success',
+        cost: 0.0256,
+        duration: 4.2,
+        sessionId: 'mock-session-subagent',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 3700),
+      message: const StatusMessage(status: ProcessStatus.idle),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 8. Error
 // ---------------------------------------------------------------------------
 final _errorScenario = MockScenario(
   name: 'Error',
