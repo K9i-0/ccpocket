@@ -21,6 +21,7 @@ class ChatEntryWidget extends StatelessWidget {
   final void Function(UserChatEntry)? onRetryMessage;
   final ValueNotifier<int>? collapseToolResults;
   final ValueNotifier<String?>? editedPlanText;
+  final String? resolvedPlanText;
   const ChatEntryWidget({
     super.key,
     required this.entry,
@@ -29,6 +30,7 @@ class ChatEntryWidget extends StatelessWidget {
     this.onRetryMessage,
     this.collapseToolResults,
     this.editedPlanText,
+    this.resolvedPlanText,
   });
 
   @override
@@ -43,6 +45,7 @@ class ChatEntryWidget extends StatelessWidget {
             httpBaseUrl: httpBaseUrl,
             collapseToolResults: collapseToolResults,
             editedPlanText: editedPlanText,
+            resolvedPlanText: resolvedPlanText,
           ),
           final UserChatEntry user => UserBubble(
             text: user.text,
@@ -100,12 +103,14 @@ class ServerMessageWidget extends StatelessWidget {
   final String? httpBaseUrl;
   final ValueNotifier<int>? collapseToolResults;
   final ValueNotifier<String?>? editedPlanText;
+  final String? resolvedPlanText;
   const ServerMessageWidget({
     super.key,
     required this.message,
     this.httpBaseUrl,
     this.collapseToolResults,
     this.editedPlanText,
+    this.resolvedPlanText,
   });
 
   @override
@@ -115,6 +120,7 @@ class ServerMessageWidget extends StatelessWidget {
       final AssistantServerMessage msg => AssistantBubble(
         message: msg,
         editedPlanText: editedPlanText,
+        resolvedPlanText: resolvedPlanText,
       ),
       final ToolResultMessage msg => ToolResultBubble(
         message: msg,

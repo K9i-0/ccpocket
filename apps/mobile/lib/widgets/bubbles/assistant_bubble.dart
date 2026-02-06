@@ -16,10 +16,17 @@ import 'thinking_bubble.dart';
 class AssistantBubble extends StatefulWidget {
   final AssistantServerMessage message;
   final ValueNotifier<String?>? editedPlanText;
+
+  /// Pre-resolved plan text extracted from a Write tool in a *different*
+  /// AssistantMessage.  When the real SDK writes the plan to a file via the
+  /// Write tool, ExitPlanMode and Write are in separate messages, so the
+  /// bubble's own [message.content] won't contain the plan text.
+  final String? resolvedPlanText;
   const AssistantBubble({
     super.key,
     required this.message,
     this.editedPlanText,
+    this.resolvedPlanText,
   });
 
   @override
@@ -28,18 +35,6 @@ class AssistantBubble extends StatefulWidget {
 
 class _AssistantBubbleState extends State<AssistantBubble> {
   bool _plainTextMode = false;
-
-  /// Extract plan text from a Write tool that targets .claude/plans/.
-  static String? _extractPlanFromWriteTool(List<AssistantContent> contents) {
-    for (final c in contents) {
-      if (c is! ToolUseContent || c.name != 'Write') continue;
-      final filePath = c.input['file_path']?.toString() ?? '';
-      if (!filePath.contains('.claude/plans/')) continue;
-      final content = c.input['content']?.toString();
-      if (content != null && content.isNotEmpty) return content;
-    }
-    return null;
-  }
 
   String _allText() {
     return widget.message.message.content
@@ -73,14 +68,12 @@ class _AssistantBubbleState extends State<AssistantBubble> {
         .map((c) => c.text)
         .join('\n\n');
 
-    // Real SDK: plan is written to a file via Write tool, TextContent is just
-    // a short description.  Fall back to Write tool's content if TextContent
-    // doesn't look like an actual plan (< 10 lines).
-    if (originalPlanText.split('\n').length < 10) {
-      final writtenPlan = _extractPlanFromWriteTool(contents);
-      if (writtenPlan != null) {
-        originalPlanText = writtenPlan;
-      }
+    // Real SDK: plan is written to a file via Write tool in a *different*
+    // AssistantMessage.  Use resolvedPlanText (pre-extracted from all entries)
+    // when TextContent doesn't look like an actual plan (< 10 lines).
+    if (originalPlanText.split('\n').length < 10 &&
+        widget.resolvedPlanText != null) {
+      originalPlanText = widget.resolvedPlanText!;
     }
 
     return Column(

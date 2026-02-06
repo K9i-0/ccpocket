@@ -157,6 +157,41 @@ class _ChatMessageListState extends ConsumerState<ChatMessageList> {
   }
 
   // ---------------------------------------------------------------------------
+  // Plan text resolution
+  // ---------------------------------------------------------------------------
+
+  /// For entries with ExitPlanMode, search all entries for a Write tool
+  /// targeting `.claude/plans/` to resolve the plan text.
+  String? _resolvePlanText(ChatEntry entry) {
+    if (entry is! ServerChatEntry) return null;
+    final msg = entry.message;
+    if (msg is! AssistantServerMessage) return null;
+    final hasExitPlan = msg.message.content.any(
+      (c) => c is ToolUseContent && c.name == 'ExitPlanMode',
+    );
+    if (!hasExitPlan) return null;
+    return _findPlanFromWriteTool();
+  }
+
+  /// Search all entries in reverse for a Write tool targeting `.claude/plans/`.
+  String? _findPlanFromWriteTool() {
+    for (var i = _entries.length - 1; i >= 0; i--) {
+      final entry = _entries[i];
+      if (entry is! ServerChatEntry) continue;
+      final msg = entry.message;
+      if (msg is! AssistantServerMessage) continue;
+      for (final c in msg.message.content) {
+        if (c is! ToolUseContent || c.name != 'Write') continue;
+        final filePath = c.input['file_path']?.toString() ?? '';
+        if (!filePath.contains('.claude/plans/')) continue;
+        final content = c.input['content']?.toString();
+        if (content != null && content.isNotEmpty) return content;
+      }
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
 
@@ -194,6 +229,7 @@ class _ChatMessageListState extends ConsumerState<ChatMessageList> {
             onRetryMessage: widget.onRetryMessage,
             collapseToolResults: widget.collapseToolResults,
             editedPlanText: widget.editedPlanText,
+            resolvedPlanText: _resolvePlanText(entry),
           );
           if (_bulkLoading || animation.isCompleted) return child;
           return SlideTransition(

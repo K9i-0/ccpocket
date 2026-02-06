@@ -474,8 +474,8 @@ void _executeSideEffects(
 /// contains an `ExitPlanMode` tool use, then extract the plan text.
 ///
 /// Tries TextContent first; if it's too short (real SDK writes the plan to a
-/// file via Write tool), falls back to the Write tool's `content` input for
-/// files in `.claude/plans/`.
+/// file via Write tool), searches ALL entries for a Write tool targeting
+/// `.claude/plans/`.
 String? _extractPlanText(List<ChatEntry> entries) {
   for (var i = entries.length - 1; i >= 0; i--) {
     final entry = entries[i];
@@ -491,8 +491,8 @@ String? _extractPlanText(List<ChatEntry> entries) {
             .map((c) => c.text)
             .join('\n\n');
         if (textPlan.split('\n').length >= 10) return textPlan;
-        // Fall back to Write tool content targeting .claude/plans/
-        final writtenPlan = _extractPlanFromWriteTool(contents);
+        // Fall back: search ALL entries for a Write tool targeting .claude/plans/
+        final writtenPlan = findPlanFromWriteTool(entries);
         return writtenPlan ?? textPlan;
       }
     }
@@ -500,14 +500,22 @@ String? _extractPlanText(List<ChatEntry> entries) {
   return null;
 }
 
-/// Extract plan text from a Write tool that targets .claude/plans/.
-String? _extractPlanFromWriteTool(List<AssistantContent> contents) {
-  for (final c in contents) {
-    if (c is! ToolUseContent || c.name != 'Write') continue;
-    final filePath = c.input['file_path']?.toString() ?? '';
-    if (!filePath.contains('.claude/plans/')) continue;
-    final content = c.input['content']?.toString();
-    if (content != null && content.isNotEmpty) return content;
+/// Search all entries for a Write tool that targets `.claude/plans/` and
+/// return its `content` input.  The Write tool is often in a different
+/// [AssistantServerMessage] than the ExitPlanMode tool use.
+String? findPlanFromWriteTool(List<ChatEntry> entries) {
+  for (var i = entries.length - 1; i >= 0; i--) {
+    final entry = entries[i];
+    if (entry is! ServerChatEntry) continue;
+    final msg = entry.message;
+    if (msg is! AssistantServerMessage) continue;
+    for (final c in msg.message.content) {
+      if (c is! ToolUseContent || c.name != 'Write') continue;
+      final filePath = c.input['file_path']?.toString() ?? '';
+      if (!filePath.contains('.claude/plans/')) continue;
+      final content = c.input['content']?.toString();
+      if (content != null && content.isNotEmpty) return content;
+    }
   }
   return null;
 }
