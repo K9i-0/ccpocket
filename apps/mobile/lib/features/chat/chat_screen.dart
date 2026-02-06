@@ -57,6 +57,10 @@ class ChatScreen extends HookConsumerWidget {
     final collapseToolResults = useMemoized(() => ValueNotifier<int>(0));
     useEffect(() => collapseToolResults.dispose, const []);
 
+    // Edited plan text (shared with PlanCard via ValueNotifier)
+    final editedPlanText = useMemoized(() => ValueNotifier<String?>(null));
+    useEffect(() => editedPlanText.dispose, const []);
+
     // --- Riverpod state ---
     final sessionState = ref.watch(chatSessionNotifierProvider(sessionId));
     final bridgeState =
@@ -136,21 +140,21 @@ class ChatScreen extends HookConsumerWidget {
 
     final isPlanApproval = pendingPermission?.toolName == 'ExitPlanMode';
 
-    // Holds edited plan input from PlanDetailSheet until user approves
-    final editedPlanInput = useRef<Map<String, dynamic>?>(null);
-
-    // Clear edited input when approval state resets
+    // Clear edited plan when approval state resets
     if (pendingToolUseId == null) {
-      editedPlanInput.value = null;
+      editedPlanText.value = null;
     }
 
     // --- Action callbacks ---
     void approveToolUse() {
       if (pendingToolUseId == null) return;
+      final updatedInput = editedPlanText.value != null
+          ? {'plan': editedPlanText.value!}
+          : null;
       ref
           .read(chatSessionNotifierProvider(sessionId).notifier)
-          .approve(pendingToolUseId, updatedInput: editedPlanInput.value);
-      editedPlanInput.value = null;
+          .approve(pendingToolUseId, updatedInput: updatedInput);
+      editedPlanText.value = null;
       planFeedbackController.clear();
     }
 
@@ -277,6 +281,7 @@ class ChatScreen extends HookConsumerWidget {
                             .retryMessage(entry);
                       },
                       collapseToolResults: collapseToolResults,
+                      editedPlanText: editedPlanText,
                       onScrollToBottom: scroll.scrollToBottom,
                     ),
                     if (scroll.isScrolledUp)
@@ -349,16 +354,19 @@ class ChatScreen extends HookConsumerWidget {
                     onApproveAlways: approveAlwaysToolUse,
                     onViewPlan: isPlanApproval
                         ? () async {
-                            final planText = _extractPlanText(
+                            final originalText = _extractPlanText(
                               sessionState.entries,
                             );
-                            if (planText == null) return;
+                            if (originalText == null) return;
+                            // Show sheet with edited text if available
+                            final current =
+                                editedPlanText.value ?? originalText;
                             final edited = await showPlanDetailSheet(
                               context,
-                              planText,
+                              current,
                             );
                             if (edited != null) {
-                              editedPlanInput.value = {'plan': edited};
+                              editedPlanText.value = edited;
                             }
                           }
                         : null,

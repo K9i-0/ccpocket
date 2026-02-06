@@ -11,6 +11,7 @@ import '../../theme/markdown_style.dart';
 class PlanCard extends StatelessWidget {
   final String planText;
   final VoidCallback onViewFullPlan;
+  final bool isEdited;
 
   /// Lines threshold below which the full plan is shown without a button.
   static const int _shortPlanLineThreshold = 10;
@@ -22,6 +23,7 @@ class PlanCard extends StatelessWidget {
     super.key,
     required this.planText,
     required this.onViewFullPlan,
+    this.isEdited = false,
   });
 
   bool get _isLongPlan => planText.split('\n').length > _shortPlanLineThreshold;
@@ -76,6 +78,24 @@ class PlanCard extends StatelessWidget {
             ),
           ),
           const Spacer(),
+          if (isEdited)
+            Container(
+              key: const ValueKey('plan_edited_badge'),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              margin: const EdgeInsets.only(right: 6),
+              decoration: BoxDecoration(
+                color: cs.tertiary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Edited',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: cs.tertiary,
+                ),
+              ),
+            ),
           if (_sectionCount > 0)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

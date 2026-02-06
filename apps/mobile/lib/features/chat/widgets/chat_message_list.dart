@@ -18,6 +18,7 @@ class ChatMessageList extends ConsumerStatefulWidget {
   final String? httpBaseUrl;
   final void Function(UserChatEntry)? onRetryMessage;
   final ValueNotifier<int>? collapseToolResults;
+  final ValueNotifier<String?>? editedPlanText;
   final VoidCallback? onScrollToBottom;
 
   const ChatMessageList({
@@ -27,6 +28,7 @@ class ChatMessageList extends ConsumerStatefulWidget {
     required this.httpBaseUrl,
     required this.onRetryMessage,
     required this.collapseToolResults,
+    this.editedPlanText,
     this.onScrollToBottom,
   });
 
@@ -191,6 +193,7 @@ class _ChatMessageListState extends ConsumerState<ChatMessageList> {
             httpBaseUrl: widget.httpBaseUrl,
             onRetryMessage: widget.onRetryMessage,
             collapseToolResults: widget.collapseToolResults,
+            editedPlanText: widget.editedPlanText,
           );
           if (_bulkLoading || animation.isCompleted) return child;
           return SlideTransition(

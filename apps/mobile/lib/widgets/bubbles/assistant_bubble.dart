@@ -15,7 +15,12 @@ import 'thinking_bubble.dart';
 
 class AssistantBubble extends StatefulWidget {
   final AssistantServerMessage message;
-  const AssistantBubble({super.key, required this.message});
+  final ValueNotifier<String?>? editedPlanText;
+  const AssistantBubble({
+    super.key,
+    required this.message,
+    this.editedPlanText,
+  });
 
   @override
   State<AssistantBubble> createState() => _AssistantBubbleState();
@@ -51,7 +56,7 @@ class _AssistantBubbleState extends State<AssistantBubble> {
     List<AssistantContent> contents,
     bool hasTextContent,
   ) {
-    final planText = contents
+    final originalPlanText = contents
         .whereType<TextContent>()
         .map((c) => c.text)
         .join('\n\n');
@@ -71,11 +76,25 @@ class _AssistantBubbleState extends State<AssistantBubble> {
                   : ToolUseTile(name: name, input: input),
             TextContent() => const SizedBox.shrink(),
           },
-        // Plan card replaces all text content
-        PlanCard(
-          planText: planText,
-          onViewFullPlan: () => showPlanDetailSheet(context, planText),
-        ),
+        // Plan card – reflects edited text if available
+        if (widget.editedPlanText != null)
+          ValueListenableBuilder<String?>(
+            valueListenable: widget.editedPlanText!,
+            builder: (context, edited, _) {
+              final displayText = edited ?? originalPlanText;
+              return PlanCard(
+                planText: displayText,
+                isEdited: edited != null,
+                onViewFullPlan: () => showPlanDetailSheet(context, displayText),
+              );
+            },
+          )
+        else
+          PlanCard(
+            planText: originalPlanText,
+            onViewFullPlan: () =>
+                showPlanDetailSheet(context, originalPlanText),
+          ),
         if (hasTextContent)
           MessageActionBar(
             textToCopy: _allText(),
