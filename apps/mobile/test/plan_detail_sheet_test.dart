@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:ccpocket/widgets/bubbles/assistant_bubble.dart';
 import 'package:ccpocket/widgets/plan_detail_sheet.dart';
 
 void main() {
@@ -176,6 +178,128 @@ void main() {
       // Should be back in view mode
       expect(find.byKey(const ValueKey('plan_edit_field')), findsNothing);
       expect(find.byIcon(Icons.edit), findsOneWidget);
+    });
+  });
+
+  group('AssistantBubble PlanCard → editedPlanText integration', () {
+    // Must exceed PlanCard._shortPlanLineThreshold (10 lines) to show footer
+    const originalPlan =
+        '# Original Plan\n\n'
+        '## Step 1\n- Do something\n- Another task\n\n'
+        '## Step 2\n- More work\n- Even more\n\n'
+        '## Step 3\n- Final step\n- Done';
+
+    AssistantServerMessage buildExitPlanMessage() {
+      return AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'msg-1',
+          role: 'assistant',
+          content: [
+            const TextContent(text: originalPlan),
+            const ToolUseContent(
+              id: 'tu-1',
+              name: 'ExitPlanMode',
+              input: {'plan': originalPlan},
+            ),
+          ],
+          model: 'test-model',
+        ),
+      );
+    }
+
+    testWidgets(
+      'PlanCard View Full Plan → edit → Apply updates editedPlanText',
+      (tester) async {
+        final editedPlanText = ValueNotifier<String?>(null);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.darkTheme,
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: AssistantBubble(
+                  message: buildExitPlanMessage(),
+                  editedPlanText: editedPlanText,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // PlanCard should show the original plan text
+        expect(find.text('Implementation Plan'), findsOneWidget);
+        // No edited badge yet
+        expect(find.byKey(const ValueKey('plan_edited_badge')), findsNothing);
+
+        // Tap "View Full Plan" to open PlanDetailSheet
+        await tester.tap(find.byKey(const ValueKey('view_full_plan_button')));
+        await tester.pumpAndSettle();
+
+        // Sheet should be open with edit toggle
+        expect(find.byKey(const ValueKey('plan_edit_toggle')), findsOneWidget);
+
+        // Switch to edit mode
+        await tester.tap(find.byKey(const ValueKey('plan_edit_toggle')));
+        await tester.pumpAndSettle();
+
+        // Enter edited text
+        const editedText = '# Edited Plan\n\n## New Step\n- Changed';
+        await tester.enterText(
+          find.byKey(const ValueKey('plan_edit_field')),
+          editedText,
+        );
+        await tester.pumpAndSettle();
+
+        // Tap Apply
+        await tester.tap(find.byKey(const ValueKey('plan_edit_apply')));
+        await tester.pumpAndSettle();
+
+        // ValueNotifier should be updated
+        expect(editedPlanText.value, editedText);
+
+        // PlanCard should now show the "Edited" badge
+        expect(find.byKey(const ValueKey('plan_edited_badge')), findsOneWidget);
+
+        editedPlanText.dispose();
+      },
+    );
+
+    testWidgets('Dismiss sheet without Apply does not update editedPlanText', (
+      tester,
+    ) async {
+      final editedPlanText = ValueNotifier<String?>(null);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: AssistantBubble(
+                message: buildExitPlanMessage(),
+                editedPlanText: editedPlanText,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Open sheet
+      await tester.tap(find.byKey(const ValueKey('view_full_plan_button')));
+      await tester.pumpAndSettle();
+
+      // Dismiss by dragging down
+      await tester.drag(
+        find.text('Implementation Plan').last,
+        const Offset(0, 500),
+      );
+      await tester.pumpAndSettle();
+
+      // ValueNotifier should remain null
+      expect(editedPlanText.value, isNull);
+
+      editedPlanText.dispose();
     });
   });
 }

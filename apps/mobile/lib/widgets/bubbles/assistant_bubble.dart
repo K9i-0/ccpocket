@@ -85,7 +85,15 @@ class _AssistantBubbleState extends State<AssistantBubble> {
               return PlanCard(
                 planText: displayText,
                 isEdited: edited != null,
-                onViewFullPlan: () => showPlanDetailSheet(context, displayText),
+                onViewFullPlan: () async {
+                  final edited = await showPlanDetailSheet(
+                    context,
+                    displayText,
+                  );
+                  if (edited != null) {
+                    widget.editedPlanText!.value = edited;
+                  }
+                },
               );
             },
           )
