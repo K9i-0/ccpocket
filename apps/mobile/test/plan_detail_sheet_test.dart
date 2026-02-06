@@ -96,7 +96,7 @@ void main() {
       expect(find.byIcon(Icons.visibility), findsOneWidget);
     });
 
-    testWidgets('Apply & Approve disabled when text unchanged', (tester) async {
+    testWidgets('Apply disabled when text unchanged', (tester) async {
       await tester.pumpWidget(buildSubject());
       await tester.tap(find.byKey(const ValueKey('open_sheet')));
       await tester.pumpAndSettle();
@@ -111,7 +111,7 @@ void main() {
       expect(button.onPressed, isNull);
     });
 
-    testWidgets('Apply & Approve enabled after editing', (tester) async {
+    testWidgets('Apply enabled after editing', (tester) async {
       await tester.pumpWidget(buildSubject());
       await tester.tap(find.byKey(const ValueKey('open_sheet')));
       await tester.pumpAndSettle();
@@ -133,7 +133,7 @@ void main() {
       expect(button.onPressed, isNotNull);
     });
 
-    testWidgets('Apply & Approve pops with edited text', (tester) async {
+    testWidgets('Apply pops with edited text', (tester) async {
       await tester.pumpWidget(buildSubject());
       await tester.tap(find.byKey(const ValueKey('open_sheet')));
       await tester.pumpAndSettle();

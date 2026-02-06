@@ -136,12 +136,21 @@ class ChatScreen extends HookConsumerWidget {
 
     final isPlanApproval = pendingPermission?.toolName == 'ExitPlanMode';
 
+    // Holds edited plan input from PlanDetailSheet until user approves
+    final editedPlanInput = useRef<Map<String, dynamic>?>(null);
+
+    // Clear edited input when approval state resets
+    if (pendingToolUseId == null) {
+      editedPlanInput.value = null;
+    }
+
     // --- Action callbacks ---
     void approveToolUse() {
       if (pendingToolUseId == null) return;
       ref
           .read(chatSessionNotifierProvider(sessionId).notifier)
-          .approve(pendingToolUseId);
+          .approve(pendingToolUseId, updatedInput: editedPlanInput.value);
+      editedPlanInput.value = null;
       planFeedbackController.clear();
     }
 
@@ -348,18 +357,8 @@ class ChatScreen extends HookConsumerWidget {
                               context,
                               planText,
                             );
-                            if (edited != null && pendingToolUseId != null) {
-                              ref
-                                  .read(
-                                    chatSessionNotifierProvider(
-                                      sessionId,
-                                    ).notifier,
-                                  )
-                                  .approve(
-                                    pendingToolUseId,
-                                    updatedInput: {'plan': edited},
-                                  );
-                              planFeedbackController.clear();
+                            if (edited != null) {
+                              editedPlanInput.value = {'plan': edited};
                             }
                           }
                         : null,

@@ -172,14 +172,14 @@ class _PlanDetailContentState extends State<_PlanDetailContent> {
             child: const Text('Cancel'),
           ),
           const Spacer(),
-          // Apply & Approve button
+          // Apply button – saves edits; approval happens back in chat
           FilledButton.icon(
             key: const ValueKey('plan_edit_apply'),
             onPressed: _hasChanges
                 ? () => Navigator.pop(context, _editController.text)
                 : null,
             icon: const Icon(Icons.check, size: 18),
-            label: const Text('Apply & Approve'),
+            label: const Text('Apply'),
           ),
         ],
       ),
