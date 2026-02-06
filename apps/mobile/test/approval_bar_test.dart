@@ -23,6 +23,8 @@ void main() {
     VoidCallback? onReject,
     VoidCallback? onApproveAlways,
     VoidCallback? onViewPlan,
+    bool clearContext = false,
+    ValueChanged<bool>? onClearContextChanged,
   }) {
     return MaterialApp(
       theme: AppTheme.darkTheme,
@@ -36,6 +38,8 @@ void main() {
           onReject: onReject ?? () {},
           onApproveAlways: onApproveAlways ?? () {},
           onViewPlan: onViewPlan,
+          clearContext: clearContext,
+          onClearContextChanged: onClearContextChanged,
         ),
       ),
     );
@@ -247,6 +251,64 @@ void main() {
         find.byKey(const ValueKey('view_plan_header_button')),
       );
       expect(iconButton.tooltip, 'View / Edit Plan');
+    });
+
+    testWidgets('shows Clear Context chip for plan approval with callback', (
+      tester,
+    ) async {
+      var toggled = false;
+      await tester.pumpWidget(
+        buildSubject(
+          pendingPermission: const PermissionRequestMessage(
+            toolUseId: 'tu-1',
+            toolName: 'ExitPlanMode',
+            input: {},
+          ),
+          isPlanApproval: true,
+          onClearContextChanged: (v) => toggled = true,
+        ),
+      );
+
+      final chip = find.byKey(const ValueKey('clear_context_chip'));
+      expect(chip, findsOneWidget);
+
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(toggled, isTrue);
+    });
+
+    testWidgets('hides Clear Context chip when onClearContextChanged is null', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildSubject(
+          pendingPermission: const PermissionRequestMessage(
+            toolUseId: 'tu-1',
+            toolName: 'ExitPlanMode',
+            input: {},
+          ),
+          isPlanApproval: true,
+        ),
+      );
+
+      expect(find.byKey(const ValueKey('clear_context_chip')), findsNothing);
+    });
+
+    testWidgets('hides Clear Context chip for regular (non-plan) approval', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildSubject(
+          pendingPermission: const PermissionRequestMessage(
+            toolUseId: 'tu-1',
+            toolName: 'Bash',
+            input: {'command': 'ls'},
+          ),
+          onClearContextChanged: (v) {},
+        ),
+      );
+
+      expect(find.byKey(const ValueKey('clear_context_chip')), findsNothing);
     });
   });
 }

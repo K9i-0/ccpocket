@@ -82,7 +82,8 @@ enum ProcessStatus {
   starting,
   idle,
   running,
-  waitingApproval;
+  waitingApproval,
+  clearing;
 
   static ProcessStatus fromString(String value) {
     return switch (value) {
@@ -90,6 +91,7 @@ enum ProcessStatus {
       'idle' => ProcessStatus.idle,
       'running' => ProcessStatus.running,
       'waiting_approval' => ProcessStatus.waitingApproval,
+      'clearing' => ProcessStatus.clearing,
       _ => ProcessStatus.idle,
     };
   }
@@ -622,10 +624,12 @@ class ClientMessage {
   factory ClientMessage.approve(
     String id, {
     Map<String, dynamic>? updatedInput,
+    bool clearContext = false,
     String? sessionId,
   }) {
     final json = <String, dynamic>{'type': 'approve', 'id': id};
     if (updatedInput != null) json['updatedInput'] = updatedInput;
+    if (clearContext) json['clearContext'] = true;
     if (sessionId != null) json['sessionId'] = sessionId;
     return ClientMessage._(json);
   }

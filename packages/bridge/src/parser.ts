@@ -46,7 +46,7 @@ export type PermissionMode =
 export type ClientMessage =
   | { type: "start"; projectPath: string; sessionId?: string; continue?: boolean; permissionMode?: PermissionMode; useWorktree?: boolean; worktreeBranch?: string }
   | { type: "input"; text: string; sessionId?: string }
-  | { type: "approve"; id: string; updatedInput?: Record<string, unknown>; sessionId?: string }
+  | { type: "approve"; id: string; updatedInput?: Record<string, unknown>; clearContext?: boolean; sessionId?: string }
   | { type: "approve_always"; id: string; sessionId?: string }
   | { type: "reject"; id: string; message?: string; sessionId?: string }
   | { type: "answer"; toolUseId: string; result: string; sessionId?: string }
@@ -81,7 +81,7 @@ export type ServerMessage =
   | { type: "worktree_list"; worktrees: WorktreeInfo[] }
   | { type: "worktree_removed"; worktreePath: string };
 
-export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval";
+export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval" | "clearing";
 
 // ---- Helpers ----
 

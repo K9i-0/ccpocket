@@ -15,6 +15,8 @@ class ApprovalBar extends StatelessWidget {
   final VoidCallback onReject;
   final VoidCallback onApproveAlways;
   final VoidCallback? onViewPlan;
+  final bool clearContext;
+  final ValueChanged<bool>? onClearContextChanged;
 
   const ApprovalBar({
     super.key,
@@ -26,6 +28,8 @@ class ApprovalBar extends StatelessWidget {
     required this.onReject,
     required this.onApproveAlways,
     this.onViewPlan,
+    this.clearContext = false,
+    this.onClearContextChanged,
   });
 
   @override
@@ -150,31 +154,55 @@ class ApprovalBar extends StatelessWidget {
 
   Widget _buildButtons(BuildContext context) {
     if (isPlanApproval) {
-      return Row(
+      return Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: OutlinedButton(
-              key: const ValueKey('reject_button'),
-              onPressed: onReject,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-              child: const Text(
-                'Keep Planning',
-                style: TextStyle(fontSize: 13),
+          if (onClearContextChanged != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilterChip(
+                key: const ValueKey('clear_context_chip'),
+                label: const Text(
+                  'Clear Context',
+                  style: TextStyle(fontSize: 12),
+                ),
+                selected: clearContext,
+                onSelected: onClearContextChanged!,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: FilledButton(
-              key: const ValueKey('approve_button'),
-              onPressed: onApprove,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+          if (onClearContextChanged != null) const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  key: const ValueKey('reject_button'),
+                  onPressed: onReject,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  child: const Text(
+                    'Keep Planning',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
               ),
-              child: const Text('Accept Plan', style: TextStyle(fontSize: 13)),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  key: const ValueKey('approve_button'),
+                  onPressed: onApprove,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  child: const Text(
+                    'Accept Plan',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       );

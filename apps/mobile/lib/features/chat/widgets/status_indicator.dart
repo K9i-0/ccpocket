@@ -15,6 +15,7 @@ class StatusIndicator extends StatelessWidget {
       ProcessStatus.idle => (appColors.statusIdle, 'Idle'),
       ProcessStatus.running => (appColors.statusRunning, 'Running'),
       ProcessStatus.waitingApproval => (appColors.statusApproval, 'Approval'),
+      ProcessStatus.clearing => (appColors.statusRunning, 'Clearing'),
     };
     return Padding(
       key: const ValueKey('status_indicator'),
@@ -37,7 +38,8 @@ class StatusIndicator extends StatelessWidget {
                 shape: BoxShape.circle,
                 boxShadow:
                     (status == ProcessStatus.running ||
-                        status == ProcessStatus.starting)
+                        status == ProcessStatus.starting ||
+                        status == ProcessStatus.clearing)
                     ? [
                         BoxShadow(
                           color: color.withValues(alpha: 0.5),

@@ -234,4 +234,33 @@ describe("parseClientMessage", () => {
   it("rejects remove_project_history without projectPath", () => {
     expect(parseClientMessage('{"type":"remove_project_history"}')).toBeNull();
   });
+
+  it("parses approve with clearContext: true", () => {
+    const msg = parseClientMessage(
+      '{"type":"approve","id":"tu1","clearContext":true}',
+    );
+    expect(msg).toEqual({
+      type: "approve",
+      id: "tu1",
+      clearContext: true,
+    });
+  });
+
+  it("parses approve without clearContext (backward compat)", () => {
+    const msg = parseClientMessage('{"type":"approve","id":"tu1"}');
+    expect(msg).not.toBeNull();
+    expect((msg as Record<string, unknown>).clearContext).toBeUndefined();
+  });
+
+  it("parses approve with updatedInput and clearContext", () => {
+    const msg = parseClientMessage(
+      '{"type":"approve","id":"tu1","updatedInput":{"plan":"my plan"},"clearContext":true}',
+    );
+    expect(msg).toEqual({
+      type: "approve",
+      id: "tu1",
+      updatedInput: { plan: "my plan" },
+      clearContext: true,
+    });
+  });
 });

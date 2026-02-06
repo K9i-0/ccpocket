@@ -226,11 +226,17 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
 
   /// Approve a pending tool execution.
   /// If [updatedInput] is provided, the original tool input is merged with it.
-  void approve(String toolUseId, {Map<String, dynamic>? updatedInput}) {
+  /// If [clearContext] is true, context will be cleared after plan execution.
+  void approve(
+    String toolUseId, {
+    Map<String, dynamic>? updatedInput,
+    bool clearContext = false,
+  }) {
     _bridge.send(
       ClientMessage.approve(
         toolUseId,
         updatedInput: updatedInput,
+        clearContext: clearContext,
         sessionId: sessionId,
       ),
     );
