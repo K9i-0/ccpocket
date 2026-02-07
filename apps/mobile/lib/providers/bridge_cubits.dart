@@ -1,5 +1,4 @@
 import '../models/messages.dart';
-import '../services/bridge_service.dart';
 import 'stream_cubit.dart';
 
 /// Connection state stream as a Cubit.

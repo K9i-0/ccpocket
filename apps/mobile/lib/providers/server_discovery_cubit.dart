@@ -9,8 +9,8 @@ class ServerDiscoveryCubit extends Cubit<List<DiscoveredServer>> {
   StreamSubscription<List<DiscoveredServer>>? _sub;
 
   ServerDiscoveryCubit()
-      : _service = ServerDiscoveryService(),
-        super(const []) {
+    : _service = ServerDiscoveryService(),
+      super(const []) {
     _service.startDiscovery();
     _sub = _service.servers.listen(emit);
   }

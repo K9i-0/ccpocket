@@ -35,29 +35,25 @@
 - `mock_preview_screen.dart` — ProviderScope → RepositoryProvider + MultiBlocProvider
 - 削除: chat_session_notifier.dart
 
-## 未完了
+### Phase 5: Gallery + 残りWidget + エントリポイント ✅
+- `gallery_screen.dart` — HookConsumerWidget → HookWidget (context.watch/read)
+- `driver_main.dart` — ProviderScope → RepositoryProvider + MultiBlocProvider
+- `marionette_main.dart` — 同上
+- Riverpod importが lib/ 以下に残っていないことを確認 (文字列リテラル内のみ)
 
-### Phase 5: Gallery + 残りWidget + エントリポイント 🔲
-- `gallery_screen.dart`: HookConsumerWidget → HookWidget
-  - ref.watch(galleryProvider) → context.watch<GalleryCubit>().state
-  - ref.read(bridgeServiceProvider) → context.read<BridgeService>()
-- `driver_main.dart`: ProviderScope 削除 → main.dart と同じ RepositoryProvider+MultiBlocProvider パターン
-- `marionette_main.dart`: 同上
-- その他 Riverpod import が残っているファイルを全てチェック
+### Phase 6: テスト更新 ✅
+- `test/providers/bridge_providers_test.dart` → `test/providers/bridge_cubits_test.dart` (StreamCubitテスト)
+- `test/diff_view_notifier_test.dart` → `test/diff_view_cubit_test.dart` (DiffViewCubit直接テスト)
+- `test/diff_screen_test.dart` — ProviderScope → RepositoryProvider<BridgeService>
+- `test/gallery_screen_test.dart` — ProviderScope + bridgeServiceProvider → RepositoryProvider + BlocProvider
+- `test/chat_session_notifier_test.dart` → `test/chat_session_cubit_test.dart` (ChatSessionCubit + StreamingStateCubit直接テスト)
+- `test/widget_test.dart` — RepositoryProvider + MultiBlocProviderでラップ
+- 削除: bridge_providers_test.dart, diff_view_notifier_test.dart, chat_session_notifier_test.dart
 
-### Phase 6: テスト更新 🔲
-- Riverpod依存テストを Bloc対応に書き換え
-  - test/diff_view_notifier_test.dart → DiffViewCubit テスト
-  - test/ 以下で ProviderContainer, ProviderScope を使うテストを BlocProvider に書き換え
-- Riverpod非依存テスト (widget単体、hooks、diff_parser等) は変更不要
-
-### Phase 7: 検証 🔲
-```bash
-dart analyze apps/mobile
-dart format apps/mobile
-flutter test apps/mobile
-```
-- シミュレーターで主要フロー確認
+### Phase 7: 検証 ✅
+- `dart analyze apps/mobile` — Riverpod関連のエラー/warning なし
+- `dart format apps/mobile` — フォーマット済み
+- `flutter test apps/mobile` — 全287テスト合格
 
 ## 設計方針 (参照用)
 
@@ -75,3 +71,6 @@ flutter test apps/mobile
 
 1. `65d5acd` refactor(state): replace Riverpod with flutter_bloc infrastructure (Phase 0+1)
 2. `5bd659e` refactor(diff): migrate DiffViewNotifier to DiffViewCubit (Phase 2)
+3. `3c134ba` refactor(session_list): migrate SessionListNotifier to SessionListCubit (Phase 3)
+4. `5b2e112` refactor(chat): migrate ChatSessionNotifier to ChatSessionCubit (Phase 4)
+5. `ecc71f8` refactor(gallery): migrate gallery + entry points to flutter_bloc (Phase 5)

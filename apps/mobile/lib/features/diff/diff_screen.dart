@@ -139,8 +139,7 @@ class _DiffScreenBody extends StatelessWidget {
                         );
                         return CheckboxListTile(
                           value: visible,
-                          onChanged: (_) =>
-                              cubit.toggleFileVisibility(index),
+                          onChanged: (_) => cubit.toggleFileVisibility(index),
                           title: Text(
                             file.filePath,
                             style: const TextStyle(

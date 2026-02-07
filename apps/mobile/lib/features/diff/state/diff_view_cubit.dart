@@ -20,8 +20,8 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     required BridgeService bridge,
     String? initialDiff,
     String? projectPath,
-  })  : _bridge = bridge,
-        super(_initialState(initialDiff, projectPath)) {
+  }) : _bridge = bridge,
+       super(_initialState(initialDiff, projectPath)) {
     if (projectPath != null) {
       _requestDiff(projectPath);
     }
@@ -53,11 +53,13 @@ class DiffViewCubit extends Cubit<DiffViewState> {
   /// Toggle collapse state for a file at [fileIdx].
   void toggleCollapse(int fileIdx) {
     final current = state.collapsedFileIndices;
-    emit(state.copyWith(
-      collapsedFileIndices: current.contains(fileIdx)
-          ? (Set<int>.from(current)..remove(fileIdx))
-          : {...current, fileIdx},
-    ));
+    emit(
+      state.copyWith(
+        collapsedFileIndices: current.contains(fileIdx)
+            ? (Set<int>.from(current)..remove(fileIdx))
+            : {...current, fileIdx},
+      ),
+    );
   }
 
   /// Replace hidden file indices with [indices].
@@ -68,11 +70,13 @@ class DiffViewCubit extends Cubit<DiffViewState> {
   /// Toggle visibility for a single file at [index].
   void toggleFileVisibility(int index) {
     final current = state.hiddenFileIndices;
-    emit(state.copyWith(
-      hiddenFileIndices: current.contains(index)
-          ? (Set<int>.from(current)..remove(index))
-          : {...current, index},
-    ));
+    emit(
+      state.copyWith(
+        hiddenFileIndices: current.contains(index)
+            ? (Set<int>.from(current)..remove(index))
+            : {...current, index},
+      ),
+    );
   }
 
   /// Show all files (clear hidden filter).
