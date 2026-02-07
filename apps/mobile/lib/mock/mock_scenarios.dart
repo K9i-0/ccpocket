@@ -31,6 +31,7 @@ final List<MockScenario> mockScenarios = [
   _approvalFlow,
   _askUserQuestion,
   _askUserMultiQuestion,
+  _todoWrite,
   _imageResult,
   _streaming,
   _thinkingBlock,
@@ -215,6 +216,137 @@ final _askUserMultiQuestion = MockScenario(
           model: 'claude-sonnet-4-20250514',
         ),
       ),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 2c. TodoWrite
+// ---------------------------------------------------------------------------
+final _todoWrite = MockScenario(
+  name: 'TodoWrite',
+  icon: Icons.checklist,
+  description: 'Task list with progress tracking',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 800),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-todo-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text: 'I\'ll track the implementation tasks for this feature.',
+            ),
+            const ToolUseContent(
+              id: 'tool-todo-1',
+              name: 'TodoWrite',
+              input: {
+                'todos': [
+                  {
+                    'content': 'Create todo widget',
+                    'status': 'completed',
+                    'activeForm': 'Creating todo widget',
+                  },
+                  {
+                    'content': 'Add to assistant bubble',
+                    'status': 'completed',
+                    'activeForm': 'Adding to assistant bubble',
+                  },
+                  {
+                    'content': 'Implement mock scenario',
+                    'status': 'in_progress',
+                    'activeForm': 'Implementing mock scenario',
+                  },
+                  {
+                    'content': 'Run static analysis',
+                    'status': 'pending',
+                    'activeForm': 'Running static analysis',
+                  },
+                  {
+                    'content': 'Execute tests',
+                    'status': 'pending',
+                    'activeForm': 'Executing tests',
+                  },
+                ],
+              },
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1500),
+      message: const ToolResultMessage(
+        toolUseId: 'tool-todo-1',
+        toolName: 'TodoWrite',
+        content: 'Todo list updated successfully.',
+      ),
+    ),
+    // Second update: more progress
+    MockStep(
+      delay: const Duration(milliseconds: 2500),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-todo-2',
+          role: 'assistant',
+          content: [
+            const TextContent(text: 'Making progress on the tasks.'),
+            const ToolUseContent(
+              id: 'tool-todo-2',
+              name: 'TodoWrite',
+              input: {
+                'todos': [
+                  {
+                    'content': 'Create todo widget',
+                    'status': 'completed',
+                    'activeForm': 'Creating todo widget',
+                  },
+                  {
+                    'content': 'Add to assistant bubble',
+                    'status': 'completed',
+                    'activeForm': 'Adding to assistant bubble',
+                  },
+                  {
+                    'content': 'Implement mock scenario',
+                    'status': 'completed',
+                    'activeForm': 'Implementing mock scenario',
+                  },
+                  {
+                    'content': 'Run static analysis',
+                    'status': 'in_progress',
+                    'activeForm': 'Running static analysis',
+                  },
+                  {
+                    'content': 'Execute tests',
+                    'status': 'pending',
+                    'activeForm': 'Executing tests',
+                  },
+                ],
+              },
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 3000),
+      message: const ResultMessage(
+        subtype: 'success',
+        cost: 0.0156,
+        duration: 3.2,
+        sessionId: 'mock-session-todo',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 3200),
+      message: const StatusMessage(status: ProcessStatus.idle),
     ),
   ],
 );

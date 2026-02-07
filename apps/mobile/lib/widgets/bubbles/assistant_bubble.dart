@@ -12,6 +12,7 @@ import '../plan_detail_sheet.dart';
 import 'message_action_bar.dart';
 import 'plan_card.dart';
 import 'thinking_bubble.dart';
+import 'todo_write_widget.dart';
 
 class AssistantBubble extends StatefulWidget {
   final AssistantServerMessage message;
@@ -156,10 +157,10 @@ class _AssistantBubbleState extends State<AssistantBubble> {
                       styleSheet: buildMarkdownStyle(context),
                     ),
             ),
-            ToolUseContent(:final name, :final input) => ToolUseTile(
-              name: name,
-              input: input,
-            ),
+            ToolUseContent(:final name, :final input) =>
+              name == 'TodoWrite'
+                  ? TodoWriteWidget(input: input)
+                  : ToolUseTile(name: name, input: input),
             ThinkingContent(:final thinking) => ThinkingBubble(
               thinking: thinking,
             ),
