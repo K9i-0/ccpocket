@@ -24,8 +24,7 @@ void main() {
               ),
             ),
             BlocProvider(
-              create: (_) =>
-                  ActiveSessionsCubit(const [], bridge.sessionList),
+              create: (_) => ActiveSessionsCubit(const [], bridge.sessionList),
             ),
             BlocProvider(
               create: (_) =>
@@ -38,10 +37,8 @@ void main() {
               create: (_) => FileListCubit(const [], bridge.fileList),
             ),
             BlocProvider(
-              create: (_) => ProjectHistoryCubit(
-                const [],
-                bridge.projectHistoryStream,
-              ),
+              create: (_) =>
+                  ProjectHistoryCubit(const [], bridge.projectHistoryStream),
             ),
             BlocProvider(create: (_) => ServerDiscoveryCubit()),
             BlocProvider(
