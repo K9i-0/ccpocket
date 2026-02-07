@@ -26,31 +26,16 @@
 - `test/session_list_cubit_test.dart` — ProviderContainer → Cubit直接テストに書き換え (12テスト全合格)
 - 削除: session_list_notifier.dart
 
-## 未完了
-
-### Phase 4: Chat移行 (最も複雑) 🔲
+### Phase 4: Chat移行 ✅
 - `lib/features/chat/state/streaming_state_cubit.dart` 作成
-  - appendText, appendThinking, reset メソッド
-- `lib/features/chat/state/chat_session_cubit.dart` 作成
-  - StreamingStateCubitをコンストラクタ注入 (ref.read → 直接参照)
-  - Family → 画面スコープでBlocProvider作成 (sessionIdをコンストラクタに渡す)
-  - sideEffects StreamController はそのまま維持
-- `chat_screen.dart` 更新:
-  - 外側 StatelessWidget で MultiBlocProvider (StreamingStateCubit + ChatSessionCubit 生成)
-  - 内側 _ChatScreenBody を HookWidget (flutter_hooks維持)
-  - ref.watch → context.watch, ref.read → context.read
-  - ref.listen(connectionStateProvider) → BlocListener
-  - useEffect for sideEffects subscription → そのまま (context.read<ChatSessionCubit>().sideEffects)
-- `chat_message_list.dart` 更新:
-  - ConsumerStatefulWidget → StatefulWidget
-  - ref.listen → BlocListener<ChatSessionCubit> + BlocListener<StreamingStateCubit>
-  - ref.watch → context.watch
-- `chat_input_with_overlays.dart` 更新:
-  - HookConsumerWidget → HookWidget
-  - ref.watch(fileListProvider) → context.watch<FileListCubit>().state
-  - ref.watch(chatSessionNotifierProvider).slashCommands → context.watch<ChatSessionCubit>().state.slashCommands
-  - ref.read(notifier) → context.read<ChatSessionCubit>()
+- `lib/features/chat/state/chat_session_cubit.dart` 作成 (Family → 画面スコープMultiBlocProvider)
+- `chat_screen.dart` — HookConsumerWidget → StatelessWidget (MultiBlocProvider) + _ChatScreenBody (HookWidget)
+- `chat_message_list.dart` — ConsumerStatefulWidget → StatefulWidget + MultiBlocListener
+- `chat_input_with_overlays.dart` — HookConsumerWidget → HookWidget
+- `mock_preview_screen.dart` — ProviderScope → RepositoryProvider + MultiBlocProvider
 - 削除: chat_session_notifier.dart
+
+## 未完了
 
 ### Phase 5: Gallery + 残りWidget + エントリポイント 🔲
 - `gallery_screen.dart`: HookConsumerWidget → HookWidget

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../hooks/use_scroll_tracking.dart';
 import '../../models/messages.dart';
-import '../../providers/bridge_providers.dart';
+import '../../providers/bridge_cubits.dart';
+import '../../services/bridge_service.dart';
 import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
@@ -15,8 +16,9 @@ import '../../widgets/plan_detail_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
 import '../diff/diff_screen.dart';
 import '../gallery/gallery_screen.dart';
-import 'state/chat_session_notifier.dart';
+import 'state/chat_session_cubit.dart';
 import 'state/chat_session_state.dart';
+import 'state/streaming_state_cubit.dart';
 import 'widgets/chat_app_bar_title.dart';
 import 'widgets/chat_input_with_overlays.dart';
 import 'widgets/chat_message_list.dart';
@@ -26,7 +28,10 @@ import 'widgets/reconnect_banner.dart';
 import 'widgets/session_switcher.dart';
 import 'widgets/status_indicator.dart';
 
-class ChatScreen extends HookConsumerWidget {
+/// Outer widget that creates screen-scoped [ChatSessionCubit] and
+/// [StreamingStateCubit] via [MultiBlocProvider], replacing Riverpod's
+/// Family (autoDispose) pattern.
+class ChatScreen extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
   final String? gitBranch;
@@ -41,7 +46,45 @@ class ChatScreen extends HookConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final bridge = context.read<BridgeService>();
+    final streamingCubit = StreamingStateCubit();
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => ChatSessionCubit(
+            sessionId: sessionId,
+            bridge: bridge,
+            streamingCubit: streamingCubit,
+          ),
+        ),
+        BlocProvider.value(value: streamingCubit),
+      ],
+      child: _ChatScreenBody(
+        sessionId: sessionId,
+        projectPath: projectPath,
+        gitBranch: gitBranch,
+        worktreePath: worktreePath,
+      ),
+    );
+  }
+}
+
+class _ChatScreenBody extends HookWidget {
+  final String sessionId;
+  final String? projectPath;
+  final String? gitBranch;
+  final String? worktreePath;
+
+  const _ChatScreenBody({
+    required this.sessionId,
+    this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
 
     // Custom hooks
@@ -67,46 +110,32 @@ class ChatScreen extends HookConsumerWidget {
     // Clear context toggle for plan approval
     final clearContext = useState(false);
 
-    // --- Riverpod state ---
-    final sessionState = ref.watch(chatSessionNotifierProvider(sessionId));
-    final bridgeState =
-        ref.watch(connectionStateProvider).valueOrNull ??
-        BridgeConnectionState.connected;
-    final otherSessions = (ref.watch(sessionListProvider).valueOrNull ?? [])
+    // --- Bloc state ---
+    final sessionState = context.watch<ChatSessionCubit>().state;
+    final bridgeState = context.watch<ConnectionCubit>().state;
+    final otherSessions = context
+        .watch<ActiveSessionsCubit>()
+        .state
         .where((s) => s.id != sessionId)
         .toList();
 
     // --- Side effects subscription ---
     useEffect(() {
-      final sub = ref
-          .read(chatSessionNotifierProvider(sessionId).notifier)
-          .sideEffects
-          .listen(
-            (effects) => _executeSideEffects(
-              effects,
-              isBackground: isBackground,
-              collapseToolResults: collapseToolResults,
-              planFeedbackController: planFeedbackController,
-              scrollToBottom: scroll.scrollToBottom,
-            ),
-          );
+      final sub = context.read<ChatSessionCubit>().sideEffects.listen(
+        (effects) => _executeSideEffects(
+          effects,
+          isBackground: isBackground,
+          collapseToolResults: collapseToolResults,
+          planFeedbackController: planFeedbackController,
+          scrollToBottom: scroll.scrollToBottom,
+        ),
+      );
       return sub.cancel;
     }, [sessionId]);
 
-    // --- Connection retry ---
-    ref.listen<AsyncValue<BridgeConnectionState>>(connectionStateProvider, (
-      prev,
-      next,
-    ) {
-      final state = next.valueOrNull;
-      if (state == BridgeConnectionState.connected) {
-        _retryFailedMessages(ref, sessionId);
-      }
-    });
-
     // --- Initial requests on mount ---
     useEffect(() {
-      final bridge = ref.read(bridgeServiceProvider);
+      final bridge = context.read<BridgeService>();
       if (projectPath != null && projectPath!.isNotEmpty) {
         bridge.requestFileList(projectPath!);
       }
@@ -157,13 +186,11 @@ class ChatScreen extends HookConsumerWidget {
       final updatedInput = editedPlanText.value != null
           ? {'plan': editedPlanText.value!}
           : null;
-      ref
-          .read(chatSessionNotifierProvider(sessionId).notifier)
-          .approve(
-            pendingToolUseId,
-            updatedInput: updatedInput,
-            clearContext: isPlanApproval && clearContext.value,
-          );
+      context.read<ChatSessionCubit>().approve(
+        pendingToolUseId,
+        updatedInput: updatedInput,
+        clearContext: isPlanApproval && clearContext.value,
+      );
       editedPlanText.value = null;
       planFeedbackController.clear();
       clearContext.value = false;
@@ -174,248 +201,245 @@ class ChatScreen extends HookConsumerWidget {
       final feedback = isPlanApproval
           ? planFeedbackController.text.trim()
           : null;
-      ref
-          .read(chatSessionNotifierProvider(sessionId).notifier)
-          .reject(
-            pendingToolUseId,
-            message: feedback != null && feedback.isNotEmpty ? feedback : null,
-          );
+      context.read<ChatSessionCubit>().reject(
+        pendingToolUseId,
+        message: feedback != null && feedback.isNotEmpty ? feedback : null,
+      );
       planFeedbackController.clear();
     }
 
     void approveAlwaysToolUse() {
       if (pendingToolUseId == null) return;
       HapticFeedback.mediumImpact();
-      ref
-          .read(chatSessionNotifierProvider(sessionId).notifier)
-          .approveAlways(pendingToolUseId);
+      context.read<ChatSessionCubit>().approveAlways(pendingToolUseId);
     }
 
     void answerQuestion(String toolUseId, String result) {
-      ref
-          .read(chatSessionNotifierProvider(sessionId).notifier)
-          .answer(toolUseId, result);
+      context.read<ChatSessionCubit>().answer(toolUseId, result);
     }
 
     // --- Build ---
-    return CallbackShortcuts(
-      bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.escape): () {
-          Navigator.of(context).maybePop();
-        },
+    return BlocListener<ConnectionCubit, BridgeConnectionState>(
+      listener: (context, state) {
+        if (state == BridgeConnectionState.connected) {
+          _retryFailedMessages(context, sessionId);
+        }
       },
-      child: Focus(
-        autofocus: true,
-        child: Scaffold(
-          appBar: AppBar(
-            title: ChatAppBarTitle(
-              sessionId: sessionId,
-              projectPath: projectPath,
-              gitBranch: gitBranch,
-              worktreePath: worktreePath,
-            ),
-            actions: [
-              if (projectPath != null)
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.escape): () {
+            Navigator.of(context).maybePop();
+          },
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            appBar: AppBar(
+              title: ChatAppBarTitle(
+                sessionId: sessionId,
+                projectPath: projectPath,
+                gitBranch: gitBranch,
+                worktreePath: worktreePath,
+              ),
+              actions: [
+                if (projectPath != null)
+                  IconButton(
+                    icon: const Icon(Icons.difference, size: 20),
+                    tooltip: 'View Changes',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DiffScreen(
+                            projectPath: worktreePath ?? projectPath,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                if (projectPath != null)
+                  IconButton(
+                    icon: const Icon(Icons.account_tree_outlined, size: 20),
+                    tooltip: 'Worktrees',
+                    onPressed: () {
+                      showWorktreeListSheet(
+                        context: context,
+                        bridge: context.read<BridgeService>(),
+                        projectPath: projectPath!,
+                      );
+                    },
+                  ),
                 IconButton(
-                  icon: const Icon(Icons.difference, size: 20),
-                  tooltip: 'View Changes',
+                  icon: const Icon(Icons.preview, size: 20),
+                  tooltip: 'Preview',
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => DiffScreen(
-                          projectPath: worktreePath ?? projectPath,
-                        ),
+                        builder: (_) => GalleryScreen(sessionId: sessionId),
                       ),
                     );
                   },
                 ),
-              if (projectPath != null)
-                IconButton(
-                  icon: const Icon(Icons.account_tree_outlined, size: 20),
-                  tooltip: 'Worktrees',
-                  onPressed: () {
-                    showWorktreeListSheet(
-                      context: context,
-                      bridge: ref.read(bridgeServiceProvider),
-                      projectPath: projectPath!,
-                    );
-                  },
-                ),
-              IconButton(
-                icon: const Icon(Icons.preview, size: 20),
-                tooltip: 'Preview',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => GalleryScreen(sessionId: sessionId),
+                if (inPlanMode) const PlanModeChip(),
+                if (otherSessions.isNotEmpty)
+                  SessionSwitcher(
+                    otherSessions: otherSessions,
+                    onSessionSelected: (session) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatScreen(
+                            sessionId: session.id,
+                            projectPath: session.projectPath,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                if (totalCost > 0) CostBadge(totalCost: totalCost),
+                StatusIndicator(status: status),
+              ],
+            ),
+            body: Column(
+              children: [
+                if (bridgeState == BridgeConnectionState.reconnecting ||
+                    bridgeState == BridgeConnectionState.disconnected)
+                  ReconnectBanner(bridgeState: bridgeState),
+                if (status == ProcessStatus.clearing)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Clearing context...'),
+                      ],
                     ),
-                  );
-                },
-              ),
-              if (inPlanMode) const PlanModeChip(),
-              if (otherSessions.isNotEmpty)
-                SessionSwitcher(
-                  otherSessions: otherSessions,
-                  onSessionSelected: (session) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChatScreen(
-                          sessionId: session.id,
-                          projectPath: session.projectPath,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              if (totalCost > 0) CostBadge(totalCost: totalCost),
-              StatusIndicator(status: status),
-            ],
-          ),
-          body: Column(
-            children: [
-              if (bridgeState == BridgeConnectionState.reconnecting ||
-                  bridgeState == BridgeConnectionState.disconnected)
-                ReconnectBanner(bridgeState: bridgeState),
-              if (status == ProcessStatus.clearing)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  ),
+                Expanded(
+                  child: Stack(
                     children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
+                      ChatMessageList(
+                        sessionId: sessionId,
+                        scrollController: scroll.controller,
+                        httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
+                        onRetryMessage: (entry) {
+                          context.read<ChatSessionCubit>().retryMessage(entry);
+                        },
+                        collapseToolResults: collapseToolResults,
+                        editedPlanText: editedPlanText,
+                        onScrollToBottom: scroll.scrollToBottom,
                       ),
-                      const SizedBox(width: 8),
-                      const Text('Clearing context...'),
+                      if (scroll.isScrolledUp)
+                        Positioned(
+                          right: 12,
+                          bottom: 12,
+                          child: FloatingActionButton.small(
+                            onPressed: () {
+                              // Force scroll to bottom even when scrolled up
+                              if (scroll.controller.hasClients) {
+                                scroll.controller.animateTo(
+                                  scroll.controller.position.maxScrollExtent,
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.easeOut,
+                                );
+                              }
+                            },
+                            child: const Icon(Icons.keyboard_arrow_down),
+                          ),
+                        ),
                     ],
                   ),
                 ),
-              Expanded(
-                child: Stack(
-                  children: [
-                    ChatMessageList(
-                      sessionId: sessionId,
-                      scrollController: scroll.controller,
-                      httpBaseUrl: ref.read(bridgeServiceProvider).httpBaseUrl,
-                      onRetryMessage: (entry) {
-                        ref
-                            .read(
-                              chatSessionNotifierProvider(sessionId).notifier,
-                            )
-                            .retryMessage(entry);
-                      },
-                      collapseToolResults: collapseToolResults,
-                      editedPlanText: editedPlanText,
-                      onScrollToBottom: scroll.scrollToBottom,
-                    ),
-                    if (scroll.isScrolledUp)
-                      Positioned(
-                        right: 12,
-                        bottom: 12,
-                        child: FloatingActionButton.small(
-                          onPressed: () {
-                            // Force scroll to bottom even when scrolled up
-                            if (scroll.controller.hasClients) {
-                              scroll.controller.animateTo(
-                                scroll.controller.position.maxScrollExtent,
-                                duration: const Duration(milliseconds: 200),
-                                curve: Curves.easeOut,
-                              );
-                            }
-                          },
-                          child: const Icon(Icons.keyboard_arrow_down),
-                        ),
+                if (askToolUseId != null && askInput != null)
+                  AskUserQuestionWidget(
+                    toolUseId: askToolUseId,
+                    input: askInput,
+                    onAnswer: answerQuestion,
+                  ),
+                if (status == ProcessStatus.waitingApproval &&
+                    pendingToolUseId != null)
+                  Dismissible(
+                    key: ValueKey('approval_$pendingToolUseId'),
+                    direction: DismissDirection.horizontal,
+                    confirmDismiss: (direction) async {
+                      if (direction == DismissDirection.startToEnd) {
+                        approveToolUse();
+                      } else {
+                        rejectToolUse();
+                      }
+                      return false; // don't remove from tree, state handles it
+                    },
+                    background: Container(
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.only(left: 24),
+                      color: appColors.statusRunning.withValues(alpha: 0.2),
+                      child: Icon(
+                        Icons.check_circle,
+                        color: appColors.statusRunning,
                       ),
-                  ],
-                ),
-              ),
-              if (askToolUseId != null && askInput != null)
-                AskUserQuestionWidget(
-                  toolUseId: askToolUseId,
-                  input: askInput,
-                  onAnswer: answerQuestion,
-                ),
-              if (status == ProcessStatus.waitingApproval &&
-                  pendingToolUseId != null)
-                Dismissible(
-                  key: ValueKey('approval_$pendingToolUseId'),
-                  direction: DismissDirection.horizontal,
-                  confirmDismiss: (direction) async {
-                    if (direction == DismissDirection.startToEnd) {
-                      approveToolUse();
-                    } else {
-                      rejectToolUse();
-                    }
-                    return false; // don't remove from tree, state handles it
-                  },
-                  background: Container(
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.only(left: 24),
-                    color: appColors.statusRunning.withValues(alpha: 0.2),
-                    child: Icon(
-                      Icons.check_circle,
-                      color: appColors.statusRunning,
                     ),
-                  ),
-                  secondaryBackground: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 24),
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.error.withValues(alpha: 0.2),
-                    child: Icon(
-                      Icons.cancel,
-                      color: Theme.of(context).colorScheme.error,
+                    secondaryBackground: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 24),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.error.withValues(alpha: 0.2),
+                      child: Icon(
+                        Icons.cancel,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
-                  ),
-                  child: ApprovalBar(
-                    appColors: appColors,
-                    pendingPermission: pendingPermission,
-                    isPlanApproval: isPlanApproval,
-                    planFeedbackController: planFeedbackController,
-                    onApprove: approveToolUse,
-                    onReject: rejectToolUse,
-                    onApproveAlways: approveAlwaysToolUse,
-                    clearContext: clearContext.value,
-                    onClearContextChanged: isPlanApproval
-                        ? (v) => clearContext.value = v
-                        : null,
-                    onViewPlan: isPlanApproval
-                        ? () async {
-                            final originalText = _extractPlanText(
-                              sessionState.entries,
-                            );
-                            if (originalText == null) return;
-                            // Show sheet with edited text if available
-                            final current =
-                                editedPlanText.value ?? originalText;
-                            final edited = await showPlanDetailSheet(
-                              context,
-                              current,
-                            );
-                            if (edited != null) {
-                              editedPlanText.value = edited;
+                    child: ApprovalBar(
+                      appColors: appColors,
+                      pendingPermission: pendingPermission,
+                      isPlanApproval: isPlanApproval,
+                      planFeedbackController: planFeedbackController,
+                      onApprove: approveToolUse,
+                      onReject: rejectToolUse,
+                      onApproveAlways: approveAlwaysToolUse,
+                      clearContext: clearContext.value,
+                      onClearContextChanged: isPlanApproval
+                          ? (v) => clearContext.value = v
+                          : null,
+                      onViewPlan: isPlanApproval
+                          ? () async {
+                              final originalText = _extractPlanText(
+                                sessionState.entries,
+                              );
+                              if (originalText == null) return;
+                              // Show sheet with edited text if available
+                              final current =
+                                  editedPlanText.value ?? originalText;
+                              final edited = await showPlanDetailSheet(
+                                context,
+                                current,
+                              );
+                              if (edited != null) {
+                                editedPlanText.value = edited;
+                              }
                             }
-                          }
-                        : null,
+                          : null,
+                    ),
                   ),
-                ),
-              if (askToolUseId == null &&
-                  status != ProcessStatus.waitingApproval)
-                ChatInputWithOverlays(
-                  sessionId: sessionId,
-                  status: status,
-                  onScrollToBottom: scroll.scrollToBottom,
-                  inputController: chatInputController,
-                ),
-            ],
+                if (askToolUseId == null &&
+                    status != ProcessStatus.waitingApproval)
+                  ChatInputWithOverlays(
+                    sessionId: sessionId,
+                    status: status,
+                    onScrollToBottom: scroll.scrollToBottom,
+                    inputController: chatInputController,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -526,12 +550,11 @@ String? findPlanFromWriteTool(List<ChatEntry> entries) {
   return null;
 }
 
-void _retryFailedMessages(WidgetRef ref, String sessionId) {
-  final notifier = ref.read(chatSessionNotifierProvider(sessionId).notifier);
-  final entries = ref.read(chatSessionNotifierProvider(sessionId)).entries;
-  for (final entry in entries) {
+void _retryFailedMessages(BuildContext context, String sessionId) {
+  final cubit = context.read<ChatSessionCubit>();
+  for (final entry in cubit.state.entries) {
     if (entry is UserChatEntry && entry.status == MessageStatus.failed) {
-      notifier.retryMessage(entry);
+      cubit.retryMessage(entry);
     }
   }
 }
