@@ -19,10 +19,8 @@ import '../gallery/gallery_screen.dart';
 import 'state/chat_session_cubit.dart';
 import 'state/chat_session_state.dart';
 import 'state/streaming_state_cubit.dart';
-import 'widgets/chat_app_bar_title.dart';
 import 'widgets/chat_input_with_overlays.dart';
 import 'widgets/chat_message_list.dart';
-import 'widgets/cost_badge.dart';
 import 'widgets/plan_mode_chip.dart';
 import 'widgets/reconnect_banner.dart';
 import 'widgets/session_switcher.dart';
@@ -235,12 +233,6 @@ class _ChatScreenBody extends HookWidget {
           autofocus: true,
           child: Scaffold(
             appBar: AppBar(
-              title: ChatAppBarTitle(
-                sessionId: sessionId,
-                projectPath: projectPath,
-                gitBranch: gitBranch,
-                worktreePath: worktreePath,
-              ),
               actions: [
                 if (projectPath != null)
                   IconButton(
@@ -297,7 +289,6 @@ class _ChatScreenBody extends HookWidget {
                       );
                     },
                   ),
-                if (totalCost > 0) CostBadge(totalCost: totalCost),
                 StatusIndicator(status: status),
               ],
             ),
