@@ -137,10 +137,16 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
         };
       }
       // All other result subtypes are errors
+      const errorText = Array.isArray(res.errors) ? (res.errors as string[]).join("\n") : "Unknown error";
+      // Suppress spurious CLI runtime errors (e.g. Bun API referenced on Node.js)
+      if (errorText.includes("Bun is not defined")) {
+        console.log("[sdk-process] Suppressed CLI error:", errorText);
+        return null;
+      }
       return {
         type: "result",
         subtype: "error",
-        error: Array.isArray(res.errors) ? (res.errors as string[]).join("\n") : "Unknown error",
+        error: errorText,
         sessionId: msg.session_id,
       };
     }
