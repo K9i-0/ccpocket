@@ -1,29 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../../providers/bridge_providers.dart';
+import '../../providers/bridge_cubits.dart';
+import '../../services/bridge_service.dart';
 import 'widgets/gallery_content.dart';
 import 'widgets/gallery_empty_state.dart';
 
-class GalleryScreen extends HookConsumerWidget {
+class GalleryScreen extends HookWidget {
   final String? sessionId;
 
   const GalleryScreen({super.key, this.sessionId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final selectedProject = useState<String?>(null);
     final isSessionMode = sessionId != null;
 
     useEffect(() {
-      ref.read(bridgeServiceProvider).requestGallery(sessionId: sessionId);
+      context.read<BridgeService>().requestGallery(sessionId: sessionId);
       return null;
     }, [sessionId]);
 
-    final images =
-        ref.watch(galleryProvider).valueOrNull ??
-        ref.read(bridgeServiceProvider).galleryImages;
+    final bridge = context.read<BridgeService>();
+    final images = context.watch<GalleryCubit>().state.isNotEmpty
+        ? context.watch<GalleryCubit>().state
+        : bridge.galleryImages;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Preview')),
@@ -33,7 +35,7 @@ class GalleryScreen extends HookConsumerWidget {
               images: images,
               selectedProject: selectedProject.value,
               isSessionMode: isSessionMode,
-              httpBaseUrl: ref.read(bridgeServiceProvider).httpBaseUrl ?? '',
+              httpBaseUrl: bridge.httpBaseUrl ?? '',
               onProjectSelected: (p) => selectedProject.value = p,
             ),
     );
