@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../services/bridge_service.dart';
 import '../../theme/app_theme.dart';
-import 'state/diff_view_notifier.dart';
+import 'state/diff_view_cubit.dart';
 import 'state/diff_view_state.dart';
 import 'widgets/diff_content_list.dart';
 import 'widgets/diff_empty_state.dart';
@@ -14,7 +15,7 @@ import 'widgets/diff_stats_badge.dart';
 /// Two modes:
 /// - **Individual diff**: Pass [initialDiff] with raw diff text (from tool_result).
 /// - **Session-wide diff**: Pass [projectPath] to request `git diff` from Bridge.
-class DiffScreen extends ConsumerWidget {
+class DiffScreen extends StatelessWidget {
   /// Raw diff text for immediate display (individual tool result).
   final String? initialDiff;
 
@@ -26,15 +27,28 @@ class DiffScreen extends ConsumerWidget {
 
   const DiffScreen({super.key, this.initialDiff, this.projectPath, this.title});
 
-  DiffViewNotifierProvider get _provider => diffViewNotifierProvider(
-    initialDiff: initialDiff,
-    projectPath: projectPath,
-  );
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (ctx) => DiffViewCubit(
+        bridge: ctx.read<BridgeService>(),
+        initialDiff: initialDiff,
+        projectPath: projectPath,
+      ),
+      child: _DiffScreenBody(title: title),
+    );
+  }
+}
+
+class _DiffScreenBody extends StatelessWidget {
+  final String? title;
+
+  const _DiffScreenBody({this.title});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(_provider);
-    final notifier = ref.read(_provider.notifier);
+  Widget build(BuildContext context) {
+    final state = context.watch<DiffViewCubit>().state;
+    final cubit = context.read<DiffViewCubit>();
     final appColors = Theme.of(context).extension<AppColors>()!;
 
     final screenTitle =
@@ -50,7 +64,7 @@ class DiffScreen extends ConsumerWidget {
               icon: const Icon(Icons.filter_list),
               tooltip: 'Filter files',
               onPressed: () =>
-                  _showFilterBottomSheet(context, appColors, state, notifier),
+                  _showFilterBottomSheet(context, appColors, cubit),
             ),
         ],
       ),
@@ -64,8 +78,8 @@ class DiffScreen extends ConsumerWidget {
               files: state.files,
               hiddenFileIndices: state.hiddenFileIndices,
               collapsedFileIndices: state.collapsedFileIndices,
-              onToggleCollapse: notifier.toggleCollapse,
-              onClearHidden: notifier.clearHidden,
+              onToggleCollapse: cubit.toggleCollapse,
+              onClearHidden: cubit.clearHidden,
             ),
     );
   }
@@ -73,16 +87,14 @@ class DiffScreen extends ConsumerWidget {
   void _showFilterBottomSheet(
     BuildContext context,
     AppColors appColors,
-    DiffViewState currentState,
-    DiffViewNotifier notifier,
+    DiffViewCubit cubit,
   ) {
     showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) {
-        // Use Consumer to reactively rebuild when hidden indices change.
-        return Consumer(
-          builder: (context, ref, _) {
-            final state = ref.watch(_provider);
+        return BlocBuilder<DiffViewCubit, DiffViewState>(
+          bloc: cubit,
+          builder: (context, state) {
             return SafeArea(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -101,11 +113,11 @@ class DiffScreen extends ConsumerWidget {
                         ),
                         const Spacer(),
                         TextButton(
-                          onPressed: notifier.clearHidden,
+                          onPressed: cubit.clearHidden,
                           child: const Text('All'),
                         ),
                         TextButton(
-                          onPressed: () => notifier.setHiddenFiles(
+                          onPressed: () => cubit.setHiddenFiles(
                             Set<int>.from(
                               List.generate(state.files.length, (i) => i),
                             ),
@@ -128,7 +140,7 @@ class DiffScreen extends ConsumerWidget {
                         return CheckboxListTile(
                           value: visible,
                           onChanged: (_) =>
-                              notifier.toggleFileVisibility(index),
+                              cubit.toggleFileVisibility(index),
                           title: Text(
                             file.filePath,
                             style: const TextStyle(
