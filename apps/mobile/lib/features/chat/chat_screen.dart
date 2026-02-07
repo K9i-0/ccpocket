@@ -223,7 +223,9 @@ class ChatScreen extends HookConsumerWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => DiffScreen(projectPath: projectPath),
+                        builder: (_) => DiffScreen(
+                          projectPath: worktreePath ?? projectPath,
+                        ),
                       ),
                     );
                   },
