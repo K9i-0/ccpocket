@@ -79,7 +79,8 @@ export type ServerMessage =
   | { type: "project_history"; projects: string[] }
   | { type: "diff_result"; diff: string; error?: string }
   | { type: "worktree_list"; worktrees: WorktreeInfo[] }
-  | { type: "worktree_removed"; worktreePath: string };
+  | { type: "worktree_removed"; worktreePath: string }
+  | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] };
 
 export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval" | "clearing";
 

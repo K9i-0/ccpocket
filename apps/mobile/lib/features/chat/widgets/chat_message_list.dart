@@ -222,6 +222,10 @@ class _ChatMessageListState extends ConsumerState<ChatMessageList> {
         itemBuilder: (context, index, animation) {
           final entry = _entries[index];
           final previous = index > 0 ? _entries[index - 1] : null;
+          // Get hidden tool use IDs for subagent compression
+          final hiddenToolUseIds = ref
+              .watch(chatSessionNotifierProvider(widget.sessionId))
+              .hiddenToolUseIds;
           final child = ChatEntryWidget(
             entry: entry,
             previous: previous,
@@ -230,6 +234,7 @@ class _ChatMessageListState extends ConsumerState<ChatMessageList> {
             collapseToolResults: widget.collapseToolResults,
             editedPlanText: widget.editedPlanText,
             resolvedPlanText: _resolvePlanText(entry),
+            hiddenToolUseIds: hiddenToolUseIds,
           );
           if (_bulkLoading || animation.isCompleted) return child;
           return SlideTransition(

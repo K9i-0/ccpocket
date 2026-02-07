@@ -34,6 +34,9 @@ class ChatStateUpdate {
   final Set<ChatSideEffect> sideEffects;
   final String? resultSessionId;
 
+  /// Tool use IDs that should be hidden from display (replaced by a summary).
+  final Set<String> toolUseIdsToHide;
+
   const ChatStateUpdate({
     this.status,
     this.entriesToAdd = const [],
@@ -51,6 +54,7 @@ class ChatStateUpdate {
     this.markUserMessagesSent = false,
     this.sideEffects = const {},
     this.resultSessionId,
+    this.toolUseIdsToHide = const {},
   });
 }
 
@@ -87,6 +91,11 @@ class ChatMessageHandler {
         );
       case ResultMessage(:final subtype, :final cost):
         return _handleResult(msg, subtype, cost, isBackground: isBackground);
+      case ToolUseSummaryMessage(:final precedingToolUseIds):
+        return ChatStateUpdate(
+          entriesToAdd: [ServerChatEntry(msg)],
+          toolUseIdsToHide: precedingToolUseIds.toSet(),
+        );
       default:
         return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
     }

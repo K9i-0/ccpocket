@@ -529,6 +529,35 @@ void main() {
     });
   });
 
+  group('ToolUseSummaryMessage handling', () {
+    test('adds summary entry and marks tool uses to hide', () {
+      final update = handler.handle(
+        const ToolUseSummaryMessage(
+          summary: 'Read package.json and analyzed dependencies',
+          precedingToolUseIds: ['tu-1', 'tu-2'],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.entriesToAdd, hasLength(1));
+      expect(update.entriesToAdd[0], isA<ServerChatEntry>());
+      expect(update.toolUseIdsToHide, {'tu-1', 'tu-2'});
+    });
+
+    test('handles empty precedingToolUseIds', () {
+      final update = handler.handle(
+        const ToolUseSummaryMessage(
+          summary: 'Quick analysis completed',
+          precedingToolUseIds: [],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.entriesToAdd, hasLength(1));
+      expect(update.toolUseIdsToHide, isEmpty);
+    });
+  });
+
   group('PermissionRequestMessage.summary', () {
     test('extracts command from input', () {
       const perm = PermissionRequestMessage(
