@@ -5,20 +5,30 @@ export class MdnsAdvertiser {
   private service: Service | null = null;
 
   start(port: number, apiKey?: string): void {
-    this.bonjour = new Bonjour();
-    this.service = this.bonjour.publish({
-      name: "ccpocket-bridge",
-      type: "ccpocket",
-      protocol: "tcp",
-      port,
-      txt: {
-        version: "1",
-        auth: apiKey ? "required" : "none",
-      },
-    });
-    console.log(
-      `[bridge] mDNS: advertising _ccpocket._tcp on port ${port}`,
-    );
+    try {
+      this.bonjour = new Bonjour();
+      this.service = this.bonjour.publish({
+        name: "ccpocket-bridge",
+        type: "ccpocket",
+        protocol: "tcp",
+        port,
+        probe: false, // Skip name collision check (same bridge restarting)
+        txt: {
+          version: "1",
+          auth: apiKey ? "required" : "none",
+        },
+      });
+      // Handle async errors (e.g. name already in use from a stale process)
+      this.service.on("error", (err: Error) => {
+        console.warn(`[bridge] mDNS: service error (non-fatal): ${err.message}`);
+      });
+      console.log(
+        `[bridge] mDNS: advertising _ccpocket._tcp on port ${port}`,
+      );
+    } catch (err) {
+      console.warn(`[bridge] mDNS: failed to advertise (non-fatal): ${err instanceof Error ? err.message : err}`);
+      this.stop();
+    }
   }
 
   stop(): void {
