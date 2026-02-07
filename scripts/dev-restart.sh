@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BRIDGE_PORT="${BRIDGE_PORT:-8765}"
 DEVICE="${1:-}"
-TARGET="lib/marionette_main.dart"
+TARGET="lib/main.dart"
 
 # --- Bridge Server ---
 echo "==> Stopping Bridge Server (port $BRIDGE_PORT)..."
