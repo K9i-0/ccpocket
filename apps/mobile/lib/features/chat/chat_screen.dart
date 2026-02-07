@@ -53,6 +53,9 @@ class ChatScreen extends HookConsumerWidget {
     // Plan feedback controller (for plan approval rejection message)
     final planFeedbackController = useTextEditingController();
 
+    // Chat input controller (managed here to preserve text across rebuilds)
+    final chatInputController = useTextEditingController();
+
     // Collapse tool results notifier
     final collapseToolResults = useMemoized(() => ValueNotifier<int>(0));
     useEffect(() => collapseToolResults.dispose, const []);
@@ -408,6 +411,7 @@ class ChatScreen extends HookConsumerWidget {
                   sessionId: sessionId,
                   status: status,
                   onScrollToBottom: scroll.scrollToBottom,
+                  inputController: chatInputController,
                 ),
             ],
           ),

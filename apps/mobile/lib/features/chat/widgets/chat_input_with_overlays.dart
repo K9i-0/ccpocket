@@ -16,26 +16,27 @@ import '../state/chat_session_notifier.dart';
 /// Manages the chat input bar together with slash-command and @-mention
 /// overlays using [OverlayPortal].
 ///
-/// Owns [TextEditingController]s, overlay controllers, and voice input via
-/// hooks. All input-related state that previously lived in ChatScreen is
-/// encapsulated here.
+/// [inputController] is managed by the parent widget to preserve text across
+/// rebuilds (e.g., when approval bar appears/disappears).
+/// Overlay controllers and voice input are managed via hooks.
 class ChatInputWithOverlays extends HookConsumerWidget {
   final String sessionId;
   final ProcessStatus status;
   final VoidCallback onScrollToBottom;
+  final TextEditingController inputController;
 
   const ChatInputWithOverlays({
     super.key,
     required this.sessionId,
     required this.status,
     required this.onScrollToBottom,
+    required this.inputController,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Controllers
-    final inputController = useTextEditingController();
-    final hasInputText = useState(false);
+    // Track if input has text (initialize from controller's current value)
+    final hasInputText = useState(inputController.text.trim().isNotEmpty);
 
     // Voice input
     final voice = useVoiceInput(inputController);
