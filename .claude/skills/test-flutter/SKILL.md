@@ -19,6 +19,8 @@ dart analyze apps/mobile
 
 warning 以上は修正する。info レベルは必要に応じて対応。
 
+**MCP代替:** `mcp__dart-mcp__analyze_files` でも実行可能だが、CLI推奨。
+
 ### 2. フォーマット
 
 ```bash
@@ -35,6 +37,9 @@ cd apps/mobile && flutter test
 ```bash
 cd apps/mobile && flutter test test/<filename>_test.dart
 ```
+
+**MCP代替:** `mcp__dart-mcp__run_tests` でも実行可能だが、CLI推奨。
+MCP版はDTD接続不要な操作のため、CLIの方が効率的。
 
 ## テスト記述規約
 

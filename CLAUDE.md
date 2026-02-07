@@ -19,7 +19,7 @@ ccpocket/
 │       ├── features/                      # Feature-first ディレクトリ
 │       │   ├── chat/                      # チャット画面
 │       │   │   ├── chat_screen.dart
-│       │   │   ├── state/                 # Freezed state + Notifier
+│       │   │   ├── state/                 # Freezed state + Cubit
 │       │   │   └── widgets/               # 抽出Widget
 │       │   ├── session_list/              # セッション一覧 (ホーム)
 │       │   │   ├── session_list_screen.dart
@@ -56,7 +56,7 @@ cd apps/mobile && flutter test   # テスト実行
 
 ### 開発用一括再起動
 ```bash
-npm run dev                      # Bridge再起動 + Flutter (marionette) 起動
+npm run dev                      # Bridge再起動 + Flutterアプリ起動
 npm run dev -- <device-id>       # デバイス指定付き
 ```
 
@@ -144,7 +144,36 @@ launchctl list | grep ccpocket
 launchctl unload ~/Library/LaunchAgents/com.ccpocket.bridge.plist
 ```
 
+## MCP ツール使い分け
+
+### 原則: DTD/VM Service接続が必要 = MCP、それ以外 = CLI
+
+| 操作 | 推奨 | ツール |
+|------|------|--------|
+| アプリ起動 | **MCP** | dart-mcp `launch_app` |
+| アプリ停止 | **MCP** | dart-mcp `stop_app` |
+| ホットリロード | **MCP** | dart-mcp `hot_reload` |
+| ランタイムエラー | **MCP** | dart-mcp `get_runtime_errors` |
+| ウィジェットツリー | **MCP** | dart-mcp `get_widget_tree` |
+| UI要素一覧 | **MCP** | marionette `get_interactive_elements` |
+| UI操作 | **MCP** | marionette `tap` / `enter_text` |
+| デバイス一覧 | CLI | `flutter devices` |
+| 静的解析 | CLI | `dart analyze apps/mobile` |
+| フォーマット | CLI | `dart format apps/mobile` |
+| テスト | CLI | `cd apps/mobile && flutter test` |
+| 依存関係 | CLI | `cd apps/mobile && flutter pub get` |
+
+詳細は `/mobile-automation` スキルを参照。
+
 ## 開発ワークフロー
+
+### Plan Mode 要件
+
+**全てのPlan Modeは以下3フェーズを含むこと:**
+
+1. **実装フェーズ** — コード変更
+2. **検証フェーズ** — 静的検証 + E2Eテスト（`/mobile-automation` スキル参照）
+3. **レビューフェーズ** — セルフレビュー（`/self-review` スキル参照）
 
 ### 1. 設計フェーズ
 - 複雑な実装はプロトコル仕様・設計ドキュメント作成から始める
@@ -158,58 +187,22 @@ launchctl unload ~/Library/LaunchAgents/com.ccpocket.bridge.plist
 npx tsc --noEmit -p packages/bridge/tsconfig.json   # TypeScript型チェック
 dart analyze apps/mobile                              # Dart静的解析
 dart format apps/mobile                               # フォーマット
-flutter test apps/mobile                              # ユニットテスト
+cd apps/mobile && flutter test                        # ユニットテスト
 ```
 
 ### 4. 動作確認 (シミュレーター/実機)
-状況に応じてモック確認とE2Eを選択する。
 
-#### エントリポイント一覧
+エントリポイント: `lib/main.dart`（デバッグモードでMarionetteBinding自動有効化）
 
-| ファイル | 用途 | 起動コマンド |
-|---------|------|-------------|
-| `lib/main.dart` | 通常起動 (本番/開発) | `flutter run` |
-| `lib/driver_main.dart` | Flutter Driver (MCP `flutter_driver`) | `flutter run -t lib/driver_main.dart` |
-| `lib/marionette_main.dart` | Marionette MCP | `flutter run -t lib/marionette_main.dart` |
-
-**注意**: `MarionetteBinding` と `enableFlutterDriverExtension()` は同時に使用不可 (バインディングの競合)。そのためエントリポイントを分離している。
-
-#### モック確認 (UI単体)
-- `lib/driver_main.dart` でFlutter Driver有効化済みアプリを起動
-- AppBarのモックプレビューボタンでモックデータ付きチャット画面を表示
-- MCP `flutter_driver` の `screenshot` コマンドでスクリーンショット取得・目視確認
-- ウィジェットテスト (`flutter test`) で自動検証
+#### モック確認 (UI単体・Bridge不要)
+- AppBarのモックプレビューボタンで10種のモックシナリオを表示可能
+- Marionette MCPの `get_interactive_elements` でUI構造を検証
+- 詳細は `/mobile-automation` スキルの「Mock UIテスト」セクション参照
 
 #### E2E確認 (Bridge Server接続)
 - Bridge Serverを起動 (`npm run bridge`)
 - シミュレーターでアプリ起動し、実際のClaude CLIセッションで動作確認
 - 承認フロー、AskUserQuestion、ストリーミング等の実際の挙動を検証
-
-#### Marionette MCP によるUI検証 (推奨)
-
-**起動手順**:
-1. `flutter run -t lib/marionette_main.dart` でアプリ起動
-2. Marionette MCPサーバーが自動でアプリのVM Serviceに接続
-
-**主要ツール (優先度順)**:
-- `get_interactive_elements` — タップ可能なボタン・入力欄等の一覧取得。**最優先で使う**
-- `get_logs` — アプリのログ取得
-- `tap` — 要素をタップ
-- `enter_text` — テキスト入力
-- `get_semantics_tree` — セマンティクスツリー取得
-- `screenshot` — スクリーンショット取得 (**最後の手段として使用**)
-
-**重要: スクリーンショットの使用制限**:
-- スクリーンショットは画像データをAPIに送信するため、**Claude CodeのAPI使用量を大幅に消費する**
-- 多用するとAPI制限に到達し、セッション全体が使用不能になる
-- **まず `get_interactive_elements` や `get_semantics_tree` でUI構造を把握** し、テキストベースで検証する
-- スクリーンショットはレイアウト・ビジュアル確認が本当に必要な場面のみに限定する
-
-#### MCP Flutter Driver利用時の注意
-- `tap` コマンドはタイムアウトしやすい (デフォルト5秒)
-- `screenshot` と `get_health` は安定して動作する
-- タップが失敗する場合は `ensureVisible` → `tap` の順で試す
-- ウィジェットテストの方が信頼性が高い
 
 ## カスタムスキル
 
@@ -217,12 +210,22 @@ flutter test apps/mobile                              # ユニットテスト
 
 | スキル | 呼び出し | 説明 |
 |--------|---------|------|
-| test-bridge | `/test-bridge` | Bridge Server の Vitest テスト実行・TypeScript型チェック・テスト記述規約 |
-| test-flutter | `/test-flutter` | Flutter App のテスト実行・dart analyze・format・テスト記述規約 |
-| impl-flutter-ui | `/impl-flutter-ui` | Flutter UI実装のアーキテクチャ規約・コンポーネント分割・状態管理ガイド |
+| test-bridge | `/test-bridge` | Bridge Server の Vitest テスト実行・TypeScript型チェック |
+| test-flutter | `/test-flutter` | Flutter App のテスト実行・dart analyze・format |
+| mobile-automation | `/mobile-automation` | MCP (dart-mcp + Marionette) E2E自動化・UI検証ガイド |
+| self-review | `/self-review` | タスク完了前のセルフレビュー |
+| flutter-ui-design | `/flutter-ui-design` | Flutter UI実装規約 (Bloc/Cubit + Freezed) |
+| merge | `/merge` | 作業ブランチをmainにマージ |
 
 実装後の検証では、変更領域に応じて対応するスキルを実行する。
 Bridge と Flutter の両方に影響がある場合は両方実行する。
+
+## Hooks（自動品質ゲート）
+
+| Hook | トリガー | 内容 |
+|------|---------|------|
+| post-edit-analyze | Dartファイル編集後 | `dart analyze` 自動実行 |
+| pre-stop-check | タスク完了前 | `dart analyze` + `flutter test` で品質チェック |
 
 ## 規約
 
