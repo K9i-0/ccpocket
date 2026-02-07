@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../models/messages.dart';
 import '../../../widgets/message_bubble.dart';
-import '../state/chat_session_notifier.dart';
+import '../state/chat_session_cubit.dart';
 import '../state/chat_session_state.dart';
 import '../state/streaming_state.dart';
+import '../state/streaming_state_cubit.dart';
 
 /// Displays the chat message list with [AnimatedList] animations.
 ///
-/// Owns the entry reconciliation logic that syncs the notifier's
+/// Owns the entry reconciliation logic that syncs the cubit's
 /// `state.entries` (SSOT) with a local mutable list for [AnimatedList]'s
 /// imperative API ([insertItem]/[removeItem]).
-class ChatMessageList extends ConsumerStatefulWidget {
+class ChatMessageList extends StatefulWidget {
   final String sessionId;
   final ScrollController scrollController;
   final String? httpBaseUrl;
@@ -33,10 +34,10 @@ class ChatMessageList extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ChatMessageList> createState() => _ChatMessageListState();
+  State<ChatMessageList> createState() => _ChatMessageListState();
 }
 
-class _ChatMessageListState extends ConsumerState<ChatMessageList> {
+class _ChatMessageListState extends State<ChatMessageList> {
   final List<ChatEntry> _entries = [];
   final _listKey = GlobalKey<AnimatedListState>();
 
@@ -52,10 +53,10 @@ class _ChatMessageListState extends ConsumerState<ChatMessageList> {
   }
 
   // ---------------------------------------------------------------------------
-  // Entry reconciliation (AnimatedList ↔ notifier state)
+  // Entry reconciliation (AnimatedList ↔ cubit state)
   // ---------------------------------------------------------------------------
 
-  /// Reconcile [_entries] with notifier entries.
+  /// Reconcile [_entries] with cubit entries.
   ///
   /// Handles three mutation patterns:
   /// 1. Append: new entries added at end (first element identical)
@@ -197,58 +198,73 @@ class _ChatMessageListState extends ConsumerState<ChatMessageList> {
 
   @override
   Widget build(BuildContext context) {
-    // Listen to entries changes → reconcile with AnimatedList
-    ref.listen<ChatSessionState>(
-      chatSessionNotifierProvider(widget.sessionId),
-      (prev, next) => _reconcileEntries(prev?.entries ?? [], next.entries),
-    );
+    // Get hidden tool use IDs for subagent compression
+    final hiddenToolUseIds = context
+        .watch<ChatSessionCubit>()
+        .state
+        .hiddenToolUseIds;
 
-    // Listen to streaming state separately (high-frequency updates)
-    ref.listen<StreamingState>(
-      streamingStateNotifierProvider(widget.sessionId),
-      _onStreamingStateChange,
-    );
-
-    return NotificationListener<ScrollStartNotification>(
-      onNotification: (notification) {
-        FocusScope.of(context).unfocus();
-        return false;
-      },
-      child: AnimatedList(
-        key: _listKey,
-        controller: widget.scrollController,
-        padding: const EdgeInsets.only(top: 8, bottom: 8),
-        initialItemCount: _entries.length,
-        itemBuilder: (context, index, animation) {
-          final entry = _entries[index];
-          final previous = index > 0 ? _entries[index - 1] : null;
-          // Get hidden tool use IDs for subagent compression
-          final hiddenToolUseIds = ref
-              .watch(chatSessionNotifierProvider(widget.sessionId))
-              .hiddenToolUseIds;
-          final child = ChatEntryWidget(
-            entry: entry,
-            previous: previous,
-            httpBaseUrl: widget.httpBaseUrl,
-            onRetryMessage: widget.onRetryMessage,
-            collapseToolResults: widget.collapseToolResults,
-            editedPlanText: widget.editedPlanText,
-            resolvedPlanText: _resolvePlanText(entry),
-            hiddenToolUseIds: hiddenToolUseIds,
-          );
-          if (_bulkLoading || animation.isCompleted) return child;
-          return SlideTransition(
-            position:
-                Tween<Offset>(
-                  begin: const Offset(0, 0.3),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                ),
-            child: FadeTransition(opacity: animation, child: child),
-          );
+    return MultiBlocListener(
+      listeners: [
+        // Listen to entries changes → reconcile with AnimatedList
+        BlocListener<ChatSessionCubit, ChatSessionState>(
+          listenWhen: (prev, next) => !identical(prev.entries, next.entries),
+          listener: (context, state) {
+            // We need old entries for reconciliation — use _entries.length as proxy
+            _reconcileEntries(
+              _entries.toList(), // snapshot of current local entries
+              state.entries,
+            );
+          },
+        ),
+        // Listen to streaming state separately (high-frequency updates)
+        BlocListener<StreamingStateCubit, StreamingState>(
+          listener: (context, state) {
+            // We need previous state — track it manually
+            _onStreamingStateChange(_prevStreamingState, state);
+            _prevStreamingState = state;
+          },
+        ),
+      ],
+      child: NotificationListener<ScrollStartNotification>(
+        onNotification: (notification) {
+          FocusScope.of(context).unfocus();
+          return false;
         },
+        child: AnimatedList(
+          key: _listKey,
+          controller: widget.scrollController,
+          padding: const EdgeInsets.only(top: 8, bottom: 8),
+          initialItemCount: _entries.length,
+          itemBuilder: (context, index, animation) {
+            final entry = _entries[index];
+            final previous = index > 0 ? _entries[index - 1] : null;
+            final child = ChatEntryWidget(
+              entry: entry,
+              previous: previous,
+              httpBaseUrl: widget.httpBaseUrl,
+              onRetryMessage: widget.onRetryMessage,
+              collapseToolResults: widget.collapseToolResults,
+              editedPlanText: widget.editedPlanText,
+              resolvedPlanText: _resolvePlanText(entry),
+              hiddenToolUseIds: hiddenToolUseIds,
+            );
+            if (_bulkLoading || animation.isCompleted) return child;
+            return SlideTransition(
+              position:
+                  Tween<Offset>(
+                    begin: const Offset(0, 0.3),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                  ),
+              child: FadeTransition(opacity: animation, child: child),
+            );
+          },
+        ),
       ),
     );
   }
+
+  StreamingState? _prevStreamingState;
 }

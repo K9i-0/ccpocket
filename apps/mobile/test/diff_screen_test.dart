@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/features/diff/diff_screen.dart';
+import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 
 Widget _wrap(Widget child) {
-  return ProviderScope(
+  return RepositoryProvider<BridgeService>.value(
+    value: BridgeService(),
     child: MaterialApp(theme: AppTheme.darkTheme, home: child),
   );
 }

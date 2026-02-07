@@ -1,61 +1,56 @@
 import 'dart:async';
 
-import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../models/messages.dart';
-import '../../../providers/bridge_providers.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/chat_message_handler.dart';
 import 'chat_session_state.dart';
-import 'streaming_state.dart';
-
-part 'chat_session_notifier.g.dart';
+import 'streaming_state_cubit.dart';
 
 /// Manages the state of a single chat session.
 ///
 /// Subscribes to [BridgeService.messagesForSession] and delegates message
 /// processing to [ChatMessageHandler]. The resulting [ChatStateUpdate] is
 /// applied to the immutable [ChatSessionState].
-@riverpod
-class ChatSessionNotifier extends _$ChatSessionNotifier {
-  late final ChatMessageHandler _handler;
-  late final BridgeService _bridge;
+class ChatSessionCubit extends Cubit<ChatSessionState> {
+  final String sessionId;
+  final BridgeService _bridge;
+  final StreamingStateCubit _streamingCubit;
+  final ChatMessageHandler _handler = ChatMessageHandler();
+
   StreamSubscription<ServerMessage>? _subscription;
   bool _pastHistoryLoaded = false;
   Timer? _statusRefreshTimer;
 
-  @override
-  ChatSessionState build(String sessionId) {
-    _handler = ChatMessageHandler();
-    _bridge = ref.watch(bridgeServiceProvider);
-
+  ChatSessionCubit({
+    required this.sessionId,
+    required BridgeService bridge,
+    required StreamingStateCubit streamingCubit,
+  }) : _bridge = bridge,
+       _streamingCubit = streamingCubit,
+       super(_buildInitialState(bridge)) {
     // Subscribe to messages for this session
     _subscription = _bridge.messagesForSession(sessionId).listen(_onMessage);
-    ref.onDispose(() {
-      _statusRefreshTimer?.cancel();
-      _subscription?.cancel();
-      _sideEffectsController.close();
-    });
-
-    // Consume buffered past history from resume_session flow synchronously
-    // so the initial state already contains past entries.
-    var initialState = const ChatSessionState();
-    final pastHistory = _bridge.pendingPastHistory;
-    if (pastHistory != null) {
-      _bridge.pendingPastHistory = null;
-      _pastHistoryLoaded = true;
-      final update = _handler.handle(pastHistory, isBackground: true);
-      if (update.entriesToPrepend.isNotEmpty) {
-        initialState = initialState.copyWith(entries: update.entriesToPrepend);
-      }
-    }
 
     // Request in-memory history from the bridge server
     _bridge.requestSessionHistory(sessionId);
 
     // Re-query history while status is "starting" to handle lost broadcasts
     _startStatusRefreshTimer();
+  }
 
+  static ChatSessionState _buildInitialState(BridgeService bridge) {
+    var initialState = const ChatSessionState();
+    final pastHistory = bridge.pendingPastHistory;
+    if (pastHistory != null) {
+      bridge.pendingPastHistory = null;
+      final handler = ChatMessageHandler();
+      final update = handler.handle(pastHistory, isBackground: true);
+      if (update.entriesToPrepend.isNotEmpty) {
+        initialState = initialState.copyWith(entries: update.entriesToPrepend);
+      }
+    }
     return initialState;
   }
 
@@ -88,23 +83,19 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
   void _applyUpdate(ChatStateUpdate update, ServerMessage originalMsg) {
     final current = state;
 
-    // --- Streaming state (separate provider) ---
-    final streamingNotifier = ref.read(
-      streamingStateNotifierProvider(sessionId).notifier,
-    );
-
+    // --- Streaming state (separate cubit) ---
     if (update.resetStreaming) {
       _handler.currentStreaming = null;
-      streamingNotifier.reset();
+      _streamingCubit.reset();
     }
 
-    // Handle stream delta → streaming provider
+    // Handle stream delta → streaming cubit
     if (originalMsg is StreamDeltaMessage) {
-      streamingNotifier.appendText(originalMsg.text);
+      _streamingCubit.appendText(originalMsg.text);
       return; // No main state update needed for deltas
     }
     if (originalMsg is ThinkingDeltaMessage) {
-      streamingNotifier.appendThinking(originalMsg.text);
+      _streamingCubit.appendThinking(originalMsg.text);
       return;
     }
 
@@ -115,7 +106,7 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
     // When assistant message arrives and streaming was active, reset streaming
     if (originalMsg is AssistantServerMessage &&
         _handler.currentStreaming == null) {
-      streamingNotifier.reset();
+      _streamingCubit.reset();
     }
 
     // Prepend entries (past history)
@@ -192,15 +183,17 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
     }
 
     // --- Apply state update ---
-    state = current.copyWith(
-      status: update.status ?? current.status,
-      entries: didModifyEntries ? entries : current.entries,
-      approval: approval,
-      totalCost: current.totalCost + (update.costDelta ?? 0),
-      inPlanMode: update.inPlanMode ?? current.inPlanMode,
-      slashCommands: update.slashCommands ?? current.slashCommands,
-      claudeSessionId: update.resultSessionId ?? current.claudeSessionId,
-      hiddenToolUseIds: hiddenToolUseIds,
+    emit(
+      current.copyWith(
+        status: update.status ?? current.status,
+        entries: didModifyEntries ? entries : current.entries,
+        approval: approval,
+        totalCost: current.totalCost + (update.costDelta ?? 0),
+        inPlanMode: update.inPlanMode ?? current.inPlanMode,
+        slashCommands: update.slashCommands ?? current.slashCommands,
+        claudeSessionId: update.resultSessionId ?? current.claudeSessionId,
+        hiddenToolUseIds: hiddenToolUseIds,
+      ),
     );
 
     // --- Fire side effects ---
@@ -220,20 +213,18 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
   Stream<Set<ChatSideEffect>> get sideEffects => _sideEffectsController.stream;
 
   // ---------------------------------------------------------------------------
-  // Commands (Path B: UI → Notifier → Bridge)
+  // Commands (Path B: UI → Cubit → Bridge)
   // ---------------------------------------------------------------------------
 
   /// Send a user message.
   void sendMessage(String text) {
     if (text.trim().isEmpty) return;
     final entry = UserChatEntry(text, sessionId: sessionId);
-    state = state.copyWith(entries: [...state.entries, entry]);
+    emit(state.copyWith(entries: [...state.entries, entry]));
     _bridge.send(ClientMessage.input(text, sessionId: sessionId));
   }
 
   /// Approve a pending tool execution.
-  /// If [updatedInput] is provided, the original tool input is merged with it.
-  /// If [clearContext] is true, context will be cleared after plan execution.
   void approve(
     String toolUseId, {
     Map<String, dynamic>? updatedInput,
@@ -247,13 +238,13 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
         sessionId: sessionId,
       ),
     );
-    state = state.copyWith(approval: const ApprovalState.none());
+    emit(state.copyWith(approval: const ApprovalState.none()));
   }
 
   /// Approve a tool and always allow it in the future.
   void approveAlways(String toolUseId) {
     _bridge.send(ClientMessage.approveAlways(toolUseId, sessionId: sessionId));
-    state = state.copyWith(approval: const ApprovalState.none());
+    emit(state.copyWith(approval: const ApprovalState.none()));
   }
 
   /// Reject a pending tool execution.
@@ -261,16 +252,15 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
     _bridge.send(
       ClientMessage.reject(toolUseId, message: message, sessionId: sessionId),
     );
-    state = state.copyWith(
-      approval: const ApprovalState.none(),
-      inPlanMode: false,
+    emit(
+      state.copyWith(approval: const ApprovalState.none(), inPlanMode: false),
     );
   }
 
   /// Answer an AskUserQuestion.
   void answer(String toolUseId, String result) {
     _bridge.send(ClientMessage.answer(toolUseId, result, sessionId: sessionId));
-    state = state.copyWith(approval: const ApprovalState.none());
+    emit(state.copyWith(approval: const ApprovalState.none()));
   }
 
   /// Interrupt the current operation.
@@ -285,43 +275,31 @@ class ChatSessionNotifier extends _$ChatSessionNotifier {
 
   /// Retry a failed user message.
   void retryMessage(UserChatEntry entry) {
-    state = state.copyWith(
-      entries: state.entries.map((e) {
-        if (identical(e, entry)) {
-          return UserChatEntry(
-            entry.text,
-            sessionId: entry.sessionId ?? sessionId,
-            status: MessageStatus.sending,
-            timestamp: entry.timestamp,
-          );
-        }
-        return e;
-      }).toList(),
+    emit(
+      state.copyWith(
+        entries: state.entries.map((e) {
+          if (identical(e, entry)) {
+            return UserChatEntry(
+              entry.text,
+              sessionId: entry.sessionId ?? sessionId,
+              status: MessageStatus.sending,
+              timestamp: entry.timestamp,
+            );
+          }
+          return e;
+        }).toList(),
+      ),
     );
     _bridge.send(
       ClientMessage.input(entry.text, sessionId: entry.sessionId ?? sessionId),
     );
   }
-}
 
-/// Manages the high-frequency streaming state for a chat session.
-///
-/// Kept separate from [ChatSessionNotifier] to avoid rebuilding the
-/// entire message list on every streaming delta.
-@riverpod
-class StreamingStateNotifier extends _$StreamingStateNotifier {
   @override
-  StreamingState build(String sessionId) => const StreamingState();
-
-  void appendText(String text) {
-    state = state.copyWith(text: state.text + text, isStreaming: true);
-  }
-
-  void appendThinking(String text) {
-    state = state.copyWith(thinking: state.thinking + text);
-  }
-
-  void reset() {
-    state = const StreamingState();
+  Future<void> close() {
+    _statusRefreshTimer?.cancel();
+    _subscription?.cancel();
+    _sideEffectsController.close();
+    return super.close();
   }
 }

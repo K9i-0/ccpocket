@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../features/chat/state/chat_session_notifier.dart';
 import '../mock/mock_scenarios.dart';
-import '../providers/bridge_providers.dart';
+import '../models/messages.dart';
+import '../providers/bridge_cubits.dart';
+import '../services/bridge_service.dart';
 import '../services/mock_bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../features/chat/chat_screen.dart';
@@ -139,24 +140,27 @@ class _MockChatWrapperState extends State<_MockChatWrapper> {
   Widget build(BuildContext context) {
     final sessionId =
         'mock-${widget.scenario.name.toLowerCase().replaceAll(' ', '-')}';
-    return ProviderScope(
-      overrides: [
-        bridgeServiceProvider.overrideWithValue(widget.mockService),
-        connectionStateProvider.overrideWith(
-          (ref) => widget.mockService.connectionStatus,
-        ),
-        fileListProvider.overrideWith((ref) => widget.mockService.fileList),
-        sessionListProvider.overrideWith(
-          (ref) => widget.mockService.sessionList,
-        ),
-        chatSessionNotifierProvider(
-          sessionId,
-        ).overrideWith(() => ChatSessionNotifier()),
-        streamingStateNotifierProvider(
-          sessionId,
-        ).overrideWith(() => StreamingStateNotifier()),
-      ],
-      child: ChatScreen(sessionId: sessionId, projectPath: '/mock/preview'),
+    final mockService = widget.mockService;
+    return RepositoryProvider<BridgeService>.value(
+      value: mockService,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) => ConnectionCubit(
+              BridgeConnectionState.connected,
+              mockService.connectionStatus,
+            ),
+          ),
+          BlocProvider(
+            create: (_) =>
+                ActiveSessionsCubit(const [], mockService.sessionList),
+          ),
+          BlocProvider(
+            create: (_) => FileListCubit(const [], mockService.fileList),
+          ),
+        ],
+        child: ChatScreen(sessionId: sessionId, projectPath: '/mock/preview'),
+      ),
     );
   }
 }

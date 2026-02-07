@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/models/messages.dart';
-import 'package:ccpocket/providers/bridge_providers.dart';
+import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/features/gallery/gallery_screen.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
@@ -41,9 +41,16 @@ class _MockBridgeService extends BridgeService {
 }
 
 Widget _wrapWithTheme(Widget child, _MockBridgeService mock) {
-  return ProviderScope(
-    overrides: [bridgeServiceProvider.overrideWithValue(mock)],
-    child: MaterialApp(theme: AppTheme.darkTheme, home: child),
+  return RepositoryProvider<BridgeService>.value(
+    value: mock,
+    child: MultiBlocProvider(
+      providers: [
+        BlocProvider<GalleryCubit>(
+          create: (_) => GalleryCubit(const [], mock.galleryStream),
+        ),
+      ],
+      child: MaterialApp(theme: AppTheme.darkTheme, home: child),
+    ),
   );
 }
 
@@ -129,8 +136,6 @@ void main() {
       await tester.pump();
 
       // Grid should now show only project-a images
-      // project-a appears in chip + grid tile
-      // project-b should only appear in filter chip
       final gridTiles = tester.widgetList(find.byType(GridView));
       expect(gridTiles, isNotEmpty);
     });

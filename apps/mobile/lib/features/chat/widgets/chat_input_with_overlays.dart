@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../hooks/use_voice_input.dart';
 import '../../../models/messages.dart';
-import '../../../providers/bridge_providers.dart';
+import '../../../providers/bridge_cubits.dart';
 import '../../../widgets/chat_input_bar.dart';
 import '../../../widgets/file_mention_overlay.dart';
 import '../../../widgets/slash_command_overlay.dart';
 import '../../../widgets/slash_command_sheet.dart'
     show SlashCommand, SlashCommandSheet, fallbackSlashCommands;
-import '../state/chat_session_notifier.dart';
+import '../state/chat_session_cubit.dart';
 
 /// Manages the chat input bar together with slash-command and @-mention
 /// overlays using [OverlayPortal].
@@ -19,7 +19,7 @@ import '../state/chat_session_notifier.dart';
 /// [inputController] is managed by the parent widget to preserve text across
 /// rebuilds (e.g., when approval bar appears/disappears).
 /// Overlay controllers and voice input are managed via hooks.
-class ChatInputWithOverlays extends HookConsumerWidget {
+class ChatInputWithOverlays extends HookWidget {
   final String sessionId;
   final ProcessStatus status;
   final VoidCallback onScrollToBottom;
@@ -34,7 +34,7 @@ class ChatInputWithOverlays extends HookConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     // Track if input has text (initialize from controller's current value)
     final hasInputText = useState(inputController.text.trim().isNotEmpty);
 
@@ -50,12 +50,10 @@ class ChatInputWithOverlays extends HookConsumerWidget {
     final filteredFiles = useState<List<String>>(const []);
 
     // Project files for @-mention
-    final projectFiles = ref.watch(fileListProvider).valueOrNull ?? [];
+    final projectFiles = context.watch<FileListCubit>().state;
 
-    // Slash commands from notifier
-    final slashCommands = ref
-        .watch(chatSessionNotifierProvider(sessionId))
-        .slashCommands;
+    // Slash commands from cubit
+    final slashCommands = context.watch<ChatSessionCubit>().state.slashCommands;
     final commands = slashCommands.isNotEmpty
         ? slashCommands
         : fallbackSlashCommands;
@@ -140,21 +138,19 @@ class ChatInputWithOverlays extends HookConsumerWidget {
       final text = inputController.text.trim();
       if (text.isEmpty) return;
       HapticFeedback.lightImpact();
-      ref
-          .read(chatSessionNotifierProvider(sessionId).notifier)
-          .sendMessage(text);
+      context.read<ChatSessionCubit>().sendMessage(text);
       inputController.clear();
       onScrollToBottom();
     }
 
     void stopSession() {
       HapticFeedback.mediumImpact();
-      ref.read(chatSessionNotifierProvider(sessionId).notifier).stop();
+      context.read<ChatSessionCubit>().stop();
     }
 
     void interruptSession() {
       HapticFeedback.mediumImpact();
-      ref.read(chatSessionNotifierProvider(sessionId).notifier).interrupt();
+      context.read<ChatSessionCubit>().interrupt();
     }
 
     void showSlashCommandSheet() {
