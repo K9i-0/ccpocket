@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ccpocket/features/session_list/state/session_list_state.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/features/session_list/session_list_screen.dart';
 
@@ -141,50 +140,6 @@ void main() {
 
     test('no match returns empty', () {
       expect(filterByQuery(querySessions, 'zzzzz'), isEmpty);
-    });
-  });
-
-  group('filterByDate', () {
-    test('DateFilter.all returns all sessions', () {
-      expect(filterByDate(sessions, DateFilter.all), sessions);
-    });
-
-    test('filters by today', () {
-      final now = DateTime.now();
-      final todaySessions = [
-        _session(
-          projectPath: '/home/user/app',
-          sessionId: 'd1',
-          modified: now.toIso8601String(),
-        ),
-        _session(
-          projectPath: '/home/user/app',
-          sessionId: 'd2',
-          modified: '2020-01-01T00:00:00Z',
-        ),
-      ];
-      final filtered = filterByDate(todaySessions, DateFilter.today);
-      expect(filtered, hasLength(1));
-      expect(filtered.first.sessionId, 'd1');
-    });
-
-    test('filters by this month', () {
-      final now = DateTime.now();
-      final monthSessions = [
-        _session(
-          projectPath: '/home/user/app',
-          sessionId: 'm1',
-          modified: now.toIso8601String(),
-        ),
-        _session(
-          projectPath: '/home/user/app',
-          sessionId: 'm2',
-          modified: '2020-06-15T00:00:00Z',
-        ),
-      ];
-      final filtered = filterByDate(monthSessions, DateFilter.thisMonth);
-      expect(filtered, hasLength(1));
-      expect(filtered.first.sessionId, 'm1');
     });
   });
 

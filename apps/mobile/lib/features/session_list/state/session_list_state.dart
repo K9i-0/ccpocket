@@ -4,9 +4,6 @@ import '../../../models/messages.dart';
 
 part 'session_list_state.freezed.dart';
 
-/// Date filter period for session list.
-enum DateFilter { all, today, thisWeek, thisMonth }
-
 /// Core state for the session list screen.
 @freezed
 abstract class SessionListState with _$SessionListState {
@@ -22,9 +19,6 @@ abstract class SessionListState with _$SessionListState {
 
     /// Client-side project name filter (null = show all).
     String? selectedProject,
-
-    /// Client-side date filter.
-    @Default(DateFilter.all) DateFilter dateFilter,
 
     /// Client-side text search query.
     @Default('') String searchQuery,

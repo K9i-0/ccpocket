@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
-import 'package:ccpocket/features/session_list/state/session_list_state.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -116,7 +115,6 @@ void main() {
       expect(cubit.state.hasMore, isFalse);
       expect(cubit.state.isLoadingMore, isFalse);
       expect(cubit.state.selectedProject, isNull);
-      expect(cubit.state.dateFilter, DateFilter.all);
       expect(cubit.state.searchQuery, isEmpty);
       expect(cubit.state.accumulatedProjectPaths, isEmpty);
     });
@@ -173,12 +171,6 @@ void main() {
       expect(cubit.state.selectedProject, isNull);
     });
 
-    test('setDateFilter updates filter', () {
-      cubit.setDateFilter(DateFilter.today);
-
-      expect(cubit.state.dateFilter, DateFilter.today);
-    });
-
     test('setSearchQuery updates query', () {
       cubit.setSearchQuery('hello');
 
@@ -205,13 +197,11 @@ void main() {
 
     test('resetFilters clears all filter state', () {
       cubit.selectProject('/a/proj1');
-      cubit.setDateFilter(DateFilter.thisWeek);
       cubit.setSearchQuery('test');
 
       cubit.resetFilters();
 
       expect(cubit.state.selectedProject, isNull);
-      expect(cubit.state.dateFilter, DateFilter.all);
       expect(cubit.state.searchQuery, isEmpty);
       expect(cubit.state.accumulatedProjectPaths, isEmpty);
     });

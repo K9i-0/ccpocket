@@ -4,8 +4,6 @@ import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/session_card.dart';
 import '../session_list_screen.dart';
-import '../state/session_list_state.dart';
-import 'date_filter_chips.dart';
 import 'project_filter_chips.dart';
 import 'section_header.dart';
 import 'session_list_empty_state.dart';
@@ -17,7 +15,6 @@ class HomeContent extends StatelessWidget {
   final List<RecentSession> recentSessions;
   final Set<String> accumulatedProjectPaths;
   final String? selectedProject;
-  final DateFilter dateFilter;
   final String searchQuery;
   final bool isLoadingMore;
   final bool hasMoreSessions;
@@ -32,7 +29,6 @@ class HomeContent extends StatelessWidget {
   final ValueChanged<String> onStopSession;
   final ValueChanged<RecentSession> onResumeSession;
   final ValueChanged<String?> onSelectProject;
-  final ValueChanged<DateFilter> onSelectDateFilter;
   final VoidCallback onLoadMore;
 
   const HomeContent({
@@ -42,7 +38,6 @@ class HomeContent extends StatelessWidget {
     required this.recentSessions,
     required this.accumulatedProjectPaths,
     required this.selectedProject,
-    required this.dateFilter,
     required this.searchQuery,
     required this.isLoadingMore,
     required this.hasMoreSessions,
@@ -52,7 +47,6 @@ class HomeContent extends StatelessWidget {
     required this.onStopSession,
     required this.onResumeSession,
     required this.onSelectProject,
-    required this.onSelectDateFilter,
     required this.onLoadMore,
   });
 
@@ -68,7 +62,6 @@ class HomeContent extends StatelessWidget {
     var filteredSessions = currentProjectFilter != null
         ? recentSessions
         : filterByProject(recentSessions, selectedProject);
-    filteredSessions = filterByDate(filteredSessions, dateFilter);
     filteredSessions = filterByQuery(filteredSessions, searchQuery);
 
     final hasActiveFilter = currentProjectFilter != null;
@@ -124,8 +117,6 @@ class HomeContent extends StatelessWidget {
               onSelected: onSelectProject,
             ),
           ],
-          const SizedBox(height: 4),
-          DateFilterChips(selected: dateFilter, onSelected: onSelectDateFilter),
           const SizedBox(height: 8),
           for (final session in filteredSessions)
             RecentSessionCard(

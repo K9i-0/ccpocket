@@ -18,8 +18,7 @@ mixin _$SessionListState {
  List<RecentSession> get sessions;/// Whether there are more sessions available on the server.
  bool get hasMore;/// Loading more sessions (pagination).
  bool get isLoadingMore;/// Client-side project name filter (null = show all).
- String? get selectedProject;/// Client-side date filter.
- DateFilter get dateFilter;/// Client-side text search query.
+ String? get selectedProject;/// Client-side text search query.
  String get searchQuery;/// Accumulated project paths from all loaded sessions + project history.
 /// Used for the "New Session" project picker.
  Set<String> get accumulatedProjectPaths;
@@ -33,16 +32,16 @@ $SessionListStateCopyWith<SessionListState> get copyWith => _$SessionListStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionListState&&const DeepCollectionEquality().equals(other.sessions, sessions)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.isLoadingMore, isLoadingMore) || other.isLoadingMore == isLoadingMore)&&(identical(other.selectedProject, selectedProject) || other.selectedProject == selectedProject)&&(identical(other.dateFilter, dateFilter) || other.dateFilter == dateFilter)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&const DeepCollectionEquality().equals(other.accumulatedProjectPaths, accumulatedProjectPaths));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionListState&&const DeepCollectionEquality().equals(other.sessions, sessions)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.isLoadingMore, isLoadingMore) || other.isLoadingMore == isLoadingMore)&&(identical(other.selectedProject, selectedProject) || other.selectedProject == selectedProject)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&const DeepCollectionEquality().equals(other.accumulatedProjectPaths, accumulatedProjectPaths));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(sessions),hasMore,isLoadingMore,selectedProject,dateFilter,searchQuery,const DeepCollectionEquality().hash(accumulatedProjectPaths));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(sessions),hasMore,isLoadingMore,selectedProject,searchQuery,const DeepCollectionEquality().hash(accumulatedProjectPaths));
 
 @override
 String toString() {
-  return 'SessionListState(sessions: $sessions, hasMore: $hasMore, isLoadingMore: $isLoadingMore, selectedProject: $selectedProject, dateFilter: $dateFilter, searchQuery: $searchQuery, accumulatedProjectPaths: $accumulatedProjectPaths)';
+  return 'SessionListState(sessions: $sessions, hasMore: $hasMore, isLoadingMore: $isLoadingMore, selectedProject: $selectedProject, searchQuery: $searchQuery, accumulatedProjectPaths: $accumulatedProjectPaths)';
 }
 
 
@@ -53,7 +52,7 @@ abstract mixin class $SessionListStateCopyWith<$Res>  {
   factory $SessionListStateCopyWith(SessionListState value, $Res Function(SessionListState) _then) = _$SessionListStateCopyWithImpl;
 @useResult
 $Res call({
- List<RecentSession> sessions, bool hasMore, bool isLoadingMore, String? selectedProject, DateFilter dateFilter, String searchQuery, Set<String> accumulatedProjectPaths
+ List<RecentSession> sessions, bool hasMore, bool isLoadingMore, String? selectedProject, String searchQuery, Set<String> accumulatedProjectPaths
 });
 
 
@@ -70,14 +69,13 @@ class _$SessionListStateCopyWithImpl<$Res>
 
 /// Create a copy of SessionListState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? sessions = null,Object? hasMore = null,Object? isLoadingMore = null,Object? selectedProject = freezed,Object? dateFilter = null,Object? searchQuery = null,Object? accumulatedProjectPaths = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? sessions = null,Object? hasMore = null,Object? isLoadingMore = null,Object? selectedProject = freezed,Object? searchQuery = null,Object? accumulatedProjectPaths = null,}) {
   return _then(_self.copyWith(
 sessions: null == sessions ? _self.sessions : sessions // ignore: cast_nullable_to_non_nullable
 as List<RecentSession>,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
 as bool,isLoadingMore: null == isLoadingMore ? _self.isLoadingMore : isLoadingMore // ignore: cast_nullable_to_non_nullable
 as bool,selectedProject: freezed == selectedProject ? _self.selectedProject : selectedProject // ignore: cast_nullable_to_non_nullable
-as String?,dateFilter: null == dateFilter ? _self.dateFilter : dateFilter // ignore: cast_nullable_to_non_nullable
-as DateFilter,searchQuery: null == searchQuery ? _self.searchQuery : searchQuery // ignore: cast_nullable_to_non_nullable
+as String?,searchQuery: null == searchQuery ? _self.searchQuery : searchQuery // ignore: cast_nullable_to_non_nullable
 as String,accumulatedProjectPaths: null == accumulatedProjectPaths ? _self.accumulatedProjectPaths : accumulatedProjectPaths // ignore: cast_nullable_to_non_nullable
 as Set<String>,
   ));
@@ -164,10 +162,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  String? selectedProject,  DateFilter dateFilter,  String searchQuery,  Set<String> accumulatedProjectPaths)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  String? selectedProject,  String searchQuery,  Set<String> accumulatedProjectPaths)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SessionListState() when $default != null:
-return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.selectedProject,_that.dateFilter,_that.searchQuery,_that.accumulatedProjectPaths);case _:
+return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.selectedProject,_that.searchQuery,_that.accumulatedProjectPaths);case _:
   return orElse();
 
 }
@@ -185,10 +183,10 @@ return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.selectedP
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  String? selectedProject,  DateFilter dateFilter,  String searchQuery,  Set<String> accumulatedProjectPaths)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  String? selectedProject,  String searchQuery,  Set<String> accumulatedProjectPaths)  $default,) {final _that = this;
 switch (_that) {
 case _SessionListState():
-return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.selectedProject,_that.dateFilter,_that.searchQuery,_that.accumulatedProjectPaths);case _:
+return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.selectedProject,_that.searchQuery,_that.accumulatedProjectPaths);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -205,10 +203,10 @@ return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.selectedP
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  String? selectedProject,  DateFilter dateFilter,  String searchQuery,  Set<String> accumulatedProjectPaths)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<RecentSession> sessions,  bool hasMore,  bool isLoadingMore,  String? selectedProject,  String searchQuery,  Set<String> accumulatedProjectPaths)?  $default,) {final _that = this;
 switch (_that) {
 case _SessionListState() when $default != null:
-return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.selectedProject,_that.dateFilter,_that.searchQuery,_that.accumulatedProjectPaths);case _:
+return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.selectedProject,_that.searchQuery,_that.accumulatedProjectPaths);case _:
   return null;
 
 }
@@ -220,7 +218,7 @@ return $default(_that.sessions,_that.hasMore,_that.isLoadingMore,_that.selectedP
 
 
 class _SessionListState implements SessionListState {
-  const _SessionListState({final  List<RecentSession> sessions = const [], this.hasMore = false, this.isLoadingMore = false, this.selectedProject, this.dateFilter = DateFilter.all, this.searchQuery = '', final  Set<String> accumulatedProjectPaths = const {}}): _sessions = sessions,_accumulatedProjectPaths = accumulatedProjectPaths;
+  const _SessionListState({final  List<RecentSession> sessions = const [], this.hasMore = false, this.isLoadingMore = false, this.selectedProject, this.searchQuery = '', final  Set<String> accumulatedProjectPaths = const {}}): _sessions = sessions,_accumulatedProjectPaths = accumulatedProjectPaths;
   
 
 /// All sessions loaded from the server (including paginated results).
@@ -238,8 +236,6 @@ class _SessionListState implements SessionListState {
 @override@JsonKey() final  bool isLoadingMore;
 /// Client-side project name filter (null = show all).
 @override final  String? selectedProject;
-/// Client-side date filter.
-@override@JsonKey() final  DateFilter dateFilter;
 /// Client-side text search query.
 @override@JsonKey() final  String searchQuery;
 /// Accumulated project paths from all loaded sessions + project history.
@@ -264,16 +260,16 @@ _$SessionListStateCopyWith<_SessionListState> get copyWith => __$SessionListStat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SessionListState&&const DeepCollectionEquality().equals(other._sessions, _sessions)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.isLoadingMore, isLoadingMore) || other.isLoadingMore == isLoadingMore)&&(identical(other.selectedProject, selectedProject) || other.selectedProject == selectedProject)&&(identical(other.dateFilter, dateFilter) || other.dateFilter == dateFilter)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&const DeepCollectionEquality().equals(other._accumulatedProjectPaths, _accumulatedProjectPaths));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SessionListState&&const DeepCollectionEquality().equals(other._sessions, _sessions)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.isLoadingMore, isLoadingMore) || other.isLoadingMore == isLoadingMore)&&(identical(other.selectedProject, selectedProject) || other.selectedProject == selectedProject)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&const DeepCollectionEquality().equals(other._accumulatedProjectPaths, _accumulatedProjectPaths));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_sessions),hasMore,isLoadingMore,selectedProject,dateFilter,searchQuery,const DeepCollectionEquality().hash(_accumulatedProjectPaths));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_sessions),hasMore,isLoadingMore,selectedProject,searchQuery,const DeepCollectionEquality().hash(_accumulatedProjectPaths));
 
 @override
 String toString() {
-  return 'SessionListState(sessions: $sessions, hasMore: $hasMore, isLoadingMore: $isLoadingMore, selectedProject: $selectedProject, dateFilter: $dateFilter, searchQuery: $searchQuery, accumulatedProjectPaths: $accumulatedProjectPaths)';
+  return 'SessionListState(sessions: $sessions, hasMore: $hasMore, isLoadingMore: $isLoadingMore, selectedProject: $selectedProject, searchQuery: $searchQuery, accumulatedProjectPaths: $accumulatedProjectPaths)';
 }
 
 
@@ -284,7 +280,7 @@ abstract mixin class _$SessionListStateCopyWith<$Res> implements $SessionListSta
   factory _$SessionListStateCopyWith(_SessionListState value, $Res Function(_SessionListState) _then) = __$SessionListStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<RecentSession> sessions, bool hasMore, bool isLoadingMore, String? selectedProject, DateFilter dateFilter, String searchQuery, Set<String> accumulatedProjectPaths
+ List<RecentSession> sessions, bool hasMore, bool isLoadingMore, String? selectedProject, String searchQuery, Set<String> accumulatedProjectPaths
 });
 
 
@@ -301,14 +297,13 @@ class __$SessionListStateCopyWithImpl<$Res>
 
 /// Create a copy of SessionListState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? sessions = null,Object? hasMore = null,Object? isLoadingMore = null,Object? selectedProject = freezed,Object? dateFilter = null,Object? searchQuery = null,Object? accumulatedProjectPaths = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? sessions = null,Object? hasMore = null,Object? isLoadingMore = null,Object? selectedProject = freezed,Object? searchQuery = null,Object? accumulatedProjectPaths = null,}) {
   return _then(_SessionListState(
 sessions: null == sessions ? _self._sessions : sessions // ignore: cast_nullable_to_non_nullable
 as List<RecentSession>,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
 as bool,isLoadingMore: null == isLoadingMore ? _self.isLoadingMore : isLoadingMore // ignore: cast_nullable_to_non_nullable
 as bool,selectedProject: freezed == selectedProject ? _self.selectedProject : selectedProject // ignore: cast_nullable_to_non_nullable
-as String?,dateFilter: null == dateFilter ? _self.dateFilter : dateFilter // ignore: cast_nullable_to_non_nullable
-as DateFilter,searchQuery: null == searchQuery ? _self.searchQuery : searchQuery // ignore: cast_nullable_to_non_nullable
+as String?,searchQuery: null == searchQuery ? _self.searchQuery : searchQuery // ignore: cast_nullable_to_non_nullable
 as String,accumulatedProjectPaths: null == accumulatedProjectPaths ? _self._accumulatedProjectPaths : accumulatedProjectPaths // ignore: cast_nullable_to_non_nullable
 as Set<String>,
   ));

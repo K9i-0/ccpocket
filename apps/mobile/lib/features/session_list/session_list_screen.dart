@@ -19,7 +19,6 @@ import '../../widgets/new_session_sheet.dart';
 import '../chat/chat_screen.dart';
 import '../gallery/gallery_screen.dart';
 import 'state/session_list_cubit.dart';
-import 'state/session_list_state.dart';
 import 'widgets/connect_form.dart';
 import 'widgets/home_content.dart';
 
@@ -73,29 +72,6 @@ List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
   return sessions.where((s) {
     return s.firstPrompt.toLowerCase().contains(q) ||
         (s.summary?.toLowerCase().contains(q) ?? false);
-  }).toList();
-}
-
-/// Filter sessions by date period.
-List<RecentSession> filterByDate(
-  List<RecentSession> sessions,
-  DateFilter filter,
-) {
-  if (filter == DateFilter.all) return sessions;
-  final now = DateTime.now();
-  final threshold = switch (filter) {
-    DateFilter.today => DateTime(now.year, now.month, now.day),
-    DateFilter.thisWeek => DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).subtract(Duration(days: now.weekday - 1)),
-    DateFilter.thisMonth => DateTime(now.year, now.month),
-    DateFilter.all => now, // unreachable
-  };
-  return sessions.where((s) {
-    final modified = DateTime.tryParse(s.modified);
-    return modified != null && modified.isAfter(threshold);
   }).toList();
 }
 
@@ -587,7 +563,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
                   recentSessions: recentSessionsList,
                   accumulatedProjectPaths: slState.accumulatedProjectPaths,
                   selectedProject: slState.selectedProject,
-                  dateFilter: slState.dateFilter,
                   searchQuery: slState.searchQuery,
                   isLoadingMore: slState.isLoadingMore,
                   hasMoreSessions: slState.hasMore,
@@ -609,8 +584,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
                   onResumeSession: _resumeSession,
                   onSelectProject: (path) =>
                       context.read<SessionListCubit>().selectProject(path),
-                  onSelectDateFilter: (f) =>
-                      context.read<SessionListCubit>().setDateFilter(f),
                   onLoadMore: () => context.read<SessionListCubit>().loadMore(),
                 ),
               )

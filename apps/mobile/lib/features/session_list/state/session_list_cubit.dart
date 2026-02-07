@@ -67,11 +67,6 @@ class SessionListCubit extends Cubit<SessionListState> {
     _bridge.switchProjectFilter(projectPath);
   }
 
-  /// Set date filter (client-side only).
-  void setDateFilter(DateFilter filter) {
-    emit(state.copyWith(dateFilter: filter));
-  }
-
   /// Set search query (client-side only).
   void setSearchQuery(String query) {
     emit(state.copyWith(searchQuery: query));
@@ -98,7 +93,6 @@ class SessionListCubit extends Cubit<SessionListState> {
     emit(
       state.copyWith(
         selectedProject: null,
-        dateFilter: DateFilter.all,
         searchQuery: '',
         accumulatedProjectPaths: const {},
         isLoadingMore: false,
