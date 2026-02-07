@@ -628,6 +628,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 onRemoveUrlHistory: (url) async {
                   await _removeUrlHistory(url);
                 },
+                onUpdateUrlHistoryName: _updateUrlHistoryName,
               ),
         floatingActionButton: showConnectedUI
             ? FloatingActionButton(
@@ -661,6 +662,12 @@ class _SessionListScreenState extends State<SessionListScreen> {
   Future<void> _removeUrlHistory(String url) async {
     if (_urlHistoryService == null) return;
     await _urlHistoryService!.remove(url);
+    setState(() => _urlHistory = _urlHistoryService!.load());
+  }
+
+  Future<void> _updateUrlHistoryName(String url, String? name) async {
+    if (_urlHistoryService == null) return;
+    await _urlHistoryService!.updateName(url, name);
     setState(() => _urlHistory = _urlHistoryService!.load());
   }
 }

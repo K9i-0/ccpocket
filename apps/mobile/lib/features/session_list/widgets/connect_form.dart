@@ -15,6 +15,7 @@ class ConnectForm extends StatelessWidget {
   final ValueChanged<DiscoveredServer> onConnectToDiscovered;
   final ValueChanged<UrlHistoryEntry> onSelectUrlHistory;
   final ValueChanged<String> onRemoveUrlHistory;
+  final void Function(String url, String? name)? onUpdateUrlHistoryName;
 
   const ConnectForm({
     super.key,
@@ -27,6 +28,7 @@ class ConnectForm extends StatelessWidget {
     required this.onConnectToDiscovered,
     required this.onSelectUrlHistory,
     required this.onRemoveUrlHistory,
+    this.onUpdateUrlHistoryName,
   });
 
   @override
@@ -93,6 +95,7 @@ class ConnectForm extends StatelessWidget {
               entries: urlHistory,
               onSelect: onSelectUrlHistory,
               onRemove: onRemoveUrlHistory,
+              onUpdateName: onUpdateUrlHistoryName,
             ),
             const SizedBox(height: 16),
           ],
