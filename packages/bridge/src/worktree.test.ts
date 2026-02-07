@@ -105,6 +105,20 @@ describe("parseGtrConfig", () => {
     expect(config.hook.postCreate).toEqual(["echo hello"]);
   });
 
+  it("parses [hooks] section (plural) for gtr CLI compatibility", () => {
+    writeFileSync(
+      join(tempDir, ".gtrconfig"),
+      [
+        "[hooks]",
+        "postCreate = npm install",
+        "preRemove = echo cleanup",
+      ].join("\n"),
+    );
+    const config = parseGtrConfig(tempDir);
+    expect(config.hook.postCreate).toEqual(["npm install"]);
+    expect(config.hook.preRemove).toEqual(["echo cleanup"]);
+  });
+
   it("ignores unknown sections and keys", () => {
     writeFileSync(
       join(tempDir, ".gtrconfig"),

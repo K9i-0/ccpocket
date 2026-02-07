@@ -64,7 +64,7 @@ export function parseGtrConfig(projectPath: string): GtrConfig {
         case "includedirs": config.copy.includeDirs.push(value); break;
         case "excludedirs": config.copy.excludeDirs.push(value); break;
       }
-    } else if (currentSection === "hook") {
+    } else if (currentSection === "hook" || currentSection === "hooks") {
       switch (key) {
         case "postcreate": config.hook.postCreate.push(value); break;
         case "preremove": config.hook.preRemove.push(value); break;

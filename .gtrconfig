@@ -1,0 +1,15 @@
+# .gtrconfig - git-worktree-runner / Bridge Server worktree configuration
+
+[copy]
+# Claude Code settings (MCP servers, permissions, additional directories)
+include = .claude/settings.local.json
+
+# Android SDK / Flutter SDK paths
+include = apps/mobile/android/local.properties
+
+# Speed up worktree setup by copying node_modules
+includeDirs = node_modules
+
+[hooks]
+# Restore Flutter dependencies after worktree creation
+postCreate = cd apps/mobile && flutter pub get
