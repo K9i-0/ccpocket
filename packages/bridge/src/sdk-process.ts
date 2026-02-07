@@ -290,6 +290,11 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
     // Background message processing
     this.processMessages().catch((err) => {
+      if (this.stopped) {
+        // Suppress errors from intentional stop (e.g. "Bun is not defined" from CLI cleanup)
+        console.log("[sdk-process] Suppressed error after stop:", err instanceof Error ? err.message : String(err));
+        return;
+      }
       console.error("[sdk-process] Message processing error:", err);
       this.emitMessage({ type: "error", message: `SDK error: ${err instanceof Error ? err.message : String(err)}` });
       this.setStatus("idle");
