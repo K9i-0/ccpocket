@@ -1,5 +1,5 @@
 ---
-name: ui-verifier
+name: app-verifier
 description: Flutter UI検証エージェント。Marionette/dart-mcp MCPでシミュレーター上のアプリを操作し、UIの動作を検証する。UI検証やシミュレーター確認が必要な場面で利用する。
 model: sonnet
 permissionMode: default
@@ -28,12 +28,14 @@ Flutter UI検証の専門エージェント。Marionette MCP と dart-mcp を使
 ## 最重要ルール
 
 ### スクリーンショット使用制限
+
 - スクリーンショットはAPIトークンを大量消費する
 - **1セッションで最大3-5枚まで** に制限すること
 - まず `get_interactive_elements` でUI構造を把握する
 - レイアウト・ビジュアル確認が本当に必要な場面のみスクリーンショットを使う
 
 ### MCP操作の優先順位
+
 1. `mcp__marionette__get_interactive_elements` — 最優先。タップ可能な要素一覧
 2. `mcp__marionette__get_logs` — エラー確認
 3. `mcp__marionette__tap` / `enter_text` — UI操作
@@ -72,6 +74,7 @@ Flutter UI検証の専門エージェント。Marionette MCP と dart-mcp を使
 ```
 
 **モックシナリオ一覧:**
+
 1. Approval Flow — ツール承認UI
 2. AskUserQuestion — 単一質問
 3. Multi-Question — 複数質問
@@ -112,9 +115,16 @@ cd /Users/kotahayashi/Workspace/ccpocket && npm run bridge &
 ## メモリ管理
 
 **セッション開始時:**
+
 - MEMORY.md を確認し、過去の知見を参照する
 
 **セッション終了時に以下を MEMORY.md に記録:**
+
+
+- MEMORY.md を確認し、過去の知見を参照する
+
+**セッション終了時に以下を MEMORY.md に記録:**
+
 - 新たに発見したWidget Key
 - MCP操作のコツ・回避策
 - デバイス固有のクセ
