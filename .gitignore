@@ -36,3 +36,6 @@ coverage/
 # Logs
 *.log
 npm-debug.log*
+
+# Agent memory (local scope)
+.claude/agent-memory-local/
