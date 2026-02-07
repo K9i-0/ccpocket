@@ -138,9 +138,8 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
       }
       // All other result subtypes are errors
       const errorText = Array.isArray(res.errors) ? (res.errors as string[]).join("\n") : "Unknown error";
-      // Suppress spurious CLI runtime errors (e.g. Bun API referenced on Node.js)
+      // Suppress spurious CLI runtime errors (SDK bug: Bun API referenced on Node.js)
       if (errorText.includes("Bun is not defined")) {
-        console.log("[sdk-process] Suppressed CLI error:", errorText);
         return null;
       }
       return {
@@ -297,8 +296,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     // Background message processing
     this.processMessages().catch((err) => {
       if (this.stopped) {
-        // Suppress errors from intentional stop (e.g. "Bun is not defined" from CLI cleanup)
-        console.log("[sdk-process] Suppressed error after stop:", err instanceof Error ? err.message : String(err));
+        // Suppress errors from intentional stop (SDK bug: Bun API referenced on Node.js)
         return;
       }
       console.error("[sdk-process] Message processing error:", err);
