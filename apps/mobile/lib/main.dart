@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 
 import 'features/session_list/session_list_screen.dart';
+import 'models/messages.dart';
+import 'providers/bridge_cubits.dart';
+import 'providers/server_discovery_cubit.dart';
+import 'services/bridge_service.dart';
 import 'services/connection_url_parser.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
@@ -25,7 +29,44 @@ void main() async {
   NotificationService.instance.init().catchError((e) {
     debugPrint('[main] NotificationService init failed: $e');
   });
-  runApp(const ProviderScope(child: CcpocketApp()));
+  final bridge = BridgeService();
+  runApp(
+    RepositoryProvider<BridgeService>.value(
+      value: bridge,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) => ConnectionCubit(
+              BridgeConnectionState.disconnected,
+              bridge.connectionStatus,
+            ),
+          ),
+          BlocProvider(
+            create: (_) =>
+                ActiveSessionsCubit(const [], bridge.sessionList),
+          ),
+          BlocProvider(
+            create: (_) =>
+                RecentSessionsCubit(const [], bridge.recentSessionsStream),
+          ),
+          BlocProvider(
+            create: (_) => GalleryCubit(const [], bridge.galleryStream),
+          ),
+          BlocProvider(
+            create: (_) => FileListCubit(const [], bridge.fileList),
+          ),
+          BlocProvider(
+            create: (_) => ProjectHistoryCubit(
+              const [],
+              bridge.projectHistoryStream,
+            ),
+          ),
+          BlocProvider(create: (_) => ServerDiscoveryCubit()),
+        ],
+        child: const CcpocketApp(),
+      ),
+    ),
+  );
 }
 
 class CcpocketApp extends StatefulWidget {
