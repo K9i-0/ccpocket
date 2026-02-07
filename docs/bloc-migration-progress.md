@@ -19,26 +19,14 @@
 - `diff_screen.dart` — ConsumerWidget → StatelessWidget + BlocProvider + BlocBuilder
 - 削除: diff_view_notifier.dart
 
-## 未完了
-
-### Phase 3: SessionList移行 🔲
+### Phase 3: SessionList移行 ✅
 - `lib/features/session_list/state/session_list_cubit.dart` 作成 (session_list_notifier.dart → Cubit化)
-  - `state = state.copyWith(...)` → `emit(state.copyWith(...))`
-  - `ref.read(bridgeServiceProvider)` → コンストラクタ注入
-  - ref.onDispose → close() override
-- `session_list_screen.dart` 更新:
-  - ConsumerStatefulWidget → StatefulWidget
-  - ref.read(bridgeServiceProvider) → context.read<BridgeService>()
-  - ref.watch(sessionListNotifierProvider) → context.watch<SessionListCubit>().state
-  - ref.read(sessionListNotifierProvider.notifier) → context.read<SessionListCubit>()
-  - ref.watch(connectionStateProvider).valueOrNull → context.watch<ConnectionCubit>().state
-  - ref.watch(sessionListProvider).valueOrNull → context.watch<ActiveSessionsCubit>().state
-  - ref.watch(serverDiscoveryProvider).valueOrNull → context.watch<ServerDiscoveryCubit>().state
-  - ref.listen(connectionStateProvider) → BlocListener<ConnectionCubit, ...>
-  - ref.read(projectHistoryProvider).valueOrNull → context.read<ProjectHistoryCubit>().state
-  - ref.read(connectionStateProvider).valueOrNull → context.read<ConnectionCubit>().state
-- SessionListCubitをmain.dartのMultiBlocProviderに追加
+- `session_list_screen.dart` — ConsumerStatefulWidget → StatefulWidget + BlocListener + context.read/watch
+- `main.dart` — SessionListCubitをMultiBlocProviderに追加
+- `test/session_list_cubit_test.dart` — ProviderContainer → Cubit直接テストに書き換え (12テスト全合格)
 - 削除: session_list_notifier.dart
+
+## 未完了
 
 ### Phase 4: Chat移行 (最も複雑) 🔲
 - `lib/features/chat/state/streaming_state_cubit.dart` 作成

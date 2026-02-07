@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 
 import 'features/session_list/session_list_screen.dart';
+import 'features/session_list/state/session_list_cubit.dart';
 import 'models/messages.dart';
 import 'providers/bridge_cubits.dart';
 import 'providers/server_discovery_cubit.dart';
@@ -42,8 +43,7 @@ void main() async {
             ),
           ),
           BlocProvider(
-            create: (_) =>
-                ActiveSessionsCubit(const [], bridge.sessionList),
+            create: (_) => ActiveSessionsCubit(const [], bridge.sessionList),
           ),
           BlocProvider(
             create: (_) =>
@@ -52,16 +52,16 @@ void main() async {
           BlocProvider(
             create: (_) => GalleryCubit(const [], bridge.galleryStream),
           ),
+          BlocProvider(create: (_) => FileListCubit(const [], bridge.fileList)),
           BlocProvider(
-            create: (_) => FileListCubit(const [], bridge.fileList),
-          ),
-          BlocProvider(
-            create: (_) => ProjectHistoryCubit(
-              const [],
-              bridge.projectHistoryStream,
-            ),
+            create: (_) =>
+                ProjectHistoryCubit(const [], bridge.projectHistoryStream),
           ),
           BlocProvider(create: (_) => ServerDiscoveryCubit()),
+          BlocProvider(
+            create: (ctx) =>
+                SessionListCubit(bridge: ctx.read<BridgeService>()),
+          ),
         ],
         child: const CcpocketApp(),
       ),

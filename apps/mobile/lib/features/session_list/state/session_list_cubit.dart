@@ -1,13 +1,10 @@
 import 'dart:async';
 
-import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../models/messages.dart';
-import '../../../providers/bridge_providers.dart';
 import '../../../services/bridge_service.dart';
 import 'session_list_state.dart';
-
-part 'session_list_notifier.g.dart';
 
 /// Manages session list state: sessions, filters, pagination, and
 /// accumulated project paths.
@@ -15,27 +12,18 @@ part 'session_list_notifier.g.dart';
 /// Subscribes to [BridgeService.recentSessionsStream] and
 /// [BridgeService.projectHistoryStream] to accumulate project paths
 /// and track session data.
-@riverpod
-class SessionListNotifier extends _$SessionListNotifier {
-  late final BridgeService _bridge;
+class SessionListCubit extends Cubit<SessionListState> {
+  final BridgeService _bridge;
   StreamSubscription<List<RecentSession>>? _recentSub;
   StreamSubscription<List<String>>? _projectHistorySub;
 
-  @override
-  SessionListState build() {
-    _bridge = ref.read(bridgeServiceProvider);
-
+  SessionListCubit({required BridgeService bridge})
+    : _bridge = bridge,
+      super(const SessionListState()) {
     _recentSub = _bridge.recentSessionsStream.listen(_onSessionsUpdate);
     _projectHistorySub = _bridge.projectHistoryStream.listen(
       _onProjectHistoryUpdate,
     );
-
-    ref.onDispose(() {
-      _recentSub?.cancel();
-      _projectHistorySub?.cancel();
-    });
-
-    return const SessionListState();
   }
 
   void _onSessionsUpdate(List<RecentSession> sessions) {
@@ -48,11 +36,13 @@ class SessionListNotifier extends _$SessionListNotifier {
         ? {...current, ...newPaths}
         : current;
 
-    state = state.copyWith(
-      sessions: sessions,
-      hasMore: _bridge.recentSessionsHasMore,
-      isLoadingMore: false,
-      accumulatedProjectPaths: merged,
+    emit(
+      state.copyWith(
+        sessions: sessions,
+        hasMore: _bridge.recentSessionsHasMore,
+        isLoadingMore: false,
+        accumulatedProjectPaths: merged,
+      ),
     );
   }
 
@@ -61,13 +51,11 @@ class SessionListNotifier extends _$SessionListNotifier {
     final current = state.accumulatedProjectPaths;
     final newPaths = projects.toSet();
     if (newPaths.difference(current).isNotEmpty) {
-      state = state.copyWith(
-        accumulatedProjectPaths: {...current, ...newPaths},
-      );
+      emit(state.copyWith(accumulatedProjectPaths: {...current, ...newPaths}));
     }
   }
 
-  // ---- Filter commands (Path B) ----
+  // ---- Filter commands ----
 
   /// Switch project filter. Resets sessions on the server side and fetches
   /// from offset 0 for the selected project.
@@ -75,23 +63,23 @@ class SessionListNotifier extends _$SessionListNotifier {
     final projectName = projectPath != null
         ? projectPath.split('/').last
         : null;
-    state = state.copyWith(selectedProject: projectName);
+    emit(state.copyWith(selectedProject: projectName));
     _bridge.switchProjectFilter(projectPath);
   }
 
   /// Set date filter (client-side only).
   void setDateFilter(DateFilter filter) {
-    state = state.copyWith(dateFilter: filter);
+    emit(state.copyWith(dateFilter: filter));
   }
 
   /// Set search query (client-side only).
   void setSearchQuery(String query) {
-    state = state.copyWith(searchQuery: query);
+    emit(state.copyWith(searchQuery: query));
   }
 
   /// Load more sessions (pagination).
   void loadMore() {
-    state = state.copyWith(isLoadingMore: true);
+    emit(state.copyWith(isLoadingMore: true));
     _bridge.loadMoreRecentSessions();
   }
 
@@ -107,12 +95,21 @@ class SessionListNotifier extends _$SessionListNotifier {
 
   /// Reset all filter state (used on disconnect).
   void resetFilters() {
-    state = state.copyWith(
-      selectedProject: null,
-      dateFilter: DateFilter.all,
-      searchQuery: '',
-      accumulatedProjectPaths: const {},
-      isLoadingMore: false,
+    emit(
+      state.copyWith(
+        selectedProject: null,
+        dateFilter: DateFilter.all,
+        searchQuery: '',
+        accumulatedProjectPaths: const {},
+        isLoadingMore: false,
+      ),
     );
+  }
+
+  @override
+  Future<void> close() {
+    _recentSub?.cancel();
+    _projectHistorySub?.cancel();
+    return super.close();
   }
 }

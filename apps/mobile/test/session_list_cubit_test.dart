@@ -1,14 +1,12 @@
 import 'dart:async';
 
-import 'package:ccpocket/features/session_list/state/session_list_notifier.dart';
+import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
 import 'package:ccpocket/features/session_list/state/session_list_state.dart';
 import 'package:ccpocket/models/messages.dart';
-import 'package:ccpocket/providers/bridge_providers.dart';
 import 'package:ccpocket/services/bridge_service.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Minimal mock for SessionListNotifier tests.
+/// Minimal mock for SessionListCubit tests.
 class MockBridgeService extends BridgeService {
   final _recentSessionsController =
       StreamController<List<RecentSession>>.broadcast();
@@ -99,74 +97,56 @@ RecentSession _session({
 }
 
 void main() {
-  late ProviderContainer container;
+  late SessionListCubit cubit;
   late MockBridgeService mockBridge;
 
   setUp(() {
     mockBridge = MockBridgeService();
-    container = ProviderContainer(
-      overrides: [bridgeServiceProvider.overrideWithValue(mockBridge)],
-    );
+    cubit = SessionListCubit(bridge: mockBridge);
   });
 
   tearDown(() {
-    container.dispose();
+    cubit.close();
     mockBridge.dispose();
   });
 
-  group('SessionListNotifier', () {
+  group('SessionListCubit', () {
     test('initial state is empty', () {
-      final state = container.read(sessionListNotifierProvider);
-      expect(state.sessions, isEmpty);
-      expect(state.hasMore, isFalse);
-      expect(state.isLoadingMore, isFalse);
-      expect(state.selectedProject, isNull);
-      expect(state.dateFilter, DateFilter.all);
-      expect(state.searchQuery, isEmpty);
-      expect(state.accumulatedProjectPaths, isEmpty);
+      expect(cubit.state.sessions, isEmpty);
+      expect(cubit.state.hasMore, isFalse);
+      expect(cubit.state.isLoadingMore, isFalse);
+      expect(cubit.state.selectedProject, isNull);
+      expect(cubit.state.dateFilter, DateFilter.all);
+      expect(cubit.state.searchQuery, isEmpty);
+      expect(cubit.state.accumulatedProjectPaths, isEmpty);
     });
 
     test('sessions update from stream', () async {
-      container.read(sessionListNotifierProvider);
-      await Future.microtask(() {});
-
       mockBridge.emitSessions([_session(id: 's1'), _session(id: 's2')]);
       await Future.microtask(() {});
 
-      final state = container.read(sessionListNotifierProvider);
-      expect(state.sessions, hasLength(2));
-      expect(state.sessions[0].sessionId, 's1');
+      expect(cubit.state.sessions, hasLength(2));
+      expect(cubit.state.sessions[0].sessionId, 's1');
     });
 
     test('hasMore reflects bridge state', () async {
-      container.read(sessionListNotifierProvider);
-      await Future.microtask(() {});
-
       mockBridge.emitSessions([_session(id: 's1')], hasMore: true);
       await Future.microtask(() {});
 
-      final state = container.read(sessionListNotifierProvider);
-      expect(state.hasMore, isTrue);
+      expect(cubit.state.hasMore, isTrue);
     });
 
     test('sessions update accumulates project paths', () async {
-      container.read(sessionListNotifierProvider);
-      await Future.microtask(() {});
-
       mockBridge.emitSessions([
         _session(id: 's1', projectPath: '/a/proj1'),
         _session(id: 's2', projectPath: '/b/proj2'),
       ]);
       await Future.microtask(() {});
 
-      final state = container.read(sessionListNotifierProvider);
-      expect(state.accumulatedProjectPaths, {'/a/proj1', '/b/proj2'});
+      expect(cubit.state.accumulatedProjectPaths, {'/a/proj1', '/b/proj2'});
     });
 
     test('project history merges into accumulated paths', () async {
-      container.read(sessionListNotifierProvider);
-      await Future.microtask(() {});
-
       // First, emit sessions to set some paths
       mockBridge.emitSessions([_session(id: 's1', projectPath: '/a/proj1')]);
       await Future.microtask(() {});
@@ -175,102 +155,65 @@ void main() {
       mockBridge.emitProjectHistory(['/a/proj1', '/c/proj3']);
       await Future.microtask(() {});
 
-      final state = container.read(sessionListNotifierProvider);
-      expect(state.accumulatedProjectPaths, {'/a/proj1', '/c/proj3'});
+      expect(cubit.state.accumulatedProjectPaths, {'/a/proj1', '/c/proj3'});
     });
 
     test('selectProject updates filter and calls bridge', () async {
-      container.read(sessionListNotifierProvider);
-      await Future.microtask(() {});
+      cubit.selectProject('/a/proj1');
 
-      container
-          .read(sessionListNotifierProvider.notifier)
-          .selectProject('/a/proj1');
-
-      final state = container.read(sessionListNotifierProvider);
-      expect(state.selectedProject, 'proj1');
+      expect(cubit.state.selectedProject, 'proj1');
     });
 
     test('selectProject(null) clears filter', () async {
-      container.read(sessionListNotifierProvider);
-      await Future.microtask(() {});
-
       // Set a filter first
-      container
-          .read(sessionListNotifierProvider.notifier)
-          .selectProject('/a/proj1');
+      cubit.selectProject('/a/proj1');
       // Then clear it
-      container.read(sessionListNotifierProvider.notifier).selectProject(null);
+      cubit.selectProject(null);
 
-      final state = container.read(sessionListNotifierProvider);
-      expect(state.selectedProject, isNull);
+      expect(cubit.state.selectedProject, isNull);
     });
 
     test('setDateFilter updates filter', () {
-      container.read(sessionListNotifierProvider);
+      cubit.setDateFilter(DateFilter.today);
 
-      container
-          .read(sessionListNotifierProvider.notifier)
-          .setDateFilter(DateFilter.today);
-
-      final state = container.read(sessionListNotifierProvider);
-      expect(state.dateFilter, DateFilter.today);
+      expect(cubit.state.dateFilter, DateFilter.today);
     });
 
     test('setSearchQuery updates query', () {
-      container.read(sessionListNotifierProvider);
+      cubit.setSearchQuery('hello');
 
-      container
-          .read(sessionListNotifierProvider.notifier)
-          .setSearchQuery('hello');
-
-      final state = container.read(sessionListNotifierProvider);
-      expect(state.searchQuery, 'hello');
+      expect(cubit.state.searchQuery, 'hello');
     });
 
     test('loadMore sets isLoadingMore and calls bridge', () async {
-      container.read(sessionListNotifierProvider);
-      await Future.microtask(() {});
+      cubit.loadMore();
 
-      container.read(sessionListNotifierProvider.notifier).loadMore();
-
-      final state = container.read(sessionListNotifierProvider);
-      expect(state.isLoadingMore, isTrue);
+      expect(cubit.state.isLoadingMore, isTrue);
       expect(mockBridge.sentMessages, isNotEmpty);
     });
 
     test('loadMore isLoadingMore resets when sessions arrive', () async {
-      container.read(sessionListNotifierProvider);
-      await Future.microtask(() {});
-
-      container.read(sessionListNotifierProvider.notifier).loadMore();
-      expect(container.read(sessionListNotifierProvider).isLoadingMore, isTrue);
+      cubit.loadMore();
+      expect(cubit.state.isLoadingMore, isTrue);
 
       // Sessions arrive, clearing loading state
       mockBridge.emitSessions([_session(id: 's1')]);
       await Future.microtask(() {});
 
-      expect(
-        container.read(sessionListNotifierProvider).isLoadingMore,
-        isFalse,
-      );
+      expect(cubit.state.isLoadingMore, isFalse);
     });
 
     test('resetFilters clears all filter state', () {
-      container.read(sessionListNotifierProvider);
-      final notifier = container.read(sessionListNotifierProvider.notifier);
+      cubit.selectProject('/a/proj1');
+      cubit.setDateFilter(DateFilter.thisWeek);
+      cubit.setSearchQuery('test');
 
-      notifier.selectProject('/a/proj1');
-      notifier.setDateFilter(DateFilter.thisWeek);
-      notifier.setSearchQuery('test');
+      cubit.resetFilters();
 
-      notifier.resetFilters();
-
-      final state = container.read(sessionListNotifierProvider);
-      expect(state.selectedProject, isNull);
-      expect(state.dateFilter, DateFilter.all);
-      expect(state.searchQuery, isEmpty);
-      expect(state.accumulatedProjectPaths, isEmpty);
+      expect(cubit.state.selectedProject, isNull);
+      expect(cubit.state.dateFilter, DateFilter.all);
+      expect(cubit.state.searchQuery, isEmpty);
+      expect(cubit.state.accumulatedProjectPaths, isEmpty);
     });
   });
 }

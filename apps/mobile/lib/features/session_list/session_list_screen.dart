@@ -3,12 +3,12 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/messages.dart';
-import '../../providers/bridge_providers.dart';
-import '../../providers/discovery_provider.dart';
+import '../../providers/bridge_cubits.dart';
+import '../../providers/server_discovery_cubit.dart';
 import '../../screens/mock_preview_screen.dart';
 import '../../screens/qr_scan_screen.dart';
 import '../../services/bridge_service.dart';
@@ -18,7 +18,7 @@ import '../../services/url_history_service.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../chat/chat_screen.dart';
 import '../gallery/gallery_screen.dart';
-import 'state/session_list_notifier.dart';
+import 'state/session_list_cubit.dart';
 import 'state/session_list_state.dart';
 import 'widgets/connect_form.dart';
 import 'widgets/home_content.dart';
@@ -101,7 +101,7 @@ List<RecentSession> filterByDate(
 
 // ---- Screen ----
 
-class SessionListScreen extends ConsumerStatefulWidget {
+class SessionListScreen extends StatefulWidget {
   final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
 
   /// Pre-populated sessions for UI testing (skips bridge connection).
@@ -114,10 +114,10 @@ class SessionListScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<SessionListScreen> createState() => _SessionListScreenState();
+  State<SessionListScreen> createState() => _SessionListScreenState();
 }
 
-class _SessionListScreenState extends ConsumerState<SessionListScreen> {
+class _SessionListScreenState extends State<SessionListScreen> {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
 
@@ -142,7 +142,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   void initState() {
     super.initState();
     // session_created navigation (the only manual subscription)
-    final bridge = ref.read(bridgeServiceProvider);
+    final bridge = context.read<BridgeService>();
     _messageSub = bridge.messages.listen((msg) {
       if (msg is SystemMessage && msg.subtype == 'session_created') {
         bridge.requestSessionList();
@@ -188,7 +188,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     }
     if (url != null && url.isNotEmpty) {
       setState(() => _isAutoConnecting = true);
-      final attempted = await ref.read(bridgeServiceProvider).autoConnect();
+      final attempted = await context.read<BridgeService>().autoConnect();
       if (!attempted) {
         setState(() => _isAutoConnecting = false);
       }
@@ -221,7 +221,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
       final sep = url.contains('?') ? '&' : '?';
       url = '$url${sep}token=$apiKey';
     }
-    final bridge = ref.read(bridgeServiceProvider);
+    final bridge = context.read<BridgeService>();
     bridge.connect(url);
     bridge.savePreferences(
       _urlController.text.trim(),
@@ -393,20 +393,20 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   }
 
   void _disconnect() {
-    ref.read(bridgeServiceProvider).disconnect();
-    ref.read(sessionListNotifierProvider.notifier).resetFilters();
+    context.read<BridgeService>().disconnect();
+    context.read<SessionListCubit>().resetFilters();
     setState(() => _isSearching = false);
   }
 
   void _refresh() {
-    ref.read(sessionListNotifierProvider.notifier).refresh();
+    context.read<SessionListCubit>().refresh();
   }
 
   void _showNewSessionDialog() async {
     final sessions =
         widget.debugRecentSessions ??
-        ref.read(sessionListNotifierProvider).sessions;
-    final history = ref.read(projectHistoryProvider).valueOrNull ?? [];
+        context.read<SessionListCubit>().state.sessions;
+    final history = context.read<ProjectHistoryCubit>().state;
     final result = await showNewSessionSheet(
       context: context,
       recentProjects: recentProjects(sessions),
@@ -414,16 +414,14 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
     );
     if (result == null) return;
     _pendingResumeProjectPath = result.projectPath;
-    ref
-        .read(bridgeServiceProvider)
-        .send(
-          ClientMessage.start(
-            result.projectPath,
-            permissionMode: result.permissionMode.value,
-            useWorktree: result.useWorktree ? true : null,
-            worktreeBranch: result.worktreeBranch,
-          ),
-        );
+    context.read<BridgeService>().send(
+      ClientMessage.start(
+        result.projectPath,
+        permissionMode: result.permissionMode.value,
+        useWorktree: result.useWorktree ? true : null,
+        worktreeBranch: result.worktreeBranch,
+      ),
+    );
   }
 
   void _navigateToChat(
@@ -443,8 +441,9 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
         ),
       ),
     ).then((_) {
+      if (!mounted) return;
       final isConnected =
-          ref.read(connectionStateProvider).valueOrNull ==
+          context.read<ConnectionCubit>().state ==
           BridgeConnectionState.connected;
       if (isConnected) {
         _refresh();
@@ -455,9 +454,10 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
   void _resumeSession(RecentSession session) {
     _pendingResumeProjectPath = session.projectPath;
     _pendingResumeGitBranch = session.gitBranch;
-    ref
-        .read(bridgeServiceProvider)
-        .resumeSession(session.sessionId, session.projectPath);
+    context.read<BridgeService>().resumeSession(
+      session.sessionId,
+      session.projectPath,
+    );
   }
 
   void _stopSession(String sessionId) {
@@ -479,7 +479,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
             ),
             onPressed: () {
               Navigator.pop(context);
-              ref.read(bridgeServiceProvider).stopSession(sessionId);
+              context.read<BridgeService>().stopSession(sessionId);
             },
             child: const Text('Stop'),
           ),
@@ -490,166 +490,153 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Side-effect: auto-request lists on connect
-    ref.listen<AsyncValue<BridgeConnectionState>>(connectionStateProvider, (
-      prev,
-      next,
-    ) {
-      final prevState = prev?.valueOrNull;
-      final nextState = next.valueOrNull;
-      if (nextState != null) {
-        // Clear auto-connecting spinner once we get any connection state update
-        if (_isAutoConnecting) {
-          setState(() => _isAutoConnecting = false);
-        }
-      }
-      if (prevState != BridgeConnectionState.connected &&
-          nextState == BridgeConnectionState.connected) {
-        ref.read(sessionListNotifierProvider.notifier).refresh();
-      }
-    });
-
-    // Read state from providers
-    final slState = ref.watch(sessionListNotifierProvider);
+    // Read state from cubits
+    final slState = context.watch<SessionListCubit>().state;
     final connectionState = widget.debugRecentSessions != null
         ? BridgeConnectionState.connected
-        : (ref.watch(connectionStateProvider).valueOrNull ??
-              BridgeConnectionState.disconnected);
-    final sessions = ref.watch(sessionListProvider).valueOrNull ?? [];
+        : context.watch<ConnectionCubit>().state;
+    final sessions = context.watch<ActiveSessionsCubit>().state;
     final recentSessionsList = widget.debugRecentSessions ?? slState.sessions;
-    final discoveredServers =
-        ref.watch(serverDiscoveryProvider).valueOrNull ?? [];
+    final discoveredServers = context.watch<ServerDiscoveryCubit>().state;
 
     final isConnected = connectionState == BridgeConnectionState.connected;
     final showConnectedUI =
         isConnected || connectionState == BridgeConnectionState.reconnecting;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: _isSearching
-            ? TextField(
-                key: const ValueKey('search_field'),
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Search sessions...',
-                  border: InputBorder.none,
+    return BlocListener<ConnectionCubit, BridgeConnectionState>(
+      listener: (context, nextState) {
+        // Clear auto-connecting spinner once we get any connection state update
+        if (_isAutoConnecting) {
+          setState(() => _isAutoConnecting = false);
+        }
+        if (nextState == BridgeConnectionState.connected) {
+          context.read<SessionListCubit>().refresh();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: _isSearching
+              ? TextField(
+                  key: const ValueKey('search_field'),
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Search sessions...',
+                    border: InputBorder.none,
+                  ),
+                  onChanged: (v) =>
+                      context.read<SessionListCubit>().setSearchQuery(v),
+                )
+              : const Text('ccpocket'),
+          actions: [
+            if (kDebugMode)
+              IconButton(
+                key: const ValueKey('mock_preview_button'),
+                icon: const Icon(Icons.science),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MockPreviewScreen()),
                 ),
-                onChanged: (v) => ref
-                    .read(sessionListNotifierProvider.notifier)
-                    .setSearchQuery(v),
+                tooltip: 'Mock Preview',
+              ),
+            if (showConnectedUI && recentSessionsList.isNotEmpty)
+              IconButton(
+                key: const ValueKey('search_button'),
+                icon: Icon(_isSearching ? Icons.close : Icons.search),
+                onPressed: () {
+                  setState(() => _isSearching = !_isSearching);
+                  if (!_isSearching) {
+                    context.read<SessionListCubit>().setSearchQuery('');
+                  }
+                },
+                tooltip: 'Search',
+              ),
+            if (showConnectedUI)
+              IconButton(
+                key: const ValueKey('gallery_button'),
+                icon: const Icon(Icons.preview),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const GalleryScreen()),
+                ),
+                tooltip: 'Preview',
+              ),
+            if (showConnectedUI)
+              IconButton(
+                key: const ValueKey('refresh_button'),
+                icon: const Icon(Icons.refresh),
+                onPressed: _refresh,
+                tooltip: 'Refresh',
+              ),
+            if (showConnectedUI)
+              IconButton(
+                key: const ValueKey('disconnect_button'),
+                icon: const Icon(Icons.link_off),
+                onPressed: _disconnect,
+                tooltip: 'Disconnect',
+              ),
+          ],
+        ),
+        body: _isAutoConnecting
+            ? const Center(child: CircularProgressIndicator())
+            : showConnectedUI
+            ? RefreshIndicator(
+                onRefresh: () async => _refresh(),
+                child: HomeContent(
+                  connectionState: connectionState,
+                  sessions: sessions,
+                  recentSessions: recentSessionsList,
+                  accumulatedProjectPaths: slState.accumulatedProjectPaths,
+                  selectedProject: slState.selectedProject,
+                  dateFilter: slState.dateFilter,
+                  searchQuery: slState.searchQuery,
+                  isLoadingMore: slState.isLoadingMore,
+                  hasMoreSessions: slState.hasMore,
+                  currentProjectFilter: context
+                      .read<BridgeService>()
+                      .currentProjectFilter,
+                  onNewSession: _showNewSessionDialog,
+                  onTapRunning:
+                      (
+                        sessionId, {
+                        String? projectPath,
+                        String? worktreePath,
+                      }) => _navigateToChat(
+                        sessionId,
+                        projectPath: projectPath,
+                        worktreePath: worktreePath,
+                      ),
+                  onStopSession: _stopSession,
+                  onResumeSession: _resumeSession,
+                  onSelectProject: (path) =>
+                      context.read<SessionListCubit>().selectProject(path),
+                  onSelectDateFilter: (f) =>
+                      context.read<SessionListCubit>().setDateFilter(f),
+                  onLoadMore: () => context.read<SessionListCubit>().loadMore(),
+                ),
               )
-            : const Text('ccpocket'),
-        actions: [
-          if (kDebugMode)
-            IconButton(
-              key: const ValueKey('mock_preview_button'),
-              icon: const Icon(Icons.science),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MockPreviewScreen()),
+            : connectionState == BridgeConnectionState.connecting
+            ? const Center(child: CircularProgressIndicator())
+            : ConnectForm(
+                urlController: _urlController,
+                apiKeyController: _apiKeyController,
+                discoveredServers: discoveredServers,
+                urlHistory: _urlHistory,
+                onConnect: _connect,
+                onScanQrCode: _scanQrCode,
+                onConnectToDiscovered: _connectToDiscovered,
+                onSelectUrlHistory: _selectUrlHistory,
+                onRemoveUrlHistory: (url) async {
+                  await _removeUrlHistory(url);
+                },
               ),
-              tooltip: 'Mock Preview',
-            ),
-          if (showConnectedUI && recentSessionsList.isNotEmpty)
-            IconButton(
-              key: const ValueKey('search_button'),
-              icon: Icon(_isSearching ? Icons.close : Icons.search),
-              onPressed: () {
-                setState(() => _isSearching = !_isSearching);
-                if (!_isSearching) {
-                  ref
-                      .read(sessionListNotifierProvider.notifier)
-                      .setSearchQuery('');
-                }
-              },
-              tooltip: 'Search',
-            ),
-          if (showConnectedUI)
-            IconButton(
-              key: const ValueKey('gallery_button'),
-              icon: const Icon(Icons.preview),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const GalleryScreen()),
-              ),
-              tooltip: 'Preview',
-            ),
-          if (showConnectedUI)
-            IconButton(
-              key: const ValueKey('refresh_button'),
-              icon: const Icon(Icons.refresh),
-              onPressed: _refresh,
-              tooltip: 'Refresh',
-            ),
-          if (showConnectedUI)
-            IconButton(
-              key: const ValueKey('disconnect_button'),
-              icon: const Icon(Icons.link_off),
-              onPressed: _disconnect,
-              tooltip: 'Disconnect',
-            ),
-        ],
+        floatingActionButton: showConnectedUI
+            ? FloatingActionButton(
+                key: const ValueKey('new_session_fab'),
+                onPressed: _showNewSessionDialog,
+                child: const Icon(Icons.add),
+              )
+            : null,
       ),
-      body: _isAutoConnecting
-          ? const Center(child: CircularProgressIndicator())
-          : showConnectedUI
-          ? RefreshIndicator(
-              onRefresh: () async => _refresh(),
-              child: HomeContent(
-                connectionState: connectionState,
-                sessions: sessions,
-                recentSessions: recentSessionsList,
-                accumulatedProjectPaths: slState.accumulatedProjectPaths,
-                selectedProject: slState.selectedProject,
-                dateFilter: slState.dateFilter,
-                searchQuery: slState.searchQuery,
-                isLoadingMore: slState.isLoadingMore,
-                hasMoreSessions: slState.hasMore,
-                currentProjectFilter: ref
-                    .read(bridgeServiceProvider)
-                    .currentProjectFilter,
-                onNewSession: _showNewSessionDialog,
-                onTapRunning:
-                    (sessionId, {String? projectPath, String? worktreePath}) =>
-                        _navigateToChat(
-                          sessionId,
-                          projectPath: projectPath,
-                          worktreePath: worktreePath,
-                        ),
-                onStopSession: _stopSession,
-                onResumeSession: _resumeSession,
-                onSelectProject: (path) => ref
-                    .read(sessionListNotifierProvider.notifier)
-                    .selectProject(path),
-                onSelectDateFilter: (f) => ref
-                    .read(sessionListNotifierProvider.notifier)
-                    .setDateFilter(f),
-                onLoadMore: () =>
-                    ref.read(sessionListNotifierProvider.notifier).loadMore(),
-              ),
-            )
-          : connectionState == BridgeConnectionState.connecting
-          ? const Center(child: CircularProgressIndicator())
-          : ConnectForm(
-              urlController: _urlController,
-              apiKeyController: _apiKeyController,
-              discoveredServers: discoveredServers,
-              urlHistory: _urlHistory,
-              onConnect: _connect,
-              onScanQrCode: _scanQrCode,
-              onConnectToDiscovered: _connectToDiscovered,
-              onSelectUrlHistory: _selectUrlHistory,
-              onRemoveUrlHistory: (url) async {
-                await _removeUrlHistory(url);
-              },
-            ),
-      floatingActionButton: showConnectedUI
-          ? FloatingActionButton(
-              key: const ValueKey('new_session_fab'),
-              onPressed: _showNewSessionDialog,
-              child: const Icon(Icons.add),
-            )
-          : null,
     );
   }
 
