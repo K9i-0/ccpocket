@@ -1,11 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../hooks/use_voice_input.dart';
 import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
+import '../../../services/bridge_service.dart';
 import '../../../widgets/chat_input_bar.dart';
 import '../../../widgets/file_mention_overlay.dart';
 import '../../../widgets/slash_command_overlay.dart';
@@ -48,6 +52,11 @@ class ChatInputWithOverlays extends HookWidget {
     // Filtered overlay items
     final filteredSlash = useState<List<SlashCommand>>(const []);
     final filteredFiles = useState<List<String>>(const []);
+
+    // Image attachment state
+    final attachedImage = useState<Uint8List?>(null);
+    final attachedMimeType = useState<String?>(null);
+    final isUploading = useState(false);
 
     // Project files for @-mention
     final projectFiles = context.watch<FileListCubit>().state;
@@ -134,13 +143,79 @@ class ChatInputWithOverlays extends HookWidget {
       );
     }
 
-    void sendMessage() {
+    Future<void> sendMessage() async {
       final text = inputController.text.trim();
-      if (text.isEmpty) return;
+      if (text.isEmpty && attachedImage.value == null) return;
       HapticFeedback.lightImpact();
-      context.read<ChatSessionCubit>().sendMessage(text);
+
+      // Capture context-dependent values before async gap
+      final bridge = context.read<BridgeService>();
+      final cubit = context.read<ChatSessionCubit>();
+      final projectPath = cubit.state.projectPath ?? '';
+
+      String? imageId;
+      String? imageUrl;
+
+      // Upload image if attached
+      if (attachedImage.value != null && attachedMimeType.value != null) {
+        isUploading.value = true;
+
+        final base64Data = base64Encode(attachedImage.value!);
+        final uploadedImage = await bridge.uploadImageBase64(
+          base64Data: base64Data,
+          mimeType: attachedMimeType.value!,
+          projectPath: projectPath,
+          sessionId: sessionId,
+        );
+
+        isUploading.value = false;
+
+        if (uploadedImage != null) {
+          imageId = uploadedImage.id;
+          imageUrl = uploadedImage.url;
+        }
+
+        // Clear attachment after upload
+        attachedImage.value = null;
+        attachedMimeType.value = null;
+      }
+
+      cubit.sendMessage(
+        text.isEmpty ? 'What is in this image?' : text,
+        imageId: imageId,
+        imageUrl: imageUrl,
+      );
       inputController.clear();
       onScrollToBottom();
+    }
+
+    Future<void> pickImage() async {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        attachedImage.value = bytes;
+
+        // Determine mime type from extension
+        final ext = image.path.split('.').last.toLowerCase();
+        attachedMimeType.value = switch (ext) {
+          'png' => 'image/png',
+          'gif' => 'image/gif',
+          'webp' => 'image/webp',
+          _ => 'image/jpeg',
+        };
+      }
+    }
+
+    void clearAttachment() {
+      attachedImage.value = null;
+      attachedMimeType.value = null;
     }
 
     void stopSession() {
@@ -191,8 +266,8 @@ class ChatInputWithOverlays extends HookWidget {
         ),
         child: ChatInputBar(
           inputController: inputController,
-          status: status,
-          hasInputText: hasInputText.value,
+          status: isUploading.value ? ProcessStatus.running : status,
+          hasInputText: hasInputText.value || attachedImage.value != null,
           isVoiceAvailable: voice.isAvailable,
           isRecording: voice.isRecording,
           onSend: sendMessage,
@@ -200,6 +275,9 @@ class ChatInputWithOverlays extends HookWidget {
           onInterrupt: interruptSession,
           onToggleVoice: voice.toggle,
           onShowSlashCommands: showSlashCommandSheet,
+          onAttachImage: pickImage,
+          attachedImageBytes: attachedImage.value,
+          onClearAttachment: clearAttachment,
         ),
       ),
     );

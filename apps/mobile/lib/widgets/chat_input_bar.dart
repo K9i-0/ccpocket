@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../models/messages.dart';
@@ -16,6 +18,9 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onInterrupt;
   final VoidCallback onToggleVoice;
   final VoidCallback onShowSlashCommands;
+  final VoidCallback? onAttachImage;
+  final Uint8List? attachedImageBytes;
+  final VoidCallback? onClearAttachment;
 
   const ChatInputBar({
     super.key,
@@ -29,6 +34,9 @@ class ChatInputBar extends StatelessWidget {
     required this.onInterrupt,
     required this.onToggleVoice,
     required this.onShowSlashCommands,
+    this.onAttachImage,
+    this.attachedImageBytes,
+    this.onClearAttachment,
   });
 
   @override
@@ -54,11 +62,14 @@ class ChatInputBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (attachedImageBytes != null) _buildImagePreview(cs),
           _buildTextField(cs),
           const SizedBox(height: 4),
           Row(
             children: [
               _buildSlashButton(cs),
+              const SizedBox(width: 8),
+              _buildAttachButton(cs),
               const Spacer(),
               _buildActionButton(cs),
             ],
@@ -89,6 +100,66 @@ class ChatInputBar extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAttachButton(ColorScheme cs) {
+    final hasAttachment = attachedImageBytes != null;
+    return Material(
+      color: hasAttachment ? cs.primaryContainer : cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        key: const ValueKey('attach_image_button'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: onAttachImage,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          child: Icon(
+            hasAttachment ? Icons.image : Icons.attach_file,
+            size: 18,
+            color: hasAttachment ? cs.onPrimaryContainer : cs.primary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImagePreview(ColorScheme cs) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.memory(
+              attachedImageBytes!,
+              height: 80,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: onClearAttachment,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(4),
+                child: const Icon(
+                  Icons.close,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

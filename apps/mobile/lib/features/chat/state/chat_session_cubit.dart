@@ -216,12 +216,19 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   // Commands (Path B: UI → Cubit → Bridge)
   // ---------------------------------------------------------------------------
 
-  /// Send a user message.
-  void sendMessage(String text) {
-    if (text.trim().isEmpty) return;
-    final entry = UserChatEntry(text, sessionId: sessionId);
+  /// Send a user message, optionally with an image attachment.
+  void sendMessage(String text, {String? imageId, String? imageUrl}) {
+    if (text.trim().isEmpty && imageId == null) return;
+    final entry = UserChatEntry(
+      text,
+      sessionId: sessionId,
+      imageId: imageId,
+      imageUrl: imageUrl,
+    );
     emit(state.copyWith(entries: [...state.entries, entry]));
-    _bridge.send(ClientMessage.input(text, sessionId: sessionId));
+    _bridge.send(
+      ClientMessage.input(text, sessionId: sessionId, imageId: imageId),
+    );
   }
 
   /// Approve a pending tool execution.

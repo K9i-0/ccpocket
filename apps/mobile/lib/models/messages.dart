@@ -635,9 +635,14 @@ class ClientMessage {
     return ClientMessage._(json);
   }
 
-  factory ClientMessage.input(String text, {String? sessionId}) {
+  factory ClientMessage.input(
+    String text, {
+    String? sessionId,
+    String? imageId,
+  }) {
     final json = <String, dynamic>{'type': 'input', 'text': text};
     if (sessionId != null) json['sessionId'] = sessionId;
+    if (imageId != null) json['imageId'] = imageId;
     return ClientMessage._(json);
   }
 
@@ -780,6 +785,8 @@ class ServerChatEntry implements ChatEntry {
 class UserChatEntry implements ChatEntry {
   final String text;
   final String? sessionId;
+  final String? imageId;
+  final String? imageUrl;
   MessageStatus status;
   @override
   final DateTime timestamp;
@@ -787,6 +794,8 @@ class UserChatEntry implements ChatEntry {
     this.text, {
     DateTime? timestamp,
     this.sessionId,
+    this.imageId,
+    this.imageUrl,
     this.status = MessageStatus.sending,
   }) : timestamp = timestamp ?? DateTime.now();
 }

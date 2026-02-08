@@ -60,6 +60,8 @@ class ChatEntryWidget extends StatelessWidget {
             onRetry: onRetryMessage != null
                 ? () => onRetryMessage!(user)
                 : null,
+            imageUrl: user.imageUrl,
+            httpBaseUrl: httpBaseUrl,
           ),
           StreamingChatEntry(:final text) => StreamingBubble(text: text),
         },

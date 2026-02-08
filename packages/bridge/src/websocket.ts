@@ -160,7 +160,24 @@ export class BridgeWebSocketServer {
         const text = msg.text.startsWith("/preview")
           ? this.expandPreviewCommand(session, msg.text)
           : msg.text;
-        session.process.sendInput(text);
+
+        // Handle image attachment via Gallery
+        if (msg.imageId && this.galleryStore) {
+          this.galleryStore.getImageAsBase64(msg.imageId).then((imageData) => {
+            if (imageData) {
+              session.process.sendInputWithImage(text, imageData);
+            } else {
+              // Image not found - send text only with warning
+              console.warn(`[ws] Image not found: ${msg.imageId}`);
+              session.process.sendInput(text);
+            }
+          }).catch((err) => {
+            console.error(`[ws] Failed to load image: ${err}`);
+            session.process.sendInput(text);
+          });
+        } else {
+          session.process.sendInput(text);
+        }
         break;
       }
 

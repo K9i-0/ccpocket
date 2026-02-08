@@ -198,6 +198,16 @@ type PermissionResult =
   | { behavior: "allow"; updatedInput?: Record<string, unknown> }
   | { behavior: "deny"; message: string };
 
+/** Image content block for SDK message */
+interface ImageBlock {
+  type: "image";
+  source: {
+    type: "base64";
+    media_type: string;
+    data: string;
+  };
+}
+
 /** User message type for SDK's AsyncIterable prompt */
 interface SDKUserMsg {
   type: "user";
@@ -207,6 +217,7 @@ interface SDKUserMsg {
     content: Array<
       | { type: "text"; text: string }
       | { type: "tool_result"; tool_use_id: string; content: string }
+      | ImageBlock
     >;
   };
   parent_tool_use_id: null;
@@ -352,6 +363,47 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       message: {
         role: "user",
         content: [{ type: "text", text }],
+      },
+      parent_tool_use_id: null,
+    });
+  }
+
+  /**
+   * Send a message with an image attachment.
+   * @param text - The text message
+   * @param image - Base64-encoded image data with mime type
+   */
+  sendInputWithImage(text: string, image: { base64: string; mimeType: string }): void {
+    if (!this.userMessageResolve) {
+      console.error("[sdk-process] No pending message resolver for sendInputWithImage");
+      return;
+    }
+    const resolve = this.userMessageResolve;
+    this.userMessageResolve = null;
+
+    const content: SDKUserMsg["message"]["content"] = [];
+
+    // Add image block first (Claude processes images before text)
+    content.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: image.mimeType,
+        data: image.base64,
+      },
+    });
+
+    // Add text block
+    content.push({ type: "text", text });
+
+    console.log(`[sdk-process] Sending message with image (${image.mimeType}, ${Math.round(image.base64.length / 1024)}KB base64)`);
+
+    resolve({
+      type: "user",
+      session_id: this._sessionId ?? "",
+      message: {
+        role: "user",
+        content,
       },
       parent_tool_use_id: null,
     });

@@ -102,6 +102,54 @@ export class GalleryStore {
     }
   }
 
+  /**
+   * Add an image from base64-encoded data.
+   * This allows mobile clients to upload images directly without file paths.
+   */
+  async addImageFromBase64(
+    base64Data: string,
+    mimeType: string,
+    projectPath: string,
+    sessionId?: string,
+  ): Promise<GalleryImageMeta | null> {
+    try {
+      // Validate mime type and get extension
+      const ext = Object.entries(MIME_TYPES).find(([, mime]) => mime === mimeType)?.[0];
+      if (!ext) {
+        console.warn(`[gallery] Unsupported mime type: ${mimeType}`);
+        return null;
+      }
+
+      const id = randomUUID();
+      const filename = `${id}${ext}`;
+      const destPath = join(IMAGES_DIR, filename);
+
+      // Decode base64 and write to file
+      const buffer = Buffer.from(base64Data, "base64");
+      await writeFile(destPath, buffer);
+
+      const meta: GalleryImageMeta = {
+        id,
+        filename,
+        mimeType,
+        projectPath,
+        sessionId,
+        sourcePath: "base64_upload",
+        addedAt: new Date().toISOString(),
+        sizeBytes: buffer.length,
+      };
+
+      this.index.push(meta);
+      await this.saveIndex();
+
+      console.log(`[gallery] Added image ${id} from base64 (${Math.round(buffer.length / 1024)}KB)`);
+      return meta;
+    } catch (err) {
+      console.warn(`[gallery] Failed to add image from base64:`, err);
+      return null;
+    }
+  }
+
   list(options?: { projectPath?: string; sessionId?: string }): GalleryImageInfo[] {
     let items = this.index;
     if (options?.projectPath) {
@@ -129,6 +177,34 @@ export class GalleryStore {
     const meta = this.index.find((m) => m.id === id);
     if (!meta) return null;
     return join(IMAGES_DIR, meta.filename);
+  }
+
+  /**
+   * Get image as Base64 for SDK message embedding.
+   * Returns null if image not found.
+   */
+  async getImageAsBase64(id: string): Promise<{ base64: string; mimeType: string } | null> {
+    const meta = this.index.find((m) => m.id === id);
+    if (!meta) return null;
+
+    const filePath = join(IMAGES_DIR, meta.filename);
+    try {
+      const buffer = await readFile(filePath);
+      return {
+        base64: buffer.toString("base64"),
+        mimeType: meta.mimeType,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get mime type for an image by ID.
+   */
+  getMimeType(id: string): string | null {
+    const meta = this.index.find((m) => m.id === id);
+    return meta?.mimeType ?? null;
   }
 
   async delete(id: string): Promise<boolean> {
@@ -225,7 +301,9 @@ export class GalleryStore {
 
   /**
    * Handle POST /api/gallery/upload.
-   * Accepts JSON body: { filePath: string, projectPath: string, sessionId?: string }
+   * Accepts JSON body with EITHER:
+   *   - { filePath: string, projectPath: string, sessionId?: string } (file path mode)
+   *   - { base64: string, mimeType: string, projectPath: string, sessionId?: string } (base64 mode)
    * Returns true if the request was handled.
    */
   handleUploadRequest(
@@ -242,22 +320,45 @@ export class GalleryStore {
       try {
         const parsed = JSON.parse(body) as {
           filePath?: string;
+          base64?: string;
+          mimeType?: string;
           projectPath?: string;
           sessionId?: string;
         };
-        if (!parsed.filePath || !parsed.projectPath) {
+
+        if (!parsed.projectPath) {
           res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "filePath and projectPath are required" }));
+          res.end(JSON.stringify({ error: "projectPath is required" }));
           return;
         }
-        const meta = await this.addImage(
-          parsed.filePath,
-          parsed.projectPath,
-          parsed.sessionId,
-        );
+
+        let meta: GalleryImageMeta | null = null;
+
+        // Base64 mode: save from base64 data
+        if (parsed.base64 && parsed.mimeType) {
+          meta = await this.addImageFromBase64(
+            parsed.base64,
+            parsed.mimeType,
+            parsed.projectPath,
+            parsed.sessionId,
+          );
+        }
+        // File path mode: copy from file path
+        else if (parsed.filePath) {
+          meta = await this.addImage(
+            parsed.filePath,
+            parsed.projectPath,
+            parsed.sessionId,
+          );
+        } else {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Either filePath or (base64 + mimeType) is required" }));
+          return;
+        }
+
         if (!meta) {
           res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Failed to add image (unsupported format or file not found)" }));
+          res.end(JSON.stringify({ error: "Failed to add image (unsupported format or invalid data)" }));
           return;
         }
         const info = this.metaToInfo(meta);

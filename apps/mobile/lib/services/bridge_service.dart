@@ -372,6 +372,42 @@ class BridgeService implements BridgeServiceBase {
     }
   }
 
+  /// Upload an image to the gallery from base64 data.
+  /// Returns the GalleryImage on success, null on failure.
+  Future<GalleryImage?> uploadImageBase64({
+    required String base64Data,
+    required String mimeType,
+    required String projectPath,
+    String? sessionId,
+  }) async {
+    final baseUrl = httpBaseUrl;
+    if (baseUrl == null) return null;
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/gallery/upload'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'base64': base64Data,
+              'mimeType': mimeType,
+              'projectPath': projectPath,
+              if (sessionId != null) 'sessionId': sessionId,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 201) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final imageJson = json['image'] as Map<String, dynamic>;
+        return GalleryImage.fromJson(imageJson);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   void disconnect() {
     _intentionalDisconnect = true;
     _reconnectTimer?.cancel();

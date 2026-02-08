@@ -9,11 +9,15 @@ class UserBubble extends StatelessWidget {
   final String text;
   final MessageStatus status;
   final VoidCallback? onRetry;
+  final String? imageUrl;
+  final String? httpBaseUrl;
   const UserBubble({
     super.key,
     required this.text,
     this.status = MessageStatus.sent,
     this.onRetry,
+    this.imageUrl,
+    this.httpBaseUrl,
   });
 
   @override
@@ -53,9 +57,33 @@ class UserBubble extends StatelessWidget {
                 color: appColors.userBubble,
                 borderRadius: AppSpacing.userBubbleBorderRadius,
               ),
-              child: Text(
-                text,
-                style: TextStyle(color: appColors.userBubbleText),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (imageUrl != null && httpBaseUrl != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          '$httpBaseUrl$imageUrl',
+                          width: 200,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            width: 200,
+                            height: 100,
+                            color: Colors.grey[300],
+                            child: const Icon(Icons.broken_image),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (text.isNotEmpty)
+                    Text(
+                      text,
+                      style: TextStyle(color: appColors.userBubbleText),
+                    ),
+                ],
               ),
             ),
             Padding(
