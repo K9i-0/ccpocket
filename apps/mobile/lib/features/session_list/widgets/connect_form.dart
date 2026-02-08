@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../../services/server_discovery_service.dart';
@@ -134,17 +135,19 @@ class ConnectForm extends StatelessWidget {
               label: const Text('Connect'),
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: OutlinedButton.icon(
-              key: const ValueKey('scan_qr_button'),
-              onPressed: onScanQrCode,
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Scan QR Code'),
+          if (!kIsWeb) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                key: const ValueKey('scan_qr_button'),
+                onPressed: onScanQrCode,
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Scan QR Code'),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

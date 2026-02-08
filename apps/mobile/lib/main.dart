@@ -17,7 +17,7 @@ import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
-  if (kDebugMode) {
+  if (kDebugMode && !kIsWeb) {
     MarionetteBinding.ensureInitialized();
   } else {
     WidgetsFlutterBinding.ensureInitialized();
@@ -77,20 +77,23 @@ class CcpocketApp extends StatefulWidget {
 }
 
 class _CcpocketAppState extends State<CcpocketApp> {
-  final _appLinks = AppLinks();
+  AppLinks? _appLinks;
   final _deepLinkNotifier = ValueNotifier<ConnectionParams?>(null);
   StreamSubscription<Uri>? _linkSub;
 
   @override
   void initState() {
     super.initState();
-    _initDeepLinks();
+    if (!kIsWeb) {
+      _appLinks = AppLinks();
+      _initDeepLinks();
+    }
   }
 
   Future<void> _initDeepLinks() async {
     // Handle cold start
     try {
-      final initialUri = await _appLinks.getInitialLink().timeout(
+      final initialUri = await _appLinks!.getInitialLink().timeout(
         const Duration(seconds: 3),
         onTimeout: () => null,
       );
@@ -103,7 +106,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
 
     // Handle warm start / incoming links while running
     try {
-      _linkSub = _appLinks.uriLinkStream.listen(
+      _linkSub = _appLinks!.uriLinkStream.listen(
         _handleUri,
         onError: (e) => debugPrint('[deep_link] stream error: $e'),
       );

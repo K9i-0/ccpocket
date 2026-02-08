@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -10,6 +11,7 @@ class NotificationService {
   bool _initialized = false;
 
   Future<void> init() async {
+    if (kIsWeb) return;
     if (_initialized) return;
 
     const androidSettings = AndroidInitializationSettings(

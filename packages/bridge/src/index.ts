@@ -40,6 +40,17 @@ const startedAt = Date.now();
 let wsServer: BridgeWebSocketServer | null = null;
 
 const httpServer = createServer((req, res) => {
+  // CORS headers for Flutter Web clients
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   // Health check endpoint
   if (req.url === "/health" && req.method === "GET") {
     const body = JSON.stringify({
