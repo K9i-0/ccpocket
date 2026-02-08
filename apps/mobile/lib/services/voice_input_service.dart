@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
@@ -10,6 +11,10 @@ class VoiceInputService {
   bool get isListening => _isListening;
 
   Future<bool> initialize() async {
+    if (kIsWeb) {
+      _isAvailable = false;
+      return false;
+    }
     _isAvailable = await _speech.initialize();
     return _isAvailable;
   }

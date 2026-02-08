@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../utils/platform_helper.dart';
 
 import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
@@ -58,7 +59,7 @@ List<({String path, String name})> recentProjects(
 
 /// Shorten absolute path by replacing $HOME with ~.
 String shortenPath(String path) {
-  final home = Platform.environment['HOME'] ?? '';
+  final home = getHomeDirectory();
   if (home.isNotEmpty && path.startsWith(home)) {
     return '~${path.substring(home.length)}';
   }
