@@ -321,7 +321,7 @@ void main() {
       expect(update.pendingPermission, isNull);
     });
 
-    test('clears pending permission after tool_result in history', () {
+    test('clears pending permission after matching tool_result in history', () {
       final update = handler.handle(
         HistoryMessage(
           messages: [
@@ -330,15 +330,37 @@ void main() {
               toolName: 'Bash',
               input: {'command': 'ls'},
             ),
-            const ToolResultMessage(toolUseId: 'tu-res', content: 'ok'),
+            // tool_result with same toolUseId clears the permission
+            const ToolResultMessage(toolUseId: 'tu-perm', content: 'ok'),
             const StatusMessage(status: ProcessStatus.waitingApproval),
           ],
         ),
         isBackground: false,
       );
-      // Permission was resolved by tool_result, so don't restore it
+      // Permission was resolved by its tool_result, so don't restore it
       expect(update.pendingToolUseId, isNull);
       expect(update.pendingPermission, isNull);
+    });
+
+    test('does not clear permission when tool_result has different id', () {
+      final update = handler.handle(
+        HistoryMessage(
+          messages: [
+            const PermissionRequestMessage(
+              toolUseId: 'tu-perm',
+              toolName: 'Bash',
+              input: {'command': 'ls'},
+            ),
+            // tool_result with different toolUseId does NOT clear the permission
+            const ToolResultMessage(toolUseId: 'tu-other', content: 'ok'),
+            const StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+      // Permission is still pending because the tool_result was for a different tool
+      expect(update.pendingToolUseId, 'tu-perm');
+      expect(update.pendingPermission!.toolName, 'Bash');
     });
 
     test('restores AskUserQuestion state from history', () {
@@ -400,7 +422,9 @@ void main() {
       expect(update.askInput, isNull);
     });
 
-    test('restores only the last permission request', () {
+    test('restores first pending permission when multiple are unresolved', () {
+      // Both tu-old and tu-new are pending (tu-res doesn't match either)
+      // The handler should return the first pending permission (FIFO)
       final update = handler.handle(
         HistoryMessage(
           messages: [
@@ -410,6 +434,32 @@ void main() {
               input: {'file_path': '/foo'},
             ),
             const ToolResultMessage(toolUseId: 'tu-res', content: 'ok'),
+            const PermissionRequestMessage(
+              toolUseId: 'tu-new',
+              toolName: 'Write',
+              input: {'file_path': '/bar'},
+            ),
+            const StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+      // First pending permission should be returned
+      expect(update.pendingToolUseId, 'tu-old');
+      expect(update.pendingPermission!.toolName, 'Read');
+    });
+
+    test('restores latest permission when earlier ones are resolved', () {
+      // tu-old is resolved by its tool_result, only tu-new remains pending
+      final update = handler.handle(
+        HistoryMessage(
+          messages: [
+            const PermissionRequestMessage(
+              toolUseId: 'tu-old',
+              toolName: 'Read',
+              input: {'file_path': '/foo'},
+            ),
+            const ToolResultMessage(toolUseId: 'tu-old', content: 'ok'),
             const PermissionRequestMessage(
               toolUseId: 'tu-new',
               toolName: 'Write',

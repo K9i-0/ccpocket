@@ -225,6 +225,8 @@ export class SessionManager {
 
     proc.on("exit", () => {
       session.status = "idle";
+      // Add status message to history so it stays in sync with session.status
+      session.history.push({ type: "status", status: "idle" } as ServerMessage);
     });
 
     this.sessions.set(id, session);

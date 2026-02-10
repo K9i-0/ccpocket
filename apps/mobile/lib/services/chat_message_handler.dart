@@ -231,10 +231,9 @@ class ChatMessageHandler {
     ProcessStatus? lastStatus;
     List<SlashCommand>? commands;
 
-    // Track the last pending permission / ask state in history so we can
-    // restore the approval bar or AskUserQuestion widget when resuming a
-    // session that was in waiting_approval state.
-    PermissionRequestMessage? lastPermission;
+    // Track pending permissions using a map to handle multiple concurrent requests.
+    // Key: toolUseId, Value: PermissionRequestMessage
+    final pendingPermissions = <String, PermissionRequestMessage>{};
     String? lastAskToolUseId;
     Map<String, dynamic>? lastAskInput;
 
@@ -259,7 +258,7 @@ class ChatMessageHandler {
         }
         // Track pending permission request
         if (m is PermissionRequestMessage) {
-          lastPermission = m;
+          pendingPermissions[m.toolUseId] = m;
         }
         // Track pending AskUserQuestion (tool_use in assistant message)
         if (m is AssistantServerMessage) {
@@ -271,14 +270,27 @@ class ChatMessageHandler {
             }
           }
         }
-        // A tool_result or result message means the pending state was resolved
-        if (m is ToolResultMessage || m is ResultMessage) {
-          lastPermission = null;
+        // A tool_result means that permission was resolved
+        if (m is ToolResultMessage) {
+          pendingPermissions.remove(m.toolUseId);
+          if (lastAskToolUseId != null && m.toolUseId == lastAskToolUseId) {
+            lastAskToolUseId = null;
+            lastAskInput = null;
+          }
+        }
+        // A result message means the turn completed
+        if (m is ResultMessage) {
+          pendingPermissions.clear();
           lastAskToolUseId = null;
           lastAskInput = null;
         }
       }
     }
+
+    // Get the first pending permission (if any)
+    final lastPermission = pendingPermissions.isNotEmpty
+        ? pendingPermissions.values.first
+        : null;
 
     // Only restore pending state if session is actually waiting
     final bool isWaiting = lastStatus == ProcessStatus.waitingApproval;
