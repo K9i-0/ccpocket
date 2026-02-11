@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/features/diff/state/diff_view_cubit.dart';
 import 'package:ccpocket/features/diff/state/diff_view_state.dart';
+import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 
 const _sampleDiff = '''
@@ -40,6 +43,59 @@ diff --git a/file_c.dart b/file_c.dart
 +replaced
  end
 ''';
+
+/// Large diff with many files for stress testing.
+const _largeDiff = '''
+diff --git a/a.dart b/a.dart
+--- a/a.dart
++++ b/a.dart
+@@ -1,1 +1,1 @@
+-a
++aa
+diff --git a/b.dart b/b.dart
+--- a/b.dart
++++ b/b.dart
+@@ -1,1 +1,1 @@
+-b
++bb
+diff --git a/c.dart b/c.dart
+--- a/c.dart
++++ b/c.dart
+@@ -1,1 +1,1 @@
+-c
++cc
+diff --git a/d.dart b/d.dart
+--- a/d.dart
++++ b/d.dart
+@@ -1,1 +1,1 @@
+-d
++dd
+diff --git a/e.dart b/e.dart
+--- a/e.dart
++++ b/e.dart
+@@ -1,1 +1,1 @@
+-e
++ee
+''';
+
+/// Mock BridgeService that exposes a controllable diffResults stream.
+class MockDiffBridgeService extends BridgeService {
+  final _diffController = StreamController<DiffResultMessage>.broadcast();
+  final sentMessages = <ClientMessage>[];
+
+  @override
+  Stream<DiffResultMessage> get diffResults => _diffController.stream;
+
+  @override
+  void send(ClientMessage message) {
+    sentMessages.add(message);
+  }
+
+  void emitDiff(DiffResultMessage msg) => _diffController.add(msg);
+
+  @override
+  void dispose() => _diffController.close();
+}
 
 DiffViewCubit _createCubit({String? initialDiff}) {
   return DiffViewCubit(bridge: BridgeService(), initialDiff: initialDiff);
@@ -140,6 +196,166 @@ void main() {
       expect(cubit.state.files, isEmpty);
       expect(cubit.state.loading, false);
       expect(cubit.state.error, isNull);
+    });
+  });
+
+  group('DiffViewCubit - initialDiff edge cases', () {
+    test('parses whitespace-only diff as empty', () {
+      final cubit = _createCubit(initialDiff: '   \n\n  ');
+      addTearDown(cubit.close);
+
+      expect(cubit.state.files, isEmpty);
+    });
+
+    test('parses multi-file diff correctly', () {
+      final cubit = _createCubit(initialDiff: _multiFileDiff);
+      addTearDown(cubit.close);
+
+      expect(cubit.state.files, hasLength(3));
+      expect(cubit.state.files[0].filePath, 'file_a.dart');
+      expect(cubit.state.files[1].filePath, 'file_b.dart');
+      expect(cubit.state.files[2].filePath, 'file_c.dart');
+    });
+
+    test('parses large diff with many files', () {
+      final cubit = _createCubit(initialDiff: _largeDiff);
+      addTearDown(cubit.close);
+
+      expect(cubit.state.files, hasLength(5));
+      expect(cubit.state.loading, false);
+      expect(cubit.state.error, isNull);
+    });
+  });
+
+  group('DiffViewCubit - projectPath mode', () {
+    test('starts in loading state when projectPath provided', () {
+      final mockBridge = MockDiffBridgeService();
+      final cubit = DiffViewCubit(
+        bridge: mockBridge,
+        projectPath: '/home/user/project',
+      );
+      addTearDown(() {
+        cubit.close();
+        mockBridge.dispose();
+      });
+
+      expect(cubit.state.loading, true);
+      expect(cubit.state.files, isEmpty);
+    });
+
+    test('sends getDiff message to bridge', () {
+      final mockBridge = MockDiffBridgeService();
+      final cubit = DiffViewCubit(
+        bridge: mockBridge,
+        projectPath: '/home/user/project',
+      );
+      addTearDown(() {
+        cubit.close();
+        mockBridge.dispose();
+      });
+
+      expect(mockBridge.sentMessages, hasLength(1));
+    });
+
+    test('updates state when diff result arrives', () async {
+      final mockBridge = MockDiffBridgeService();
+      final cubit = DiffViewCubit(
+        bridge: mockBridge,
+        projectPath: '/home/user/project',
+      );
+      addTearDown(() {
+        cubit.close();
+        mockBridge.dispose();
+      });
+
+      mockBridge.emitDiff(const DiffResultMessage(diff: _sampleDiff));
+      await Future.microtask(() {});
+
+      expect(cubit.state.loading, false);
+      expect(cubit.state.files, hasLength(1));
+      expect(cubit.state.error, isNull);
+    });
+
+    test('handles error in diff result', () async {
+      final mockBridge = MockDiffBridgeService();
+      final cubit = DiffViewCubit(
+        bridge: mockBridge,
+        projectPath: '/home/user/project',
+      );
+      addTearDown(() {
+        cubit.close();
+        mockBridge.dispose();
+      });
+
+      mockBridge.emitDiff(
+        const DiffResultMessage(diff: '', error: 'git not found'),
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.loading, false);
+      expect(cubit.state.error, 'git not found');
+    });
+
+    test('handles empty diff result', () async {
+      final mockBridge = MockDiffBridgeService();
+      final cubit = DiffViewCubit(
+        bridge: mockBridge,
+        projectPath: '/home/user/project',
+      );
+      addTearDown(() {
+        cubit.close();
+        mockBridge.dispose();
+      });
+
+      mockBridge.emitDiff(const DiffResultMessage(diff: ''));
+      await Future.microtask(() {});
+
+      expect(cubit.state.loading, false);
+      expect(cubit.state.files, isEmpty);
+      expect(cubit.state.error, isNull);
+    });
+
+    test('handles whitespace-only diff result', () async {
+      final mockBridge = MockDiffBridgeService();
+      final cubit = DiffViewCubit(
+        bridge: mockBridge,
+        projectPath: '/home/user/project',
+      );
+      addTearDown(() {
+        cubit.close();
+        mockBridge.dispose();
+      });
+
+      mockBridge.emitDiff(const DiffResultMessage(diff: '   \n  '));
+      await Future.microtask(() {});
+
+      expect(cubit.state.loading, false);
+      expect(cubit.state.files, isEmpty);
+    });
+  });
+
+  group('DiffViewCubit - collapse and visibility combined', () {
+    test('collapsed and hidden states are independent', () {
+      final cubit = _createCubit(initialDiff: _multiFileDiff);
+      addTearDown(cubit.close);
+
+      cubit.toggleCollapse(0);
+      cubit.toggleFileVisibility(1);
+
+      expect(cubit.state.collapsedFileIndices, {0});
+      expect(cubit.state.hiddenFileIndices, {1});
+    });
+
+    test('clearHidden does not affect collapsed state', () {
+      final cubit = _createCubit(initialDiff: _multiFileDiff);
+      addTearDown(cubit.close);
+
+      cubit.toggleCollapse(0);
+      cubit.toggleFileVisibility(1);
+      cubit.clearHidden();
+
+      expect(cubit.state.collapsedFileIndices, {0});
+      expect(cubit.state.hiddenFileIndices, isEmpty);
     });
   });
 }

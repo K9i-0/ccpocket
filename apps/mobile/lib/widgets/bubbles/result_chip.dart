@@ -67,7 +67,7 @@ class ResultChip extends StatelessWidget {
                 borderRadius: AppSpacing.assistantBubbleBorderRadius,
               ),
               child: MarkdownBody(
-                data: resultText!,
+                data: resultText,
                 selectable: true,
                 styleSheet: buildMarkdownStyle(context),
                 onTapLink: handleMarkdownLink,

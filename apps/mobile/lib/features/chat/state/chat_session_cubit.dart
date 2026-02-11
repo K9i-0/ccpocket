@@ -117,8 +117,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
     // Mark user messages as sent
     if (update.markUserMessagesSent) {
+      var changed = false;
       final updated = entries.map((e) {
         if (e is UserChatEntry && e.status == MessageStatus.sending) {
+          changed = true;
           return UserChatEntry(
             e.text,
             sessionId: e.sessionId,
@@ -128,7 +130,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         }
         return e;
       }).toList();
-      if (updated != entries) {
+      if (changed) {
         entries = updated;
         didModifyEntries = true;
       }

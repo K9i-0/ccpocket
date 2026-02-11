@@ -11,6 +11,7 @@ import 'bridge_service_base.dart';
 
 class BridgeService implements BridgeServiceBase {
   WebSocketChannel? _channel;
+  StreamSubscription? _channelSub;
   final _messageController = StreamController<ServerMessage>.broadcast();
   final _taggedMessageController =
       StreamController<(ServerMessage, String?)>.broadcast();
@@ -102,6 +103,8 @@ class BridgeService implements BridgeServiceBase {
     _intentionalDisconnect = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _channelSub?.cancel();
+    _channelSub = null;
     _channel?.sink.close();
     _channel = null;
     _lastUrl = url;
@@ -113,7 +116,7 @@ class BridgeService implements BridgeServiceBase {
       _reconnectAttempt = 0;
       _flushMessageQueue();
 
-      _channel!.stream.listen(
+      _channelSub = _channel!.stream.listen(
         (data) {
           try {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
@@ -412,6 +415,8 @@ class BridgeService implements BridgeServiceBase {
     _intentionalDisconnect = true;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _channelSub?.cancel();
+    _channelSub = null;
     _channel?.sink.close();
     _channel = null;
     _setBridgeConnectionState(BridgeConnectionState.disconnected);
@@ -420,6 +425,8 @@ class BridgeService implements BridgeServiceBase {
   void dispose() {
     _intentionalDisconnect = true;
     _reconnectTimer?.cancel();
+    _channelSub?.cancel();
+    _channelSub = null;
     _channel?.sink.close();
     _channel = null;
     _messageController.close();

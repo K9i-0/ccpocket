@@ -60,9 +60,7 @@ class SessionListCubit extends Cubit<SessionListState> {
   /// Switch project filter. Resets sessions on the server side and fetches
   /// from offset 0 for the selected project.
   void selectProject(String? projectPath) {
-    final projectName = projectPath != null
-        ? projectPath.split('/').last
-        : null;
+    final projectName = projectPath?.split('/').last;
     emit(state.copyWith(selectedProject: projectName));
     _bridge.switchProjectFilter(projectPath);
   }

@@ -151,6 +151,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
   Future<void> _loadPreferencesAndAutoConnect() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     final url = prefs.getString(_prefKeyUrl);
     final apiKey = prefs.getString(_prefKeyApiKey);
     if (url != null && url.isNotEmpty) {
@@ -184,6 +185,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
       if (shouldConnect != true) return;
     }
 
+    if (!mounted) return;
     // Auto-save to Machines on successful health check (or user choosing to connect)
     final apiKey = _apiKeyController.text.trim();
     final machineManagerCubit = context.read<MachineManagerCubit?>();
@@ -201,6 +203,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
       }
     }
 
+    if (!mounted) return;
     var connectUrl = url;
     if (apiKey.isNotEmpty) {
       final sep = connectUrl.contains('?') ? '&' : '?';
@@ -398,6 +401,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
       projectHistory: history,
     );
     if (result == null) return;
+    if (!mounted) return;
     _pendingResumeProjectPath = result.projectPath;
     context.read<BridgeService>().send(
       ClientMessage.start(
@@ -669,6 +673,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
       apiKey: apiKey,
     );
 
+    if (!mounted) return;
     final bridge = context.read<BridgeService>();
     bridge.connect(wsUrl);
     bridge.savePreferences(m.machine.wsUrl, apiKey ?? '');

@@ -73,6 +73,7 @@ class MockBridgeService extends BridgeService {
     _projectFilter = projectPath;
   }
 
+  @override
   void dispose() {
     _recentSessionsController.close();
     _projectHistoryController.close();

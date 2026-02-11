@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -107,7 +108,7 @@ class MachineManagerService {
           }
         }
       } catch (e) {
-        print('[MachineManager] Failed to migrate old machines: $e');
+        debugPrint('[MachineManager] Failed to migrate old machines: $e');
       }
     }
 
@@ -132,7 +133,7 @@ class MachineManagerService {
             final machineId = _uuid.v4();
             if (apiKey != null && apiKey.isNotEmpty) {
               await _secureStorage.write(
-                key: '${_secureKeyPrefix}${machineId}_api',
+                key: '$_secureKeyPrefix${machineId}_api',
                 value: apiKey,
               );
             }
@@ -157,7 +158,7 @@ class MachineManagerService {
           }
         }
       } catch (e) {
-        print('[MachineManager] Failed to migrate URL history: $e');
+        debugPrint('[MachineManager] Failed to migrate URL history: $e');
       }
     }
 
@@ -165,7 +166,7 @@ class MachineManagerService {
     if (machines.isNotEmpty) {
       _machines = machines;
       await _saveToPrefs();
-      print('[MachineManager] Migrated ${machines.length} machines');
+      debugPrint('[MachineManager] Migrated ${machines.length} machines');
     }
 
     // Note: Keep old keys for rollback safety
@@ -186,7 +187,7 @@ class MachineManagerService {
           .map((e) => Machine.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print('[MachineManager] Failed to load machines: $e');
+      debugPrint('[MachineManager] Failed to load machines: $e');
       return [];
     }
   }
@@ -304,7 +305,7 @@ class MachineManagerService {
     // Save API key if provided
     if (apiKey != null && apiKey.isNotEmpty) {
       await _secureStorage.write(
-        key: '${_secureKeyPrefix}${machine.id}_api',
+        key: '$_secureKeyPrefix${machine.id}_api',
         value: apiKey,
       );
       machine = machine.copyWith(hasApiKey: true);
@@ -396,31 +397,31 @@ class MachineManagerService {
 
     // Handle credential updates
     if (clearApiKey) {
-      await _secureStorage.delete(key: '${_secureKeyPrefix}${machine.id}_api');
+      await _secureStorage.delete(key: '$_secureKeyPrefix${machine.id}_api');
     } else if (apiKey != null && apiKey.isNotEmpty) {
       await _secureStorage.write(
-        key: '${_secureKeyPrefix}${machine.id}_api',
+        key: '$_secureKeyPrefix${machine.id}_api',
         value: apiKey,
       );
     }
 
     if (clearCredentials) {
       await _secureStorage.delete(
-        key: '${_secureKeyPrefix}${machine.id}_ssh_pass',
+        key: '$_secureKeyPrefix${machine.id}_ssh_pass',
       );
       await _secureStorage.delete(
-        key: '${_secureKeyPrefix}${machine.id}_ssh_key',
+        key: '$_secureKeyPrefix${machine.id}_ssh_key',
       );
     } else {
       if (sshPassword != null && sshPassword.isNotEmpty) {
         await _secureStorage.write(
-          key: '${_secureKeyPrefix}${machine.id}_ssh_pass',
+          key: '$_secureKeyPrefix${machine.id}_ssh_pass',
           value: sshPassword,
         );
       }
       if (sshPrivateKey != null && sshPrivateKey.isNotEmpty) {
         await _secureStorage.write(
-          key: '${_secureKeyPrefix}${machine.id}_ssh_key',
+          key: '$_secureKeyPrefix${machine.id}_ssh_key',
           value: sshPrivateKey,
         );
       }
@@ -526,7 +527,7 @@ class MachineManagerService {
       }
     } catch (e) {
       // Version endpoint is optional, don't treat as error
-      print('[MachineManager] Failed to fetch version for ${machine.id}: $e');
+      debugPrint('[MachineManager] Failed to fetch version for ${machine.id}: $e');
     }
   }
 
@@ -559,50 +560,50 @@ class MachineManagerService {
   }) async {
     if (apiKey != null && apiKey.isNotEmpty) {
       await _secureStorage.write(
-        key: '${_secureKeyPrefix}${machineId}_api',
+        key: '$_secureKeyPrefix${machineId}_api',
         value: apiKey,
       );
     }
     if (sshPassword != null && sshPassword.isNotEmpty) {
       await _secureStorage.write(
-        key: '${_secureKeyPrefix}${machineId}_ssh_pass',
+        key: '$_secureKeyPrefix${machineId}_ssh_pass',
         value: sshPassword,
       );
     }
     if (sshPrivateKey != null && sshPrivateKey.isNotEmpty) {
       await _secureStorage.write(
-        key: '${_secureKeyPrefix}${machineId}_ssh_key',
+        key: '$_secureKeyPrefix${machineId}_ssh_key',
         value: sshPrivateKey,
       );
     }
   }
 
   Future<void> _deleteCredentials(String machineId) async {
-    await _secureStorage.delete(key: '${_secureKeyPrefix}${machineId}_api');
+    await _secureStorage.delete(key: '$_secureKeyPrefix${machineId}_api');
     await _secureStorage.delete(
-      key: '${_secureKeyPrefix}${machineId}_ssh_pass',
+      key: '$_secureKeyPrefix${machineId}_ssh_pass',
     );
-    await _secureStorage.delete(key: '${_secureKeyPrefix}${machineId}_ssh_key');
+    await _secureStorage.delete(key: '$_secureKeyPrefix${machineId}_ssh_key');
   }
 
   /// Get API key for a machine
   Future<String?> getApiKey(String machineId) async {
     return await _secureStorage.read(
-      key: '${_secureKeyPrefix}${machineId}_api',
+      key: '$_secureKeyPrefix${machineId}_api',
     );
   }
 
   /// Get SSH password for a machine
   Future<String?> getSshPassword(String machineId) async {
     return await _secureStorage.read(
-      key: '${_secureKeyPrefix}${machineId}_ssh_pass',
+      key: '$_secureKeyPrefix${machineId}_ssh_pass',
     );
   }
 
   /// Get SSH private key for a machine
   Future<String?> getSshPrivateKey(String machineId) async {
     return await _secureStorage.read(
-      key: '${_secureKeyPrefix}${machineId}_ssh_key',
+      key: '$_secureKeyPrefix${machineId}_ssh_key',
     );
   }
 
