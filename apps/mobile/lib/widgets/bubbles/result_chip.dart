@@ -70,6 +70,7 @@ class ResultChip extends StatelessWidget {
                 data: resultText!,
                 selectable: true,
                 styleSheet: buildMarkdownStyle(context),
+                onTapLink: handleMarkdownLink,
               ),
             ),
           ),

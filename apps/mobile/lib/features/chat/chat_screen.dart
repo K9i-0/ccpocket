@@ -21,6 +21,7 @@ import 'state/chat_session_state.dart';
 import 'state/streaming_state_cubit.dart';
 import 'widgets/chat_input_with_overlays.dart';
 import 'widgets/chat_message_list.dart';
+import 'widgets/cost_badge.dart';
 import 'widgets/plan_mode_chip.dart';
 import 'widgets/reconnect_banner.dart';
 import 'widgets/session_switcher.dart';
@@ -274,6 +275,12 @@ class _ChatScreenBody extends HookWidget {
                   },
                 ),
                 if (inPlanMode) const PlanModeChip(),
+                // Cost & context usage badge
+                if (totalCost > 0 || sessionState.entries.isNotEmpty)
+                  CostBadge(
+                    totalCost: totalCost,
+                    messageCount: sessionState.entries.length,
+                  ),
                 if (otherSessions.isNotEmpty)
                   SessionSwitcher(
                     otherSessions: otherSessions,

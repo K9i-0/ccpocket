@@ -1,7 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'app_theme.dart';
+
+/// Handles tapping on markdown links by opening them in browser.
+Future<void> handleMarkdownLink(String text, String? href, String title) async {
+  if (href == null || href.isEmpty) return;
+
+  final uri = Uri.tryParse(href);
+  if (uri == null) return;
+
+  try {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (e) {
+    debugPrint('Failed to open URL: $href - $e');
+  }
+}
 
 MarkdownStyleSheet buildMarkdownStyle(BuildContext context) {
   final appColors = Theme.of(context).extension<AppColors>()!;

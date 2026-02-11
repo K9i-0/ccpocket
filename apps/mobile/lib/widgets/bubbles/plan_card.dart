@@ -124,6 +124,7 @@ class PlanCard extends StatelessWidget {
         data: planText,
         selectable: true,
         styleSheet: buildMarkdownStyle(context),
+        onTapLink: handleMarkdownLink,
       ),
     );
 

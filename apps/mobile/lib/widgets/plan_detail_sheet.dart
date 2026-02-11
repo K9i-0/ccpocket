@@ -125,6 +125,7 @@ class _PlanDetailContentState extends State<_PlanDetailContent> {
         data: _isEditing ? _editController.text : widget.planText,
         selectable: true,
         styleSheet: buildMarkdownStyle(context),
+        onTapLink: handleMarkdownLink,
       ),
     );
   }

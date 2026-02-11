@@ -1,26 +1,63 @@
 import 'package:flutter/material.dart';
 
+/// Displays Claude's thinking content with a collapsible UI.
+///
+/// When [isStreaming] is true, shows an animated indicator.
 class ThinkingBubble extends StatefulWidget {
   final String thinking;
   final bool initiallyExpanded;
+
+  /// Whether thinking is still streaming (shows animation).
+  final bool isStreaming;
 
   const ThinkingBubble({
     super.key,
     required this.thinking,
     this.initiallyExpanded = false,
+    this.isStreaming = false,
   });
 
   @override
   State<ThinkingBubble> createState() => _ThinkingBubbleState();
 }
 
-class _ThinkingBubbleState extends State<ThinkingBubble> {
+class _ThinkingBubbleState extends State<ThinkingBubble>
+    with SingleTickerProviderStateMixin {
   late bool _expanded;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
     _expanded = widget.initiallyExpanded;
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _pulseAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    if (widget.isStreaming) {
+      _pulseController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(ThinkingBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isStreaming && !_pulseController.isAnimating) {
+      _pulseController.repeat(reverse: true);
+    } else if (!widget.isStreaming && _pulseController.isAnimating) {
+      _pulseController.stop();
+      _pulseController.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
   }
 
   @override
@@ -54,10 +91,26 @@ class _ThinkingBubbleState extends State<ThinkingBubble> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.psychology, size: 16, color: thinkingColor),
+                    // Animated icon when streaming
+                    if (widget.isStreaming)
+                      AnimatedBuilder(
+                        animation: _pulseAnimation,
+                        builder: (context, child) {
+                          return Opacity(
+                            opacity: _pulseAnimation.value,
+                            child: Icon(
+                              Icons.psychology,
+                              size: 16,
+                              color: thinkingColor,
+                            ),
+                          );
+                        },
+                      )
+                    else
+                      Icon(Icons.psychology, size: 16, color: thinkingColor),
                     const SizedBox(width: 6),
                     Text(
-                      'Thinking',
+                      widget.isStreaming ? 'Thinking...' : 'Thinking',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

@@ -1,17 +1,54 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 
-/// Compact status indicator that shows only a colored icon.
+/// Compact status indicator that shows a colored icon and elapsed time when running.
 /// Tap to show a tooltip with status text.
-class StatusIndicator extends StatelessWidget {
+class StatusIndicator extends HookWidget {
   final ProcessStatus status;
   const StatusIndicator({super.key, required this.status});
 
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+
+    // Track elapsed time when running/starting
+    final isActive = status == ProcessStatus.running ||
+        status == ProcessStatus.starting ||
+        status == ProcessStatus.clearing;
+
+    // Store the start time when entering active state
+    final startTime = useRef<DateTime?>(null);
+    final elapsed = useState<Duration>(Duration.zero);
+
+    // Reset timer when status changes
+    useEffect(() {
+      if (isActive) {
+        startTime.value ??= DateTime.now();
+      } else {
+        startTime.value = null;
+        elapsed.value = Duration.zero;
+      }
+      return null;
+    }, [isActive]);
+
+    // Update elapsed time every second
+    useEffect(() {
+      if (!isActive || startTime.value == null) return null;
+
+      final timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (startTime.value != null) {
+          elapsed.value = DateTime.now().difference(startTime.value!);
+        }
+      });
+
+      return timer.cancel;
+    }, [isActive, startTime.value]);
+
     final (color, label) = switch (status) {
       ProcessStatus.starting => (appColors.statusStarting, 'Starting'),
       ProcessStatus.idle => (appColors.statusIdle, 'Idle'),
@@ -20,45 +57,136 @@ class StatusIndicator extends StatelessWidget {
       ProcessStatus.clearing => (appColors.statusRunning, 'Clearing'),
     };
 
-    final isAnimating = status == ProcessStatus.running ||
-        status == ProcessStatus.starting ||
-        status == ProcessStatus.clearing;
+    // Format elapsed time
+    final elapsedStr = _formatDuration(elapsed.value);
 
     return Tooltip(
-      message: label,
+      message: isActive ? '$label ($elapsedStr)' : label,
       preferBelow: true,
       triggerMode: TooltipTriggerMode.tap,
       child: Padding(
         key: const ValueKey('status_indicator'),
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Container(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Show elapsed time when active
+            if (isActive && elapsed.value.inSeconds > 0)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(
+                  elapsedStr,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: color,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            // Animated status dot
+            _AnimatedStatusDot(color: color, isAnimating: isActive),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    if (d.inMinutes >= 1) {
+      return '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
+    }
+    return '${d.inSeconds}s';
+  }
+}
+
+/// Animated pulsing status dot
+class _AnimatedStatusDot extends StatefulWidget {
+  final Color color;
+  final bool isAnimating;
+
+  const _AnimatedStatusDot({
+    required this.color,
+    required this.isAnimating,
+  });
+
+  @override
+  State<_AnimatedStatusDot> createState() => _AnimatedStatusDotState();
+}
+
+class _AnimatedStatusDotState extends State<_AnimatedStatusDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    _animation = Tween<double>(begin: 1.0, end: 1.4).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    if (widget.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedStatusDot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isAnimating && !_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    } else if (!widget.isAnimating && _controller.isAnimating) {
+      _controller.stop();
+      _controller.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
+            color: widget.color.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
           child: Center(
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                boxShadow: isAnimating
-                    ? [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.6),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
+            child: Transform.scale(
+              scale: widget.isAnimating ? _animation.value : 1.0,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: widget.color,
+                  shape: BoxShape.circle,
+                  boxShadow: widget.isAnimating
+                      ? [
+                          BoxShadow(
+                            color: widget.color.withValues(alpha: 0.6),
+                            blurRadius: 6,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
