@@ -1,4 +1,7 @@
+import 'package:ccpocket/features/chat/state/streaming_state_cubit.dart';
 import 'package:ccpocket/models/messages.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol_finders/patrol_finders.dart';
 
@@ -63,7 +66,13 @@ void main() {
       ]);
       await pumpN($.tester);
 
-      expect($('Thinking... more'), findsOneWidget);
+      // ThinkingDelta accumulates in the StreamingStateCubit's thinking
+      // field (not rendered as a visible widget during streaming — only
+      // finalized ThinkingContent in AssistantServerMessage renders a
+      // ThinkingBubble). Verify the cubit state directly.
+      final element = $.tester.element(find.byType(Scaffold).first);
+      final cubit = element.read<StreamingStateCubit>();
+      expect(cubit.state.thinking, 'Thinking... more');
     });
   });
 }

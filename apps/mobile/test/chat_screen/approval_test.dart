@@ -99,7 +99,8 @@ void main() {
         const Offset(300, 0),
         1000,
       );
-      await pumpN($.tester);
+      // Dismissible needs enough animation frames for confirmDismiss to fire
+      await pumpN($.tester, count: 20);
 
       final msg = findSentMessage(bridge, 'approve');
       expect(msg, isNotNull);
@@ -113,7 +114,8 @@ void main() {
         const Offset(-300, 0),
         1000,
       );
-      await pumpN($.tester);
+      // Dismissible needs enough animation frames for confirmDismiss to fire
+      await pumpN($.tester, count: 20);
 
       final msg = findSentMessage(bridge, 'reject');
       expect(msg, isNotNull);
