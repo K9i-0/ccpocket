@@ -15,7 +15,6 @@ class MachineList extends StatelessWidget {
   final ValueChanged<MachineWithStatus>? onToggleFavorite;
   final ValueChanged<MachineWithStatus>? onUpdate;
   final ValueChanged<MachineWithStatus>? onStop;
-  final ValueChanged<MachineWithStatus>? onSetup;
   final VoidCallback onAddMachine;
   final VoidCallback? onRefresh;
 
@@ -31,7 +30,6 @@ class MachineList extends StatelessWidget {
     this.onToggleFavorite,
     this.onUpdate,
     this.onStop,
-    this.onSetup,
     required this.onAddMachine,
     this.onRefresh,
   });
@@ -113,7 +111,6 @@ class MachineList extends StatelessWidget {
                   : null,
               onUpdate: onUpdate != null ? () => onUpdate!(m) : null,
               onStop: onStop != null ? () => onStop!(m) : null,
-              onSetup: onSetup != null ? () => onSetup!(m) : null,
             ),
           ),
         ],

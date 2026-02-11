@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../constants/app_constants.dart';
 import '../../utils/platform_helper.dart';
 
 import '../../models/messages.dart';
@@ -271,8 +270,8 @@ class _SessionListScreenState extends State<SessionListScreen> {
               _setupStep(
                 ctx,
                 '3',
-                'For persistent startup, use launchd',
-                'launchctl load ~/Library/LaunchAgents/com.ccpocket.bridge.plist',
+                'For persistent startup, register as service',
+                'npm run setup',
               ),
               const SizedBox(height: 12),
               Text(
@@ -651,7 +650,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
       onToggleFavorite: _toggleFavorite,
       onUpdateMachine: _updateMachine,
       onStopMachine: _stopMachine,
-      onSetupMachine: _setupMachine,
       onAddMachine: _addMachine,
       onRefreshMachines: () => machineManagerCubit?.refreshAll(),
     );
@@ -759,85 +757,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(error ?? 'Failed to stop server')));
     }
-  }
-
-  void _setupMachine(MachineWithStatus m) async {
-    final cubit = context.read<MachineManagerCubit>();
-
-    // Prompt for project path
-    final projectPath = await _promptForProjectPath();
-    if (projectPath == null) return; // User cancelled
-
-    // Check if password is saved
-    final savedPassword = await cubit.getSshPassword(m.machine.id);
-    String? password = savedPassword;
-
-    // If no saved password, prompt for it
-    if (password == null || password.isEmpty) {
-      password = await _promptForPassword(m.machine.displayName);
-      if (password == null) return; // User cancelled
-    }
-
-    // Get API key for this machine (to configure in plist)
-    final apiKey = await cubit.getApiKey(m.machine.id);
-
-    final success = await cubit.setupLaunchd(
-      m.machine.id,
-      password: password,
-      projectPath: projectPath,
-      apiKey: apiKey,
-      bridgePort: m.machine.port,
-    );
-
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bridge Server setup complete')),
-      );
-    } else if (mounted) {
-      final error = cubit.state.error;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error ?? 'Setup failed')));
-    }
-  }
-
-  Future<String?> _promptForProjectPath() async {
-    final controller = TextEditingController(
-      text: AppConstants.defaultProjectPath,
-    );
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Project Path'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter the project path on the remote machine'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Path',
-                hintText: '~/Workspace/ccpocket',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (v) => Navigator.pop(ctx, v),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Setup'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<String?> _promptForPassword(String machineName) async {

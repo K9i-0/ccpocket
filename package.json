@@ -8,6 +8,7 @@
     "bridge": "npm run dev --workspace=packages/bridge",
     "bridge:build": "npm run build --workspace=packages/bridge",
     "dev": "bash scripts/dev-restart.sh",
+    "setup": "bash scripts/setup-launchd.sh",
     "test:bridge": "npm run test --workspace=packages/bridge",
     "test:bridge:coverage": "npm run test:coverage --workspace=packages/bridge"
   }

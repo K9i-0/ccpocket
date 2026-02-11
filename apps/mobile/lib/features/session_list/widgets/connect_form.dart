@@ -25,7 +25,6 @@ class ConnectForm extends StatelessWidget {
   final ValueChanged<MachineWithStatus>? onToggleFavorite;
   final ValueChanged<MachineWithStatus>? onUpdateMachine;
   final ValueChanged<MachineWithStatus>? onStopMachine;
-  final ValueChanged<MachineWithStatus>? onSetupMachine;
   final VoidCallback? onAddMachine;
   final VoidCallback? onRefreshMachines;
 
@@ -48,7 +47,6 @@ class ConnectForm extends StatelessWidget {
     this.onToggleFavorite,
     this.onUpdateMachine,
     this.onStopMachine,
-    this.onSetupMachine,
     this.onAddMachine,
     this.onRefreshMachines,
   });
@@ -101,7 +99,6 @@ class ConnectForm extends StatelessWidget {
               onToggleFavorite: onToggleFavorite,
               onUpdate: onUpdateMachine,
               onStop: onStopMachine,
-              onSetup: onSetupMachine,
               onAddMachine: onAddMachine!,
               onRefresh: onRefreshMachines,
             ),

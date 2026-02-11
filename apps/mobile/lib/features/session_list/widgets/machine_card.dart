@@ -16,7 +16,6 @@ class MachineCard extends StatelessWidget {
   final VoidCallback? onToggleFavorite;
   final VoidCallback? onUpdate;
   final VoidCallback? onStop;
-  final VoidCallback? onSetup;
   final bool isStarting;
   final bool isUpdating;
 
@@ -30,7 +29,6 @@ class MachineCard extends StatelessWidget {
     this.onToggleFavorite,
     this.onUpdate,
     this.onStop,
-    this.onSetup,
     this.isStarting = false,
     this.isUpdating = false,
   });
@@ -115,7 +113,6 @@ class MachineCard extends StatelessWidget {
                     onToggleFavorite: onToggleFavorite,
                     onUpdate: onUpdate,
                     onStop: onStop,
-                    onSetup: onSetup,
                   ),
                 ],
               ),
@@ -287,7 +284,6 @@ class _MenuButton extends StatelessWidget {
   final VoidCallback? onToggleFavorite;
   final VoidCallback? onUpdate;
   final VoidCallback? onStop;
-  final VoidCallback? onSetup;
 
   const _MenuButton({
     required this.machine,
@@ -298,7 +294,6 @@ class _MenuButton extends StatelessWidget {
     this.onToggleFavorite,
     this.onUpdate,
     this.onStop,
-    this.onSetup,
   });
 
   @override
@@ -307,6 +302,7 @@ class _MenuButton extends StatelessWidget {
       width: 32,
       height: 32,
       child: PopupMenuButton<String>(
+        key: ValueKey('machine_menu_${machine.id}'),
         icon: Icon(Icons.more_horiz, color: colorScheme.outline, size: 20),
         padding: EdgeInsets.zero,
         onSelected: (value) {
@@ -315,7 +311,6 @@ class _MenuButton extends StatelessWidget {
           if (value == 'favorite') onToggleFavorite?.call();
           if (value == 'update') onUpdate?.call();
           if (value == 'stop') onStop?.call();
-          if (value == 'setup') onSetup?.call();
         },
         itemBuilder: (context) => [
           PopupMenuItem(
@@ -342,17 +337,6 @@ class _MenuButton extends StatelessWidget {
               ],
             ),
           ),
-          if (machine.canStartRemotely)
-            const PopupMenuItem(
-              value: 'setup',
-              child: Row(
-                children: [
-                  Icon(Icons.build_circle, size: 20),
-                  SizedBox(width: 8),
-                  Text('Setup Bridge'),
-                ],
-              ),
-            ),
           if (needsUpdate && machine.canStartRemotely)
             const PopupMenuItem(
               value: 'update',

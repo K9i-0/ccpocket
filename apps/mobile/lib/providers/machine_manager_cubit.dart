@@ -182,16 +182,26 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
       if (result.success) {
         // Wait a moment for the server to start
         await Future.delayed(const Duration(seconds: 2));
-        // Check health to update status
-        await _service.checkHealth(machineId);
+        // Check health to verify server actually started
+        final status = await _service.checkHealth(machineId);
 
-        emit(
-          state.copyWith(
-            startingMachineId: null,
-            successMessage: 'Bridge Server started',
-          ),
-        );
-        return true;
+        if (status == MachineStatus.online) {
+          emit(
+            state.copyWith(
+              startingMachineId: null,
+              successMessage: 'Bridge Server started',
+            ),
+          );
+          return true;
+        } else {
+          emit(
+            state.copyWith(
+              startingMachineId: null,
+              error: 'Server process started but health check failed',
+            ),
+          );
+          return false;
+        }
       } else {
         emit(
           state.copyWith(
@@ -290,45 +300,6 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
       }
     } catch (e) {
       emit(state.copyWith(updatingMachineId: null, error: e.toString()));
-      return false;
-    }
-  }
-
-  /// Setup launchd on a remote machine via SSH
-  Future<bool> setupLaunchd(
-    String machineId, {
-    String? password,
-    Future<String?> Function()? promptForPassword,
-    required String projectPath,
-    String? apiKey,
-    int bridgePort = 8765,
-  }) async {
-    if (_sshService == null) {
-      emit(state.copyWith(error: 'SSH not available on this platform'));
-      return false;
-    }
-
-    emit(state.copyWith(error: null, successMessage: null));
-
-    try {
-      final result = await _sshService.setupLaunchd(
-        machineId,
-        password: password,
-        promptForPassword: promptForPassword,
-        projectPath: projectPath,
-        apiKey: apiKey,
-        bridgePort: bridgePort,
-      );
-
-      if (result.success) {
-        emit(state.copyWith(successMessage: 'Bridge Server setup complete'));
-        return true;
-      } else {
-        emit(state.copyWith(error: result.error ?? 'Setup failed'));
-        return false;
-      }
-    } catch (e) {
-      emit(state.copyWith(error: e.toString()));
       return false;
     }
   }
