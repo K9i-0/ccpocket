@@ -29,6 +29,7 @@ class MockScenario {
 
 final List<MockScenario> mockScenarios = [
   _approvalFlow,
+  _multipleApprovalFlow,
   _askUserQuestion,
   _askUserMultiQuestion,
   _todoWrite,
@@ -85,6 +86,90 @@ final _approvalFlow = MockScenario(
       delay: const Duration(milliseconds: 1400),
       message: const StatusMessage(status: ProcessStatus.waitingApproval),
     ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 1b. Multiple Approval Flow (sequential tool approvals)
+// ---------------------------------------------------------------------------
+/// This scenario tests sequential tool approvals:
+/// Both PermissionRequests arrive before user approves the first one.
+/// After approving the first, the second dialog should appear immediately.
+final _multipleApprovalFlow = MockScenario(
+  name: 'Multi-Approval',
+  icon: Icons.shield_moon_outlined,
+  description: 'Two approvals queued (approve first → second appears)',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    // First tool use
+    MockStep(
+      delay: const Duration(milliseconds: 600),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-multi-approval-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text: 'I need to run two commands to check the project.',
+            ),
+            const ToolUseContent(
+              id: 'tool-bash-1',
+              name: 'Bash',
+              input: {'command': 'ls -la /project'},
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    // First permission request
+    MockStep(
+      delay: const Duration(milliseconds: 800),
+      message: const PermissionRequestMessage(
+        toolUseId: 'tool-bash-1',
+        toolName: 'Bash',
+        input: {'command': 'ls -la /project'},
+      ),
+    ),
+    // Second tool use (queued before first is approved)
+    MockStep(
+      delay: const Duration(milliseconds: 1000),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-multi-approval-2',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text: 'Also need to check the git status.',
+            ),
+            const ToolUseContent(
+              id: 'tool-bash-2',
+              name: 'Bash',
+              input: {'command': 'git status'},
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    // Second permission request (queued)
+    MockStep(
+      delay: const Duration(milliseconds: 1200),
+      message: const PermissionRequestMessage(
+        toolUseId: 'tool-bash-2',
+        toolName: 'Bash',
+        input: {'command': 'git status'},
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1400),
+      message: const StatusMessage(status: ProcessStatus.waitingApproval),
+    ),
+    // After user approves tool-bash-1, tool-bash-2 dialog should appear
+    // automatically via _emitNextApprovalOrNone
   ],
 );
 

@@ -245,13 +245,52 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         sessionId: sessionId,
       ),
     );
-    emit(state.copyWith(approval: const ApprovalState.none()));
+    _emitNextApprovalOrNone(toolUseId);
   }
 
   /// Approve a tool and always allow it in the future.
   void approveAlways(String toolUseId) {
     _bridge.send(ClientMessage.approveAlways(toolUseId, sessionId: sessionId));
-    emit(state.copyWith(approval: const ApprovalState.none()));
+    _emitNextApprovalOrNone(toolUseId);
+  }
+
+  /// Find next pending permission after resolving [resolvedToolUseId].
+  ///
+  /// Searches entries for PermissionRequestMessage that haven't been resolved
+  /// by a corresponding ToolResultMessage.
+  void _emitNextApprovalOrNone(String resolvedToolUseId) {
+    final pendingPermissions = <String, PermissionRequestMessage>{};
+    final resolvedIds = <String>{resolvedToolUseId};
+
+    for (final entry in state.entries) {
+      if (entry is ServerChatEntry) {
+        final msg = entry.message;
+        if (msg is PermissionRequestMessage) {
+          pendingPermissions[msg.toolUseId] = msg;
+        } else if (msg is ToolResultMessage) {
+          resolvedIds.add(msg.toolUseId);
+        }
+      }
+    }
+
+    // Remove resolved permissions
+    for (final id in resolvedIds) {
+      pendingPermissions.remove(id);
+    }
+
+    if (pendingPermissions.isNotEmpty) {
+      final next = pendingPermissions.values.first;
+      emit(
+        state.copyWith(
+          approval: ApprovalState.permission(
+            toolUseId: next.toolUseId,
+            request: next,
+          ),
+        ),
+      );
+    } else {
+      emit(state.copyWith(approval: const ApprovalState.none()));
+    }
   }
 
   /// Reject a pending tool execution.
