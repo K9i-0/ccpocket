@@ -232,7 +232,9 @@ export async function getAllRecentSessions(
 
       if (!Array.isArray(index.entries)) continue;
 
+      const indexedIds = new Set<string>();
       for (const entry of index.entries) {
+        indexedIds.add(entry.sessionId);
         const mapped: SessionIndexEntry = {
           sessionId: entry.sessionId,
           summary: entry.summary,
@@ -246,6 +248,16 @@ export async function getAllRecentSessions(
         };
 
         entries.push(mapped);
+      }
+
+      // Supplement: scan JSONL files not covered by the index.
+      // Claude CLI may not register every session (e.g. `claude -r` resumes)
+      // into sessions-index.json, so we pick up any orphaned JSONL files here.
+      const scanned = await scanJsonlDir(dirPath);
+      for (const s of scanned) {
+        if (!indexedIds.has(s.sessionId)) {
+          entries.push(s);
+        }
       }
     } else {
       // No sessions-index.json: scan JSONL files directly.
