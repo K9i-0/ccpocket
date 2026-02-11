@@ -23,6 +23,7 @@ class HomeContent extends StatelessWidget {
   final void Function(
     String sessionId, {
     String? projectPath,
+    String? gitBranch,
     String? worktreePath,
   })
   onTapRunning;
@@ -96,6 +97,9 @@ class HomeContent extends StatelessWidget {
               onTap: () => onTapRunning(
                 session.id,
                 projectPath: session.projectPath,
+                gitBranch: session.worktreePath != null
+                    ? session.worktreeBranch
+                    : session.gitBranch,
                 worktreePath: session.worktreePath,
               ),
               onStop: () => onStopSession(session.id),

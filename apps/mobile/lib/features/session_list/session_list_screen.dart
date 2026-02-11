@@ -575,10 +575,12 @@ class _SessionListScreenState extends State<SessionListScreen> {
                       (
                         sessionId, {
                         String? projectPath,
+                        String? gitBranch,
                         String? worktreePath,
                       }) => _navigateToChat(
                         sessionId,
                         projectPath: projectPath,
+                        gitBranch: gitBranch,
                         worktreePath: worktreePath,
                       ),
                   onStopSession: _stopSession,

@@ -11,6 +11,7 @@ Future<void> showWorktreeListSheet({
   required BuildContext context,
   required BridgeService bridge,
   required String projectPath,
+  String? currentWorktreePath,
 }) {
   bridge.requestWorktreeList(projectPath);
   return showModalBottomSheet(
@@ -20,16 +21,24 @@ Future<void> showWorktreeListSheet({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (context) =>
-        _WorktreeListContent(bridge: bridge, projectPath: projectPath),
+    builder: (context) => _WorktreeListContent(
+      bridge: bridge,
+      projectPath: projectPath,
+      currentWorktreePath: currentWorktreePath,
+    ),
   );
 }
 
 class _WorktreeListContent extends StatefulWidget {
   final BridgeService bridge;
   final String projectPath;
+  final String? currentWorktreePath;
 
-  const _WorktreeListContent({required this.bridge, required this.projectPath});
+  const _WorktreeListContent({
+    required this.bridge,
+    required this.projectPath,
+    this.currentWorktreePath,
+  });
 
   @override
   State<_WorktreeListContent> createState() => _WorktreeListContentState();
@@ -59,6 +68,93 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
     _sub?.cancel();
     _removeSub?.cancel();
     super.dispose();
+  }
+
+  bool get _isOnMainRepo => widget.currentWorktreePath == null;
+
+  bool _isCurrentWorktree(WorktreeInfo wt) =>
+      widget.currentWorktreePath == wt.worktreePath;
+
+  Widget _buildMainRepoTile(BuildContext context, AppColors appColors) {
+    final cs = Theme.of(context).colorScheme;
+    final isCurrent = _isOnMainRepo;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: isCurrent ? cs.primaryContainer.withValues(alpha: 0.3) : null,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ListTile(
+        leading: Icon(
+          Icons.home_outlined,
+          size: 20,
+          color: isCurrent ? cs.primary : appColors.subtleText,
+        ),
+        title: Text(
+          'main repo',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isCurrent ? cs.primary : null,
+          ),
+        ),
+        subtitle: Text(
+          widget.projectPath.split('/').last,
+          style: TextStyle(fontSize: 11, color: appColors.subtleText),
+        ),
+        trailing: isCurrent
+            ? Icon(Icons.check_circle, size: 20, color: cs.primary)
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildWorktreeTile(
+    BuildContext context,
+    AppColors appColors,
+    WorktreeInfo wt,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final isCurrent = _isCurrentWorktree(wt);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: isCurrent ? cs.tertiaryContainer.withValues(alpha: 0.3) : null,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ListTile(
+        leading: Icon(
+          Icons.fork_right,
+          size: 20,
+          color: isCurrent ? cs.tertiary : appColors.subtleText,
+        ),
+        title: Text(
+          wt.branch,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isCurrent ? cs.tertiary : null,
+          ),
+        ),
+        subtitle: Text(
+          wt.worktreePath.split('/').last,
+          style: TextStyle(fontSize: 11, color: appColors.subtleText),
+        ),
+        trailing: isCurrent
+            ? Icon(Icons.check_circle, size: 20, color: cs.tertiary)
+            : IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 20,
+                  color: cs.error,
+                ),
+                onPressed: () => _confirmRemove(wt),
+                tooltip: 'Remove worktree',
+              ),
+      ),
+    );
   }
 
   void _confirmRemove(WorktreeInfo wt) {
@@ -145,35 +241,13 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
                 ),
               ),
             )
-          else
+          else ...[
+            // Main repo entry (always first)
+            _buildMainRepoTile(context, appColors),
+            // Worktree entries
             for (final wt in _worktrees!)
-              ListTile(
-                leading: Icon(
-                  Icons.fork_right,
-                  size: 20,
-                  color: appColors.subtleText,
-                ),
-                title: Text(
-                  wt.branch,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: Text(
-                  wt.worktreePath.split('/').last,
-                  style: TextStyle(fontSize: 11, color: appColors.subtleText),
-                ),
-                trailing: IconButton(
-                  icon: Icon(
-                    Icons.delete_outline,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  onPressed: () => _confirmRemove(wt),
-                  tooltip: 'Remove worktree',
-                ),
-              ),
+              _buildWorktreeTile(context, appColors, wt),
+          ],
           const SizedBox(height: 16),
         ],
       ),

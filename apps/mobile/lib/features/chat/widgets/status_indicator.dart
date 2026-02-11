@@ -66,19 +66,19 @@ class StatusIndicator extends HookWidget {
       triggerMode: TooltipTriggerMode.tap,
       child: Padding(
         key: const ValueKey('status_indicator'),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.only(left: 4, right: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Show elapsed time when active
             if (isActive && elapsed.value.inSeconds > 0)
               Padding(
-                padding: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.only(right: 3),
                 child: Text(
                   elapsedStr,
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
                     color: color,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
@@ -157,26 +157,26 @@ class _AnimatedStatusDotState extends State<_AnimatedStatusDot>
       animation: _animation,
       builder: (context, child) {
         return Container(
-          width: 28,
-          height: 28,
+          width: 22,
+          height: 22,
           decoration: BoxDecoration(
-            color: widget.color.withValues(alpha: 0.15),
+            color: widget.color.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
           child: Center(
             child: Transform.scale(
               scale: widget.isAnimating ? _animation.value : 1.0,
               child: Container(
-                width: 10,
-                height: 10,
+                width: 8,
+                height: 8,
                 decoration: BoxDecoration(
                   color: widget.color,
                   shape: BoxShape.circle,
                   boxShadow: widget.isAnimating
                       ? [
                           BoxShadow(
-                            color: widget.color.withValues(alpha: 0.6),
-                            blurRadius: 6,
+                            color: widget.color.withValues(alpha: 0.5),
+                            blurRadius: 4,
                             spreadRadius: 1,
                           ),
                         ]

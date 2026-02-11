@@ -19,6 +19,7 @@ import '../gallery/gallery_screen.dart';
 import 'state/chat_session_cubit.dart';
 import 'state/chat_session_state.dart';
 import 'state/streaming_state_cubit.dart';
+import 'widgets/branch_chip.dart';
 import 'widgets/chat_input_with_overlays.dart';
 import 'widgets/chat_message_list.dart';
 import 'widgets/plan_mode_chip.dart';
@@ -229,8 +230,14 @@ class _ChatScreenBody extends HookWidget {
               actions: [
                 if (projectPath != null)
                   IconButton(
-                    icon: const Icon(Icons.difference, size: 20),
+                    icon: const Icon(Icons.difference, size: 18),
                     tooltip: 'View Changes',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -243,20 +250,27 @@ class _ChatScreenBody extends HookWidget {
                     },
                   ),
                 if (projectPath != null)
-                  IconButton(
-                    icon: const Icon(Icons.account_tree_outlined, size: 20),
-                    tooltip: 'Worktrees',
-                    onPressed: () {
+                  BranchChip(
+                    branchName: gitBranch,
+                    isWorktree: worktreePath != null,
+                    onTap: () {
                       showWorktreeListSheet(
                         context: context,
                         bridge: context.read<BridgeService>(),
                         projectPath: projectPath!,
+                        currentWorktreePath: worktreePath,
                       );
                     },
                   ),
                 IconButton(
-                  icon: const Icon(Icons.preview, size: 20),
+                  icon: const Icon(Icons.preview, size: 18),
                   tooltip: 'Preview',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
                   onPressed: () {
                     Navigator.push(
                       context,
