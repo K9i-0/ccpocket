@@ -71,6 +71,7 @@ dev_dependencies:
   freezed: ^3.1.0
   build_runner: ^2.5.4
   bloc_test: ^10.0.0
+  patrol_finders: ^3.1.0
   json_serializable: ^6.9.5
 
 # For information on the generic Dart part of this file, see the
