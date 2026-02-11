@@ -204,6 +204,24 @@ cd apps/mobile && flutter test                        # ユニットテスト
 - シミュレーターでアプリ起動し、実際のClaude CLIセッションで動作確認
 - 承認フロー、AskUserQuestion、ストリーミング等の実際の挙動を検証
 
+### 5. Web確認 (ユーザー向けプレビュー)
+
+実装完了後、ユーザーがブラウザで確認できるようWebビルドを行う。
+
+```bash
+cd apps/mobile && flutter build web --release
+```
+
+**Webサーバー起動 (初回のみ)**
+```bash
+cd apps/mobile/build/web && python3 -m http.server 8888
+```
+
+**アクセスURL (Tailscale経由)**
+- `http://<Mac_Tailscale_IP>:8888`
+
+**注意**: ビルド更新後はブラウザキャッシュをクリア (Cmd+Shift+R) してリロードすること。
+
 ## カスタムスキル
 
 `.claude/skills/` にプロジェクト固有のスキル (スラッシュコマンド) を配置している。
