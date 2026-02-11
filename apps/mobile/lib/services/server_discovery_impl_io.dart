@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 
 Future<BonsoirDiscovery> startDiscovery({
   required void Function(String name, String host, int port, bool authRequired)
-      onResolved,
+  onResolved,
   required void Function(String host, int port) onLost,
 }) async {
   final discovery = BonsoirDiscovery(type: '_ccpocket._tcp');

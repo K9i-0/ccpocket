@@ -10,11 +10,7 @@ class CostBadge extends StatelessWidget {
   /// Estimated max messages before context limit (~200k tokens ≈ ~150 messages).
   static const int estimatedMaxMessages = 150;
 
-  const CostBadge({
-    super.key,
-    required this.totalCost,
-    this.messageCount,
-  });
+  const CostBadge({super.key, required this.totalCost, this.messageCount});
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +28,8 @@ class CostBadge extends StatelessWidget {
     final badgeColor = isCritical
         ? cs.error
         : isWarning
-            ? cs.tertiary
-            : cs.secondary;
+        ? cs.tertiary
+        : cs.secondary;
 
     return Tooltip(
       message: messageCount != null
@@ -68,11 +64,7 @@ class CostBadge extends StatelessWidget {
                         valueColor: AlwaysStoppedAnimation(badgeColor),
                       ),
                       if (isCritical)
-                        Icon(
-                          Icons.warning_rounded,
-                          size: 8,
-                          color: badgeColor,
-                        ),
+                        Icon(Icons.warning_rounded, size: 8, color: badgeColor),
                     ],
                   ),
                 ),

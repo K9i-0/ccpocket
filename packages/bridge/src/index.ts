@@ -5,6 +5,7 @@ import { GalleryStore } from "./gallery-store.js";
 import { printStartupInfo } from "./startup-info.js";
 import { MdnsAdvertiser } from "./mdns.js";
 import { ProjectHistory } from "./project-history.js";
+import { getVersionInfo } from "./version.js";
 
 const PORT = parseInt(process.env.BRIDGE_PORT ?? "8765", 10);
 const HOST = process.env.BRIDGE_HOST ?? "0.0.0.0";
@@ -59,6 +60,14 @@ const httpServer = createServer((req, res) => {
       sessions: wsServer?.sessionCount ?? 0,
       clients: wsServer?.clientCount ?? 0,
     });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(body);
+    return;
+  }
+
+  // Version info endpoint
+  if (req.url === "/version" && req.method === "GET") {
+    const body = JSON.stringify(getVersionInfo(startedAt));
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(body);
     return;

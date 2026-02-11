@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'server_discovery_impl_stub.dart'
-    if (dart.library.io) 'server_discovery_impl_io.dart' as impl;
+    if (dart.library.io) 'server_discovery_impl_io.dart'
+    as impl;
 
 class DiscoveredServer {
   final String name;

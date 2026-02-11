@@ -5,23 +5,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../constants/app_constants.dart';
 import '../../utils/platform_helper.dart';
 
 import '../../models/messages.dart';
+import '../../models/machine.dart';
 import '../../providers/bridge_cubits.dart';
+import '../../providers/machine_manager_cubit.dart';
 import '../../providers/server_discovery_cubit.dart';
 import '../../screens/mock_preview_screen.dart';
 import '../../screens/qr_scan_screen.dart';
 import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/server_discovery_service.dart';
-import '../../services/url_history_service.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../chat/chat_screen.dart';
 import '../gallery/gallery_screen.dart';
 import 'state/session_list_cubit.dart';
 import 'widgets/connect_form.dart';
 import 'widgets/home_content.dart';
+import 'widgets/machine_edit_sheet.dart';
 
 // ---- Testable helpers (top-level) ----
 
@@ -101,10 +104,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
   bool _isSearching = false;
   bool _isAutoConnecting = false;
 
-  // URL history
-  UrlHistoryService? _urlHistoryService;
-  List<UrlHistoryEntry> _urlHistory = [];
-
   // Cache for resume navigation
   String? _pendingResumeProjectPath;
   String? _pendingResumeGitBranch;
@@ -153,8 +152,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
   Future<void> _loadPreferencesAndAutoConnect() async {
     final prefs = await SharedPreferences.getInstance();
-    _urlHistoryService = UrlHistoryService(prefs);
-    setState(() => _urlHistory = _urlHistoryService!.load());
     final url = prefs.getString(_prefKeyUrl);
     final apiKey = prefs.getString(_prefKeyApiKey);
     if (url != null && url.isNotEmpty) {
@@ -188,18 +185,30 @@ class _SessionListScreenState extends State<SessionListScreen> {
       if (shouldConnect != true) return;
     }
 
-    // Save to URL history on health check pass (or user choosing to connect)
+    // Auto-save to Machines on successful health check (or user choosing to connect)
     final apiKey = _apiKeyController.text.trim();
-    if (_urlHistoryService != null) {
-      await _urlHistoryService!.add(url, apiKey);
-      setState(() => _urlHistory = _urlHistoryService!.load());
+    final machineManagerCubit = context.read<MachineManagerCubit?>();
+    if (machineManagerCubit != null) {
+      // Parse host and port from URL
+      final uri = Uri.tryParse(
+        url.replaceFirst('ws://', 'http://').replaceFirst('wss://', 'https://'),
+      );
+      if (uri != null) {
+        await machineManagerCubit.recordConnection(
+          host: uri.host,
+          port: uri.port != 0 ? uri.port : 8765,
+          apiKey: apiKey.isNotEmpty ? apiKey : null,
+        );
+      }
     }
+
+    var connectUrl = url;
     if (apiKey.isNotEmpty) {
-      final sep = url.contains('?') ? '&' : '?';
-      url = '$url${sep}token=$apiKey';
+      final sep = connectUrl.contains('?') ? '&' : '?';
+      connectUrl = '$connectUrl${sep}token=$apiKey';
     }
     final bridge = context.read<BridgeService>();
-    bridge.connect(url);
+    bridge.connect(connectUrl);
     bridge.savePreferences(
       _urlController.text.trim(),
       _apiKeyController.text.trim(),
@@ -592,20 +601,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
               )
             : connectionState == BridgeConnectionState.connecting
             ? const Center(child: CircularProgressIndicator())
-            : ConnectForm(
-                urlController: _urlController,
-                apiKeyController: _apiKeyController,
-                discoveredServers: discoveredServers,
-                urlHistory: _urlHistory,
-                onConnect: _connect,
-                onScanQrCode: _scanQrCode,
-                onConnectToDiscovered: _connectToDiscovered,
-                onSelectUrlHistory: _selectUrlHistory,
-                onRemoveUrlHistory: (url) async {
-                  await _removeUrlHistory(url);
-                },
-                onUpdateUrlHistoryName: _updateUrlHistoryName,
-              ),
+            : _buildConnectForm(discoveredServers),
         floatingActionButton: showConnectedUI
             ? FloatingActionButton(
                 key: const ValueKey('new_session_fab'),
@@ -630,20 +626,343 @@ class _SessionListScreenState extends State<SessionListScreen> {
     _connect();
   }
 
-  void _selectUrlHistory(UrlHistoryEntry entry) {
-    _urlController.text = entry.url;
-    _apiKeyController.text = entry.apiKey;
+  // ---- Machine Management ----
+
+  Widget _buildConnectForm(List<DiscoveredServer> discoveredServers) {
+    // Try to get MachineManagerCubit if available
+    final machineManagerCubit = context.watch<MachineManagerCubit?>();
+    final machineState = machineManagerCubit?.state;
+
+    return ConnectForm(
+      urlController: _urlController,
+      apiKeyController: _apiKeyController,
+      discoveredServers: discoveredServers,
+      onConnect: _connect,
+      onScanQrCode: _scanQrCode,
+      onConnectToDiscovered: _connectToDiscovered,
+      // Machine management
+      machines: machineState?.machines ?? [],
+      startingMachineId: machineState?.startingMachineId,
+      updatingMachineId: machineState?.updatingMachineId,
+      onConnectToMachine: _connectToMachine,
+      onStartMachine: _startMachine,
+      onEditMachine: _editMachine,
+      onDeleteMachine: _deleteMachine,
+      onToggleFavorite: _toggleFavorite,
+      onUpdateMachine: _updateMachine,
+      onStopMachine: _stopMachine,
+      onSetupMachine: _setupMachine,
+      onAddMachine: _addMachine,
+      onRefreshMachines: () => machineManagerCubit?.refreshAll(),
+    );
   }
 
-  Future<void> _removeUrlHistory(String url) async {
-    if (_urlHistoryService == null) return;
-    await _urlHistoryService!.remove(url);
-    setState(() => _urlHistory = _urlHistoryService!.load());
+  void _connectToMachine(MachineWithStatus m) async {
+    final cubit = context.read<MachineManagerCubit>();
+    final wsUrl = await cubit.buildWsUrl(m.machine.id);
+    _urlController.text = m.machine.wsUrl;
+    final apiKey = await cubit.getApiKey(m.machine.id);
+    _apiKeyController.text = apiKey ?? '';
+
+    // Record connection to update lastConnected
+    await cubit.recordConnection(
+      host: m.machine.host,
+      port: m.machine.port,
+      apiKey: apiKey,
+    );
+
+    final bridge = context.read<BridgeService>();
+    bridge.connect(wsUrl);
+    bridge.savePreferences(m.machine.wsUrl, apiKey ?? '');
   }
 
-  Future<void> _updateUrlHistoryName(String url, String? name) async {
-    if (_urlHistoryService == null) return;
-    await _urlHistoryService!.updateName(url, name);
-    setState(() => _urlHistory = _urlHistoryService!.load());
+  void _toggleFavorite(MachineWithStatus m) {
+    context.read<MachineManagerCubit>().toggleFavorite(m.machine.id);
+  }
+
+  void _updateMachine(MachineWithStatus m) async {
+    final cubit = context.read<MachineManagerCubit>();
+
+    // Check if password is saved
+    final savedPassword = await cubit.getSshPassword(m.machine.id);
+    String? password = savedPassword;
+
+    // If no saved password, prompt for it
+    if (password == null || password.isEmpty) {
+      password = await _promptForPassword(m.machine.displayName);
+      if (password == null) return; // User cancelled
+    }
+
+    final success = await cubit.updateBridge(m.machine.id, password: password);
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Bridge Server updated')));
+    } else if (mounted) {
+      final error = cubit.state.error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error ?? 'Failed to update server')),
+      );
+    }
+  }
+
+  void _startMachine(MachineWithStatus m) async {
+    final cubit = context.read<MachineManagerCubit>();
+
+    // Check if password is saved
+    final savedPassword = await cubit.getSshPassword(m.machine.id);
+    String? password = savedPassword;
+
+    // If no saved password, prompt for it
+    if (password == null || password.isEmpty) {
+      password = await _promptForPassword(m.machine.displayName);
+      if (password == null) return; // User cancelled
+    }
+
+    final success = await cubit.startBridge(m.machine.id, password: password);
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Bridge Server started')));
+    } else if (mounted) {
+      final error = cubit.state.error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error ?? 'Failed to start server')),
+      );
+    }
+  }
+
+  void _stopMachine(MachineWithStatus m) async {
+    final cubit = context.read<MachineManagerCubit>();
+
+    // Check if password is saved
+    final savedPassword = await cubit.getSshPassword(m.machine.id);
+    String? password = savedPassword;
+
+    // If no saved password, prompt for it
+    if (password == null || password.isEmpty) {
+      password = await _promptForPassword(m.machine.displayName);
+      if (password == null) return; // User cancelled
+    }
+
+    final success = await cubit.stopBridge(m.machine.id, password: password);
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Bridge Server stopped')));
+    } else if (mounted) {
+      final error = cubit.state.error;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error ?? 'Failed to stop server')));
+    }
+  }
+
+  void _setupMachine(MachineWithStatus m) async {
+    final cubit = context.read<MachineManagerCubit>();
+
+    // Prompt for project path
+    final projectPath = await _promptForProjectPath();
+    if (projectPath == null) return; // User cancelled
+
+    // Check if password is saved
+    final savedPassword = await cubit.getSshPassword(m.machine.id);
+    String? password = savedPassword;
+
+    // If no saved password, prompt for it
+    if (password == null || password.isEmpty) {
+      password = await _promptForPassword(m.machine.displayName);
+      if (password == null) return; // User cancelled
+    }
+
+    // Get API key for this machine (to configure in plist)
+    final apiKey = await cubit.getApiKey(m.machine.id);
+
+    final success = await cubit.setupLaunchd(
+      m.machine.id,
+      password: password,
+      projectPath: projectPath,
+      apiKey: apiKey,
+      bridgePort: m.machine.port,
+    );
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bridge Server setup complete')),
+      );
+    } else if (mounted) {
+      final error = cubit.state.error;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error ?? 'Setup failed')));
+    }
+  }
+
+  Future<String?> _promptForProjectPath() async {
+    final controller = TextEditingController(
+      text: AppConstants.defaultProjectPath,
+    );
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Project Path'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter the project path on the remote machine'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Path',
+                hintText: '~/Workspace/ccpocket',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (v) => Navigator.pop(ctx, v),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Setup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<String?> _promptForPassword(String machineName) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('SSH Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Enter SSH password for $machineName'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (v) => Navigator.pop(ctx, v),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Connect'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _editMachine(MachineWithStatus m) async {
+    final cubit = context.read<MachineManagerCubit>();
+    final apiKey = await cubit.getApiKey(m.machine.id);
+    final sshPassword = await cubit.getSshPassword(m.machine.id);
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => MachineEditSheet(
+        machine: m.machine,
+        existingApiKey: apiKey,
+        existingSshPassword: sshPassword,
+        onSave: ({required machine, apiKey, sshPassword, sshPrivateKey}) async {
+          await cubit.updateMachine(
+            machine,
+            apiKey: apiKey,
+            sshPassword: sshPassword,
+            sshPrivateKey: sshPrivateKey,
+          );
+        },
+        onTestConnection: cubit.testConnectionWithCredentials,
+      ),
+    );
+  }
+
+  void _deleteMachine(MachineWithStatus m) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Machine'),
+        content: Text(
+          'Delete "${m.machine.displayName}"? This will remove all saved credentials.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      context.read<MachineManagerCubit>().deleteMachine(m.machine.id);
+    }
+  }
+
+  void _addMachine() {
+    final cubit = context.read<MachineManagerCubit>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => MachineEditSheet(
+        onSave: ({required machine, apiKey, sshPassword, sshPrivateKey}) async {
+          final newMachine = cubit.createNewMachine(
+            name: machine.name,
+            host: machine.host,
+            port: machine.port,
+          );
+          await cubit.addMachine(
+            newMachine.copyWith(
+              sshEnabled: machine.sshEnabled,
+              sshUsername: machine.sshUsername,
+              sshPort: machine.sshPort,
+              sshAuthType: machine.sshAuthType,
+              isFavorite: true, // New manually added machines are favorites
+            ),
+            apiKey: apiKey,
+            sshPassword: sshPassword,
+            sshPrivateKey: sshPrivateKey,
+          );
+        },
+        onTestConnection: cubit.testConnectionWithCredentials,
+      ),
+    );
   }
 }

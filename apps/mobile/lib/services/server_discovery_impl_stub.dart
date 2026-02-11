@@ -2,7 +2,7 @@
 
 Future<dynamic> startDiscovery({
   required void Function(String name, String host, int port, bool authRequired)
-      onResolved,
+  onResolved,
   required void Function(String host, int port) onLost,
 }) async {
   // No-op on Web

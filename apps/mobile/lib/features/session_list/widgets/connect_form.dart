@@ -1,40 +1,68 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../../../models/machine.dart';
 import '../../../services/server_discovery_service.dart';
-import '../../../services/url_history_service.dart';
 import 'discovered_servers_list.dart';
-import 'url_history_list.dart';
+import 'machine_list.dart';
 
 class ConnectForm extends StatelessWidget {
   final TextEditingController urlController;
   final TextEditingController apiKeyController;
   final List<DiscoveredServer> discoveredServers;
-  final List<UrlHistoryEntry> urlHistory;
   final VoidCallback onConnect;
   final VoidCallback onScanQrCode;
   final ValueChanged<DiscoveredServer> onConnectToDiscovered;
-  final ValueChanged<UrlHistoryEntry> onSelectUrlHistory;
-  final ValueChanged<String> onRemoveUrlHistory;
-  final void Function(String url, String? name)? onUpdateUrlHistoryName;
+
+  // Machine management
+  final List<MachineWithStatus> machines;
+  final String? startingMachineId;
+  final String? updatingMachineId;
+  final ValueChanged<MachineWithStatus>? onConnectToMachine;
+  final ValueChanged<MachineWithStatus>? onStartMachine;
+  final ValueChanged<MachineWithStatus>? onEditMachine;
+  final ValueChanged<MachineWithStatus>? onDeleteMachine;
+  final ValueChanged<MachineWithStatus>? onToggleFavorite;
+  final ValueChanged<MachineWithStatus>? onUpdateMachine;
+  final ValueChanged<MachineWithStatus>? onStopMachine;
+  final ValueChanged<MachineWithStatus>? onSetupMachine;
+  final VoidCallback? onAddMachine;
+  final VoidCallback? onRefreshMachines;
 
   const ConnectForm({
     super.key,
     required this.urlController,
     required this.apiKeyController,
     required this.discoveredServers,
-    required this.urlHistory,
     required this.onConnect,
     required this.onScanQrCode,
     required this.onConnectToDiscovered,
-    required this.onSelectUrlHistory,
-    required this.onRemoveUrlHistory,
-    this.onUpdateUrlHistoryName,
+    // Machine management
+    this.machines = const [],
+    this.startingMachineId,
+    this.updatingMachineId,
+    this.onConnectToMachine,
+    this.onStartMachine,
+    this.onEditMachine,
+    this.onDeleteMachine,
+    this.onToggleFavorite,
+    this.onUpdateMachine,
+    this.onStopMachine,
+    this.onSetupMachine,
+    this.onAddMachine,
+    this.onRefreshMachines,
   });
+
+  bool get _hasMachineHandlers =>
+      onConnectToMachine != null &&
+      onStartMachine != null &&
+      onEditMachine != null &&
+      onDeleteMachine != null &&
+      onAddMachine != null;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -59,47 +87,41 @@ class ConnectForm extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 24),
+
+          // Machines section (favorites + recent)
+          if (_hasMachineHandlers) ...[
+            MachineList(
+              machines: machines,
+              startingMachineId: startingMachineId,
+              updatingMachineId: updatingMachineId,
+              onConnect: onConnectToMachine!,
+              onStart: onStartMachine!,
+              onEdit: onEditMachine!,
+              onDelete: onDeleteMachine!,
+              onToggleFavorite: onToggleFavorite,
+              onUpdate: onUpdateMachine,
+              onStop: onStopMachine,
+              onSetup: onSetupMachine,
+              onAddMachine: onAddMachine!,
+              onRefresh: onRefreshMachines,
+            ),
+            if (machines.isNotEmpty || discoveredServers.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildDivider(context, 'or connect manually'),
+              const SizedBox(height: 16),
+            ],
+          ],
+
+          // Discovered servers via mDNS
           if (discoveredServers.isNotEmpty) ...[
             DiscoveredServersList(
               servers: discoveredServers,
               onConnect: onConnectToDiscovered,
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Divider(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    'or enter manually',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Divider(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
           ],
-          if (urlHistory.isNotEmpty) ...[
-            UrlHistoryList(
-              entries: urlHistory,
-              onSelect: onSelectUrlHistory,
-              onRemove: onRemoveUrlHistory,
-              onUpdateName: onUpdateUrlHistoryName,
-            ),
-            const SizedBox(height: 16),
-          ],
+
+          // Manual input
           TextField(
             key: const ValueKey('server_url_field'),
             controller: urlController,
@@ -150,6 +172,29 @@ class ConnectForm extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildDivider(BuildContext context, String text) {
+    return Row(
+      children: [
+        Expanded(
+          child: Divider(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Divider(color: Theme.of(context).colorScheme.outlineVariant),
+        ),
+      ],
     );
   }
 }

@@ -145,11 +145,7 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
         trailing: isCurrent
             ? Icon(Icons.check_circle, size: 20, color: cs.tertiary)
             : IconButton(
-                icon: Icon(
-                  Icons.delete_outline,
-                  size: 20,
-                  color: cs.error,
-                ),
+                icon: Icon(Icons.delete_outline, size: 20, color: cs.error),
                 onPressed: () => _confirmRemove(wt),
                 tooltip: 'Remove worktree',
               ),

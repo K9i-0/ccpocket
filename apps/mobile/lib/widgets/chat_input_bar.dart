@@ -151,11 +151,7 @@ class ChatInputBar extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 padding: const EdgeInsets.all(4),
-                child: const Icon(
-                  Icons.close,
-                  size: 14,
-                  color: Colors.white,
-                ),
+                child: const Icon(Icons.close, size: 14, color: Colors.white),
               ),
             ),
           ),

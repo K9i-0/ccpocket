@@ -17,7 +17,8 @@ class StatusIndicator extends HookWidget {
     final appColors = Theme.of(context).extension<AppColors>()!;
 
     // Track elapsed time when running/starting
-    final isActive = status == ProcessStatus.running ||
+    final isActive =
+        status == ProcessStatus.running ||
         status == ProcessStatus.starting ||
         status == ProcessStatus.clearing;
 
@@ -105,10 +106,7 @@ class _AnimatedStatusDot extends StatefulWidget {
   final Color color;
   final bool isAnimating;
 
-  const _AnimatedStatusDot({
-    required this.color,
-    required this.isAnimating,
-  });
+  const _AnimatedStatusDot({required this.color, required this.isAnimating});
 
   @override
   State<_AnimatedStatusDot> createState() => _AnimatedStatusDotState();
@@ -126,9 +124,10 @@ class _AnimatedStatusDotState extends State<_AnimatedStatusDot>
       duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
-    _animation = Tween<double>(begin: 1.0, end: 1.4).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 1.0,
+      end: 1.4,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     if (widget.isAnimating) {
       _controller.repeat(reverse: true);
     }

@@ -4,16 +4,21 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/session_list/session_list_screen.dart';
 import 'features/session_list/state/session_list_cubit.dart';
 import 'models/messages.dart';
 import 'providers/bridge_cubits.dart';
+import 'providers/machine_manager_cubit.dart';
 import 'providers/server_discovery_cubit.dart';
 import 'services/bridge_service.dart';
 import 'services/connection_url_parser.dart';
+import 'services/machine_manager_service.dart';
 import 'services/notification_service.dart';
+import 'services/ssh_startup_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -30,10 +35,27 @@ void main() async {
   NotificationService.instance.init().catchError((e) {
     debugPrint('[main] NotificationService init failed: $e');
   });
+
+  // Initialize SharedPreferences and services
+  final prefs = await SharedPreferences.getInstance();
+  const secureStorage = FlutterSecureStorage();
+  final machineManagerService = MachineManagerService(prefs, secureStorage);
+  // SSH is only supported on native platforms (not web)
+  final sshStartupService = kIsWeb
+      ? null
+      : SshStartupService(machineManagerService);
+
   final bridge = BridgeService();
   runApp(
-    RepositoryProvider<BridgeService>.value(
-      value: bridge,
+    MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<BridgeService>.value(value: bridge),
+        RepositoryProvider<MachineManagerService>.value(
+          value: machineManagerService,
+        ),
+        if (sshStartupService != null)
+          RepositoryProvider<SshStartupService>.value(value: sshStartupService),
+      ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider(
@@ -61,6 +83,10 @@ void main() async {
           BlocProvider(
             create: (ctx) =>
                 SessionListCubit(bridge: ctx.read<BridgeService>()),
+          ),
+          BlocProvider(
+            create: (_) =>
+                MachineManagerCubit(machineManagerService, sshStartupService),
           ),
         ],
         child: const CcpocketApp(),

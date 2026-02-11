@@ -142,9 +142,7 @@ final _multipleApprovalFlow = MockScenario(
           id: 'mock-multi-approval-2',
           role: 'assistant',
           content: [
-            const TextContent(
-              text: 'Also need to check the git status.',
-            ),
+            const TextContent(text: 'Also need to check the git status.'),
             const ToolUseContent(
               id: 'tool-bash-2',
               name: 'Bash',

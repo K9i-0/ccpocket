@@ -69,12 +69,13 @@ class UserBubble extends StatelessWidget {
                           '$httpBaseUrl$imageUrl',
                           width: 200,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            width: 200,
-                            height: 100,
-                            color: Colors.grey[300],
-                            child: const Icon(Icons.broken_image),
-                          ),
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                width: 200,
+                                height: 100,
+                                color: Colors.grey[300],
+                                child: const Icon(Icons.broken_image),
+                              ),
                         ),
                       ),
                     ),
