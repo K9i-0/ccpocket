@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../models/messages.dart';
@@ -226,9 +227,15 @@ class _ChatMessageListState extends State<ChatMessageList> {
           },
         ),
       ],
-      child: NotificationListener<ScrollStartNotification>(
+      child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
-          FocusScope.of(context).unfocus();
+          // Only unfocus when user drags the list (not programmatic scroll).
+          // This prevents the keyboard from being dismissed during automatic
+          // scroll-to-bottom triggered by streaming updates.
+          if (notification is UserScrollNotification &&
+              notification.direction != ScrollDirection.idle) {
+            FocusScope.of(context).unfocus();
+          }
           return false;
         },
         child: AnimatedList(

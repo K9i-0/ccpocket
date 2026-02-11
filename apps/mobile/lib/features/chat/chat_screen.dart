@@ -21,10 +21,8 @@ import 'state/chat_session_state.dart';
 import 'state/streaming_state_cubit.dart';
 import 'widgets/chat_input_with_overlays.dart';
 import 'widgets/chat_message_list.dart';
-import 'widgets/cost_badge.dart';
 import 'widgets/plan_mode_chip.dart';
 import 'widgets/reconnect_banner.dart';
-import 'widgets/session_switcher.dart';
 import 'widgets/status_indicator.dart';
 
 /// Outer widget that creates screen-scoped [ChatSessionCubit] and
@@ -112,11 +110,6 @@ class _ChatScreenBody extends HookWidget {
     // --- Bloc state ---
     final sessionState = context.watch<ChatSessionCubit>().state;
     final bridgeState = context.watch<ConnectionCubit>().state;
-    final otherSessions = context
-        .watch<ActiveSessionsCubit>()
-        .state
-        .where((s) => s.id != sessionId)
-        .toList();
 
     // --- Side effects subscription ---
     useEffect(() {
@@ -146,7 +139,6 @@ class _ChatScreenBody extends HookWidget {
     final status = sessionState.status;
     final approval = sessionState.approval;
     final inPlanMode = sessionState.inPlanMode;
-    final totalCost = sessionState.totalCost;
 
     // Approval state pattern matching
     String? pendingToolUseId;
@@ -275,27 +267,6 @@ class _ChatScreenBody extends HookWidget {
                   },
                 ),
                 if (inPlanMode) const PlanModeChip(),
-                // Cost & context usage badge
-                if (totalCost > 0 || sessionState.entries.isNotEmpty)
-                  CostBadge(
-                    totalCost: totalCost,
-                    messageCount: sessionState.entries.length,
-                  ),
-                if (otherSessions.isNotEmpty)
-                  SessionSwitcher(
-                    otherSessions: otherSessions,
-                    onSessionSelected: (session) {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChatScreen(
-                            sessionId: session.id,
-                            projectPath: session.projectPath,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
                 StatusIndicator(status: status),
               ],
             ),
