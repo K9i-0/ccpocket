@@ -68,7 +68,7 @@ export type ServerMessage =
   | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string }
   | { type: "assistant"; message: AssistantMessage }
   | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[] }
-  | { type: "result"; subtype: string; result?: string; error?: string; cost?: number; duration?: number; sessionId?: string }
+  | { type: "result"; subtype: string; result?: string; error?: string; cost?: number; duration?: number; sessionId?: string; stopReason?: string }
   | { type: "error"; message: string }
   | { type: "status"; status: ProcessStatus }
   | { type: "history"; messages: ServerMessage[] }

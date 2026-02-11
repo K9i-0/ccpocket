@@ -24,7 +24,8 @@ class ResultChip extends StatelessWidget {
     final Color chipColor;
     switch (message.subtype) {
       case 'success':
-        label = 'Done${parts.isNotEmpty ? ' (${parts.join(", ")})' : ''}';
+        final truncated = message.stopReason == 'max_tokens' ? ' [truncated]' : '';
+        label = 'Done${parts.isNotEmpty ? ' (${parts.join(", ")})' : ''}$truncated';
         chipColor = appColors.successChip;
       case 'stopped':
         label = 'Stopped';

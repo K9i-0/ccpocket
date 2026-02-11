@@ -250,6 +250,7 @@ sealed class ServerMessage {
         cost: (json['cost'] as num?)?.toDouble(),
         duration: (json['duration'] as num?)?.toDouble(),
         sessionId: json['sessionId'] as String?,
+        stopReason: json['stopReason'] as String?,
       ),
       'error' => ErrorMessage(message: json['message'] as String),
       'status' => StatusMessage(
@@ -366,6 +367,7 @@ class ResultMessage implements ServerMessage {
   final double? cost;
   final double? duration;
   final String? sessionId;
+  final String? stopReason;
   const ResultMessage({
     required this.subtype,
     this.result,
@@ -373,6 +375,7 @@ class ResultMessage implements ServerMessage {
     this.cost,
     this.duration,
     this.sessionId,
+    this.stopReason,
   });
 }
 

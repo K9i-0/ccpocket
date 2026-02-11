@@ -134,6 +134,7 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
           cost: res.total_cost_usd as number,
           duration: res.duration_ms as number,
           sessionId: msg.session_id,
+          stopReason: res.stop_reason as string | undefined,
         };
       }
       // All other result subtypes are errors
@@ -147,6 +148,7 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
         subtype: "error",
         error: errorText,
         sessionId: msg.session_id,
+        stopReason: res.stop_reason as string | undefined,
       };
     }
 

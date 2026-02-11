@@ -202,6 +202,74 @@ describe("sdkMessageToServerMessage", () => {
     });
   });
 
+  describe("result message stop_reason handling", () => {
+    it("forwards stop_reason from success result", () => {
+      const sdkMsg = {
+        type: "result" as const,
+        subtype: "success",
+        result: "Done",
+        total_cost_usd: 0.05,
+        duration_ms: 1234,
+        stop_reason: "end_turn",
+        uuid: "test-uuid" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toEqual({
+        type: "result",
+        subtype: "success",
+        result: "Done",
+        cost: 0.05,
+        duration: 1234,
+        sessionId: "test-session",
+        stopReason: "end_turn",
+      });
+    });
+
+    it("forwards stop_reason from error result", () => {
+      const sdkMsg = {
+        type: "result" as const,
+        subtype: "error",
+        errors: ["Something failed"],
+        stop_reason: "max_tokens",
+        uuid: "test-uuid" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toEqual({
+        type: "result",
+        subtype: "error",
+        error: "Something failed",
+        sessionId: "test-session",
+        stopReason: "max_tokens",
+      });
+    });
+
+    it("omits stopReason when not present in SDK message", () => {
+      const sdkMsg = {
+        type: "result" as const,
+        subtype: "success",
+        result: "Done",
+        total_cost_usd: 0.01,
+        duration_ms: 500,
+        uuid: "test-uuid" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "result",
+        subtype: "success",
+      });
+      expect((serverMsg as any).stopReason).toBeUndefined();
+    });
+  });
+
   describe("returns null for unhandled message types", () => {
     it("returns null for unknown message type", () => {
       const sdkMsg = {
