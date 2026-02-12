@@ -96,6 +96,17 @@ class ChatMessageHandler {
           entriesToAdd: [ServerChatEntry(msg)],
           toolUseIdsToHide: precedingToolUseIds.toSet(),
         );
+      case UserInputMessage(:final text, :final userMessageUuid):
+        // Convert user_input to UserChatEntry (same as in _handleHistory)
+        return ChatStateUpdate(
+          entriesToAdd: [
+            UserChatEntry(
+              text,
+              status: MessageStatus.sent,
+              messageUuid: userMessageUuid,
+            ),
+          ],
+        );
       default:
         return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
     }
@@ -247,6 +258,13 @@ class ChatMessageHandler {
     for (final m in messages) {
       if (m is StatusMessage) {
         lastStatus = m.status;
+      } else if (m is UserInputMessage) {
+        // Convert user_input to UserChatEntry with UUID
+        entries.add(UserChatEntry(
+          m.text,
+          status: MessageStatus.sent,
+          messageUuid: m.userMessageUuid,
+        ));
       } else {
         // Don't add internal metadata messages as visible entries
         if (m is! SystemMessage ||
@@ -277,12 +295,23 @@ class ChatMessageHandler {
             }
           }
         }
-        // A tool_result means that permission was resolved
+        // A tool_result means that permission was resolved.
+        // Also assign userMessageUuid to the nearest preceding UserChatEntry
+        // (backward compatibility for histories without user_input messages).
         if (m is ToolResultMessage) {
           pendingPermissions.remove(m.toolUseId);
           if (lastAskToolUseId != null && m.toolUseId == lastAskToolUseId) {
             lastAskToolUseId = null;
             lastAskInput = null;
+          }
+          if (m.userMessageUuid != null) {
+            for (int i = entries.length - 1; i >= 0; i--) {
+              final e = entries[i];
+              if (e is UserChatEntry && e.messageUuid == null) {
+                e.messageUuid = m.userMessageUuid;
+                break;
+              }
+            }
           }
         }
         // A result message means the turn completed

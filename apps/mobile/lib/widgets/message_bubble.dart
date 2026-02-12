@@ -174,6 +174,7 @@ class ServerMessageWidget extends StatelessWidget {
       final ToolUseSummaryMessage msg => ToolUseSummaryBubble(message: msg),
       RewindPreviewMessage() => const SizedBox.shrink(),
       RewindResultMessage() => const SizedBox.shrink(),
+      UserInputMessage() => const SizedBox.shrink(),
     };
   }
 }

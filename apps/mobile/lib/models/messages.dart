@@ -319,6 +319,10 @@ sealed class ServerMessage {
         precedingToolUseIds:
             (json['precedingToolUseIds'] as List?)?.cast<String>() ?? const [],
       ),
+      'user_input' => UserInputMessage(
+        text: json['text'] as String? ?? '',
+        userMessageUuid: json['userMessageUuid'] as String?,
+      ),
       'rewind_preview' => RewindPreviewMessage(
         canRewind: json['canRewind'] as bool? ?? false,
         filesChanged: (json['filesChanged'] as List?)?.cast<String>(),
@@ -514,6 +518,16 @@ class ToolUseSummaryMessage implements ServerMessage {
     required this.summary,
     this.precedingToolUseIds = const [],
   });
+}
+
+/// User text input message (emitted from history replay).
+///
+/// Bridge sends this when restoring in-memory history so that Flutter can
+/// reconstruct [UserChatEntry] with the original text and UUID.
+class UserInputMessage implements ServerMessage {
+  final String text;
+  final String? userMessageUuid;
+  const UserInputMessage({required this.text, this.userMessageUuid});
 }
 
 class RewindPreviewMessage implements ServerMessage {

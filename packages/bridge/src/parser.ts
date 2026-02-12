@@ -84,7 +84,8 @@ export type ServerMessage =
   | { type: "worktree_removed"; worktreePath: string }
   | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] }
   | { type: "rewind_preview"; canRewind: boolean; filesChanged?: string[]; insertions?: number; deletions?: number; error?: string }
-  | { type: "rewind_result"; success: boolean; mode: "conversation" | "code" | "both"; error?: string };
+  | { type: "rewind_result"; success: boolean; mode: "conversation" | "code" | "both"; error?: string }
+  | { type: "user_input"; text: string; userMessageUuid?: string };
 
 export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval" | "clearing";
 

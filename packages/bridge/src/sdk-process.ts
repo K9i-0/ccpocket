@@ -125,15 +125,30 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
       const results = content.filter(
         (c: unknown) => (c as Record<string, unknown>).type === "tool_result"
       );
-      if (results.length === 0) return null;
 
-      const first = results[0] as Record<string, unknown>;
-      return {
-        type: "tool_result",
-        toolUseId: first.tool_use_id as string,
-        content: normalizeToolResultContent(first.content as string | unknown[]),
-        ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
-      };
+      if (results.length > 0) {
+        const first = results[0] as Record<string, unknown>;
+        return {
+          type: "tool_result",
+          toolUseId: first.tool_use_id as string,
+          content: normalizeToolResultContent(first.content as string | unknown[]),
+          ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
+        };
+      }
+
+      // User text input (first prompt of each turn)
+      const texts = content
+        .filter((c: unknown) => (c as Record<string, unknown>).type === "text")
+        .map((c: unknown) => (c as Record<string, unknown>).text as string);
+      if (texts.length > 0) {
+        return {
+          type: "user_input",
+          text: texts.join("\n"),
+          ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
+        } as ServerMessage;
+      }
+
+      return null;
     }
 
     case "result": {

@@ -369,5 +369,67 @@ describe("sdkMessageToServerMessage", () => {
       });
       expect((serverMsg as any).userMessageUuid).toBeUndefined();
     });
+
+    it("converts user text-only message to user_input", () => {
+      const sdkMsg = {
+        type: "user" as const,
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "Hello Claude" }],
+        },
+        uuid: "usr-text-789" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "user_input",
+        text: "Hello Claude",
+        userMessageUuid: "usr-text-789",
+      });
+    });
+
+    it("converts user text-only message without uuid", () => {
+      const sdkMsg = {
+        type: "user" as const,
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "Hello" }],
+        },
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "user_input",
+        text: "Hello",
+      });
+      expect((serverMsg as any).userMessageUuid).toBeUndefined();
+    });
+
+    it("prefers tool_result over text when both present in user message", () => {
+      const sdkMsg = {
+        type: "user" as const,
+        message: {
+          role: "user",
+          content: [
+            { type: "text", text: "some text" },
+            { type: "tool_result", tool_use_id: "tu-mix", content: "result" },
+          ],
+        },
+        uuid: "usr-mix-000" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "tool_result",
+        toolUseId: "tu-mix",
+        userMessageUuid: "usr-mix-000",
+      });
+    });
   });
 });
