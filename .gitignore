@@ -39,3 +39,9 @@ npm-debug.log*
 
 # Agent memory (local scope)
 .claude/agent-memory-local/
+
+# Playwright CLI
+.playwright-cli/
+
+# Web preview artifacts
+web-preview.png

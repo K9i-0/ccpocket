@@ -1,5 +1,5 @@
 import type { Server as HttpServer } from "node:http";
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { unlink } from "node:fs/promises";
 import { WebSocketServer, WebSocket } from "ws";
 import { SessionManager, type SessionInfo } from "./session.js";
@@ -406,7 +406,31 @@ export class BridgeWebSocketServer {
       }
 
       case "get_diff": {
-        execFile("git", ["diff", "--no-color"], { cwd: msg.projectPath, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
+        const cwd = msg.projectPath;
+        const execOpts = { cwd, maxBuffer: 10 * 1024 * 1024 };
+
+        // Collect untracked files so they appear in the diff
+        let untrackedFiles: string[] = [];
+        try {
+          const out = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd }).toString().trim();
+          untrackedFiles = out ? out.split("\n") : [];
+        } catch { /* ignore */ }
+
+        // Temporarily stage untracked files with --intent-to-add
+        if (untrackedFiles.length > 0) {
+          try {
+            execFileSync("git", ["add", "--intent-to-add", ...untrackedFiles], { cwd });
+          } catch { /* ignore */ }
+        }
+
+        execFile("git", ["diff", "--no-color"], execOpts, (err, stdout) => {
+          // Revert intent-to-add for untracked files
+          if (untrackedFiles.length > 0) {
+            try {
+              execFileSync("git", ["reset", "--", ...untrackedFiles], { cwd });
+            } catch { /* ignore */ }
+          }
+
           if (err) {
             this.send(ws, { type: "diff_result", diff: "", error: `Failed to get diff: ${err.message}` });
             return;
