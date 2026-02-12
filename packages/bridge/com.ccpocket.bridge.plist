@@ -5,12 +5,19 @@
     <key>Label</key>
     <string>com.ccpocket.bridge</string>
 
+    <!--
+        Launch via login+interactive shell to inherit the user's full
+        environment (nvm, pyenv, Homebrew, etc.) — same as Terminal.app.
+        `exec` replaces the zsh process with node, so the process tree
+        becomes: launchd → node (no leftover zsh).
+    -->
     <key>ProgramArguments</key>
     <array>
-        <!-- Update this path to your node binary -->
-        <string>/usr/local/bin/node</string>
-        <!-- Update this path to the built bridge entry point -->
-        <string>/Users/YOUR_USERNAME/Workspace/ccpocket/packages/bridge/dist/index.js</string>
+        <string>/bin/zsh</string>
+        <string>-li</string>
+        <string>-c</string>
+        <!-- Update the path to your built bridge entry point -->
+        <string>exec node /Users/YOUR_USERNAME/Workspace/ccpocket/packages/bridge/dist/index.js</string>
     </array>
 
     <key>WorkingDirectory</key>
@@ -26,9 +33,6 @@
         <!-- Set your API key for authentication -->
         <key>BRIDGE_API_KEY</key>
         <string>YOUR_SECRET_KEY_HERE</string>
-        <!-- Ensure claude CLI is in PATH -->
-        <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
     </dict>
 
     <key>KeepAlive</key>

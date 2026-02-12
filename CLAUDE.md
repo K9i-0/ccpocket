@@ -126,6 +126,12 @@ Flutter App ←WebSocket→ websocket.ts ←→ session.ts ←→ claude-process
 3. Flutter AppのServer URLに `ws://<Mac_Tailscale_IP>:8765` を入力
 
 ### launchd永続化
+
+plistテンプレートは `zsh -li -c "exec node ..."` でBridge Serverを起動する。
+ログイン+インタラクティブシェル経由で起動することで、Terminal.appと同じ環境
+（nvm, pyenv, Homebrew等の初期化を含む）が反映される。
+`exec` によりzshプロセスはnodeに置き換わるため、余分なプロセスは残らない。
+
 ```bash
 # 1. テンプレートを編集
 cp packages/bridge/com.ccpocket.bridge.plist ~/Library/LaunchAgents/

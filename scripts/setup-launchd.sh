@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Register Bridge Server as a launchd service for persistent startup.
 #
+# The plist launches Bridge Server via `zsh -li -c "exec node ..."` so that
+# the user's full shell environment (mise, nvm, pyenv, Homebrew, etc.) is
+# inherited — the same as running from Terminal.app.
+#
 # Usage:
 #   npm run setup                          # Default setup (port 8765)
 #   npm run setup -- --port 9000           # Custom port
@@ -63,19 +67,12 @@ if [ "$UNINSTALL" = true ]; then
   exit 0
 fi
 
-# --- Detect Node.js ---
-NODE_PATH=$(command -v node || true)
-if [ -z "$NODE_PATH" ]; then
-  for p in /usr/local/bin/node /opt/homebrew/bin/node; do
-    if [ -x "$p" ]; then NODE_PATH="$p"; break; fi
-  done
-fi
-if [ -z "$NODE_PATH" ]; then
-  echo "ERROR: node not found. Install Node.js first."
+# --- Verify node is available ---
+if ! command -v node &>/dev/null; then
+  echo "ERROR: node not found in PATH. Install Node.js first."
   exit 1
 fi
-NODE_DIR=$(dirname "$NODE_PATH")
-echo "==> Node.js: $NODE_PATH"
+echo "==> Node.js: $(command -v node)"
 
 # --- Build if needed ---
 if [ ! -d "$ROOT_DIR/packages/bridge/dist" ]; then
@@ -83,13 +80,13 @@ if [ ! -d "$ROOT_DIR/packages/bridge/dist" ]; then
   cd "$ROOT_DIR" && npm run bridge:build
 fi
 
+ENTRY_POINT="$ROOT_DIR/packages/bridge/dist/index.js"
+
 # --- Create LaunchAgents directory ---
 mkdir -p "$HOME/Library/LaunchAgents"
 
 # --- Build environment block ---
-ENV_BLOCK="        <key>PATH</key>
-        <string>$NODE_DIR:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-        <key>BRIDGE_PORT</key>
+ENV_BLOCK="        <key>BRIDGE_PORT</key>
         <string>$PORT</string>
         <key>BRIDGE_HOST</key>
         <string>$HOST</string>"
@@ -109,23 +106,38 @@ cat > "$PLIST_PATH" <<EOF
 <dict>
     <key>Label</key>
     <string>$PLIST_LABEL</string>
+
+    <!--
+        Launch via login+interactive shell to inherit the user's full
+        environment (mise, nvm, pyenv, Homebrew, etc.) — same as Terminal.app.
+        exec replaces the zsh process with node, so the process tree
+        becomes: launchd → node (no leftover zsh).
+    -->
     <key>ProgramArguments</key>
     <array>
-        <string>$NODE_PATH</string>
-        <string>$ROOT_DIR/packages/bridge/dist/index.js</string>
+        <string>/bin/zsh</string>
+        <string>-li</string>
+        <string>-c</string>
+        <string>exec node $ENTRY_POINT</string>
     </array>
+
     <key>WorkingDirectory</key>
     <string>$ROOT_DIR</string>
+
     <key>EnvironmentVariables</key>
     <dict>
 $ENV_BLOCK
     </dict>
+
     <key>RunAtLoad</key>
     <false/>
+
     <key>KeepAlive</key>
     <false/>
+
     <key>StandardOutPath</key>
     <string>/tmp/ccpocket-bridge.log</string>
+
     <key>StandardErrorPath</key>
     <string>/tmp/ccpocket-bridge.err</string>
 </dict>
