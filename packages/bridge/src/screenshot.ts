@@ -2,7 +2,7 @@
  * Screenshot module — macOS native screenshot capture via CLI commands.
  *
  * - `listWindows()`: Enumerate on-screen windows using CGWindowListCopyWindowInfo
- *   via the macOS-bundled python3 + Quartz bridge.
+ *   via Swift's CoreGraphics (Quartz PyObjC is unreliable across Python installs).
  * - `takeScreenshot()`: Capture full-screen or a specific window via `screencapture`.
  */
 
@@ -42,39 +42,42 @@ export interface ScreenshotResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Python one-liner that calls CGWindowListCopyWindowInfo and outputs JSON.
- * Uses /usr/bin/python3 explicitly because Homebrew python may lack Quartz.
+ * Swift inline script that calls CGWindowListCopyWindowInfo and outputs JSON.
+ * Uses `swift -e` which is available on any macOS with Xcode CLT.
+ * Python + Quartz was unreliable (PyObjC missing on non-system python installs).
  */
-const LIST_WINDOWS_SCRIPT = `
-import json, Quartz
-wl = Quartz.CGWindowListCopyWindowInfo(
-    Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
-    Quartz.kCGNullWindowID
-)
-out = []
-for w in wl:
-    layer = w.get("kCGWindowLayer", -1)
-    owner = w.get("kCGWindowOwnerName", "")
-    if layer != 0 or not owner:
-        continue
-    b = w.get("kCGWindowBounds", {})
-    width = b.get("Width", 0)
-    height = b.get("Height", 0)
-    if width < 50 or height < 50:
-        continue
-    out.append({
-        "windowId": int(w.get("kCGWindowNumber", 0)),
-        "ownerName": str(owner),
-        "windowTitle": str(w.get("kCGWindowName", "") or ""),
-        "bounds": {
-            "x": b.get("X", 0),
-            "y": b.get("Y", 0),
-            "width": width,
-            "height": height
-        }
-    })
-print(json.dumps(out))
-`.trim();
+const LIST_WINDOWS_SWIFT = `
+import CoreGraphics
+import Foundation
+
+let windowList = CGWindowListCopyWindowInfo(
+    [.optionOnScreenOnly, .excludeDesktopElements],
+    kCGNullWindowID
+) as? [[String: Any]] ?? []
+
+var out: [[String: Any]] = []
+for w in windowList {
+    guard let layer = w[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
+    guard let owner = w[kCGWindowOwnerName as String] as? String, !owner.isEmpty else { continue }
+    let bounds = w[kCGWindowBounds as String] as? [String: Any] ?? [:]
+    let width = bounds["Width"] as? Double ?? 0
+    let height = bounds["Height"] as? Double ?? 0
+    if width < 50 || height < 50 { continue }
+    out.append([
+        "windowId": w[kCGWindowNumber as String] as? Int ?? 0,
+        "ownerName": owner,
+        "windowTitle": (w[kCGWindowName as String] as? String) ?? "",
+        "bounds": [
+            "x": (bounds["X"] as? Double ?? 0) as Any,
+            "y": (bounds["Y"] as? Double ?? 0) as Any,
+            "width": width as Any,
+            "height": height as Any,
+        ] as Any,
+    ])
+}
+let data = try JSONSerialization.data(withJSONObject: out, options: [])
+print(String(data: data, encoding: .utf8)!)
+`;
 
 export async function listWindows(): Promise<WindowInfo[]> {
   if (process.platform !== "darwin") {
@@ -83,9 +86,9 @@ export async function listWindows(): Promise<WindowInfo[]> {
 
   return new Promise<WindowInfo[]>((resolve, reject) => {
     execFile(
-      "/usr/bin/python3",
-      ["-c", LIST_WINDOWS_SCRIPT],
-      { timeout: 5_000 },
+      "swift",
+      ["-e", LIST_WINDOWS_SWIFT],
+      { timeout: 15_000 },
       (err, stdout, stderr) => {
         if (err) {
           reject(
