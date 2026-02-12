@@ -96,10 +96,15 @@ class _HomeContentState extends State<HomeContent> {
         widget.connectionState == BridgeConnectionState.reconnecting;
 
     // Compute derived state
+    // Exclude running sessions from recent list to avoid duplicates
+    final runningSessionIds = widget.sessions.map((s) => s.id).toSet();
     var filteredSessions = widget.currentProjectFilter != null
         ? widget.recentSessions
         : filterByProject(widget.recentSessions, widget.selectedProject);
     filteredSessions = filterByQuery(filteredSessions, widget.searchQuery);
+    filteredSessions = filteredSessions
+        .where((s) => !runningSessionIds.contains(s.sessionId))
+        .toList();
 
     final hasActiveFilter = widget.currentProjectFilter != null;
 
