@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 // ---- Assistant content types ----
 
@@ -642,10 +643,14 @@ class ClientMessage {
     String text, {
     String? sessionId,
     String? imageId,
+    String? imageBase64,
+    String? mimeType,
   }) {
     final json = <String, dynamic>{'type': 'input', 'text': text};
     if (sessionId != null) json['sessionId'] = sessionId;
     if (imageId != null) json['imageId'] = imageId;
+    if (imageBase64 != null) json['imageBase64'] = imageBase64;
+    if (mimeType != null) json['mimeType'] = mimeType;
     return ClientMessage._(json);
   }
 
@@ -790,6 +795,7 @@ class UserChatEntry implements ChatEntry {
   final String? sessionId;
   final String? imageId;
   final String? imageUrl;
+  final Uint8List? imageBytes;
   MessageStatus status;
   @override
   final DateTime timestamp;
@@ -799,6 +805,7 @@ class UserChatEntry implements ChatEntry {
     this.sessionId,
     this.imageId,
     this.imageUrl,
+    this.imageBytes,
     this.status = MessageStatus.sending,
   }) : timestamp = timestamp ?? DateTime.now();
 }

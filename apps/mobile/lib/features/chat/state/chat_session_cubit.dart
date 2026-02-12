@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -219,17 +221,37 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   // ---------------------------------------------------------------------------
 
   /// Send a user message, optionally with an image attachment.
-  void sendMessage(String text, {String? imageId, String? imageUrl}) {
-    if (text.trim().isEmpty && imageId == null) return;
+  void sendMessage(
+    String text, {
+    String? imageId,
+    String? imageUrl,
+    Uint8List? imageBytes,
+    String? imageMimeType,
+  }) {
+    if (text.trim().isEmpty && imageId == null && imageBytes == null) return;
     final entry = UserChatEntry(
       text,
       sessionId: sessionId,
       imageId: imageId,
       imageUrl: imageUrl,
+      imageBytes: imageBytes,
     );
     emit(state.copyWith(entries: [...state.entries, entry]));
+
+    // Send Base64 directly via WebSocket if image bytes are provided
+    String? imageBase64;
+    if (imageBytes != null) {
+      imageBase64 = base64Encode(imageBytes);
+    }
+
     _bridge.send(
-      ClientMessage.input(text, sessionId: sessionId, imageId: imageId),
+      ClientMessage.input(
+        text,
+        sessionId: sessionId,
+        imageId: imageId,
+        imageBase64: imageBase64,
+        mimeType: imageMimeType,
+      ),
     );
   }
 

@@ -45,7 +45,7 @@ export type PermissionMode =
 
 export type ClientMessage =
   | { type: "start"; projectPath: string; sessionId?: string; continue?: boolean; permissionMode?: PermissionMode; useWorktree?: boolean; worktreeBranch?: string }
-  | { type: "input"; text: string; sessionId?: string; imageId?: string }
+  | { type: "input"; text: string; sessionId?: string; imageId?: string; imageBase64?: string; mimeType?: string }
   | { type: "approve"; id: string; updatedInput?: Record<string, unknown>; clearContext?: boolean; sessionId?: string }
   | { type: "approve_always"; id: string; sessionId?: string }
   | { type: "reject"; id: string; message?: string; sessionId?: string }
@@ -110,6 +110,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "input":
         if (typeof msg.text !== "string") return null;
+        // imageBase64 requires mimeType
+        if (msg.imageBase64 && typeof msg.mimeType !== "string") return null;
         break;
       case "approve":
         if (typeof msg.id !== "string") return null;

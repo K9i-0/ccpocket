@@ -11,6 +11,7 @@ class UserBubble extends StatelessWidget {
   final VoidCallback? onRetry;
   final String? imageUrl;
   final String? httpBaseUrl;
+  final Uint8List? imageBytes;
   const UserBubble({
     super.key,
     required this.text,
@@ -18,6 +19,7 @@ class UserBubble extends StatelessWidget {
     this.onRetry,
     this.imageUrl,
     this.httpBaseUrl,
+    this.imageBytes,
   });
 
   @override
@@ -60,23 +62,36 @@ class UserBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  if (imageUrl != null && httpBaseUrl != null)
+                  if (imageBytes != null || (imageUrl != null && httpBaseUrl != null))
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          '$httpBaseUrl$imageUrl',
-                          width: 200,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
+                        child: imageBytes != null
+                            ? Image.memory(
+                                imageBytes!,
                                 width: 200,
-                                height: 100,
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.broken_image),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                      width: 200,
+                                      height: 100,
+                                      color: Colors.grey[300],
+                                      child: const Icon(Icons.broken_image),
+                                    ),
+                              )
+                            : Image.network(
+                                '$httpBaseUrl$imageUrl',
+                                width: 200,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                      width: 200,
+                                      height: 100,
+                                      color: Colors.grey[300],
+                                      child: const Icon(Icons.broken_image),
+                                    ),
                               ),
-                        ),
                       ),
                     ),
                   if (text.isNotEmpty)

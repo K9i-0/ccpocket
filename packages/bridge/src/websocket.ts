@@ -161,13 +161,31 @@ export class BridgeWebSocketServer {
           ? this.expandPreviewCommand(session, msg.text)
           : msg.text;
 
-        // Handle image attachment via Gallery
-        if (msg.imageId && this.galleryStore) {
+        // Priority 1: Direct Base64 image (simplified flow)
+        if (msg.imageBase64 && msg.mimeType) {
+          console.log(`[ws] Sending message with inline Base64 image (${msg.mimeType})`);
+          session.process.sendInputWithImage(text, {
+            base64: msg.imageBase64,
+            mimeType: msg.mimeType,
+          });
+          // Persist to Gallery Store asynchronously (fire-and-forget)
+          if (this.galleryStore && session.projectPath) {
+            this.galleryStore.addImageFromBase64(
+              msg.imageBase64,
+              msg.mimeType,
+              session.projectPath,
+              msg.sessionId,
+            ).catch((err) => {
+              console.warn(`[ws] Failed to persist image to gallery: ${err}`);
+            });
+          }
+        }
+        // Priority 2: Legacy imageId mode (backward compatibility)
+        else if (msg.imageId && this.galleryStore) {
           this.galleryStore.getImageAsBase64(msg.imageId).then((imageData) => {
             if (imageData) {
               session.process.sendInputWithImage(text, imageData);
             } else {
-              // Image not found - send text only with warning
               console.warn(`[ws] Image not found: ${msg.imageId}`);
               session.process.sendInput(text);
             }
@@ -175,7 +193,9 @@ export class BridgeWebSocketServer {
             console.error(`[ws] Failed to load image: ${err}`);
             session.process.sendInput(text);
           });
-        } else {
+        }
+        // Priority 3: Text-only message
+        else {
           session.process.sendInput(text);
         }
         break;

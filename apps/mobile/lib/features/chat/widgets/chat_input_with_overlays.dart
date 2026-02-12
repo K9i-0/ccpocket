@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../../hooks/use_voice_input.dart';
 import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
-import '../../../services/bridge_service.dart';
 import '../../../widgets/chat_input_bar.dart';
 import '../../../widgets/file_mention_overlay.dart';
 import '../../../widgets/slash_command_overlay.dart';
@@ -56,7 +53,6 @@ class ChatInputWithOverlays extends HookWidget {
     // Image attachment state
     final attachedImage = useState<Uint8List?>(null);
     final attachedMimeType = useState<String?>(null);
-    final isUploading = useState(false);
 
     // Project files for @-mention
     final projectFiles = context.watch<FileListCubit>().state;
@@ -143,47 +139,28 @@ class ChatInputWithOverlays extends HookWidget {
       );
     }
 
-    Future<void> sendMessage() async {
+    void sendMessage() {
       final text = inputController.text.trim();
       if (text.isEmpty && attachedImage.value == null) return;
       HapticFeedback.lightImpact();
 
-      // Capture context-dependent values before async gap
-      final bridge = context.read<BridgeService>();
       final cubit = context.read<ChatSessionCubit>();
-      final projectPath = cubit.state.projectPath ?? '';
 
-      String? imageId;
-      String? imageUrl;
+      Uint8List? imageBytes;
+      String? mimeType;
 
-      // Upload image if attached
+      // Capture and clear attached image
       if (attachedImage.value != null && attachedMimeType.value != null) {
-        isUploading.value = true;
-
-        final base64Data = base64Encode(attachedImage.value!);
-        final uploadedImage = await bridge.uploadImageBase64(
-          base64Data: base64Data,
-          mimeType: attachedMimeType.value!,
-          projectPath: projectPath,
-          sessionId: sessionId,
-        );
-
-        isUploading.value = false;
-
-        if (uploadedImage != null) {
-          imageId = uploadedImage.id;
-          imageUrl = uploadedImage.url;
-        }
-
-        // Clear attachment after upload
+        imageBytes = attachedImage.value;
+        mimeType = attachedMimeType.value;
         attachedImage.value = null;
         attachedMimeType.value = null;
       }
 
       cubit.sendMessage(
         text.isEmpty ? 'What is in this image?' : text,
-        imageId: imageId,
-        imageUrl: imageUrl,
+        imageBytes: imageBytes,
+        imageMimeType: mimeType,
       );
       inputController.clear();
       onScrollToBottom();
@@ -266,7 +243,7 @@ class ChatInputWithOverlays extends HookWidget {
         ),
         child: ChatInputBar(
           inputController: inputController,
-          status: isUploading.value ? ProcessStatus.running : status,
+          status: status,
           hasInputText: hasInputText.value || attachedImage.value != null,
           isVoiceAvailable: voice.isAvailable,
           isRecording: voice.isRecording,
