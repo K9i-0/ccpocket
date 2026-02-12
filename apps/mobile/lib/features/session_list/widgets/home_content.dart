@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/session_card.dart';
 import '../session_list_screen.dart';
+import '../state/session_list_cubit.dart';
 import 'project_filter_chips.dart';
 import 'section_header.dart';
 import 'session_list_empty_state.dart';
 import 'session_reconnect_banner.dart';
 
-class HomeContent extends StatelessWidget {
+class HomeContent extends StatefulWidget {
   final BridgeConnectionState connectionState;
   final List<SessionInfo> sessions;
   final List<RecentSession> recentSessions;
@@ -52,20 +54,54 @@ class HomeContent extends StatelessWidget {
   });
 
   @override
+  State<HomeContent> createState() => _HomeContentState();
+}
+
+class _HomeContentState extends State<HomeContent> {
+  bool _isSearching = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void didUpdateWidget(covariant HomeContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 外部から searchQuery がクリアされたら検索UIも閉じる
+    if (widget.searchQuery.isEmpty && oldWidget.searchQuery.isNotEmpty) {
+      setState(() => _isSearching = false);
+      _searchController.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchController.clear();
+        context.read<SessionListCubit>().setSearchQuery('');
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final hasRunningSessions = sessions.isNotEmpty;
-    final hasRecentSessions = recentSessions.isNotEmpty;
+    final hasRunningSessions = widget.sessions.isNotEmpty;
+    final hasRecentSessions = widget.recentSessions.isNotEmpty;
     final isReconnecting =
-        connectionState == BridgeConnectionState.reconnecting;
+        widget.connectionState == BridgeConnectionState.reconnecting;
 
     // Compute derived state
-    var filteredSessions = currentProjectFilter != null
-        ? recentSessions
-        : filterByProject(recentSessions, selectedProject);
-    filteredSessions = filterByQuery(filteredSessions, searchQuery);
+    var filteredSessions = widget.currentProjectFilter != null
+        ? widget.recentSessions
+        : filterByProject(widget.recentSessions, widget.selectedProject);
+    filteredSessions = filterByQuery(filteredSessions, widget.searchQuery);
 
-    final hasActiveFilter = currentProjectFilter != null;
+    final hasActiveFilter = widget.currentProjectFilter != null;
 
     if (!hasRunningSessions && !hasRecentSessions && !hasActiveFilter) {
       return ListView(
@@ -73,7 +109,7 @@ class HomeContent extends StatelessWidget {
         children: [
           if (isReconnecting) const SessionReconnectBanner(),
           const SizedBox(height: 80),
-          SessionListEmptyState(onNewSession: onNewSession),
+          SessionListEmptyState(onNewSession: widget.onNewSession),
         ],
       );
     }
@@ -91,10 +127,10 @@ class HomeContent extends StatelessWidget {
             color: appColors.statusRunning,
           ),
           const SizedBox(height: 4),
-          for (final session in sessions)
+          for (final session in widget.sessions)
             RunningSessionCard(
               session: session,
-              onTap: () => onTapRunning(
+              onTap: () => widget.onTapRunning(
                 session.id,
                 projectPath: session.projectPath,
                 gitBranch: session.worktreePath != null
@@ -102,7 +138,7 @@ class HomeContent extends StatelessWidget {
                     : session.gitBranch,
                 worktreePath: session.worktreePath,
               ),
-              onStop: () => onStopSession(session.id),
+              onStop: () => widget.onStopSession(session.id),
             ),
           const SizedBox(height: 16),
         ],
@@ -111,27 +147,76 @@ class HomeContent extends StatelessWidget {
             icon: Icons.history,
             label: 'Recent Sessions',
             color: appColors.subtleText,
+            trailing: IconButton(
+              key: const ValueKey('search_button'),
+              icon: Icon(
+                _isSearching ? Icons.close : Icons.search,
+                size: 18,
+                color: appColors.subtleText,
+              ),
+              onPressed: _toggleSearch,
+              tooltip: 'Search',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              visualDensity: VisualDensity.compact,
+            ),
           ),
-          if (accumulatedProjectPaths.length > 1) ...[
+          if (_isSearching) ...[
+            const SizedBox(height: 4),
+            TextField(
+              key: const ValueKey('search_field'),
+              controller: _searchController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search sessions...',
+                prefixIcon: Icon(
+                  Icons.search,
+                  size: 18,
+                  color: appColors.subtleText,
+                ),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: appColors.subtleText.withValues(alpha: 0.3),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(
+                    color: appColors.subtleText.withValues(alpha: 0.3),
+                  ),
+                ),
+              ),
+              style: const TextStyle(fontSize: 14),
+              onChanged: (v) =>
+                  context.read<SessionListCubit>().setSearchQuery(v),
+            ),
+          ],
+          if (widget.accumulatedProjectPaths.length > 1) ...[
             const SizedBox(height: 8),
             ProjectFilterChips(
-              accumulatedProjectPaths: accumulatedProjectPaths,
-              recentSessions: recentSessions,
-              currentFilterPath: currentProjectFilter,
-              onSelected: onSelectProject,
+              accumulatedProjectPaths: widget.accumulatedProjectPaths,
+              recentSessions: widget.recentSessions,
+              currentFilterPath: widget.currentProjectFilter,
+              onSelected: widget.onSelectProject,
             ),
           ],
           const SizedBox(height: 8),
           for (final session in filteredSessions)
             RecentSessionCard(
               session: session,
-              onTap: () => onResumeSession(session),
-              hideProjectBadge: selectedProject != null,
+              onTap: () => widget.onResumeSession(session),
+              hideProjectBadge: widget.selectedProject != null,
             ),
-          if (hasMoreSessions) ...[
+          if (widget.hasMoreSessions) ...[
             const SizedBox(height: 8),
             Center(
-              child: isLoadingMore
+              child: widget.isLoadingMore
                   ? const Padding(
                       padding: EdgeInsets.all(16),
                       child: SizedBox(
@@ -142,7 +227,7 @@ class HomeContent extends StatelessWidget {
                     )
                   : TextButton.icon(
                       key: const ValueKey('load_more_button'),
-                      onPressed: onLoadMore,
+                      onPressed: widget.onLoadMore,
                       icon: const Icon(Icons.expand_more, size: 18),
                       label: const Text('Load More'),
                     ),

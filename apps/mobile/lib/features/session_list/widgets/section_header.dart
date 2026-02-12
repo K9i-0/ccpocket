@@ -4,12 +4,14 @@ class SectionHeader extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
+  final Widget? trailing;
 
   const SectionHeader({
     super.key,
     required this.icon,
     required this.label,
     required this.color,
+    this.trailing,
   });
 
   @override
@@ -32,6 +34,7 @@ class SectionHeader extends StatelessWidget {
                   color: color,
                 ),
               ),
+              if (trailing != null) ...[const Spacer(), trailing!],
             ],
           ),
           const SizedBox(height: 4),

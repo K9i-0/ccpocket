@@ -101,7 +101,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
 
-  bool _isSearching = false;
   bool _isAutoConnecting = false;
 
   // Cache for resume navigation
@@ -384,7 +383,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
   void _disconnect() {
     context.read<BridgeService>().disconnect();
     context.read<SessionListCubit>().resetFilters();
-    setState(() => _isSearching = false);
   }
 
   void _refresh() {
@@ -505,18 +503,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: _isSearching
-              ? TextField(
-                  key: const ValueKey('search_field'),
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    hintText: 'Search sessions...',
-                    border: InputBorder.none,
-                  ),
-                  onChanged: (v) =>
-                      context.read<SessionListCubit>().setSearchQuery(v),
-                )
-              : const Text('ccpocket'),
+          title: const Text('ccpocket'),
           actions: [
             IconButton(
               key: const ValueKey('settings_button'),
@@ -537,18 +524,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 ),
                 tooltip: 'Mock Preview',
               ),
-            if (showConnectedUI && recentSessionsList.isNotEmpty)
-              IconButton(
-                key: const ValueKey('search_button'),
-                icon: Icon(_isSearching ? Icons.close : Icons.search),
-                onPressed: () {
-                  setState(() => _isSearching = !_isSearching);
-                  if (!_isSearching) {
-                    context.read<SessionListCubit>().setSearchQuery('');
-                  }
-                },
-                tooltip: 'Search',
-              ),
             if (showConnectedUI)
               IconButton(
                 key: const ValueKey('gallery_button'),
@@ -558,13 +533,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
                   MaterialPageRoute(builder: (_) => const GalleryScreen()),
                 ),
                 tooltip: 'Preview',
-              ),
-            if (showConnectedUI)
-              IconButton(
-                key: const ValueKey('refresh_button'),
-                icon: const Icon(Icons.refresh),
-                onPressed: _refresh,
-                tooltip: 'Refresh',
               ),
             if (showConnectedUI)
               IconButton(
