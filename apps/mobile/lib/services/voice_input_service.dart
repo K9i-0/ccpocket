@@ -29,6 +29,7 @@ class VoiceInputService {
       onResult: (SpeechRecognitionResult result) {
         onResult(result.recognizedWords, result.finalResult);
       },
+      localeId: 'ja-JP',
       listenOptions: SpeechListenOptions(
         cancelOnError: true,
         partialResults: true,
