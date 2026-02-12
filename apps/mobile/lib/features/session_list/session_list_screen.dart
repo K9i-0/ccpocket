@@ -20,6 +20,7 @@ import '../../services/server_discovery_service.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../chat/chat_screen.dart';
 import '../gallery/gallery_screen.dart';
+import '../settings/settings_screen.dart';
 import 'state/session_list_cubit.dart';
 import 'widgets/connect_form.dart';
 import 'widgets/home_content.dart';
@@ -517,6 +518,15 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 )
               : const Text('ccpocket'),
           actions: [
+            IconButton(
+              key: const ValueKey('settings_button'),
+              icon: const Icon(Icons.settings),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              ),
+              tooltip: 'Settings',
+            ),
             if (kDebugMode)
               IconButton(
                 key: const ValueKey('mock_preview_button'),

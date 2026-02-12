@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'features/session_list/session_list_screen.dart';
 import 'features/session_list/state/session_list_cubit.dart';
+import 'features/settings/state/settings_cubit.dart';
+import 'features/settings/state/settings_state.dart';
 import 'models/messages.dart';
 import 'providers/bridge_cubits.dart';
 import 'providers/machine_manager_cubit.dart';
@@ -88,6 +90,7 @@ void main() async {
             create: (_) =>
                 MachineManagerCubit(machineManagerService, sshStartupService),
           ),
+          BlocProvider(create: (_) => SettingsCubit(prefs)),
         ],
         child: const CcpocketApp(),
       ),
@@ -157,12 +160,16 @@ class _CcpocketAppState extends State<CcpocketApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'ccpocket',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      home: SessionListScreen(deepLinkNotifier: _deepLinkNotifier),
+    return BlocBuilder<SettingsCubit, SettingsState>(
+      builder: (context, settings) {
+        return MaterialApp(
+          title: 'ccpocket',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: settings.themeMode,
+          home: SessionListScreen(deepLinkNotifier: _deepLinkNotifier),
+        );
+      },
     );
   }
 }

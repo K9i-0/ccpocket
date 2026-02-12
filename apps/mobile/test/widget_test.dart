@@ -1,7 +1,9 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
+import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/main.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
@@ -10,6 +12,8 @@ import 'package:ccpocket/services/bridge_service.dart';
 
 void main() {
   testWidgets('Initial screen shows connect UI', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
     final bridge = BridgeService();
 
     await tester.pumpWidget(
@@ -17,6 +21,7 @@ void main() {
         value: bridge,
         child: MultiBlocProvider(
           providers: [
+            BlocProvider(create: (_) => SettingsCubit(prefs)),
             BlocProvider(
               create: (_) => ConnectionCubit(
                 BridgeConnectionState.disconnected,
