@@ -70,6 +70,10 @@ class ChatInputBar extends StatelessWidget {
               _buildSlashButton(cs),
               const SizedBox(width: 8),
               _buildAttachButton(cs),
+              if (isVoiceAvailable) ...[
+                const SizedBox(width: 8),
+                _buildVoiceButton(cs),
+              ],
               const Spacer(),
               _buildActionButton(cs),
             ],
@@ -204,10 +208,7 @@ class ChatInputBar extends StatelessWidget {
     if (status != ProcessStatus.idle && !hasInputText) {
       return _buildStopButton(cs);
     }
-    if (!hasInputText && isVoiceAvailable) {
-      return _buildVoiceButton(cs);
-    }
-    return _buildSendButton(cs);
+    return _buildSendButton(cs, enabled: hasInputText);
   }
 
   Widget _buildStopButton(ColorScheme cs) {
@@ -232,21 +233,23 @@ class ChatInputBar extends StatelessWidget {
   }
 
   Widget _buildVoiceButton(ColorScheme cs) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isRecording ? cs.error : cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: IconButton(
+    return Material(
+      color: isRecording ? cs.error : cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
         key: const ValueKey('voice_button'),
-        onPressed: onToggleVoice,
-        icon: Icon(
-          isRecording ? Icons.stop : Icons.mic,
-          color: isRecording ? cs.onError : cs.primary,
-          size: 20,
+        borderRadius: BorderRadius.circular(20),
+        onTap: onToggleVoice,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          child: Icon(
+            isRecording ? Icons.stop : Icons.mic,
+            size: 18,
+            color: isRecording ? cs.onError : cs.primary,
+          ),
         ),
-        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-        padding: EdgeInsets.zero,
       ),
     );
   }

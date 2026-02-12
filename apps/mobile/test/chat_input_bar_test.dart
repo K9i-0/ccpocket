@@ -66,7 +66,8 @@ void main() {
       await tester.pumpWidget(buildSubject(isVoiceAvailable: true));
 
       expect(find.byKey(const ValueKey('voice_button')), findsOneWidget);
-      expect(find.byKey(const ValueKey('send_button')), findsNothing);
+      // Voice button is now in left toolbar, send button always shown on right
+      expect(find.byKey(const ValueKey('send_button')), findsOneWidget);
       expect(find.byKey(const ValueKey('stop_button')), findsNothing);
     });
 
@@ -78,15 +79,16 @@ void main() {
       expect(find.byKey(const ValueKey('send_button')), findsOneWidget);
     });
 
-    testWidgets('send button prefers over voice when text present', (
+    testWidgets('voice button stays visible when text present', (
       tester,
     ) async {
       await tester.pumpWidget(
         buildSubject(hasInputText: true, isVoiceAvailable: true),
       );
 
+      // Both voice (left toolbar) and send (right) are visible
       expect(find.byKey(const ValueKey('send_button')), findsOneWidget);
-      expect(find.byKey(const ValueKey('voice_button')), findsNothing);
+      expect(find.byKey(const ValueKey('voice_button')), findsOneWidget);
     });
 
     testWidgets('send callback fires on button tap', (tester) async {
