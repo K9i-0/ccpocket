@@ -441,6 +441,30 @@ class BridgeService implements BridgeServiceBase {
     }
   }
 
+  /// Delete a gallery image by ID.
+  /// Returns true on success, false on failure.
+  /// On success, immediately removes the image from the local cache
+  /// and pushes the updated list to [galleryStream].
+  Future<bool> deleteGalleryImage(String id) async {
+    final baseUrl = httpBaseUrl;
+    if (baseUrl == null) return false;
+
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/gallery/$id'))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        _galleryImages = _galleryImages.where((img) => img.id != id).toList();
+        _galleryController.add(_galleryImages);
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Verify WebSocket health and reconnect if the connection is stale.
   ///
   /// Call this when the app returns to foreground — iOS may silently kill

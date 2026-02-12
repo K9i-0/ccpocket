@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../models/messages.dart';
+import '../../../services/bridge_service.dart';
 import 'gallery_filter_chips.dart';
+import 'gallery_image_viewer.dart';
 import 'gallery_tile.dart';
 
 class GalleryContent extends StatelessWidget {
@@ -44,6 +47,43 @@ class GalleryContent extends StatelessWidget {
     return '${(diff.inDays / 30).floor()}mo ago';
   }
 
+  void _openViewer(
+    BuildContext context,
+    List<GalleryImage> filtered,
+    int index,
+  ) {
+    final bridge = context.read<BridgeService>();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GalleryImageViewer(
+          images: filtered,
+          initialIndex: index,
+          httpBaseUrl: httpBaseUrl,
+          onDelete: (id) => bridge.deleteGalleryImage(id),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDeleteDialog(
+    BuildContext context,
+    GalleryImage image,
+  ) async {
+    final confirmed = await showDeleteConfirmDialog(context);
+    if (!confirmed || !context.mounted) return;
+
+    final bridge = context.read<BridgeService>();
+    final success = await bridge.deleteGalleryImage(image.id);
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success ? 'Screenshot deleted' : 'Failed to delete'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredImages();
@@ -77,6 +117,8 @@ class GalleryContent extends StatelessWidget {
                 image: image,
                 httpBaseUrl: httpBaseUrl,
                 timeAgo: timeAgo(image.addedAt),
+                onTap: () => _openViewer(context, filtered, index),
+                onLongPress: () => _showDeleteDialog(context, image),
               );
             },
           ),
