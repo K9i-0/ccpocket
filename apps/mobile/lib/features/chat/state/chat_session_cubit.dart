@@ -359,6 +359,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _bridge.stopSession(sessionId);
   }
 
+  /// Re-fetch session history from the bridge server.
+  ///
+  /// Resets [_pastHistoryLoaded] so the next [PastHistoryMessage] is processed,
+  /// restoring approval state that may have arrived while disconnected.
+  void refreshHistory() {
+    _pastHistoryLoaded = false;
+    _bridge.requestSessionHistory(sessionId);
+  }
+
   /// Retry a failed user message.
   void retryMessage(UserChatEntry entry) {
     emit(

@@ -411,6 +411,24 @@ class BridgeService implements BridgeServiceBase {
     }
   }
 
+  /// Verify WebSocket health and reconnect if the connection is stale.
+  ///
+  /// Call this when the app returns to foreground — iOS may silently kill
+  /// background WebSocket connections without triggering [onDone]/[onError].
+  void ensureConnected() {
+    if (_lastUrl == null) return;
+    if (_connectionState == BridgeConnectionState.connected) {
+      // The channel may appear "connected" but the underlying socket is dead.
+      // A non-null closeCode means the socket has already been closed.
+      if (_channel?.closeCode != null) {
+        _scheduleReconnect();
+      }
+    } else if (_connectionState == BridgeConnectionState.disconnected) {
+      connect(_lastUrl!);
+    }
+    // If reconnecting, do nothing — already in progress.
+  }
+
   void disconnect() {
     _intentionalDisconnect = true;
     _reconnectTimer?.cancel();

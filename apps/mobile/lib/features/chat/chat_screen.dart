@@ -240,6 +240,21 @@ class _ChatScreenBody extends HookWidget {
       return null;
     }, [sessionId]);
 
+    // --- App resume: verify WebSocket health + refresh history ---
+    // If still connected, refresh history directly (BlocListener won't fire).
+    // If disconnected, ensureConnected triggers reconnect → BlocListener
+    // fires → refreshHistory is called there.
+    useEffect(() {
+      if (lifecycleState == AppLifecycleState.resumed) {
+        final bridge = context.read<BridgeService>();
+        bridge.ensureConnected();
+        if (bridge.isConnected) {
+          context.read<ChatSessionCubit>().refreshHistory();
+        }
+      }
+      return null;
+    }, [lifecycleState]);
+
     // --- Destructure state ---
     final status = sessionState.status;
     final approval = sessionState.approval;
@@ -319,6 +334,7 @@ class _ChatScreenBody extends HookWidget {
       listener: (context, state) {
         if (state == BridgeConnectionState.connected) {
           _retryFailedMessages(context, sessionId);
+          context.read<ChatSessionCubit>().refreshHistory();
         }
       },
       child: CallbackShortcuts(
