@@ -111,7 +111,11 @@ void main() {
         },
         expect: () => [
           const StreamingState(text: 'text', isStreaming: true),
-          const StreamingState(text: 'text', thinking: 'thought', isStreaming: true),
+          const StreamingState(
+            text: 'text',
+            thinking: 'thought',
+            isStreaming: true,
+          ),
           const StreamingState(),
         ],
       );

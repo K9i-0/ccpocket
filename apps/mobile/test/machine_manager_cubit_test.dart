@@ -206,10 +206,7 @@ void main() {
   });
 
   MachineManagerCubit createCubit({bool withSsh = true}) {
-    return MachineManagerCubit(
-      mockService,
-      withSsh ? mockSsh : null,
-    );
+    return MachineManagerCubit(mockService, withSsh ? mockSsh : null);
   }
 
   group('MachineManagerCubit - initial state', () {
@@ -389,9 +386,7 @@ void main() {
 
       // Create an error state
       mockService.addMachineShouldFail = true;
-      await cubit.addMachine(
-        Machine(id: 'm1', host: '10.0.0.1', port: 8765),
-      );
+      await cubit.addMachine(Machine(id: 'm1', host: '10.0.0.1', port: 8765));
       expect(cubit.state.error, isNotNull);
 
       cubit.clearMessages();

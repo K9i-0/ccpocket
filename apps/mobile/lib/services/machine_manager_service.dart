@@ -527,7 +527,9 @@ class MachineManagerService {
       }
     } catch (e) {
       // Version endpoint is optional, don't treat as error
-      debugPrint('[MachineManager] Failed to fetch version for ${machine.id}: $e');
+      debugPrint(
+        '[MachineManager] Failed to fetch version for ${machine.id}: $e',
+      );
     }
   }
 
@@ -580,17 +582,13 @@ class MachineManagerService {
 
   Future<void> _deleteCredentials(String machineId) async {
     await _secureStorage.delete(key: '$_secureKeyPrefix${machineId}_api');
-    await _secureStorage.delete(
-      key: '$_secureKeyPrefix${machineId}_ssh_pass',
-    );
+    await _secureStorage.delete(key: '$_secureKeyPrefix${machineId}_ssh_pass');
     await _secureStorage.delete(key: '$_secureKeyPrefix${machineId}_ssh_key');
   }
 
   /// Get API key for a machine
   Future<String?> getApiKey(String machineId) async {
-    return await _secureStorage.read(
-      key: '$_secureKeyPrefix${machineId}_api',
-    );
+    return await _secureStorage.read(key: '$_secureKeyPrefix${machineId}_api');
   }
 
   /// Get SSH password for a machine

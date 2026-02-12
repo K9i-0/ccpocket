@@ -96,9 +96,7 @@ void main() {
       });
 
       test('returns null for deep link with empty url param', () {
-        final result = ConnectionUrlParser.parse(
-          'ccpocket://connect?url=',
-        );
+        final result = ConnectionUrlParser.parse('ccpocket://connect?url=');
 
         expect(result, isNull);
       });

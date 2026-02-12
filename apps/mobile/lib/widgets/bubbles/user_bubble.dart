@@ -62,7 +62,8 @@ class UserBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  if (imageBytes != null || (imageUrl != null && httpBaseUrl != null))
+                  if (imageBytes != null ||
+                      (imageUrl != null && httpBaseUrl != null))
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: ClipRRect(
