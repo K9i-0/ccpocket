@@ -22,6 +22,7 @@ class VoiceInputService {
   Future<void> startListening({
     required void Function(String text, bool isFinal) onResult,
     required void Function() onDone,
+    String? localeId,
   }) async {
     if (!_isAvailable || _isListening) return;
     _isListening = true;
@@ -29,7 +30,7 @@ class VoiceInputService {
       onResult: (SpeechRecognitionResult result) {
         onResult(result.recognizedWords, result.finalResult);
       },
-      localeId: 'ja-JP',
+      localeId: localeId,
       listenOptions: SpeechListenOptions(
         cancelOnError: true,
         partialResults: true,

@@ -1,7 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../features/settings/state/settings_cubit.dart';
 import '../services/voice_input_service.dart';
 
 /// Result record returned by [useVoiceInput].
@@ -15,6 +17,7 @@ typedef VoiceInputResult = ({
 /// disposal.
 ///
 /// The [controller] is updated in real-time with recognized speech text.
+/// Speech locale is read from [SettingsCubit].
 VoiceInputResult useVoiceInput(TextEditingController controller) {
   final context = useContext();
   final voiceInput = useMemoized(() => VoiceInputService());
@@ -35,6 +38,7 @@ VoiceInputResult useVoiceInput(TextEditingController controller) {
     } else {
       HapticFeedback.mediumImpact();
       isRecording.value = true;
+      final localeId = context.read<SettingsCubit>().state.speechLocaleId;
       voiceInput.startListening(
         onResult: (text, isFinal) {
           controller.text = text;
@@ -47,6 +51,7 @@ VoiceInputResult useVoiceInput(TextEditingController controller) {
         onDone: () {
           if (context.mounted) isRecording.value = false;
         },
+        localeId: localeId.isNotEmpty ? localeId : null,
       );
     }
   }
