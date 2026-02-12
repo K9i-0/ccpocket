@@ -158,21 +158,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       didModifyEntries = true;
     }
 
-    // --- Track message UUIDs ---
-    // When a tool_result arrives with a userMessageUuid, assign it to the
-    // most recent UserChatEntry that doesn't have a UUID yet.
-    if (originalMsg is ToolResultMessage &&
-        originalMsg.userMessageUuid != null) {
-      for (int i = entries.length - 1; i >= 0; i--) {
-        final e = entries[i];
-        if (e is UserChatEntry && e.messageUuid == null) {
-          e.messageUuid = originalMsg.userMessageUuid;
-          didModifyEntries = true;
-          break;
-        }
-      }
-    }
-
     // --- Cleanup responded tool use IDs ---
     if (originalMsg is ToolResultMessage) {
       _respondedToolUseIds.remove(originalMsg.toolUseId);

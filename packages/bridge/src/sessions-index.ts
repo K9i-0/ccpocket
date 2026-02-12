@@ -284,6 +284,7 @@ export async function getAllRecentSessions(
 
 export interface SessionHistoryMessage {
   role: "user" | "assistant";
+  uuid?: string;
   content: Array<{
     type: string;
     text?: string;
@@ -412,7 +413,8 @@ export async function getSessionHistory(
     }
 
     if (content.length > 0) {
-      messages.push({ role, content });
+      const uuid = entry.uuid as string | undefined;
+      messages.push({ role, content, ...(uuid ? { uuid } : {}) });
     }
   }
 

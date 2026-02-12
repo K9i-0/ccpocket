@@ -223,7 +223,11 @@ class ChatMessageHandler {
             .toList();
         if (texts.isNotEmpty) {
           entries.add(
-            UserChatEntry(texts.join('\n'), status: MessageStatus.sent),
+            UserChatEntry(
+              texts.join('\n'),
+              status: MessageStatus.sent,
+              messageUuid: m.uuid,
+            ),
           );
         }
       } else if (m.role == 'assistant') {
@@ -236,6 +240,7 @@ class ChatMessageHandler {
                 content: m.content,
                 model: '',
               ),
+              messageUuid: m.uuid,
             ),
           ),
         );
@@ -296,22 +301,11 @@ class ChatMessageHandler {
           }
         }
         // A tool_result means that permission was resolved.
-        // Also assign userMessageUuid to the nearest preceding UserChatEntry
-        // (backward compatibility for histories without user_input messages).
         if (m is ToolResultMessage) {
           pendingPermissions.remove(m.toolUseId);
           if (lastAskToolUseId != null && m.toolUseId == lastAskToolUseId) {
             lastAskToolUseId = null;
             lastAskInput = null;
-          }
-          if (m.userMessageUuid != null) {
-            for (int i = entries.length - 1; i >= 0; i--) {
-              final e = entries[i];
-              if (e is UserChatEntry && e.messageUuid == null) {
-                e.messageUuid = m.userMessageUuid;
-                break;
-              }
-            }
           }
         }
         // A result message means the turn completed

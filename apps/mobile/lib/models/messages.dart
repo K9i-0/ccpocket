@@ -558,8 +558,9 @@ class RewindResultMessage implements ServerMessage {
 
 class PastMessage {
   final String role;
+  final String? uuid;
   final List<AssistantContent> content;
-  const PastMessage({required this.role, required this.content});
+  const PastMessage({required this.role, this.uuid, required this.content});
 
   factory PastMessage.fromJson(Map<String, dynamic> json) {
     final contentList = (json['content'] as List? ?? [])
@@ -567,6 +568,7 @@ class PastMessage {
         .toList();
     return PastMessage(
       role: json['role'] as String? ?? '',
+      uuid: json['uuid'] as String?,
       content: contentList,
     );
   }

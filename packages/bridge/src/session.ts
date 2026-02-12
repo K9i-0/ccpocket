@@ -316,7 +316,10 @@ export class SessionManager {
   /**
    * Rewind the conversation to a specific point.
    * Stops the current process and restarts with resumeSessionAt.
-   * Returns the new Bridge session ID.
+   *
+   * `targetUuid` is a **user message UUID**. The SDK's `resumeSessionAt`
+   * expects an **assistant message UUID**, so we look up the assistant
+   * message that follows the target user message.
    */
   rewindConversation(
     id: string,
@@ -333,6 +336,13 @@ export class SessionManager {
       throw new Error("Session has no Claude session ID");
     }
 
+    // resumeSessionAt expects assistant message UUID (per SDK docs).
+    // Convert user UUID → following assistant UUID.
+    const assistantUuid = this.findAssistantUuidAfterUser(session, targetUuid);
+    if (!assistantUuid) {
+      throw new Error("Cannot find assistant message after target user message");
+    }
+
     const projectPath = session.projectPath;
     const permissionMode = session.process.permissionMode;
     const worktreePath = session.worktreePath;
@@ -341,19 +351,65 @@ export class SessionManager {
     // Stop and destroy the current session
     this.destroy(id);
 
-    // Create a new session with resumeSessionAt
+    // Create a new session with resumeSessionAt (assistant UUID)
     const newId = this.create(
       projectPath,
       {
         sessionId: claudeSessionId,
         permissionMode,
-        resumeSessionAt: targetUuid,
+        resumeSessionAt: assistantUuid,
       },
       undefined,
       worktreePath ? { existingWorktreePath: worktreePath, worktreeBranch } : undefined,
     );
 
     onReady(newId);
+  }
+
+  /**
+   * Find the assistant message UUID that follows a given user message UUID.
+   *
+   * Searches in-memory history first, then pastMessages (disk history).
+   */
+  private findAssistantUuidAfterUser(session: SessionInfo, userUuid: string): string | null {
+    // 1. Search in-memory history
+    let foundUser = false;
+    for (const msg of session.history) {
+      if (!foundUser) {
+        // user_input or tool_result with matching userMessageUuid
+        if (
+          (msg.type === "user_input" || msg.type === "tool_result") &&
+          "userMessageUuid" in msg &&
+          msg.userMessageUuid === userUuid
+        ) {
+          foundUser = true;
+        }
+        continue;
+      }
+      // Found user message — look for next assistant
+      if (msg.type === "assistant" && "messageUuid" in msg && msg.messageUuid) {
+        return msg.messageUuid as string;
+      }
+    }
+
+    // 2. Search pastMessages (disk history with uuid field)
+    if (session.pastMessages) {
+      foundUser = false;
+      for (const raw of session.pastMessages) {
+        const pm = raw as { role?: string; uuid?: string };
+        if (!foundUser) {
+          if (pm.role === "user" && pm.uuid === userUuid) {
+            foundUser = true;
+          }
+          continue;
+        }
+        if (pm.role === "assistant" && pm.uuid) {
+          return pm.uuid;
+        }
+      }
+    }
+
+    return null;
   }
 
   destroy(id: string): boolean {
