@@ -38,10 +38,10 @@ class AppTheme {
     final colorScheme = ColorScheme.dark(
       surface: const Color(0xFF131211), // warm near-black
       surfaceContainerLowest: const Color(0xFF131211),
-      surfaceContainerLow: const Color(0xFF1A1917), // warm dark
-      surfaceContainer: const Color(0xFF21201D), // warm dark grey
-      surfaceContainerHigh: const Color(0xFF2B2A26),
-      surfaceContainerHighest: const Color(0xFF353330),
+      surfaceContainerLow: const Color(0xFF1E1D1A), // warm dark (lifted)
+      surfaceContainer: const Color(0xFF262522), // warm dark grey (lifted)
+      surfaceContainerHigh: const Color(0xFF332F2B), // card bg (lifted)
+      surfaceContainerHighest: const Color(0xFF3D3935), // lifted
       primary: const Color(0xFFF97316), // Orange 500 (brighter for dark)
       onPrimary: Colors.white,
       primaryContainer: const Color(0xFFC2410C),
@@ -50,8 +50,8 @@ class AppTheme {
       tertiary: const Color(0xFFFBBF24), // Amber 400
       error: const Color(0xFFF87171), // Red 400
       onError: Colors.black,
-      outline: const Color(0xFF5C5750), // warm dark grey
-      outlineVariant: const Color(0xFF353330),
+      outline: const Color(0xFF6B645C), // warm dark grey (brighter)
+      outlineVariant: const Color(0xFF4A4640), // card border (brighter)
     );
 
     return _buildTheme(colorScheme, Brightness.dark, AppColors.dark());
@@ -90,7 +90,7 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: colorScheme.outlineVariant, width: 0.5),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
         color: colorScheme.surfaceContainerHigh,
         clipBehavior: Clip.antiAlias,
@@ -485,15 +485,15 @@ class AppColors extends ThemeExtension<AppColors> {
     errorChip: Color(0xFF2A1215),
     approvalBar: Color(0xFF261A0B),
     approvalBarBorder: Color(0xFF5C3D15),
-    statusStarting: Color(0xFF93C5FD), // Blue 300
-    statusRunning: Color(0xFF86EFAC), // Green 300
+    statusStarting: Color(0xFF60A5FA), // Blue 400 (higher chroma)
+    statusRunning: Color(0xFF4ADE80), // Green 400 (higher chroma)
     statusApproval: Color(0xFFFDBA74), // Orange 300
-    statusIdle: Color(0xFF5C5750), // warm dark grey
-    subtleText: Color(0xFFA8A29E), // Stone 400
-    codeBackground: Color(0xFF1A1917),
-    codeBorder: Color(0xFF353330),
-    toolResultBackground: Color(0xFF1A1917),
-    toolResultText: Color(0xFFA8A29E), // Stone 400
+    statusIdle: Color(0xFF6B645C), // warm dark grey (brighter)
+    subtleText: Color(0xFFBAB5B0), // warm stone (brighter)
+    codeBackground: Color(0xFF1E1D1A), // lifted
+    codeBorder: Color(0xFF4A4640), // match outlineVariant
+    toolResultBackground: Color(0xFF1E1D1A),
+    toolResultText: Color(0xFFBAB5B0), // warm stone (brighter)
     toolResultTextExpanded: Color(0xFFD6D3D1), // Stone 300
     diffAdditionBackground: Color(0xFF14532D), // Green 900
     diffAdditionText: Color(0xFF86EFAC), // Green 300
