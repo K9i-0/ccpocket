@@ -7,12 +7,16 @@ PODS:
   - CwlCatchException (2.2.1):
     - CwlCatchExceptionSupport (~> 2.2.1)
   - CwlCatchExceptionSupport (2.2.1)
+  - device_info_plus (0.0.1):
+    - Flutter
   - Flutter (1.0.0)
   - flutter_local_notifications (0.0.1):
     - Flutter
   - flutter_secure_storage (6.0.0):
     - Flutter
   - image_picker_ios (0.0.1):
+    - Flutter
+  - irondash_engine_context (0.0.1):
     - Flutter
   - mobile_scanner (7.0.0):
     - Flutter
@@ -26,20 +30,25 @@ PODS:
     - CwlCatchException
     - Flutter
     - FlutterMacOS
+  - super_native_extensions (0.0.1):
+    - Flutter
   - url_launcher_ios (0.0.1):
     - Flutter
 
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
   - bonsoir_darwin (from `.symlinks/plugins/bonsoir_darwin/darwin`)
+  - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - Flutter (from `Flutter`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
+  - irondash_engine_context (from `.symlinks/plugins/irondash_engine_context/ios`)
   - mobile_scanner (from `.symlinks/plugins/mobile_scanner/darwin`)
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - speech_to_text (from `.symlinks/plugins/speech_to_text/darwin`)
+  - super_native_extensions (from `.symlinks/plugins/super_native_extensions/ios`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 SPEC REPOS:
@@ -52,6 +61,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/app_links/ios"
   bonsoir_darwin:
     :path: ".symlinks/plugins/bonsoir_darwin/darwin"
+  device_info_plus:
+    :path: ".symlinks/plugins/device_info_plus/ios"
   Flutter:
     :path: Flutter
   flutter_local_notifications:
@@ -60,6 +71,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_secure_storage/ios"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
+  irondash_engine_context:
+    :path: ".symlinks/plugins/irondash_engine_context/ios"
   mobile_scanner:
     :path: ".symlinks/plugins/mobile_scanner/darwin"
   share_plus:
@@ -68,6 +81,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   speech_to_text:
     :path: ".symlinks/plugins/speech_to_text/darwin"
+  super_native_extensions:
+    :path: ".symlinks/plugins/super_native_extensions/ios"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
 
@@ -76,14 +91,17 @@ SPEC CHECKSUMS:
   bonsoir_darwin: 29c7ccf356646118844721f36e1de4b61f6cbd0e
   CwlCatchException: 7acc161b299a6de7f0a46a6ed741eae2c8b4d75a
   CwlCatchExceptionSupport: 54ccab8d8c78907b57f99717fb19d4cc3bce02dc
+  device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_local_notifications: a5a732f069baa862e728d839dd2ebb904737effb
   flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
+  irondash_engine_context: 8e58ca8e0212ee9d1c7dc6a42121849986c88486
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   speech_to_text: 3b313d98516d3d0406cea424782ec25470c59d19
+  super_native_extensions: b763c02dc3a8fd078389f410bf15149179020cb4
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
 
 PODFILE CHECKSUM: 3c63482e143d1b91d2d2560aee9fb04ecc74ac7e

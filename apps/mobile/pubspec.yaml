@@ -55,6 +55,7 @@ dependencies:
   dartssh2: ^2.10.0
   flutter_secure_storage: ^9.2.4
   uuid: ^4.5.1
+  super_clipboard: ^0.9.1
 
 dev_dependencies:
   flutter_test:

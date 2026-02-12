@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:super_clipboard/super_clipboard.dart';
 
 import '../../../hooks/use_voice_input.dart';
 import '../../../models/messages.dart';
@@ -166,7 +167,7 @@ class ChatInputWithOverlays extends HookWidget {
       onScrollToBottom();
     }
 
-    Future<void> pickImage() async {
+    Future<void> pickImageFromGallery() async {
       final picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
@@ -188,6 +189,115 @@ class ChatInputWithOverlays extends HookWidget {
           _ => 'image/jpeg',
         };
       }
+    }
+
+    Future<void> pasteFromClipboard() async {
+      final clipboard = SystemClipboard.instance;
+      if (clipboard == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('クリップボードにアクセスできません')),
+          );
+        }
+        return;
+      }
+
+      try {
+        final reader = await clipboard.read();
+
+        // Try PNG first, then JPEG
+        for (final format in [Formats.png, Formats.jpeg]) {
+          if (reader.canProvide(format)) {
+            reader.getFile(format, (file) async {
+              try {
+                final bytes = await file.readAll();
+                if (context.mounted) {
+                  attachedImage.value = bytes;
+                  attachedMimeType.value =
+                      format == Formats.png ? 'image/png' : 'image/jpeg';
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('画像の読み込みに失敗しました')),
+                  );
+                }
+              }
+            });
+            return;
+          }
+        }
+
+        // No image found in clipboard
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('クリップボードに画像がありません')),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('クリップボードの読み取りに失敗しました')),
+          );
+        }
+      }
+    }
+
+    Future<bool> hasClipboardImage() async {
+      final clipboard = SystemClipboard.instance;
+      if (clipboard == null) return false;
+      try {
+        final reader = await clipboard.read();
+        return reader.canProvide(Formats.png) ||
+            reader.canProvide(Formats.jpeg);
+      } catch (_) {
+        return false;
+      }
+    }
+
+    Future<void> showAttachOptions() async {
+      final hasClipImage = await hasClipboardImage();
+      if (!context.mounted) return;
+
+      showModalBottomSheet(
+        context: context,
+        builder: (sheetContext) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                key: const ValueKey('attach_from_gallery'),
+                leading: const Icon(Icons.photo_library),
+                title: const Text('ギャラリーから選択'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  pickImageFromGallery();
+                },
+              ),
+              ListTile(
+                key: const ValueKey('attach_from_clipboard'),
+                leading: Icon(
+                  Icons.content_paste,
+                  color: hasClipImage ? null : Colors.grey,
+                ),
+                title: Text(
+                  'クリップボードから貼付',
+                  style: hasClipImage
+                      ? null
+                      : const TextStyle(color: Colors.grey),
+                ),
+                enabled: hasClipImage,
+                onTap: hasClipImage
+                    ? () {
+                        Navigator.pop(sheetContext);
+                        pasteFromClipboard();
+                      }
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     void clearAttachment() {
@@ -252,7 +362,7 @@ class ChatInputWithOverlays extends HookWidget {
           onInterrupt: interruptSession,
           onToggleVoice: voice.toggle,
           onShowSlashCommands: showSlashCommandSheet,
-          onAttachImage: pickImage,
+          onAttachImage: showAttachOptions,
           attachedImageBytes: attachedImage.value,
           onClearAttachment: clearAttachment,
         ),
