@@ -263,4 +263,91 @@ describe("parseClientMessage", () => {
       clearContext: true,
     });
   });
+
+  // ---- rewind ----
+
+  it("parses rewind with mode=both", () => {
+    const msg = parseClientMessage(
+      '{"type":"rewind","sessionId":"s1","targetUuid":"uuid-abc","mode":"both"}',
+    );
+    expect(msg).toEqual({
+      type: "rewind",
+      sessionId: "s1",
+      targetUuid: "uuid-abc",
+      mode: "both",
+    });
+  });
+
+  it("parses rewind with mode=conversation", () => {
+    const msg = parseClientMessage(
+      '{"type":"rewind","sessionId":"s1","targetUuid":"uuid-abc","mode":"conversation"}',
+    );
+    expect(msg).toEqual({
+      type: "rewind",
+      sessionId: "s1",
+      targetUuid: "uuid-abc",
+      mode: "conversation",
+    });
+  });
+
+  it("parses rewind with mode=code", () => {
+    const msg = parseClientMessage(
+      '{"type":"rewind","sessionId":"s1","targetUuid":"uuid-abc","mode":"code"}',
+    );
+    expect(msg).toEqual({
+      type: "rewind",
+      sessionId: "s1",
+      targetUuid: "uuid-abc",
+      mode: "code",
+    });
+  });
+
+  it("rejects rewind with invalid mode", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"rewind","sessionId":"s1","targetUuid":"uuid-abc","mode":"invalid"}',
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects rewind without sessionId", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"rewind","targetUuid":"uuid-abc","mode":"both"}',
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects rewind without targetUuid", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"rewind","sessionId":"s1","mode":"both"}',
+      ),
+    ).toBeNull();
+  });
+
+  // ---- rewind_dry_run ----
+
+  it("parses rewind_dry_run message", () => {
+    const msg = parseClientMessage(
+      '{"type":"rewind_dry_run","sessionId":"s1","targetUuid":"uuid-abc"}',
+    );
+    expect(msg).toEqual({
+      type: "rewind_dry_run",
+      sessionId: "s1",
+      targetUuid: "uuid-abc",
+    });
+  });
+
+  it("rejects rewind_dry_run without sessionId", () => {
+    expect(
+      parseClientMessage('{"type":"rewind_dry_run","targetUuid":"uuid-abc"}'),
+    ).toBeNull();
+  });
+
+  it("rejects rewind_dry_run without targetUuid", () => {
+    expect(
+      parseClientMessage('{"type":"rewind_dry_run","sessionId":"s1"}'),
+    ).toBeNull();
+  });
 });

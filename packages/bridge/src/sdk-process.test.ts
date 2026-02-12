@@ -282,4 +282,92 @@ describe("sdkMessageToServerMessage", () => {
       expect(serverMsg).toBeNull();
     });
   });
+
+  describe("UUID tracking", () => {
+    it("includes messageUuid for assistant messages with uuid", () => {
+      const sdkMsg = {
+        type: "assistant" as const,
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Hello" }],
+        },
+        uuid: "ast-uuid-123" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "assistant",
+        messageUuid: "ast-uuid-123",
+      });
+    });
+
+    it("omits messageUuid for assistant messages without uuid", () => {
+      const sdkMsg = {
+        type: "assistant" as const,
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Hello" }],
+        },
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({ type: "assistant" });
+      expect((serverMsg as any).messageUuid).toBeUndefined();
+    });
+
+    it("includes userMessageUuid for tool_result from user messages with uuid", () => {
+      const sdkMsg = {
+        type: "user" as const,
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: "tu-1",
+              content: "result text",
+            },
+          ],
+        },
+        uuid: "usr-uuid-456" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "tool_result",
+        toolUseId: "tu-1",
+        userMessageUuid: "usr-uuid-456",
+      });
+    });
+
+    it("omits userMessageUuid for tool_result from user messages without uuid", () => {
+      const sdkMsg = {
+        type: "user" as const,
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: "tu-1",
+              content: "result text",
+            },
+          ],
+        },
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "tool_result",
+        toolUseId: "tu-1",
+      });
+      expect((serverMsg as any).userMessageUuid).toBeUndefined();
+    });
+  });
 });

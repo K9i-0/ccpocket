@@ -351,6 +351,7 @@ class _ChatScreenBody extends HookWidget {
             appBar: AppBar(
               actions: [
                 IconButton(
+                  key: const ValueKey('rewind_button'),
                   icon: const Icon(Icons.history, size: 18),
                   tooltip: 'Rewind',
                   visualDensity: VisualDensity.compact,

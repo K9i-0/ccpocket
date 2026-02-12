@@ -255,6 +255,7 @@ class _RewindOptionTile extends StatelessWidget {
         !preview!.canRewind;
 
     return Padding(
+      key: ValueKey('rewind_mode_${mode.value}'),
       padding: const EdgeInsets.only(bottom: 4),
       child: ListTile(
         dense: true,
