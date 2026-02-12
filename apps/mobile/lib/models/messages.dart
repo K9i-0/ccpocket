@@ -628,15 +628,16 @@ class ClientMessage {
     bool? useWorktree,
     String? worktreeBranch,
   }) {
-    final json = <String, dynamic>{'type': 'start', 'projectPath': projectPath};
-    if (sessionId != null) json['sessionId'] = sessionId;
-    if (continueMode == true) json['continue'] = true;
-    if (permissionMode != null) json['permissionMode'] = permissionMode;
-    if (useWorktree == true) json['useWorktree'] = true;
-    if (worktreeBranch != null && worktreeBranch.isNotEmpty) {
-      json['worktreeBranch'] = worktreeBranch;
-    }
-    return ClientMessage._(json);
+    return ClientMessage._(<String, dynamic>{
+      'type': 'start',
+      'projectPath': projectPath,
+      'sessionId': ?sessionId,
+      if (continueMode == true) 'continue': true,
+      'permissionMode': ?permissionMode,
+      if (useWorktree == true) 'useWorktree': true,
+      if (worktreeBranch != null && worktreeBranch.isNotEmpty)
+        'worktreeBranch': worktreeBranch,
+    });
   }
 
   factory ClientMessage.input(
@@ -646,12 +647,14 @@ class ClientMessage {
     String? imageBase64,
     String? mimeType,
   }) {
-    final json = <String, dynamic>{'type': 'input', 'text': text};
-    if (sessionId != null) json['sessionId'] = sessionId;
-    if (imageId != null) json['imageId'] = imageId;
-    if (imageBase64 != null) json['imageBase64'] = imageBase64;
-    if (mimeType != null) json['mimeType'] = mimeType;
-    return ClientMessage._(json);
+    return ClientMessage._(<String, dynamic>{
+      'type': 'input',
+      'text': text,
+      'sessionId': ?sessionId,
+      'imageId': ?imageId,
+      'imageBase64': ?imageBase64,
+      'mimeType': ?mimeType,
+    });
   }
 
   factory ClientMessage.approve(
@@ -660,28 +663,33 @@ class ClientMessage {
     bool clearContext = false,
     String? sessionId,
   }) {
-    final json = <String, dynamic>{'type': 'approve', 'id': id};
-    if (updatedInput != null) json['updatedInput'] = updatedInput;
-    if (clearContext) json['clearContext'] = true;
-    if (sessionId != null) json['sessionId'] = sessionId;
-    return ClientMessage._(json);
+    return ClientMessage._(<String, dynamic>{
+      'type': 'approve',
+      'id': id,
+      'updatedInput': ?updatedInput,
+      if (clearContext) 'clearContext': true,
+      'sessionId': ?sessionId,
+    });
   }
 
-  factory ClientMessage.approveAlways(String id, {String? sessionId}) {
-    final json = <String, dynamic>{'type': 'approve_always', 'id': id};
-    if (sessionId != null) json['sessionId'] = sessionId;
-    return ClientMessage._(json);
-  }
+  factory ClientMessage.approveAlways(String id, {String? sessionId}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'approve_always',
+        'id': id,
+        'sessionId': ?sessionId,
+      });
 
   factory ClientMessage.reject(
     String id, {
     String? message,
     String? sessionId,
   }) {
-    final json = <String, dynamic>{'type': 'reject', 'id': id};
-    if (message != null) json['message'] = message;
-    if (sessionId != null) json['sessionId'] = sessionId;
-    return ClientMessage._(json);
+    return ClientMessage._(<String, dynamic>{
+      'type': 'reject',
+      'id': id,
+      'message': ?message,
+      'sessionId': ?sessionId,
+    });
   }
 
   factory ClientMessage.answer(
@@ -689,13 +697,12 @@ class ClientMessage {
     String result, {
     String? sessionId,
   }) {
-    final json = <String, dynamic>{
+    return ClientMessage._(<String, dynamic>{
       'type': 'answer',
       'toolUseId': toolUseId,
       'result': result,
-    };
-    if (sessionId != null) json['sessionId'] = sessionId;
-    return ClientMessage._(json);
+      'sessionId': ?sessionId,
+    });
   }
 
   factory ClientMessage.getHistory(String sessionId) =>
@@ -712,11 +719,12 @@ class ClientMessage {
     int? offset,
     String? projectPath,
   }) {
-    final json = <String, dynamic>{'type': 'list_recent_sessions'};
-    if (limit != null) json['limit'] = limit;
-    if (offset != null) json['offset'] = offset;
-    if (projectPath != null) json['projectPath'] = projectPath;
-    return ClientMessage._(json);
+    return ClientMessage._(<String, dynamic>{
+      'type': 'list_recent_sessions',
+      'limit': ?limit,
+      'offset': ?offset,
+      'projectPath': ?projectPath,
+    });
   }
 
   factory ClientMessage.resumeSession(
@@ -724,21 +732,20 @@ class ClientMessage {
     String projectPath, {
     String? permissionMode,
   }) {
-    final json = <String, dynamic>{
+    return ClientMessage._(<String, dynamic>{
       'type': 'resume_session',
       'sessionId': sessionId,
       'projectPath': projectPath,
-    };
-    if (permissionMode != null) json['permissionMode'] = permissionMode;
-    return ClientMessage._(json);
+      'permissionMode': ?permissionMode,
+    });
   }
 
-  factory ClientMessage.listGallery({String? project, String? sessionId}) {
-    final json = <String, dynamic>{'type': 'list_gallery'};
-    if (project != null) json['project'] = project;
-    if (sessionId != null) json['sessionId'] = sessionId;
-    return ClientMessage._(json);
-  }
+  factory ClientMessage.listGallery({String? project, String? sessionId}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'list_gallery',
+        'project': ?project,
+        'sessionId': ?sessionId,
+      });
 
   factory ClientMessage.listFiles(String projectPath) =>
       ClientMessage._({'type': 'list_files', 'projectPath': projectPath});
@@ -746,11 +753,9 @@ class ClientMessage {
   factory ClientMessage.getDiff(String projectPath) =>
       ClientMessage._({'type': 'get_diff', 'projectPath': projectPath});
 
-  factory ClientMessage.interrupt({String? sessionId}) {
-    final json = <String, dynamic>{'type': 'interrupt'};
-    if (sessionId != null) json['sessionId'] = sessionId;
-    return ClientMessage._(json);
-  }
+  factory ClientMessage.interrupt({String? sessionId}) => ClientMessage._(
+    <String, dynamic>{'type': 'interrupt', 'sessionId': ?sessionId},
+  );
 
   factory ClientMessage.listProjectHistory() =>
       ClientMessage._({'type': 'list_project_history'});

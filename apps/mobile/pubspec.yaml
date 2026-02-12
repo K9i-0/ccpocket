@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.10.4
+  sdk: ^3.11.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -54,7 +54,7 @@ dependencies:
   image_picker: ^1.1.2
   url_launcher: ^6.3.1
   dartssh2: ^2.10.0
-  flutter_secure_storage: ^9.2.4
+  flutter_secure_storage: ^10.0.0
   uuid: ^4.5.1
   super_clipboard: ^0.9.1
 
