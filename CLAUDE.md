@@ -210,6 +210,13 @@ cd apps/mobile && flutter test                        # ユニットテスト
 - シミュレーターでアプリ起動し、実際のClaude CLIセッションで動作確認
 - 承認フロー、AskUserQuestion、ストリーミング等の実際の挙動を検証
 
+**本番Bridgeが稼働中の場合**: ポートを分けてテスト用Bridgeを起動する
+```bash
+BRIDGE_PORT=8766 npm run bridge
+```
+シミュレーターアプリの接続画面で `ws://localhost:8766` を指定して接続する。
+本番Bridge（8765）に影響を与えずにテストできる。
+
 ### 5. Web確認 (ユーザー向けプレビュー)
 
 実装完了後、ユーザーがブラウザで確認できるようWebビルドを行う。

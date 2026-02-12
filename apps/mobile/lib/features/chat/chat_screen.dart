@@ -18,6 +18,7 @@ import '../../widgets/plan_detail_sheet.dart';
 import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
 import '../diff/diff_screen.dart';
+import '../gallery/gallery_screen.dart';
 import 'state/chat_session_cubit.dart';
 import 'widgets/rewind_action_sheet.dart';
 import 'widgets/rewind_message_list_sheet.dart';
@@ -350,6 +351,7 @@ class _ChatScreenBody extends HookWidget {
           child: Scaffold(
             appBar: AppBar(
               actions: [
+                // 1. Rewind
                 IconButton(
                   key: const ValueKey('rewind_button'),
                   icon: const Icon(Icons.history, size: 18),
@@ -362,6 +364,7 @@ class _ChatScreenBody extends HookWidget {
                   ),
                   onPressed: () => _showRewindMessageList(context),
                 ),
+                // 2. View Changes
                 if (projectPath != null)
                   IconButton(
                     icon: const Icon(Icons.difference, size: 18),
@@ -383,6 +386,47 @@ class _ChatScreenBody extends HookWidget {
                       );
                     },
                   ),
+                // 3. Screenshot
+                if (projectPath != null)
+                  IconButton(
+                    icon: const Icon(Icons.screenshot_monitor, size: 18),
+                    tooltip: 'Screenshot',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    onPressed: () {
+                      showScreenshotSheet(
+                        context: context,
+                        bridge: context.read<BridgeService>(),
+                        projectPath: projectPath!,
+                        sessionId: sessionId,
+                      );
+                    },
+                  ),
+                // 4. Gallery (session preview)
+                IconButton(
+                  key: const ValueKey('gallery_button'),
+                  icon: const Icon(Icons.collections, size: 18),
+                  tooltip: 'Gallery',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => GalleryScreen(sessionId: sessionId),
+                      ),
+                    );
+                  },
+                ),
+                // 5. Branch chip
                 if (projectPath != null)
                   BranchChip(
                     branchName: gitBranch,
@@ -396,27 +440,9 @@ class _ChatScreenBody extends HookWidget {
                       );
                     },
                   ),
-                IconButton(
-                  icon: const Icon(Icons.screenshot_monitor, size: 18),
-                  tooltip: 'Screenshot',
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  onPressed: projectPath != null
-                      ? () {
-                          showScreenshotSheet(
-                            context: context,
-                            bridge: context.read<BridgeService>(),
-                            projectPath: projectPath!,
-                            sessionId: sessionId,
-                          );
-                        }
-                      : null,
-                ),
+                // 6. Plan mode chip
                 if (inPlanMode) const PlanModeChip(),
+                // 7. Status indicator
                 StatusIndicator(status: status),
               ],
             ),
