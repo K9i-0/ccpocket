@@ -156,6 +156,8 @@ class _AssistantBubbleState extends State<AssistantBubble> {
                       selectable: true,
                       styleSheet: buildMarkdownStyle(context),
                       onTapLink: handleMarkdownLink,
+                      inlineSyntaxes: colorCodeInlineSyntaxes,
+                      builders: colorCodeBuilders,
                     ),
             ),
             ToolUseContent(:final name, :final input) =>

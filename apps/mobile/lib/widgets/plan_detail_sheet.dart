@@ -126,6 +126,8 @@ class _PlanDetailContentState extends State<_PlanDetailContent> {
         selectable: true,
         styleSheet: buildMarkdownStyle(context),
         onTapLink: handleMarkdownLink,
+        inlineSyntaxes: colorCodeInlineSyntaxes,
+        builders: colorCodeBuilders,
       ),
     );
   }

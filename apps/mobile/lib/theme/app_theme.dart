@@ -16,19 +16,19 @@ class AppTheme {
       surface: const Color(0xFFFAFAF7), // warm ivory
       surfaceContainerLowest: Colors.white,
       surfaceContainerLow: const Color(0xFFF7F6F3), // warm paper
-      surfaceContainer: const Color(0xFFEDEBE8), // warm light grey
-      surfaceContainerHigh: const Color(0xFFE0DEDA), // warm mid grey
-      surfaceContainerHighest: const Color(0xFFD1CECC),
-      primary: const Color(0xFFC2410C), // Ember (Orange 700)
+      surfaceContainer: const Color(0xFFF0EEEB), // warm light grey (brighter)
+      surfaceContainerHigh: const Color(0xFFF5F2EF), // card bg (bright)
+      surfaceContainerHighest: const Color(0xFFEAE7E4), // warm mid
+      primary: const Color(0xFFD4450A), // Ember (brighter)
       onPrimary: Colors.white,
-      primaryContainer: const Color(0xFFFFEDD5), // Orange 100
-      secondary: const Color(0xFF0F766E), // Teal 700 (muted complement)
+      primaryContainer: const Color(0xFFFFF0E0), // warm Orange 100
+      secondary: const Color(0xFF0D9488), // Teal 600 (brighter accent)
       onSecondary: Colors.white,
       tertiary: const Color(0xFF92400E), // Amber 800 (subtle warm variant)
       error: const Color(0xFFB91C1C), // Red 700
       onError: Colors.white,
-      outline: const Color(0xFF9C9590), // warm grey
-      outlineVariant: const Color(0xFFE0DEDA),
+      outline: const Color(0xFF787068), // warm grey (WCAG AA)
+      outlineVariant: const Color(0xFFC7C2BC), // warm light border (refined)
     );
 
     return _buildTheme(colorScheme, Brightness.light, AppColors.light());
@@ -88,7 +88,10 @@ class AppTheme {
       // Card
       cardTheme: CardThemeData(
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 0.5),
+        ),
         color: colorScheme.surfaceContainerHigh,
         clipBehavior: Clip.antiAlias,
       ),
@@ -424,35 +427,35 @@ class AppColors extends ThemeExtension<AppColors> {
 
   // ---- Light (Graphite & Ember palette) ----
   factory AppColors.light() => const AppColors(
-    userBubble: Color(0xFFC2410C), // Ember (Orange 700)
+    userBubble: Color(0xFFD4450A), // Ember (brighter)
     userBubbleText: Color(0xFFFFFFFF),
-    assistantBubble: Color(0xFFF5F0EB), // warm cream
-    toolBubble: Color(0xFFF0FDF4), // Green 50
-    toolBubbleBorder: Color(0xFF86EFAC), // Green 300
-    toolIcon: Color(0xFF16A34A), // Green 600
+    assistantBubble: Color(0xFFF3F0EE), // warm cream (refined)
+    toolBubble: Color(0xFFF0FDFA), // Teal 50
+    toolBubbleBorder: Color(0xFF5EEAD4), // Teal 300
+    toolIcon: Color(0xFF0F766E), // Teal 700
     errorBubble: Color(0xFFFEF2F2), // Red 50
-    errorBubbleBorder: Color(0xFFFCA5A5), // Red 300
+    errorBubbleBorder: Color(0xFFEF4444), // Red 500
     errorText: Color(0xFFB91C1C), // Red 700
     permissionBubble: Color(0xFFFFF7ED), // Orange 50
-    permissionBubbleBorder: Color(0xFFFDBA74), // Orange 300
-    permissionIcon: Color(0xFFC2410C), // Ember (match primary)
+    permissionBubbleBorder: Color(0xFFD97706), // Amber 600
+    permissionIcon: Color(0xFFD4450A), // Ember (match primary)
     askBubble: Color(0xFFFFF7ED), // Orange 50
-    askBubbleBorder: Color(0xFFFDBA74), // Orange 300
+    askBubbleBorder: Color(0xFFD97706), // Amber 600
     askIcon: Color(0xFF9A3412), // Orange 800
-    systemChip: Color(0xFFF0F9FF), // Sky 50 (neutral)
+    systemChip: Color(0xFFF0FDFA), // Teal 50 (unified)
     successChip: Color(0xFFF0FDF4), // Green 50
     errorChip: Color(0xFFFEE2E2), // Red 100
     approvalBar: Color(0xFFFFF7ED), // Orange 50
-    approvalBarBorder: Color(0xFFFDBA74), // Orange 300
-    statusStarting: Color(0xFF2563EB), // Blue 600
-    statusRunning: Color(0xFF16A34A), // Green 600
-    statusApproval: Color(0xFFC2410C), // Ember
-    statusIdle: Color(0xFF9C9590), // warm grey
-    subtleText: Color(0xFF78716C), // Stone 500
+    approvalBarBorder: Color(0xFFD4450A), // Ember (unified)
+    statusStarting: Color(0xFF4F46E5), // Indigo 600
+    statusRunning: Color(0xFF0D9488), // Teal 600 (brighter)
+    statusApproval: Color(0xFFD4450A), // Ember (brighter)
+    statusIdle: Color(0xFF787068), // warm grey (WCAG AA)
+    subtleText: Color(0xFF6B5E54), // warm stone (WCAG AA)
     codeBackground: Color(0xFFF5F0EB), // warm cream
-    codeBorder: Color(0xFFE0DEDA), // warm grey
+    codeBorder: Color(0xFF99D5CF), // Teal accent border
     toolResultBackground: Color(0xFFF5F0EB),
-    toolResultText: Color(0xFF78716C), // Stone 500
+    toolResultText: Color(0xFF6B5E54), // warm stone (WCAG AA)
     toolResultTextExpanded: Color(0xFF44403C), // Stone 700
     diffAdditionBackground: Color(0xFFDCFCE7), // Green 100
     diffAdditionText: Color(0xFF166534), // Green 800

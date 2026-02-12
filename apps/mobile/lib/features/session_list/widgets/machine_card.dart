@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../models/machine.dart';
+import '../../../theme/app_theme.dart';
 
 /// Card widget for displaying a saved remote machine.
 /// Uses a clean 2-row layout:
@@ -132,11 +133,13 @@ class _StatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final colorScheme = Theme.of(context).colorScheme;
     final color = switch (status) {
-      MachineStatus.online => Colors.green,
-      MachineStatus.offline => Colors.red,
-      MachineStatus.unreachable => Colors.orange,
-      MachineStatus.unknown => Colors.grey,
+      MachineStatus.online => appColors.statusRunning,
+      MachineStatus.offline => colorScheme.error,
+      MachineStatus.unreachable => appColors.statusApproval,
+      MachineStatus.unknown => appColors.statusIdle,
     };
 
     return Container(
@@ -221,7 +224,7 @@ class _MetadataLine extends StatelessWidget {
             alignment: PlaceholderAlignment.middle,
             child: Padding(
               padding: const EdgeInsets.only(right: 2),
-              child: Icon(Icons.update, size: 12, color: Colors.orange),
+              child: Icon(Icons.update, size: 12, color: colorScheme.tertiary),
             ),
           ),
         );
@@ -229,7 +232,7 @@ class _MetadataLine extends StatelessWidget {
       parts.add(
         TextSpan(
           text: 'v${versionInfo!.version}',
-          style: needsUpdate ? const TextStyle(color: Colors.orange) : null,
+          style: needsUpdate ? TextStyle(color: colorScheme.tertiary) : null,
         ),
       );
     }
@@ -246,7 +249,11 @@ class _MetadataLine extends StatelessWidget {
       parts.add(
         WidgetSpan(
           alignment: PlaceholderAlignment.middle,
-          child: Icon(Icons.star, size: 12, color: Colors.amber),
+          child: Icon(
+            Icons.star,
+            size: 12,
+            color: Theme.of(context).colorScheme.tertiary,
+          ),
         ),
       );
     }
@@ -320,7 +327,9 @@ class _MenuButton extends StatelessWidget {
                 Icon(
                   machine.isFavorite ? Icons.star : Icons.star_border,
                   size: 20,
-                  color: machine.isFavorite ? Colors.amber : null,
+                  color: machine.isFavorite
+                      ? Theme.of(context).colorScheme.tertiary
+                      : null,
                 ),
                 const SizedBox(width: 8),
                 Text(machine.isFavorite ? 'Unfavorite' : 'Favorite'),
@@ -353,9 +362,18 @@ class _MenuButton extends StatelessWidget {
               value: 'stop',
               child: Row(
                 children: [
-                  Icon(Icons.stop_circle, size: 20, color: Colors.red[400]),
+                  Icon(
+                    Icons.stop_circle,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                   const SizedBox(width: 8),
-                  Text('Stop Server', style: TextStyle(color: Colors.red[400])),
+                  Text(
+                    'Stop Server',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -412,7 +430,7 @@ class _ActionButton extends StatelessWidget {
             height: 20,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: Colors.orange,
+              color: colorScheme.tertiary,
             ),
           ),
         ),
@@ -427,8 +445,8 @@ class _ActionButton extends StatelessWidget {
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             minimumSize: const Size(0, 36),
-            backgroundColor: Colors.orange.withValues(alpha: 0.15),
-            foregroundColor: Colors.orange,
+            backgroundColor: colorScheme.tertiary.withValues(alpha: 0.15),
+            foregroundColor: colorScheme.tertiary,
           ),
           child: const Text('Update'),
         );

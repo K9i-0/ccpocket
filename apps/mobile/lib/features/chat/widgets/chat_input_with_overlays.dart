@@ -195,9 +195,9 @@ class ChatInputWithOverlays extends HookWidget {
       final clipboard = SystemClipboard.instance;
       if (clipboard == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('クリップボードにアクセスできません')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('クリップボードにアクセスできません')));
         }
         return;
       }
@@ -213,8 +213,9 @@ class ChatInputWithOverlays extends HookWidget {
                 final bytes = await file.readAll();
                 if (context.mounted) {
                   attachedImage.value = bytes;
-                  attachedMimeType.value =
-                      format == Formats.png ? 'image/png' : 'image/jpeg';
+                  attachedMimeType.value = format == Formats.png
+                      ? 'image/png'
+                      : 'image/jpeg';
                 }
               } catch (e) {
                 if (context.mounted) {
@@ -230,15 +231,15 @@ class ChatInputWithOverlays extends HookWidget {
 
         // No image found in clipboard
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('クリップボードに画像がありません')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('クリップボードに画像がありません')));
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('クリップボードの読み取りに失敗しました')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('クリップボードの読み取りに失敗しました')));
         }
       }
     }
@@ -278,13 +279,17 @@ class ChatInputWithOverlays extends HookWidget {
                 key: const ValueKey('attach_from_clipboard'),
                 leading: Icon(
                   Icons.content_paste,
-                  color: hasClipImage ? null : Colors.grey,
+                  color: hasClipImage
+                      ? null
+                      : Theme.of(sheetContext).colorScheme.outline,
                 ),
                 title: Text(
                   'クリップボードから貼付',
                   style: hasClipImage
                       ? null
-                      : const TextStyle(color: Colors.grey),
+                      : TextStyle(
+                          color: Theme.of(sheetContext).colorScheme.outline,
+                        ),
                 ),
                 enabled: hasClipImage,
                 onTap: hasClipImage

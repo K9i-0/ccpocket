@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../models/machine.dart';
 import '../../../services/ssh_startup_service.dart';
+import '../../../theme/app_theme.dart';
 
 /// Bottom sheet for adding or editing a remote machine configuration.
 class MachineEditSheet extends StatefulWidget {
@@ -203,6 +204,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>()!;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
@@ -434,15 +436,17 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: _testSuccess
-                                ? Colors.green.withValues(alpha: 0.1)
-                                : Colors.red.withValues(alpha: 0.1),
+                                ? appColors.statusRunning.withValues(alpha: 0.1)
+                                : colorScheme.error.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
                             children: [
                               Icon(
                                 _testSuccess ? Icons.check_circle : Icons.error,
-                                color: _testSuccess ? Colors.green : Colors.red,
+                                color: _testSuccess
+                                    ? appColors.statusRunning
+                                    : colorScheme.error,
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
@@ -451,8 +455,8 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                                   _testResult!,
                                   style: TextStyle(
                                     color: _testSuccess
-                                        ? Colors.green
-                                        : Colors.red,
+                                        ? appColors.statusRunning
+                                        : colorScheme.error,
                                   ),
                                 ),
                               ),
@@ -494,12 +498,12 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                       child: FilledButton(
                         onPressed: _isValid && !_isSaving ? _save : null,
                         child: _isSaving
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Colors.white,
+                                  color: colorScheme.onPrimary,
                                 ),
                               )
                             : Text(isEditing ? 'Save' : 'Add'),

@@ -48,6 +48,8 @@ class _StreamingBubbleState extends State<StreamingBubble>
             data: widget.text,
             styleSheet: buildMarkdownStyle(context),
             onTapLink: handleMarkdownLink,
+            inlineSyntaxes: colorCodeInlineSyntaxes,
+            builders: colorCodeBuilders,
           ),
           AnimatedBuilder(
             animation: _cursorController,

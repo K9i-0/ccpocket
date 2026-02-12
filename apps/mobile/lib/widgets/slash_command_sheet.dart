@@ -220,9 +220,10 @@ class SlashCommandSheet extends StatelessWidget {
     SlashCommand cmd,
     AppColors appColors,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
     final iconColor = switch (cmd.category) {
-      SlashCommandCategory.project => Colors.teal,
-      SlashCommandCategory.skill => Colors.amber,
+      SlashCommandCategory.project => colorScheme.secondary,
+      SlashCommandCategory.skill => colorScheme.tertiary,
       SlashCommandCategory.builtin => null,
     };
     return ListTile(

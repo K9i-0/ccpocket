@@ -39,6 +39,7 @@ dependencies:
   shared_preferences: ^2.5.0
   flutter_local_notifications: ^20.0.0
   flutter_markdown: ^0.7.7+1
+  markdown: ^7.3.0
   google_fonts: ^8.0.0
   bonsoir: ^6.0.1
   mobile_scanner: ^7.1.4
