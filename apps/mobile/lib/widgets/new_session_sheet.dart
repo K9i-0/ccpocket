@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/messages.dart';
 import '../features/session_list/session_list_screen.dart' show shortenPath;
+import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
 
 /// Result returned when the user submits the new session sheet.
@@ -10,12 +13,14 @@ class NewSessionParams {
   final PermissionMode permissionMode;
   final bool useWorktree;
   final String? worktreeBranch;
+  final String? existingWorktreePath;
 
   const NewSessionParams({
     required this.projectPath,
     required this.permissionMode,
     this.useWorktree = false,
     this.worktreeBranch,
+    this.existingWorktreePath,
   });
 }
 
@@ -24,10 +29,12 @@ class NewSessionParams {
 /// Returns [NewSessionParams] if the user starts a session, or null on cancel.
 /// [projectHistory] is the Bridge-managed project history (preferred).
 /// [recentProjects] is the fallback from session-based history.
+/// [bridge] is required for fetching existing worktree list.
 Future<NewSessionParams?> showNewSessionSheet({
   required BuildContext context,
   required List<({String path, String name})> recentProjects,
   List<String> projectHistory = const [],
+  BridgeService? bridge,
 }) {
   return showModalBottomSheet<NewSessionParams>(
     context: context,
@@ -39,6 +46,7 @@ Future<NewSessionParams?> showNewSessionSheet({
     builder: (context) => _NewSessionSheetContent(
       recentProjects: recentProjects,
       projectHistory: projectHistory,
+      bridge: bridge,
     ),
   );
 }
@@ -46,10 +54,12 @@ Future<NewSessionParams?> showNewSessionSheet({
 class _NewSessionSheetContent extends StatefulWidget {
   final List<({String path, String name})> recentProjects;
   final List<String> projectHistory;
+  final BridgeService? bridge;
 
   const _NewSessionSheetContent({
     required this.recentProjects,
     this.projectHistory = const [],
+    this.bridge,
   });
 
   @override
@@ -57,11 +67,24 @@ class _NewSessionSheetContent extends StatefulWidget {
       _NewSessionSheetContentState();
 }
 
+/// Worktree selection mode.
+enum _WorktreeMode {
+  /// Create a new worktree (default).
+  createNew,
+
+  /// Use an existing worktree.
+  useExisting,
+}
+
 class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _pathController = TextEditingController();
   final _branchController = TextEditingController();
   var _permissionMode = PermissionMode.acceptEdits;
   var _useWorktree = false;
+  var _worktreeMode = _WorktreeMode.createNew;
+  WorktreeInfo? _selectedWorktree;
+  List<WorktreeInfo>? _worktrees;
+  StreamSubscription<WorktreeListMessage>? _worktreeSub;
 
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
 
@@ -86,24 +109,81 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _worktreeSub = widget.bridge?.worktreeList.listen((msg) {
+      if (mounted) setState(() => _worktrees = msg.worktrees);
+    });
+  }
+
+  @override
   void dispose() {
+    _worktreeSub?.cancel();
     _pathController.dispose();
     _branchController.dispose();
     super.dispose();
   }
 
+  void _onWorktreeToggle(bool val) {
+    setState(() {
+      _useWorktree = val;
+      if (val) {
+        _fetchWorktrees();
+      } else {
+        _worktreeMode = _WorktreeMode.createNew;
+        _selectedWorktree = null;
+        _worktrees = null;
+      }
+    });
+  }
+
+  void _fetchWorktrees() {
+    final path = _pathController.text.trim();
+    if (path.isNotEmpty && widget.bridge != null) {
+      setState(() => _worktrees = null); // reset to loading
+      widget.bridge!.requestWorktreeList(path);
+    }
+  }
+
+  void _onProjectSelected(String path) {
+    setState(() {
+      _pathController.text = path;
+      // Re-fetch worktrees if worktree mode is active
+      if (_useWorktree) {
+        _worktrees = null;
+        _selectedWorktree = null;
+        widget.bridge?.requestWorktreeList(path);
+      }
+    });
+  }
+
   void _start() {
     final path = _pathController.text.trim();
     final branch = _branchController.text.trim();
-    Navigator.pop(
-      context,
-      NewSessionParams(
-        projectPath: path,
-        permissionMode: _permissionMode,
-        useWorktree: _useWorktree,
-        worktreeBranch: branch.isNotEmpty ? branch : null,
-      ),
-    );
+
+    if (_useWorktree && _worktreeMode == _WorktreeMode.useExisting) {
+      // Use existing worktree
+      Navigator.pop(
+        context,
+        NewSessionParams(
+          projectPath: path,
+          permissionMode: _permissionMode,
+          existingWorktreePath: _selectedWorktree?.worktreePath,
+          worktreeBranch: _selectedWorktree?.branch,
+        ),
+      );
+    } else {
+      // Create new worktree or no worktree
+      Navigator.pop(
+        context,
+        NewSessionParams(
+          projectPath: path,
+          permissionMode: _permissionMode,
+          useWorktree: _useWorktree,
+          worktreeBranch: branch.isNotEmpty ? branch : null,
+        ),
+      );
+    }
   }
 
   @override
@@ -127,7 +207,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             ],
             _buildPathInput(),
             const SizedBox(height: 12),
-            _buildOptions(),
+            _buildOptions(appColors),
             const SizedBox(height: 12),
             _buildActions(),
             const SizedBox(height: 16),
@@ -215,7 +295,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       trailing: isSelected
           ? Icon(Icons.check_circle, size: 20, color: cs.primary)
           : null,
-      onTap: () => setState(() => _pathController.text = project.path),
+      onTap: () => _onProjectSelected(project.path),
     );
   }
 
@@ -259,7 +339,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     );
   }
 
-  Widget _buildOptions() {
+  Widget _buildOptions(AppColors appColors) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -301,31 +381,165 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                     : const Icon(Icons.account_tree_outlined, size: 16),
                 label: const Text('Worktree', style: TextStyle(fontSize: 13)),
                 selected: _useWorktree,
-                onSelected: (val) => setState(() => _useWorktree = val),
+                onSelected: _onWorktreeToggle,
               ),
             ],
           ),
           if (_useWorktree) ...[
             const SizedBox(height: 8),
-            TextField(
-              key: const ValueKey('dialog_worktree_branch'),
-              controller: _branchController,
-              decoration: const InputDecoration(
-                labelText: 'Branch (optional)',
-                hintText: 'ccpocket/<auto>',
-                border: OutlineInputBorder(),
-                isDense: true,
-                prefixIcon: Icon(Icons.account_tree_outlined, size: 18),
-              ),
-              style: const TextStyle(fontSize: 13),
-            ),
+            _buildWorktreeOptions(appColors),
           ],
         ],
       ),
     );
   }
 
+  Widget _buildWorktreeOptions(AppColors appColors) {
+    final cs = Theme.of(context).colorScheme;
+    final hasWorktrees = _worktrees != null && _worktrees!.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Mode selection: New / Existing
+        if (hasWorktrees) ...[
+          Row(
+            children: [
+              ChoiceChip(
+                label: const Text('New', style: TextStyle(fontSize: 12)),
+                selected: _worktreeMode == _WorktreeMode.createNew,
+                onSelected: (_) => setState(() {
+                  _worktreeMode = _WorktreeMode.createNew;
+                  _selectedWorktree = null;
+                }),
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: Text(
+                  'Existing (${_worktrees!.length})',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                selected: _worktreeMode == _WorktreeMode.useExisting,
+                onSelected: (_) => setState(() {
+                  _worktreeMode = _WorktreeMode.useExisting;
+                }),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+        // New worktree: branch input
+        if (_worktreeMode == _WorktreeMode.createNew)
+          TextField(
+            key: const ValueKey('dialog_worktree_branch'),
+            controller: _branchController,
+            decoration: const InputDecoration(
+              labelText: 'Branch (optional)',
+              hintText: 'ccpocket/<auto>',
+              border: OutlineInputBorder(),
+              isDense: true,
+              prefixIcon: Icon(Icons.account_tree_outlined, size: 18),
+            ),
+            style: const TextStyle(fontSize: 13),
+          ),
+        // Existing worktree selection
+        if (_worktreeMode == _WorktreeMode.useExisting) ...[
+          if (_worktrees == null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                ),
+              ),
+            )
+          else if (_worktrees!.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No existing worktrees',
+                style: TextStyle(fontSize: 13, color: appColors.subtleText),
+              ),
+            )
+          else
+            Container(
+              constraints: const BoxConstraints(maxHeight: 150),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    for (final wt in _worktrees!)
+                      _buildWorktreeSelectionTile(wt, cs, appColors),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildWorktreeSelectionTile(
+    WorktreeInfo wt,
+    ColorScheme cs,
+    AppColors appColors,
+  ) {
+    final isSelected = _selectedWorktree?.worktreePath == wt.worktreePath;
+    return InkWell(
+      onTap: () => setState(() => _selectedWorktree = wt),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? cs.tertiaryContainer.withValues(alpha: 0.3)
+              : null,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.fork_right,
+              size: 18,
+              color: isSelected ? cs.tertiary : appColors.subtleText,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    wt.branch,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? cs.tertiary : null,
+                    ),
+                  ),
+                  Text(
+                    wt.worktreePath.split('/').last,
+                    style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle, size: 18, color: cs.tertiary),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildActions() {
+    final canStart =
+        _hasPath &&
+        (!_useWorktree ||
+            _worktreeMode == _WorktreeMode.createNew ||
+            _selectedWorktree != null);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -340,7 +554,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           Expanded(
             child: FilledButton(
               key: const ValueKey('dialog_start_button'),
-              onPressed: _hasPath ? _start : null,
+              onPressed: canStart ? _start : null,
               child: const Text('Start'),
             ),
           ),

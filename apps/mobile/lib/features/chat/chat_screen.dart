@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -29,13 +31,115 @@ import 'widgets/status_indicator.dart';
 /// Outer widget that creates screen-scoped [ChatSessionCubit] and
 /// [StreamingStateCubit] via [MultiBlocProvider], replacing Riverpod's
 /// Family (autoDispose) pattern.
-class ChatScreen extends StatelessWidget {
+///
+/// When [isPending] is true, shows a loading overlay until [session_created]
+/// is received from the bridge, then swaps to the real session.
+class ChatScreen extends StatefulWidget {
+  final String sessionId;
+  final String? projectPath;
+  final String? gitBranch;
+  final String? worktreePath;
+  final bool isPending;
+
+  const ChatScreen({
+    super.key,
+    required this.sessionId,
+    this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
+    this.isPending = false,
+  });
+
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  late String _sessionId;
+  late String? _worktreePath;
+  late String? _gitBranch;
+  late bool _isPending;
+  StreamSubscription<ServerMessage>? _pendingSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionId = widget.sessionId;
+    _worktreePath = widget.worktreePath;
+    _gitBranch = widget.gitBranch;
+    _isPending = widget.isPending;
+
+    if (_isPending) {
+      _listenForSessionCreated();
+    }
+  }
+
+  void _listenForSessionCreated() {
+    final bridge = context.read<BridgeService>();
+    _pendingSub = bridge.messages.listen((msg) {
+      if (msg is SystemMessage && msg.subtype == 'session_created') {
+        // Filter by projectPath to avoid picking up another session's event
+        if (widget.projectPath != null &&
+            msg.projectPath != null &&
+            msg.projectPath != widget.projectPath) {
+          return;
+        }
+        if (msg.sessionId != null && mounted) {
+          setState(() {
+            _sessionId = msg.sessionId!;
+            _worktreePath = msg.worktreePath ?? _worktreePath;
+            _gitBranch = msg.worktreeBranch ?? _gitBranch;
+            _isPending = false;
+          });
+          _pendingSub?.cancel();
+          _pendingSub = null;
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pendingSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isPending) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator.adaptive(),
+              SizedBox(height: 16),
+              Text('Creating session...', style: TextStyle(fontSize: 16)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return _ChatScreenProviders(
+      key: ValueKey(_sessionId),
+      sessionId: _sessionId,
+      projectPath: widget.projectPath,
+      gitBranch: _gitBranch,
+      worktreePath: _worktreePath,
+    );
+  }
+}
+
+/// Wrapper that creates screen-scoped cubits once per session.
+class _ChatScreenProviders extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
   final String? gitBranch;
   final String? worktreePath;
 
-  const ChatScreen({
+  const _ChatScreenProviders({
     super.key,
     required this.sessionId,
     this.projectPath,

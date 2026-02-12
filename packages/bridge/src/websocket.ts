@@ -133,6 +133,7 @@ export class BridgeWebSocketServer {
           {
             useWorktree: msg.useWorktree,
             worktreeBranch: msg.worktreeBranch,
+            existingWorktreePath: msg.existingWorktreePath,
           },
         );
         const createdSession = this.sessionManager.get(sessionId);

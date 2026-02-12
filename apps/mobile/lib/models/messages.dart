@@ -627,6 +627,7 @@ class ClientMessage {
     String? permissionMode,
     bool? useWorktree,
     String? worktreeBranch,
+    String? existingWorktreePath,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'start',
@@ -637,6 +638,7 @@ class ClientMessage {
       if (useWorktree == true) 'useWorktree': true,
       if (worktreeBranch != null && worktreeBranch.isNotEmpty)
         'worktreeBranch': worktreeBranch,
+      'existingWorktreePath': ?existingWorktreePath,
     });
   }
 

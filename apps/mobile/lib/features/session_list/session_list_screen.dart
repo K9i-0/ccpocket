@@ -107,6 +107,9 @@ class _SessionListScreenState extends State<SessionListScreen> {
   String? _pendingResumeProjectPath;
   String? _pendingResumeGitBranch;
 
+  // Flag: already navigated to chat for pending session creation
+  bool _pendingNavigation = false;
+
   // Only subscription that remains: session_created navigation
   StreamSubscription<ServerMessage>? _messageSub;
 
@@ -122,12 +125,17 @@ class _SessionListScreenState extends State<SessionListScreen> {
       if (msg is SystemMessage && msg.subtype == 'session_created') {
         bridge.requestSessionList();
         if (msg.sessionId != null) {
-          _navigateToChat(
-            msg.sessionId!,
-            projectPath: msg.projectPath ?? _pendingResumeProjectPath,
-            gitBranch: _pendingResumeGitBranch,
-            worktreePath: msg.worktreePath,
-          );
+          if (_pendingNavigation) {
+            // Already navigated to chat screen; it will pick up session_created
+            _pendingNavigation = false;
+          } else {
+            _navigateToChat(
+              msg.sessionId!,
+              projectPath: msg.projectPath ?? _pendingResumeProjectPath,
+              gitBranch: _pendingResumeGitBranch,
+              worktreePath: msg.worktreePath,
+            );
+          }
           _pendingResumeProjectPath = null;
           _pendingResumeGitBranch = null;
         }
@@ -394,21 +402,32 @@ class _SessionListScreenState extends State<SessionListScreen> {
         widget.debugRecentSessions ??
         context.read<SessionListCubit>().state.sessions;
     final history = context.read<ProjectHistoryCubit>().state;
+    final bridge = context.read<BridgeService>();
     final result = await showNewSessionSheet(
       context: context,
       recentProjects: recentProjects(sessions),
       projectHistory: history,
+      bridge: bridge,
     );
     if (result == null) return;
     if (!mounted) return;
     _pendingResumeProjectPath = result.projectPath;
-    context.read<BridgeService>().send(
+    bridge.send(
       ClientMessage.start(
         result.projectPath,
         permissionMode: result.permissionMode.value,
         useWorktree: result.useWorktree ? true : null,
         worktreeBranch: result.worktreeBranch,
+        existingWorktreePath: result.existingWorktreePath,
       ),
+    );
+    // Navigate immediately to chat with pending state
+    final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
+    _pendingNavigation = true;
+    _navigateToChat(
+      pendingId,
+      projectPath: result.projectPath,
+      isPending: true,
     );
   }
 
@@ -417,6 +436,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
     String? projectPath,
     String? gitBranch,
     String? worktreePath,
+    bool isPending = false,
   }) {
     Navigator.push(
       context,
@@ -426,6 +446,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
           projectPath: projectPath,
           gitBranch: gitBranch,
           worktreePath: worktreePath,
+          isPending: isPending,
         ),
       ),
     ).then((_) {

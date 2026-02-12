@@ -44,7 +44,7 @@ export type PermissionMode =
   | "dontAsk";
 
 export type ClientMessage =
-  | { type: "start"; projectPath: string; sessionId?: string; continue?: boolean; permissionMode?: PermissionMode; useWorktree?: boolean; worktreeBranch?: string }
+  | { type: "start"; projectPath: string; sessionId?: string; continue?: boolean; permissionMode?: PermissionMode; useWorktree?: boolean; worktreeBranch?: string; existingWorktreePath?: string }
   | { type: "input"; text: string; sessionId?: string; imageId?: string; imageBase64?: string; mimeType?: string }
   | { type: "approve"; id: string; updatedInput?: Record<string, unknown>; clearContext?: boolean; sessionId?: string }
   | { type: "approve_always"; id: string; sessionId?: string }
