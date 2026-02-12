@@ -83,6 +83,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       _pastHistoryLoaded = true;
     }
 
+    // Handle rewind preview separately — store in dedicated state field
+    if (msg is RewindPreviewMessage) {
+      emit(state.copyWith(rewindPreview: msg));
+      return;
+    }
+
     final update = _handler.handle(msg, isBackground: true);
     _applyUpdate(update, msg);
   }
@@ -150,6 +156,21 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     if (nonStreamingEntries.isNotEmpty) {
       entries = [...entries, ...nonStreamingEntries];
       didModifyEntries = true;
+    }
+
+    // --- Track message UUIDs ---
+    // When a tool_result arrives with a userMessageUuid, assign it to the
+    // most recent UserChatEntry that doesn't have a UUID yet.
+    if (originalMsg is ToolResultMessage &&
+        originalMsg.userMessageUuid != null) {
+      for (int i = entries.length - 1; i >= 0; i--) {
+        final e = entries[i];
+        if (e is UserChatEntry && e.messageUuid == null) {
+          e.messageUuid = originalMsg.userMessageUuid;
+          didModifyEntries = true;
+          break;
+        }
+      }
     }
 
     // --- Cleanup responded tool use IDs ---
@@ -357,6 +378,26 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Stop the session.
   void stop() {
     _bridge.stopSession(sessionId);
+  }
+
+  /// Request a dry-run preview of file rewind.
+  void rewindDryRun(String targetUuid) {
+    emit(state.copyWith(rewindPreview: null));
+    _bridge.send(ClientMessage.rewindDryRun(sessionId, targetUuid));
+  }
+
+  /// Execute a rewind operation.
+  /// [mode] is one of: "conversation", "code", "both".
+  void rewind(String targetUuid, String mode) {
+    _bridge.send(ClientMessage.rewind(sessionId, targetUuid, mode));
+  }
+
+  /// Get all user messages that have a UUID (eligible for rewind).
+  List<UserChatEntry> get rewindableUserMessages {
+    return state.entries
+        .whereType<UserChatEntry>()
+        .where((e) => e.messageUuid != null)
+        .toList();
   }
 
   /// Re-fetch session history from the bridge server.

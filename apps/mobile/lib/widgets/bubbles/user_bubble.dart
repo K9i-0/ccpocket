@@ -9,6 +9,7 @@ class UserBubble extends StatelessWidget {
   final String text;
   final MessageStatus status;
   final VoidCallback? onRetry;
+  final VoidCallback? onRewind;
   final String? imageUrl;
   final String? httpBaseUrl;
   final Uint8List? imageBytes;
@@ -17,6 +18,7 @@ class UserBubble extends StatelessWidget {
     required this.text,
     this.status = MessageStatus.sent,
     this.onRetry,
+    this.onRewind,
     this.imageUrl,
     this.httpBaseUrl,
     this.imageBytes,
@@ -29,13 +31,7 @@ class UserBubble extends StatelessWidget {
       alignment: Alignment.centerRight,
       child: GestureDetector(
         onLongPress: () {
-          Clipboard.setData(ClipboardData(text: text));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Copied'),
-              duration: Duration(seconds: 1),
-            ),
-          );
+          _showContextMenu(context);
         },
         onTap: status == MessageStatus.failed ? onRetry : null,
         child: Column(
@@ -108,6 +104,69 @@ class UserBubble extends StatelessWidget {
               child: _buildStatusIndicator(context, appColors),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showContextMenu(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.copy, size: 20),
+                title: const Text('Copy'),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: text));
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Copied'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
+              if (onRewind != null)
+                ListTile(
+                  dense: true,
+                  leading: Icon(
+                    Icons.history,
+                    size: 20,
+                    color: Theme.of(ctx).colorScheme.primary,
+                  ),
+                  title: const Text('Rewind to here'),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    onRewind!();
+                  },
+                ),
+            ],
+          ),
         ),
       ),
     );

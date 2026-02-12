@@ -233,6 +233,7 @@ sealed class ServerMessage {
         message: AssistantMessage.fromJson(
           json['message'] as Map<String, dynamic>,
         ),
+        messageUuid: json['messageUuid'] as String?,
       ),
       'tool_result' => ToolResultMessage(
         toolUseId: json['toolUseId'] as String,
@@ -243,6 +244,7 @@ sealed class ServerMessage {
                 ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))
                 .toList() ??
             const [],
+        userMessageUuid: json['userMessageUuid'] as String?,
       ),
       'result' => ResultMessage(
         subtype: json['subtype'] as String? ?? '',
@@ -317,6 +319,18 @@ sealed class ServerMessage {
         precedingToolUseIds:
             (json['precedingToolUseIds'] as List?)?.cast<String>() ?? const [],
       ),
+      'rewind_preview' => RewindPreviewMessage(
+        canRewind: json['canRewind'] as bool? ?? false,
+        filesChanged: (json['filesChanged'] as List?)?.cast<String>(),
+        insertions: json['insertions'] as int?,
+        deletions: json['deletions'] as int?,
+        error: json['error'] as String?,
+      ),
+      'rewind_result' => RewindResultMessage(
+        success: json['success'] as bool? ?? false,
+        mode: json['mode'] as String? ?? 'both',
+        error: json['error'] as String?,
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -345,7 +359,8 @@ class SystemMessage implements ServerMessage {
 
 class AssistantServerMessage implements ServerMessage {
   final AssistantMessage message;
-  const AssistantServerMessage({required this.message});
+  final String? messageUuid;
+  const AssistantServerMessage({required this.message, this.messageUuid});
 }
 
 class ToolResultMessage implements ServerMessage {
@@ -353,11 +368,13 @@ class ToolResultMessage implements ServerMessage {
   final String content;
   final String? toolName;
   final List<ImageRef> images;
+  final String? userMessageUuid;
   const ToolResultMessage({
     required this.toolUseId,
     required this.content,
     this.toolName,
     this.images = const [],
+    this.userMessageUuid,
   });
 }
 
@@ -496,6 +513,32 @@ class ToolUseSummaryMessage implements ServerMessage {
   const ToolUseSummaryMessage({
     required this.summary,
     this.precedingToolUseIds = const [],
+  });
+}
+
+class RewindPreviewMessage implements ServerMessage {
+  final bool canRewind;
+  final List<String>? filesChanged;
+  final int? insertions;
+  final int? deletions;
+  final String? error;
+  const RewindPreviewMessage({
+    required this.canRewind,
+    this.filesChanged,
+    this.insertions,
+    this.deletions,
+    this.error,
+  });
+}
+
+class RewindResultMessage implements ServerMessage {
+  final bool success;
+  final String mode;
+  final String? error;
+  const RewindResultMessage({
+    required this.success,
+    required this.mode,
+    this.error,
   });
 }
 
@@ -780,6 +823,24 @@ class ClientMessage {
     'worktreePath': worktreePath,
   });
 
+  factory ClientMessage.rewind(
+    String sessionId,
+    String targetUuid,
+    String mode,
+  ) => ClientMessage._({
+    'type': 'rewind',
+    'sessionId': sessionId,
+    'targetUuid': targetUuid,
+    'mode': mode,
+  });
+
+  factory ClientMessage.rewindDryRun(String sessionId, String targetUuid) =>
+      ClientMessage._({
+        'type': 'rewind_dry_run',
+        'sessionId': sessionId,
+        'targetUuid': targetUuid,
+      });
+
   String toJson() => jsonEncode(_json);
 }
 
@@ -804,6 +865,9 @@ class UserChatEntry implements ChatEntry {
   final String? imageUrl;
   final Uint8List? imageBytes;
   MessageStatus status;
+
+  /// UUID assigned by the SDK for this user message (set when tool_result arrives).
+  String? messageUuid;
   @override
   final DateTime timestamp;
   UserChatEntry(
@@ -814,6 +878,7 @@ class UserChatEntry implements ChatEntry {
     this.imageUrl,
     this.imageBytes,
     this.status = MessageStatus.sending,
+    this.messageUuid,
   }) : timestamp = timestamp ?? DateTime.now();
 }
 

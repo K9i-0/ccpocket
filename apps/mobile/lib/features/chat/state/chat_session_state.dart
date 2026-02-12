@@ -32,6 +32,9 @@ abstract class ChatSessionState with _$ChatSessionState {
     // Tool use IDs hidden by tool_use_summary (subagent compression)
     @Default({}) Set<String> hiddenToolUseIds,
 
+    // Rewind preview (dry-run result)
+    RewindPreviewMessage? rewindPreview,
+
     // Cost tracking
     @Default(0.0) double totalCost,
     Duration? totalDuration,

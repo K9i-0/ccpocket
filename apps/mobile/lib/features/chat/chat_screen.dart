@@ -19,6 +19,8 @@ import '../../widgets/worktree_list_sheet.dart';
 import '../diff/diff_screen.dart';
 import '../gallery/gallery_screen.dart';
 import 'state/chat_session_cubit.dart';
+import 'widgets/rewind_action_sheet.dart';
+import 'widgets/rewind_message_list_sheet.dart';
 import 'state/chat_session_state.dart';
 import 'state/streaming_state_cubit.dart';
 import 'widgets/branch_chip.dart';
@@ -348,6 +350,17 @@ class _ChatScreenBody extends HookWidget {
           child: Scaffold(
             appBar: AppBar(
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.history, size: 18),
+                  tooltip: 'Rewind',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  onPressed: () => _showRewindMessageList(context),
+                ),
                 if (projectPath != null)
                   IconButton(
                     icon: const Icon(Icons.difference, size: 18),
@@ -436,6 +449,9 @@ class _ChatScreenBody extends HookWidget {
                         httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
                         onRetryMessage: (entry) {
                           context.read<ChatSessionCubit>().retryMessage(entry);
+                        },
+                        onRewindMessage: (entry) {
+                          _showRewindActionSheet(context, entry);
                         },
                         collapseToolResults: collapseToolResults,
                         editedPlanText: editedPlanText,
@@ -617,6 +633,55 @@ String? findPlanFromWriteTool(List<ChatEntry> entries) {
     }
   }
   return null;
+}
+
+void _showRewindMessageList(BuildContext context) {
+  final cubit = context.read<ChatSessionCubit>();
+  final messages = cubit.rewindableUserMessages;
+
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (_) => RewindMessageListSheet(
+      messages: messages,
+      onMessageSelected: (msg) => _showRewindActionSheet(context, msg),
+    ),
+  );
+}
+
+void _showRewindActionSheet(BuildContext context, UserChatEntry message) {
+  final cubit = context.read<ChatSessionCubit>();
+
+  // Request dry-run preview
+  if (message.messageUuid != null) {
+    cubit.rewindDryRun(message.messageUuid!);
+  }
+
+  showModalBottomSheet<void>(
+    context: context,
+    builder: (_) {
+      return StreamBuilder<ChatSessionState>(
+        stream: cubit.stream,
+        initialData: cubit.state,
+        builder: (ctx, snapshot) {
+          final preview = snapshot.data?.rewindPreview;
+
+          return RewindActionSheet(
+            userMessage: message,
+            preview: preview,
+            isLoadingPreview: preview == null,
+            onRewind: (mode) {
+              Navigator.of(ctx).pop();
+              if (message.messageUuid != null) {
+                cubit.rewind(message.messageUuid!, mode.value);
+              }
+            },
+          );
+        },
+      );
+    },
+  );
 }
 
 void _retryFailedMessages(BuildContext context, String sessionId) {

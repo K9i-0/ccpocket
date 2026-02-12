@@ -75,6 +75,16 @@ export interface StartOptions {
   sessionId?: string;
   continueMode?: boolean;
   permissionMode?: PermissionMode;
+  /** When resuming, only resume messages up to this UUID (for conversation rewind). */
+  resumeSessionAt?: string;
+}
+
+export interface RewindFilesResult {
+  canRewind: boolean;
+  error?: string;
+  filesChanged?: string[];
+  insertions?: number;
+  deletions?: number;
 }
 
 /**
@@ -99,15 +109,16 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
     }
 
     case "assistant": {
-      const ast = msg as { message: Record<string, unknown> };
+      const ast = msg as { message: Record<string, unknown>; uuid?: string };
       return {
         type: "assistant",
         message: ast.message as ServerMessage extends { type: "assistant" } ? ServerMessage["message"] : never,
+        ...(ast.uuid ? { messageUuid: ast.uuid } : {}),
       } as ServerMessage;
     }
 
     case "user": {
-      const usr = msg as { message: { content?: unknown[] } };
+      const usr = msg as { message: { content?: unknown[] }; uuid?: string };
       const content = usr.message?.content;
       if (!Array.isArray(content)) return null;
 
@@ -121,6 +132,7 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
         type: "tool_result",
         toolUseId: first.tool_use_id as string,
         content: normalizeToolResultContent(first.content as string | unknown[]),
+        ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
       };
     }
 
@@ -231,6 +243,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private _sessionId: string | null = null;
   private pendingPermissions = new Map<string, PendingPermission>();
   private _permissionMode: PermissionMode | undefined;
+  get permissionMode(): PermissionMode | undefined { return this._permissionMode; }
   private sessionAllowRules = new Set<string>();
 
   private initTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -303,6 +316,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         includePartialMessages: true,
         canUseTool: this.handleCanUseTool.bind(this),
         settingSources: ["user", "project", "local"],
+        enableFileCheckpointing: true,
+        ...(options?.resumeSessionAt ? { resumeSessionAt: options.resumeSessionAt } : {}),
       },
     });
 
@@ -502,6 +517,22 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
     if (this.pendingPermissions.size === 0) {
       this.setStatus("running");
+    }
+  }
+
+  /**
+   * Rewind files to their state at the specified user message.
+   * Requires enableFileCheckpointing to be enabled (done in start()).
+   */
+  async rewindFiles(userMessageId: string, dryRun?: boolean): Promise<RewindFilesResult> {
+    if (!this.queryInstance) {
+      return { canRewind: false, error: "No active query instance" };
+    }
+    try {
+      const result = await this.queryInstance.rewindFiles(userMessageId, { dryRun });
+      return result as RewindFilesResult;
+    } catch (err) {
+      return { canRewind: false, error: err instanceof Error ? err.message : String(err) };
     }
   }
 

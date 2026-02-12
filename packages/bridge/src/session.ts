@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { SdkProcess, type StartOptions } from "./sdk-process.js";
+import { SdkProcess, type StartOptions, type RewindFilesResult } from "./sdk-process.js";
 import type { ServerMessage, ProcessStatus, AssistantToolUseContent } from "./parser.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
@@ -299,6 +299,61 @@ export class SessionManager {
         projectPath: session.projectPath,
       });
     }
+  }
+
+  /**
+   * Rewind files to their state at the specified user message.
+   * Delegates to the session's SdkProcess.rewindFiles().
+   */
+  async rewindFiles(id: string, targetUuid: string, dryRun?: boolean): Promise<RewindFilesResult> {
+    const session = this.sessions.get(id);
+    if (!session) {
+      return { canRewind: false, error: "Session not found" };
+    }
+    return session.process.rewindFiles(targetUuid, dryRun);
+  }
+
+  /**
+   * Rewind the conversation to a specific point.
+   * Stops the current process and restarts with resumeSessionAt.
+   * Returns the new Bridge session ID.
+   */
+  rewindConversation(
+    id: string,
+    targetUuid: string,
+    onReady: (newSessionId: string) => void,
+  ): void {
+    const session = this.sessions.get(id);
+    if (!session) {
+      throw new Error(`Session ${id} not found`);
+    }
+
+    const claudeSessionId = session.claudeSessionId;
+    if (!claudeSessionId) {
+      throw new Error("Session has no Claude session ID");
+    }
+
+    const projectPath = session.projectPath;
+    const permissionMode = session.process.permissionMode;
+    const worktreePath = session.worktreePath;
+    const worktreeBranch = session.worktreeBranch;
+
+    // Stop and destroy the current session
+    this.destroy(id);
+
+    // Create a new session with resumeSessionAt
+    const newId = this.create(
+      projectPath,
+      {
+        sessionId: claudeSessionId,
+        permissionMode,
+        resumeSessionAt: targetUuid,
+      },
+      undefined,
+      worktreePath ? { existingWorktreePath: worktreePath, worktreeBranch } : undefined,
+    );
+
+    onReady(newId);
   }
 
   destroy(id: string): boolean {

@@ -20,6 +20,7 @@ class ChatEntryWidget extends StatelessWidget {
   final ChatEntry? previous;
   final String? httpBaseUrl;
   final void Function(UserChatEntry)? onRetryMessage;
+  final void Function(UserChatEntry)? onRewindMessage;
   final ValueNotifier<int>? collapseToolResults;
   final ValueNotifier<String?>? editedPlanText;
   final String? resolvedPlanText;
@@ -33,6 +34,7 @@ class ChatEntryWidget extends StatelessWidget {
     this.previous,
     this.httpBaseUrl,
     this.onRetryMessage,
+    this.onRewindMessage,
     this.collapseToolResults,
     this.editedPlanText,
     this.resolvedPlanText,
@@ -59,6 +61,9 @@ class ChatEntryWidget extends StatelessWidget {
             status: user.status,
             onRetry: onRetryMessage != null
                 ? () => onRetryMessage!(user)
+                : null,
+            onRewind: onRewindMessage != null && user.messageUuid != null
+                ? () => onRewindMessage!(user)
                 : null,
             imageUrl: user.imageUrl,
             httpBaseUrl: httpBaseUrl,
@@ -167,6 +172,8 @@ class ServerMessageWidget extends StatelessWidget {
       WorktreeListMessage() => const SizedBox.shrink(),
       WorktreeRemovedMessage() => const SizedBox.shrink(),
       final ToolUseSummaryMessage msg => ToolUseSummaryBubble(message: msg),
+      RewindPreviewMessage() => const SizedBox.shrink(),
+      RewindResultMessage() => const SizedBox.shrink(),
     };
   }
 }

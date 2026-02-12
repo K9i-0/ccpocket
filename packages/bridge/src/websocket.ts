@@ -436,6 +436,93 @@ export class BridgeWebSocketServer {
         }
         break;
       }
+
+      case "rewind_dry_run": {
+        const session = this.sessionManager.get(msg.sessionId);
+        if (!session) {
+          this.send(ws, { type: "rewind_preview", canRewind: false, error: `Session ${msg.sessionId} not found` });
+          return;
+        }
+        this.sessionManager.rewindFiles(msg.sessionId, msg.targetUuid, true).then((result) => {
+          this.send(ws, {
+            type: "rewind_preview",
+            canRewind: result.canRewind,
+            filesChanged: result.filesChanged,
+            insertions: result.insertions,
+            deletions: result.deletions,
+            error: result.error,
+          });
+        }).catch((err) => {
+          this.send(ws, { type: "rewind_preview", canRewind: false, error: `Dry run failed: ${err}` });
+        });
+        break;
+      }
+
+      case "rewind": {
+        const session = this.sessionManager.get(msg.sessionId);
+        if (!session) {
+          this.send(ws, { type: "rewind_result", success: false, mode: msg.mode, error: `Session ${msg.sessionId} not found` });
+          return;
+        }
+
+        const handleError = (err: unknown) => {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          this.send(ws, { type: "rewind_result", success: false, mode: msg.mode, error: errMsg });
+        };
+
+        if (msg.mode === "code") {
+          // Code-only rewind: rewind files without restarting the conversation
+          this.sessionManager.rewindFiles(msg.sessionId, msg.targetUuid).then((result) => {
+            if (result.canRewind) {
+              this.send(ws, { type: "rewind_result", success: true, mode: "code" });
+            } else {
+              this.send(ws, { type: "rewind_result", success: false, mode: "code", error: result.error ?? "Cannot rewind files" });
+            }
+          }).catch(handleError);
+        } else if (msg.mode === "conversation") {
+          // Conversation-only rewind: restart session at the target UUID
+          try {
+            this.sessionManager.rewindConversation(msg.sessionId, msg.targetUuid, (newSessionId) => {
+              this.send(ws, { type: "rewind_result", success: true, mode: "conversation" });
+              // Notify the new session ID
+              const newSession = this.sessionManager.get(newSessionId);
+              this.send(ws, {
+                type: "system",
+                subtype: "session_created",
+                sessionId: newSessionId,
+                projectPath: newSession?.projectPath ?? "",
+              });
+              this.sendSessionList(ws);
+            });
+          } catch (err) {
+            handleError(err);
+          }
+        } else {
+          // Both: rewind files first, then rewind conversation
+          this.sessionManager.rewindFiles(msg.sessionId, msg.targetUuid).then((result) => {
+            if (!result.canRewind) {
+              this.send(ws, { type: "rewind_result", success: false, mode: "both", error: result.error ?? "Cannot rewind files" });
+              return;
+            }
+            try {
+              this.sessionManager.rewindConversation(msg.sessionId, msg.targetUuid, (newSessionId) => {
+                this.send(ws, { type: "rewind_result", success: true, mode: "both" });
+                const newSession = this.sessionManager.get(newSessionId);
+                this.send(ws, {
+                  type: "system",
+                  subtype: "session_created",
+                  sessionId: newSessionId,
+                  projectPath: newSession?.projectPath ?? "",
+                });
+                this.sendSessionList(ws);
+              });
+            } catch (err) {
+              handleError(err);
+            }
+          }).catch(handleError);
+        }
+        break;
+      }
     }
   }
 

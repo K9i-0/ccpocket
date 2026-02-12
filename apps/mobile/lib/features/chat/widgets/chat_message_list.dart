@@ -19,6 +19,7 @@ class ChatMessageList extends StatefulWidget {
   final ScrollController scrollController;
   final String? httpBaseUrl;
   final void Function(UserChatEntry)? onRetryMessage;
+  final void Function(UserChatEntry)? onRewindMessage;
   final ValueNotifier<int>? collapseToolResults;
   final ValueNotifier<String?>? editedPlanText;
   final VoidCallback? onScrollToBottom;
@@ -29,6 +30,7 @@ class ChatMessageList extends StatefulWidget {
     required this.scrollController,
     required this.httpBaseUrl,
     required this.onRetryMessage,
+    this.onRewindMessage,
     required this.collapseToolResults,
     this.editedPlanText,
     this.onScrollToBottom,
@@ -251,6 +253,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
               previous: previous,
               httpBaseUrl: widget.httpBaseUrl,
               onRetryMessage: widget.onRetryMessage,
+              onRewindMessage: widget.onRewindMessage,
               collapseToolResults: widget.collapseToolResults,
               editedPlanText: widget.editedPlanText,
               resolvedPlanText: _resolvePlanText(entry),

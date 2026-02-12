@@ -62,12 +62,14 @@ export type ClientMessage =
   | { type: "list_project_history" }
   | { type: "remove_project_history"; projectPath: string }
   | { type: "list_worktrees"; projectPath: string }
-  | { type: "remove_worktree"; projectPath: string; worktreePath: string };
+  | { type: "remove_worktree"; projectPath: string; worktreePath: string }
+  | { type: "rewind"; sessionId: string; targetUuid: string; mode: "conversation" | "code" | "both" }
+  | { type: "rewind_dry_run"; sessionId: string; targetUuid: string };
 
 export type ServerMessage =
   | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string }
-  | { type: "assistant"; message: AssistantMessage }
-  | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[] }
+  | { type: "assistant"; message: AssistantMessage; messageUuid?: string }
+  | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[]; userMessageUuid?: string }
   | { type: "result"; subtype: string; result?: string; error?: string; cost?: number; duration?: number; sessionId?: string; stopReason?: string }
   | { type: "error"; message: string }
   | { type: "status"; status: ProcessStatus }
@@ -80,7 +82,9 @@ export type ServerMessage =
   | { type: "diff_result"; diff: string; error?: string }
   | { type: "worktree_list"; worktrees: WorktreeInfo[] }
   | { type: "worktree_removed"; worktreePath: string }
-  | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] };
+  | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] }
+  | { type: "rewind_preview"; canRewind: boolean; filesChanged?: string[]; insertions?: number; deletions?: number; error?: string }
+  | { type: "rewind_result"; success: boolean; mode: "conversation" | "code" | "both"; error?: string };
 
 export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval" | "clearing";
 
@@ -158,6 +162,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "remove_worktree":
         if (typeof msg.projectPath !== "string" || typeof msg.worktreePath !== "string") return null;
+        break;
+      case "rewind":
+        if (typeof msg.sessionId !== "string" || typeof msg.targetUuid !== "string") return null;
+        if (msg.mode !== "conversation" && msg.mode !== "code" && msg.mode !== "both") return null;
+        break;
+      case "rewind_dry_run":
+        if (typeof msg.sessionId !== "string" || typeof msg.targetUuid !== "string") return null;
         break;
       default:
         return null;
