@@ -296,6 +296,18 @@ sealed class ServerMessage {
       'gallery_new_image' => GalleryNewImageMessage(
         image: GalleryImage.fromJson(json['image'] as Map<String, dynamic>),
       ),
+      'window_list' => WindowListMessage(
+        windows: (json['windows'] as List)
+            .map((w) => WindowInfo.fromJson(w as Map<String, dynamic>))
+            .toList(),
+      ),
+      'screenshot_result' => ScreenshotResultMessage(
+        success: json['success'] as bool? ?? false,
+        image: json['image'] != null
+            ? GalleryImage.fromJson(json['image'] as Map<String, dynamic>)
+            : null,
+        error: json['error'] as String?,
+      ),
       'file_list' => FileListMessage(
         files: (json['files'] as List).cast<String>(),
       ),
@@ -477,6 +489,44 @@ class GalleryListMessage implements ServerMessage {
 class GalleryNewImageMessage implements ServerMessage {
   final GalleryImage image;
   const GalleryNewImageMessage({required this.image});
+}
+
+// ---- Screenshot / Window ----
+
+class WindowInfo {
+  final int windowId;
+  final String ownerName;
+  final String windowTitle;
+
+  const WindowInfo({
+    required this.windowId,
+    required this.ownerName,
+    required this.windowTitle,
+  });
+
+  factory WindowInfo.fromJson(Map<String, dynamic> json) {
+    return WindowInfo(
+      windowId: json['windowId'] as int,
+      ownerName: json['ownerName'] as String? ?? '',
+      windowTitle: json['windowTitle'] as String? ?? '',
+    );
+  }
+}
+
+class WindowListMessage implements ServerMessage {
+  final List<WindowInfo> windows;
+  const WindowListMessage({required this.windows});
+}
+
+class ScreenshotResultMessage implements ServerMessage {
+  final bool success;
+  final GalleryImage? image;
+  final String? error;
+  const ScreenshotResultMessage({
+    required this.success,
+    this.image,
+    this.error,
+  });
 }
 
 class FileListMessage implements ServerMessage {
@@ -856,6 +906,22 @@ class ClientMessage {
         'sessionId': sessionId,
         'targetUuid': targetUuid,
       });
+
+  factory ClientMessage.listWindows() =>
+      ClientMessage._({'type': 'list_windows'});
+
+  factory ClientMessage.takeScreenshot({
+    required String mode,
+    int? windowId,
+    required String projectPath,
+    String? sessionId,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'take_screenshot',
+    'mode': mode,
+    'projectPath': projectPath,
+    'windowId': ?windowId,
+    'sessionId': ?sessionId,
+  });
 
   String toJson() => jsonEncode(_json);
 }

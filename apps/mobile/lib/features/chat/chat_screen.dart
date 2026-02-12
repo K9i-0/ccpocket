@@ -15,9 +15,9 @@ import '../../theme/app_theme.dart';
 import '../../widgets/approval_bar.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/plan_detail_sheet.dart';
+import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
 import '../diff/diff_screen.dart';
-import '../gallery/gallery_screen.dart';
 import 'state/chat_session_cubit.dart';
 import 'widgets/rewind_action_sheet.dart';
 import 'widgets/rewind_message_list_sheet.dart';
@@ -397,22 +397,24 @@ class _ChatScreenBody extends HookWidget {
                     },
                   ),
                 IconButton(
-                  icon: const Icon(Icons.preview, size: 18),
-                  tooltip: 'Preview',
+                  icon: const Icon(Icons.screenshot_monitor, size: 18),
+                  tooltip: 'Screenshot',
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 36,
                     minHeight: 36,
                   ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => GalleryScreen(sessionId: sessionId),
-                      ),
-                    );
-                  },
+                  onPressed: projectPath != null
+                      ? () {
+                          showScreenshotSheet(
+                            context: context,
+                            bridge: context.read<BridgeService>(),
+                            projectPath: projectPath!,
+                            sessionId: sessionId,
+                          );
+                        }
+                      : null,
                 ),
                 if (inPlanMode) const PlanModeChip(),
                 StatusIndicator(status: status),

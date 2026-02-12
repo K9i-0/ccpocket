@@ -171,6 +171,8 @@ class ServerMessageWidget extends StatelessWidget {
       DiffResultMessage() => const SizedBox.shrink(),
       WorktreeListMessage() => const SizedBox.shrink(),
       WorktreeRemovedMessage() => const SizedBox.shrink(),
+      WindowListMessage() => const SizedBox.shrink(),
+      ScreenshotResultMessage() => const SizedBox.shrink(),
       final ToolUseSummaryMessage msg => ToolUseSummaryBubble(message: msg),
       RewindPreviewMessage() => const SizedBox.shrink(),
       RewindResultMessage() => const SizedBox.shrink(),

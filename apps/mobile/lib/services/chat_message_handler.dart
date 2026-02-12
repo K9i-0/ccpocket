@@ -265,11 +265,13 @@ class ChatMessageHandler {
         lastStatus = m.status;
       } else if (m is UserInputMessage) {
         // Convert user_input to UserChatEntry with UUID
-        entries.add(UserChatEntry(
-          m.text,
-          status: MessageStatus.sent,
-          messageUuid: m.userMessageUuid,
-        ));
+        entries.add(
+          UserChatEntry(
+            m.text,
+            status: MessageStatus.sent,
+            messageUuid: m.userMessageUuid,
+          ),
+        );
       } else {
         // Don't add internal metadata messages as visible entries
         if (m is! SystemMessage ||

@@ -1,5 +1,6 @@
 import type { Server as HttpServer } from "node:http";
 import { execFile } from "node:child_process";
+import { unlink } from "node:fs/promises";
 import { WebSocketServer, WebSocket } from "ws";
 import { SessionManager, type SessionInfo } from "./session.js";
 import { parseClientMessage, type ClientMessage, type ServerMessage } from "./parser.js";
@@ -9,6 +10,7 @@ import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
 import { WorktreeStore } from "./worktree-store.js";
 import { listWorktrees, removeWorktree, createWorktree, worktreeExists } from "./worktree.js";
+import { listWindows, takeScreenshot } from "./screenshot.js";
 
 export interface BridgeServerOptions {
   server: HttpServer;
@@ -158,9 +160,7 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "No active session. Send 'start' first." });
           return;
         }
-        const text = msg.text.startsWith("/preview")
-          ? this.expandPreviewCommand(session, msg.text)
-          : msg.text;
+        const text = msg.text;
 
         // Priority 1: Direct Base64 image (simplified flow)
         if (msg.imageBase64 && msg.mimeType) {
@@ -523,6 +523,57 @@ export class BridgeWebSocketServer {
         }
         break;
       }
+
+      case "list_windows": {
+        listWindows()
+          .then((windows) => {
+            this.send(ws, { type: "window_list", windows });
+          })
+          .catch((err) => {
+            this.send(ws, {
+              type: "error",
+              message: `Failed to list windows: ${err instanceof Error ? err.message : String(err)}`,
+            });
+          });
+        break;
+      }
+
+      case "take_screenshot": {
+        takeScreenshot({ mode: msg.mode, windowId: msg.windowId })
+          .then(async (result) => {
+            try {
+              if (this.galleryStore) {
+                const meta = await this.galleryStore.addImage(
+                  result.filePath,
+                  msg.projectPath,
+                  msg.sessionId,
+                );
+                if (meta) {
+                  const info = this.galleryStore.metaToInfo(meta);
+                  this.send(ws, { type: "screenshot_result", success: true, image: info });
+                  this.broadcast({ type: "gallery_new_image", image: info });
+                  return;
+                }
+              }
+              this.send(ws, {
+                type: "screenshot_result",
+                success: false,
+                error: "Failed to save screenshot to gallery",
+              });
+            } finally {
+              // Always clean up temp file
+              unlink(result.filePath).catch(() => {});
+            }
+          })
+          .catch((err) => {
+            this.send(ws, {
+              type: "screenshot_result",
+              success: false,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
+        break;
+      }
     }
   }
 
@@ -575,22 +626,4 @@ export class BridgeWebSocketServer {
     this.broadcast({ type: "gallery_new_image", image });
   }
 
-  private expandPreviewCommand(session: SessionInfo, raw: string): string {
-    const extra = raw.replace(/^\/preview\s*/, "").trim();
-    const port = process.env.BRIDGE_PORT ?? "8765";
-    const lines = [
-      "Take a screenshot of the current app/UI state and upload it to CC Pocket Preview so the user can see it on their mobile device.",
-      "",
-      "Upload command:",
-      `curl -s -X POST http://localhost:${port}/api/gallery/upload \\`,
-      `  -H 'Content-Type: application/json' \\`,
-      `  -d '{"filePath":"<screenshot_path>","projectPath":"${session.projectPath}"}'`,
-      "",
-      "Replace <screenshot_path> with the actual file path of the screenshot.",
-    ];
-    if (extra) {
-      lines.push("", `User's additional request: ${extra}`);
-    }
-    return lines.join("\n");
-  }
 }

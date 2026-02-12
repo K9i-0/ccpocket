@@ -27,6 +27,9 @@ class BridgeService implements BridgeServiceBase {
   final _diffResultController = StreamController<DiffResultMessage>.broadcast();
   final _worktreeListController =
       StreamController<WorktreeListMessage>.broadcast();
+  final _windowListController = StreamController<List<WindowInfo>>.broadcast();
+  final _screenshotResultController =
+      StreamController<ScreenshotResultMessage>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
@@ -68,6 +71,9 @@ class BridgeService implements BridgeServiceBase {
   Stream<DiffResultMessage> get diffResults => _diffResultController.stream;
   Stream<WorktreeListMessage> get worktreeList =>
       _worktreeListController.stream;
+  Stream<List<WindowInfo>> get windowList => _windowListController.stream;
+  Stream<ScreenshotResultMessage> get screenshotResults =>
+      _screenshotResultController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
@@ -159,6 +165,10 @@ class BridgeService implements BridgeServiceBase {
                 _diffResultController.add(msg);
               case WorktreeListMessage():
                 _worktreeListController.add(msg);
+              case WindowListMessage(:final windows):
+                _windowListController.add(windows);
+              case ScreenshotResultMessage():
+                _screenshotResultController.add(msg);
               case WorktreeRemovedMessage():
                 _messageController.add(msg);
               default:
@@ -314,6 +324,26 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.listGallery(project: project, sessionId: sessionId));
   }
 
+  void requestWindowList() {
+    send(ClientMessage.listWindows());
+  }
+
+  void takeScreenshot({
+    required String mode,
+    int? windowId,
+    required String projectPath,
+    String? sessionId,
+  }) {
+    send(
+      ClientMessage.takeScreenshot(
+        mode: mode,
+        windowId: windowId,
+        projectPath: projectPath,
+        sessionId: sessionId,
+      ),
+    );
+  }
+
   @override
   void requestFileList(String projectPath) {
     send(ClientMessage.listFiles(projectPath));
@@ -457,5 +487,7 @@ class BridgeService implements BridgeServiceBase {
     _projectHistoryController.close();
     _diffResultController.close();
     _worktreeListController.close();
+    _windowListController.close();
+    _screenshotResultController.close();
   }
 }

@@ -1,4 +1,6 @@
+import type { GalleryImageInfo } from "./gallery-store.js";
 import type { ImageRef } from "./image-store.js";
+import type { WindowInfo } from "./screenshot.js";
 import type { WorktreeInfo } from "./worktree.js";
 
 // Re-export for convenience
@@ -64,7 +66,9 @@ export type ClientMessage =
   | { type: "list_worktrees"; projectPath: string }
   | { type: "remove_worktree"; projectPath: string; worktreePath: string }
   | { type: "rewind"; sessionId: string; targetUuid: string; mode: "conversation" | "code" | "both" }
-  | { type: "rewind_dry_run"; sessionId: string; targetUuid: string };
+  | { type: "rewind_dry_run"; sessionId: string; targetUuid: string }
+  | { type: "list_windows" }
+  | { type: "take_screenshot"; mode: "fullscreen" | "window"; windowId?: number; projectPath: string; sessionId?: string };
 
 export type ServerMessage =
   | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string }
@@ -85,7 +89,9 @@ export type ServerMessage =
   | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] }
   | { type: "rewind_preview"; canRewind: boolean; filesChanged?: string[]; insertions?: number; deletions?: number; error?: string }
   | { type: "rewind_result"; success: boolean; mode: "conversation" | "code" | "both"; error?: string }
-  | { type: "user_input"; text: string; userMessageUuid?: string };
+  | { type: "user_input"; text: string; userMessageUuid?: string }
+  | { type: "window_list"; windows: WindowInfo[] }
+  | { type: "screenshot_result"; success: boolean; image?: GalleryImageInfo; error?: string };
 
 export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval" | "clearing";
 
@@ -170,6 +176,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "rewind_dry_run":
         if (typeof msg.sessionId !== "string" || typeof msg.targetUuid !== "string") return null;
+        break;
+      case "list_windows":
+        break;
+      case "take_screenshot":
+        if (msg.mode !== "fullscreen" && msg.mode !== "window") return null;
+        if (msg.mode === "window" && typeof msg.windowId !== "number") return null;
+        if (typeof msg.projectPath !== "string") return null;
         break;
       default:
         return null;
