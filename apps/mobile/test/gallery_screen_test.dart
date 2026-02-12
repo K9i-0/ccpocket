@@ -61,8 +61,8 @@ void main() {
       await tester.pumpWidget(_wrapWithTheme(const GalleryScreen(), mock));
       await tester.pump();
 
-      expect(find.text('No previews yet'), findsOneWidget);
-      expect(find.text('Preview'), findsOneWidget);
+      expect(find.text('No screenshots yet'), findsOneWidget);
+      expect(find.text('Gallery'), findsOneWidget);
       expect(mock.galleryRequested, isTrue);
     });
 

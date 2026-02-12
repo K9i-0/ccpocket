@@ -61,10 +61,6 @@ const knownCommands = <String, ({String description, IconData icon})>{
   'rewind': (description: 'Rewind to previous point', icon: Icons.undo),
   'vim': (description: 'Enable vim mode', icon: Icons.keyboard),
   'login': (description: 'Switch accounts', icon: Icons.login),
-  'preview': (
-    description: 'Capture screenshot for Preview',
-    icon: Icons.preview,
-  ),
 };
 
 // ---- Factory ----

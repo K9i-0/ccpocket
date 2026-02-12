@@ -25,20 +25,20 @@ class GalleryEmptyState extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                Icons.preview,
+                Icons.collections,
                 size: 40,
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
             const SizedBox(height: 16),
             const Text(
-              'No previews yet',
+              'No screenshots yet',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
               isSessionMode
-                  ? 'Use /preview command to capture screenshots from this session.'
+                  ? 'Use the screenshot button in the chat toolbar to capture screenshots.'
                   : 'Screenshots from Claude sessions will appear here.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: appColors.subtleText),

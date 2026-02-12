@@ -146,18 +146,14 @@ export class SessionManager {
           this.saveWorktreeMapping(session);
         }
 
-        // Inject Bridge-specific slash commands into any system message
-        // that carries a slashCommands list (init, supported_commands).
+        // Cache slash commands and skills from system messages.
         if (
           msg.type === "system" &&
           (msg.subtype === "init" || msg.subtype === "supported_commands") &&
           msg.slashCommands
         ) {
-          const bridgeCommands = ["preview"];
-          const allCommands = [...msg.slashCommands, ...bridgeCommands];
-          msg = { ...msg, slashCommands: allCommands };
           this.commandCache.set(projectPath, {
-            slashCommands: allCommands,
+            slashCommands: msg.slashCommands,
             skills: msg.skills ?? this.commandCache.get(projectPath)?.skills ?? [],
           });
         }

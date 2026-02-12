@@ -28,7 +28,7 @@ class GalleryScreen extends HookWidget {
         : bridge.galleryImages;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Preview')),
+      appBar: AppBar(title: const Text('Gallery')),
       body: images.isEmpty
           ? GalleryEmptyState(isSessionMode: isSessionMode)
           : GalleryContent(
