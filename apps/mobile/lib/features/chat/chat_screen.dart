@@ -348,73 +348,39 @@ class _ChatScreenBody extends HookWidget {
                     input: askInput,
                     onAnswer: answerQuestion,
                   ),
-                if (status == ProcessStatus.waitingApproval &&
-                    pendingToolUseId != null)
-                  Dismissible(
+                if (pendingToolUseId != null)
+                  ApprovalBar(
                     key: ValueKey('approval_$pendingToolUseId'),
-                    direction: DismissDirection.horizontal,
-                    confirmDismiss: (direction) async {
-                      if (direction == DismissDirection.startToEnd) {
-                        approveToolUse();
-                      } else {
-                        rejectToolUse();
-                      }
-                      return false; // don't remove from tree, state handles it
-                    },
-                    background: Container(
-                      alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.only(left: 24),
-                      color: appColors.statusRunning.withValues(alpha: 0.2),
-                      child: Icon(
-                        Icons.check_circle,
-                        color: appColors.statusRunning,
-                      ),
-                    ),
-                    secondaryBackground: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 24),
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.error.withValues(alpha: 0.2),
-                      child: Icon(
-                        Icons.cancel,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                    child: ApprovalBar(
-                      appColors: appColors,
-                      pendingPermission: pendingPermission,
-                      isPlanApproval: isPlanApproval,
-                      planFeedbackController: planFeedbackController,
-                      onApprove: approveToolUse,
-                      onReject: rejectToolUse,
-                      onApproveAlways: approveAlwaysToolUse,
-                      clearContext: clearContext.value,
-                      onClearContextChanged: isPlanApproval
-                          ? (v) => clearContext.value = v
-                          : null,
-                      onViewPlan: isPlanApproval
-                          ? () async {
-                              final originalText = _extractPlanText(
-                                sessionState.entries,
-                              );
-                              if (originalText == null) return;
-                              // Show sheet with edited text if available
-                              final current =
-                                  editedPlanText.value ?? originalText;
-                              final edited = await showPlanDetailSheet(
-                                context,
-                                current,
-                              );
-                              if (edited != null) {
-                                editedPlanText.value = edited;
-                              }
+                    appColors: appColors,
+                    pendingPermission: pendingPermission,
+                    isPlanApproval: isPlanApproval,
+                    planFeedbackController: planFeedbackController,
+                    onApprove: approveToolUse,
+                    onReject: rejectToolUse,
+                    onApproveAlways: approveAlwaysToolUse,
+                    clearContext: clearContext.value,
+                    onClearContextChanged: isPlanApproval
+                        ? (v) => clearContext.value = v
+                        : null,
+                    onViewPlan: isPlanApproval
+                        ? () async {
+                            final originalText = _extractPlanText(
+                              sessionState.entries,
+                            );
+                            if (originalText == null) return;
+                            final current =
+                                editedPlanText.value ?? originalText;
+                            final edited = await showPlanDetailSheet(
+                              context,
+                              current,
+                            );
+                            if (edited != null) {
+                              editedPlanText.value = edited;
                             }
-                          : null,
-                    ),
+                          }
+                        : null,
                   ),
-                if (askToolUseId == null &&
-                    status != ProcessStatus.waitingApproval)
+                if (approval is ApprovalNone)
                   ChatInputWithOverlays(
                     sessionId: sessionId,
                     status: status,

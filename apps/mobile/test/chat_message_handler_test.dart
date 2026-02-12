@@ -76,13 +76,16 @@ void main() {
       expect(update.sideEffects, isEmpty);
     });
 
-    test('running status resets pending state', () {
+    test('running status does NOT reset pending state', () {
+      // Running is a transient state — pending permission should survive so
+      // the approval bar stays visible when PermissionRequestMessage arrives
+      // before StatusMessage(waitingApproval).
       final update = handler.handle(
         const StatusMessage(status: ProcessStatus.running),
         isBackground: false,
       );
       expect(update.status, ProcessStatus.running);
-      expect(update.resetPending, isTrue);
+      expect(update.resetPending, isFalse);
     });
   });
 

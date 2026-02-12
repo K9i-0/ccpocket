@@ -17,7 +17,8 @@ class SettingsCubit extends Cubit<SettingsState> {
     final themeModeIndex = prefs.getInt(_keyThemeMode);
     final speechLocale = prefs.getString(_keySpeechLocale);
     return SettingsState(
-      themeMode: (themeModeIndex != null &&
+      themeMode:
+          (themeModeIndex != null &&
               themeModeIndex >= 0 &&
               themeModeIndex < ThemeMode.values.length)
           ? ThemeMode.values[themeModeIndex]

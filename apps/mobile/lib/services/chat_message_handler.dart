@@ -111,8 +111,15 @@ class ChatMessageHandler {
       effects.add(ChatSideEffect.heavyHaptic);
       if (isBackground) effects.add(ChatSideEffect.notifyApprovalRequired);
       resetPending = false;
-    } else {
+    } else if (status == ProcessStatus.idle ||
+        status == ProcessStatus.starting) {
+      // Only reset pending on terminal states, not on transient 'running'
+      // or 'clearing' status. This prevents a race condition where
+      // PermissionRequestMessage arrives before StatusMessage(waitingApproval)
+      // and an intervening StatusMessage(running) would clear the pending state.
       resetPending = true;
+    } else {
+      resetPending = false;
     }
     return ChatStateUpdate(
       status: status,

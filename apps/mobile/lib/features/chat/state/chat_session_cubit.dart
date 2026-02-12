@@ -25,6 +25,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   bool _pastHistoryLoaded = false;
   Timer? _statusRefreshTimer;
 
+  /// Tool use IDs that have been approved or rejected locally.
+  /// Cleared when corresponding [ToolResultMessage] arrives or session
+  /// completes ([ResultMessage]).
+  final _respondedToolUseIds = <String>{};
+
   ChatSessionCubit({
     required this.sessionId,
     required BridgeService bridge,
@@ -147,6 +152,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       didModifyEntries = true;
     }
 
+    // --- Cleanup responded tool use IDs ---
+    if (originalMsg is ToolResultMessage) {
+      _respondedToolUseIds.remove(originalMsg.toolUseId);
+    }
+    if (originalMsg is ResultMessage) {
+      _respondedToolUseIds.clear();
+    }
+
     // --- Build new approval state ---
     ApprovalState approval = current.approval;
     if (update.resetPending && update.resetAsk) {
@@ -261,6 +274,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     Map<String, dynamic>? updatedInput,
     bool clearContext = false,
   }) {
+    _respondedToolUseIds.add(toolUseId);
     _bridge.send(
       ClientMessage.approve(
         toolUseId,
@@ -274,6 +288,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   /// Approve a tool and always allow it in the future.
   void approveAlways(String toolUseId) {
+    _respondedToolUseIds.add(toolUseId);
     _bridge.send(ClientMessage.approveAlways(toolUseId, sessionId: sessionId));
     _emitNextApprovalOrNone(toolUseId);
   }
@@ -284,7 +299,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// by a corresponding ToolResultMessage.
   void _emitNextApprovalOrNone(String resolvedToolUseId) {
     final pendingPermissions = <String, PermissionRequestMessage>{};
-    final resolvedIds = <String>{resolvedToolUseId};
+    final resolvedIds = <String>{resolvedToolUseId, ..._respondedToolUseIds};
 
     for (final entry in state.entries) {
       if (entry is ServerChatEntry) {
@@ -319,6 +334,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   /// Reject a pending tool execution.
   void reject(String toolUseId, {String? message}) {
+    _respondedToolUseIds.add(toolUseId);
     _bridge.send(
       ClientMessage.reject(toolUseId, message: message, sessionId: sessionId),
     );

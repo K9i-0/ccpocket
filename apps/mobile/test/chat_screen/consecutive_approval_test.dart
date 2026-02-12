@@ -170,17 +170,14 @@ void main() {
       await emitAndPump($.tester, bridge, messages);
       await pumpN($.tester);
 
-      // Approve all 5 in sequence (last received = tool-5 shown first)
-      for (var i = 5; i >= 1; i--) {
+      // The last PermissionRequestMessage processed (tool-5) is displayed first.
+      // After approving it, _emitNextApprovalOrNone picks the earliest
+      // unresolved permission from entries, so the order is: 5, 1, 2, 3, 4.
+      final approvalOrder = [5, 1, 2, 3, 4];
+      for (final i in approvalOrder) {
         expect($(ApprovalBar), findsOneWidget);
         await approveAndEmitResult($, bridge, 'tool-$i', 'result $i');
       }
-
-      // Emit running status
-      await emitAndPump($.tester, bridge, [
-        const StatusMessage(status: ProcessStatus.running),
-      ]);
-      await pumpN($.tester);
 
       // All 5 approved, bar gone
       expect($(ApprovalBar), findsNothing);
@@ -188,21 +185,13 @@ void main() {
       expect(approves, hasLength(5));
     });
 
-    patrolWidgetTest('K5: Swipe approve first, button approve second', (
+    patrolWidgetTest('K5: Button approve first, button approve second', (
       $,
     ) async {
       await setupMultiApproval($, bridge);
 
-      // Swipe right to approve tool-2 (Dismissible key is dynamic)
-      final dismissible = find.byKey(const ValueKey('approval_tool-2'));
-      await $.tester.fling(dismissible, const Offset(300, 0), 1000);
-      await pumpN($.tester);
-
-      // Emit result for tool-2
-      await emitAndPump($.tester, bridge, [
-        const ToolResultMessage(toolUseId: 'tool-2', content: 'On branch main'),
-      ]);
-      await pumpN($.tester);
+      // Button approve tool-2
+      await approveAndEmitResult($, bridge, 'tool-2', 'On branch main');
 
       // tool-1 now shown — button approve
       expect($(ApprovalBar), findsOneWidget);

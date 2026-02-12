@@ -91,31 +91,31 @@ void main() {
       expect($(ChatInputWithOverlays), findsNothing);
     });
 
-    patrolWidgetTest('A6: Swipe right to approve', ($) async {
+    patrolWidgetTest('A6: No Dismissible — swipe does not approve', ($) async {
       await setupApproval($);
 
-      await $.tester.fling(
-        find.byKey(const ValueKey('approval_tool-1')),
-        const Offset(300, 0),
-        1000,
-      );
-      // Dismissible needs enough animation frames for confirmDismiss to fire
-      await pumpN($.tester, count: 20);
+      // Verify there is no Dismissible widget wrapping the approval bar
+      expect(find.byType(Dismissible), findsNothing);
+
+      // Approval bar is shown and only responds to button taps
+      expect($(ApprovalBar), findsOneWidget);
+      await $.tester.tap(find.byKey(const ValueKey('approve_button')));
+      await pumpN($.tester);
 
       final msg = findSentMessage(bridge, 'approve');
       expect(msg, isNotNull);
     });
 
-    patrolWidgetTest('A7: Swipe left to reject', ($) async {
+    patrolWidgetTest('A7: No Dismissible — swipe does not reject', ($) async {
       await setupApproval($);
 
-      await $.tester.fling(
-        find.byKey(const ValueKey('approval_tool-1')),
-        const Offset(-300, 0),
-        1000,
-      );
-      // Dismissible needs enough animation frames for confirmDismiss to fire
-      await pumpN($.tester, count: 20);
+      // Verify there is no Dismissible widget wrapping the approval bar
+      expect(find.byType(Dismissible), findsNothing);
+
+      // Rejection only works via button
+      expect($(ApprovalBar), findsOneWidget);
+      await $.tester.tap(find.byKey(const ValueKey('reject_button')));
+      await pumpN($.tester);
 
       final msg = findSentMessage(bridge, 'reject');
       expect(msg, isNotNull);
