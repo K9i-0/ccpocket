@@ -47,6 +47,9 @@ class ChatInputWithOverlays extends HookWidget {
     final slashPortalController = useMemoized(() => OverlayPortalController());
     final filePortalController = useMemoized(() => OverlayPortalController());
 
+    // LayerLink for CompositedTransformFollower positioning
+    final layerLink = useMemoized(() => LayerLink());
+
     // Filtered overlay items
     final filteredSlash = useState<List<SlashCommand>>(const []);
     final filteredFiles = useState<List<String>>(const []);
@@ -332,54 +335,62 @@ class ChatInputWithOverlays extends HookWidget {
 
     final screenWidth = MediaQuery.of(context).size.width;
 
+    Widget buildFollowerOverlay({required Widget child}) {
+      return CompositedTransformFollower(
+        link: layerLink,
+        targetAnchor: Alignment.topLeft,
+        followerAnchor: Alignment.bottomLeft,
+        child: SizedBox(
+          width: screenWidth - 16,
+          child: child,
+        ),
+      );
+    }
+
     return OverlayPortal(
       controller: slashPortalController,
       overlayChildBuilder: (_) => Positioned(
-        bottom: _inputBarHeight(context),
         left: 8,
-        width: screenWidth - 16,
-        child: SlashCommandOverlay(
-          filteredCommands: filteredSlash.value,
-          onSelect: onSlashCommandSelected,
-          onDismiss: slashPortalController.hide,
+        child: buildFollowerOverlay(
+          child: SlashCommandOverlay(
+            filteredCommands: filteredSlash.value,
+            onSelect: onSlashCommandSelected,
+            onDismiss: slashPortalController.hide,
+          ),
         ),
       ),
       child: OverlayPortal(
         controller: filePortalController,
         overlayChildBuilder: (_) => Positioned(
-          bottom: _inputBarHeight(context),
           left: 8,
-          width: screenWidth - 16,
-          child: FileMentionOverlay(
-            filteredFiles: filteredFiles.value,
-            onSelect: onFileMentionSelected,
-            onDismiss: filePortalController.hide,
+          child: buildFollowerOverlay(
+            child: FileMentionOverlay(
+              filteredFiles: filteredFiles.value,
+              onSelect: onFileMentionSelected,
+              onDismiss: filePortalController.hide,
+            ),
           ),
         ),
-        child: ChatInputBar(
-          inputController: inputController,
-          status: status,
-          hasInputText: hasInputText.value || attachedImage.value != null,
-          isVoiceAvailable: voice.isAvailable,
-          isRecording: voice.isRecording,
-          onSend: sendMessage,
-          onStop: stopSession,
-          onInterrupt: interruptSession,
-          onToggleVoice: voice.toggle,
-          onShowSlashCommands: showSlashCommandSheet,
-          onAttachImage: showAttachOptions,
-          attachedImageBytes: attachedImage.value,
-          onClearAttachment: clearAttachment,
+        child: CompositedTransformTarget(
+          link: layerLink,
+          child: ChatInputBar(
+            inputController: inputController,
+            status: status,
+            hasInputText: hasInputText.value || attachedImage.value != null,
+            isVoiceAvailable: voice.isAvailable,
+            isRecording: voice.isRecording,
+            onSend: sendMessage,
+            onStop: stopSession,
+            onInterrupt: interruptSession,
+            onToggleVoice: voice.toggle,
+            onShowSlashCommands: showSlashCommandSheet,
+            onAttachImage: showAttachOptions,
+            attachedImageBytes: attachedImage.value,
+            onClearAttachment: clearAttachment,
+          ),
         ),
       ),
     );
-  }
-
-  /// Estimate the input bar height for overlay positioning.
-  double _inputBarHeight(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    // Base padding (8 top + 8 bottom + bottomPadding) + TextField (~44) + row (~40) + gap (4)
-    return 8 + 44 + 4 + 40 + 8 + bottomPadding;
   }
 }
 

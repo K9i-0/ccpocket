@@ -14,7 +14,15 @@ typedef RecentSessionsCubit = StreamCubit<List<RecentSession>>;
 typedef GalleryCubit = StreamCubit<List<GalleryImage>>;
 
 /// Project file paths stream (for @-mention autocomplete) as a Cubit.
-typedef FileListCubit = StreamCubit<List<String>>;
+/// Separate class (not typedef) to distinguish from ProjectHistoryCubit
+/// in BlocProvider type resolution.
+class FileListCubit extends StreamCubit<List<String>> {
+  FileListCubit(super.initial, super.stream);
+}
 
 /// Project history stream as a Cubit.
-typedef ProjectHistoryCubit = StreamCubit<List<String>>;
+/// Separate class (not typedef) to distinguish from FileListCubit
+/// in BlocProvider type resolution.
+class ProjectHistoryCubit extends StreamCubit<List<String>> {
+  ProjectHistoryCubit(super.initial, super.stream);
+}
