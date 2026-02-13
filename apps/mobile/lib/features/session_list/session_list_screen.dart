@@ -19,6 +19,7 @@ import '../../services/connection_url_parser.dart';
 import '../../services/server_discovery_service.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../chat/chat_screen.dart';
+import '../chat_codex/codex_chat_screen.dart';
 import '../gallery/gallery_screen.dart';
 import '../settings/settings_screen.dart';
 import 'state/session_list_cubit.dart';
@@ -415,10 +416,14 @@ class _SessionListScreenState extends State<SessionListScreen> {
     bridge.send(
       ClientMessage.start(
         result.projectPath,
-        permissionMode: result.permissionMode.value,
+        permissionMode: result.provider == Provider.claude
+            ? result.permissionMode.value
+            : null,
         useWorktree: result.useWorktree ? true : null,
         worktreeBranch: result.worktreeBranch,
         existingWorktreePath: result.existingWorktreePath,
+        provider: result.provider.value,
+        model: result.model,
       ),
     );
     // Navigate immediately to chat with pending state
@@ -428,6 +433,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
       pendingId,
       projectPath: result.projectPath,
       isPending: true,
+      provider: result.provider,
     );
   }
 
@@ -437,19 +443,27 @@ class _SessionListScreenState extends State<SessionListScreen> {
     String? gitBranch,
     String? worktreePath,
     bool isPending = false,
+    Provider? provider,
   }) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ChatScreen(
-          sessionId: sessionId,
-          projectPath: projectPath,
-          gitBranch: gitBranch,
-          worktreePath: worktreePath,
-          isPending: isPending,
-        ),
-      ),
-    ).then((_) {
+    final Widget screen;
+    if (provider == Provider.codex) {
+      screen = CodexChatScreen(
+        sessionId: sessionId,
+        projectPath: projectPath,
+        isPending: isPending,
+      );
+    } else {
+      screen = ChatScreen(
+        sessionId: sessionId,
+        projectPath: projectPath,
+        gitBranch: gitBranch,
+        worktreePath: worktreePath,
+        isPending: isPending,
+      );
+    }
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen)).then((
+      _,
+    ) {
       if (!mounted) return;
       final isConnected =
           context.read<ConnectionCubit>().state ==
@@ -588,11 +602,13 @@ class _SessionListScreenState extends State<SessionListScreen> {
                         String? projectPath,
                         String? gitBranch,
                         String? worktreePath,
+                        String? provider,
                       }) => _navigateToChat(
                         sessionId,
                         projectPath: projectPath,
                         gitBranch: gitBranch,
                         worktreePath: worktreePath,
+                        provider: provider == 'codex' ? Provider.codex : null,
                       ),
                   onStopSession: _stopSession,
                   onResumeSession: _resumeSession,

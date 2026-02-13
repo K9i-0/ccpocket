@@ -10,17 +10,21 @@ import '../theme/app_theme.dart';
 /// Result returned when the user submits the new session sheet.
 class NewSessionParams {
   final String projectPath;
+  final Provider provider;
   final PermissionMode permissionMode;
   final bool useWorktree;
   final String? worktreeBranch;
   final String? existingWorktreePath;
+  final String? model;
 
   const NewSessionParams({
     required this.projectPath,
+    this.provider = Provider.claude,
     required this.permissionMode,
     this.useWorktree = false,
     this.worktreeBranch,
     this.existingWorktreePath,
+    this.model,
   });
 }
 
@@ -79,6 +83,8 @@ enum _WorktreeMode {
 class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _pathController = TextEditingController();
   final _branchController = TextEditingController();
+  final _modelController = TextEditingController();
+  var _provider = Provider.claude;
   var _permissionMode = PermissionMode.acceptEdits;
   var _useWorktree = false;
   var _worktreeMode = _WorktreeMode.createNew;
@@ -121,6 +127,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _worktreeSub?.cancel();
     _pathController.dispose();
     _branchController.dispose();
+    _modelController.dispose();
     super.dispose();
   }
 
@@ -160,6 +167,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   void _start() {
     final path = _pathController.text.trim();
     final branch = _branchController.text.trim();
+    final model = _modelController.text.trim();
 
     if (_useWorktree && _worktreeMode == _WorktreeMode.useExisting) {
       // Use existing worktree
@@ -167,9 +175,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         context,
         NewSessionParams(
           projectPath: path,
+          provider: _provider,
           permissionMode: _permissionMode,
           existingWorktreePath: _selectedWorktree?.worktreePath,
           worktreeBranch: _selectedWorktree?.branch,
+          model: model.isNotEmpty ? model : null,
         ),
       );
     } else {
@@ -178,9 +188,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         context,
         NewSessionParams(
           projectPath: path,
+          provider: _provider,
           permissionMode: _permissionMode,
           useWorktree: _useWorktree,
           worktreeBranch: branch.isNotEmpty ? branch : null,
+          model: model.isNotEmpty ? model : null,
         ),
       );
     }
@@ -234,11 +246,49 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Widget _buildTitle() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: Text(
-        'New Session',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'New Session',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<Provider>(
+              segments: const [
+                ButtonSegment(
+                  value: Provider.claude,
+                  label: Text('Claude Code', style: TextStyle(fontSize: 13)),
+                  icon: Icon(Icons.smart_toy_outlined, size: 16),
+                ),
+                ButtonSegment(
+                  value: Provider.codex,
+                  label: Text('Codex', style: TextStyle(fontSize: 13)),
+                  icon: Icon(Icons.code, size: 16),
+                ),
+              ],
+              selected: {_provider},
+              onSelectionChanged: (selected) {
+                setState(() {
+                  _provider = selected.first;
+                  // Reset worktree when switching to Codex
+                  if (_provider == Provider.codex) {
+                    _useWorktree = false;
+                    _selectedWorktree = null;
+                    _worktrees = null;
+                  }
+                });
+              },
+              style: SegmentedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -345,50 +395,67 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<PermissionMode>(
-                  key: const ValueKey('dialog_permission_mode'),
-                  initialValue: _permissionMode,
-                  decoration: const InputDecoration(
-                    labelText: 'Permission',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: PermissionMode.values
-                      .map(
-                        (m) => DropdownMenuItem(
-                          value: m,
-                          child: Text(
-                            m.label,
-                            style: const TextStyle(fontSize: 13),
+          if (_provider == Provider.claude) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<PermissionMode>(
+                    key: const ValueKey('dialog_permission_mode'),
+                    initialValue: _permissionMode,
+                    decoration: const InputDecoration(
+                      labelText: 'Permission',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: PermissionMode.values
+                        .map(
+                          (m) => DropdownMenuItem(
+                            value: m,
+                            child: Text(
+                              m.label,
+                              style: const TextStyle(fontSize: 13),
+                            ),
                           ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) setState(() => _permissionMode = value);
-                  },
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _permissionMode = value);
+                      }
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              FilterChip(
-                key: const ValueKey('dialog_worktree'),
-                avatar: _useWorktree
-                    ? null
-                    : const Icon(Icons.account_tree_outlined, size: 16),
-                label: const Text('Worktree', style: TextStyle(fontSize: 13)),
-                selected: _useWorktree,
-                onSelected: _onWorktreeToggle,
-              ),
+                const SizedBox(width: 12),
+                FilterChip(
+                  key: const ValueKey('dialog_worktree'),
+                  avatar: _useWorktree
+                      ? null
+                      : const Icon(Icons.account_tree_outlined, size: 16),
+                  label: const Text('Worktree', style: TextStyle(fontSize: 13)),
+                  selected: _useWorktree,
+                  onSelected: _onWorktreeToggle,
+                ),
+              ],
+            ),
+            if (_useWorktree) ...[
+              const SizedBox(height: 8),
+              _buildWorktreeOptions(appColors),
             ],
-          ),
-          if (_useWorktree) ...[
-            const SizedBox(height: 8),
-            _buildWorktreeOptions(appColors),
           ],
+          if (_provider == Provider.codex)
+            TextField(
+              key: const ValueKey('dialog_codex_model'),
+              controller: _modelController,
+              decoration: const InputDecoration(
+                labelText: 'Model (optional)',
+                hintText: 'e.g. o3, o4-mini',
+                border: OutlineInputBorder(),
+                isDense: true,
+                prefixIcon: Icon(Icons.psychology_outlined, size: 18),
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
         ],
       ),
     );

@@ -98,6 +98,17 @@ enum ProcessStatus {
   }
 }
 
+// ---- Provider ----
+
+enum Provider {
+  claude('claude', 'Claude Code'),
+  codex('codex', 'Codex');
+
+  final String value;
+  final String label;
+  const Provider(this.value, this.label);
+}
+
 // ---- Permission mode ----
 
 enum PermissionMode {
@@ -681,6 +692,7 @@ class RecentSession {
 
 class SessionInfo {
   final String id;
+  final String? provider;
   final String projectPath;
   final String? claudeSessionId;
   final String status;
@@ -694,6 +706,7 @@ class SessionInfo {
 
   const SessionInfo({
     required this.id,
+    this.provider,
     required this.projectPath,
     this.claudeSessionId,
     required this.status,
@@ -709,6 +722,7 @@ class SessionInfo {
   factory SessionInfo.fromJson(Map<String, dynamic> json) {
     return SessionInfo(
       id: json['id'] as String,
+      provider: json['provider'] as String?,
       projectPath: json['projectPath'] as String,
       claudeSessionId: json['claudeSessionId'] as String?,
       status: json['status'] as String? ?? 'idle',
@@ -737,6 +751,10 @@ class ClientMessage {
     bool? useWorktree,
     String? worktreeBranch,
     String? existingWorktreePath,
+    String? provider,
+    String? model,
+    String? approvalPolicy,
+    String? sandboxMode,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'start',
@@ -748,6 +766,10 @@ class ClientMessage {
       if (worktreeBranch != null && worktreeBranch.isNotEmpty)
         'worktreeBranch': worktreeBranch,
       'existingWorktreePath': ?existingWorktreePath,
+      'provider': ?provider,
+      'model': ?model,
+      'approvalPolicy': ?approvalPolicy,
+      'sandboxMode': ?sandboxMode,
     });
   }
 
