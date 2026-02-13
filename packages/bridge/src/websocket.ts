@@ -629,7 +629,25 @@ export class BridgeWebSocketServer {
       }
 
       case "take_screenshot": {
-        takeScreenshot({ mode: msg.mode, windowId: msg.windowId })
+        // For window mode, verify the window ID is still valid.
+        // The user may have fetched the window list minutes ago and the
+        // window could have been closed since then.
+        const doCapture = async (): Promise<{ mode: "fullscreen" | "window"; windowId?: number }> => {
+          if (msg.mode !== "window" || msg.windowId == null) {
+            return { mode: msg.mode };
+          }
+          const current = await listWindows();
+          if (current.some((w) => w.windowId === msg.windowId)) {
+            return { mode: "window", windowId: msg.windowId };
+          }
+          // Window ID is stale — fall back to fullscreen and notify
+          console.warn(
+            `[screenshot] Window ID ${msg.windowId} no longer exists, falling back to fullscreen`,
+          );
+          return { mode: "fullscreen" };
+        };
+        doCapture()
+          .then((opts) => takeScreenshot(opts))
           .then(async (result) => {
             try {
               if (this.galleryStore) {
