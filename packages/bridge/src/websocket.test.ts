@@ -24,8 +24,20 @@ vi.mock("./session.js", () => ({
       projectPath: string,
       options?: { sessionId?: string },
       pastMessages?: unknown[],
+      _worktreeOptions?: unknown,
+      provider: "claude" | "codex" = "claude",
     ): string {
       const id = `s-${++this.seq}`;
+      const process = {
+        setPermissionMode: vi.fn(async () => {}),
+        sendInput: vi.fn(),
+        sendInputWithImage: vi.fn(),
+        approve: vi.fn(),
+        approveAlways: vi.fn(),
+        reject: vi.fn(),
+        answer: vi.fn(),
+        interrupt: vi.fn(),
+      };
       this.sessions.set(id, {
         id,
         projectPath,
@@ -33,7 +45,8 @@ vi.mock("./session.js", () => ({
         pastMessages,
         history: [],
         status: "idle",
-        provider: "claude",
+        provider,
+        process,
       });
       return id;
     }
@@ -166,6 +179,112 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
     expect(created).toBeDefined();
     expect(created.provider).toBe("codex");
+
+    bridge.close();
+  });
+
+  it("forwards set_permission_mode to Claude session process", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(created).toBeDefined();
+    const sessionId = created.sessionId as string;
+
+    const session = (bridge as any).sessionManager.get(sessionId);
+    const setPermissionModeMock = session.process.setPermissionMode as ReturnType<typeof vi.fn>;
+
+    const callCountBefore = ws.send.mock.calls.length;
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_permission_mode",
+        sessionId,
+        mode: "plan",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    expect(setPermissionModeMock).toHaveBeenCalledTimes(1);
+    expect(setPermissionModeMock).toHaveBeenCalledWith("plan");
+    expect(ws.send.mock.calls).toHaveLength(callCountBefore);
+
+    bridge.close();
+  });
+
+  it("returns error when set_permission_mode is sent to codex session", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(created).toBeDefined();
+    const sessionId = created.sessionId as string;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_permission_mode",
+        sessionId,
+        mode: "plan",
+      },
+      ws,
+    );
+
+    const last = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
+    expect(last).toEqual({
+      type: "error",
+      message: "Codex sessions do not support runtime permission mode changes",
+    });
+
+    bridge.close();
+  });
+
+  it("returns error when set_permission_mode is sent without active session", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_permission_mode",
+        sessionId: "missing",
+        mode: "plan",
+      },
+      ws,
+    );
+
+    const last = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
+    expect(last).toEqual({
+      type: "error",
+      message: "No active session.",
+    });
 
     bridge.close();
   });

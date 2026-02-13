@@ -78,6 +78,25 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage('{"type":"input"}')).toBeNull();
   });
 
+  it("parses set_permission_mode message", () => {
+    const msg = parseClientMessage(
+      '{"type":"set_permission_mode","mode":"plan","sessionId":"s1"}',
+    );
+    expect(msg).toEqual({
+      type: "set_permission_mode",
+      mode: "plan",
+      sessionId: "s1",
+    });
+  });
+
+  it("rejects set_permission_mode with invalid mode", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"set_permission_mode","mode":"unsupported"}',
+      ),
+    ).toBeNull();
+  });
+
   it("parses approve message", () => {
     const msg = parseClientMessage('{"type":"approve","id":"tu1"}');
     expect(msg).toEqual({ type: "approve", id: "tu1" });

@@ -536,6 +536,24 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   }
 
   /**
+   * Update permission mode for the current session.
+   * Only available while the query instance is active.
+   */
+  async setPermissionMode(mode: PermissionMode): Promise<void> {
+    if (!this.queryInstance) {
+      throw new Error("No active query instance");
+    }
+    await this.queryInstance.setPermissionMode(mode);
+    this._permissionMode = mode;
+    this.emitMessage({
+      type: "system",
+      subtype: "set_permission_mode",
+      permissionMode: mode,
+      sessionId: this._sessionId ?? undefined,
+    });
+  }
+
+  /**
    * Rewind files to their state at the specified user message.
    * Requires enableFileCheckpointing to be enabled (done in start()).
    */

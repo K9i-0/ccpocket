@@ -277,6 +277,7 @@ sealed class ServerMessage {
         model: json['model'] as String?,
         provider: json['provider'] as String?,
         projectPath: json['projectPath'] as String?,
+        permissionMode: json['permissionMode'] as String?,
         slashCommands:
             (json['slashCommands'] as List?)
                 ?.map((e) => e as String)
@@ -420,6 +421,7 @@ class SystemMessage implements ServerMessage {
   final String? model;
   final String? provider;
   final String? projectPath;
+  final String? permissionMode;
   final List<String> slashCommands;
   final List<String> skills;
   final String? worktreePath;
@@ -430,6 +432,7 @@ class SystemMessage implements ServerMessage {
     this.model,
     this.provider,
     this.projectPath,
+    this.permissionMode,
     this.slashCommands = const [],
     this.skills = const [],
     this.worktreePath,
@@ -897,6 +900,14 @@ class ClientMessage {
       'imageId': ?imageId,
       'imageBase64': ?imageBase64,
       'mimeType': ?mimeType,
+    });
+  }
+
+  factory ClientMessage.setPermissionMode(String mode, {String? sessionId}) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'set_permission_mode',
+      'mode': mode,
+      'sessionId': ?sessionId,
     });
   }
 

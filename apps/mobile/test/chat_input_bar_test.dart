@@ -25,6 +25,7 @@ void main() {
     VoidCallback? onInterrupt,
     VoidCallback? onToggleVoice,
     VoidCallback? onShowSlashCommands,
+    VoidCallback? onShowModeMenu,
   }) {
     return MaterialApp(
       home: Scaffold(
@@ -39,6 +40,7 @@ void main() {
           onInterrupt: onInterrupt ?? () {},
           onToggleVoice: onToggleVoice ?? () {},
           onShowSlashCommands: onShowSlashCommands ?? () {},
+          onShowModeMenu: onShowModeMenu ?? () {},
         ),
       ),
     );
@@ -132,6 +134,14 @@ void main() {
       );
 
       await tester.tap(find.byKey(const ValueKey('slash_command_button')));
+      expect(shown, isTrue);
+    });
+
+    testWidgets('mode button fires callback', (tester) async {
+      var shown = false;
+      await tester.pumpWidget(buildSubject(onShowModeMenu: () => shown = true));
+
+      await tester.tap(find.byKey(const ValueKey('mode_button')));
       expect(shown, isTrue);
     });
 

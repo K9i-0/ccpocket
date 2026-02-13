@@ -66,6 +66,7 @@ export type ClientMessage =
       existingWorktreePath?: string;
     }
   | { type: "input"; text: string; sessionId?: string; imageId?: string; imageBase64?: string; mimeType?: string }
+  | { type: "set_permission_mode"; mode: PermissionMode; sessionId?: string }
   | { type: "approve"; id: string; updatedInput?: Record<string, unknown>; clearContext?: boolean; sessionId?: string }
   | { type: "approve_always"; id: string; sessionId?: string }
   | { type: "reject"; id: string; message?: string; sessionId?: string }
@@ -101,7 +102,7 @@ export type ClientMessage =
   | { type: "take_screenshot"; mode: "fullscreen" | "window"; windowId?: number; projectPath: string; sessionId?: string };
 
 export type ServerMessage =
-  | { type: "system"; subtype: string; sessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string }
+  | { type: "system"; subtype: string; sessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string; permissionMode?: PermissionMode }
   | { type: "assistant"; message: AssistantMessage; messageUuid?: string }
   | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[]; userMessageUuid?: string }
   | {
@@ -174,6 +175,12 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (typeof msg.text !== "string") return null;
         // imageBase64 requires mimeType
         if (msg.imageBase64 && typeof msg.mimeType !== "string") return null;
+        break;
+      case "set_permission_mode":
+        if (
+          typeof msg.mode !== "string"
+          || !["default", "acceptEdits", "bypassPermissions", "plan", "delegate", "dontAsk"].includes(msg.mode)
+        ) return null;
         break;
       case "approve":
         if (typeof msg.id !== "string") return null;

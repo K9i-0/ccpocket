@@ -351,6 +351,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _bridge.interrupt(sessionId);
   }
 
+  /// Change permission mode for Claude sessions.
+  void setPermissionMode(PermissionMode mode) {
+    if (isCodex) return;
+    _bridge.send(
+      ClientMessage.setPermissionMode(mode.value, sessionId: sessionId),
+    );
+  }
+
   /// Stop the session.
   void stop() {
     _bridge.stopSession(sessionId);

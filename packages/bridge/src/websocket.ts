@@ -255,6 +255,28 @@ export class BridgeWebSocketServer {
         break;
       }
 
+      case "set_permission_mode": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session) {
+          this.send(ws, { type: "error", message: "No active session." });
+          return;
+        }
+        if (session.provider === "codex") {
+          this.send(ws, {
+            type: "error",
+            message: "Codex sessions do not support runtime permission mode changes",
+          });
+          return;
+        }
+        (session.process as SdkProcess).setPermissionMode(msg.mode).catch((err) => {
+          this.send(ws, {
+            type: "error",
+            message: `Failed to set permission mode: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        });
+        break;
+      }
+
       case "approve": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {

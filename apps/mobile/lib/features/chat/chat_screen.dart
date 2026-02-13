@@ -187,6 +187,7 @@ class _ChatScreenProviders extends StatelessWidget {
         BlocProvider(
           create: (_) => ChatSessionCubit(
             sessionId: sessionId,
+            provider: Provider.claude,
             bridge: bridge,
             streamingCubit: streamingCubit,
           ),

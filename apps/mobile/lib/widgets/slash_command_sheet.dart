@@ -36,6 +36,7 @@ const knownCommands = <String, ({String description, IconData icon})>{
   'init': (description: 'Initialize project', icon: Icons.play_arrow),
   'review': (description: 'Code review', icon: Icons.rate_review_outlined),
   'model': (description: 'Switch model', icon: Icons.swap_horiz),
+  'skills': (description: 'List available skills', icon: Icons.extension),
   'status': (description: 'Show status', icon: Icons.info_outline),
   'memory': (description: 'Edit CLAUDE.md', icon: Icons.edit_note),
   'config': (description: 'Open settings', icon: Icons.settings_outlined),
@@ -101,6 +102,26 @@ const fallbackSlashCommands = [
     command: '/cost',
     description: 'Show cost summary',
     icon: Icons.attach_money,
+  ),
+];
+
+/// Codex SDK does not expose supportedCommands(), so use a conservative
+/// fallback set that is known to work in local sessions.
+const fallbackCodexSlashCommands = [
+  SlashCommand(
+    command: '/plan',
+    description: 'Switch to planning-oriented responses',
+    icon: Icons.map_outlined,
+  ),
+  SlashCommand(
+    command: '/skills',
+    description: 'List available skills',
+    icon: Icons.extension,
+  ),
+  SlashCommand(
+    command: '/permissions',
+    description: 'Show current runtime permissions',
+    icon: Icons.lock_outline,
   ),
 ];
 
