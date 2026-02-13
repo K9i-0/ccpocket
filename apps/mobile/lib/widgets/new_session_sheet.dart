@@ -16,6 +16,8 @@ class NewSessionParams {
   final String? worktreeBranch;
   final String? existingWorktreePath;
   final String? model;
+  final SandboxMode? sandboxMode;
+  final ApprovalPolicy? approvalPolicy;
 
   const NewSessionParams({
     required this.projectPath,
@@ -25,6 +27,8 @@ class NewSessionParams {
     this.worktreeBranch,
     this.existingWorktreePath,
     this.model,
+    this.sandboxMode,
+    this.approvalPolicy,
   });
 }
 
@@ -80,10 +84,17 @@ enum _WorktreeMode {
   useExisting,
 }
 
+/// Available Codex models for the dropdown.
+const _codexModels = <String>[
+  'gpt-5.3-codex',
+  'gpt-5.3-codex-spark',
+  'gpt-5.2-codex',
+  'gpt-5.1-codex-max',
+];
+
 class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _pathController = TextEditingController();
   final _branchController = TextEditingController();
-  final _modelController = TextEditingController();
   var _provider = Provider.claude;
   var _permissionMode = PermissionMode.acceptEdits;
   var _useWorktree = false;
@@ -91,6 +102,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   WorktreeInfo? _selectedWorktree;
   List<WorktreeInfo>? _worktrees;
   StreamSubscription<WorktreeListMessage>? _worktreeSub;
+
+  // Codex-specific options
+  String? _selectedModel;
+  var _sandboxMode = SandboxMode.workspaceWrite;
+  var _approvalPolicy = ApprovalPolicy.never;
 
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
 
@@ -127,7 +143,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _worktreeSub?.cancel();
     _pathController.dispose();
     _branchController.dispose();
-    _modelController.dispose();
     super.dispose();
   }
 
@@ -167,7 +182,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   void _start() {
     final path = _pathController.text.trim();
     final branch = _branchController.text.trim();
-    final model = _modelController.text.trim();
+    final isCodex = _provider == Provider.codex;
 
     if (_useWorktree && _worktreeMode == _WorktreeMode.useExisting) {
       // Use existing worktree
@@ -179,7 +194,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           permissionMode: _permissionMode,
           existingWorktreePath: _selectedWorktree?.worktreePath,
           worktreeBranch: _selectedWorktree?.branch,
-          model: model.isNotEmpty ? model : null,
+          model: isCodex ? _selectedModel : null,
+          sandboxMode: isCodex ? _sandboxMode : null,
+          approvalPolicy: isCodex ? _approvalPolicy : null,
         ),
       );
     } else {
@@ -192,7 +209,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           permissionMode: _permissionMode,
           useWorktree: _useWorktree,
           worktreeBranch: branch.isNotEmpty ? branch : null,
-          model: model.isNotEmpty ? model : null,
+          model: isCodex ? _selectedModel : null,
+          sandboxMode: isCodex ? _sandboxMode : null,
+          approvalPolicy: isCodex ? _approvalPolicy : null,
         ),
       );
     }
@@ -443,19 +462,100 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               _buildWorktreeOptions(appColors),
             ],
           ],
-          if (_provider == Provider.codex)
-            TextField(
+          if (_provider == Provider.codex) ...[
+            DropdownButtonFormField<String?>(
               key: const ValueKey('dialog_codex_model'),
-              controller: _modelController,
+              initialValue: _selectedModel,
               decoration: const InputDecoration(
-                labelText: 'Model (optional)',
-                hintText: 'e.g. o3, o4-mini',
+                labelText: 'Model',
                 border: OutlineInputBorder(),
                 isDense: true,
                 prefixIcon: Icon(Icons.psychology_outlined, size: 18),
               ),
-              style: const TextStyle(fontSize: 13),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Default', style: TextStyle(fontSize: 13)),
+                ),
+                for (final model in _codexModels)
+                  DropdownMenuItem<String?>(
+                    value: model,
+                    child: Text(model, style: const TextStyle(fontSize: 13)),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _selectedModel = value),
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<SandboxMode>(
+                    key: const ValueKey('dialog_codex_sandbox'),
+                    initialValue: _sandboxMode,
+                    decoration: const InputDecoration(
+                      labelText: 'Sandbox',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    items: SandboxMode.values
+                        .map(
+                          (m) => DropdownMenuItem(
+                            value: m,
+                            child: Text(
+                              m.label,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) setState(() => _sandboxMode = value);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<ApprovalPolicy>(
+                    key: const ValueKey('dialog_codex_approval'),
+                    initialValue: _approvalPolicy,
+                    decoration: const InputDecoration(
+                      labelText: 'Approval',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    items: ApprovalPolicy.values
+                        .map(
+                          (p) => DropdownMenuItem(
+                            value: p,
+                            child: Text(
+                              p.label,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _approvalPolicy = value);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

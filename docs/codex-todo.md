@@ -24,6 +24,9 @@
   - mobile 側の `resume_session` 送信に `provider` を追加
   - `~/.claude/projects` が存在しない環境でも Codex recent が取得できるよう `getAllRecentSessions` の早期 return を修正
   - Codex recent / history 復元のユニットテストを追加
+  - Codex セッション開始設定 UI 追加: `SandboxMode` / `ApprovalPolicy` enum + ドロップダウン
+  - モデル選択を自由テキスト → ドロップダウン化 (gpt-5.3-codex 等)
+  - デバッグ用 `_testCodexSession()` ボタン削除
 
 ## 機能面
 
@@ -37,11 +40,9 @@
 - `SessionInfo.provider` フィールドは存在するが、UIに未反映
 - セッション一覧でアイコンやラベルで Claude / Codex を区別すべき
 
-### モデル選択 UI の改善
-- 現在は自由テキスト入力
-- Codex の利用可能モデル一覧をドロップダウンで表示する方が良い
-- 利用可能モデル (2025時点): `gpt-5.3-codex`, `gpt-5.3-codex-spark`, `gpt-5.2-codex`, `gpt-5.1-codex-max` 等
-- 参考: https://developers.openai.com/codex/models/
+### ~~モデル選択 UI の改善~~ ✅ 完了 (2026-02-13)
+- ドロップダウン化済み（`gpt-5.3-codex`, `gpt-5.3-codex-spark`, `gpt-5.2-codex`, `gpt-5.1-codex-max` + Default）
+- `SandboxMode` / `ApprovalPolicy` ドロップダウンも同時追加
 
 ### セッション再接続 (resume)
 - `codex.resumeThread(threadId)` で再接続可能だが、未テスト
@@ -56,10 +57,8 @@
 
 ## 技術的負債
 
-### デバッグ用テストボタン
-- `session_list_screen.dart` に `_testCodexSession()` が残っている（`kDebugMode` ガード付き）
-- プロジェクトパスがハードコード (`/Users/k9i-mini/Workspace/ccpocket`)
-- 不要になったら削除する
+### ~~デバッグ用テストボタン~~ ✅ 削除済み (2026-02-13)
+- `_testCodexSession()` と AppBar のデバッグボタンを削除
 
 ### Codex SDK のバージョン固定
 - `@openai/codex-sdk: ^0.101.0` — SDK がまだ初期段階で破壊的変更の可能性あり
@@ -67,19 +66,13 @@
 
 ## 引き継ぎメモ（次の開発）
 
-### 次テーマ: Codex セッション開始時の設定
-- 次の実装は「Codex セッション開始時に必要な設定を UI/プロトコルで明示的に渡す」ことを優先する
-- 想定設定:
-  - `sandboxMode` (`read-only` / `workspace-write` / `danger-full-access`)
-  - `approvalPolicy` (`never` / `on-request` / `on-failure` / `untrusted`)
-  - `model`（選択 UI 改善と合わせて）
+### ~~次テーマ: Codex セッション開始時の設定~~ ✅ 完了 (2026-02-13)
+- New Session ダイアログで `sandboxMode` / `approvalPolicy` / `model` を選択可能に
+- `ClientMessage.start` → Bridge `CodexStartOptions` への反映済み
+- Bridge ログ (`[codex-process] Starting ...`) で選択値を確認可能
+- 受け入れ条件: UI選択 ✅ / プロトコル反映 ✅ / ログ確認 ✅ / テスト（既存の Bridge テストでカバー、追加テストは次回）
 
-### 目的
-- セッション開始時の挙動をユーザーが予測可能にする
-- 実行環境差異（特に `.git` 書き込み可否）による混乱を減らす
-
-### 受け入れ条件
-- New Session ダイアログで Codex 向け開始設定を選択できる
-- `ClientMessage.start` に設定が載り、bridge 側で `CodexStartOptions` に反映される
-- 選択値が実行ログ（または system message）で確認できる
-- 最低限のテスト（parser / start 経路）が追加される
+### 次テーマ候補
+1. セッション一覧での provider 可視化（アイコン/ラベル）
+2. Bridge の Codex 系ユニットテスト追加
+3. 履歴復元の実機検証・不足ケース修正

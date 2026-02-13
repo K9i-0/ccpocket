@@ -124,6 +124,30 @@ enum PermissionMode {
   const PermissionMode(this.value, this.label);
 }
 
+// ---- Codex sandbox mode ----
+
+enum SandboxMode {
+  readOnly('read-only', 'Read Only'),
+  workspaceWrite('workspace-write', 'Workspace Write'),
+  dangerFullAccess('danger-full-access', 'Full Access ⚠️');
+
+  final String value;
+  final String label;
+  const SandboxMode(this.value, this.label);
+}
+
+// ---- Codex approval policy ----
+
+enum ApprovalPolicy {
+  never('never', 'Never (Auto)'),
+  onFailure('on-failure', 'On Failure'),
+  untrusted('untrusted', 'Untrusted');
+
+  final String value;
+  final String label;
+  const ApprovalPolicy(this.value, this.label);
+}
+
 // ---- Image reference ----
 
 class ImageRef {

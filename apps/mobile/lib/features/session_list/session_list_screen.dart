@@ -404,25 +404,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
     context.read<SessionListCubit>().refresh();
   }
 
-  void _testCodexSession() {
-    final bridge = context.read<BridgeService>();
-    const projectPath = '/Users/k9i-mini/Workspace/ccpocket';
-    bridge.send(
-      ClientMessage.start(
-        projectPath,
-        provider: 'codex',
-      ),
-    );
-    final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
-    _pendingNavigation = true;
-    _navigateToChat(
-      pendingId,
-      projectPath: projectPath,
-      isPending: true,
-      provider: Provider.codex,
-    );
-  }
-
   void _showNewSessionDialog() async {
     final sessions =
         widget.debugRecentSessions ??
@@ -449,6 +430,8 @@ class _SessionListScreenState extends State<SessionListScreen> {
         existingWorktreePath: result.existingWorktreePath,
         provider: result.provider.value,
         model: result.model,
+        approvalPolicy: result.approvalPolicy?.value,
+        sandboxMode: result.sandboxMode?.value,
       ),
     );
     // Navigate immediately to chat with pending state
@@ -590,13 +573,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
                   MaterialPageRoute(builder: (_) => const MockPreviewScreen()),
                 ),
                 tooltip: 'Mock Preview',
-              ),
-            if (kDebugMode && showConnectedUI)
-              IconButton(
-                key: const ValueKey('test_codex_button'),
-                icon: const Icon(Icons.bug_report),
-                onPressed: _testCodexSession,
-                tooltip: 'Test Codex Session',
               ),
             if (showConnectedUI)
               IconButton(
