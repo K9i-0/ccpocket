@@ -490,4 +490,44 @@ describe("codex sessions integration", () => {
     expect(history[0].role).toBe("user");
     expect(history[0].content[0].text).toBe("correct session");
   });
+
+  it("does not trust -threadId filename suffix when session_meta.id differs", async () => {
+    const requestedThreadId = "123";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    // Filename ends with -123 but meta id is different: must not match.
+    writeFileSync(
+      join(codexDir, "rollout-2026-02-13T11-26-43-123.jsonl"),
+      [
+        JSON.stringify({
+          type: "session_meta",
+          payload: { id: "not-123", cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          type: "event_msg",
+          payload: { type: "user_message", message: "wrong session" },
+        }),
+      ].join("\n"),
+    );
+
+    // Exact basename match should still work.
+    writeFileSync(
+      join(codexDir, "123.jsonl"),
+      [
+        JSON.stringify({
+          type: "session_meta",
+          payload: { id: requestedThreadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          type: "event_msg",
+          payload: { type: "user_message", message: "correct session" },
+        }),
+      ].join("\n"),
+    );
+
+    const history = await getCodexSessionHistory(requestedThreadId);
+    expect(history).toHaveLength(1);
+    expect(history[0].content[0].text).toBe("correct session");
+  });
 });

@@ -141,6 +141,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
               projectPath: msg.projectPath ?? _pendingResumeProjectPath,
               gitBranch: _pendingResumeGitBranch,
               worktreePath: msg.worktreePath,
+              provider: msg.provider == 'codex' ? Provider.codex : null,
             );
           }
           _pendingResumeProjectPath = null;
@@ -432,6 +433,9 @@ class _SessionListScreenState extends State<SessionListScreen> {
         model: result.model,
         approvalPolicy: result.approvalPolicy?.value,
         sandboxMode: result.sandboxMode?.value,
+        modelReasoningEffort: result.modelReasoningEffort?.value,
+        networkAccessEnabled: result.networkAccessEnabled,
+        webSearchMode: result.webSearchMode?.value,
       ),
     );
     // Navigate immediately to chat with pending state
@@ -462,6 +466,8 @@ class _SessionListScreenState extends State<SessionListScreen> {
       screen = CodexChatScreen(
         sessionId: sessionId,
         projectPath: projectPath,
+        gitBranch: gitBranch,
+        worktreePath: worktreePath,
         isPending: isPending,
         pendingSessionCreated: isPending ? _pendingSessionCreated : null,
       );
@@ -498,6 +504,9 @@ class _SessionListScreenState extends State<SessionListScreen> {
       approvalPolicy: session.codexApprovalPolicy,
       sandboxMode: session.codexSandboxMode,
       model: session.codexModel,
+      modelReasoningEffort: session.codexModelReasoningEffort,
+      networkAccessEnabled: session.codexNetworkAccessEnabled,
+      webSearchMode: session.codexWebSearchMode,
     );
   }
 

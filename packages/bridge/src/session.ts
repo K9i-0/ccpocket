@@ -37,6 +37,9 @@ export interface SessionInfo {
     approvalPolicy?: string;
     sandboxMode?: string;
     model?: string;
+    modelReasoningEffort?: string;
+    networkAccessEnabled?: boolean;
+    webSearchMode?: string;
   };
 }
 
@@ -57,6 +60,9 @@ export interface SessionSummary {
     approvalPolicy?: string;
     sandboxMode?: string;
     model?: string;
+    modelReasoningEffort?: string;
+    networkAccessEnabled?: boolean;
+    webSearchMode?: string;
   };
 }
 
@@ -255,6 +261,9 @@ export class SessionManager {
         approvalPolicy: codexOptions.approvalPolicy,
         sandboxMode: codexOptions.sandboxMode,
         model: codexOptions.model,
+        modelReasoningEffort: codexOptions.modelReasoningEffort,
+        networkAccessEnabled: codexOptions.networkAccessEnabled,
+        webSearchMode: codexOptions.webSearchMode,
       };
     }
 

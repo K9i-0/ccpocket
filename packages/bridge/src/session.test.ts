@@ -63,6 +63,9 @@ describe("SessionManager codex path", () => {
         sandboxMode: "workspace-write",
         approvalPolicy: "on-request",
         model: "gpt-5.3-codex",
+        modelReasoningEffort: "high",
+        networkAccessEnabled: true,
+        webSearchMode: "live",
       },
     );
 
@@ -76,6 +79,9 @@ describe("SessionManager codex path", () => {
         sandboxMode: "workspace-write",
         approvalPolicy: "on-request",
         model: "gpt-5.3-codex",
+        modelReasoningEffort: "high",
+        networkAccessEnabled: true,
+        webSearchMode: "live",
       }),
     );
 

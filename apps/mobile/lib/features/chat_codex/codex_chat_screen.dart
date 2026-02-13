@@ -12,8 +12,11 @@ import '../../services/bridge_service.dart';
 import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
 import '../../utils/diff_parser.dart';
+import '../../widgets/screenshot_sheet.dart';
+import '../../widgets/worktree_list_sheet.dart';
 import '../chat/state/chat_session_cubit.dart';
 import '../chat/state/streaming_state_cubit.dart';
+import '../chat/widgets/branch_chip.dart';
 import '../chat/widgets/chat_input_with_overlays.dart';
 import '../chat/widgets/chat_message_list.dart';
 import '../chat/widgets/reconnect_banner.dart';
@@ -30,6 +33,8 @@ import 'state/codex_session_cubit.dart';
 class CodexChatScreen extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
+  final String? gitBranch;
+  final String? worktreePath;
   final bool isPending;
 
   /// Notifier from the parent that may already hold a [SystemMessage]
@@ -40,6 +45,8 @@ class CodexChatScreen extends StatefulWidget {
     super.key,
     required this.sessionId,
     this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
     this.isPending = false,
     this.pendingSessionCreated,
   });
@@ -50,6 +57,9 @@ class CodexChatScreen extends StatefulWidget {
 
 class _CodexChatScreenState extends State<CodexChatScreen> {
   late String _sessionId;
+  late String? _projectPath;
+  late String? _gitBranch;
+  late String? _worktreePath;
   late bool _isPending;
   StreamSubscription<ServerMessage>? _pendingSub;
 
@@ -57,6 +67,9 @@ class _CodexChatScreenState extends State<CodexChatScreen> {
   void initState() {
     super.initState();
     _sessionId = widget.sessionId;
+    _projectPath = widget.projectPath;
+    _gitBranch = widget.gitBranch;
+    _worktreePath = widget.worktreePath;
     _isPending = widget.isPending;
 
     if (_isPending) {
@@ -100,6 +113,9 @@ class _CodexChatScreenState extends State<CodexChatScreen> {
     widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
     setState(() {
       _sessionId = msg.sessionId!;
+      _projectPath = msg.projectPath ?? _projectPath;
+      _gitBranch = msg.worktreeBranch ?? _gitBranch;
+      _worktreePath = msg.worktreePath ?? _worktreePath;
       _isPending = false;
     });
     _pendingSub?.cancel();
@@ -134,7 +150,9 @@ class _CodexChatScreenState extends State<CodexChatScreen> {
     return _CodexProviders(
       key: ValueKey(_sessionId),
       sessionId: _sessionId,
-      projectPath: widget.projectPath,
+      projectPath: _projectPath,
+      gitBranch: _gitBranch,
+      worktreePath: _worktreePath,
     );
   }
 }
@@ -146,8 +164,16 @@ class _CodexChatScreenState extends State<CodexChatScreen> {
 class _CodexProviders extends StatelessWidget {
   final String sessionId;
   final String? projectPath;
+  final String? gitBranch;
+  final String? worktreePath;
 
-  const _CodexProviders({super.key, required this.sessionId, this.projectPath});
+  const _CodexProviders({
+    super.key,
+    required this.sessionId,
+    this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -165,7 +191,12 @@ class _CodexProviders extends StatelessWidget {
         ),
         BlocProvider.value(value: streamingCubit),
       ],
-      child: _CodexChatBody(sessionId: sessionId, projectPath: projectPath),
+      child: _CodexChatBody(
+        sessionId: sessionId,
+        projectPath: projectPath,
+        gitBranch: gitBranch,
+        worktreePath: worktreePath,
+      ),
     );
   }
 }
@@ -177,8 +208,15 @@ class _CodexProviders extends StatelessWidget {
 class _CodexChatBody extends HookWidget {
   final String sessionId;
   final String? projectPath;
+  final String? gitBranch;
+  final String? worktreePath;
 
-  const _CodexChatBody({required this.sessionId, this.projectPath});
+  const _CodexChatBody({
+    required this.sessionId,
+    this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -259,6 +297,26 @@ class _CodexChatBody extends HookWidget {
           child: Scaffold(
             appBar: AppBar(
               actions: [
+                IconButton(
+                  key: const ValueKey('codex_rewind_info_button'),
+                  icon: const Icon(Icons.history, size: 18),
+                  tooltip: 'Rewind (unsupported in Codex)',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Codex sessions currently do not support rewind.',
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 // View Changes
                 if (projectPath != null)
                   IconButton(
@@ -272,10 +330,30 @@ class _CodexChatBody extends HookWidget {
                     ),
                     onPressed: () => _openDiffScreen(
                       context,
-                      projectPath!,
+                      worktreePath ?? projectPath!,
                       diffSelectionFromNav,
                       existingSelection: diffSelectionFromNav.value,
                     ),
+                  ),
+                // Screenshot
+                if (projectPath != null)
+                  IconButton(
+                    icon: const Icon(Icons.screenshot_monitor, size: 18),
+                    tooltip: 'Screenshot',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    onPressed: () {
+                      showScreenshotSheet(
+                        context: context,
+                        bridge: context.read<BridgeService>(),
+                        projectPath: projectPath!,
+                        sessionId: sessionId,
+                      );
+                    },
                   ),
                 // Gallery
                 IconButton(
@@ -297,6 +375,19 @@ class _CodexChatBody extends HookWidget {
                     );
                   },
                 ),
+                if (projectPath != null)
+                  BranchChip(
+                    branchName: gitBranch,
+                    isWorktree: worktreePath != null,
+                    onTap: () {
+                      showWorktreeListSheet(
+                        context: context,
+                        bridge: context.read<BridgeService>(),
+                        projectPath: projectPath!,
+                        currentWorktreePath: worktreePath,
+                      );
+                    },
+                  ),
                 // Status indicator
                 StatusIndicator(status: status),
               ],
@@ -355,7 +446,7 @@ class _CodexChatBody extends HookWidget {
                   onOpenDiffScreen: projectPath != null
                       ? (currentSelection) => _openDiffScreen(
                           context,
-                          projectPath!,
+                          worktreePath ?? projectPath!,
                           diffSelectionFromNav,
                           existingSelection: currentSelection,
                         )

@@ -146,6 +146,9 @@ export class BridgeWebSocketServer {
                 approvalPolicy: (msg.approvalPolicy as "never" | "on-request" | "on-failure" | "untrusted") ?? undefined,
                 sandboxMode: (msg.sandboxMode as "read-only" | "workspace-write" | "danger-full-access") ?? undefined,
                 model: msg.model,
+                modelReasoningEffort: (msg.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
+                networkAccessEnabled: msg.networkAccessEnabled,
+                webSearchMode: (msg.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
                 threadId: msg.sessionId,
               }
             : undefined,
@@ -155,6 +158,7 @@ export class BridgeWebSocketServer {
           type: "system",
           subtype: "session_created",
           sessionId,
+          provider,
           projectPath: msg.projectPath,
           ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
           ...(createdSession?.worktreePath ? {
@@ -384,12 +388,16 @@ export class BridgeWebSocketServer {
                 approvalPolicy: (msg.approvalPolicy as "never" | "on-request" | "on-failure" | "untrusted") ?? undefined,
                 sandboxMode: (msg.sandboxMode as "read-only" | "workspace-write" | "danger-full-access") ?? undefined,
                 model: msg.model,
+                modelReasoningEffort: (msg.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
+                networkAccessEnabled: msg.networkAccessEnabled,
+                webSearchMode: (msg.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
               },
             );
             this.send(ws, {
               type: "system",
               subtype: "session_created",
               sessionId,
+              provider: "codex",
               projectPath: msg.projectPath,
             });
             this.projectHistory?.addProject(msg.projectPath);
@@ -433,6 +441,7 @@ export class BridgeWebSocketServer {
             type: "system",
             subtype: "session_created",
             sessionId,
+            provider: "claude",
             projectPath: msg.projectPath,
             ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
             ...(createdSession?.worktreePath ? {
@@ -604,6 +613,7 @@ export class BridgeWebSocketServer {
                 type: "system",
                 subtype: "session_created",
                 sessionId: newSessionId,
+                provider: newSession?.provider ?? "claude",
                 projectPath: newSession?.projectPath ?? "",
               });
               this.sendSessionList(ws);
@@ -626,6 +636,7 @@ export class BridgeWebSocketServer {
                   type: "system",
                   subtype: "session_created",
                   sessionId: newSessionId,
+                  provider: newSession?.provider ?? "claude",
                   projectPath: newSession?.projectPath ?? "",
                 });
                 this.sendSessionList(ws);

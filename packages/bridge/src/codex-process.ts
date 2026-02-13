@@ -11,6 +11,9 @@ export interface CodexStartOptions {
   approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
   sandboxMode?: "read-only" | "workspace-write" | "danger-full-access";
   model?: string;
+  modelReasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
+  networkAccessEnabled?: boolean;
+  webSearchMode?: "disabled" | "cached" | "live";
 }
 
 export interface CodexProcessEvents {
@@ -60,11 +63,16 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       workingDirectory: projectPath,
       approvalPolicy: options?.approvalPolicy ?? "never",
       sandboxMode: options?.sandboxMode ?? "workspace-write",
+      networkAccessEnabled: options?.networkAccessEnabled ?? true,
       skipGitRepoCheck: true,
       ...(options?.model ? { model: options.model } : {}),
+      ...(options?.modelReasoningEffort ? { modelReasoningEffort: options.modelReasoningEffort } : {}),
+      ...(options?.webSearchMode ? { webSearchMode: options.webSearchMode } : {}),
     } as const;
 
-    console.log(`[codex-process] Starting (cwd: ${projectPath}, sandbox: ${threadOpts.sandboxMode}, approval: ${threadOpts.approvalPolicy})`);
+    console.log(
+      `[codex-process] Starting (cwd: ${projectPath}, sandbox: ${threadOpts.sandboxMode}, approval: ${threadOpts.approvalPolicy}, model: ${threadOpts.model ?? "default"}, reasoning: ${threadOpts.modelReasoningEffort ?? "default"}, network: ${threadOpts.networkAccessEnabled}, webSearch: ${threadOpts.webSearchMode ?? "default"})`,
+    );
 
     this.thread = options?.threadId
       ? this.codex.resumeThread(options.threadId, threadOpts)

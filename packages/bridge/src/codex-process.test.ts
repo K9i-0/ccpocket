@@ -38,6 +38,9 @@ describe("CodexProcess.start", () => {
       sandboxMode: "workspace-write",
       approvalPolicy: "on-request",
       model: "gpt-5.3-codex",
+      modelReasoningEffort: "medium",
+      networkAccessEnabled: true,
+      webSearchMode: "cached",
     });
 
     expect(startThreadMock).toHaveBeenCalledTimes(1);
@@ -48,6 +51,9 @@ describe("CodexProcess.start", () => {
         sandboxMode: "workspace-write",
         approvalPolicy: "on-request",
         model: "gpt-5.3-codex",
+        modelReasoningEffort: "medium",
+        networkAccessEnabled: true,
+        webSearchMode: "cached",
       }),
     );
 

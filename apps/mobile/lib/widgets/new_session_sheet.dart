@@ -18,6 +18,9 @@ class NewSessionParams {
   final String? model;
   final SandboxMode? sandboxMode;
   final ApprovalPolicy? approvalPolicy;
+  final ReasoningEffort? modelReasoningEffort;
+  final bool? networkAccessEnabled;
+  final WebSearchMode? webSearchMode;
 
   const NewSessionParams({
     required this.projectPath,
@@ -29,6 +32,9 @@ class NewSessionParams {
     this.model,
     this.sandboxMode,
     this.approvalPolicy,
+    this.modelReasoningEffort,
+    this.networkAccessEnabled,
+    this.webSearchMode,
   });
 }
 
@@ -107,6 +113,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   String? _selectedModel;
   var _sandboxMode = SandboxMode.workspaceWrite;
   var _approvalPolicy = ApprovalPolicy.never;
+  ReasoningEffort? _modelReasoningEffort;
+  bool _networkAccessEnabled = true;
+  WebSearchMode? _webSearchMode;
 
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
 
@@ -197,6 +206,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           model: isCodex ? _selectedModel : null,
           sandboxMode: isCodex ? _sandboxMode : null,
           approvalPolicy: isCodex ? _approvalPolicy : null,
+          modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
+          networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
+          webSearchMode: isCodex ? _webSearchMode : null,
         ),
       );
     } else {
@@ -212,6 +224,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           model: isCodex ? _selectedModel : null,
           sandboxMode: isCodex ? _sandboxMode : null,
           approvalPolicy: isCodex ? _approvalPolicy : null,
+          modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
+          networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
+          webSearchMode: isCodex ? _webSearchMode : null,
         ),
       );
     }
@@ -554,6 +569,89 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<ReasoningEffort?>(
+                    key: const ValueKey('dialog_codex_reasoning_effort'),
+                    initialValue: _modelReasoningEffort,
+                    decoration: const InputDecoration(
+                      labelText: 'Reasoning',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    items: [
+                      const DropdownMenuItem<ReasoningEffort?>(
+                        value: null,
+                        child: Text('Default', style: TextStyle(fontSize: 13)),
+                      ),
+                      for (final effort in ReasoningEffort.values)
+                        DropdownMenuItem<ReasoningEffort?>(
+                          value: effort,
+                          child: Text(
+                            effort.label,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _modelReasoningEffort = value);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<WebSearchMode?>(
+                    key: const ValueKey('dialog_codex_web_search_mode'),
+                    initialValue: _webSearchMode,
+                    decoration: const InputDecoration(
+                      labelText: 'Web Search',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    items: [
+                      const DropdownMenuItem<WebSearchMode?>(
+                        value: null,
+                        child: Text('Default', style: TextStyle(fontSize: 13)),
+                      ),
+                      for (final mode in WebSearchMode.values)
+                        DropdownMenuItem<WebSearchMode?>(
+                          value: mode,
+                          child: Text(
+                            mode.label,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _webSearchMode = value);
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              key: const ValueKey('dialog_codex_network_access'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Network Access',
+                style: TextStyle(fontSize: 13),
+              ),
+              value: _networkAccessEnabled,
+              onChanged: (value) {
+                setState(() => _networkAccessEnabled = value);
+              },
             ),
           ],
         ],

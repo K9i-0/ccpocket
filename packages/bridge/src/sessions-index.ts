@@ -17,6 +17,9 @@ export interface SessionIndexEntry {
     approvalPolicy?: string;
     sandboxMode?: string;
     model?: string;
+    modelReasoningEffort?: string;
+    networkAccessEnabled?: boolean;
+    webSearchMode?: string;
   };
 }
 
@@ -349,6 +352,9 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   let approvalPolicy: string | undefined;
   let sandboxMode: string | undefined;
   let model: string | undefined;
+  let modelReasoningEffort: string | undefined;
+  let networkAccessEnabled: boolean | undefined;
+  let webSearchMode: string | undefined;
 
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -382,7 +388,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       continue;
     }
 
-    // Extract sandbox/approval/model from the first turn_context
+    // Extract codex settings from turn_context
     if (entry.type === "turn_context" && !approvalPolicy) {
       const payload = entry.payload as Record<string, unknown> | undefined;
       if (payload) {
@@ -395,6 +401,17 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
         }
         if (typeof payload.model === "string") {
           model = payload.model;
+        }
+        const collaborationMode = payload.collaboration_mode as Record<string, unknown> | undefined;
+        const collaborationSettings = collaborationMode?.settings as Record<string, unknown> | undefined;
+        if (typeof collaborationSettings?.reasoning_effort === "string") {
+          modelReasoningEffort = collaborationSettings.reasoning_effort;
+        }
+        if (typeof sp?.network_access === "boolean") {
+          networkAccessEnabled = sp.network_access;
+        }
+        if (typeof payload.web_search === "string") {
+          webSearchMode = payload.web_search;
         }
       }
       continue;
@@ -431,8 +448,22 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   if (!projectPath || messageCount === 0) return null;
   summary = lastAssistantText || summary;
 
-  const codexSettings = (approvalPolicy || sandboxMode || model)
-    ? { approvalPolicy, sandboxMode, model }
+  const codexSettings = (
+    approvalPolicy
+    || sandboxMode
+    || model
+    || modelReasoningEffort
+    || networkAccessEnabled !== undefined
+    || webSearchMode
+  )
+    ? {
+        approvalPolicy,
+        sandboxMode,
+        model,
+        modelReasoningEffort,
+        networkAccessEnabled,
+        webSearchMode,
+      }
     : undefined;
 
   return {
@@ -553,7 +584,7 @@ async function findCodexSessionJsonlPath(threadId: string): Promise<string | nul
   const files = await listCodexSessionFiles();
   for (const filePath of files) {
     const fallbackSessionId = basename(filePath, ".jsonl");
-    if (fallbackSessionId === threadId || fallbackSessionId.endsWith(`-${threadId}`)) {
+    if (fallbackSessionId === threadId) {
       return filePath;
     }
     let raw: string;

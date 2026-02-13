@@ -149,6 +149,28 @@ enum ApprovalPolicy {
   const ApprovalPolicy(this.value, this.label);
 }
 
+enum ReasoningEffort {
+  minimal('minimal', 'Minimal'),
+  low('low', 'Low'),
+  medium('medium', 'Medium'),
+  high('high', 'High'),
+  xhigh('xhigh', 'XHigh');
+
+  final String value;
+  final String label;
+  const ReasoningEffort(this.value, this.label);
+}
+
+enum WebSearchMode {
+  disabled('disabled', 'Disabled'),
+  cached('cached', 'Cached'),
+  live('live', 'Live');
+
+  final String value;
+  final String label;
+  const WebSearchMode(this.value, this.label);
+}
+
 // ---- Image reference ----
 
 class ImageRef {
@@ -253,6 +275,7 @@ sealed class ServerMessage {
         subtype: json['subtype'] as String? ?? '',
         sessionId: json['sessionId'] as String?,
         model: json['model'] as String?,
+        provider: json['provider'] as String?,
         projectPath: json['projectPath'] as String?,
         slashCommands:
             (json['slashCommands'] as List?)
@@ -395,6 +418,7 @@ class SystemMessage implements ServerMessage {
   final String subtype;
   final String? sessionId;
   final String? model;
+  final String? provider;
   final String? projectPath;
   final List<String> slashCommands;
   final List<String> skills;
@@ -404,6 +428,7 @@ class SystemMessage implements ServerMessage {
     required this.subtype,
     this.sessionId,
     this.model,
+    this.provider,
     this.projectPath,
     this.slashCommands = const [],
     this.skills = const [],
@@ -685,6 +710,9 @@ class RecentSession {
   final String? codexApprovalPolicy;
   final String? codexSandboxMode;
   final String? codexModel;
+  final String? codexModelReasoningEffort;
+  final bool? codexNetworkAccessEnabled;
+  final String? codexWebSearchMode;
 
   const RecentSession({
     required this.sessionId,
@@ -700,6 +728,9 @@ class RecentSession {
     this.codexApprovalPolicy,
     this.codexSandboxMode,
     this.codexModel,
+    this.codexModelReasoningEffort,
+    this.codexNetworkAccessEnabled,
+    this.codexWebSearchMode,
   });
 
   factory RecentSession.fromJson(Map<String, dynamic> json) {
@@ -718,6 +749,11 @@ class RecentSession {
       codexApprovalPolicy: codexSettings?['approvalPolicy'] as String?,
       codexSandboxMode: codexSettings?['sandboxMode'] as String?,
       codexModel: codexSettings?['model'] as String?,
+      codexModelReasoningEffort:
+          codexSettings?['modelReasoningEffort'] as String?,
+      codexNetworkAccessEnabled:
+          codexSettings?['networkAccessEnabled'] as bool?,
+      codexWebSearchMode: codexSettings?['webSearchMode'] as String?,
     );
   }
 
@@ -750,6 +786,12 @@ class SessionInfo {
   final int messageCount;
   final String? worktreePath;
   final String? worktreeBranch;
+  final String? codexApprovalPolicy;
+  final String? codexSandboxMode;
+  final String? codexModel;
+  final String? codexModelReasoningEffort;
+  final bool? codexNetworkAccessEnabled;
+  final String? codexWebSearchMode;
 
   const SessionInfo({
     required this.id,
@@ -764,9 +806,16 @@ class SessionInfo {
     this.messageCount = 0,
     this.worktreePath,
     this.worktreeBranch,
+    this.codexApprovalPolicy,
+    this.codexSandboxMode,
+    this.codexModel,
+    this.codexModelReasoningEffort,
+    this.codexNetworkAccessEnabled,
+    this.codexWebSearchMode,
   });
 
   factory SessionInfo.fromJson(Map<String, dynamic> json) {
+    final codexSettings = json['codexSettings'] as Map<String, dynamic>?;
     return SessionInfo(
       id: json['id'] as String,
       provider: json['provider'] as String?,
@@ -780,6 +829,14 @@ class SessionInfo {
       messageCount: json['messageCount'] as int? ?? 0,
       worktreePath: json['worktreePath'] as String?,
       worktreeBranch: json['worktreeBranch'] as String?,
+      codexApprovalPolicy: codexSettings?['approvalPolicy'] as String?,
+      codexSandboxMode: codexSettings?['sandboxMode'] as String?,
+      codexModel: codexSettings?['model'] as String?,
+      codexModelReasoningEffort:
+          codexSettings?['modelReasoningEffort'] as String?,
+      codexNetworkAccessEnabled:
+          codexSettings?['networkAccessEnabled'] as bool?,
+      codexWebSearchMode: codexSettings?['webSearchMode'] as String?,
     );
   }
 }
@@ -802,6 +859,9 @@ class ClientMessage {
     String? model,
     String? approvalPolicy,
     String? sandboxMode,
+    String? modelReasoningEffort,
+    bool? networkAccessEnabled,
+    String? webSearchMode,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'start',
@@ -817,6 +877,9 @@ class ClientMessage {
       'model': ?model,
       'approvalPolicy': ?approvalPolicy,
       'sandboxMode': ?sandboxMode,
+      'modelReasoningEffort': ?modelReasoningEffort,
+      'networkAccessEnabled': ?networkAccessEnabled,
+      'webSearchMode': ?webSearchMode,
     });
   }
 
@@ -915,6 +978,9 @@ class ClientMessage {
     String? approvalPolicy,
     String? sandboxMode,
     String? model,
+    String? modelReasoningEffort,
+    bool? networkAccessEnabled,
+    String? webSearchMode,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'resume_session',
@@ -925,6 +991,9 @@ class ClientMessage {
       'approvalPolicy': ?approvalPolicy,
       'sandboxMode': ?sandboxMode,
       'model': ?model,
+      'modelReasoningEffort': ?modelReasoningEffort,
+      'networkAccessEnabled': ?networkAccessEnabled,
+      'webSearchMode': ?webSearchMode,
     });
   }
 

@@ -48,7 +48,23 @@ export type PermissionMode =
 export type Provider = "claude" | "codex";
 
 export type ClientMessage =
-  | { type: "start"; projectPath: string; provider?: Provider; sessionId?: string; continue?: boolean; permissionMode?: PermissionMode; approvalPolicy?: string; sandboxMode?: string; model?: string; useWorktree?: boolean; worktreeBranch?: string; existingWorktreePath?: string }
+  | {
+      type: "start";
+      projectPath: string;
+      provider?: Provider;
+      sessionId?: string;
+      continue?: boolean;
+      permissionMode?: PermissionMode;
+      approvalPolicy?: string;
+      sandboxMode?: string;
+      model?: string;
+      modelReasoningEffort?: string;
+      networkAccessEnabled?: boolean;
+      webSearchMode?: string;
+      useWorktree?: boolean;
+      worktreeBranch?: string;
+      existingWorktreePath?: string;
+    }
   | { type: "input"; text: string; sessionId?: string; imageId?: string; imageBase64?: string; mimeType?: string }
   | { type: "approve"; id: string; updatedInput?: Record<string, unknown>; clearContext?: boolean; sessionId?: string }
   | { type: "approve_always"; id: string; sessionId?: string }
@@ -58,7 +74,19 @@ export type ClientMessage =
   | { type: "stop_session"; sessionId: string }
   | { type: "get_history"; sessionId: string }
   | { type: "list_recent_sessions"; limit?: number; offset?: number; projectPath?: string }
-  | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode; provider?: Provider; approvalPolicy?: string; sandboxMode?: string; model?: string }
+  | {
+      type: "resume_session";
+      sessionId: string;
+      projectPath: string;
+      permissionMode?: PermissionMode;
+      provider?: Provider;
+      approvalPolicy?: string;
+      sandboxMode?: string;
+      model?: string;
+      modelReasoningEffort?: string;
+      networkAccessEnabled?: boolean;
+      webSearchMode?: string;
+    }
   | { type: "list_gallery"; project?: string; sessionId?: string }
   | { type: "list_files"; projectPath: string }
   | { type: "get_diff"; projectPath: string }
@@ -73,7 +101,7 @@ export type ClientMessage =
   | { type: "take_screenshot"; mode: "fullscreen" | "window"; windowId?: number; projectPath: string; sessionId?: string };
 
 export type ServerMessage =
-  | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string }
+  | { type: "system"; subtype: string; sessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string }
   | { type: "assistant"; message: AssistantMessage; messageUuid?: string }
   | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[]; userMessageUuid?: string }
   | {
@@ -132,6 +160,15 @@ export function parseClientMessage(data: string): ClientMessage | null {
     switch (msg.type) {
       case "start":
         if (typeof msg.projectPath !== "string") return null;
+        if (msg.networkAccessEnabled !== undefined && typeof msg.networkAccessEnabled !== "boolean") return null;
+        if (
+          msg.modelReasoningEffort !== undefined
+          && !["minimal", "low", "medium", "high", "xhigh"].includes(String(msg.modelReasoningEffort))
+        ) return null;
+        if (
+          msg.webSearchMode !== undefined
+          && !["disabled", "cached", "live"].includes(String(msg.webSearchMode))
+        ) return null;
         break;
       case "input":
         if (typeof msg.text !== "string") return null;
@@ -163,6 +200,15 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "resume_session":
         if (typeof msg.sessionId !== "string" || typeof msg.projectPath !== "string") return null;
         if (msg.provider && msg.provider !== "claude" && msg.provider !== "codex") return null;
+        if (msg.networkAccessEnabled !== undefined && typeof msg.networkAccessEnabled !== "boolean") return null;
+        if (
+          msg.modelReasoningEffort !== undefined
+          && !["minimal", "low", "medium", "high", "xhigh"].includes(String(msg.modelReasoningEffort))
+        ) return null;
+        if (
+          msg.webSearchMode !== undefined
+          && !["disabled", "cached", "live"].includes(String(msg.webSearchMode))
+        ) return null;
         break;
       case "list_gallery":
         break;

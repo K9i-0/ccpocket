@@ -283,6 +283,9 @@ class BridgeService implements BridgeServiceBase {
     String? approvalPolicy,
     String? sandboxMode,
     String? model,
+    String? modelReasoningEffort,
+    bool? networkAccessEnabled,
+    String? webSearchMode,
   }) {
     send(
       ClientMessage.resumeSession(
@@ -293,6 +296,9 @@ class BridgeService implements BridgeServiceBase {
         approvalPolicy: approvalPolicy,
         sandboxMode: sandboxMode,
         model: model,
+        modelReasoningEffort: modelReasoningEffort,
+        networkAccessEnabled: networkAccessEnabled,
+        webSearchMode: webSearchMode,
       ),
     );
   }
