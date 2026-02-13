@@ -1,5 +1,9 @@
 import { EventEmitter } from "node:events";
-import { Codex, type Thread, type ThreadEvent, type ThreadItem } from "@openai/codex-sdk";
+import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { rm, writeFile } from "node:fs/promises";
+import { Codex, type Input, type Thread, type ThreadEvent, type ThreadItem } from "@openai/codex-sdk";
 import type { ServerMessage, ProcessStatus } from "./parser.js";
 
 export interface CodexStartOptions {
@@ -24,7 +28,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private startModel: string | undefined;
 
   // User input channel
-  private inputResolve: ((text: string) => void) | null = null;
+  private inputResolve: ((input: PendingInput) => void) | null = null;
   private pendingAbort: AbortController | null = null;
 
   get status(): ProcessStatus {
@@ -91,7 +95,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
     // Unblock pending input wait
     if (this.inputResolve) {
-      this.inputResolve("");
+      this.inputResolve({ text: "" });
       this.inputResolve = null;
     }
     this.thread = null;
@@ -113,7 +117,20 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
     const resolve = this.inputResolve;
     this.inputResolve = null;
-    resolve(text);
+    resolve({ text });
+  }
+
+  sendInputWithImage(text: string, image: { base64: string; mimeType: string }): void {
+    if (!this.inputResolve) {
+      console.error("[codex-process] No pending input resolver for sendInputWithImage");
+      return;
+    }
+    const resolve = this.inputResolve;
+    this.inputResolve = null;
+    resolve({
+      text,
+      image,
+    });
   }
 
   // ---- Private ----
@@ -121,10 +138,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private async runInputLoop(): Promise<void> {
     while (!this.stopped) {
       // Wait for user input
-      const text = await new Promise<string>((resolve) => {
+      const pendingInput = await new Promise<PendingInput>((resolve) => {
         this.inputResolve = resolve;
       });
-      if (this.stopped || !text || !this.thread) break;
+      if (this.stopped || !pendingInput.text || !this.thread) break;
+
+      const { input, tempPaths } = await this.toSdkInput(pendingInput);
+      if (!input) {
+        continue;
+      }
 
       // Execute turn
       this.setStatus("running");
@@ -132,7 +154,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.pendingAbort = controller;
 
       try {
-        const streamed = await this.thread.runStreamed(text, {
+        const streamed = await this.thread.runStreamed(input, {
           signal: controller.signal,
         });
         for await (const event of streamed.events) {
@@ -154,6 +176,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           });
         }
       } finally {
+        for (const path of tempPaths) {
+          await rm(path, { force: true }).catch(() => {});
+        }
         this.pendingAbort = null;
         if (!this.stopped) {
           this.setStatus("idle");
@@ -388,5 +413,67 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   private emitMessage(msg: ServerMessage): void {
     this.emit("message", msg);
+  }
+
+  private async toSdkInput(
+    pendingInput: PendingInput,
+  ): Promise<{ input: Input | null; tempPaths: string[] }> {
+    if (!pendingInput.image) {
+      return { input: pendingInput.text, tempPaths: [] };
+    }
+
+    const ext = extensionFromMime(pendingInput.image.mimeType);
+    if (!ext) {
+      this.emitMessage({
+        type: "error",
+        message: `Unsupported image mime type for Codex: ${pendingInput.image.mimeType}`,
+      });
+      return { input: null, tempPaths: [] };
+    }
+
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(pendingInput.image.base64, "base64");
+    } catch {
+      this.emitMessage({
+        type: "error",
+        message: "Invalid base64 image data for Codex input",
+      });
+      return { input: null, tempPaths: [] };
+    }
+
+    const tempPath = join(tmpdir(), `ccpocket-codex-image-${randomUUID()}.${ext}`);
+    await writeFile(tempPath, buffer);
+
+    return {
+      input: [
+        { type: "text", text: pendingInput.text },
+        { type: "local_image", path: tempPath },
+      ],
+      tempPaths: [tempPath],
+    };
+  }
+}
+
+interface PendingInput {
+  text: string;
+  image?: {
+    base64: string;
+    mimeType: string;
+  };
+}
+
+function extensionFromMime(mimeType: string): string | null {
+  switch (mimeType) {
+    case "image/png":
+      return "png";
+    case "image/jpeg":
+      return "jpg";
+    case "image/webp":
+      return "webp";
+    case "image/gif":
+      return "gif";
+    default:
+      return null;
   }
 }

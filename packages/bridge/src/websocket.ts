@@ -4,6 +4,7 @@ import { unlink } from "node:fs/promises";
 import { WebSocketServer, WebSocket } from "ws";
 import { SessionManager, type SessionInfo } from "./session.js";
 import type { SdkProcess } from "./sdk-process.js";
+import type { CodexProcess } from "./codex-process.js";
 import { parseClientMessage, type ClientMessage, type ServerMessage } from "./parser.js";
 import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
@@ -173,9 +174,39 @@ export class BridgeWebSocketServer {
         }
         const text = msg.text;
 
-        // Codex: text-only input (no image support via SDK)
+        // Codex input path (text + optional image)
         if (session.provider === "codex") {
-          session.process.sendInput(text);
+          const codexProc = session.process as CodexProcess;
+          if (msg.imageBase64 && msg.mimeType) {
+            codexProc.sendInputWithImage(text, {
+              base64: msg.imageBase64,
+              mimeType: msg.mimeType,
+            });
+            if (this.galleryStore && session.projectPath) {
+              this.galleryStore.addImageFromBase64(
+                msg.imageBase64,
+                msg.mimeType,
+                session.projectPath,
+                msg.sessionId,
+              ).catch((err) => {
+                console.warn(`[ws] Failed to persist image to gallery: ${err}`);
+              });
+            }
+          } else if (msg.imageId && this.galleryStore) {
+            this.galleryStore.getImageAsBase64(msg.imageId).then((imageData) => {
+              if (imageData) {
+                codexProc.sendInputWithImage(text, imageData);
+              } else {
+                console.warn(`[ws] Image not found: ${msg.imageId}`);
+                codexProc.sendInput(text);
+              }
+            }).catch((err) => {
+              console.error(`[ws] Failed to load image: ${err}`);
+              codexProc.sendInput(text);
+            });
+          } else {
+            codexProc.sendInput(text);
+          }
           break;
         }
 
