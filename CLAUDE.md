@@ -235,6 +235,17 @@ cd apps/mobile/build/web && python3 -m http.server 8888
 
 **注意**: ビルド更新後はブラウザキャッシュをクリア (Cmd+Shift+R) してリロードすること。
 
+## カスタムサブエージェント
+
+`.claude/agents/` にプロジェクト固有のサブエージェントを定義している。
+
+| エージェント | モデル | メモリ | 説明 |
+|-------------|--------|--------|------|
+| code-reviewer | opus | local | コードレビュー専門。`/self-review` スキルから利用 |
+| e2e-verifier | opus | local | E2E動作検証。`/mobile-automation` スキルから利用 |
+
+サブエージェントは独立したコンテキストで実行され、永続メモリ（`.claude/agent-memory-local/`）にプロジェクト固有の知識を蓄積する。
+
 ## カスタムスキル
 
 `.claude/skills/` にプロジェクト固有のスキル (スラッシュコマンド) を配置している。
