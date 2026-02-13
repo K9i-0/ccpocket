@@ -29,7 +29,16 @@ class DiffScreen extends StatelessWidget {
   /// Display title (e.g. file path for individual diff).
   final String? title;
 
-  const DiffScreen({super.key, this.initialDiff, this.projectPath, this.title});
+  /// Pre-selected hunk keys to restore selection state.
+  final Set<String>? initialSelectedHunkKeys;
+
+  const DiffScreen({
+    super.key,
+    this.initialDiff,
+    this.projectPath,
+    this.title,
+    this.initialSelectedHunkKeys,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +47,7 @@ class DiffScreen extends StatelessWidget {
         bridge: ctx.read<BridgeService>(),
         initialDiff: initialDiff,
         projectPath: projectPath,
+        initialSelectedHunkKeys: initialSelectedHunkKeys,
       ),
       child: _DiffScreenBody(title: title),
     );
@@ -67,11 +77,14 @@ class _DiffScreenBody extends StatelessWidget {
           if (state.files.isNotEmpty)
             IconButton(
               icon: Icon(
-                state.selectionMode
-                    ? Icons.check_box
-                    : Icons.check_box_outline_blank,
+                Icons.alternate_email,
+                color: state.selectionMode
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
               ),
-              tooltip: state.selectionMode ? 'Cancel selection' : 'Select',
+              tooltip: state.selectionMode
+                  ? 'Cancel selection'
+                  : 'Select & attach',
               onPressed: cubit.toggleSelectionMode,
             ),
           // Filter (hidden during selection mode)
@@ -88,14 +101,14 @@ class _DiffScreenBody extends StatelessWidget {
           ? FloatingActionButton.extended(
               key: const ValueKey('send_to_chat_fab'),
               onPressed: () {
-                final diffText = reconstructDiff(
+                final selection = reconstructDiff(
                   state.files,
                   state.selectedHunkKeys,
                 );
-                Navigator.pop<String>(context, diffText);
+                Navigator.pop<DiffSelection>(context, selection);
               },
-              icon: const Icon(Icons.send),
-              label: Text('Send (${state.selectedHunkKeys.length})'),
+              icon: const Icon(Icons.attach_file),
+              label: Text(_buildAttachLabel(cubit.selectionSummary)),
             )
           : null,
       body: state.loading
@@ -118,6 +131,17 @@ class _DiffScreenBody extends StatelessWidget {
               isFilePartiallySelected: cubit.isFilePartiallySelected,
             ),
     );
+  }
+
+  String _buildAttachLabel(({int files, int hunks}) summary) {
+    final parts = <String>[];
+    if (summary.files > 0) {
+      parts.add('${summary.files} file${summary.files > 1 ? 's' : ''}');
+    }
+    if (summary.hunks > 0) {
+      parts.add('${summary.hunks} hunk${summary.hunks > 1 ? 's' : ''}');
+    }
+    return 'Attach ${parts.join(', ')}';
   }
 
   void _showFilterBottomSheet(

@@ -17,6 +17,7 @@ import '../../widgets/message_bubble.dart';
 import '../../widgets/plan_detail_sheet.dart';
 import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
+import '../../utils/diff_parser.dart';
 import '../diff/diff_screen.dart';
 import '../gallery/gallery_screen.dart';
 import 'state/chat_session_cubit.dart';
@@ -215,8 +216,8 @@ class _ChatScreenBody extends HookWidget {
     // Clear context toggle for plan approval
     final clearContext = useState(false);
 
-    // Diff context from DiffScreen navigation
-    final diffContextFromNav = useState<String?>(null);
+    // Diff selection from DiffScreen navigation
+    final diffSelectionFromNav = useState<DiffSelection?>(null);
 
     // --- Bloc state ---
     final sessionState = context.watch<ChatSessionCubit>().state;
@@ -378,19 +379,12 @@ class _ChatScreenBody extends HookWidget {
                       minWidth: 36,
                       minHeight: 36,
                     ),
-                    onPressed: () async {
-                      final diffContext = await Navigator.push<String>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DiffScreen(
-                            projectPath: worktreePath ?? projectPath,
-                          ),
-                        ),
-                      );
-                      if (diffContext != null && diffContext.isNotEmpty) {
-                        diffContextFromNav.value = diffContext;
-                      }
-                    },
+                    onPressed: () => _openDiffScreen(
+                      context,
+                      worktreePath ?? projectPath!,
+                      diffSelectionFromNav,
+                      existingSelection: diffSelectionFromNav.value,
+                    ),
                   ),
                 // 3. Screenshot
                 if (projectPath != null)
@@ -557,9 +551,21 @@ class _ChatScreenBody extends HookWidget {
                     status: status,
                     onScrollToBottom: scroll.scrollToBottom,
                     inputController: chatInputController,
-                    initialDiffContext: diffContextFromNav.value,
-                    onDiffContextConsumed: () =>
-                        diffContextFromNav.value = null,
+                    initialDiffSelection: diffSelectionFromNav.value,
+                    onDiffSelectionConsumed: () {
+                      // Don't null — keep for AppBar navigation.
+                      // The value is cleared via onDiffSelectionCleared.
+                    },
+                    onDiffSelectionCleared: () =>
+                        diffSelectionFromNav.value = null,
+                    onOpenDiffScreen: projectPath != null
+                        ? (currentSelection) => _openDiffScreen(
+                            context,
+                            worktreePath ?? projectPath!,
+                            diffSelectionFromNav,
+                            existingSelection: currentSelection,
+                          )
+                        : null,
                   ),
               ],
             ),
@@ -567,6 +573,33 @@ class _ChatScreenBody extends HookWidget {
         ),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Navigation helpers
+// ---------------------------------------------------------------------------
+
+Future<void> _openDiffScreen(
+  BuildContext context,
+  String projectPath,
+  ValueNotifier<DiffSelection?> diffSelectionNotifier, {
+  DiffSelection? existingSelection,
+}) async {
+  final selection = await Navigator.push<DiffSelection>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => DiffScreen(
+        projectPath: projectPath,
+        initialSelectedHunkKeys: existingSelection?.selectedHunkKeys,
+      ),
+    ),
+  );
+  if (selection != null && !selection.isEmpty) {
+    diffSelectionNotifier.value = selection;
+  } else if (selection != null && selection.isEmpty) {
+    // User cleared all selections
+    diffSelectionNotifier.value = null;
   }
 }
 

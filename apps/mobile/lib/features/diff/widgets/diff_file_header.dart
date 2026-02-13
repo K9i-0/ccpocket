@@ -27,8 +27,11 @@ class DiffFileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final stats = file.stats;
+    // In selection mode: tap on the row toggles selection,
+    // only the chevron icon toggles collapse.
+    // In normal mode: tap anywhere toggles collapse.
     return GestureDetector(
-      onTap: onToggleCollapse,
+      onTap: selectionMode ? onToggleSelection : onToggleCollapse,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -42,6 +45,7 @@ class DiffFileHeader extends StatelessWidget {
                 width: 24,
                 height: 24,
                 child: Checkbox(
+                  // tristate: null = partially selected
                   value: partiallySelected ? null : selected,
                   tristate: true,
                   onChanged: onToggleSelection != null
@@ -95,11 +99,22 @@ class DiffFileHeader extends StatelessWidget {
                 ),
               ),
             const SizedBox(width: 8),
-            Icon(
-              collapsed ? Icons.chevron_right : Icons.expand_more,
-              size: 20,
-              color: appColors.subtleText,
-            ),
+            // In selection mode, chevron toggles collapse independently.
+            if (selectionMode)
+              GestureDetector(
+                onTap: onToggleCollapse,
+                child: Icon(
+                  collapsed ? Icons.chevron_right : Icons.expand_more,
+                  size: 20,
+                  color: appColors.subtleText,
+                ),
+              )
+            else
+              Icon(
+                collapsed ? Icons.chevron_right : Icons.expand_more,
+                size: 20,
+                color: appColors.subtleText,
+              ),
           ],
         ),
       ),

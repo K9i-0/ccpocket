@@ -8,6 +8,7 @@ import 'package:super_clipboard/super_clipboard.dart';
 import '../../../hooks/use_voice_input.dart';
 import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
+import '../../../utils/diff_parser.dart';
 import '../../../widgets/chat_input_bar.dart';
 import '../../../widgets/file_mention_overlay.dart';
 import '../../../widgets/slash_command_overlay.dart';
@@ -27,11 +28,17 @@ class ChatInputWithOverlays extends HookWidget {
   final VoidCallback onScrollToBottom;
   final TextEditingController inputController;
 
-  /// Diff context to attach (set by parent when returning from DiffScreen).
-  final String? initialDiffContext;
+  /// Diff selection to attach (set by parent when returning from DiffScreen).
+  final DiffSelection? initialDiffSelection;
 
-  /// Called after the diff context is consumed into local state.
-  final VoidCallback? onDiffContextConsumed;
+  /// Called after the diff selection is consumed into local state.
+  final VoidCallback? onDiffSelectionConsumed;
+
+  /// Called when the diff selection is cleared (sent or manually removed).
+  final VoidCallback? onDiffSelectionCleared;
+
+  /// Opens the diff screen with current selection state.
+  final void Function(DiffSelection? currentSelection)? onOpenDiffScreen;
 
   const ChatInputWithOverlays({
     super.key,
@@ -39,8 +46,10 @@ class ChatInputWithOverlays extends HookWidget {
     required this.status,
     required this.onScrollToBottom,
     required this.inputController,
-    this.initialDiffContext,
-    this.onDiffContextConsumed,
+    this.initialDiffSelection,
+    this.onDiffSelectionConsumed,
+    this.onDiffSelectionCleared,
+    this.onOpenDiffScreen,
   });
 
   @override
@@ -66,17 +75,17 @@ class ChatInputWithOverlays extends HookWidget {
     final attachedImage = useState<Uint8List?>(null);
     final attachedMimeType = useState<String?>(null);
 
-    // Diff context attachment state
-    final attachedDiffContext = useState<String?>(null);
+    // Diff selection attachment state
+    final attachedDiffSelection = useState<DiffSelection?>(null);
 
-    // Consume initialDiffContext from parent
+    // Consume initialDiffSelection from parent
     useEffect(() {
-      if (initialDiffContext != null && initialDiffContext!.isNotEmpty) {
-        attachedDiffContext.value = initialDiffContext;
-        onDiffContextConsumed?.call();
+      if (initialDiffSelection != null && !initialDiffSelection!.isEmpty) {
+        attachedDiffSelection.value = initialDiffSelection;
+        onDiffSelectionConsumed?.call();
       }
       return null;
-    }, [initialDiffContext]);
+    }, [initialDiffSelection]);
 
     // Project files for @-mention
     final projectFiles = context.watch<FileListCubit>().state;
@@ -167,7 +176,7 @@ class ChatInputWithOverlays extends HookWidget {
       final text = inputController.text.trim();
       if (text.isEmpty &&
           attachedImage.value == null &&
-          attachedDiffContext.value == null) {
+          attachedDiffSelection.value == null) {
         return;
       }
       HapticFeedback.lightImpact();
@@ -185,20 +194,33 @@ class ChatInputWithOverlays extends HookWidget {
         attachedMimeType.value = null;
       }
 
-      // Capture and clear diff context
-      String? diffContext;
-      if (attachedDiffContext.value != null) {
-        diffContext = attachedDiffContext.value;
-        attachedDiffContext.value = null;
+      // Capture and clear diff selection
+      DiffSelection? selection;
+      if (attachedDiffSelection.value != null) {
+        selection = attachedDiffSelection.value;
+        attachedDiffSelection.value = null;
+        onDiffSelectionCleared?.call();
       }
 
-      // Build final message text with diff block prepended
+      // Build final message text with @mentions and/or diff block prepended
       var finalText = text;
-      if (diffContext != null) {
-        final diffBlock = '```diff\n$diffContext\n```';
-        finalText = finalText.isEmpty
-            ? diffBlock
-            : '$diffBlock\n\n$finalText';
+      if (selection != null) {
+        final parts = <String>[];
+
+        // @mentions for fully selected files
+        if (selection.mentions.isNotEmpty) {
+          parts.add(selection.mentions.map((f) => '@$f').join(' '));
+        }
+
+        // Diff block for partially selected hunks
+        if (selection.diffText.isNotEmpty) {
+          parts.add('```diff\n${selection.diffText}\n```');
+        }
+
+        if (parts.isNotEmpty) {
+          final prefix = parts.join('\n\n');
+          finalText = finalText.isEmpty ? prefix : '$prefix\n\n$finalText';
+        }
       }
 
       cubit.sendMessage(
@@ -353,8 +375,9 @@ class ChatInputWithOverlays extends HookWidget {
       attachedMimeType.value = null;
     }
 
-    void clearDiffContext() {
-      attachedDiffContext.value = null;
+    void clearDiffSelection() {
+      attachedDiffSelection.value = null;
+      onDiffSelectionCleared?.call();
     }
 
     void stopSession() {
@@ -420,7 +443,7 @@ class ChatInputWithOverlays extends HookWidget {
             hasInputText:
                 hasInputText.value ||
                 attachedImage.value != null ||
-                attachedDiffContext.value != null,
+                attachedDiffSelection.value != null,
             isVoiceAvailable: voice.isAvailable,
             isRecording: voice.isRecording,
             onSend: sendMessage,
@@ -431,8 +454,11 @@ class ChatInputWithOverlays extends HookWidget {
             onAttachImage: showAttachOptions,
             attachedImageBytes: attachedImage.value,
             onClearAttachment: clearAttachment,
-            attachedDiffContext: attachedDiffContext.value,
-            onClearDiffContext: clearDiffContext,
+            attachedDiffSelection: attachedDiffSelection.value,
+            onClearDiffSelection: clearDiffSelection,
+            onTapDiffPreview: onOpenDiffScreen != null
+                ? () => onOpenDiffScreen!(attachedDiffSelection.value)
+                : null,
           ),
         ),
       ),

@@ -20,16 +20,27 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     required BridgeService bridge,
     String? initialDiff,
     String? projectPath,
+    Set<String>? initialSelectedHunkKeys,
   }) : _bridge = bridge,
-       super(_initialState(initialDiff, projectPath)) {
+       super(_initialState(initialDiff, projectPath, initialSelectedHunkKeys)) {
     if (projectPath != null) {
-      _requestDiff(projectPath);
+      _requestDiff(projectPath, initialSelectedHunkKeys);
     }
   }
 
-  static DiffViewState _initialState(String? initialDiff, String? projectPath) {
+  static DiffViewState _initialState(
+    String? initialDiff,
+    String? projectPath,
+    Set<String>? initialSelectedHunkKeys,
+  ) {
+    final hasSelection =
+        initialSelectedHunkKeys != null && initialSelectedHunkKeys.isNotEmpty;
     if (initialDiff != null) {
-      return DiffViewState(files: parseDiff(initialDiff));
+      return DiffViewState(
+        files: parseDiff(initialDiff),
+        selectionMode: hasSelection,
+        selectedHunkKeys: initialSelectedHunkKeys ?? const {},
+      );
     }
     if (projectPath != null) {
       return const DiffViewState(loading: true);
@@ -37,14 +48,23 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     return const DiffViewState();
   }
 
-  void _requestDiff(String projectPath) {
+  void _requestDiff(String projectPath, Set<String>? initialSelectedHunkKeys) {
+    final hasSelection =
+        initialSelectedHunkKeys != null && initialSelectedHunkKeys.isNotEmpty;
     _diffSub = _bridge.diffResults.listen((result) {
       if (result.error != null) {
         emit(state.copyWith(loading: false, error: result.error));
       } else if (result.diff.trim().isEmpty) {
         emit(state.copyWith(loading: false, files: []));
       } else {
-        emit(state.copyWith(loading: false, files: parseDiff(result.diff)));
+        emit(
+          state.copyWith(
+            loading: false,
+            files: parseDiff(result.diff),
+            selectionMode: hasSelection,
+            selectedHunkKeys: initialSelectedHunkKeys ?? const {},
+          ),
+        );
       }
     });
     _bridge.send(ClientMessage.getDiff(projectPath));
@@ -154,6 +174,25 @@ class DiffViewCubit extends Cubit<DiffViewState> {
 
   /// Whether any hunk is selected.
   bool get hasAnySelection => state.selectedHunkKeys.isNotEmpty;
+
+  /// Count of fully selected files and partially selected hunk count.
+  /// Returns (fullySelectedFiles, partialHunks).
+  ({int files, int hunks}) get selectionSummary {
+    var fullFiles = 0;
+    var partialHunks = 0;
+    for (var i = 0; i < state.files.length; i++) {
+      final file = state.files[i];
+      final keys = List.generate(file.hunks.length, (h) => '$i:$h');
+      final selected = keys.where(state.selectedHunkKeys.contains).length;
+      if (selected == 0) continue;
+      if (selected == file.hunks.length) {
+        fullFiles++;
+      } else {
+        partialHunks += selected;
+      }
+    }
+    return (files: fullFiles, hunks: partialHunks);
+  }
 
   @override
   Future<void> close() {

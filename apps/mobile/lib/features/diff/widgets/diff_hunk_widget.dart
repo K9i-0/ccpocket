@@ -21,46 +21,53 @@ class DiffHunkWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (hunk.header.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            color: appColors.codeBackground,
-            child: Row(
-              children: [
-                if (selectionMode) ...[
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: Checkbox(
-                      value: selected,
-                      onChanged: onToggleSelection != null
-                          ? (_) => onToggleSelection!()
-                          : null,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
+    return GestureDetector(
+      onTap: selectionMode ? onToggleSelection : null,
+      behavior: selectionMode
+          ? HitTestBehavior.opaque
+          : HitTestBehavior.deferToChild,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (hunk.header.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              color: appColors.codeBackground,
+              child: Row(
+                children: [
+                  if (selectionMode) ...[
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: Checkbox(
+                        value: selected,
+                        onChanged: onToggleSelection != null
+                            ? (_) => onToggleSelection!()
+                            : null,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Expanded(
+                    child: Text(
+                      hunk.header,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                        color: appColors.subtleText,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 6),
                 ],
-                Expanded(
-                  child: Text(
-                    hunk.header,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      color: appColors.subtleText,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        for (final line in hunk.lines) DiffLineWidget(line: line),
-        const SizedBox(height: 4),
-      ],
+          for (final line in hunk.lines)
+            DiffLineWidget(line: line, absorb: selectionMode),
+          const SizedBox(height: 4),
+        ],
+      ),
     );
   }
 }
@@ -68,7 +75,11 @@ class DiffHunkWidget extends StatelessWidget {
 class DiffLineWidget extends StatelessWidget {
   final DiffLine line;
 
-  const DiffLineWidget({super.key, required this.line});
+  /// When true, tap is handled by the parent (hunk selection) so this widget
+  /// only keeps long-press for copy.
+  final bool absorb;
+
+  const DiffLineWidget({super.key, required this.line, this.absorb = false});
 
   @override
   Widget build(BuildContext context) {

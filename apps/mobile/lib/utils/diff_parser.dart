@@ -339,9 +339,37 @@ DiffHunk _parseRawDiffLines(List<String> lines) {
 /// [files] is the full list of parsed diff files.
 /// [selectedHunkKeys] contains keys in the format "$fileIdx:$hunkIdx".
 /// Returns a valid unified diff string suitable for embedding in a code block.
-String reconstructDiff(List<DiffFile> files, Set<String> selectedHunkKeys) {
-  if (selectedHunkKeys.isEmpty) return '';
+/// Result of [reconstructDiff] containing @-mentions for fully selected files
+/// and unified diff text for partially selected files.
+class DiffSelection {
+  /// File paths where all hunks are selected (use @mention).
+  final List<String> mentions;
 
+  /// Unified diff text for files with partial hunk selection.
+  final String diffText;
+
+  /// Original hunk keys for restoring selection state when re-entering
+  /// the diff screen.
+  final Set<String> selectedHunkKeys;
+
+  const DiffSelection({
+    required this.mentions,
+    required this.diffText,
+    this.selectedHunkKeys = const {},
+  });
+
+  bool get isEmpty => mentions.isEmpty && diffText.isEmpty;
+}
+
+DiffSelection reconstructDiff(
+  List<DiffFile> files,
+  Set<String> selectedHunkKeys,
+) {
+  if (selectedHunkKeys.isEmpty) {
+    return const DiffSelection(mentions: [], diffText: '');
+  }
+
+  final mentions = <String>[];
   final buffer = StringBuffer();
 
   for (var fileIdx = 0; fileIdx < files.length; fileIdx++) {
@@ -355,6 +383,12 @@ String reconstructDiff(List<DiffFile> files, Set<String> selectedHunkKeys) {
       }
     }
     if (selectedHunks.isEmpty) continue;
+
+    // If all hunks are selected, use @mention instead of diff text.
+    if (selectedHunks.length == file.hunks.length && !file.isBinary) {
+      mentions.add(file.filePath);
+      continue;
+    }
 
     // File header
     buffer.writeln('diff --git a/${file.filePath} b/${file.filePath}');
@@ -385,7 +419,11 @@ String reconstructDiff(List<DiffFile> files, Set<String> selectedHunkKeys) {
     }
   }
 
-  return buffer.toString().trimRight();
+  return DiffSelection(
+    mentions: mentions,
+    diffText: buffer.toString().trimRight(),
+    selectedHunkKeys: Set<String>.from(selectedHunkKeys),
+  );
 }
 
 /// Extract file path from `diff --git a/path b/path`.

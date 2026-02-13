@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../models/messages.dart';
+import '../utils/diff_parser.dart';
 
 /// Bottom input bar with slash-command button, text field, and action buttons.
 ///
@@ -21,8 +22,9 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback? onAttachImage;
   final Uint8List? attachedImageBytes;
   final VoidCallback? onClearAttachment;
-  final String? attachedDiffContext;
-  final VoidCallback? onClearDiffContext;
+  final DiffSelection? attachedDiffSelection;
+  final VoidCallback? onClearDiffSelection;
+  final VoidCallback? onTapDiffPreview;
 
   const ChatInputBar({
     super.key,
@@ -39,8 +41,9 @@ class ChatInputBar extends StatelessWidget {
     this.onAttachImage,
     this.attachedImageBytes,
     this.onClearAttachment,
-    this.attachedDiffContext,
-    this.onClearDiffContext,
+    this.attachedDiffSelection,
+    this.onClearDiffSelection,
+    this.onTapDiffPreview,
   });
 
   @override
@@ -66,7 +69,7 @@ class ChatInputBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (attachedDiffContext != null) _buildDiffPreview(cs),
+          if (attachedDiffSelection != null) _buildDiffPreview(cs),
           if (attachedImageBytes != null) _buildImagePreview(cs),
           _buildTextField(cs),
           const SizedBox(height: 4),
@@ -170,61 +173,83 @@ class ChatInputBar extends StatelessWidget {
   }
 
   Widget _buildDiffPreview(ColorScheme cs) {
-    final lines = attachedDiffContext!.split('\n');
-    final lineCount = lines.length;
-    final preview = lines.take(3).join('\n');
+    final sel = attachedDiffSelection!;
+    final parts = <String>[];
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.difference, size: 20, color: cs.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Diff attached ($lineCount lines)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurface,
+    // Build summary
+    final summaryParts = <String>[];
+    if (sel.mentions.isNotEmpty) {
+      summaryParts.add('${sel.mentions.length} file(s) @mentioned');
+    }
+    if (sel.diffText.isNotEmpty) {
+      final lineCount = sel.diffText.split('\n').length;
+      summaryParts.add('$lineCount diff lines');
+    }
+    final summary = summaryParts.join(', ');
+
+    // Build preview text
+    if (sel.mentions.isNotEmpty) {
+      parts.addAll(sel.mentions.map((f) => '@$f'));
+    }
+    if (sel.diffText.isNotEmpty) {
+      parts.add(sel.diffText.split('\n').take(2).join('\n'));
+    }
+    final preview = parts.join('\n');
+
+    return GestureDetector(
+      onTap: onTapDiffPreview,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outline.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.difference, size: 20, color: cs.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    summary,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  preview,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontFamily: 'monospace',
-                    color: cs.onSurface.withValues(alpha: 0.6),
+                  const SizedBox(height: 2),
+                  Text(
+                    preview,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: onClearDiffContext,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                shape: BoxShape.circle,
+                ],
               ),
-              padding: const EdgeInsets.all(4),
-              child: const Icon(Icons.close, size: 14, color: Colors.white),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: onClearDiffSelection,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(4),
+                child: const Icon(Icons.close, size: 14, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
