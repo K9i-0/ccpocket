@@ -27,6 +27,7 @@ class HomeContent extends StatefulWidget {
     String? projectPath,
     String? gitBranch,
     String? worktreePath,
+    String? provider,
   })
   onTapRunning;
   final ValueChanged<String> onStopSession;
@@ -142,6 +143,7 @@ class _HomeContentState extends State<HomeContent> {
                     ? session.worktreeBranch
                     : session.gitBranch,
                 worktreePath: session.worktreePath,
+                provider: session.provider,
               ),
               onStop: () => widget.onStopSession(session.id),
             ),

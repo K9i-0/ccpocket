@@ -19,6 +19,7 @@ import '../../services/connection_url_parser.dart';
 import '../../services/server_discovery_service.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../chat/chat_screen.dart';
+import '../chat_codex/codex_chat_screen.dart';
 import '../gallery/gallery_screen.dart';
 import '../settings/settings_screen.dart';
 import 'state/session_list_cubit.dart';
@@ -110,6 +111,11 @@ class _SessionListScreenState extends State<SessionListScreen> {
   // Flag: already navigated to chat for pending session creation
   bool _pendingNavigation = false;
 
+  // Notifier for session_created that fires before chat screen listens.
+  // When session_created arrives while _pendingNavigation is true,
+  // we store the message here so the chat screen can replay it.
+  final _pendingSessionCreated = ValueNotifier<SystemMessage?>(null);
+
   // Only subscription that remains: session_created navigation
   StreamSubscription<ServerMessage>? _messageSub;
 
@@ -126,8 +132,9 @@ class _SessionListScreenState extends State<SessionListScreen> {
         bridge.requestSessionList();
         if (msg.sessionId != null) {
           if (_pendingNavigation) {
-            // Already navigated to chat screen; it will pick up session_created
+            // Chat screen may not have its listener yet — store for replay.
             _pendingNavigation = false;
+            _pendingSessionCreated.value = msg;
           } else {
             _navigateToChat(
               msg.sessionId!,
@@ -397,6 +404,25 @@ class _SessionListScreenState extends State<SessionListScreen> {
     context.read<SessionListCubit>().refresh();
   }
 
+  void _testCodexSession() {
+    final bridge = context.read<BridgeService>();
+    const projectPath = '/Users/k9i-mini/Workspace/ccpocket';
+    bridge.send(
+      ClientMessage.start(
+        projectPath,
+        provider: 'codex',
+      ),
+    );
+    final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
+    _pendingNavigation = true;
+    _navigateToChat(
+      pendingId,
+      projectPath: projectPath,
+      isPending: true,
+      provider: Provider.codex,
+    );
+  }
+
   void _showNewSessionDialog() async {
     final sessions =
         widget.debugRecentSessions ??
@@ -415,10 +441,14 @@ class _SessionListScreenState extends State<SessionListScreen> {
     bridge.send(
       ClientMessage.start(
         result.projectPath,
-        permissionMode: result.permissionMode.value,
+        permissionMode: result.provider == Provider.claude
+            ? result.permissionMode.value
+            : null,
         useWorktree: result.useWorktree ? true : null,
         worktreeBranch: result.worktreeBranch,
         existingWorktreePath: result.existingWorktreePath,
+        provider: result.provider.value,
+        model: result.model,
       ),
     );
     // Navigate immediately to chat with pending state
@@ -428,6 +458,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
       pendingId,
       projectPath: result.projectPath,
       isPending: true,
+      provider: result.provider,
     );
   }
 
@@ -437,19 +468,33 @@ class _SessionListScreenState extends State<SessionListScreen> {
     String? gitBranch,
     String? worktreePath,
     bool isPending = false,
+    Provider? provider,
   }) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ChatScreen(
-          sessionId: sessionId,
-          projectPath: projectPath,
-          gitBranch: gitBranch,
-          worktreePath: worktreePath,
-          isPending: isPending,
-        ),
-      ),
-    ).then((_) {
+    // Reset the notifier for this navigation.
+    if (isPending) {
+      _pendingSessionCreated.value = null;
+    }
+    final Widget screen;
+    if (provider == Provider.codex) {
+      screen = CodexChatScreen(
+        sessionId: sessionId,
+        projectPath: projectPath,
+        isPending: isPending,
+        pendingSessionCreated: isPending ? _pendingSessionCreated : null,
+      );
+    } else {
+      screen = ChatScreen(
+        sessionId: sessionId,
+        projectPath: projectPath,
+        gitBranch: gitBranch,
+        worktreePath: worktreePath,
+        isPending: isPending,
+        pendingSessionCreated: isPending ? _pendingSessionCreated : null,
+      );
+    }
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen)).then((
+      _,
+    ) {
       if (!mounted) return;
       final isConnected =
           context.read<ConnectionCubit>().state ==
@@ -545,6 +590,13 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 ),
                 tooltip: 'Mock Preview',
               ),
+            if (kDebugMode && showConnectedUI)
+              IconButton(
+                key: const ValueKey('test_codex_button'),
+                icon: const Icon(Icons.bug_report),
+                onPressed: _testCodexSession,
+                tooltip: 'Test Codex Session',
+              ),
             if (showConnectedUI)
               IconButton(
                 key: const ValueKey('gallery_button'),
@@ -588,11 +640,13 @@ class _SessionListScreenState extends State<SessionListScreen> {
                         String? projectPath,
                         String? gitBranch,
                         String? worktreePath,
+                        String? provider,
                       }) => _navigateToChat(
                         sessionId,
                         projectPath: projectPath,
                         gitBranch: gitBranch,
                         worktreePath: worktreePath,
+                        provider: provider == 'codex' ? Provider.codex : null,
                       ),
                   onStopSession: _stopSession,
                   onResumeSession: _resumeSession,

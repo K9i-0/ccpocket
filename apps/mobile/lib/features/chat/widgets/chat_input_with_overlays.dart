@@ -40,6 +40,9 @@ class ChatInputWithOverlays extends HookWidget {
   /// Opens the diff screen with current selection state.
   final void Function(DiffSelection? currentSelection)? onOpenDiffScreen;
 
+  /// Custom hint text for the input field (e.g. provider-specific).
+  final String? hintText;
+
   const ChatInputWithOverlays({
     super.key,
     required this.sessionId,
@@ -50,6 +53,7 @@ class ChatInputWithOverlays extends HookWidget {
     this.onDiffSelectionConsumed,
     this.onDiffSelectionCleared,
     this.onOpenDiffScreen,
+    this.hintText,
   });
 
   @override
@@ -459,6 +463,7 @@ class ChatInputWithOverlays extends HookWidget {
             onTapDiffPreview: onOpenDiffScreen != null
                 ? () => onOpenDiffScreen!(attachedDiffSelection.value)
                 : null,
+            hintText: hintText,
           ),
         ),
       ),

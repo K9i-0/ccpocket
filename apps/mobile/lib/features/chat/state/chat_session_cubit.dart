@@ -17,6 +17,7 @@ import 'streaming_state_cubit.dart';
 /// applied to the immutable [ChatSessionState].
 class ChatSessionCubit extends Cubit<ChatSessionState> {
   final String sessionId;
+  final Provider? provider;
   final BridgeService _bridge;
   final StreamingStateCubit _streamingCubit;
   final ChatMessageHandler _handler = ChatMessageHandler();
@@ -30,8 +31,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// completes ([ResultMessage]).
   final _respondedToolUseIds = <String>{};
 
+  /// Whether this session is a Codex session.
+  bool get isCodex => provider == Provider.codex;
+
   ChatSessionCubit({
     required this.sessionId,
+    this.provider,
     required BridgeService bridge,
     required StreamingStateCubit streamingCubit,
   }) : _bridge = bridge,

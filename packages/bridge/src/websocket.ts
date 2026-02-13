@@ -3,6 +3,7 @@ import { execFile, execFileSync } from "node:child_process";
 import { unlink } from "node:fs/promises";
 import { WebSocketServer, WebSocket } from "ws";
 import { SessionManager, type SessionInfo } from "./session.js";
+import type { SdkProcess } from "./sdk-process.js";
 import { parseClientMessage, type ClientMessage, type ServerMessage } from "./parser.js";
 import { getAllRecentSessions, getSessionHistory } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
@@ -123,7 +124,8 @@ export class BridgeWebSocketServer {
   private handleClientMessage(msg: ClientMessage, ws: WebSocket): void {
     switch (msg.type) {
       case "start": {
-        const cached = this.sessionManager.getCachedCommands(msg.projectPath);
+        const provider = msg.provider ?? "claude";
+        const cached = provider === "claude" ? this.sessionManager.getCachedCommands(msg.projectPath) : undefined;
         const sessionId = this.sessionManager.create(
           msg.projectPath,
           {
@@ -137,6 +139,15 @@ export class BridgeWebSocketServer {
             worktreeBranch: msg.worktreeBranch,
             existingWorktreePath: msg.existingWorktreePath,
           },
+          provider,
+          provider === "codex"
+            ? {
+                approvalPolicy: (msg.approvalPolicy as "never" | "on-request" | "on-failure" | "untrusted") ?? undefined,
+                sandboxMode: (msg.sandboxMode as "read-only" | "workspace-write" | "danger-full-access") ?? undefined,
+                model: msg.model,
+                threadId: msg.sessionId,
+              }
+            : undefined,
         );
         const createdSession = this.sessionManager.get(sessionId);
         this.send(ws, {
@@ -162,10 +173,17 @@ export class BridgeWebSocketServer {
         }
         const text = msg.text;
 
+        // Codex: text-only input (no image support via SDK)
+        if (session.provider === "codex") {
+          session.process.sendInput(text);
+          break;
+        }
+
         // Priority 1: Direct Base64 image (simplified flow)
+        const claudeProc = session.process as SdkProcess;
         if (msg.imageBase64 && msg.mimeType) {
           console.log(`[ws] Sending message with inline Base64 image (${msg.mimeType})`);
-          session.process.sendInputWithImage(text, {
+          claudeProc.sendInputWithImage(text, {
             base64: msg.imageBase64,
             mimeType: msg.mimeType,
           });
@@ -185,7 +203,7 @@ export class BridgeWebSocketServer {
         else if (msg.imageId && this.galleryStore) {
           this.galleryStore.getImageAsBase64(msg.imageId).then((imageData) => {
             if (imageData) {
-              session.process.sendInputWithImage(text, imageData);
+              claudeProc.sendInputWithImage(text, imageData);
             } else {
               console.warn(`[ws] Image not found: ${msg.imageId}`);
               session.process.sendInput(text);
@@ -208,7 +226,11 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "No active session." });
           return;
         }
-        session.process.approve(msg.id, msg.updatedInput, msg.clearContext);
+        if (session.provider === "codex") {
+          this.send(ws, { type: "error", message: "Codex sessions do not support approval" });
+          return;
+        }
+        (session.process as SdkProcess).approve(msg.id, msg.updatedInput, msg.clearContext);
         break;
       }
 
@@ -218,7 +240,11 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "No active session." });
           return;
         }
-        session.process.approveAlways(msg.id);
+        if (session.provider === "codex") {
+          this.send(ws, { type: "error", message: "Codex sessions do not support approval" });
+          return;
+        }
+        (session.process as SdkProcess).approveAlways(msg.id);
         break;
       }
 
@@ -228,7 +254,11 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "No active session." });
           return;
         }
-        session.process.reject(msg.id, msg.message);
+        if (session.provider === "codex") {
+          this.send(ws, { type: "error", message: "Codex sessions do not support rejection" });
+          return;
+        }
+        (session.process as SdkProcess).reject(msg.id, msg.message);
         break;
       }
 
@@ -238,7 +268,11 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "No active session." });
           return;
         }
-        session.process.answer(msg.toolUseId, msg.result);
+        if (session.provider === "codex") {
+          this.send(ws, { type: "error", message: "Codex sessions do not support answer" });
+          return;
+        }
+        (session.process as SdkProcess).answer(msg.toolUseId, msg.result);
         break;
       }
 

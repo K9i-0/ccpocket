@@ -25,6 +25,7 @@ class ChatInputBar extends StatelessWidget {
   final DiffSelection? attachedDiffSelection;
   final VoidCallback? onClearDiffSelection;
   final VoidCallback? onTapDiffPreview;
+  final String? hintText;
 
   const ChatInputBar({
     super.key,
@@ -44,6 +45,7 @@ class ChatInputBar extends StatelessWidget {
     this.attachedDiffSelection,
     this.onClearDiffSelection,
     this.onTapDiffPreview,
+    this.hintText,
   });
 
   @override
@@ -259,7 +261,7 @@ class ChatInputBar extends StatelessWidget {
       key: const ValueKey('message_input'),
       controller: inputController,
       decoration: InputDecoration(
-        hintText: 'Message Claude...',
+        hintText: hintText ?? 'Message Claude...',
         filled: true,
         fillColor: cs.surfaceContainerLow,
         border: OutlineInputBorder(
