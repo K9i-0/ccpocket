@@ -140,6 +140,7 @@ enum SandboxMode {
 
 enum ApprovalPolicy {
   never('never', 'Never (Auto)'),
+  onRequest('on-request', 'On Request'),
   onFailure('on-failure', 'On Failure'),
   untrusted('untrusted', 'Untrusted');
 
