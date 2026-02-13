@@ -78,7 +78,7 @@ SDKが持つ以下の設定はUIにもBridgeにも未露出。
 以下2つのテストで検証した。
 
 1. `packages/bridge/src/sessions-index.test.ts`
-- 追加テスト: `keeps codex worktree cwd as projectPath for resume targets`
+- 追加テスト: `normalizes codex worktree projectPath and keeps resumeCwd for resume targets`
 - `~/.codex/sessions/.../*.jsonl` をテスト内で生成（`session_meta.payload.cwd = /tmp/project-a-worktrees/feature-x`）
 - `getAllRecentSessions()` の復元結果を確認
 
@@ -98,9 +98,10 @@ npm run test --workspace=packages/bridge -- src/session.test.ts src/sessions-ind
 
 ### 可能なケース
 
-- Codex履歴の `session_meta.payload.cwd` が worktree path であれば、
-  recent session の `projectPath` も worktree path になる
-- その `projectPath` を使って `resume_session` すれば、Codex はその worktree cwd で再開できる
+- Codex履歴の `session_meta.payload.cwd` が worktree path の場合でも、
+  recent session の `projectPath` は main project に正規化できる
+- worktree 実体の cwd は `resumeCwd` として別フィールド保持できる
+- `resume_session` は `resumeCwd` を優先して渡せば、Codex は worktree cwd で再開できる
 
 つまり「履歴がworktree cwdを持っている」前提なら resume 可能。
 
@@ -110,11 +111,26 @@ npm run test --workspace=packages/bridge -- src/session.test.ts src/sessions-ind
 - そのため、main project path だけ渡された場合に
   「前回の worktree を逆引きして復元」はできない
 
-### 3.3 補足リスク
+### 3.3 補足リスクと対策
 
-- Codex recent sessions の project filter は厳密一致なので、
-  main project で絞ると worktree cwd セッションは表示されない
-- UXとしては「セッションが消えたように見える」可能性がある
+- 対策前は、Codex recent sessions の project filter が厳密一致のため、
+  main project で絞ると worktree cwd セッションが消えるリスクがあった
+- 対策後は、Codex recent sessions 側でも `projectPath` を main project に正規化し、
+  filter 入力も正規化比較することで、main/worktree のどちら起点でも同一プロジェクトとして扱える
+
+### 3.4 実装履歴（2026-02-14）
+
+- Bridge:
+  `packages/bridge/src/sessions-index.ts`
+  - `SessionIndexEntry` に `resumeCwd?: string` を追加
+  - Codex JSONL parse 時に `projectPath` を `normalizeWorktreePath(...)` で正規化
+  - worktree cwd を `resumeCwd` として保持
+  - Codex project filter は正規化した `projectPath` で比較
+- Mobile:
+  `apps/mobile/lib/models/messages.dart`
+  - `RecentSession.resumeCwd` を追加
+  `apps/mobile/lib/features/session_list/session_list_screen.dart`
+  - Resume 実行時に `resumeCwd ?? projectPath` を Bridge に渡す
 
 ## 4. 実装提案（優先順）
 

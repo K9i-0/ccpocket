@@ -495,11 +495,12 @@ class _SessionListScreenState extends State<SessionListScreen> {
   }
 
   void _resumeSession(RecentSession session) {
-    _pendingResumeProjectPath = session.projectPath;
+    final resumeProjectPath = session.resumeCwd ?? session.projectPath;
+    _pendingResumeProjectPath = resumeProjectPath;
     _pendingResumeGitBranch = session.gitBranch;
     context.read<BridgeService>().resumeSession(
       session.sessionId,
-      session.projectPath,
+      resumeProjectPath,
       provider: session.provider,
       approvalPolicy: session.codexApprovalPolicy,
       sandboxMode: session.codexSandboxMode,

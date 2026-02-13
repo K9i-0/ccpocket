@@ -867,6 +867,7 @@ class RecentSession {
   final String modified;
   final String gitBranch;
   final String projectPath;
+  final String? resumeCwd;
   final bool isSidechain;
   final String? codexApprovalPolicy;
   final String? codexSandboxMode;
@@ -885,6 +886,7 @@ class RecentSession {
     required this.modified,
     required this.gitBranch,
     required this.projectPath,
+    this.resumeCwd,
     required this.isSidechain,
     this.codexApprovalPolicy,
     this.codexSandboxMode,
@@ -906,6 +908,7 @@ class RecentSession {
       modified: json['modified'] as String? ?? '',
       gitBranch: json['gitBranch'] as String? ?? '',
       projectPath: json['projectPath'] as String? ?? '',
+      resumeCwd: json['resumeCwd'] as String?,
       isSidechain: json['isSidechain'] as bool? ?? false,
       codexApprovalPolicy: codexSettings?['approvalPolicy'] as String?,
       codexSandboxMode: codexSettings?['sandboxMode'] as String?,

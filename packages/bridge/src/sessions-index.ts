@@ -12,6 +12,8 @@ export interface SessionIndexEntry {
   modified: string;
   gitBranch: string;
   projectPath: string;
+  /** Raw cwd used to resume this session (worktree path for codex, if any). */
+  resumeCwd?: string;
   isSidechain: boolean;
   codexSettings?: {
     approvalPolicy?: string;
@@ -341,6 +343,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   const lines = raw.split("\n");
   let threadId = fallbackSessionId;
   let projectPath = "";
+  let resumeCwd = "";
   let gitBranch = "";
   let created = "";
   let modified = "";
@@ -378,7 +381,8 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
           threadId = payload.id;
         }
         if (typeof payload.cwd === "string" && payload.cwd.length > 0) {
-          projectPath = payload.cwd;
+          resumeCwd = payload.cwd;
+          projectPath = normalizeWorktreePath(payload.cwd);
         }
         const git = payload.git as Record<string, unknown> | undefined;
         if (git && typeof git.branch === "string") {
@@ -478,6 +482,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       modified,
       gitBranch,
       projectPath,
+      ...(resumeCwd && resumeCwd !== projectPath ? { resumeCwd } : {}),
       isSidechain: false,
       codexSettings,
     },
@@ -487,6 +492,9 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
 async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Promise<SessionIndexEntry[]> {
   const files = await listCodexSessionFiles();
   const entries: SessionIndexEntry[] = [];
+  const normalizedProjectPath = options.projectPath
+    ? normalizeWorktreePath(options.projectPath)
+    : null;
 
   for (const filePath of files) {
     let raw: string;
@@ -498,7 +506,7 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
     const fallbackSessionId = basename(filePath, ".jsonl");
     const parsed = parseCodexSessionJsonl(raw, fallbackSessionId);
     if (!parsed) continue;
-    if (options.projectPath && parsed.entry.projectPath !== options.projectPath) {
+    if (normalizedProjectPath && parsed.entry.projectPath !== normalizedProjectPath) {
       continue;
     }
     entries.push(parsed.entry);

@@ -373,10 +373,11 @@ describe("codex sessions integration", () => {
     expect(entry).toBeDefined();
     expect(entry?.provider).toBe("codex");
     expect(entry?.projectPath).toBe("/tmp/project-a");
+    expect(entry?.resumeCwd).toBeUndefined();
     expect(entry?.firstPrompt).toBe("hello codex");
   });
 
-  it("keeps codex worktree cwd as projectPath for resume targets", async () => {
+  it("normalizes codex worktree projectPath and keeps resumeCwd for resume targets", async () => {
     const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68077";
     const mainProjectPath = "/tmp/project-a";
     const worktreePath = "/tmp/project-a-worktrees/feature-x";
@@ -413,13 +414,14 @@ describe("codex sessions integration", () => {
     const entry = sessions.find((s) => s.sessionId === threadId);
     expect(entry).toBeDefined();
     expect(entry?.provider).toBe("codex");
-    expect(entry?.projectPath).toBe(worktreePath);
+    expect(entry?.projectPath).toBe(mainProjectPath);
+    expect(entry?.resumeCwd).toBe(worktreePath);
 
     const mainFilter = await getAllRecentSessions({
       projectPath: mainProjectPath,
       limit: 200,
     });
-    expect(mainFilter.sessions.some((s) => s.sessionId === threadId)).toBe(false);
+    expect(mainFilter.sessions.some((s) => s.sessionId === threadId)).toBe(true);
 
     const worktreeFilter = await getAllRecentSessions({
       projectPath: worktreePath,

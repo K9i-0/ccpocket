@@ -84,5 +84,23 @@ void main() {
       expect(session.codexNetworkAccessEnabled, false);
       expect(session.codexWebSearchMode, 'cached');
     });
+
+    test('RecentSession parses resumeCwd for worktree resume target', () {
+      final session = RecentSession.fromJson({
+        'sessionId': 's2',
+        'provider': 'codex',
+        'firstPrompt': 'resume',
+        'messageCount': 1,
+        'created': '2026-02-13T00:00:00Z',
+        'modified': '2026-02-13T00:00:00Z',
+        'gitBranch': 'feature/x',
+        'projectPath': '/tmp/project',
+        'resumeCwd': '/tmp/project-worktrees/feature-x',
+        'isSidechain': false,
+      });
+
+      expect(session.projectPath, '/tmp/project');
+      expect(session.resumeCwd, '/tmp/project-worktrees/feature-x');
+    });
   });
 }
