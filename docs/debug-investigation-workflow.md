@@ -59,15 +59,14 @@ bundle は取得時にディスク保存される。
 
 ### 3) エージェント共有
 
-Flutter の Chat / Codex Chat から Debug Bundle を取得して共有可能にする。
+Flutter の Chat / Codex Chat から Debug Bundle を取得し、
+AIエージェント向けの調査プロンプトをクリップボードへコピーできるようにする。
 
-- AppBar に「Share Debug Bundle」アクションを追加
-- 共有テキストに以下を含める
-  - `agentPrompt`
-  - 再現ヒント (`repro_hints`)
-  - bundle JSON 本文
-- `share_plus` でワンタップ共有
-- 失敗時は SnackBar で通知
+- AppBar に「Copy for Agent」アクションを追加
+- コピー内容は軽量な調査依頼テンプレート（sessionId, path, repro情報, 変更ファイル）を優先
+- `savedBundlePath` / `traceFilePath` が取得できる場合は、AIに「そのファイルを読む」前提で案内
+- パスが取れない場合のみ fallback として bundle JSON を同梱
+- 成功/失敗は SnackBar で通知
 
 ## 次フェーズ候補
 
@@ -79,7 +78,7 @@ Flutter の Chat / Codex Chat から Debug Bundle を取得して共有可能に
 
 不具合発生時は次の手順:
 
-1. 該当チャット画面で `Share Debug Bundle` を実行
-2. 共有テキストをエージェントに貼り付け
+1. 該当チャット画面で `Copy for Agent` を実行
+2. コピーされた調査プロンプトをエージェントに貼り付け
 3. 追加で必要なら同一時点のスクリーンショットを添付
 4. エージェントは `agentPrompt` と `reproRecipe` を使って再現し、`historySummary` + `debugTrace` + `diff` から再現仮説を立てる

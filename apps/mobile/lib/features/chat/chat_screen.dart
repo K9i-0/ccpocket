@@ -397,18 +397,18 @@ class _ChatScreenBody extends HookWidget {
                   ),
                   onPressed: () => _showRewindMessageList(context),
                 ),
-                // 2. Share debug bundle
+                // 2. Copy agent investigation prompt
                 IconButton(
                   key: const ValueKey('share_debug_bundle_button'),
                   icon: const Icon(Icons.bug_report, size: 18),
-                  tooltip: 'Share Debug Bundle',
+                  tooltip: 'Copy for Agent',
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 36,
                     minHeight: 36,
                   ),
-                  onPressed: () => shareDebugBundle(context, sessionId),
+                  onPressed: () => copyDebugBundleForAgent(context, sessionId),
                 ),
                 // 3. View Changes
                 if (projectPath != null)

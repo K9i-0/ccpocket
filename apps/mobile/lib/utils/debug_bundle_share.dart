@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../models/messages.dart';
 import '../services/bridge_service.dart';
 
-Future<void> shareDebugBundle(
+Future<void> copyDebugBundleForAgent(
   BuildContext context,
   String sessionId, {
   int traceLimit = 400,
@@ -34,8 +34,13 @@ Future<void> shareDebugBundle(
 
   try {
     final bundle = await completer.future.timeout(timeout);
-    final text = buildDebugBundleShareText(bundle);
-    await SharePlus.instance.share(ShareParams(text: text));
+    final text = buildAgentInvestigationPrompt(bundle);
+    await Clipboard.setData(ClipboardData(text: text));
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Agent prompt copied. Paste it into your AI chat.'),
+      ),
+    );
   } catch (_) {
     messenger.showSnackBar(
       const SnackBar(content: Text('Failed to build debug bundle')),
@@ -45,25 +50,86 @@ Future<void> shareDebugBundle(
   }
 }
 
-String buildDebugBundleShareText(DebugBundleMessage bundle) {
-  final map = _buildDebugBundlePayload(bundle);
-  final jsonText = const JsonEncoder.withIndent('  ').convert(map);
+@Deprecated('Use copyDebugBundleForAgent instead.')
+Future<void> shareDebugBundle(
+  BuildContext context,
+  String sessionId, {
+  int traceLimit = 400,
+  bool includeDiff = true,
+  Duration timeout = const Duration(seconds: 5),
+}) {
+  return copyDebugBundleForAgent(
+    context,
+    sessionId,
+    traceLimit: traceLimit,
+    includeDiff: includeDiff,
+    timeout: timeout,
+  );
+}
+
+String buildAgentInvestigationPrompt(DebugBundleMessage bundle) {
   final recipe = bundle.reproRecipe;
   final agentPrompt = bundle.agentPrompt.isNotEmpty
       ? bundle.agentPrompt
       : _defaultAgentPrompt(bundle);
+  final files = _extractChangedFiles(bundle.diff);
+  final maxFiles = 20;
+  final shownFiles = files.take(maxFiles).toList();
+  final moreFiles = files.length - shownFiles.length;
+  final savedBundlePath = (bundle.savedBundlePath ?? '').trim();
+  final traceFilePath = (bundle.traceFilePath ?? '').trim();
+
   final lines = <String>[
-    'ccpocket debug bundle',
+    'ccpocket agent investigation prompt',
     'generatedAt: ${bundle.generatedAt}',
     'sessionId: ${bundle.sessionId}',
-    '',
-    'agent_prompt:',
-    agentPrompt,
+    'provider: ${bundle.session.provider}',
+    'projectPath: ${bundle.session.projectPath}',
+    if ((bundle.session.worktreePath ?? '').isNotEmpty)
+      'worktreePath: ${bundle.session.worktreePath}',
+    if ((bundle.session.worktreeBranch ?? '').isNotEmpty)
+      'worktreeBranch: ${bundle.session.worktreeBranch}',
+    if (savedBundlePath.isNotEmpty) 'bundlePath: $savedBundlePath',
+    if (traceFilePath.isNotEmpty) 'tracePath: $traceFilePath',
     '',
   ];
 
-  if (recipe.wsUrlHint.isNotEmpty ||
-      recipe.startBridgeCommand.isNotEmpty ||
+  lines.add('investigation_request:');
+  lines.add(
+    'Please investigate this chat issue on the remote machine using the files above.',
+  );
+  var step = 1;
+  if (savedBundlePath.isNotEmpty) {
+    lines.add(
+      '$step. Open bundlePath and inspect historySummary/debugTrace/reproRecipe.',
+    );
+    step += 1;
+  }
+  if (traceFilePath.isNotEmpty) {
+    lines.add('$step. Open tracePath and inspect timeline around the failure.');
+    step += 1;
+  }
+  if (shownFiles.isNotEmpty) {
+    lines.add('$step. Inspect these changed files if related:');
+    for (final path in shownFiles) {
+      lines.add('- $path');
+    }
+    if (moreFiles > 0) {
+      lines.add('...and $moreFiles more changed files');
+    }
+  }
+  lines.add('');
+  lines.add('expected_output:');
+  lines.add('- root-cause hypotheses (ranked)');
+  lines.add('- concrete verification steps');
+  lines.add('- minimal fix proposal');
+  lines.add('');
+  lines.add('agent_prompt:');
+  lines.add(agentPrompt);
+  lines.add('');
+
+  if (recipe.startBridgeCommand.isNotEmpty ||
+      recipe.wsUrlHint.isNotEmpty ||
       recipe.notes.isNotEmpty) {
     lines.add('repro_hints:');
     if (recipe.startBridgeCommand.isNotEmpty) {
@@ -78,8 +144,15 @@ String buildDebugBundleShareText(DebugBundleMessage bundle) {
     lines.add('');
   }
 
-  lines.add('bundle_json:');
-  lines.add(jsonText);
+  if (savedBundlePath.isEmpty && traceFilePath.isEmpty) {
+    lines.add('fallback_bundle_json:');
+    lines.add(
+      const JsonEncoder.withIndent(
+        '  ',
+      ).convert(_buildDebugBundlePayload(bundle)),
+    );
+  }
+
   return lines.join('\n');
 }
 
@@ -141,4 +214,27 @@ String _defaultAgentPrompt(DebugBundleMessage bundle) {
     'Return root-cause hypotheses and concrete verification steps.',
     'Session provider: ${bundle.session.provider}',
   ].join('\n');
+}
+
+List<String> _extractChangedFiles(String diffText) {
+  if (diffText.isEmpty) return const [];
+
+  final files = <String>{};
+  for (final line in const LineSplitter().convert(diffText)) {
+    if (!line.startsWith('diff --git a/')) {
+      continue;
+    }
+    final parts = line.split(' ');
+    if (parts.length < 4) {
+      continue;
+    }
+    var file = parts[2];
+    if (file.startsWith('a/')) {
+      file = file.substring(2);
+    }
+    if (file.isNotEmpty) {
+      files.add(file);
+    }
+  }
+  return files.toList(growable: false);
 }

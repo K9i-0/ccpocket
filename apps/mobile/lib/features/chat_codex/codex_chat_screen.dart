@@ -321,14 +321,14 @@ class _CodexChatBody extends HookWidget {
                 IconButton(
                   key: const ValueKey('codex_share_debug_bundle_button'),
                   icon: const Icon(Icons.bug_report, size: 18),
-                  tooltip: 'Share Debug Bundle',
+                  tooltip: 'Copy for Agent',
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 36,
                     minHeight: 36,
                   ),
-                  onPressed: () => shareDebugBundle(context, sessionId),
+                  onPressed: () => copyDebugBundleForAgent(context, sessionId),
                 ),
                 // View Changes
                 if (projectPath != null)
