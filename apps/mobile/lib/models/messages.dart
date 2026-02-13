@@ -290,6 +290,9 @@ sealed class ServerMessage {
         duration: (json['duration'] as num?)?.toDouble(),
         sessionId: json['sessionId'] as String?,
         stopReason: json['stopReason'] as String?,
+        inputTokens: json['inputTokens'] as int?,
+        cachedInputTokens: json['cachedInputTokens'] as int?,
+        outputTokens: json['outputTokens'] as int?,
       ),
       'error' => ErrorMessage(message: json['message'] as String),
       'status' => StatusMessage(
@@ -438,6 +441,9 @@ class ResultMessage implements ServerMessage {
   final double? duration;
   final String? sessionId;
   final String? stopReason;
+  final int? inputTokens;
+  final int? cachedInputTokens;
+  final int? outputTokens;
   const ResultMessage({
     required this.subtype,
     this.result,
@@ -446,6 +452,9 @@ class ResultMessage implements ServerMessage {
     this.duration,
     this.sessionId,
     this.stopReason,
+    this.inputTokens,
+    this.cachedInputTokens,
+    this.outputTokens,
   });
 }
 

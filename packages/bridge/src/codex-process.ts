@@ -197,6 +197,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           type: "result",
           subtype: "success",
           sessionId: this._threadId ?? undefined,
+          inputTokens: event.usage.input_tokens,
+          cachedInputTokens: event.usage.cached_input_tokens,
+          outputTokens: event.usage.output_tokens,
         });
         break;
 
