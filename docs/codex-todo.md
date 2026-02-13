@@ -1,126 +1,133 @@
-# Codex 対応: やり残し・今後の改善
+# Codex 対応 TODO（再作成）
 
-## 進捗メモ (2026-02-13)
+最終更新: 2026-02-13
 
-### 実行計画
-1. 履歴復元/再接続の完成（最優先）
-2. セッション一覧の provider 可視化
-3. モデル選択 UI をドロップダウン化
-4. Bridge の Codex 系ユニットテスト追加
-5. デバッグボタン削除と SDK バージョン戦略整理
+## 調査スコープ
+- Bridge: `packages/bridge/src/websocket.ts`, `packages/bridge/src/session.ts`, `packages/bridge/src/codex-process.ts`, `packages/bridge/src/sessions-index.ts`
+- Mobile: `apps/mobile/lib/features/chat/*`, `apps/mobile/lib/features/chat_codex/*`, `apps/mobile/lib/features/session_list/*`, `apps/mobile/lib/widgets/new_session_sheet.dart`, `apps/mobile/lib/widgets/session_card.dart`, `apps/mobile/lib/models/messages.dart`
 
-### 現在の着手
-- **1. 履歴復元/再接続** を開始
-- 方針:
-  - `resume_session` に provider 分岐を追加（Claude/Codex）
-  - Codex セッションログ (`~/.codex/sessions/...jsonl`) から past history を復元
-  - `get_history` で復元済みメッセージを返せる状態を保証
+## 現状サマリ
+- Codex セッションの開始/再開、履歴復元、session list 統合は実装済み。
+- ただし、Claude chat 側にあるUI/機能で Codex chat 側に未搭載のものが残っている。
+- Codex SDK 固有機能（usage、image input、Thread options 追加項目）の取り込みが未実装。
 
-### 実装ログ
-- 2026-02-13:
-  - `resume_session` に `provider` を追加し、Codex 分岐を実装
-  - Codex ログ (`~/.codex/sessions/**/*.jsonl`) から履歴復元する処理を bridge に追加
-  - recent sessions へ Codex セッションを統合（`provider: "codex"` を付与）
-  - mobile 側の `resume_session` 送信に `provider` を追加
-  - `~/.claude/projects` が存在しない環境でも Codex recent が取得できるよう `getAllRecentSessions` の早期 return を修正
-  - Codex recent / history 復元のユニットテストを追加
-  - Codex セッション開始設定 UI 追加: `SandboxMode` / `ApprovalPolicy` enum + ドロップダウン
-  - モデル選択を自由テキスト → ドロップダウン化 (gpt-5.3-codex 等)
-  - デバッグ用 `_testCodexSession()` ボタン削除
-- 2026-02-13 (追加):
-  - `resume_session` 時の即時 `past_history` 送信を廃止し、履歴配信を `get_history(sessionId)` 経路に統一
-  - mobile の `pendingPastHistory` バッファ経路を削除（重複表示リスクのある二重経路を解消）
-  - Codex 履歴ファイル探索を厳密化（`threadId` の曖昧サフィックス一致を除去）
-  - Bridge テスト追加: `codex-process.test.ts` / `session.test.ts` / `websocket.test.ts`
-  - Mobile/Bridge のテストを実行し回帰なしを確認
+---
 
-## 機能面
+## 1. Claude Code の方にあるのに不足している機能
 
-### 履歴復元 (`get_history`)
-- 進捗: `resume_session` の Codex 分岐とログ復元実装を追加（2026-02-13）
-- Codexセッションの `get_history` は一部未完（復元経路の実機検証・不足ケース確認が必要）
-- Codex SDK に過去のスレッドメッセージを取得する API があるか要調査
-- 現状: アプリ再起動やセッション再表示で過去メッセージが消える
-
-### セッション一覧での Codex 表示
-- 進捗: `session_card.dart` で provider バッジ表示を実装済み（Codex / Claude Code）
-- 残: 一覧全体での視認性・並び替え優先度など UX 調整は必要に応じて実施
-
-### ~~モデル選択 UI の改善~~ ✅ 完了 (2026-02-13)
-- ドロップダウン化済み（`gpt-5.3-codex`, `gpt-5.3-codex-spark`, `gpt-5.2-codex`, `gpt-5.1-codex-max` + Default）
-- `SandboxMode` / `ApprovalPolicy` ドロップダウンも同時追加
-
-### セッション再接続 (resume)
-- `codex.resumeThread(threadId)` で再接続可能だが、未テスト
-- Running セッションをタップした場合のフローで検証が必要
-
-## テスト
-
-### Bridge ユニットテスト
-- ✅ `codex-process.ts` のユニットテスト追加済み
-- ✅ `session.ts` の Codex パスのテスト追加済み
-- ✅ `websocket.ts` の resume/get_history 経路テスト追加済み
-- Codex SDK のモックはテスト内で実装済み
-
-## 技術的負債
-
-### ~~デバッグ用テストボタン~~ ✅ 削除済み (2026-02-13)
-- `_testCodexSession()` と AppBar のデバッグボタンを削除
-
-### Codex SDK のバージョン固定
-- `@openai/codex-sdk: ^0.101.0` — SDK がまだ初期段階で破壊的変更の可能性あり
-- 安定版リリース後にバージョン戦略を見直す
-
-## 引き継ぎメモ（次の開発）
-
-### ~~次テーマ: Codex セッション開始時の設定~~ ✅ 完了 (2026-02-13)
-- New Session ダイアログで `sandboxMode` / `approvalPolicy` / `model` を選択可能に
-- `ClientMessage.start` → Bridge `CodexStartOptions` への反映済み
-- Bridge ログ (`[codex-process] Starting ...`) で選択値を確認可能
-- 受け入れ条件: UI選択 ✅ / プロトコル反映 ✅ / ログ確認 ✅ / テスト（既存の Bridge テストでカバー、追加テストは次回）
-
-### 次テーマ候補
-1. 履歴復元の実機検証（最優先）
-2. セッション一覧の provider UX 微調整（必要時）
-3. Codex SDK バージョン戦略の見直し
-
-### 次実装の計画（2026-02-13）
-目的: アプリ再起動・再接続後でも Codex 会話履歴を確実に再表示できる状態にする。
-
-1. 受信経路の整合性を固定する（Bridge ↔ Mobile）
-- 対象: `packages/bridge/src/websocket.ts`, `apps/mobile/lib/services/bridge_service.dart`
-- 作業:
-  - `resume_session` 時の `past_history` / `history` / `status` の送信順と `sessionId` 付与ルールを明文化し、実装を揃える
-  - `pendingPastHistory` バッファ依存の経路と `messagesForSession` 経路の二重処理・取りこぼしを確認し、どちらかに寄せる
-  - Codex/Claude で挙動が分かれる箇所をコメントで明示
+### P0: Codex の `ApprovalPolicy` に `on-request` を追加
+- 背景:
+  - Bridge 側は `"on-request"` を受け付けるが、Mobile の `ApprovalPolicy` enum に値がない。
+- 対象:
+  - `apps/mobile/lib/models/messages.dart`
+  - `apps/mobile/lib/widgets/new_session_sheet.dart`
 - 完了条件:
-  - 再接続直後に履歴が 0 件になるケースが再現しない
-  - 同じ履歴が二重表示されない
+  - New Session ダイアログで `on-request` を選択できる。
+  - 選択値が `ClientMessage.start` に正しく流れる。
 
-2. Codex 履歴復元の不足ケースを埋める
-- 対象: `packages/bridge/src/sessions-index.ts`
-- 作業:
-  - `getCodexSessionHistory` のパース対象を再点検（空行・壊れた行・assistant 複数チャンクなど）
-  - `findCodexSessionJsonlPath` の一致ロジック（threadId / file名）で誤一致・未一致ケースをテストで固定
-  - 必要なら履歴復元時の最大件数や順序保証を追加
+### P1: Codex Chat の AppBar 機能パリティ（Screenshot / Branch 情報）
+- 背景:
+  - Claude chat には Screenshot と Branch/Worktree 情報があるが、Codex chat にはない。
+- 対象:
+  - `apps/mobile/lib/features/chat_codex/codex_chat_screen.dart`
+  - 必要に応じて `apps/mobile/lib/features/session_list/session_list_screen.dart`
 - 完了条件:
-  - 手元サンプル JSONL で user/assistant の順序が安定して復元される
-  - threadId 指定で誤ファイルを拾わない
+  - Codex chat から Screenshot を実行できる。
+  - 現在ブランチ（または未取得時のフォールバック）を表示できる。
 
-3. Codex 再接続フローを実機で検証する
-- 対象: `apps/mobile/lib/features/session_list/session_list_screen.dart`, `apps/mobile/lib/features/chat_codex/*`
-- 作業:
-  - Recent から Codex セッション再開 → 過去履歴表示 → 追加入力送信までを通し検証
-  - Running セッション再オープン時の `get_history` が期待どおりか確認
-  - 失敗時はログ（Bridge / Mobile）を採取して再現手順をドキュメント化
+### P1: Running/Recent カードの provider UX を統一
+- 背景:
+  - provider バッジはあるが、Codex 設定（model/sandbox/approval）が一覧上で見えない。
+- 対象:
+  - `apps/mobile/lib/widgets/session_card.dart`
+  - `apps/mobile/lib/models/messages.dart`
 - 完了条件:
-  - 3 ケース（Recent 再開 / Running 再表示 / アプリ再起動後再開）で履歴欠損なし
+  - Codex セッションで設定サマリを視認できる（最低1行）。
+  - 既存の Claude 表示は崩さない。
 
-4. 自動テストを追加して回帰防止する
-- 対象: `packages/bridge/src/session.test.ts`（新規）, `packages/bridge/src/codex-process.test.ts`（新規）, `packages/bridge/src/sessions-index.test.ts`
-- 作業:
-  - `session.ts` の Codex セッション作成・履歴件数計上・status 遷移のテスト追加
-  - `codex-process.ts` の `start` / `resumeThread(threadId)` 呼び分けをモックで固定
-  - `sessions-index.ts` の Codex 履歴復元エッジケースを追加
+### P2: Codex セッションで未対応機能の明示
+- 背景:
+  - Rewind/Approval UI は Codex で非対応だが、理由がユーザーに伝わりにくい。
+- 対象:
+  - `apps/mobile/lib/features/chat_codex/codex_chat_screen.dart`
+  - `apps/mobile/lib/services/chat_message_handler.dart`
 - 完了条件:
-  - 追加テストが CI で安定通過し、履歴回りの回帰を検知できる
+  - 非対応機能を触ったときに説明導線（tooltip/snackbar等）がある。
+
+---
+
+## 2. Codex 特有で実装すべき機能
+
+### P0: Codex usage（token）を result に載せて UI 表示
+- 背景:
+  - `turn.completed.usage` が `codex-process.ts` で捨てられており、利用量が見えない。
+- 対象:
+  - `packages/bridge/src/codex-process.ts`
+  - `packages/bridge/src/parser.ts`（必要なら型拡張）
+  - `apps/mobile/lib/services/chat_message_handler.dart`
+  - `apps/mobile/lib/features/chat/*` / `apps/mobile/lib/features/chat_codex/*`
+- 完了条件:
+  - Codex セッション完了時に入力/出力トークン数を確認できる。
+  - Claude 側の cost 表示に回帰がない。
+
+### P0: Codex 画像入力（`local_image`）対応
+- 背景:
+  - Codex SDK は画像入力をサポートするが、Bridge は Codex を text-only 扱いしている。
+- 対象:
+  - `packages/bridge/src/websocket.ts`
+  - `packages/bridge/src/codex-process.ts`
+  - `apps/mobile/lib/features/chat_codex/codex_chat_screen.dart`（必要なら送信導線確認）
+- 完了条件:
+  - Codex セッションで画像付き入力を送信できる。
+  - 失敗時のエラーハンドリングが明示される。
+
+### P1: Codex Thread options の拡張（reasoning/network/web search）
+- 背景:
+  - SDK側の `ThreadOptions` にある設定を現在UI/Bridgeで渡せていない。
+- 対象:
+  - `apps/mobile/lib/widgets/new_session_sheet.dart`
+  - `apps/mobile/lib/models/messages.dart`
+  - `packages/bridge/src/parser.ts`
+  - `packages/bridge/src/websocket.ts`
+  - `packages/bridge/src/codex-process.ts`
+- 候補項目:
+  - `modelReasoningEffort`
+  - `networkAccessEnabled`
+  - `webSearchMode` / `webSearchEnabled`
+- 完了条件:
+  - 追加設定が start/resume の両方で反映される。
+
+### P1: Codex 履歴復元の一致ロジックを厳密化
+- 背景:
+  - `findCodexSessionJsonlPath` が `endsWith("-threadId")` を許容しており誤一致余地がある。
+- 対象:
+  - `packages/bridge/src/sessions-index.ts`
+  - `packages/bridge/src/sessions-index.test.ts`
+- 完了条件:
+  - threadId 完全一致 or session_meta.id 一致のみで解決する。
+  - 近似IDファイルが混在しても誤ファイルを拾わない。
+
+### P2: Codex イベント可視化の改善（tool分類・要約）
+- 背景:
+  - `command_execution/file_change/mcp_tool_call/web_search/todo_list` を最低限表示しているが、可読性が低い。
+- 対象:
+  - `packages/bridge/src/codex-process.ts`
+  - `apps/mobile/lib/widgets/bubbles/*`
+- 完了条件:
+  - ツールイベントが種類ごとに判別しやすい表示になる。
+  - 長い出力の折りたたみ/展開が可能。
+
+---
+
+## 実行順（推奨）
+1. P0-1 `on-request` 追加（小さく確実）
+2. P0-2 Codex usage 表示
+3. P0-3 Codex 画像入力対応
+4. P1群（AppBar parity / settings拡張 / 履歴一致厳密化）
+5. P2群（UX改善）
+
+## 検証コマンド
+- `npx tsc --noEmit -p packages/bridge/tsconfig.json`
+- `dart analyze apps/mobile`
+- `dart format apps/mobile`
+- `cd apps/mobile && flutter test`
