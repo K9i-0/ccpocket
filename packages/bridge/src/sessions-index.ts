@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 
 export interface SessionIndexEntry {
   sessionId: string;
+  provider: "claude" | "codex";
   summary?: string;
   firstPrompt: string;
   messageCount: number;
@@ -162,6 +163,7 @@ export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]
     if (messageCount > 0) {
       entries.push({
         sessionId,
+        provider: "claude",
         summary,
         firstPrompt,
         messageCount,
@@ -192,7 +194,7 @@ export async function getAllRecentSessions(
     projectDirs = await readdir(projectsDir);
   } catch {
     // ~/.claude/projects doesn't exist
-    return { sessions: [], hasMore: false };
+    projectDirs = [];
   }
 
   // Compute worktree slug prefix for projectPath filtering
@@ -237,6 +239,7 @@ export async function getAllRecentSessions(
         indexedIds.add(entry.sessionId);
         const mapped: SessionIndexEntry = {
           sessionId: entry.sessionId,
+          provider: "claude",
           summary: entry.summary,
           firstPrompt: entry.firstPrompt ?? "",
           messageCount: entry.messageCount ?? 0,
@@ -267,6 +270,11 @@ export async function getAllRecentSessions(
     }
   }
 
+  const codexEntries = await getAllRecentCodexSessions({
+    projectPath: filterProjectPath,
+  });
+  entries.push(...codexEntries);
+
   // Sort by modified descending
   entries.sort((a, b) => {
     const ta = new Date(a.modified).getTime();
@@ -278,6 +286,162 @@ export async function getAllRecentSessions(
   const hasMore = offset + limit < entries.length;
 
   return { sessions: sliced, hasMore };
+}
+
+interface CodexRecentOptions {
+  projectPath?: string;
+}
+
+interface CodexSessionParseResult {
+  entry: SessionIndexEntry;
+  threadId: string;
+}
+
+async function listCodexSessionFiles(): Promise<string[]> {
+  const root = join(homedir(), ".codex", "sessions");
+  const files: string[] = [];
+  const stack = [root];
+
+  while (stack.length > 0) {
+    const dir = stack.pop()!;
+    let children: string[];
+    try {
+      children = await readdir(dir);
+    } catch {
+      continue;
+    }
+    for (const child of children) {
+      const p = join(dir, child);
+      let st: Awaited<ReturnType<typeof stat>>;
+      try {
+        st = await stat(p);
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) {
+        stack.push(p);
+      } else if (st.isFile() && p.endsWith(".jsonl")) {
+        files.push(p);
+      }
+    }
+  }
+
+  return files;
+}
+
+function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSessionParseResult | null {
+  const lines = raw.split("\n");
+  let threadId = fallbackSessionId;
+  let projectPath = "";
+  let gitBranch = "";
+  let created = "";
+  let modified = "";
+  let firstPrompt = "";
+  let summary = "";
+  let messageCount = 0;
+  let lastAssistantText = "";
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let entry: Record<string, unknown>;
+    try {
+      entry = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+
+    const timestamp = entry.timestamp as string | undefined;
+    if (timestamp) {
+      if (!created) created = timestamp;
+      modified = timestamp;
+    }
+
+    if (entry.type === "session_meta") {
+      const payload = entry.payload as Record<string, unknown> | undefined;
+      if (payload) {
+        if (typeof payload.id === "string" && payload.id.length > 0) {
+          threadId = payload.id;
+        }
+        if (typeof payload.cwd === "string" && payload.cwd.length > 0) {
+          projectPath = payload.cwd;
+        }
+        const git = payload.git as Record<string, unknown> | undefined;
+        if (git && typeof git.branch === "string") {
+          gitBranch = git.branch;
+        }
+      }
+      continue;
+    }
+
+    if (entry.type === "event_msg") {
+      const payload = entry.payload as Record<string, unknown> | undefined;
+      if (payload?.type === "user_message" && typeof payload.message === "string") {
+        messageCount += 1;
+        if (!firstPrompt) firstPrompt = payload.message;
+      }
+      continue;
+    }
+
+    if (entry.type === "response_item") {
+      const payload = entry.payload as Record<string, unknown> | undefined;
+      if (!payload || payload.type !== "message" || payload.role !== "assistant") {
+        continue;
+      }
+      const content = payload.content;
+      if (!Array.isArray(content)) continue;
+      const text = (content as Array<Record<string, unknown>>)
+        .filter((item) => item.type === "output_text" && typeof item.text === "string")
+        .map((item) => item.text as string)
+        .join("\n")
+        .trim();
+      if (text.length > 0) {
+        messageCount += 1;
+        lastAssistantText = text;
+      }
+    }
+  }
+
+  if (!projectPath || messageCount === 0) return null;
+  summary = lastAssistantText || summary;
+
+  return {
+    threadId,
+    entry: {
+      sessionId: threadId,
+      provider: "codex",
+      summary: summary || undefined,
+      firstPrompt,
+      messageCount,
+      created,
+      modified,
+      gitBranch,
+      projectPath,
+      isSidechain: false,
+    },
+  };
+}
+
+async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Promise<SessionIndexEntry[]> {
+  const files = await listCodexSessionFiles();
+  const entries: SessionIndexEntry[] = [];
+
+  for (const filePath of files) {
+    let raw: string;
+    try {
+      raw = await readFile(filePath, "utf-8");
+    } catch {
+      continue;
+    }
+    const fallbackSessionId = basename(filePath, ".jsonl");
+    const parsed = parseCodexSessionJsonl(raw, fallbackSessionId);
+    if (!parsed) continue;
+    if (options.projectPath && parsed.entry.projectPath !== options.projectPath) {
+      continue;
+    }
+    entries.push(parsed.entry);
+  }
+
+  return entries;
 }
 
 // ---- Session history from JSONL files ----
@@ -353,6 +517,27 @@ async function findSessionJsonlPath(sessionId: string): Promise<string | null> {
   return null;
 }
 
+async function findCodexSessionJsonlPath(threadId: string): Promise<string | null> {
+  const files = await listCodexSessionFiles();
+  for (const filePath of files) {
+    const fallbackSessionId = basename(filePath, ".jsonl");
+    if (fallbackSessionId.endsWith(threadId) || fallbackSessionId === threadId) {
+      return filePath;
+    }
+    let raw: string;
+    try {
+      raw = await readFile(filePath, "utf-8");
+    } catch {
+      continue;
+    }
+    const parsed = parseCodexSessionJsonl(raw, fallbackSessionId);
+    if (parsed?.threadId === threadId) {
+      return filePath;
+    }
+  }
+  return null;
+}
+
 /**
  * Read past conversation messages from a session's JSONL file.
  * Returns user and assistant messages suitable for display.
@@ -415,6 +600,66 @@ export async function getSessionHistory(
     if (content.length > 0) {
       const uuid = entry.uuid as string | undefined;
       messages.push({ role, content, ...(uuid ? { uuid } : {}) });
+    }
+  }
+
+  return messages;
+}
+
+export async function getCodexSessionHistory(
+  threadId: string,
+): Promise<SessionHistoryMessage[]> {
+  const jsonlPath = await findCodexSessionJsonlPath(threadId);
+  if (!jsonlPath) return [];
+
+  let raw: string;
+  try {
+    raw = await readFile(jsonlPath, "utf-8");
+  } catch {
+    return [];
+  }
+
+  const messages: SessionHistoryMessage[] = [];
+  const lines = raw.split("\n");
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let entry: Record<string, unknown>;
+    try {
+      entry = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+
+    if (entry.type === "event_msg") {
+      const payload = entry.payload as Record<string, unknown> | undefined;
+      if (payload?.type === "user_message" && typeof payload.message === "string") {
+        messages.push({
+          role: "user",
+          content: [{ type: "text", text: payload.message }],
+        });
+      }
+      continue;
+    }
+
+    if (entry.type === "response_item") {
+      const payload = entry.payload as Record<string, unknown> | undefined;
+      if (!payload || payload.type !== "message" || payload.role !== "assistant") {
+        continue;
+      }
+      const content = payload.content;
+      if (!Array.isArray(content)) continue;
+      const text = (content as Array<Record<string, unknown>>)
+        .filter((item) => item.type === "output_text" && typeof item.text === "string")
+        .map((item) => item.text as string)
+        .join("\n")
+        .trim();
+      if (text.length > 0) {
+        messages.push({
+          role: "assistant",
+          content: [{ type: "text", text }],
+        });
+      }
     }
   }
 

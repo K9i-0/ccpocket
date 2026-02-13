@@ -34,6 +34,10 @@ class RunningSessionCard extends StatelessWidget {
     };
 
     final projectName = session.projectPath.split('/').last;
+    final providerLabel = session.provider == 'codex' ? 'Codex' : 'Claude Code';
+    final providerColor = session.provider == 'codex'
+        ? Colors.deepOrange
+        : Colors.blueGrey;
     final elapsed = _formatElapsed(session.lastActivityAt);
     final displayMessage = session.lastMessage
         .replaceAll(RegExp(r'\s+'), ' ')
@@ -119,6 +123,11 @@ class RunningSessionCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      _ProviderBadge(
+                        label: providerLabel,
+                        color: providerColor,
                       ),
                       const Spacer(),
                       Text(
@@ -302,6 +311,10 @@ class RecentSessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final providerLabel = session.provider == 'codex' ? 'Codex' : 'Claude Code';
+    final providerColor = session.provider == 'codex'
+        ? Colors.deepOrange
+        : Colors.blueGrey;
     final dateStr = _formatDate(session.modified);
 
     return Card(
@@ -333,6 +346,11 @@ class RecentSessionCard extends StatelessWidget {
               const Spacer(),
             ] else
               const Spacer(),
+            _ProviderBadge(
+              label: providerLabel,
+              color: providerColor,
+            ),
+            const SizedBox(width: 8),
             Text(
               dateStr,
               style: TextStyle(fontSize: 11, color: appColors.subtleText),
@@ -397,5 +415,35 @@ class RecentSessionCard extends StatelessWidget {
     } catch (_) {
       return '';
     }
+  }
+}
+
+class _ProviderBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _ProviderBadge({
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
   }
 }

@@ -58,7 +58,7 @@ export type ClientMessage =
   | { type: "stop_session"; sessionId: string }
   | { type: "get_history"; sessionId: string }
   | { type: "list_recent_sessions"; limit?: number; offset?: number; projectPath?: string }
-  | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode }
+  | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode; provider?: Provider }
   | { type: "list_gallery"; project?: string; sessionId?: string }
   | { type: "list_files"; projectPath: string }
   | { type: "get_diff"; projectPath: string }
@@ -150,6 +150,7 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "resume_session":
         if (typeof msg.sessionId !== "string" || typeof msg.projectPath !== "string") return null;
+        if (msg.provider && msg.provider !== "claude" && msg.provider !== "codex") return null;
         break;
       case "list_gallery":
         break;

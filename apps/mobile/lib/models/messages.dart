@@ -639,6 +639,7 @@ class PastMessage {
 
 class RecentSession {
   final String sessionId;
+  final String? provider;
   final String? summary;
   final String firstPrompt;
   final int messageCount;
@@ -650,6 +651,7 @@ class RecentSession {
 
   const RecentSession({
     required this.sessionId,
+    this.provider,
     this.summary,
     required this.firstPrompt,
     required this.messageCount,
@@ -663,6 +665,7 @@ class RecentSession {
   factory RecentSession.fromJson(Map<String, dynamic> json) {
     return RecentSession(
       sessionId: json['sessionId'] as String,
+      provider: json['provider'] as String?,
       summary: json['summary'] as String?,
       firstPrompt: json['firstPrompt'] as String? ?? '',
       messageCount: json['messageCount'] as int? ?? 0,
@@ -864,12 +867,14 @@ class ClientMessage {
     String sessionId,
     String projectPath, {
     String? permissionMode,
+    String? provider,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'resume_session',
       'sessionId': sessionId,
       'projectPath': projectPath,
       'permissionMode': ?permissionMode,
+      'provider': ?provider,
     });
   }
 

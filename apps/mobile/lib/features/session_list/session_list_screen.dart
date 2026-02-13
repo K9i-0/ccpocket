@@ -511,6 +511,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
     context.read<BridgeService>().resumeSession(
       session.sessionId,
       session.projectPath,
+      provider: session.provider,
     );
   }
 

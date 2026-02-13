@@ -1,8 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { pathToSlug, isWorktreeSlug, normalizeWorktreePath, scanJsonlDir } from "./sessions-index.js";
+import {
+  pathToSlug,
+  isWorktreeSlug,
+  normalizeWorktreePath,
+  scanJsonlDir,
+  getAllRecentSessions,
+  getCodexSessionHistory,
+} from "./sessions-index.js";
 
 describe("pathToSlug", () => {
   it("converts a path to Claude directory slug", () => {
@@ -151,6 +158,7 @@ describe("scanJsonlDir", () => {
 
     const entry = result[0];
     expect(entry.sessionId).toBe("test-session-1");
+    expect(entry.provider).toBe("claude");
     expect(entry.firstPrompt).toBe("hello world");
     expect(entry.messageCount).toBe(2);
     expect(entry.created).toBe("2026-01-01T00:00:00.000Z");
@@ -310,5 +318,97 @@ describe("scanJsonlDir", () => {
     const result = await scanJsonlDir(testDir);
     expect(result).toHaveLength(1);
     expect(result[0].isSidechain).toBe(true);
+  });
+});
+
+describe("codex sessions integration", () => {
+  const oldHome = process.env.HOME;
+  const tempHome = mkdtempSync(join(tmpdir(), "ccpocket-test-codex-home-"));
+
+  beforeEach(() => {
+    process.env.HOME = tempHome;
+  });
+
+  afterEach(() => {
+    process.env.HOME = oldHome;
+    rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  it("includes codex sessions in getAllRecentSessions", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68010";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const lines = [
+      JSON.stringify({
+        timestamp: "2026-02-13T11:26:43.995Z",
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a", git: { branch: "main" } },
+      }),
+      JSON.stringify({
+        timestamp: "2026-02-13T11:26:44.100Z",
+        type: "event_msg",
+        payload: { type: "user_message", message: "hello codex" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-02-13T11:26:45.100Z",
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "hello from assistant" }],
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    const { sessions } = await getAllRecentSessions({
+      projectPath: "/tmp/project-a",
+      limit: 200,
+    });
+    const entry = sessions.find((s) => s.sessionId === threadId);
+    expect(entry).toBeDefined();
+    expect(entry?.provider).toBe("codex");
+    expect(entry?.projectPath).toBe("/tmp/project-a");
+    expect(entry?.firstPrompt).toBe("hello codex");
+  });
+
+  it("reads codex history from jsonl", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68010";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: { type: "user_message", message: "show me the diff" },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "Here is the diff summary." }],
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    const history = await getCodexSessionHistory(threadId);
+    expect(history).toHaveLength(2);
+    expect(history[0].role).toBe("user");
+    expect(history[0].content[0].text).toBe("show me the diff");
+    expect(history[1].role).toBe("assistant");
+    expect(history[1].content[0].text).toBe("Here is the diff summary.");
   });
 });

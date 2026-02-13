@@ -289,12 +289,14 @@ class BridgeService implements BridgeServiceBase {
     String sessionId,
     String projectPath, {
     String? permissionMode,
+    String? provider,
   }) {
     send(
       ClientMessage.resumeSession(
         sessionId,
         projectPath,
         permissionMode: permissionMode,
+        provider: provider,
       ),
     );
   }

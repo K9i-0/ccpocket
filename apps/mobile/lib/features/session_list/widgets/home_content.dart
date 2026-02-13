@@ -98,7 +98,9 @@ class _HomeContentState extends State<HomeContent> {
 
     // Compute derived state
     // Exclude running sessions from recent list to avoid duplicates
-    final runningSessionIds = widget.sessions.map((s) => s.id).toSet();
+    final runningSessionIds = widget.sessions
+        .map((s) => s.claudeSessionId ?? s.id)
+        .toSet();
     var filteredSessions = widget.currentProjectFilter != null
         ? widget.recentSessions
         : filterByProject(widget.recentSessions, widget.selectedProject);

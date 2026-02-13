@@ -178,12 +178,21 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "resume_session", sessionId: "s3", projectPath: "/p" });
   });
 
+  it("parses resume_session with provider", () => {
+    const msg = parseClientMessage('{"type":"resume_session","sessionId":"s3","projectPath":"/p","provider":"codex"}');
+    expect(msg).toEqual({ type: "resume_session", sessionId: "s3", projectPath: "/p", provider: "codex" });
+  });
+
   it("rejects resume_session without sessionId", () => {
     expect(parseClientMessage('{"type":"resume_session","projectPath":"/p"}')).toBeNull();
   });
 
   it("rejects resume_session without projectPath", () => {
     expect(parseClientMessage('{"type":"resume_session","sessionId":"s3"}')).toBeNull();
+  });
+
+  it("rejects resume_session with invalid provider", () => {
+    expect(parseClientMessage('{"type":"resume_session","sessionId":"s3","projectPath":"/p","provider":"foo"}')).toBeNull();
   });
 
   it("parses list_gallery message", () => {

@@ -5,7 +5,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { SessionManager, type SessionInfo } from "./session.js";
 import type { SdkProcess } from "./sdk-process.js";
 import { parseClientMessage, type ClientMessage, type ServerMessage } from "./parser.js";
-import { getAllRecentSessions, getSessionHistory } from "./sessions-index.js";
+import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
@@ -336,7 +336,39 @@ export class BridgeWebSocketServer {
       }
 
       case "resume_session": {
-        const claudeSessionId = msg.sessionId;
+        const provider = msg.provider ?? "claude";
+        const sessionRefId = msg.sessionId;
+        if (provider === "codex") {
+          getCodexSessionHistory(sessionRefId).then((pastMessages) => {
+            if (pastMessages.length > 0) {
+              this.send(ws, {
+                type: "past_history",
+                claudeSessionId: sessionRefId,
+                messages: pastMessages,
+              } as Record<string, unknown>);
+            }
+            const sessionId = this.sessionManager.create(
+              msg.projectPath,
+              undefined,
+              pastMessages,
+              undefined,
+              "codex",
+              { threadId: sessionRefId },
+            );
+            this.send(ws, {
+              type: "system",
+              subtype: "session_created",
+              sessionId,
+              projectPath: msg.projectPath,
+            });
+            this.projectHistory?.addProject(msg.projectPath);
+          }).catch((err) => {
+            this.send(ws, { type: "error", message: `Failed to load Codex session history: ${err}` });
+          });
+          break;
+        }
+
+        const claudeSessionId = sessionRefId;
         const cached = this.sessionManager.getCachedCommands(msg.projectPath);
 
         // Look up worktree mapping for this Claude session
