@@ -411,4 +411,83 @@ describe("codex sessions integration", () => {
     expect(history[1].role).toBe("assistant");
     expect(history[1].content[0].text).toBe("Here is the diff summary.");
   });
+
+  it("joins multiple assistant output_text chunks and ignores non-text chunks", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68011";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: { type: "user_message", message: "summarize this" },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "assistant",
+          content: [
+            { type: "output_text", text: "Line 1" },
+            { type: "reasoning", text: "hidden reasoning" },
+            { type: "output_text", text: "Line 2" },
+          ],
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    const history = await getCodexSessionHistory(threadId);
+    expect(history).toHaveLength(2);
+    expect(history[1].role).toBe("assistant");
+    expect(history[1].content[0].text).toBe("Line 1\nLine 2");
+  });
+
+  it("does not match loosely similar filename suffixes for threadId lookup", async () => {
+    const requestedThreadId = "123";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    // Similar suffix ("abc123") should not be treated as threadId "123".
+    writeFileSync(
+      join(codexDir, "rollout-2026-02-13T11-26-43-abc123.jsonl"),
+      [
+        JSON.stringify({
+          type: "session_meta",
+          payload: { id: "abc123", cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          type: "event_msg",
+          payload: { type: "user_message", message: "wrong session" },
+        }),
+      ].join("\n"),
+    );
+
+    // Exact "-123" suffix should be matched.
+    writeFileSync(
+      join(codexDir, "rollout-2026-02-13T11-26-43-123.jsonl"),
+      [
+        JSON.stringify({
+          type: "session_meta",
+          payload: { id: requestedThreadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          type: "event_msg",
+          payload: { type: "user_message", message: "correct session" },
+        }),
+      ].join("\n"),
+    );
+
+    const history = await getCodexSessionHistory(requestedThreadId);
+    expect(history).toHaveLength(1);
+    expect(history[0].role).toBe("user");
+    expect(history[0].content[0].text).toBe("correct session");
+  });
 });

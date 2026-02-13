@@ -32,6 +32,12 @@ export interface SessionInfo {
   worktreePath?: string;
   /** Branch name of the worktree. */
   worktreeBranch?: string;
+  /** Codex-specific settings used to start this session (for resume). */
+  codexSettings?: {
+    approvalPolicy?: string;
+    sandboxMode?: string;
+    model?: string;
+  };
 }
 
 export interface SessionSummary {
@@ -47,6 +53,11 @@ export interface SessionSummary {
   messageCount: number;
   worktreePath?: string;
   worktreeBranch?: string;
+  codexSettings?: {
+    approvalPolicy?: string;
+    sandboxMode?: string;
+    model?: string;
+  };
 }
 
 const MAX_HISTORY_PER_SESSION = 100;
@@ -239,6 +250,14 @@ export class SessionManager {
       session.history.push({ type: "status", status: "idle" } as ServerMessage);
     });
 
+    if (effectiveProvider === "codex" && codexOptions) {
+      session.codexSettings = {
+        approvalPolicy: codexOptions.approvalPolicy,
+        sandboxMode: codexOptions.sandboxMode,
+        model: codexOptions.model,
+      };
+    }
+
     this.sessions.set(id, session);
 
     if (effectiveProvider === "codex") {
@@ -269,6 +288,7 @@ export class SessionManager {
       messageCount: (s.pastMessages?.length ?? 0) + s.history.length,
       worktreePath: s.worktreePath,
       worktreeBranch: s.worktreeBranch,
+      codexSettings: s.codexSettings,
     }));
   }
 

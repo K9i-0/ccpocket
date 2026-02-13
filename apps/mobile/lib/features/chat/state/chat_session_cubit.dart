@@ -41,7 +41,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     required StreamingStateCubit streamingCubit,
   }) : _bridge = bridge,
        _streamingCubit = streamingCubit,
-       super(_buildInitialState(bridge)) {
+       super(const ChatSessionState()) {
     // Subscribe to messages for this session
     _subscription = _bridge.messagesForSession(sessionId).listen(_onMessage);
 
@@ -50,20 +50,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
     // Re-query history while status is "starting" to handle lost broadcasts
     _startStatusRefreshTimer();
-  }
-
-  static ChatSessionState _buildInitialState(BridgeService bridge) {
-    var initialState = const ChatSessionState();
-    final pastHistory = bridge.pendingPastHistory;
-    if (pastHistory != null) {
-      bridge.pendingPastHistory = null;
-      final handler = ChatMessageHandler();
-      final update = handler.handle(pastHistory, isBackground: true);
-      if (update.entriesToPrepend.isNotEmpty) {
-        initialState = initialState.copyWith(entries: update.entriesToPrepend);
-      }
-    }
-    return initialState;
   }
 
   void _startStatusRefreshTimer() {

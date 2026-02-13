@@ -50,10 +50,6 @@ class BridgeService implements BridgeServiceBase {
   static const _maxReconnectDelay = 30;
   bool _intentionalDisconnect = false;
 
-  /// Buffered past history from resume_session, consumed by ChatScreen.
-  @override
-  PastHistoryMessage? pendingPastHistory;
-
   @override
   Stream<ServerMessage> get messages => _messageController.stream;
   @override
@@ -142,12 +138,6 @@ class BridgeService implements BridgeServiceBase {
                 _appendMode = false;
                 _recentSessionsController.add(_recentSessions);
               case PastHistoryMessage():
-                // Only buffer for resume_session flow (no sessionId).
-                // get_history responses include sessionId and are already
-                // delivered via the tagged stream to the correct ChatScreen.
-                if (sessionId == null) {
-                  pendingPastHistory = msg;
-                }
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
               case GalleryListMessage(:final images):
@@ -290,6 +280,9 @@ class BridgeService implements BridgeServiceBase {
     String projectPath, {
     String? permissionMode,
     String? provider,
+    String? approvalPolicy,
+    String? sandboxMode,
+    String? model,
   }) {
     send(
       ClientMessage.resumeSession(
@@ -297,6 +290,9 @@ class BridgeService implements BridgeServiceBase {
         projectPath,
         permissionMode: permissionMode,
         provider: provider,
+        approvalPolicy: approvalPolicy,
+        sandboxMode: sandboxMode,
+        model: model,
       ),
     );
   }

@@ -289,8 +289,12 @@ void main() {
       },
     );
 
-    test('consumes pending past history on build', () {
-      mockBridge.pendingPastHistory = PastHistoryMessage(
+    test('ignores duplicate past history messages in same session', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      final pastHistory = PastHistoryMessage(
         claudeSessionId: 'old',
         messages: [
           PastMessage(
@@ -300,11 +304,10 @@ void main() {
         ],
       );
 
-      // Past history is consumed synchronously during build
-      final cubit = createCubit('s1');
-      addTearDown(cubit.close);
+      mockBridge.emitMessage(pastHistory, sessionId: 's1');
+      mockBridge.emitMessage(pastHistory, sessionId: 's1');
+      await Future.microtask(() {});
 
-      expect(mockBridge.pendingPastHistory, isNull);
       expect(cubit.state.entries, hasLength(1));
       expect(cubit.state.entries.first, isA<UserChatEntry>());
     });

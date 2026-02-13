@@ -13,6 +13,11 @@ export interface SessionIndexEntry {
   gitBranch: string;
   projectPath: string;
   isSidechain: boolean;
+  codexSettings?: {
+    approvalPolicy?: string;
+    sandboxMode?: string;
+    model?: string;
+  };
 }
 
 interface RawSessionIndexFile {
@@ -340,6 +345,10 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   let summary = "";
   let messageCount = 0;
   let lastAssistantText = "";
+  // Settings extracted from the first turn_context entry
+  let approvalPolicy: string | undefined;
+  let sandboxMode: string | undefined;
+  let model: string | undefined;
 
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -368,6 +377,24 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
         const git = payload.git as Record<string, unknown> | undefined;
         if (git && typeof git.branch === "string") {
           gitBranch = git.branch;
+        }
+      }
+      continue;
+    }
+
+    // Extract sandbox/approval/model from the first turn_context
+    if (entry.type === "turn_context" && !approvalPolicy) {
+      const payload = entry.payload as Record<string, unknown> | undefined;
+      if (payload) {
+        if (typeof payload.approval_policy === "string") {
+          approvalPolicy = payload.approval_policy;
+        }
+        const sp = payload.sandbox_policy as Record<string, unknown> | undefined;
+        if (sp && typeof sp.type === "string") {
+          sandboxMode = sp.type;
+        }
+        if (typeof payload.model === "string") {
+          model = payload.model;
         }
       }
       continue;
@@ -404,6 +431,10 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   if (!projectPath || messageCount === 0) return null;
   summary = lastAssistantText || summary;
 
+  const codexSettings = (approvalPolicy || sandboxMode || model)
+    ? { approvalPolicy, sandboxMode, model }
+    : undefined;
+
   return {
     threadId,
     entry: {
@@ -417,6 +448,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       gitBranch,
       projectPath,
       isSidechain: false,
+      codexSettings,
     },
   };
 }
@@ -521,7 +553,7 @@ async function findCodexSessionJsonlPath(threadId: string): Promise<string | nul
   const files = await listCodexSessionFiles();
   for (const filePath of files) {
     const fallbackSessionId = basename(filePath, ".jsonl");
-    if (fallbackSessionId.endsWith(threadId) || fallbackSessionId === threadId) {
+    if (fallbackSessionId === threadId || fallbackSessionId.endsWith(`-${threadId}`)) {
       return filePath;
     }
     let raw: string;

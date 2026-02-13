@@ -27,6 +27,12 @@
   - Codex セッション開始設定 UI 追加: `SandboxMode` / `ApprovalPolicy` enum + ドロップダウン
   - モデル選択を自由テキスト → ドロップダウン化 (gpt-5.3-codex 等)
   - デバッグ用 `_testCodexSession()` ボタン削除
+- 2026-02-13 (追加):
+  - `resume_session` 時の即時 `past_history` 送信を廃止し、履歴配信を `get_history(sessionId)` 経路に統一
+  - mobile の `pendingPastHistory` バッファ経路を削除（重複表示リスクのある二重経路を解消）
+  - Codex 履歴ファイル探索を厳密化（`threadId` の曖昧サフィックス一致を除去）
+  - Bridge テスト追加: `codex-process.test.ts` / `session.test.ts` / `websocket.test.ts`
+  - Mobile/Bridge のテストを実行し回帰なしを確認
 
 ## 機能面
 
@@ -37,8 +43,8 @@
 - 現状: アプリ再起動やセッション再表示で過去メッセージが消える
 
 ### セッション一覧での Codex 表示
-- `SessionInfo.provider` フィールドは存在するが、UIに未反映
-- セッション一覧でアイコンやラベルで Claude / Codex を区別すべき
+- 進捗: `session_card.dart` で provider バッジ表示を実装済み（Codex / Claude Code）
+- 残: 一覧全体での視認性・並び替え優先度など UX 調整は必要に応じて実施
 
 ### ~~モデル選択 UI の改善~~ ✅ 完了 (2026-02-13)
 - ドロップダウン化済み（`gpt-5.3-codex`, `gpt-5.3-codex-spark`, `gpt-5.2-codex`, `gpt-5.1-codex-max` + Default）
@@ -51,9 +57,10 @@
 ## テスト
 
 ### Bridge ユニットテスト
-- `codex-process.ts` のユニットテスト未追加
-- `session.ts` の Codex パスのテスト未追加
-- Codex SDK のモックが必要
+- ✅ `codex-process.ts` のユニットテスト追加済み
+- ✅ `session.ts` の Codex パスのテスト追加済み
+- ✅ `websocket.ts` の resume/get_history 経路テスト追加済み
+- Codex SDK のモックはテスト内で実装済み
 
 ## 技術的負債
 
@@ -73,6 +80,47 @@
 - 受け入れ条件: UI選択 ✅ / プロトコル反映 ✅ / ログ確認 ✅ / テスト（既存の Bridge テストでカバー、追加テストは次回）
 
 ### 次テーマ候補
-1. セッション一覧での provider 可視化（アイコン/ラベル）
-2. Bridge の Codex 系ユニットテスト追加
-3. 履歴復元の実機検証・不足ケース修正
+1. 履歴復元の実機検証（最優先）
+2. セッション一覧の provider UX 微調整（必要時）
+3. Codex SDK バージョン戦略の見直し
+
+### 次実装の計画（2026-02-13）
+目的: アプリ再起動・再接続後でも Codex 会話履歴を確実に再表示できる状態にする。
+
+1. 受信経路の整合性を固定する（Bridge ↔ Mobile）
+- 対象: `packages/bridge/src/websocket.ts`, `apps/mobile/lib/services/bridge_service.dart`
+- 作業:
+  - `resume_session` 時の `past_history` / `history` / `status` の送信順と `sessionId` 付与ルールを明文化し、実装を揃える
+  - `pendingPastHistory` バッファ依存の経路と `messagesForSession` 経路の二重処理・取りこぼしを確認し、どちらかに寄せる
+  - Codex/Claude で挙動が分かれる箇所をコメントで明示
+- 完了条件:
+  - 再接続直後に履歴が 0 件になるケースが再現しない
+  - 同じ履歴が二重表示されない
+
+2. Codex 履歴復元の不足ケースを埋める
+- 対象: `packages/bridge/src/sessions-index.ts`
+- 作業:
+  - `getCodexSessionHistory` のパース対象を再点検（空行・壊れた行・assistant 複数チャンクなど）
+  - `findCodexSessionJsonlPath` の一致ロジック（threadId / file名）で誤一致・未一致ケースをテストで固定
+  - 必要なら履歴復元時の最大件数や順序保証を追加
+- 完了条件:
+  - 手元サンプル JSONL で user/assistant の順序が安定して復元される
+  - threadId 指定で誤ファイルを拾わない
+
+3. Codex 再接続フローを実機で検証する
+- 対象: `apps/mobile/lib/features/session_list/session_list_screen.dart`, `apps/mobile/lib/features/chat_codex/*`
+- 作業:
+  - Recent から Codex セッション再開 → 過去履歴表示 → 追加入力送信までを通し検証
+  - Running セッション再オープン時の `get_history` が期待どおりか確認
+  - 失敗時はログ（Bridge / Mobile）を採取して再現手順をドキュメント化
+- 完了条件:
+  - 3 ケース（Recent 再開 / Running 再表示 / アプリ再起動後再開）で履歴欠損なし
+
+4. 自動テストを追加して回帰防止する
+- 対象: `packages/bridge/src/session.test.ts`（新規）, `packages/bridge/src/codex-process.test.ts`（新規）, `packages/bridge/src/sessions-index.test.ts`
+- 作業:
+  - `session.ts` の Codex セッション作成・履歴件数計上・status 遷移のテスト追加
+  - `codex-process.ts` の `start` / `resumeThread(threadId)` 呼び分けをモックで固定
+  - `sessions-index.ts` の Codex 履歴復元エッジケースを追加
+- 完了条件:
+  - 追加テストが CI で安定通過し、履歴回りの回帰を検知できる

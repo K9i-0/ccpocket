@@ -495,6 +495,9 @@ class _SessionListScreenState extends State<SessionListScreen> {
       session.sessionId,
       session.projectPath,
       provider: session.provider,
+      approvalPolicy: session.codexApprovalPolicy,
+      sandboxMode: session.codexSandboxMode,
+      model: session.codexModel,
     );
   }
 

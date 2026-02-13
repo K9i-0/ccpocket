@@ -672,6 +672,9 @@ class RecentSession {
   final String gitBranch;
   final String projectPath;
   final bool isSidechain;
+  final String? codexApprovalPolicy;
+  final String? codexSandboxMode;
+  final String? codexModel;
 
   const RecentSession({
     required this.sessionId,
@@ -684,9 +687,13 @@ class RecentSession {
     required this.gitBranch,
     required this.projectPath,
     required this.isSidechain,
+    this.codexApprovalPolicy,
+    this.codexSandboxMode,
+    this.codexModel,
   });
 
   factory RecentSession.fromJson(Map<String, dynamic> json) {
+    final codexSettings = json['codexSettings'] as Map<String, dynamic>?;
     return RecentSession(
       sessionId: json['sessionId'] as String,
       provider: json['provider'] as String?,
@@ -698,6 +705,9 @@ class RecentSession {
       gitBranch: json['gitBranch'] as String? ?? '',
       projectPath: json['projectPath'] as String? ?? '',
       isSidechain: json['isSidechain'] as bool? ?? false,
+      codexApprovalPolicy: codexSettings?['approvalPolicy'] as String?,
+      codexSandboxMode: codexSettings?['sandboxMode'] as String?,
+      codexModel: codexSettings?['model'] as String?,
     );
   }
 
@@ -892,6 +902,9 @@ class ClientMessage {
     String projectPath, {
     String? permissionMode,
     String? provider,
+    String? approvalPolicy,
+    String? sandboxMode,
+    String? model,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'resume_session',
@@ -899,6 +912,9 @@ class ClientMessage {
       'projectPath': projectPath,
       'permissionMode': ?permissionMode,
       'provider': ?provider,
+      'approvalPolicy': ?approvalPolicy,
+      'sandboxMode': ?sandboxMode,
+      'model': ?model,
     });
   }
 

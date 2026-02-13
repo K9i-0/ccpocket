@@ -338,22 +338,22 @@ export class BridgeWebSocketServer {
       case "resume_session": {
         const provider = msg.provider ?? "claude";
         const sessionRefId = msg.sessionId;
+        // Resume flow: keep past history in SessionInfo and deliver it only
+        // via get_history(sessionId) to avoid duplicate/missed replay races.
         if (provider === "codex") {
           getCodexSessionHistory(sessionRefId).then((pastMessages) => {
-            if (pastMessages.length > 0) {
-              this.send(ws, {
-                type: "past_history",
-                claudeSessionId: sessionRefId,
-                messages: pastMessages,
-              } as Record<string, unknown>);
-            }
             const sessionId = this.sessionManager.create(
               msg.projectPath,
               undefined,
               pastMessages,
               undefined,
               "codex",
-              { threadId: sessionRefId },
+              {
+                threadId: sessionRefId,
+                approvalPolicy: (msg.approvalPolicy as "never" | "on-request" | "on-failure" | "untrusted") ?? undefined,
+                sandboxMode: (msg.sandboxMode as "read-only" | "workspace-write" | "danger-full-access") ?? undefined,
+                model: msg.model,
+              },
             );
             this.send(ws, {
               type: "system",
@@ -388,13 +388,6 @@ export class BridgeWebSocketServer {
         }
 
         getSessionHistory(claudeSessionId).then((pastMessages) => {
-          if (pastMessages.length > 0) {
-            this.send(ws, {
-              type: "past_history",
-              claudeSessionId,
-              messages: pastMessages,
-            } as Record<string, unknown>);
-          }
           const sessionId = this.sessionManager.create(
             msg.projectPath,
             {
