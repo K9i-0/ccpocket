@@ -18,7 +18,7 @@ export interface CodexProcessEvents {
 export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private codex: Codex;
   private thread: Thread | null = null;
-  private _status: ProcessStatus = "idle";
+  private _status: ProcessStatus = "starting";
   private _threadId: string | null = null;
   private stopped = false;
   private startModel: string | undefined;

@@ -45,6 +45,10 @@ class ChatScreen extends StatefulWidget {
   final String? worktreePath;
   final bool isPending;
 
+  /// Notifier from the parent that may already hold a [SystemMessage]
+  /// with subtype `session_created` (race condition fix).
+  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
+
   const ChatScreen({
     super.key,
     required this.sessionId,
@@ -52,6 +56,7 @@ class ChatScreen extends StatefulWidget {
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
+    this.pendingSessionCreated,
   });
 
   @override
@@ -79,6 +84,15 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _listenForSessionCreated() {
+    // Check if session_list_screen already captured the message (race fix).
+    final buffered = widget.pendingSessionCreated?.value;
+    if (buffered != null && buffered.sessionId != null) {
+      _resolveSession(buffered);
+      return;
+    }
+    // Also listen for future notification via the ValueNotifier.
+    widget.pendingSessionCreated?.addListener(_onPendingSessionCreated);
+
     final bridge = context.read<BridgeService>();
     _pendingSub = bridge.messages.listen((msg) {
       if (msg is SystemMessage && msg.subtype == 'session_created') {
@@ -89,21 +103,34 @@ class _ChatScreenState extends State<ChatScreen> {
           return;
         }
         if (msg.sessionId != null && mounted) {
-          setState(() {
-            _sessionId = msg.sessionId!;
-            _worktreePath = msg.worktreePath ?? _worktreePath;
-            _gitBranch = msg.worktreeBranch ?? _gitBranch;
-            _isPending = false;
-          });
-          _pendingSub?.cancel();
-          _pendingSub = null;
+          _resolveSession(msg);
         }
       }
     });
   }
 
+  void _onPendingSessionCreated() {
+    final msg = widget.pendingSessionCreated?.value;
+    if (msg != null && msg.sessionId != null && mounted && _isPending) {
+      _resolveSession(msg);
+    }
+  }
+
+  void _resolveSession(SystemMessage msg) {
+    widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
+    setState(() {
+      _sessionId = msg.sessionId!;
+      _worktreePath = msg.worktreePath ?? _worktreePath;
+      _gitBranch = msg.worktreeBranch ?? _gitBranch;
+      _isPending = false;
+    });
+    _pendingSub?.cancel();
+    _pendingSub = null;
+  }
+
   @override
   void dispose() {
+    widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
     _pendingSub?.cancel();
     super.dispose();
   }
