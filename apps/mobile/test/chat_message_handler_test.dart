@@ -612,79 +612,73 @@ void main() {
   });
 
   group('PermissionRequestMessage for AskUserQuestion', () {
-    test(
-      'permission_request with toolName AskUserQuestion sets askToolUseId '
-      'instead of pendingPermission',
-      () {
-        final update = handler.handle(
-          const PermissionRequestMessage(
-            toolUseId: 'tu-ask',
-            toolName: 'AskUserQuestion',
-            input: {
-              'questions': [
-                {'question': 'Which option?'},
-              ],
-            },
-          ),
-          isBackground: false,
-        );
-        // Should be treated as AskUserQuestion, NOT a regular permission
-        expect(update.askToolUseId, 'tu-ask');
-        expect(update.askInput, isNotNull);
-        expect(update.pendingPermission, isNull);
-        expect(update.pendingToolUseId, isNull);
-      },
-    );
+    test('permission_request with toolName AskUserQuestion sets askToolUseId '
+        'instead of pendingPermission', () {
+      final update = handler.handle(
+        const PermissionRequestMessage(
+          toolUseId: 'tu-ask',
+          toolName: 'AskUserQuestion',
+          input: {
+            'questions': [
+              {'question': 'Which option?'},
+            ],
+          },
+        ),
+        isBackground: false,
+      );
+      // Should be treated as AskUserQuestion, NOT a regular permission
+      expect(update.askToolUseId, 'tu-ask');
+      expect(update.askInput, isNotNull);
+      expect(update.pendingPermission, isNull);
+      expect(update.pendingToolUseId, isNull);
+    });
 
-    test(
-      'assistant AskUserQuestion followed by permission_request '
-      'does not overwrite askToolUseId with pendingPermission',
-      () {
-        // Step 1: assistant message with AskUserQuestion tool_use
-        final update1 = handler.handle(
-          AssistantServerMessage(
-            message: AssistantMessage(
-              id: 'msg-1',
-              role: 'assistant',
-              content: [
-                const ToolUseContent(
-                  id: 'tu-ask',
-                  name: 'AskUserQuestion',
-                  input: {
-                    'questions': [
-                      {'question': 'Which option?'},
-                    ],
-                  },
-                ),
-              ],
-              model: 'test',
-            ),
+    test('assistant AskUserQuestion followed by permission_request '
+        'does not overwrite askToolUseId with pendingPermission', () {
+      // Step 1: assistant message with AskUserQuestion tool_use
+      final update1 = handler.handle(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'msg-1',
+            role: 'assistant',
+            content: [
+              const ToolUseContent(
+                id: 'tu-ask',
+                name: 'AskUserQuestion',
+                input: {
+                  'questions': [
+                    {'question': 'Which option?'},
+                  ],
+                },
+              ),
+            ],
+            model: 'test',
           ),
-          isBackground: false,
-        );
-        expect(update1.askToolUseId, 'tu-ask');
+        ),
+        isBackground: false,
+      );
+      expect(update1.askToolUseId, 'tu-ask');
 
-        // Step 2: permission_request for the same AskUserQuestion
-        final update2 = handler.handle(
-          const PermissionRequestMessage(
-            toolUseId: 'tu-ask',
-            toolName: 'AskUserQuestion',
-            input: {
-              'questions': [
-                {'question': 'Which option?'},
-              ],
-            },
-          ),
-          isBackground: false,
-        );
+      // Step 2: permission_request for the same AskUserQuestion
+      final update2 = handler.handle(
+        const PermissionRequestMessage(
+          toolUseId: 'tu-ask',
+          toolName: 'AskUserQuestion',
+          input: {
+            'questions': [
+              {'question': 'Which option?'},
+            ],
+          },
+        ),
+        isBackground: false,
+      );
 
-        // The permission_request should also be treated as askUser,
-        // not as a regular permission that overwrites the ask state.
-        expect(update2.askToolUseId, 'tu-ask');
-        expect(update2.pendingPermission, isNull);
-        expect(update2.pendingToolUseId, isNull);
-      },
-    );
+      // The permission_request should also be treated as askUser,
+      // not as a regular permission that overwrites the ask state.
+      expect(update2.askToolUseId, 'tu-ask');
+      expect(update2.pendingPermission, isNull);
+      expect(update2.pendingToolUseId, isNull);
+    });
   });
 
   group('PermissionRequestMessage.summary', () {

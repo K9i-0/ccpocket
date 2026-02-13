@@ -215,6 +215,9 @@ class _ChatScreenBody extends HookWidget {
     // Clear context toggle for plan approval
     final clearContext = useState(false);
 
+    // Diff context from DiffScreen navigation
+    final diffContextFromNav = useState<String?>(null);
+
     // --- Bloc state ---
     final sessionState = context.watch<ChatSessionCubit>().state;
     final bridgeState = context.watch<ConnectionCubit>().state;
@@ -375,8 +378,8 @@ class _ChatScreenBody extends HookWidget {
                       minWidth: 36,
                       minHeight: 36,
                     ),
-                    onPressed: () {
-                      Navigator.push(
+                    onPressed: () async {
+                      final diffContext = await Navigator.push<String>(
                         context,
                         MaterialPageRoute(
                           builder: (_) => DiffScreen(
@@ -384,6 +387,9 @@ class _ChatScreenBody extends HookWidget {
                           ),
                         ),
                       );
+                      if (diffContext != null && diffContext.isNotEmpty) {
+                        diffContextFromNav.value = diffContext;
+                      }
                     },
                   ),
                 // 3. Screenshot
@@ -551,6 +557,9 @@ class _ChatScreenBody extends HookWidget {
                     status: status,
                     onScrollToBottom: scroll.scrollToBottom,
                     inputController: chatInputController,
+                    initialDiffContext: diffContextFromNav.value,
+                    onDiffContextConsumed: () =>
+                        diffContextFromNav.value = null,
                   ),
               ],
             ),

@@ -12,6 +12,12 @@ class DiffContentList extends StatelessWidget {
   final Set<int> collapsedFileIndices;
   final ValueChanged<int> onToggleCollapse;
   final VoidCallback onClearHidden;
+  final bool selectionMode;
+  final Set<String> selectedHunkKeys;
+  final ValueChanged<int>? onToggleFileSelection;
+  final void Function(int fileIdx, int hunkIdx)? onToggleHunkSelection;
+  final bool Function(int fileIdx)? isFileFullySelected;
+  final bool Function(int fileIdx)? isFilePartiallySelected;
 
   const DiffContentList({
     super.key,
@@ -20,23 +26,34 @@ class DiffContentList extends StatelessWidget {
     required this.collapsedFileIndices,
     required this.onToggleCollapse,
     required this.onClearHidden,
+    this.selectionMode = false,
+    this.selectedHunkKeys = const {},
+    this.onToggleFileSelection,
+    this.onToggleHunkSelection,
+    this.isFileFullySelected,
+    this.isFilePartiallySelected,
   });
 
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
 
-    // Single-file mode: no header needed
+    // Single-file mode: no file header, but still support selection on hunks
     if (files.length == 1) {
       final file = files.first;
-      return file.isBinary
-          ? const DiffBinaryNotice()
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: file.hunks.length,
-              itemBuilder: (context, index) =>
-                  DiffHunkWidget(hunk: file.hunks[index]),
-            );
+      if (file.isBinary) return const DiffBinaryNotice();
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: file.hunks.length,
+        itemBuilder: (context, index) => DiffHunkWidget(
+          hunk: file.hunks[index],
+          selectionMode: selectionMode,
+          selected: selectedHunkKeys.contains('0:$index'),
+          onToggleSelection: onToggleHunkSelection != null
+              ? () => onToggleHunkSelection!(0, index)
+              : null,
+        ),
+      );
     }
 
     // Multi-file mode: all visible files in one scrollable list
@@ -108,12 +125,26 @@ class DiffContentList extends StatelessWidget {
             file: file,
             collapsed: collapsed,
             onToggleCollapse: () => onToggleCollapse(fileIdx),
+            selectionMode: selectionMode,
+            selected: isFileFullySelected?.call(fileIdx) ?? false,
+            partiallySelected: isFilePartiallySelected?.call(fileIdx) ?? false,
+            onToggleSelection: onToggleFileSelection != null
+                ? () => onToggleFileSelection!(fileIdx)
+                : null,
           );
         }
         if (file.isBinary) {
           return const DiffBinaryNotice();
         }
-        return DiffHunkWidget(hunk: file.hunks[localIdx - 1]);
+        final hunkIdx = localIdx - 1;
+        return DiffHunkWidget(
+          hunk: file.hunks[hunkIdx],
+          selectionMode: selectionMode,
+          selected: selectedHunkKeys.contains('$fileIdx:$hunkIdx'),
+          onToggleSelection: onToggleHunkSelection != null
+              ? () => onToggleHunkSelection!(fileIdx, hunkIdx)
+              : null,
+        );
       }
 
       offset += sectionSize;

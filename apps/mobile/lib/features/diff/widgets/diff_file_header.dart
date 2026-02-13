@@ -7,12 +7,20 @@ class DiffFileHeader extends StatelessWidget {
   final DiffFile file;
   final bool collapsed;
   final VoidCallback onToggleCollapse;
+  final bool selectionMode;
+  final bool selected;
+  final bool partiallySelected;
+  final VoidCallback? onToggleSelection;
 
   const DiffFileHeader({
     super.key,
     required this.file,
     required this.collapsed,
     required this.onToggleCollapse,
+    this.selectionMode = false,
+    this.selected = false,
+    this.partiallySelected = false,
+    this.onToggleSelection,
   });
 
   @override
@@ -29,15 +37,30 @@ class DiffFileHeader extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              file.isNewFile
-                  ? Icons.add_circle_outline
-                  : file.isDeleted
-                  ? Icons.remove_circle_outline
-                  : Icons.edit_note,
-              size: 16,
-              color: appColors.subtleText,
-            ),
+            if (selectionMode)
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Checkbox(
+                  value: partiallySelected ? null : selected,
+                  tristate: true,
+                  onChanged: onToggleSelection != null
+                      ? (_) => onToggleSelection!()
+                      : null,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+              )
+            else
+              Icon(
+                file.isNewFile
+                    ? Icons.add_circle_outline
+                    : file.isDeleted
+                    ? Icons.remove_circle_outline
+                    : Icons.edit_note,
+                size: 16,
+                color: appColors.subtleText,
+              ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

@@ -21,6 +21,8 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback? onAttachImage;
   final Uint8List? attachedImageBytes;
   final VoidCallback? onClearAttachment;
+  final String? attachedDiffContext;
+  final VoidCallback? onClearDiffContext;
 
   const ChatInputBar({
     super.key,
@@ -37,6 +39,8 @@ class ChatInputBar extends StatelessWidget {
     this.onAttachImage,
     this.attachedImageBytes,
     this.onClearAttachment,
+    this.attachedDiffContext,
+    this.onClearDiffContext,
   });
 
   @override
@@ -62,6 +66,7 @@ class ChatInputBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (attachedDiffContext != null) _buildDiffPreview(cs),
           if (attachedImageBytes != null) _buildImagePreview(cs),
           _buildTextField(cs),
           const SizedBox(height: 4),
@@ -157,6 +162,66 @@ class ChatInputBar extends StatelessWidget {
                 padding: const EdgeInsets.all(4),
                 child: const Icon(Icons.close, size: 14, color: Colors.white),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiffPreview(ColorScheme cs) {
+    final lines = attachedDiffContext!.split('\n');
+    final lineCount = lines.length;
+    final preview = lines.take(3).join('\n');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.difference, size: 20, color: cs.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Diff attached ($lineCount lines)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  preview,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: onClearDiffContext,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
+              ),
+              padding: const EdgeInsets.all(4),
+              child: const Icon(Icons.close, size: 14, color: Colors.white),
             ),
           ),
         ],

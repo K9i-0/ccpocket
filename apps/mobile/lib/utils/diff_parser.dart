@@ -334,6 +334,60 @@ DiffHunk _parseRawDiffLines(List<String> lines) {
   return DiffHunk(header: '', oldStart: 1, newStart: 1, lines: diffLines);
 }
 
+/// Reconstruct unified diff text from selected hunks.
+///
+/// [files] is the full list of parsed diff files.
+/// [selectedHunkKeys] contains keys in the format "$fileIdx:$hunkIdx".
+/// Returns a valid unified diff string suitable for embedding in a code block.
+String reconstructDiff(List<DiffFile> files, Set<String> selectedHunkKeys) {
+  if (selectedHunkKeys.isEmpty) return '';
+
+  final buffer = StringBuffer();
+
+  for (var fileIdx = 0; fileIdx < files.length; fileIdx++) {
+    final file = files[fileIdx];
+
+    // Collect selected hunk indices for this file.
+    final selectedHunks = <int>[];
+    for (var hunkIdx = 0; hunkIdx < file.hunks.length; hunkIdx++) {
+      if (selectedHunkKeys.contains('$fileIdx:$hunkIdx')) {
+        selectedHunks.add(hunkIdx);
+      }
+    }
+    if (selectedHunks.isEmpty) continue;
+
+    // File header
+    buffer.writeln('diff --git a/${file.filePath} b/${file.filePath}');
+    if (file.isNewFile) buffer.writeln('new file mode 100644');
+    if (file.isDeleted) buffer.writeln('deleted file mode 100644');
+
+    if (file.isBinary) {
+      buffer.writeln(
+        'Binary files a/${file.filePath} and b/${file.filePath} differ',
+      );
+      continue;
+    }
+
+    buffer.writeln('--- a/${file.filePath}');
+    buffer.writeln('+++ b/${file.filePath}');
+
+    for (final hunkIdx in selectedHunks) {
+      final hunk = file.hunks[hunkIdx];
+      if (hunk.header.isNotEmpty) buffer.writeln(hunk.header);
+      for (final line in hunk.lines) {
+        final prefix = switch (line.type) {
+          DiffLineType.addition => '+',
+          DiffLineType.deletion => '-',
+          DiffLineType.context => ' ',
+        };
+        buffer.writeln('$prefix${line.content}');
+      }
+    }
+  }
+
+  return buffer.toString().trimRight();
+}
+
 /// Extract file path from `diff --git a/path b/path`.
 String _extractFilePath(String diffGitLine) {
   // Format: diff --git a/some/path b/some/path

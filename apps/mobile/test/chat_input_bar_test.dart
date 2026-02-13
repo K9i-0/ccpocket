@@ -79,9 +79,7 @@ void main() {
       expect(find.byKey(const ValueKey('send_button')), findsOneWidget);
     });
 
-    testWidgets('voice button stays visible when text present', (
-      tester,
-    ) async {
+    testWidgets('voice button stays visible when text present', (tester) async {
       await tester.pumpWidget(
         buildSubject(hasInputText: true, isVoiceAvailable: true),
       );

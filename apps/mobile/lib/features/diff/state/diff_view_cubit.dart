@@ -84,6 +84,77 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     emit(state.copyWith(hiddenFileIndices: const {}));
   }
 
+  // ---------------------------------------------------------------------------
+  // Selection mode
+  // ---------------------------------------------------------------------------
+
+  /// Toggle selection mode on/off. Clears selection when turning off.
+  void toggleSelectionMode() {
+    emit(
+      state.copyWith(
+        selectionMode: !state.selectionMode,
+        selectedHunkKeys: const {},
+      ),
+    );
+  }
+
+  /// Toggle all hunks of a file.
+  void toggleFileSelection(int fileIdx) {
+    final file = state.files[fileIdx];
+    final allKeys = List.generate(
+      file.hunks.length,
+      (i) => '$fileIdx:$i',
+    ).toSet();
+    final current = state.selectedHunkKeys;
+
+    // If all hunks are selected → deselect all; otherwise → select all.
+    final allSelected = allKeys.every(current.contains);
+    if (allSelected) {
+      emit(
+        state.copyWith(
+          selectedHunkKeys: Set<String>.from(current)..removeAll(allKeys),
+        ),
+      );
+    } else {
+      emit(state.copyWith(selectedHunkKeys: {...current, ...allKeys}));
+    }
+  }
+
+  /// Toggle a single hunk.
+  void toggleHunkSelection(int fileIdx, int hunkIdx) {
+    final key = '$fileIdx:$hunkIdx';
+    final current = state.selectedHunkKeys;
+    emit(
+      state.copyWith(
+        selectedHunkKeys: current.contains(key)
+            ? (Set<String>.from(current)..remove(key))
+            : {...current, key},
+      ),
+    );
+  }
+
+  /// Whether all hunks in a file are selected.
+  bool isFileFullySelected(int fileIdx) {
+    final file = state.files[fileIdx];
+    if (file.hunks.isEmpty) return false;
+    return List.generate(
+      file.hunks.length,
+      (i) => '$fileIdx:$i',
+    ).every(state.selectedHunkKeys.contains);
+  }
+
+  /// Whether some (but not all) hunks in a file are selected.
+  bool isFilePartiallySelected(int fileIdx) {
+    final file = state.files[fileIdx];
+    if (file.hunks.isEmpty) return false;
+    final keys = List.generate(file.hunks.length, (i) => '$fileIdx:$i');
+    final selectedCount = keys.where(state.selectedHunkKeys.contains).length;
+    return selectedCount > 0 && selectedCount < keys.length;
+  }
+
+  /// Whether any hunk is selected.
+  bool get hasAnySelection => state.selectedHunkKeys.isNotEmpty;
+
   @override
   Future<void> close() {
     _diffSub?.cancel();

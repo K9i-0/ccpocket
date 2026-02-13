@@ -22,5 +22,11 @@ abstract class DiffViewState with _$DiffViewState {
 
     /// Error message from parsing or server request.
     String? error,
+
+    /// Whether selection mode is active.
+    @Default(false) bool selectionMode,
+
+    /// Selected hunk keys in the format "$fileIdx:$hunkIdx".
+    @Default({}) Set<String> selectedHunkKeys,
   }) = _DiffViewState;
 }

@@ -27,12 +27,20 @@ class ChatInputWithOverlays extends HookWidget {
   final VoidCallback onScrollToBottom;
   final TextEditingController inputController;
 
+  /// Diff context to attach (set by parent when returning from DiffScreen).
+  final String? initialDiffContext;
+
+  /// Called after the diff context is consumed into local state.
+  final VoidCallback? onDiffContextConsumed;
+
   const ChatInputWithOverlays({
     super.key,
     required this.sessionId,
     required this.status,
     required this.onScrollToBottom,
     required this.inputController,
+    this.initialDiffContext,
+    this.onDiffContextConsumed,
   });
 
   @override
@@ -57,6 +65,18 @@ class ChatInputWithOverlays extends HookWidget {
     // Image attachment state
     final attachedImage = useState<Uint8List?>(null);
     final attachedMimeType = useState<String?>(null);
+
+    // Diff context attachment state
+    final attachedDiffContext = useState<String?>(null);
+
+    // Consume initialDiffContext from parent
+    useEffect(() {
+      if (initialDiffContext != null && initialDiffContext!.isNotEmpty) {
+        attachedDiffContext.value = initialDiffContext;
+        onDiffContextConsumed?.call();
+      }
+      return null;
+    }, [initialDiffContext]);
 
     // Project files for @-mention
     final projectFiles = context.watch<FileListCubit>().state;
@@ -145,7 +165,11 @@ class ChatInputWithOverlays extends HookWidget {
 
     void sendMessage() {
       final text = inputController.text.trim();
-      if (text.isEmpty && attachedImage.value == null) return;
+      if (text.isEmpty &&
+          attachedImage.value == null &&
+          attachedDiffContext.value == null) {
+        return;
+      }
       HapticFeedback.lightImpact();
 
       final cubit = context.read<ChatSessionCubit>();
@@ -161,8 +185,24 @@ class ChatInputWithOverlays extends HookWidget {
         attachedMimeType.value = null;
       }
 
+      // Capture and clear diff context
+      String? diffContext;
+      if (attachedDiffContext.value != null) {
+        diffContext = attachedDiffContext.value;
+        attachedDiffContext.value = null;
+      }
+
+      // Build final message text with diff block prepended
+      var finalText = text;
+      if (diffContext != null) {
+        final diffBlock = '```diff\n$diffContext\n```';
+        finalText = finalText.isEmpty
+            ? diffBlock
+            : '$diffBlock\n\n$finalText';
+      }
+
       cubit.sendMessage(
-        text.isEmpty ? 'What is in this image?' : text,
+        finalText.isEmpty ? 'What is in this image?' : finalText,
         imageBytes: imageBytes,
         imageMimeType: mimeType,
       );
@@ -313,6 +353,10 @@ class ChatInputWithOverlays extends HookWidget {
       attachedMimeType.value = null;
     }
 
+    void clearDiffContext() {
+      attachedDiffContext.value = null;
+    }
+
     void stopSession() {
       HapticFeedback.mediumImpact();
       context.read<ChatSessionCubit>().stop();
@@ -340,10 +384,7 @@ class ChatInputWithOverlays extends HookWidget {
         link: layerLink,
         targetAnchor: Alignment.topLeft,
         followerAnchor: Alignment.bottomLeft,
-        child: SizedBox(
-          width: screenWidth - 16,
-          child: child,
-        ),
+        child: SizedBox(width: screenWidth - 16, child: child),
       );
     }
 
@@ -376,7 +417,10 @@ class ChatInputWithOverlays extends HookWidget {
           child: ChatInputBar(
             inputController: inputController,
             status: status,
-            hasInputText: hasInputText.value || attachedImage.value != null,
+            hasInputText:
+                hasInputText.value ||
+                attachedImage.value != null ||
+                attachedDiffContext.value != null,
             isVoiceAvailable: voice.isAvailable,
             isRecording: voice.isRecording,
             onSend: sendMessage,
@@ -387,6 +431,8 @@ class ChatInputWithOverlays extends HookWidget {
             onAttachImage: showAttachOptions,
             attachedImageBytes: attachedImage.value,
             onClearAttachment: clearAttachment,
+            attachedDiffContext: attachedDiffContext.value,
+            onClearDiffContext: clearDiffContext,
           ),
         ),
       ),

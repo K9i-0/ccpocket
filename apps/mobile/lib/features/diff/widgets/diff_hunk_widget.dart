@@ -6,8 +6,17 @@ import '../../../utils/diff_parser.dart';
 
 class DiffHunkWidget extends StatelessWidget {
   final DiffHunk hunk;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onToggleSelection;
 
-  const DiffHunkWidget({super.key, required this.hunk});
+  const DiffHunkWidget({
+    super.key,
+    required this.hunk,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onToggleSelection,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -19,13 +28,34 @@ class DiffHunkWidget extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             color: appColors.codeBackground,
-            child: Text(
-              hunk.header,
-              style: TextStyle(
-                fontSize: 11,
-                fontFamily: 'monospace',
-                color: appColors.subtleText,
-              ),
+            child: Row(
+              children: [
+                if (selectionMode) ...[
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Checkbox(
+                      value: selected,
+                      onChanged: onToggleSelection != null
+                          ? (_) => onToggleSelection!()
+                          : null,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Expanded(
+                  child: Text(
+                    hunk.header,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: appColors.subtleText,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         for (final line in hunk.lines) DiffLineWidget(line: line),
