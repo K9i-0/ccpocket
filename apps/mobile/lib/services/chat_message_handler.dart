@@ -83,7 +83,18 @@ class ChatMessageHandler {
         return _handleHistory(messages);
       case SystemMessage(:final subtype, :final slashCommands, :final skills):
         return _handleSystem(msg, subtype, slashCommands, skills);
-      case PermissionRequestMessage(:final toolUseId):
+      case PermissionRequestMessage(
+        :final toolUseId,
+        :final toolName,
+        :final input,
+      ):
+        if (toolName == 'AskUserQuestion') {
+          return ChatStateUpdate(
+            entriesToAdd: [ServerChatEntry(msg)],
+            askToolUseId: toolUseId,
+            askInput: input,
+          );
+        }
         return ChatStateUpdate(
           entriesToAdd: [ServerChatEntry(msg)],
           pendingToolUseId: toolUseId,

@@ -179,5 +179,54 @@ void main() {
       expect(msg!['result'], 'React');
       expect($(AskUserQuestionWidget), findsNothing);
     });
+
+    patrolWidgetTest(
+      'E6: permission_request for AskUserQuestion does not show ApprovalBar',
+      ($) async {
+        await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+        await pumpN($.tester);
+
+        // Simulate the real message sequence from the bridge:
+        // 1. assistant message with AskUserQuestion tool_use
+        // 2. permission_request for the same AskUserQuestion
+        // 3. status: waitingApproval
+        //
+        // Bug: the permission_request overwrites ApprovalState.askUser
+        // with ApprovalState.permission, showing the wrong dialog.
+        await emitAndPump($.tester, bridge, [
+          makeAskQuestionMessage('ask-race', singleQuestion),
+          const PermissionRequestMessage(
+            toolUseId: 'ask-race',
+            toolName: 'AskUserQuestion',
+            input: {
+              'questions': [
+                {
+                  'question': 'Which framework should we use?',
+                  'header': 'Framework',
+                  'options': [
+                    {'label': 'React', 'description': 'Popular UI library'},
+                    {'label': 'Vue', 'description': 'Progressive framework'},
+                    {
+                      'label': 'Angular',
+                      'description': 'Full-featured framework',
+                    },
+                  ],
+                  'multiSelect': false,
+                },
+              ],
+            },
+          ),
+          const StatusMessage(status: ProcessStatus.waitingApproval),
+        ]);
+        await pumpN($.tester);
+
+        // AskUserQuestionWidget should be shown, NOT the approval bar
+        expect($(AskUserQuestionWidget), findsOneWidget);
+        expect(find.text('Which framework should we use?'), findsOneWidget);
+
+        // ChatInputWithOverlays (approval bar container) should NOT be shown
+        expect($(ChatInputWithOverlays), findsNothing);
+      },
+    );
   });
 }
