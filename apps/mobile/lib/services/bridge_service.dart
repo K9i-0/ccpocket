@@ -30,6 +30,8 @@ class BridgeService implements BridgeServiceBase {
   final _windowListController = StreamController<List<WindowInfo>>.broadcast();
   final _screenshotResultController =
       StreamController<ScreenshotResultMessage>.broadcast();
+  final _debugBundleController =
+      StreamController<DebugBundleMessage>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
@@ -70,6 +72,7 @@ class BridgeService implements BridgeServiceBase {
   Stream<List<WindowInfo>> get windowList => _windowListController.stream;
   Stream<ScreenshotResultMessage> get screenshotResults =>
       _screenshotResultController.stream;
+  Stream<DebugBundleMessage> get debugBundles => _debugBundleController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
@@ -159,6 +162,8 @@ class BridgeService implements BridgeServiceBase {
                 _windowListController.add(windows);
               case ScreenshotResultMessage():
                 _screenshotResultController.add(msg);
+              case DebugBundleMessage():
+                _debugBundleController.add(msg);
               case WorktreeRemovedMessage():
                 _messageController.add(msg);
               default:
@@ -310,6 +315,20 @@ class BridgeService implements BridgeServiceBase {
 
   void requestProjectHistory() {
     send(ClientMessage.listProjectHistory());
+  }
+
+  void requestDebugBundle(
+    String sessionId, {
+    int? traceLimit,
+    bool includeDiff = true,
+  }) {
+    send(
+      ClientMessage.getDebugBundle(
+        sessionId,
+        traceLimit: traceLimit,
+        includeDiff: includeDiff,
+      ),
+    );
   }
 
   void removeProjectHistory(String path) {
@@ -517,5 +536,6 @@ class BridgeService implements BridgeServiceBase {
     _worktreeListController.close();
     _windowListController.close();
     _screenshotResultController.close();
+    _debugBundleController.close();
   }
 }

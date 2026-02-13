@@ -371,6 +371,32 @@ sealed class ServerMessage {
             : null,
         error: json['error'] as String?,
       ),
+      'debug_bundle' => DebugBundleMessage(
+        sessionId: json['sessionId'] as String? ?? '',
+        generatedAt: json['generatedAt'] as String? ?? '',
+        session: DebugBundleSession.fromJson(
+          json['session'] as Map<String, dynamic>? ?? const {},
+        ),
+        pastMessageCount: json['pastMessageCount'] as int? ?? 0,
+        historySummary:
+            (json['historySummary'] as List?)?.cast<String>() ?? const [],
+        debugTrace:
+            (json['debugTrace'] as List?)
+                ?.map(
+                  (e) => DebugTraceEvent.fromJson(e as Map<String, dynamic>),
+                )
+                .toList() ??
+            const [],
+        traceFilePath: json['traceFilePath'] as String?,
+        savedBundlePath: json['savedBundlePath'] as String?,
+        reproRecipe: DebugReproRecipe.fromJson(
+          json['reproRecipe'] as Map<String, dynamic>? ??
+              const <String, dynamic>{},
+        ),
+        agentPrompt: json['agentPrompt'] as String? ?? '',
+        diff: json['diff'] as String? ?? '',
+        diffError: json['diffError'] as String?,
+      ),
       'file_list' => FileListMessage(
         files: (json['files'] as List).cast<String>(),
       ),
@@ -599,6 +625,138 @@ class ScreenshotResultMessage implements ServerMessage {
     required this.success,
     this.image,
     this.error,
+  });
+}
+
+class DebugTraceEvent {
+  final String ts;
+  final String sessionId;
+  final String direction;
+  final String channel;
+  final String type;
+  final String? detail;
+
+  const DebugTraceEvent({
+    required this.ts,
+    required this.sessionId,
+    required this.direction,
+    required this.channel,
+    required this.type,
+    this.detail,
+  });
+
+  factory DebugTraceEvent.fromJson(Map<String, dynamic> json) {
+    return DebugTraceEvent(
+      ts: json['ts'] as String? ?? '',
+      sessionId: json['sessionId'] as String? ?? '',
+      direction: json['direction'] as String? ?? '',
+      channel: json['channel'] as String? ?? '',
+      type: json['type'] as String? ?? '',
+      detail: json['detail'] as String?,
+    );
+  }
+}
+
+class DebugBundleSession {
+  final String id;
+  final String provider;
+  final String status;
+  final String projectPath;
+  final String? worktreePath;
+  final String? worktreeBranch;
+  final String? claudeSessionId;
+  final String createdAt;
+  final String lastActivityAt;
+
+  const DebugBundleSession({
+    required this.id,
+    required this.provider,
+    required this.status,
+    required this.projectPath,
+    this.worktreePath,
+    this.worktreeBranch,
+    this.claudeSessionId,
+    required this.createdAt,
+    required this.lastActivityAt,
+  });
+
+  factory DebugBundleSession.fromJson(Map<String, dynamic> json) {
+    return DebugBundleSession(
+      id: json['id'] as String? ?? '',
+      provider: json['provider'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      projectPath: json['projectPath'] as String? ?? '',
+      worktreePath: json['worktreePath'] as String?,
+      worktreeBranch: json['worktreeBranch'] as String?,
+      claudeSessionId: json['claudeSessionId'] as String?,
+      createdAt: json['createdAt'] as String? ?? '',
+      lastActivityAt: json['lastActivityAt'] as String? ?? '',
+    );
+  }
+}
+
+class DebugReproRecipe {
+  final String wsUrlHint;
+  final String startBridgeCommand;
+  final Map<String, dynamic> resumeSessionMessage;
+  final Map<String, dynamic> getHistoryMessage;
+  final Map<String, dynamic> getDebugBundleMessage;
+  final List<String> notes;
+
+  const DebugReproRecipe({
+    this.wsUrlHint = '',
+    this.startBridgeCommand = '',
+    this.resumeSessionMessage = const <String, dynamic>{},
+    this.getHistoryMessage = const <String, dynamic>{},
+    this.getDebugBundleMessage = const <String, dynamic>{},
+    this.notes = const [],
+  });
+
+  factory DebugReproRecipe.fromJson(Map<String, dynamic> json) {
+    return DebugReproRecipe(
+      wsUrlHint: json['wsUrlHint'] as String? ?? '',
+      startBridgeCommand: json['startBridgeCommand'] as String? ?? '',
+      resumeSessionMessage:
+          (json['resumeSessionMessage'] as Map<String, dynamic>?) ??
+          const <String, dynamic>{},
+      getHistoryMessage:
+          (json['getHistoryMessage'] as Map<String, dynamic>?) ??
+          const <String, dynamic>{},
+      getDebugBundleMessage:
+          (json['getDebugBundleMessage'] as Map<String, dynamic>?) ??
+          const <String, dynamic>{},
+      notes: (json['notes'] as List?)?.cast<String>() ?? const [],
+    );
+  }
+}
+
+class DebugBundleMessage implements ServerMessage {
+  final String sessionId;
+  final String generatedAt;
+  final DebugBundleSession session;
+  final int pastMessageCount;
+  final List<String> historySummary;
+  final List<DebugTraceEvent> debugTrace;
+  final String? traceFilePath;
+  final String? savedBundlePath;
+  final DebugReproRecipe reproRecipe;
+  final String agentPrompt;
+  final String diff;
+  final String? diffError;
+
+  const DebugBundleMessage({
+    required this.sessionId,
+    required this.generatedAt,
+    required this.session,
+    required this.pastMessageCount,
+    this.historySummary = const [],
+    this.debugTrace = const [],
+    this.traceFilePath,
+    this.savedBundlePath,
+    this.reproRecipe = const DebugReproRecipe(),
+    this.agentPrompt = '',
+    required this.diff,
+    this.diffError,
   });
 }
 
@@ -961,6 +1119,17 @@ class ClientMessage {
 
   factory ClientMessage.getHistory(String sessionId) =>
       ClientMessage._({'type': 'get_history', 'sessionId': sessionId});
+
+  factory ClientMessage.getDebugBundle(
+    String sessionId, {
+    int? traceLimit,
+    bool? includeDiff,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'get_debug_bundle',
+    'sessionId': sessionId,
+    'traceLimit': ?traceLimit,
+    'includeDiff': ?includeDiff,
+  });
 
   factory ClientMessage.listSessions() =>
       ClientMessage._({'type': 'list_sessions'});

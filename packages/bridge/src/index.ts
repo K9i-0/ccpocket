@@ -7,6 +7,7 @@ import { printStartupInfo } from "./startup-info.js";
 import { MdnsAdvertiser } from "./mdns.js";
 import { ProjectHistory } from "./project-history.js";
 import { getVersionInfo } from "./version.js";
+import { DebugTraceStore } from "./debug-trace-store.js";
 
 export function startServer() {
   const PORT = parseInt(process.env.BRIDGE_PORT ?? "8765", 10);
@@ -24,6 +25,7 @@ export function startServer() {
   const imageStore = new ImageStore();
   const galleryStore = new GalleryStore();
   const projectHistory = new ProjectHistory();
+  const debugTraceStore = new DebugTraceStore();
   const mdns = new MdnsAdvertiser();
 
   // Initialize stores (async)
@@ -37,6 +39,12 @@ export function startServer() {
     console.log("[bridge] Project history initialized");
   }).catch((err) => {
     console.error("[bridge] Failed to initialize project history:", err);
+  });
+
+  debugTraceStore.init().then(() => {
+    console.log("[bridge] Debug trace store initialized");
+  }).catch((err) => {
+    console.error("[bridge] Failed to initialize debug trace store:", err);
   });
 
   const startedAt = Date.now();
@@ -100,6 +108,7 @@ export function startServer() {
     imageStore,
     galleryStore,
     projectHistory,
+    debugTraceStore,
   });
 
   httpServer.listen(PORT, HOST, () => {

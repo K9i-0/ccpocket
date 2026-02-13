@@ -376,6 +376,58 @@ describe("codex sessions integration", () => {
     expect(entry?.firstPrompt).toBe("hello codex");
   });
 
+  it("keeps codex worktree cwd as projectPath for resume targets", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68077";
+    const mainProjectPath = "/tmp/project-a";
+    const worktreePath = "/tmp/project-a-worktrees/feature-x";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const lines = [
+      JSON.stringify({
+        timestamp: "2026-02-13T12:00:00.000Z",
+        type: "session_meta",
+        payload: { id: threadId, cwd: worktreePath, git: { branch: "feature/x" } },
+      }),
+      JSON.stringify({
+        timestamp: "2026-02-13T12:00:01.000Z",
+        type: "event_msg",
+        payload: { type: "user_message", message: "resume this worktree session" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-02-13T12:00:02.000Z",
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "worktree response" }],
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-00-00-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    const { sessions } = await getAllRecentSessions({ limit: 200 });
+    const entry = sessions.find((s) => s.sessionId === threadId);
+    expect(entry).toBeDefined();
+    expect(entry?.provider).toBe("codex");
+    expect(entry?.projectPath).toBe(worktreePath);
+
+    const mainFilter = await getAllRecentSessions({
+      projectPath: mainProjectPath,
+      limit: 200,
+    });
+    expect(mainFilter.sessions.some((s) => s.sessionId === threadId)).toBe(false);
+
+    const worktreeFilter = await getAllRecentSessions({
+      projectPath: worktreePath,
+      limit: 200,
+    });
+    expect(worktreeFilter.sessions.some((s) => s.sessionId === threadId)).toBe(true);
+  });
+
   it("reads codex history from jsonl", async () => {
     const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68010";
     const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");

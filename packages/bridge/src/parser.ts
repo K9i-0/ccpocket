@@ -99,7 +99,17 @@ export type ClientMessage =
   | { type: "rewind"; sessionId: string; targetUuid: string; mode: "conversation" | "code" | "both" }
   | { type: "rewind_dry_run"; sessionId: string; targetUuid: string }
   | { type: "list_windows" }
-  | { type: "take_screenshot"; mode: "fullscreen" | "window"; windowId?: number; projectPath: string; sessionId?: string };
+  | { type: "take_screenshot"; mode: "fullscreen" | "window"; windowId?: number; projectPath: string; sessionId?: string }
+  | { type: "get_debug_bundle"; sessionId: string; traceLimit?: number; includeDiff?: boolean };
+
+export interface DebugTraceEvent {
+  ts: string;
+  sessionId: string;
+  direction: "incoming" | "outgoing" | "internal";
+  channel: "ws" | "session" | "bridge";
+  type: string;
+  detail?: string;
+}
 
 export type ServerMessage =
   | { type: "system"; subtype: string; sessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string; permissionMode?: PermissionMode }
@@ -134,7 +144,39 @@ export type ServerMessage =
   | { type: "rewind_result"; success: boolean; mode: "conversation" | "code" | "both"; error?: string }
   | { type: "user_input"; text: string; userMessageUuid?: string }
   | { type: "window_list"; windows: WindowInfo[] }
-  | { type: "screenshot_result"; success: boolean; image?: GalleryImageInfo; error?: string };
+  | { type: "screenshot_result"; success: boolean; image?: GalleryImageInfo; error?: string }
+  | {
+      type: "debug_bundle";
+      sessionId: string;
+      generatedAt: string;
+      session: {
+        id: string;
+        provider: Provider;
+        status: ProcessStatus;
+        projectPath: string;
+        worktreePath?: string;
+        worktreeBranch?: string;
+        claudeSessionId?: string;
+        createdAt: string;
+        lastActivityAt: string;
+      };
+      pastMessageCount: number;
+      historySummary: string[];
+      debugTrace: DebugTraceEvent[];
+      traceFilePath: string;
+      reproRecipe: {
+        wsUrlHint: string;
+        startBridgeCommand: string;
+        resumeSessionMessage: Record<string, unknown>;
+        getHistoryMessage: Record<string, unknown>;
+        getDebugBundleMessage: Record<string, unknown>;
+        notes: string[];
+      };
+      agentPrompt: string;
+      diff: string;
+      diffError?: string;
+      savedBundlePath?: string;
+    };
 
 export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval" | "clearing";
 
@@ -251,6 +293,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (msg.mode !== "fullscreen" && msg.mode !== "window") return null;
         if (msg.mode === "window" && typeof msg.windowId !== "number") return null;
         if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "get_debug_bundle":
+        if (typeof msg.sessionId !== "string") return null;
+        if (msg.traceLimit !== undefined && typeof msg.traceLimit !== "number") return null;
+        if (msg.includeDiff !== undefined && typeof msg.includeDiff !== "boolean") return null;
         break;
       default:
         return null;

@@ -89,6 +89,41 @@ describe("SessionManager codex path", () => {
     expect(session?.provider).toBe("codex");
   });
 
+  it("uses existing worktree path as cwd for codex resume sessions", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-main",
+      undefined,
+      [
+        { role: "user", content: [{ type: "text", text: "resume from worktree" }] },
+      ],
+      {
+        existingWorktreePath: "/tmp/project-main-worktrees/feature-x",
+        worktreeBranch: "feature/x",
+      },
+      "codex",
+      {
+        threadId: "thread-worktree",
+        sandboxMode: "workspace-write",
+      },
+    );
+
+    expect(codexInstances).toHaveLength(1);
+    expect(codexInstances[0].start).toHaveBeenCalledTimes(1);
+    expect(codexInstances[0].start).toHaveBeenCalledWith(
+      "/tmp/project-main-worktrees/feature-x",
+      expect.objectContaining({
+        threadId: "thread-worktree",
+        sandboxMode: "workspace-write",
+      }),
+    );
+
+    const session = manager.get(sessionId);
+    expect(session?.projectPath).toBe("/tmp/project-main");
+    expect(session?.worktreePath).toBe("/tmp/project-main-worktrees/feature-x");
+    expect(session?.worktreeBranch).toBe("feature/x");
+  });
+
   it("updates status from process events and sets idle on exit", () => {
     const manager = new SessionManager(() => {});
     const sessionId = manager.create(

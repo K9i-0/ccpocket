@@ -254,6 +254,22 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "list_project_history" });
   });
 
+  it("parses get_debug_bundle message", () => {
+    const msg = parseClientMessage(
+      '{"type":"get_debug_bundle","sessionId":"s1","traceLimit":120,"includeDiff":false}',
+    );
+    expect(msg).toEqual({
+      type: "get_debug_bundle",
+      sessionId: "s1",
+      traceLimit: 120,
+      includeDiff: false,
+    });
+  });
+
+  it("rejects get_debug_bundle without sessionId", () => {
+    expect(parseClientMessage('{"type":"get_debug_bundle"}')).toBeNull();
+  });
+
   it("parses remove_project_history message", () => {
     const msg = parseClientMessage('{"type":"remove_project_history","projectPath":"/p"}');
     expect(msg).toEqual({ type: "remove_project_history", projectPath: "/p" });

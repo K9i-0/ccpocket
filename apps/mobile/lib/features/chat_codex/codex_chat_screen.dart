@@ -11,6 +11,7 @@ import '../../providers/bridge_cubits.dart';
 import '../../services/bridge_service.dart';
 import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
+import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
 import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
@@ -316,6 +317,18 @@ class _CodexChatBody extends HookWidget {
                       ),
                     );
                   },
+                ),
+                IconButton(
+                  key: const ValueKey('codex_share_debug_bundle_button'),
+                  icon: const Icon(Icons.bug_report, size: 18),
+                  tooltip: 'Share Debug Bundle',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  onPressed: () => shareDebugBundle(context, sessionId),
                 ),
                 // View Changes
                 if (projectPath != null)

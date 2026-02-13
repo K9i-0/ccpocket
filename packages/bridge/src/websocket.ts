@@ -5,7 +5,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { SessionManager, type SessionInfo } from "./session.js";
 import type { SdkProcess } from "./sdk-process.js";
 import type { CodexProcess } from "./codex-process.js";
-import { parseClientMessage, type ClientMessage, type ServerMessage } from "./parser.js";
+import { parseClientMessage, type ClientMessage, type DebugTraceEvent, type ServerMessage } from "./parser.js";
 import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
@@ -13,6 +13,7 @@ import type { ProjectHistory } from "./project-history.js";
 import { WorktreeStore } from "./worktree-store.js";
 import { listWorktrees, removeWorktree, createWorktree, worktreeExists } from "./worktree.js";
 import { listWindows, takeScreenshot } from "./screenshot.js";
+import { DebugTraceStore } from "./debug-trace-store.js";
 
 export interface BridgeServerOptions {
   server: HttpServer;
@@ -20,23 +21,33 @@ export interface BridgeServerOptions {
   imageStore?: ImageStore;
   galleryStore?: GalleryStore;
   projectHistory?: ProjectHistory;
+  debugTraceStore?: DebugTraceStore;
 }
 
 export class BridgeWebSocketServer {
+  private static readonly MAX_DEBUG_EVENTS = 800;
+  private static readonly MAX_HISTORY_SUMMARY_ITEMS = 300;
+
   private wss: WebSocketServer;
   private sessionManager: SessionManager;
   private apiKey: string | null;
   private galleryStore: GalleryStore | null;
   private projectHistory: ProjectHistory | null;
+  private debugTraceStore: DebugTraceStore;
   private worktreeStore: WorktreeStore;
   private recentSessionsRequestId = 0;
+  private debugEvents = new Map<string, DebugTraceEvent[]>();
 
   constructor(options: BridgeServerOptions) {
-    const { server, apiKey, imageStore, galleryStore, projectHistory } = options;
+    const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore } = options;
     this.apiKey = apiKey ?? null;
     this.galleryStore = galleryStore ?? null;
     this.projectHistory = projectHistory ?? null;
+    this.debugTraceStore = debugTraceStore ?? new DebugTraceStore();
     this.worktreeStore = new WorktreeStore();
+    void this.debugTraceStore.init().catch((err) => {
+      console.error("[ws] Failed to initialize debug trace store:", err);
+    });
 
     this.wss = new WebSocketServer({ server });
 
@@ -82,6 +93,7 @@ export class BridgeWebSocketServer {
   close(): void {
     console.log("[ws] Shutting down...");
     this.sessionManager.destroyAll();
+    this.debugEvents.clear();
     this.wss.close();
   }
 
@@ -123,6 +135,18 @@ export class BridgeWebSocketServer {
   }
 
   private handleClientMessage(msg: ClientMessage, ws: WebSocket): void {
+    const incomingSessionId = this.extractSessionIdFromClientMessage(msg);
+    const isActiveRuntimeSession =
+      incomingSessionId != null && this.sessionManager.get(incomingSessionId) != null;
+    if (incomingSessionId && isActiveRuntimeSession) {
+      this.recordDebugEvent(incomingSessionId, {
+        direction: "incoming",
+        channel: "ws",
+        type: msg.type,
+        detail: this.summarizeClientMessage(msg),
+      });
+    }
+
     switch (msg.type) {
       case "start": {
         const provider = msg.provider ?? "claude";
@@ -165,6 +189,13 @@ export class BridgeWebSocketServer {
             worktreePath: createdSession.worktreePath,
             worktreeBranch: createdSession.worktreeBranch,
           } : {}),
+        });
+        this.debugEvents.set(sessionId, []);
+        this.recordDebugEvent(sessionId, {
+          direction: "internal",
+          channel: "bridge",
+          type: "session_created",
+          detail: `provider=${provider} projectPath=${msg.projectPath}`,
         });
         this.projectHistory?.addProject(msg.projectPath);
         break;
@@ -348,6 +379,12 @@ export class BridgeWebSocketServer {
             sessionId: session.claudeSessionId,
           });
           this.sessionManager.destroy(msg.sessionId);
+          this.recordDebugEvent(msg.sessionId, {
+            direction: "internal",
+            channel: "bridge",
+            type: "session_stopped",
+          });
+          this.debugEvents.delete(msg.sessionId);
           this.sendSessionList(ws);
         } else {
           this.send(ws, { type: "error", message: `Session ${msg.sessionId} not found` });
@@ -372,6 +409,67 @@ export class BridgeWebSocketServer {
         } else {
           this.send(ws, { type: "error", message: `Session ${msg.sessionId} not found` });
         }
+        break;
+      }
+
+      case "get_debug_bundle": {
+        const session = this.sessionManager.get(msg.sessionId);
+        if (!session) {
+          this.send(ws, { type: "error", message: `Session ${msg.sessionId} not found` });
+          return;
+        }
+
+        const emitBundle = (diff: string, diffError?: string): void => {
+          const traceLimit = msg.traceLimit ?? BridgeWebSocketServer.MAX_DEBUG_EVENTS;
+          const trace = this.getDebugEvents(msg.sessionId, traceLimit);
+          const generatedAt = new Date().toISOString();
+          const includeDiff = msg.includeDiff !== false;
+          const bundlePayload: Record<string, unknown> = {
+            type: "debug_bundle",
+            sessionId: msg.sessionId,
+            generatedAt,
+            session: {
+              id: session.id,
+              provider: session.provider,
+              status: session.status,
+              projectPath: session.projectPath,
+              worktreePath: session.worktreePath,
+              worktreeBranch: session.worktreeBranch,
+              claudeSessionId: session.claudeSessionId,
+              createdAt: session.createdAt.toISOString(),
+              lastActivityAt: session.lastActivityAt.toISOString(),
+            },
+            pastMessageCount: session.pastMessages?.length ?? 0,
+            historySummary: this.buildHistorySummary(session.history),
+            debugTrace: trace,
+            traceFilePath: this.debugTraceStore.getTraceFilePath(msg.sessionId),
+            reproRecipe: this.buildReproRecipe(
+              session,
+              traceLimit,
+              includeDiff,
+            ),
+            agentPrompt: this.buildAgentPrompt(session),
+            diff,
+            diffError,
+          };
+          const savedBundlePath = this.debugTraceStore.getBundleFilePath(
+            msg.sessionId,
+            generatedAt,
+          );
+          bundlePayload.savedBundlePath = savedBundlePath;
+          this.debugTraceStore.saveBundleAtPath(savedBundlePath, bundlePayload);
+          this.send(ws, bundlePayload);
+        };
+
+        if (msg.includeDiff === false) {
+          emitBundle("");
+          break;
+        }
+
+        const cwd = session.worktreePath ?? session.projectPath;
+        this.collectGitDiff(cwd, ({ diff, error }) => {
+          emitBundle(diff, error);
+        });
         break;
       }
 
@@ -422,6 +520,13 @@ export class BridgeWebSocketServer {
               provider: "codex",
               projectPath: msg.projectPath,
             });
+            this.debugEvents.set(sessionId, []);
+            this.recordDebugEvent(sessionId, {
+              direction: "internal",
+              channel: "bridge",
+              type: "session_resumed",
+              detail: `provider=codex thread=${sessionRefId}`,
+            });
             this.projectHistory?.addProject(msg.projectPath);
           }).catch((err) => {
             this.send(ws, { type: "error", message: `Failed to load Codex session history: ${err}` });
@@ -470,6 +575,13 @@ export class BridgeWebSocketServer {
               worktreePath: createdSession.worktreePath,
               worktreeBranch: createdSession.worktreeBranch,
             } : {}),
+          });
+          this.debugEvents.set(sessionId, []);
+          this.recordDebugEvent(sessionId, {
+            direction: "internal",
+            channel: "bridge",
+            type: "session_resumed",
+            detail: `provider=claude session=${claudeSessionId}`,
           });
           this.projectHistory?.addProject(msg.projectPath);
         }).catch((err) => {
@@ -527,36 +639,12 @@ export class BridgeWebSocketServer {
       }
 
       case "get_diff": {
-        const cwd = msg.projectPath;
-        const execOpts = { cwd, maxBuffer: 10 * 1024 * 1024 };
-
-        // Collect untracked files so they appear in the diff
-        let untrackedFiles: string[] = [];
-        try {
-          const out = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd }).toString().trim();
-          untrackedFiles = out ? out.split("\n") : [];
-        } catch { /* ignore */ }
-
-        // Temporarily stage untracked files with --intent-to-add
-        if (untrackedFiles.length > 0) {
-          try {
-            execFileSync("git", ["add", "--intent-to-add", ...untrackedFiles], { cwd });
-          } catch { /* ignore */ }
-        }
-
-        execFile("git", ["diff", "--no-color"], execOpts, (err, stdout) => {
-          // Revert intent-to-add for untracked files
-          if (untrackedFiles.length > 0) {
-            try {
-              execFileSync("git", ["reset", "--", ...untrackedFiles], { cwd });
-            } catch { /* ignore */ }
-          }
-
-          if (err) {
-            this.send(ws, { type: "diff_result", diff: "", error: `Failed to get diff: ${err.message}` });
+        this.collectGitDiff(msg.projectPath, ({ diff, error }) => {
+          if (error) {
+            this.send(ws, { type: "diff_result", diff: "", error: `Failed to get diff: ${error}` });
             return;
           }
-          this.send(ws, { type: "diff_result", diff: stdout });
+          this.send(ws, { type: "diff_result", diff });
         });
         break;
       }
@@ -754,14 +842,18 @@ export class BridgeWebSocketServer {
   }
 
   private sendSessionList(ws: WebSocket): void {
+    this.pruneDebugEvents();
     const sessions = this.sessionManager.list();
-    const msg = JSON.stringify({ type: "session_list", sessions });
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(msg);
-    }
+    this.send(ws, { type: "session_list", sessions });
   }
 
   private broadcastSessionMessage(sessionId: string, msg: ServerMessage): void {
+    this.recordDebugEvent(sessionId, {
+      direction: "outgoing",
+      channel: "session",
+      type: msg.type,
+      detail: this.summarizeServerMessage(msg),
+    });
     // Wrap the message with sessionId
     const data = JSON.stringify({ ...msg, sessionId });
     for (const client of this.wss.clients) {
@@ -781,6 +873,15 @@ export class BridgeWebSocketServer {
   }
 
   private send(ws: WebSocket, msg: ServerMessage | Record<string, unknown>): void {
+    const sessionId = this.extractSessionIdFromServerMessage(msg);
+    if (sessionId) {
+      this.recordDebugEvent(sessionId, {
+        direction: "outgoing",
+        channel: "ws",
+        type: String(msg.type ?? "unknown"),
+        detail: this.summarizeOutboundMessage(msg),
+      });
+    }
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg));
     }
@@ -789,6 +890,251 @@ export class BridgeWebSocketServer {
   /** Broadcast a gallery_new_image message to all connected clients. */
   broadcastGalleryNewImage(image: import("./gallery-store.js").GalleryImageInfo): void {
     this.broadcast({ type: "gallery_new_image", image });
+  }
+
+  private collectGitDiff(
+    cwd: string,
+    callback: (result: { diff: string; error?: string }) => void,
+  ): void {
+    const execOpts = { cwd, maxBuffer: 10 * 1024 * 1024 };
+
+    // Collect untracked files so they appear in the diff.
+    let untrackedFiles: string[] = [];
+    try {
+      const out = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd }).toString().trim();
+      untrackedFiles = out ? out.split("\n") : [];
+    } catch {
+      // Ignore errors: non-git directories are handled by git diff callback.
+    }
+
+    // Temporarily stage untracked files with --intent-to-add.
+    if (untrackedFiles.length > 0) {
+      try {
+        execFileSync("git", ["add", "--intent-to-add", ...untrackedFiles], { cwd });
+      } catch {
+        // Ignore staging errors.
+      }
+    }
+
+    execFile("git", ["diff", "--no-color"], execOpts, (err, stdout) => {
+      // Revert intent-to-add for untracked files.
+      if (untrackedFiles.length > 0) {
+        try {
+          execFileSync("git", ["reset", "--", ...untrackedFiles], { cwd });
+        } catch {
+          // Ignore reset errors.
+        }
+      }
+
+      if (err) {
+        callback({ diff: "", error: err.message });
+        return;
+      }
+      callback({ diff: stdout });
+    });
+  }
+
+  private extractSessionIdFromClientMessage(msg: ClientMessage): string | undefined {
+    return "sessionId" in msg && typeof msg.sessionId === "string" ? msg.sessionId : undefined;
+  }
+
+  private extractSessionIdFromServerMessage(msg: ServerMessage | Record<string, unknown>): string | undefined {
+    if ("sessionId" in msg && typeof msg.sessionId === "string") return msg.sessionId;
+    return undefined;
+  }
+
+  private recordDebugEvent(
+    sessionId: string,
+    event: Omit<DebugTraceEvent, "ts" | "sessionId">,
+  ): void {
+    const events = this.debugEvents.get(sessionId) ?? [];
+    const fullEvent: DebugTraceEvent = {
+      ts: new Date().toISOString(),
+      sessionId,
+      ...event,
+    };
+    events.push(fullEvent);
+    if (events.length > BridgeWebSocketServer.MAX_DEBUG_EVENTS) {
+      events.splice(0, events.length - BridgeWebSocketServer.MAX_DEBUG_EVENTS);
+    }
+    this.debugEvents.set(sessionId, events);
+    this.debugTraceStore.record(fullEvent);
+  }
+
+  private getDebugEvents(sessionId: string, limit: number): DebugTraceEvent[] {
+    const events = this.debugEvents.get(sessionId) ?? [];
+    const capped = Math.max(0, Math.min(limit, BridgeWebSocketServer.MAX_DEBUG_EVENTS));
+    if (capped === 0) return [];
+    return events.slice(-capped);
+  }
+
+  private buildHistorySummary(history: ServerMessage[]): string[] {
+    const lines = history
+      .map((msg, index) => {
+        const num = String(index + 1).padStart(3, "0");
+        return `${num}. ${this.summarizeServerMessage(msg)}`;
+      });
+    if (lines.length <= BridgeWebSocketServer.MAX_HISTORY_SUMMARY_ITEMS) {
+      return lines;
+    }
+    return lines.slice(-BridgeWebSocketServer.MAX_HISTORY_SUMMARY_ITEMS);
+  }
+
+  private summarizeClientMessage(msg: ClientMessage): string {
+    switch (msg.type) {
+      case "input": {
+        const textPreview = msg.text.replace(/\s+/g, " ").trim().slice(0, 80);
+        const hasImage = msg.imageBase64 != null || msg.imageId != null;
+        return `text=\"${textPreview}\" image=${hasImage}`;
+      }
+      case "approve":
+      case "approve_always":
+      case "reject":
+        return `id=${msg.id}`;
+      case "answer":
+        return `toolUseId=${msg.toolUseId}`;
+      case "start":
+        return `projectPath=${msg.projectPath} provider=${msg.provider ?? "claude"}`;
+      case "resume_session":
+        return `sessionId=${msg.sessionId} provider=${msg.provider ?? "claude"}`;
+      case "get_debug_bundle":
+        return `traceLimit=${msg.traceLimit ?? BridgeWebSocketServer.MAX_DEBUG_EVENTS} includeDiff=${msg.includeDiff ?? true}`;
+      default:
+        return msg.type;
+    }
+  }
+
+  private summarizeServerMessage(msg: ServerMessage): string {
+    switch (msg.type) {
+      case "assistant": {
+        const textChunks: string[] = [];
+        for (const content of msg.message.content) {
+          if (content.type === "text") {
+            textChunks.push(content.text);
+          }
+        }
+        const text = textChunks
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 100);
+        return text ? `assistant: ${text}` : "assistant";
+      }
+      case "tool_result": {
+        const contentPreview = msg.content.replace(/\s+/g, " ").trim().slice(0, 100);
+        return `${msg.toolName ?? "tool_result"}(${msg.toolUseId}) ${contentPreview}`;
+      }
+      case "permission_request":
+        return `${msg.toolName}(${msg.toolUseId})`;
+      case "result":
+        return `${msg.subtype}${msg.error ? ` error=${msg.error}` : ""}`;
+      case "status":
+        return msg.status;
+      case "error":
+        return msg.message;
+      case "stream_delta":
+      case "thinking_delta":
+        return `${msg.type}(${msg.text.length})`;
+      default:
+        return msg.type;
+    }
+  }
+
+  private summarizeOutboundMessage(msg: ServerMessage | Record<string, unknown>): string {
+    if ("type" in msg && typeof msg.type === "string") {
+      return msg.type;
+    }
+    return "message";
+  }
+
+  private pruneDebugEvents(): void {
+    const active = new Set(this.sessionManager.list().map((s) => s.id));
+    for (const sessionId of this.debugEvents.keys()) {
+      if (!active.has(sessionId)) {
+        this.debugEvents.delete(sessionId);
+      }
+    }
+  }
+
+  private buildReproRecipe(
+    session: SessionInfo,
+    traceLimit: number,
+    includeDiff: boolean,
+  ): Record<string, unknown> {
+    const bridgePort = process.env.BRIDGE_PORT ?? "8765";
+    const wsUrlHint = `ws://localhost:${bridgePort}`;
+    const notes = [
+      "1) Connect with wsUrlHint and send resumeSessionMessage.",
+      "2) Read session_created.sessionId from server response.",
+      "3) Replace <runtime_session_id> in getHistoryMessage/getDebugBundleMessage and send them.",
+      "4) Compare history/debugTrace/diff with the saved bundle snapshot.",
+    ];
+    if (!session.claudeSessionId) {
+      notes.push(
+        "claudeSessionId is not available yet. Use list_recent_sessions to pick the right session id.",
+      );
+    }
+
+    return {
+      wsUrlHint,
+      startBridgeCommand: `BRIDGE_PORT=${bridgePort} npm run bridge`,
+      resumeSessionMessage: this.buildResumeSessionMessage(session),
+      getHistoryMessage: {
+        type: "get_history",
+        sessionId: "<runtime_session_id>",
+      },
+      getDebugBundleMessage: {
+        type: "get_debug_bundle",
+        sessionId: "<runtime_session_id>",
+        traceLimit,
+        includeDiff,
+      },
+      notes,
+    };
+  }
+
+  private buildResumeSessionMessage(session: SessionInfo): Record<string, unknown> {
+    const msg: Record<string, unknown> = {
+      type: "resume_session",
+      sessionId: session.claudeSessionId ?? "<session_id_from_recent_sessions>",
+      projectPath: session.projectPath,
+      provider: session.provider,
+    };
+
+    if (session.provider === "codex" && session.codexSettings) {
+      if (session.codexSettings.approvalPolicy !== undefined) {
+        msg.approvalPolicy = session.codexSettings.approvalPolicy;
+      }
+      if (session.codexSettings.sandboxMode !== undefined) {
+        msg.sandboxMode = session.codexSettings.sandboxMode;
+      }
+      if (session.codexSettings.model !== undefined) {
+        msg.model = session.codexSettings.model;
+      }
+      if (session.codexSettings.modelReasoningEffort !== undefined) {
+        msg.modelReasoningEffort = session.codexSettings.modelReasoningEffort;
+      }
+      if (session.codexSettings.networkAccessEnabled !== undefined) {
+        msg.networkAccessEnabled = session.codexSettings.networkAccessEnabled;
+      }
+      if (session.codexSettings.webSearchMode !== undefined) {
+        msg.webSearchMode = session.codexSettings.webSearchMode;
+      }
+    }
+
+    return msg;
+  }
+
+  private buildAgentPrompt(session: SessionInfo): string {
+    return [
+      "Use this ccpocket debug bundle to investigate a chat-screen bug.",
+      `Target provider: ${session.provider}`,
+      `Project path: ${session.projectPath}`,
+      "Required output:",
+      "1) Timeline analysis from historySummary + debugTrace.",
+      "2) Top 1-3 root-cause hypotheses with confidence.",
+      "3) Concrete validation steps and the minimum extra logs needed.",
+    ].join("\n");
   }
 
 }
