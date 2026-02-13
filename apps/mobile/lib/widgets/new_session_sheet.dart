@@ -6,6 +6,7 @@ import '../models/messages.dart';
 import '../features/session_list/session_list_screen.dart' show shortenPath;
 import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/provider_style.dart';
 
 /// Result returned when the user submits the new session sheet.
 class NewSessionParams {
@@ -280,6 +281,16 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Widget _buildTitle() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final claudeStyle = providerStyleFor(context, Provider.claude);
+    final codexStyle = providerStyleFor(context, Provider.codex);
+    final claudeLabelColor = _provider == Provider.claude
+        ? claudeStyle.foreground
+        : claudeStyle.foreground.withValues(alpha: 0.72);
+    final codexLabelColor = _provider == Provider.codex
+        ? codexStyle.foreground
+        : codexStyle.foreground.withValues(alpha: 0.72);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -293,16 +304,26 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           SizedBox(
             width: double.infinity,
             child: SegmentedButton<Provider>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: Provider.claude,
-                  label: Text('Claude Code', style: TextStyle(fontSize: 13)),
-                  icon: Icon(Icons.smart_toy_outlined, size: 16),
+                  label: Text(
+                    Provider.claude.label,
+                    style: TextStyle(fontSize: 13, color: claudeLabelColor),
+                  ),
+                  icon: Icon(
+                    claudeStyle.icon,
+                    size: 16,
+                    color: claudeLabelColor,
+                  ),
                 ),
                 ButtonSegment(
                   value: Provider.codex,
-                  label: Text('Codex', style: TextStyle(fontSize: 13)),
-                  icon: Icon(Icons.code, size: 16),
+                  label: Text(
+                    Provider.codex.label,
+                    style: TextStyle(fontSize: 13, color: codexLabelColor),
+                  ),
+                  icon: Icon(codexStyle.icon, size: 16, color: codexLabelColor),
                 ),
               ],
               selected: {_provider},
@@ -319,6 +340,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               },
               style: SegmentedButton.styleFrom(
                 visualDensity: VisualDensity.compact,
+                backgroundColor: colorScheme.surfaceContainerLow,
+                selectedBackgroundColor: colorScheme.surfaceContainerHighest,
+                side: BorderSide(color: colorScheme.outlineVariant),
               ),
             ),
           ),

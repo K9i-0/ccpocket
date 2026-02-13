@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/messages.dart';
 import '../theme/app_theme.dart';
+import '../theme/provider_style.dart';
 
 /// Card for a currently running session
 class RunningSessionCard extends StatelessWidget {
@@ -34,10 +35,9 @@ class RunningSessionCard extends StatelessWidget {
     };
 
     final projectName = session.projectPath.split('/').last;
-    final providerLabel = session.provider == 'codex' ? 'Codex' : 'Claude Code';
-    final providerColor = session.provider == 'codex'
-        ? Colors.deepOrange
-        : Colors.blueGrey;
+    final provider = providerFromRaw(session.provider);
+    final providerLabel = provider.label;
+    final providerStyle = providerStyleFor(context, provider);
     final elapsed = _formatElapsed(session.lastActivityAt);
     final displayMessage = session.lastMessage
         .replaceAll(RegExp(r'\s+'), ' ')
@@ -134,7 +134,7 @@ class RunningSessionCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       _ProviderBadge(
                         label: providerLabel,
-                        color: providerColor,
+                        style: providerStyle,
                       ),
                       const Spacer(),
                       Text(
@@ -330,10 +330,9 @@ class RecentSessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final providerLabel = session.provider == 'codex' ? 'Codex' : 'Claude Code';
-    final providerColor = session.provider == 'codex'
-        ? Colors.deepOrange
-        : Colors.blueGrey;
+    final provider = providerFromRaw(session.provider);
+    final providerLabel = provider.label;
+    final providerStyle = providerStyleFor(context, provider);
     final codexSummary = session.provider == 'codex'
         ? _buildCodexSettingsSummary(
             model: session.codexModel,
@@ -372,7 +371,7 @@ class RecentSessionCard extends StatelessWidget {
               const Spacer(),
             ] else
               const Spacer(),
-            _ProviderBadge(label: providerLabel, color: providerColor),
+            _ProviderBadge(label: providerLabel, style: providerStyle),
             const SizedBox(width: 8),
             Text(
               dateStr,
@@ -452,25 +451,25 @@ class RecentSessionCard extends StatelessWidget {
 
 class _ProviderBadge extends StatelessWidget {
   final String label;
-  final Color color;
+  final ProviderStyle style;
 
-  const _ProviderBadge({required this.label, required this.color});
+  const _ProviderBadge({required this.label, required this.style});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: style.background,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
+        border: Border.all(color: style.border),
       ),
       child: Text(
         label,
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          color: color,
+          color: style.foreground,
         ),
       ),
     );
