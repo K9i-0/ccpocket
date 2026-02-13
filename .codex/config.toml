@@ -1,0 +1,8 @@
+[mcp_servers.marionette]
+command = "marionette_mcp"
+args = []
+
+[mcp_servers.dart-mcp]
+command = "dart"
+args = ["mcp-server"]
+env = {}
