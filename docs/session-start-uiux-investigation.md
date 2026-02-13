@@ -141,3 +141,30 @@ npm run test --workspace=packages/bridge -- src/session.test.ts src/sessions-ind
 
 - 案A: Codex 専用の threadId -> worktreePath マッピングを持つ
 - 案B: projectPath が main の場合に recent history から最終cwdを推定する
+
+## 5. 実装完了メモ（2026-02-14）
+
+前セクションの優先4項目はすべて実装済み。
+
+1. セッション開始デフォルトの保存/復元
+- `apps/mobile/lib/features/session_list/session_list_screen.dart`
+  - `session_start_defaults_v1` を `SharedPreferences` に保存
+  - `showNewSessionSheet` 呼び出し時に初期値として復元
+2. RecentSession 長押しメニュー
+- `apps/mobile/lib/widgets/session_card.dart`
+  - `RecentSessionCard.onLongPress` を追加
+- `apps/mobile/lib/features/session_list/widgets/home_content.dart`
+  - 長押しイベントを親へ伝搬
+- `apps/mobile/lib/features/session_list/session_list_screen.dart`
+  - `Start New with Same Settings`
+  - `Edit Settings Then Start`
+3. Codex UI の worktree オプション開放
+- `apps/mobile/lib/widgets/new_session_sheet.dart`
+  - Provider を Codex に切り替えても Worktree チップを維持
+  - Codex + Worktree の開始をUIから選択可能
+4. Codex resume の worktree 復元戦略
+- `packages/bridge/src/session.ts`
+  - Codex threadId が判明した時点で worktree mapping を保存
+- `packages/bridge/src/websocket.ts`
+  - `resume_session(provider=codex)` 時に mapping を参照して
+    既存worktree再利用 / 削除済みなら同branchで再作成

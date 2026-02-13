@@ -226,9 +226,10 @@ export class SessionManager {
             }
           }
         } else {
-          // Codex: capture thread_id as claudeSessionId (for session tracking)
+          // Codex: capture thread_id for session tracking and worktree restore.
           if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
             session.claudeSessionId = msg.sessionId;
+            this.saveWorktreeMapping(session);
           }
         }
 
@@ -265,6 +266,11 @@ export class SessionManager {
         networkAccessEnabled: codexOptions.networkAccessEnabled,
         webSearchMode: codexOptions.webSearchMode,
       };
+      // Resume starts know the thread id up front.
+      if (codexOptions.threadId) {
+        session.claudeSessionId = codexOptions.threadId;
+        this.saveWorktreeMapping(session);
+      }
     }
 
     this.sessions.set(id, session);
@@ -335,7 +341,7 @@ export class SessionManager {
     return this.worktreeStore;
   }
 
-  /** Save worktree mapping when claudeSessionId is captured. */
+  /** Save worktree mapping when a provider session ID is available. */
   private saveWorktreeMapping(session: SessionInfo): void {
     if (this.worktreeStore && session.claudeSessionId && session.worktreePath && session.worktreeBranch) {
       this.worktreeStore.set(session.claudeSessionId, {

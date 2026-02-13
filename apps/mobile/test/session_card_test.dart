@@ -230,5 +230,35 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('calls onLongPress callback', (tester) async {
+      var longPressed = false;
+      final session = RecentSession(
+        sessionId: 'recent-long-press',
+        provider: 'codex',
+        summary: 'summary',
+        firstPrompt: 'prompt',
+        messageCount: 2,
+        created: DateTime.now().toIso8601String(),
+        modified: DateTime.now().toIso8601String(),
+        gitBranch: 'main',
+        projectPath: '/home/user/my-app',
+        isSidechain: false,
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RecentSessionCard(
+            session: session,
+            onTap: () {},
+            onLongPress: () => longPressed = true,
+          ),
+        ),
+      );
+
+      await tester.longPress(find.byType(ListTile));
+      await tester.pumpAndSettle();
+      expect(longPressed, isTrue);
+    });
   });
 }

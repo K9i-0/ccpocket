@@ -213,6 +213,49 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("uses stored worktree mapping for codex resume when available", async () => {
+    getCodexSessionHistoryMock.mockResolvedValue([
+      {
+        role: "user",
+        content: [{ type: "text", text: "restored codex question" }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    const worktreeStore = (bridge as any).worktreeStore;
+    vi.spyOn(worktreeStore, "get").mockReturnValue({
+      worktreePath: "/tmp/project-main-worktrees/feature-x",
+      worktreeBranch: "feature/x",
+      projectPath: "/tmp/project-main",
+    });
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "codex-thread-with-mapping",
+        projectPath: "/tmp/incorrect-project-path",
+        provider: "codex",
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(created).toBeDefined();
+    expect(created.provider).toBe("codex");
+    expect(created.projectPath).toBe("/tmp/project-main");
+
+    bridge.close();
+  });
+
   it("forwards set_permission_mode to Claude session process", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

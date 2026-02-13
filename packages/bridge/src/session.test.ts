@@ -124,6 +124,38 @@ describe("SessionManager codex path", () => {
     expect(session?.worktreeBranch).toBe("feature/x");
   });
 
+  it("stores codex worktree mapping when threadId is known at start", () => {
+    const setMapping = vi.fn();
+    const manager = new SessionManager(
+      () => {},
+      undefined,
+      undefined,
+      undefined,
+      { get: vi.fn(), set: setMapping } as any,
+    );
+
+    manager.create(
+      "/tmp/project-main",
+      undefined,
+      undefined,
+      {
+        existingWorktreePath: "/tmp/project-main-worktrees/feature-y",
+        worktreeBranch: "feature/y",
+      },
+      "codex",
+      {
+        threadId: "thread-with-worktree",
+        sandboxMode: "workspace-write",
+      },
+    );
+
+    expect(setMapping).toHaveBeenCalledWith("thread-with-worktree", {
+      worktreePath: "/tmp/project-main-worktrees/feature-y",
+      worktreeBranch: "feature/y",
+      projectPath: "/tmp/project-main",
+    });
+  });
+
   it("updates status from process events and sets idle on exit", () => {
     const manager = new SessionManager(() => {});
     const sessionId = manager.create(

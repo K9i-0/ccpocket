@@ -318,12 +318,14 @@ class _StatusDotState extends State<_StatusDot>
 class RecentSessionCard extends StatelessWidget {
   final RecentSession session;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final bool hideProjectBadge;
 
   const RecentSessionCard({
     super.key,
     required this.session,
     required this.onTap,
+    this.onLongPress,
     this.hideProjectBadge = false,
   });
 
@@ -346,6 +348,7 @@ class RecentSessionCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 0),
       child: ListTile(
         onTap: onTap,
+        onLongPress: onLongPress,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         title: Row(
           children: [

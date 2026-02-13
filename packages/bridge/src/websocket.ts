@@ -496,12 +496,29 @@ export class BridgeWebSocketServer {
         // Resume flow: keep past history in SessionInfo and deliver it only
         // via get_history(sessionId) to avoid duplicate/missed replay races.
         if (provider === "codex") {
+          const wtMapping = this.worktreeStore.get(sessionRefId);
+          const effectiveProjectPath = wtMapping?.projectPath ?? msg.projectPath;
+          let worktreeOpts: { useWorktree?: boolean; worktreeBranch?: string; existingWorktreePath?: string } | undefined;
+          if (wtMapping) {
+            if (worktreeExists(wtMapping.worktreePath)) {
+              worktreeOpts = {
+                existingWorktreePath: wtMapping.worktreePath,
+                worktreeBranch: wtMapping.worktreeBranch,
+              };
+            } else {
+              worktreeOpts = {
+                useWorktree: true,
+                worktreeBranch: wtMapping.worktreeBranch,
+              };
+            }
+          }
+
           getCodexSessionHistory(sessionRefId).then((pastMessages) => {
             const sessionId = this.sessionManager.create(
-              msg.projectPath,
+              effectiveProjectPath,
               undefined,
               pastMessages,
-              undefined,
+              worktreeOpts,
               "codex",
               {
                 threadId: sessionRefId,
@@ -513,12 +530,17 @@ export class BridgeWebSocketServer {
                 webSearchMode: (msg.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
               },
             );
+            const createdSession = this.sessionManager.get(sessionId);
             this.send(ws, {
               type: "system",
               subtype: "session_created",
               sessionId,
               provider: "codex",
-              projectPath: msg.projectPath,
+              projectPath: effectiveProjectPath,
+              ...(createdSession?.worktreePath ? {
+                worktreePath: createdSession.worktreePath,
+                worktreeBranch: createdSession.worktreeBranch,
+              } : {}),
             });
             this.debugEvents.set(sessionId, []);
             this.recordDebugEvent(sessionId, {
@@ -527,7 +549,7 @@ export class BridgeWebSocketServer {
               type: "session_resumed",
               detail: `provider=codex thread=${sessionRefId}`,
             });
-            this.projectHistory?.addProject(msg.projectPath);
+            this.projectHistory?.addProject(effectiveProjectPath);
           }).catch((err) => {
             this.send(ws, { type: "error", message: `Failed to load Codex session history: ${err}` });
           });

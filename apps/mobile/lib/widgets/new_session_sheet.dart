@@ -50,6 +50,7 @@ Future<NewSessionParams?> showNewSessionSheet({
   required List<({String path, String name})> recentProjects,
   List<String> projectHistory = const [],
   BridgeService? bridge,
+  NewSessionParams? initialParams,
 }) {
   return showModalBottomSheet<NewSessionParams>(
     context: context,
@@ -62,6 +63,7 @@ Future<NewSessionParams?> showNewSessionSheet({
       recentProjects: recentProjects,
       projectHistory: projectHistory,
       bridge: bridge,
+      initialParams: initialParams,
     ),
   );
 }
@@ -70,11 +72,13 @@ class _NewSessionSheetContent extends StatefulWidget {
   final List<({String path, String name})> recentProjects;
   final List<String> projectHistory;
   final BridgeService? bridge;
+  final NewSessionParams? initialParams;
 
   const _NewSessionSheetContent({
     required this.recentProjects,
     this.projectHistory = const [],
     this.bridge,
+    this.initialParams,
   });
 
   @override
@@ -146,6 +150,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _worktreeSub = widget.bridge?.worktreeList.listen((msg) {
       if (mounted) setState(() => _worktrees = msg.worktrees);
     });
+    _applyInitialParams();
+    if (_useWorktree) {
+      _fetchWorktrees();
+    }
   }
 
   @override
@@ -167,6 +175,32 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         _worktrees = null;
       }
     });
+  }
+
+  void _applyInitialParams() {
+    final p = widget.initialParams;
+    if (p == null) return;
+
+    _pathController.text = p.projectPath;
+    _provider = p.provider;
+    _permissionMode = p.permissionMode;
+    _useWorktree = p.useWorktree || p.existingWorktreePath != null;
+    _branchController.text = p.worktreeBranch ?? "";
+    _selectedModel = p.model;
+    _sandboxMode = p.sandboxMode ?? _sandboxMode;
+    _approvalPolicy = p.approvalPolicy ?? _approvalPolicy;
+    _modelReasoningEffort = p.modelReasoningEffort;
+    _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
+    _webSearchMode = p.webSearchMode;
+
+    if (p.existingWorktreePath != null) {
+      _worktreeMode = _WorktreeMode.useExisting;
+      _selectedWorktree = WorktreeInfo(
+        worktreePath: p.existingWorktreePath!,
+        branch: p.worktreeBranch ?? "",
+        projectPath: p.projectPath,
+      );
+    }
   }
 
   void _fetchWorktrees() {
@@ -330,12 +364,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               onSelectionChanged: (selected) {
                 setState(() {
                   _provider = selected.first;
-                  // Reset worktree when switching to Codex
-                  if (_provider == Provider.codex) {
-                    _useWorktree = false;
-                    _selectedWorktree = null;
-                    _worktrees = null;
-                  }
                 });
               },
               style: SegmentedButton.styleFrom(
@@ -454,54 +482,51 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_provider == Provider.claude) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<PermissionMode>(
-                    key: const ValueKey('dialog_permission_mode'),
-                    initialValue: _permissionMode,
-                    decoration: const InputDecoration(
-                      labelText: 'Permission',
-                      border: OutlineInputBorder(),
-                      isDense: true,
+            DropdownButtonFormField<PermissionMode>(
+              key: const ValueKey('dialog_permission_mode'),
+              initialValue: _permissionMode,
+              decoration: const InputDecoration(
+                labelText: 'Permission',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: PermissionMode.values
+                  .map(
+                    (m) => DropdownMenuItem(
+                      value: m,
+                      child: Text(
+                        m.label,
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
-                    items: PermissionMode.values
-                        .map(
-                          (m) => DropdownMenuItem(
-                            value: m,
-                            child: Text(
-                              m.label,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _permissionMode = value);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                FilterChip(
-                  key: const ValueKey('dialog_worktree'),
-                  avatar: _useWorktree
-                      ? null
-                      : const Icon(Icons.account_tree_outlined, size: 16),
-                  label: const Text('Worktree', style: TextStyle(fontSize: 13)),
-                  selected: _useWorktree,
-                  onSelected: _onWorktreeToggle,
-                ),
-              ],
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _permissionMode = value);
+                }
+              },
             ),
-            if (_useWorktree) ...[
-              const SizedBox(height: 8),
-              _buildWorktreeOptions(appColors),
-            ],
+            const SizedBox(height: 8),
+          ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilterChip(
+              key: const ValueKey('dialog_worktree'),
+              avatar: _useWorktree
+                  ? null
+                  : const Icon(Icons.account_tree_outlined, size: 16),
+              label: const Text('Worktree', style: TextStyle(fontSize: 13)),
+              selected: _useWorktree,
+              onSelected: _onWorktreeToggle,
+            ),
+          ),
+          if (_useWorktree) ...[
+            const SizedBox(height: 8),
+            _buildWorktreeOptions(appColors),
           ],
           if (_provider == Provider.codex) ...[
+            const SizedBox(height: 8),
             DropdownButtonFormField<String?>(
               key: const ValueKey('dialog_codex_model'),
               initialValue: _selectedModel,

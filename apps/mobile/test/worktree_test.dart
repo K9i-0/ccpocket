@@ -254,7 +254,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Start'));
+      final startButton = find.byKey(const ValueKey('dialog_start_button'));
+      await tester.ensureVisible(startButton);
+      await tester.tap(startButton);
       await tester.pumpAndSettle();
 
       expect(result, isNotNull);
@@ -291,12 +293,97 @@ void main() {
       await tester.tap(find.text('proj'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Start'));
+      final startButton = find.byKey(const ValueKey('dialog_start_button'));
+      await tester.ensureVisible(startButton);
+      await tester.tap(startButton);
       await tester.pumpAndSettle();
 
       expect(result, isNotNull);
       expect(result!.useWorktree, false);
       expect(result!.worktreeBranch, isNull);
+    });
+
+    testWidgets('Codex provider can also enable worktree', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                showNewSessionSheet(
+                  context: context,
+                  recentProjects: [(path: '/test/proj', name: 'proj')],
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Codex'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Worktree'), findsOneWidget);
+      await tester.tap(find.text('Worktree'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('dialog_worktree_branch')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('initialParams are applied to the sheet', (tester) async {
+      NewSessionParams? result;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  result = await showNewSessionSheet(
+                    context: context,
+                    recentProjects: [(path: '/test/proj', name: 'proj')],
+                    initialParams: const NewSessionParams(
+                      projectPath: '/test/proj',
+                      provider: Provider.codex,
+                      permissionMode: PermissionMode.acceptEdits,
+                      model: 'gpt-5.3-codex',
+                      useWorktree: true,
+                      worktreeBranch: 'feature/default',
+                    ),
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Codex'), findsOneWidget);
+      expect(find.text('Worktree'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('dialog_worktree_branch')),
+        findsOneWidget,
+      );
+      expect(find.text('feature/default'), findsOneWidget);
+
+      final startButton = find.byKey(const ValueKey('dialog_start_button'));
+      await tester.ensureVisible(startButton);
+      await tester.tap(startButton);
+      await tester.pumpAndSettle();
+
+      expect(result, isNotNull);
+      expect(result!.provider, Provider.codex);
+      expect(result!.useWorktree, isTrue);
+      expect(result!.worktreeBranch, 'feature/default');
     });
   });
 }

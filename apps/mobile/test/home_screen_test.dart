@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/features/session_list/session_list_screen.dart';
+import 'package:ccpocket/widgets/new_session_sheet.dart';
 
 RecentSession _session({
   required String projectPath,
@@ -205,6 +206,44 @@ void main() {
       expect(decoded['limit'], 5);
       expect(decoded.containsKey('offset'), isFalse);
       expect(decoded.containsKey('projectPath'), isFalse);
+    });
+  });
+
+  group('session start defaults', () {
+    test('serializes and restores codex defaults', () {
+      final params = NewSessionParams(
+        projectPath: '/tmp/project-a',
+        provider: Provider.codex,
+        permissionMode: PermissionMode.acceptEdits,
+        useWorktree: true,
+        worktreeBranch: 'feature/x',
+        existingWorktreePath: '/tmp/project-a-worktrees/feature-x',
+        model: 'gpt-5.3-codex',
+        sandboxMode: SandboxMode.workspaceWrite,
+        approvalPolicy: ApprovalPolicy.onRequest,
+        modelReasoningEffort: ReasoningEffort.high,
+        networkAccessEnabled: true,
+        webSearchMode: WebSearchMode.live,
+      );
+
+      final json = sessionStartDefaultsToJson(params);
+      final restored = sessionStartDefaultsFromJson(json);
+
+      expect(restored, isNotNull);
+      expect(restored!.projectPath, '/tmp/project-a');
+      expect(restored.provider, Provider.codex);
+      expect(restored.useWorktree, isTrue);
+      expect(
+        restored.existingWorktreePath,
+        '/tmp/project-a-worktrees/feature-x',
+      );
+      expect(restored.approvalPolicy, ApprovalPolicy.onRequest);
+      expect(restored.webSearchMode, WebSearchMode.live);
+    });
+
+    test('returns null when required projectPath is missing', () {
+      final restored = sessionStartDefaultsFromJson(<String, dynamic>{});
+      expect(restored, isNull);
     });
   });
 }

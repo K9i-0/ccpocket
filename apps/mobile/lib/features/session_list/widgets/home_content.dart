@@ -32,6 +32,7 @@ class HomeContent extends StatefulWidget {
   onTapRunning;
   final ValueChanged<String> onStopSession;
   final ValueChanged<RecentSession> onResumeSession;
+  final ValueChanged<RecentSession> onLongPressRecentSession;
   final ValueChanged<String?> onSelectProject;
   final VoidCallback onLoadMore;
 
@@ -50,6 +51,7 @@ class HomeContent extends StatefulWidget {
     required this.onTapRunning,
     required this.onStopSession,
     required this.onResumeSession,
+    required this.onLongPressRecentSession,
     required this.onSelectProject,
     required this.onLoadMore,
   });
@@ -220,6 +222,7 @@ class _HomeContentState extends State<HomeContent> {
             RecentSessionCard(
               session: session,
               onTap: () => widget.onResumeSession(session),
+              onLongPress: () => widget.onLongPressRecentSession(session),
               hideProjectBadge: widget.selectedProject != null,
             ),
           if (widget.hasMoreSessions) ...[
