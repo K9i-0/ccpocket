@@ -4,26 +4,25 @@ definitions:
       flutter: 3.41.1
       xcode: latest
       cocoapods: default
+      vars:
+        BUNDLE_ID: com.k9i.ccpocket
+        FLUTTER_VERSION: "3.41.1"
   scripts:
-    - &install_shorebird
+    - &shorebird_install
       name: Install Shorebird
       script: |
         curl --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh -sSf | bash
-        echo "PATH=$HOME/.shorebird/bin:$PATH" >> $CM_ENV
-    - &flutter_pub_get
-      name: Flutter Pub Get
+        echo PATH="$HOME/.shorebird/bin:$PATH" >> $CM_ENV
+    - &fetch_dependencies
+      name: Fetch Dependencies
       script: |
         cd apps/mobile
         flutter pub get
-    - &flutter_analyze
-      name: Dart Analyze
+    - &analyze_and_test
+      name: Analyze and Test
       script: |
         cd apps/mobile
         dart analyze .
-    - &flutter_test
-      name: Flutter Test
-      script: |
-        cd apps/mobile
         flutter test
     - &setup_android_signing
       name: Set up Android signing
@@ -34,13 +33,22 @@ definitions:
         keyAlias=$CM_KEY_ALIAS
         keyPassword=$CM_KEY_PASSWORD
         EOF
-    - &setup_ios_signing
-      name: Set up iOS signing
+    - &ios_initialize_keychain
+      name: Set up keychain
       script: |
-        app-store-connect fetch-signing-files com.k9i.ccpocket \
-          --type IOS_APP_STORE --create
         keychain initialize
+    - &fetch_signing_files
+      name: Fetch signing files
+      script: |
+        app-store-connect fetch-signing-files "$BUNDLE_ID" \
+          --type IOS_APP_STORE --create
+    - &add_certs_to_keychain
+      name: Add certs to keychain
+      script: |
         keychain add-certificates
+    - &use_profiles
+      name: Set up code signing settings on Xcode project
+      script: |
         xcode-project use-profiles
 
 workflows:
@@ -60,9 +68,8 @@ workflows:
         - pattern: main
           include: true
     scripts:
-      - *flutter_pub_get
-      - *flutter_analyze
-      - *flutter_test
+      - *fetch_dependencies
+      - *analyze_and_test
 
   # ============================================
   # Android Release (手動)
@@ -79,15 +86,15 @@ workflows:
       android_signing:
         - android_keystore
     scripts:
-      - *install_shorebird
-      - *flutter_pub_get
-      - *flutter_analyze
-      - *flutter_test
+      - *shorebird_install
+      - *fetch_dependencies
+      - *analyze_and_test
       - *setup_android_signing
       - name: Shorebird Release Android
         script: |
           cd apps/mobile
-          shorebird release android --no-confirm
+          shorebird release android \
+            --flutter-version="$FLUTTER_VERSION"
     artifacts:
       - apps/mobile/build/app/outputs/bundle/release/*.aab
     publishing:
@@ -113,16 +120,18 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.k9i.ccpocket
     scripts:
-      - *install_shorebird
-      - *flutter_pub_get
-      - *flutter_analyze
-      - *flutter_test
-      - *setup_ios_signing
+      - *shorebird_install
+      - *fetch_dependencies
+      - *analyze_and_test
+      - *fetch_signing_files
+      - *ios_initialize_keychain
+      - *add_certs_to_keychain
+      - *use_profiles
       - name: Shorebird Release iOS
         script: |
           cd apps/mobile
           shorebird release ios \
-            --no-confirm \
+            --flutter-version="$FLUTTER_VERSION" \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - apps/mobile/build/ios/ipa/*.ipa
@@ -146,20 +155,18 @@ workflows:
         - android_keystore
     inputs:
       release_version:
-        description: パッチ対象の release version (例 1.0.0+3)
+        description: The release version to patch (e.g. 1.0.0+4)
     scripts:
-      - *install_shorebird
-      - *flutter_pub_get
-      - *flutter_analyze
-      - *flutter_test
+      - *shorebird_install
+      - *fetch_dependencies
+      - *analyze_and_test
       - *setup_android_signing
       - name: Shorebird Patch Android
         script: |
           cd apps/mobile
           shorebird patch android \
-            --release-version="${{ inputs.release_version }}" \
-            --track=staging \
-            --no-confirm
+            --release-version=${{ inputs.release_version }} \
+            --track=staging
 
   # ============================================
   # iOS Patch (手動 — release_version 指定)
@@ -178,18 +185,19 @@ workflows:
         bundle_identifier: com.k9i.ccpocket
     inputs:
       release_version:
-        description: パッチ対象の release version (例 1.0.0+3)
+        description: The release version to patch (e.g. 1.0.0+4)
     scripts:
-      - *install_shorebird
-      - *flutter_pub_get
-      - *flutter_analyze
-      - *flutter_test
-      - *setup_ios_signing
+      - *shorebird_install
+      - *fetch_dependencies
+      - *analyze_and_test
+      - *fetch_signing_files
+      - *ios_initialize_keychain
+      - *add_certs_to_keychain
+      - *use_profiles
       - name: Shorebird Patch iOS
         script: |
           cd apps/mobile
           shorebird patch ios \
-            --release-version="${{ inputs.release_version }}" \
+            --release-version=${{ inputs.release_version }} \
             --track=staging \
-            --no-confirm \
             --export-options-plist=/Users/builder/export_options.plist
