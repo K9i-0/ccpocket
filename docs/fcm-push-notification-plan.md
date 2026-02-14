@@ -1,192 +1,215 @@
-# FCM プッシュ通知導入プラン
+# FCM Push Notification 導入プラン（Bridge中心）
 
-## Context
+## 目的
 
-ccpocket は公開アプリとして展開予定。ユーザーが外出中でも「タスク完了」「承認待ち」などをプッシュ通知で受け取りたい。
-構成: Firebase Anonymous Auth + Firestore + Cloud Functions。Bridge Server は通知トリガーの HTTP リクエストだけ送る。
+ccpocket を公開運用する前提で、ユーザーがアプリをバックグラウンドにしていても以下を受け取れるようにする。
 
-## アーキテクチャ
+- セッション完了
+- 承認待ち
+- AskUserQuestion の回答待ち
+
+## 実装ステータス（2026-02-14）
+
+### 完了（人手不要）
+
+- Bridge:
+  - `push_register` / `push_unregister` のWS受信
+  - `PushRelayClient` 実装（`register`/`unregister`/`notify`）
+  - `permission_request` / `result` から通知トリガー
+  - `AskUserQuestion` 判定と `toolUseId` 重複通知抑制
+- Mobile:
+  - `firebase_core` / `firebase_messaging` 依存追加
+  - FlutterFire CLI で Firebase アプリ登録（Android / iOS）
+  - `apps/mobile/lib/firebase_options.dart` 生成
+  - `apps/mobile/android/app/google-services.json` 生成
+  - `apps/mobile/ios/Runner/GoogleService-Info.plist` 生成
+  - `FcmService` 実装（permission, token取得, token refresh）
+  - Settings画面に Push ON/OFF を追加
+  - `SettingsCubit` で register/unregister 同期を実装
+- Cloud Functions:
+  - `functions/` 新設
+  - Relay API (`register` / `unregister` / `notify`) 実装
+  - Firestore upsert + invalid token cleanup 実装
+- Firebase Project:
+  - ルート `firebase.json` / `.firebaserc` を作成（project: `ccpocket-ca33b`）
+  - `apps/mobile/firebase.json` を生成
+
+### 明日やる（手動）
+
+- Firebase プロジェクトを Blaze にアップグレード（Functions/SecretManager デプロイブロッカー）
+- Cloud Functions deploy
+  - `firebase deploy --only functions --project ccpocket-ca33b`
+- `PUSH_RELAY_SECRET` の本番設定
+  - `firebase functions:secrets:set PUSH_RELAY_SECRET --project ccpocket-ca33b`
+- APNs証明書/キー設定（iOS通知）
+- Functionsデプロイ後、Bridge側 env を設定
+  - `PUSH_RELAY_URL`
+  - `PUSH_RELAY_SECRET`
+  - `PUSH_BRIDGE_ID`（任意）
+
+## 設計方針
+
+1. **Bridge を唯一の通知起点にする**
+   - Claude/Codex イベントの意味を理解しているのは Bridge。
+   - 通知トリガー判定は Bridge に集約する。
+
+2. **Mobile から Firestore に直接書かない**
+   - Mobile は FCM token を取得し、WebSocket で Bridge に登録依頼するだけ。
+   - Firestore 書き込み・通知送信は Cloud Functions (Admin SDK) に限定する。
+
+3. **`BRIDGE_API_KEY` に依存しない通知認証**
+   - Bridge接続の認証（`BRIDGE_API_KEY`）と通知認証（`PUSH_RELAY_SECRET`）を分離する。
+   - `BRIDGE_API_KEY` 未設定運用でも通知機能が壊れない設計にする。
+
+4. **通知URLはクライアント入力禁止**
+   - `register_notification_url` のようなクライアント指定URLは採用しない。
+   - 通知先は Bridge 環境変数で固定する。
+
+## 全体アーキテクチャ
 
 ```
-Flutter App                    Firebase                         Bridge Server (ユーザーのMac)
-─────────                    ────────                         ──────────────
-1. 匿名認証ログイン ──────→ Firebase Auth
-2. FCMトークン取得
-3. 設定画面で「通知ON」 ──→ Firestore に保存
-   (uid + fcmToken +          /users/{uid}/tokens/{tokenId}
-    bridgeApiKey)              { token, bridgeApiKey, createdAt }
+Flutter App                         Bridge Server                        Cloud Functions + Firestore
+──────────                         ─────────────                        ───────────────────────────
+1. FCM token取得
+2. ws: push_register ───────────→ 3. token受理
+                                      4. HTTPS POST(op=register) ───→   5. token保存
 
-4.                                                            セッション完了時
-                                                              HTTP POST → Cloud Functions
-                              Cloud Functions ←───────────────  /notify
-                              bridgeApiKey で Firestore 検索     { bridgeApiKey, title, body }
-                              → 該当トークンに FCM 送信
-5. プッシュ通知受信 ←──── FCM
+6. Claude/Codex event発生
+   (result / permission_request)
+                                → 7. 通知要否判定
+                                      8. HTTPS POST(op=notify) ─────→   9. FCM送信
+
+10. ws: push_unregister ───────→ 11. HTTPS POST(op=unregister) ───→   12. token削除
 ```
 
-## 実装ステップ
+## WebSocket プロトコル追加
 
-### Phase 1: Firebase プロジェクトセットアップ（手動）
+### Client → Server
 
-- Firebase Console でプロジェクト作成
-- Anonymous Auth 有効化
-- iOS アプリ登録 → `GoogleService-Info.plist` 配置
-- Android アプリ登録 → `google-services.json` 配置
-- APNs 設定（iOS Push Notification capability + APNs キー登録）
+- `push_register`
+  - `token: string`
+  - `platform: "ios" | "android" | "web"`
+- `push_unregister`
+  - `token: string`
 
-### Phase 2: Flutter App — Firebase 初期化 + 匿名認証
+### Server → Client
 
-**追加パッケージ:**
-```yaml
-firebase_core: ^3.13.0
-firebase_auth: ^5.5.2
-firebase_messaging: ^15.2.5
-cloud_firestore: ^5.6.8
+- 既存の `error` を利用（登録失敗時）
+- 成功時は基本 silent（必要なら将来 `push_status` を追加）
+
+## Cloud Relay API（Bridge → Cloud Functions）
+
+Bridge は単一の Relay URL に `op` を付けて POST する。
+
+- `op: "register"`
+  - `bridgeId`, `token`, `platform`
+- `op: "unregister"`
+  - `bridgeId`, `token`
+- `op: "notify"`
+  - `bridgeId`, `eventType`, `title`, `body`, `data?`
+
+### 認証
+
+- Header: `Authorization: Bearer <PUSH_RELAY_SECRET>`
+- Cloud Functions 側で Secret 検証必須
+
+### Bridge 識別子
+
+- `PUSH_BRIDGE_ID` を優先
+- 未指定時はホスト名ベースで生成（例: `os.hostname()`）
+
+## Firestore スキーマ（Cloud Functions 管理）
+
 ```
-
-**変更ファイル:**
-
-1. **`apps/mobile/lib/main.dart`**
-   - `Firebase.initializeApp()` 追加
-   - `FirebaseAuth.instance.signInAnonymously()` 追加（アプリ起動時）
-
-2. **`apps/mobile/lib/services/fcm_service.dart`** (新規)
-   ```dart
-   class FcmService {
-     Future<void> init();              // FCM 初期化 + パーミッション要求
-     Future<String?> getToken();       // FCM トークン取得
-     Future<void> registerToken({      // Firestore に保存
-       required String bridgeApiKey,
-     });
-     Future<void> unregisterToken();   // Firestore から削除
-     Stream<RemoteMessage> onMessage;  // フォアグラウンド通知
-   }
-   ```
-
-3. **`apps/mobile/lib/features/settings/state/settings_cubit.dart`**
-   - `fcmEnabled` 状態追加
-   - `toggleFcm()` メソッド追加
-   - ON: トークン登録 → SharedPreferences に保存
-   - OFF: トークン削除
-
-4. **`apps/mobile/lib/features/settings/state/settings_state.dart`**
-   - `fcmEnabled` フィールド追加 (Freezed)
-
-5. **`apps/mobile/lib/features/settings/settings_screen.dart`**
-   - 「プッシュ通知」セクション追加（SwitchListTile）
-   - 接続中の Bridge API Key を自動取得して登録
-
-### Phase 3: Firestore スキーマ + セキュリティルール
-
-**コレクション構造:**
-```
-/users/{uid}/tokens/{tokenId}
-  - token: string          // FCM トークン
-  - bridgeApiKey: string   // Bridge Server の API Key (ハッシュ化)
-  - platform: string       // "ios" | "android"
+/bridges/{bridgeId}/tokens/{tokenId}
+  - token: string
+  - platform: string
   - createdAt: timestamp
   - updatedAt: timestamp
 ```
 
-**セキュリティルール:**
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{uid}/tokens/{tokenId} {
-      // 自分のドキュメントのみ読み書き可
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-    }
-    // Cloud Functions (admin SDK) は全アクセス可
-  }
-}
-```
+- token重複登録は upsert
+- FCM send で invalid token 判定時は自動削除
 
-### Phase 4: Cloud Functions — 通知送信 API
+## 通知イベント定義
 
-**`functions/src/index.ts`** (新規)
+| Bridgeイベント | 条件 | eventType | タイトル例 | 本文例 |
+|---|---|---|---|---|
+| `permission_request` | `toolName == AskUserQuestion` | `ask_user_question` | 回答待ち | Claude が質問しています |
+| `permission_request` | 上記以外 | `approval_required` | 承認待ち | ツール実行の承認が必要です |
+| `result` | `subtype=success` | `session_completed` | タスク完了 | セッションが完了しました |
+| `result` | `subtype=error` | `session_failed` | エラー発生 | セッションが失敗しました |
 
-```typescript
-// POST /notify
-// Body: { bridgeApiKey: string, title: string, body: string, data?: object }
-// → bridgeApiKey のハッシュで Firestore を検索
-// → 該当する全 FCM トークンにプッシュ送信
-```
+### 重複抑制
 
-**ポイント:**
-- bridgeApiKey は SHA-256 ハッシュで保存・照合（平文を Firestore に保存しない）
-- Cloud Functions は認証なし（bridgeApiKey 自体が認証代わり）
-  - Bridge Server は HTTPS で呼ぶだけ
-  - bridgeApiKey を知らないと通知は送れない
-- 無効トークンは自動削除
+- `permission_request` は `toolUseId` 単位で重複通知しない
+- `result` の `stopped` は通知しない
 
-### Phase 5: Bridge Server — 通知トリガー
+## 実装ステップ
 
-**変更ファイル:**
+### Phase 1: Bridge 実装（先行）
 
-1. **`packages/bridge/src/parser.ts`**
-   - `ClientMessage` に `register_notification_url` 型追加（オプション）
-   - 通知先の Cloud Functions URL を Flutter App から受信
+- `packages/bridge/src/parser.ts`
+  - `push_register` / `push_unregister` 追加
+- `packages/bridge/src/push-relay.ts`（新規）
+  - Cloud Relay HTTP クライアント
+- `packages/bridge/src/websocket.ts`
+  - `push_register` / `push_unregister` ハンドラ
+  - `broadcastSessionMessage()` で通知トリガー
+  - `AskUserQuestion` 分岐
+  - `toolUseId` 重複通知抑制
 
-2. **`packages/bridge/src/notification.ts`** (新規)
-   ```typescript
-   export class NotificationSender {
-     constructor(private functionUrl: string, private apiKey: string);
-     async send(title: string, body: string, data?: Record<string, string>);
-   }
-   ```
-   - シンプルな HTTP POST ラッパー
-   - Cloud Functions の URL にリクエスト送信
+### Phase 2: Mobile 実装
 
-3. **`packages/bridge/src/session.ts`**
-   - `result` イベント時に通知送信
-   - `permission_request` イベント時に通知送信
-   - `error` イベント時に通知送信（オプション）
+- `apps/mobile/pubspec.yaml`
+  - `firebase_core`
+  - `firebase_messaging`
+- `apps/mobile/lib/services/fcm_service.dart`（新規）
+  - パーミッション要求
+  - token取得
+  - `onTokenRefresh` で再登録
+- `apps/mobile/lib/models/messages.dart`
+  - `ClientMessage.pushRegister()` / `pushUnregister()`
+- `apps/mobile/lib/services/bridge_service.dart`
+  - push register/unregister送信 API
+- `apps/mobile/lib/features/settings/*`
+  - Push ON/OFF 設定
 
-### Phase 6: 通知トリガーイベント
+### Phase 3: Cloud Functions 実装（別ディレクトリ）
 
-| イベント | タイトル | 本文例 |
-|---------|---------|--------|
-| `result` (完了) | タスク完了 ✅ | `セッション完了 (12.3s, $0.05)` |
-| `result` (エラー) | エラー発生 ❌ | `エラー: ...` |
-| `permission_request` | 承認待ち 🔔 | `ファイル変更の承認が必要です` |
+- `functions/` を新設
+- Relay API (`register` / `unregister` / `notify`) 実装
+- Firestore 書き込みと FCM 送信
+- invalid token cleanup
 
-## 依存関係まとめ
+## 環境変数（Bridge）
 
-| 場所 | 追加パッケージ | 目的 |
-|------|---------------|------|
-| Flutter | `firebase_core` | Firebase 初期化 |
-| Flutter | `firebase_auth` | 匿名認証 |
-| Flutter | `firebase_messaging` | FCM トークン取得・受信 |
-| Flutter | `cloud_firestore` | トークン保存 |
-| Cloud Functions | `firebase-admin` | FCM 送信・Firestore アクセス |
-| Cloud Functions | `firebase-functions` | HTTP トリガー |
-| Bridge | なし（`fetch` のみ） | HTTP POST するだけ |
-
-## 実装順序
-
-1. Firebase プロジェクトセットアップ（手動）
-2. Flutter: Firebase 初期化 + 匿名認証
-3. Flutter: FcmService + 設定画面
-4. Firestore: セキュリティルール
-5. Cloud Functions: 通知 API
-6. Bridge Server: 通知トリガー
+| 変数 | 必須 | 説明 |
+|---|---|---|
+| `PUSH_RELAY_URL` | yes | Cloud Relay HTTP endpoint |
+| `PUSH_RELAY_SECRET` | yes | Relay認証用シークレット |
+| `PUSH_BRIDGE_ID` | no | Bridge識別子（未指定時は自動生成） |
 
 ## 検証
 
 ### 静的検証
+
 ```bash
+npx tsc --noEmit -p packages/bridge/tsconfig.json
 dart analyze apps/mobile
 cd apps/mobile && flutter test
-npx tsc --noEmit -p packages/bridge/tsconfig.json
 ```
 
 ### E2E 検証
-1. シミュレーターでアプリ起動
-2. 設定画面で通知を ON にする
-3. Firestore Console でトークンが保存されていることを確認
-4. Bridge Server でセッション実行 → Cloud Functions ログで通知送信を確認
-5. 実機でプッシュ通知受信を確認
 
-### セルフレビュー
-`/self-review` スキルで変更全体をレビュー
+1. Bridge を Push env 付きで起動
+2. Mobile で Push ON（token register）
+3. セッション実行で `permission_request` / `AskUserQuestion` / `result` を発生
+4. Cloud Functions ログで `op=notify` と送信件数を確認
+5. 実機で通知受信確認
+
+## 非採用案
+
+- Mobile → Firestore 直接書き込み（責務分散・セキュリティルール複雑化）
+- `bridgeApiKey` を通知識別子に再利用（未設定運用で破綻）
+- クライアントから通知先URLを受け取る方式（SSRFリスク）

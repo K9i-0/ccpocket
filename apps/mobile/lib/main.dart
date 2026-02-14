@@ -90,7 +90,9 @@ void main() async {
             create: (_) =>
                 MachineManagerCubit(machineManagerService, sshStartupService),
           ),
-          BlocProvider(create: (_) => SettingsCubit(prefs)),
+          BlocProvider(
+            create: (_) => SettingsCubit(prefs, bridgeService: bridge),
+          ),
         ],
         child: const CcpocketApp(),
       ),

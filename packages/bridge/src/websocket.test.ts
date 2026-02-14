@@ -113,8 +113,19 @@ import { BridgeWebSocketServer } from "./websocket.js";
 describe("BridgeWebSocketServer resume/get_history flow", () => {
   const OPEN_STATE = 1;
   let httpServer: ReturnType<typeof createServer>;
+  let originalFetch: typeof globalThis.fetch;
+  let originalRelayUrl: string | undefined;
+  let originalRelaySecret: string | undefined;
+  let originalBridgeId: string | undefined;
 
   beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    originalRelayUrl = process.env.PUSH_RELAY_URL;
+    originalRelaySecret = process.env.PUSH_RELAY_SECRET;
+    originalBridgeId = process.env.PUSH_BRIDGE_ID;
+    delete process.env.PUSH_RELAY_URL;
+    delete process.env.PUSH_RELAY_SECRET;
+    delete process.env.PUSH_BRIDGE_ID;
     httpServer = createServer();
     getSessionHistoryMock.mockReset();
     getCodexSessionHistoryMock.mockReset();
@@ -123,6 +134,22 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
   });
 
   afterEach(() => {
+    globalThis.fetch = originalFetch;
+    if (originalRelayUrl === undefined) {
+      delete process.env.PUSH_RELAY_URL;
+    } else {
+      process.env.PUSH_RELAY_URL = originalRelayUrl;
+    }
+    if (originalRelaySecret === undefined) {
+      delete process.env.PUSH_RELAY_SECRET;
+    } else {
+      process.env.PUSH_RELAY_SECRET = originalRelaySecret;
+    }
+    if (originalBridgeId === undefined) {
+      delete process.env.PUSH_BRIDGE_ID;
+    } else {
+      process.env.PUSH_BRIDGE_ID = originalBridgeId;
+    }
     httpServer.close();
   });
 
@@ -467,6 +494,77 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     );
 
     expect((bridge as any).debugEvents.has(sessionId)).toBe(false);
+    bridge.close();
+  });
+
+  it("sends push notification once per permission toolUseId", async () => {
+    process.env.PUSH_RELAY_URL = "https://relay.example.com/push";
+    process.env.PUSH_RELAY_SECRET = "dummy";
+    process.env.PUSH_BRIDGE_ID = "bridge-test";
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "permission_request",
+      toolUseId: "tool-1",
+      toolName: "AskUserQuestion",
+      input: {},
+    });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "permission_request",
+      toolUseId: "tool-1",
+      toolName: "AskUserQuestion",
+      input: {},
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const payload = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      op: "notify",
+      bridgeId: "bridge-test",
+      eventType: "ask_user_question",
+    });
+
+    bridge.close();
+  });
+
+  it("sends push notification for successful result and skips stopped result", async () => {
+    process.env.PUSH_RELAY_URL = "https://relay.example.com/push";
+    process.env.PUSH_RELAY_SECRET = "dummy";
+    process.env.PUSH_BRIDGE_ID = "bridge-test";
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "result",
+      subtype: "success",
+      duration: 3.2,
+      cost: 0.0045,
+    });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "result",
+      subtype: "stopped",
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const payload = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      op: "notify",
+      bridgeId: "bridge-test",
+      eventType: "session_completed",
+      title: "タスク完了",
+    });
+
     bridge.close();
   });
 });

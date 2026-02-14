@@ -101,6 +101,26 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage('{"type":"input"}')).toBeNull();
   });
 
+  it("parses push_register message", () => {
+    const msg = parseClientMessage('{"type":"push_register","token":"t1","platform":"ios"}');
+    expect(msg).toEqual({ type: "push_register", token: "t1", platform: "ios" });
+  });
+
+  it("rejects push_register with invalid platform", () => {
+    expect(
+      parseClientMessage('{"type":"push_register","token":"t1","platform":"desktop"}'),
+    ).toBeNull();
+  });
+
+  it("parses push_unregister message", () => {
+    const msg = parseClientMessage('{"type":"push_unregister","token":"t1"}');
+    expect(msg).toEqual({ type: "push_unregister", token: "t1" });
+  });
+
+  it("rejects push_unregister without token", () => {
+    expect(parseClientMessage('{"type":"push_unregister"}')).toBeNull();
+  });
+
   it("parses set_permission_mode message", () => {
     const msg = parseClientMessage(
       '{"type":"set_permission_mode","mode":"plan","sessionId":"s1"}',

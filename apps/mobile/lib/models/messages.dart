@@ -1093,6 +1093,19 @@ class ClientMessage {
     });
   }
 
+  factory ClientMessage.pushRegister({
+    required String token,
+    required String platform,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'push_register',
+    'token': token,
+    'platform': platform,
+  });
+
+  factory ClientMessage.pushUnregister(String token) => ClientMessage._(
+    <String, dynamic>{'type': 'push_unregister', 'token': token},
+  );
+
   factory ClientMessage.setPermissionMode(String mode, {String? sessionId}) {
     return ClientMessage._(<String, dynamic>{
       'type': 'set_permission_mode',

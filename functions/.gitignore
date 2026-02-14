@@ -1,0 +1,10 @@
+node_modules
+lib
+.firebase
+firebase-debug.log
+firebase-debug.*.log
+.env
+.env.*
+!.env.example
+.runtimeconfig.json
+.secret.local

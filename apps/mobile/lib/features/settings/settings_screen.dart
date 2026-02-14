@@ -38,6 +38,15 @@ class SettingsScreen extends StatelessWidget {
               ),
               Divider(height: 1, color: cs.outlineVariant),
 
+              // ── Push ──
+              _SectionHeader(title: 'PUSH NOTIFICATIONS'),
+              _PushNotificationTile(
+                state: state,
+                onChanged: (enabled) =>
+                    context.read<SettingsCubit>().toggleFcm(enabled),
+              ),
+              Divider(height: 1, color: cs.outlineVariant),
+
               // ── Speech ──
               _SectionHeader(title: 'VOICE INPUT'),
               _SpeechLocaleSelector(
@@ -141,6 +150,35 @@ class _SpeechLocaleSelector extends StatelessWidget {
             onTap: () => onChanged(id),
           ),
       ],
+    );
+  }
+}
+
+class _PushNotificationTile extends StatelessWidget {
+  final SettingsState state;
+  final ValueChanged<bool> onChanged;
+
+  const _PushNotificationTile({required this.state, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final baseSubtitle = state.fcmAvailable
+        ? 'Bridge 経由でセッション通知を受け取ります'
+        : 'Firebase 設定後に利用できます';
+    final subtitle = state.fcmStatusMessage ?? baseSubtitle;
+
+    return SwitchListTile(
+      value: state.fcmEnabled,
+      onChanged: state.fcmSyncInProgress ? null : onChanged,
+      title: const Text('Enable Push Notifications'),
+      subtitle: Text(subtitle),
+      secondary: state.fcmSyncInProgress
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.notifications_active_outlined),
     );
   }
 }

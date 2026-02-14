@@ -1,0 +1,176 @@
+import 'dart:async';
+
+import 'package:ccpocket/features/settings/state/settings_cubit.dart';
+import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/services/bridge_service.dart';
+import 'package:ccpocket/services/fcm_service.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class FakeBridgeService extends BridgeService {
+  final _connectionController =
+      StreamController<BridgeConnectionState>.broadcast();
+  final registerCalls = <({String token, String platform})>[];
+  final unregisterCalls = <String>[];
+  bool _connected = false;
+
+  @override
+  bool get isConnected => _connected;
+
+  @override
+  Stream<BridgeConnectionState> get connectionStatus =>
+      _connectionController.stream;
+
+  void emitConnection(BridgeConnectionState state) {
+    _connected = state == BridgeConnectionState.connected;
+    _connectionController.add(state);
+  }
+
+  @override
+  void registerPushToken({required String token, required String platform}) {
+    registerCalls.add((token: token, platform: platform));
+  }
+
+  @override
+  void unregisterPushToken(String token) {
+    unregisterCalls.add(token);
+  }
+
+  @override
+  void dispose() {
+    _connectionController.close();
+    super.dispose();
+  }
+}
+
+class FakeFcmService extends FcmService {
+  FakeFcmService({
+    required this.available,
+    this.token,
+    this.platformName = 'ios',
+  });
+
+  final bool available;
+  String? token;
+  final String platformName;
+  final _tokenRefreshController = StreamController<String>.broadcast();
+
+  @override
+  bool get isAvailable => available;
+
+  @override
+  Stream<String> get onTokenRefresh => _tokenRefreshController.stream;
+
+  @override
+  String get platform => platformName;
+
+  @override
+  Future<bool> init() async => available;
+
+  @override
+  Future<String?> getToken() async => token;
+
+  @override
+  String? cacheToken(String nextToken) {
+    final previous = token;
+    token = nextToken;
+    return previous;
+  }
+
+  void emitTokenRefresh(String nextToken) {
+    _tokenRefreshController.add(nextToken);
+  }
+
+  Future<void> disposeFake() async {
+    await _tokenRefreshController.close();
+  }
+}
+
+Future<void> _flushAsync() async {
+  await Future<void>.delayed(Duration.zero);
+  await Future<void>.delayed(Duration.zero);
+}
+
+void main() {
+  group('SettingsCubit push sync', () {
+    test('auto registers token on init when fcmEnabled=true', () async {
+      SharedPreferences.setMockInitialValues({'settings_fcm_enabled': true});
+      final prefs = await SharedPreferences.getInstance();
+      final bridge = FakeBridgeService()
+        ..emitConnection(BridgeConnectionState.connected);
+      final fcm = FakeFcmService(available: true, token: 'token-1');
+      final cubit = SettingsCubit(
+        prefs,
+        bridgeService: bridge,
+        fcmService: fcm,
+      );
+
+      await _flushAsync();
+
+      expect(bridge.registerCalls, [(token: 'token-1', platform: 'ios')]);
+      expect(cubit.state.fcmAvailable, isTrue);
+      expect(cubit.state.fcmStatusMessage, '通知を有効化しました');
+
+      await cubit.close();
+      await fcm.disposeFake();
+      bridge.dispose();
+    });
+
+    test('toggle off unregisters active token', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final bridge = FakeBridgeService()
+        ..emitConnection(BridgeConnectionState.connected);
+      final fcm = FakeFcmService(available: true, token: 'token-1');
+      final cubit = SettingsCubit(
+        prefs,
+        bridgeService: bridge,
+        fcmService: fcm,
+      );
+
+      await _flushAsync();
+      await cubit.toggleFcm(true);
+
+      expect(bridge.registerCalls.length, 1);
+      expect(bridge.registerCalls.first.token, 'token-1');
+
+      await cubit.toggleFcm(false);
+
+      expect(bridge.unregisterCalls, ['token-1']);
+      expect(cubit.state.fcmEnabled, isFalse);
+
+      await cubit.close();
+      await fcm.disposeFake();
+      bridge.dispose();
+    });
+
+    test(
+      'token refresh unregisters old token then re-registers new token',
+      () async {
+        SharedPreferences.setMockInitialValues({'settings_fcm_enabled': true});
+        final prefs = await SharedPreferences.getInstance();
+        final bridge = FakeBridgeService()
+          ..emitConnection(BridgeConnectionState.connected);
+        final fcm = FakeFcmService(available: true, token: 'old-token');
+        final cubit = SettingsCubit(
+          prefs,
+          bridgeService: bridge,
+          fcmService: fcm,
+        );
+
+        await _flushAsync();
+        fcm.emitTokenRefresh('new-token');
+        await _flushAsync();
+
+        expect(bridge.unregisterCalls, ['old-token']);
+        expect(bridge.registerCalls.length, 2);
+        expect(bridge.registerCalls.first.token, 'old-token');
+        expect(bridge.registerCalls.last.token, 'new-token');
+
+        await cubit.close();
+        await fcm.disposeFake();
+        bridge.dispose();
+      },
+    );
+  });
+}

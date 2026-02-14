@@ -72,6 +72,8 @@ export type ClientMessage =
       existingWorktreePath?: string;
     }
   | { type: "input"; text: string; sessionId?: string; imageId?: string; imageBase64?: string; mimeType?: string }
+  | { type: "push_register"; token: string; platform: "ios" | "android" | "web" }
+  | { type: "push_unregister"; token: string }
   | { type: "set_permission_mode"; mode: PermissionMode; sessionId?: string }
   | { type: "approve"; id: string; updatedInput?: Record<string, unknown>; clearContext?: boolean; sessionId?: string }
   | { type: "approve_always"; id: string; sessionId?: string }
@@ -244,6 +246,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (typeof msg.text !== "string") return null;
         // imageBase64 requires mimeType
         if (msg.imageBase64 && typeof msg.mimeType !== "string") return null;
+        break;
+      case "push_register":
+        if (typeof msg.token !== "string") return null;
+        if (msg.platform !== "ios" && msg.platform !== "android" && msg.platform !== "web") return null;
+        break;
+      case "push_unregister":
+        if (typeof msg.token !== "string") return null;
         break;
       case "set_permission_mode":
         if (

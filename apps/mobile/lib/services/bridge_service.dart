@@ -389,6 +389,14 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.interrupt(sessionId: sessionId));
   }
 
+  void registerPushToken({required String token, required String platform}) {
+    send(ClientMessage.pushRegister(token: token, platform: platform));
+  }
+
+  void unregisterPushToken(String token) {
+    send(ClientMessage.pushUnregister(token));
+  }
+
   @override
   Stream<ServerMessage> messagesForSession(String sessionId) {
     return _taggedMessageController.stream

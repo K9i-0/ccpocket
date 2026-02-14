@@ -17,7 +17,11 @@ mixin _$SettingsState {
 /// Theme mode: system, light, or dark.
  ThemeMode get themeMode;/// Locale ID for speech recognition (e.g. 'ja-JP', 'en-US').
 /// Empty string means use device default.
- String get speechLocaleId;
+ String get speechLocaleId;/// Whether remote push notifications are enabled by the user.
+ bool get fcmEnabled;/// Whether Firebase Messaging is available in this runtime.
+ bool get fcmAvailable;/// True while token registration/unregistration is being synchronized.
+ bool get fcmSyncInProgress;/// Last push sync status shown in Settings screen.
+ String? get fcmStatusMessage;
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +32,16 @@ $SettingsStateCopyWith<SettingsState> get copyWith => _$SettingsStateCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SettingsState&&(identical(other.themeMode, themeMode) || other.themeMode == themeMode)&&(identical(other.speechLocaleId, speechLocaleId) || other.speechLocaleId == speechLocaleId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SettingsState&&(identical(other.themeMode, themeMode) || other.themeMode == themeMode)&&(identical(other.speechLocaleId, speechLocaleId) || other.speechLocaleId == speechLocaleId)&&(identical(other.fcmEnabled, fcmEnabled) || other.fcmEnabled == fcmEnabled)&&(identical(other.fcmAvailable, fcmAvailable) || other.fcmAvailable == fcmAvailable)&&(identical(other.fcmSyncInProgress, fcmSyncInProgress) || other.fcmSyncInProgress == fcmSyncInProgress)&&(identical(other.fcmStatusMessage, fcmStatusMessage) || other.fcmStatusMessage == fcmStatusMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,themeMode,speechLocaleId);
+int get hashCode => Object.hash(runtimeType,themeMode,speechLocaleId,fcmEnabled,fcmAvailable,fcmSyncInProgress,fcmStatusMessage);
 
 @override
 String toString() {
-  return 'SettingsState(themeMode: $themeMode, speechLocaleId: $speechLocaleId)';
+  return 'SettingsState(themeMode: $themeMode, speechLocaleId: $speechLocaleId, fcmEnabled: $fcmEnabled, fcmAvailable: $fcmAvailable, fcmSyncInProgress: $fcmSyncInProgress, fcmStatusMessage: $fcmStatusMessage)';
 }
 
 
@@ -48,7 +52,7 @@ abstract mixin class $SettingsStateCopyWith<$Res>  {
   factory $SettingsStateCopyWith(SettingsState value, $Res Function(SettingsState) _then) = _$SettingsStateCopyWithImpl;
 @useResult
 $Res call({
- ThemeMode themeMode, String speechLocaleId
+ ThemeMode themeMode, String speechLocaleId, bool fcmEnabled, bool fcmAvailable, bool fcmSyncInProgress, String? fcmStatusMessage
 });
 
 
@@ -65,11 +69,15 @@ class _$SettingsStateCopyWithImpl<$Res>
 
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? themeMode = null,Object? speechLocaleId = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? themeMode = null,Object? speechLocaleId = null,Object? fcmEnabled = null,Object? fcmAvailable = null,Object? fcmSyncInProgress = null,Object? fcmStatusMessage = freezed,}) {
   return _then(_self.copyWith(
 themeMode: null == themeMode ? _self.themeMode : themeMode // ignore: cast_nullable_to_non_nullable
 as ThemeMode,speechLocaleId: null == speechLocaleId ? _self.speechLocaleId : speechLocaleId // ignore: cast_nullable_to_non_nullable
-as String,
+as String,fcmEnabled: null == fcmEnabled ? _self.fcmEnabled : fcmEnabled // ignore: cast_nullable_to_non_nullable
+as bool,fcmAvailable: null == fcmAvailable ? _self.fcmAvailable : fcmAvailable // ignore: cast_nullable_to_non_nullable
+as bool,fcmSyncInProgress: null == fcmSyncInProgress ? _self.fcmSyncInProgress : fcmSyncInProgress // ignore: cast_nullable_to_non_nullable
+as bool,fcmStatusMessage: freezed == fcmStatusMessage ? _self.fcmStatusMessage : fcmStatusMessage // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -154,10 +162,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ThemeMode themeMode,  String speechLocaleId)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ThemeMode themeMode,  String speechLocaleId,  bool fcmEnabled,  bool fcmAvailable,  bool fcmSyncInProgress,  String? fcmStatusMessage)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SettingsState() when $default != null:
-return $default(_that.themeMode,_that.speechLocaleId);case _:
+return $default(_that.themeMode,_that.speechLocaleId,_that.fcmEnabled,_that.fcmAvailable,_that.fcmSyncInProgress,_that.fcmStatusMessage);case _:
   return orElse();
 
 }
@@ -175,10 +183,10 @@ return $default(_that.themeMode,_that.speechLocaleId);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ThemeMode themeMode,  String speechLocaleId)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ThemeMode themeMode,  String speechLocaleId,  bool fcmEnabled,  bool fcmAvailable,  bool fcmSyncInProgress,  String? fcmStatusMessage)  $default,) {final _that = this;
 switch (_that) {
 case _SettingsState():
-return $default(_that.themeMode,_that.speechLocaleId);case _:
+return $default(_that.themeMode,_that.speechLocaleId,_that.fcmEnabled,_that.fcmAvailable,_that.fcmSyncInProgress,_that.fcmStatusMessage);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -195,10 +203,10 @@ return $default(_that.themeMode,_that.speechLocaleId);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ThemeMode themeMode,  String speechLocaleId)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ThemeMode themeMode,  String speechLocaleId,  bool fcmEnabled,  bool fcmAvailable,  bool fcmSyncInProgress,  String? fcmStatusMessage)?  $default,) {final _that = this;
 switch (_that) {
 case _SettingsState() when $default != null:
-return $default(_that.themeMode,_that.speechLocaleId);case _:
+return $default(_that.themeMode,_that.speechLocaleId,_that.fcmEnabled,_that.fcmAvailable,_that.fcmSyncInProgress,_that.fcmStatusMessage);case _:
   return null;
 
 }
@@ -210,7 +218,7 @@ return $default(_that.themeMode,_that.speechLocaleId);case _:
 
 
 class _SettingsState implements SettingsState {
-  const _SettingsState({this.themeMode = ThemeMode.system, this.speechLocaleId = 'ja-JP'});
+  const _SettingsState({this.themeMode = ThemeMode.system, this.speechLocaleId = 'ja-JP', this.fcmEnabled = false, this.fcmAvailable = false, this.fcmSyncInProgress = false, this.fcmStatusMessage});
   
 
 /// Theme mode: system, light, or dark.
@@ -218,6 +226,14 @@ class _SettingsState implements SettingsState {
 /// Locale ID for speech recognition (e.g. 'ja-JP', 'en-US').
 /// Empty string means use device default.
 @override@JsonKey() final  String speechLocaleId;
+/// Whether remote push notifications are enabled by the user.
+@override@JsonKey() final  bool fcmEnabled;
+/// Whether Firebase Messaging is available in this runtime.
+@override@JsonKey() final  bool fcmAvailable;
+/// True while token registration/unregistration is being synchronized.
+@override@JsonKey() final  bool fcmSyncInProgress;
+/// Last push sync status shown in Settings screen.
+@override final  String? fcmStatusMessage;
 
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
@@ -229,16 +245,16 @@ _$SettingsStateCopyWith<_SettingsState> get copyWith => __$SettingsStateCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SettingsState&&(identical(other.themeMode, themeMode) || other.themeMode == themeMode)&&(identical(other.speechLocaleId, speechLocaleId) || other.speechLocaleId == speechLocaleId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SettingsState&&(identical(other.themeMode, themeMode) || other.themeMode == themeMode)&&(identical(other.speechLocaleId, speechLocaleId) || other.speechLocaleId == speechLocaleId)&&(identical(other.fcmEnabled, fcmEnabled) || other.fcmEnabled == fcmEnabled)&&(identical(other.fcmAvailable, fcmAvailable) || other.fcmAvailable == fcmAvailable)&&(identical(other.fcmSyncInProgress, fcmSyncInProgress) || other.fcmSyncInProgress == fcmSyncInProgress)&&(identical(other.fcmStatusMessage, fcmStatusMessage) || other.fcmStatusMessage == fcmStatusMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,themeMode,speechLocaleId);
+int get hashCode => Object.hash(runtimeType,themeMode,speechLocaleId,fcmEnabled,fcmAvailable,fcmSyncInProgress,fcmStatusMessage);
 
 @override
 String toString() {
-  return 'SettingsState(themeMode: $themeMode, speechLocaleId: $speechLocaleId)';
+  return 'SettingsState(themeMode: $themeMode, speechLocaleId: $speechLocaleId, fcmEnabled: $fcmEnabled, fcmAvailable: $fcmAvailable, fcmSyncInProgress: $fcmSyncInProgress, fcmStatusMessage: $fcmStatusMessage)';
 }
 
 
@@ -249,7 +265,7 @@ abstract mixin class _$SettingsStateCopyWith<$Res> implements $SettingsStateCopy
   factory _$SettingsStateCopyWith(_SettingsState value, $Res Function(_SettingsState) _then) = __$SettingsStateCopyWithImpl;
 @override @useResult
 $Res call({
- ThemeMode themeMode, String speechLocaleId
+ ThemeMode themeMode, String speechLocaleId, bool fcmEnabled, bool fcmAvailable, bool fcmSyncInProgress, String? fcmStatusMessage
 });
 
 
@@ -266,11 +282,15 @@ class __$SettingsStateCopyWithImpl<$Res>
 
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? themeMode = null,Object? speechLocaleId = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? themeMode = null,Object? speechLocaleId = null,Object? fcmEnabled = null,Object? fcmAvailable = null,Object? fcmSyncInProgress = null,Object? fcmStatusMessage = freezed,}) {
   return _then(_SettingsState(
 themeMode: null == themeMode ? _self.themeMode : themeMode // ignore: cast_nullable_to_non_nullable
 as ThemeMode,speechLocaleId: null == speechLocaleId ? _self.speechLocaleId : speechLocaleId // ignore: cast_nullable_to_non_nullable
-as String,
+as String,fcmEnabled: null == fcmEnabled ? _self.fcmEnabled : fcmEnabled // ignore: cast_nullable_to_non_nullable
+as bool,fcmAvailable: null == fcmAvailable ? _self.fcmAvailable : fcmAvailable // ignore: cast_nullable_to_non_nullable
+as bool,fcmSyncInProgress: null == fcmSyncInProgress ? _self.fcmSyncInProgress : fcmSyncInProgress // ignore: cast_nullable_to_non_nullable
+as bool,fcmStatusMessage: freezed == fcmStatusMessage ? _self.fcmStatusMessage : fcmStatusMessage // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

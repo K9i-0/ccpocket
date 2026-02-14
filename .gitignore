@@ -7,6 +7,38 @@ dist/
 # Environment
 .env
 .env.local
+.env.*
+!.env.example
+!.env.template
+
+# Firebase / FlutterFire local state
+.firebaserc
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+**/.firebase/
+**/firebase-debug.log
+**/firebase-debug.*.log
+**/.runtimeconfig.json
+**/.secret.local
+apps/mobile/android/app/google-services.json
+apps/mobile/ios/Runner/GoogleService-Info.plist
+apps/mobile/lib/firebase_options.dart
+
+# Secrets / signing keys / certificates
+*.pem
+*.key
+*.crt
+*.cer
+*.p8
+*.p12
+*.mobileprovision
+*.jks
+*.keystore
+key.properties
+keystore.properties
+*service-account*.json
+*firebase-adminsdk*.json
 
 # IDE
 .idea/

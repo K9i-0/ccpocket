@@ -14,6 +14,7 @@ import { WorktreeStore } from "./worktree-store.js";
 import { listWorktrees, removeWorktree, createWorktree, worktreeExists } from "./worktree.js";
 import { listWindows, takeScreenshot } from "./screenshot.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
+import { PushRelayClient } from "./push-relay.js";
 
 export interface BridgeServerOptions {
   server: HttpServer;
@@ -35,8 +36,10 @@ export class BridgeWebSocketServer {
   private projectHistory: ProjectHistory | null;
   private debugTraceStore: DebugTraceStore;
   private worktreeStore: WorktreeStore;
+  private pushRelay: PushRelayClient;
   private recentSessionsRequestId = 0;
   private debugEvents = new Map<string, DebugTraceEvent[]>();
+  private notifiedPermissionToolUses = new Map<string, Set<string>>();
 
   constructor(options: BridgeServerOptions) {
     const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore } = options;
@@ -45,9 +48,15 @@ export class BridgeWebSocketServer {
     this.projectHistory = projectHistory ?? null;
     this.debugTraceStore = debugTraceStore ?? new DebugTraceStore();
     this.worktreeStore = new WorktreeStore();
+    this.pushRelay = new PushRelayClient();
     void this.debugTraceStore.init().catch((err) => {
       console.error("[ws] Failed to initialize debug trace store:", err);
     });
+    if (!this.pushRelay.isConfigured) {
+      console.log("[ws] Push relay disabled (set PUSH_RELAY_URL and PUSH_RELAY_SECRET to enable)");
+    } else {
+      console.log("[ws] Push relay enabled");
+    }
 
     this.wss = new WebSocketServer({ server });
 
@@ -293,6 +302,30 @@ export class BridgeWebSocketServer {
         break;
       }
 
+      case "push_register": {
+        if (!this.pushRelay.isConfigured) {
+          this.send(ws, { type: "error", message: "Push relay is not configured on bridge" });
+          return;
+        }
+        this.pushRelay.registerToken(msg.token, msg.platform).catch((err) => {
+          const detail = err instanceof Error ? err.message : String(err);
+          this.send(ws, { type: "error", message: `Failed to register push token: ${detail}` });
+        });
+        break;
+      }
+
+      case "push_unregister": {
+        if (!this.pushRelay.isConfigured) {
+          this.send(ws, { type: "error", message: "Push relay is not configured on bridge" });
+          return;
+        }
+        this.pushRelay.unregisterToken(msg.token).catch((err) => {
+          const detail = err instanceof Error ? err.message : String(err);
+          this.send(ws, { type: "error", message: `Failed to unregister push token: ${detail}` });
+        });
+        break;
+      }
+
       case "set_permission_mode": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
@@ -392,6 +425,7 @@ export class BridgeWebSocketServer {
             type: "session_stopped",
           });
           this.debugEvents.delete(msg.sessionId);
+          this.notifiedPermissionToolUses.delete(msg.sessionId);
           this.sendSessionList(ws);
         } else {
           this.send(ws, { type: "error", message: `Session ${msg.sessionId} not found` });
@@ -884,6 +918,7 @@ export class BridgeWebSocketServer {
   }
 
   private broadcastSessionMessage(sessionId: string, msg: ServerMessage): void {
+    this.maybeSendPushNotification(sessionId, msg);
     this.recordDebugEvent(sessionId, {
       direction: "outgoing",
       channel: "session",
@@ -897,6 +932,72 @@ export class BridgeWebSocketServer {
         client.send(data);
       }
     }
+  }
+
+  private maybeSendPushNotification(sessionId: string, msg: ServerMessage): void {
+    if (!this.pushRelay.isConfigured) return;
+
+    if (msg.type === "permission_request") {
+      const seen = this.notifiedPermissionToolUses.get(sessionId) ?? new Set<string>();
+      if (seen.has(msg.toolUseId)) return;
+      seen.add(msg.toolUseId);
+      this.notifiedPermissionToolUses.set(sessionId, seen);
+
+      const isAskUserQuestion = msg.toolName === "AskUserQuestion";
+      const eventType = isAskUserQuestion ? "ask_user_question" : "approval_required";
+      const title = isAskUserQuestion ? "回答待ち" : "承認待ち";
+      const body = isAskUserQuestion
+        ? "Claude が質問しています"
+        : "ツール実行の承認が必要です";
+      void this.pushRelay.notify({
+        eventType,
+        title,
+        body,
+        data: {
+          sessionId,
+          toolUseId: msg.toolUseId,
+          toolName: msg.toolName,
+        },
+      }).catch((err) => {
+        const detail = err instanceof Error ? err.message : String(err);
+        console.warn(`[ws] Failed to send push notification (${eventType}): ${detail}`);
+      });
+      return;
+    }
+
+    if (msg.type !== "result") return;
+    if (msg.subtype === "stopped") return;
+    if (msg.subtype !== "success" && msg.subtype !== "error") return;
+
+    const isSuccess = msg.subtype === "success";
+    const eventType = isSuccess ? "session_completed" : "session_failed";
+    const title = isSuccess ? "タスク完了" : "エラー発生";
+    let body = isSuccess ? "セッションが完了しました" : "セッションが失敗しました";
+    if (isSuccess && (msg.duration != null || msg.cost != null)) {
+      const pieces: string[] = [];
+      if (msg.duration != null) pieces.push(`${msg.duration.toFixed(1)}s`);
+      if (msg.cost != null) pieces.push(`$${msg.cost.toFixed(4)}`);
+      if (pieces.length > 0) body = `セッション完了 (${pieces.join(", ")})`;
+    } else if (!isSuccess && msg.error) {
+      body = msg.error.slice(0, 120);
+    }
+
+    const data: Record<string, string> = {
+      sessionId,
+      subtype: msg.subtype,
+    };
+    if (msg.stopReason) data.stopReason = msg.stopReason;
+    if (msg.sessionId) data.providerSessionId = msg.sessionId;
+
+    void this.pushRelay.notify({
+      eventType,
+      title,
+      body,
+      data,
+    }).catch((err) => {
+      const detail = err instanceof Error ? err.message : String(err);
+      console.warn(`[ws] Failed to send push notification (${eventType}): ${detail}`);
+    });
   }
 
   private broadcast(msg: Record<string, unknown>): void {
@@ -1023,6 +1124,10 @@ export class BridgeWebSocketServer {
         const hasImage = msg.imageBase64 != null || msg.imageId != null;
         return `text=\"${textPreview}\" image=${hasImage}`;
       }
+      case "push_register":
+        return `platform=${msg.platform} token=${msg.token.slice(0, 8)}...`;
+      case "push_unregister":
+        return `token=${msg.token.slice(0, 8)}...`;
       case "approve":
       case "approve_always":
       case "reject":
@@ -1088,6 +1193,11 @@ export class BridgeWebSocketServer {
     for (const sessionId of this.debugEvents.keys()) {
       if (!active.has(sessionId)) {
         this.debugEvents.delete(sessionId);
+      }
+    }
+    for (const sessionId of this.notifiedPermissionToolUses.keys()) {
+      if (!active.has(sessionId)) {
+        this.notifiedPermissionToolUses.delete(sessionId);
       }
     }
   }
