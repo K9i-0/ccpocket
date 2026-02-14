@@ -529,6 +529,127 @@ export interface SessionHistoryMessage {
   }>;
 }
 
+function asObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function parseObjectLike(value: unknown): Record<string, unknown> {
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return asObject(parsed) ?? { value: parsed };
+    } catch {
+      return { value };
+    }
+  }
+  return asObject(value) ?? {};
+}
+
+function appendTextMessage(
+  messages: SessionHistoryMessage[],
+  role: "user" | "assistant",
+  text: string,
+): void {
+  const normalized = text.trim();
+  if (!normalized) return;
+
+  const last = messages.at(-1);
+  if (
+    last
+    && last.role === role
+    && last.content.length === 1
+    && last.content[0].type === "text"
+    && typeof last.content[0].text === "string"
+    && last.content[0].text.trim() === normalized
+  ) {
+    return;
+  }
+
+  messages.push({
+    role,
+    content: [{ type: "text", text }],
+  });
+}
+
+function appendToolUseMessage(
+  messages: SessionHistoryMessage[],
+  id: string,
+  name: string,
+  input: Record<string, unknown>,
+): void {
+  const normalizedName = name.trim();
+  if (!normalizedName) return;
+
+  const last = messages.at(-1);
+  if (
+    last
+    && last.role === "assistant"
+    && last.content.length === 1
+    && last.content[0].type === "tool_use"
+    && last.content[0].id === id
+    && last.content[0].name === normalizedName
+  ) {
+    return;
+  }
+
+  messages.push({
+    role: "assistant",
+    content: [
+      {
+        type: "tool_use",
+        id,
+        name: normalizedName,
+        input,
+      },
+    ],
+  });
+}
+
+function normalizeCodexToolName(name: string): string {
+  if (name === "exec_command" || name === "write_stdin") {
+    return "Bash";
+  }
+
+  // Codex function names for MCP tools look like: mcp__server__tool_name
+  if (name.startsWith("mcp__")) {
+    const [server, ...toolParts] = name.slice("mcp__".length).split("__");
+    if (server && toolParts.length > 0) {
+      return `mcp:${server}/${toolParts.join("__")}`;
+    }
+  }
+
+  return name;
+}
+
+function isCodexInjectedUserContext(text: string): boolean {
+  const normalized = text.trimStart();
+  return (
+    normalized.startsWith("# AGENTS.md instructions for ")
+    || normalized.startsWith("<environment_context>")
+    || normalized.startsWith("<permissions instructions>")
+  );
+}
+
+function getCodexSearchInput(payload: Record<string, unknown>): Record<string, unknown> {
+  const action = asObject(payload.action);
+  const input: Record<string, unknown> = {};
+  if (typeof action?.query === "string") {
+    input.query = action.query;
+  }
+  if (Array.isArray(action?.queries)) {
+    const queries = (action.queries as unknown[]).filter(
+      (q): q is string => typeof q === "string" && q.length > 0,
+    );
+    if (queries.length > 0) {
+      input.queries = queries;
+    }
+  }
+  return input;
+}
+
 /**
  * Find the JSONL file path for a given sessionId by searching sessions-index.json files,
  * then falling back to scanning directories for the JSONL file directly.
@@ -693,7 +814,7 @@ export async function getCodexSessionHistory(
   const messages: SessionHistoryMessage[] = [];
   const lines = raw.split("\n");
 
-  for (const line of lines) {
+  for (const [index, line] of lines.entries()) {
     if (!line.trim()) continue;
     let entry: Record<string, unknown>;
     try {
@@ -703,33 +824,150 @@ export async function getCodexSessionHistory(
     }
 
     if (entry.type === "event_msg") {
-      const payload = entry.payload as Record<string, unknown> | undefined;
-      if (payload?.type === "user_message" && typeof payload.message === "string") {
-        messages.push({
-          role: "user",
-          content: [{ type: "text", text: payload.message }],
-        });
+      const payload = asObject(entry.payload);
+      if (!payload) continue;
+
+      if (payload.type === "user_message") {
+        const rawMessage = typeof payload.message === "string" ? payload.message : "";
+        const images = Array.isArray(payload.images) ? payload.images.length : 0;
+        const localImages = Array.isArray(payload.local_images)
+          ? payload.local_images.length
+          : 0;
+        const imageCount = images + localImages;
+
+        const text = rawMessage.trim().length > 0
+          ? rawMessage
+          : imageCount > 0
+            ? `[Image attached${imageCount > 1 ? ` x${imageCount}` : ""}]`
+            : "";
+        appendTextMessage(messages, "user", text);
+        continue;
+      }
+
+      if (payload.type === "agent_message" && typeof payload.message === "string") {
+        appendTextMessage(messages, "assistant", payload.message);
       }
       continue;
     }
 
     if (entry.type === "response_item") {
-      const payload = entry.payload as Record<string, unknown> | undefined;
-      if (!payload || payload.type !== "message" || payload.role !== "assistant") {
+      const payload = asObject(entry.payload);
+      if (!payload) continue;
+
+      if (payload.type === "message") {
+        const content = Array.isArray(payload.content)
+          ? (payload.content as Array<Record<string, unknown>>)
+          : [];
+
+        if (payload.role === "assistant") {
+          const text = content
+            .filter((item) => item.type === "output_text" && typeof item.text === "string")
+            .map((item) => item.text as string)
+            .join("\n");
+          appendTextMessage(messages, "assistant", text);
+          continue;
+        }
+
+        if (payload.role === "user") {
+          const text = content
+            .filter((item) => item.type === "input_text" && typeof item.text === "string")
+            .map((item) => item.text as string)
+            .join("\n");
+          if (!isCodexInjectedUserContext(text)) {
+            appendTextMessage(messages, "user", text);
+          }
+          continue;
+        }
+      }
+
+      if (payload.type === "function_call") {
+        const id = typeof payload.call_id === "string" ? payload.call_id : `tool-${index}`;
+        const rawName = typeof payload.name === "string" ? payload.name : "tool";
+        appendToolUseMessage(
+          messages,
+          id,
+          normalizeCodexToolName(rawName),
+          parseObjectLike(payload.arguments),
+        );
         continue;
       }
-      const content = payload.content;
-      if (!Array.isArray(content)) continue;
-      const text = (content as Array<Record<string, unknown>>)
-        .filter((item) => item.type === "output_text" && typeof item.text === "string")
-        .map((item) => item.text as string)
-        .join("\n")
-        .trim();
-      if (text.length > 0) {
-        messages.push({
-          role: "assistant",
-          content: [{ type: "text", text }],
-        });
+
+      if (payload.type === "custom_tool_call") {
+        const id = typeof payload.call_id === "string" ? payload.call_id : `tool-${index}`;
+        const rawName = typeof payload.name === "string" ? payload.name : "custom_tool";
+        appendToolUseMessage(
+          messages,
+          id,
+          normalizeCodexToolName(rawName),
+          parseObjectLike(payload.input),
+        );
+        continue;
+      }
+
+      if (payload.type === "web_search_call") {
+        appendToolUseMessage(
+          messages,
+          typeof payload.call_id === "string" ? payload.call_id : `web-search-${index}`,
+          "WebSearch",
+          getCodexSearchInput(payload),
+        );
+        continue;
+      }
+
+      // Backward/forward compatibility with older/newer Codex JSONL schemas.
+      if (payload.type === "command_execution") {
+        const id = typeof payload.id === "string"
+          ? payload.id
+          : typeof payload.call_id === "string"
+            ? payload.call_id
+            : `cmd-${index}`;
+        const input = typeof payload.command === "string"
+          ? { command: payload.command }
+          : parseObjectLike(payload);
+        appendToolUseMessage(messages, id, "Bash", input);
+        continue;
+      }
+
+      if (payload.type === "mcp_tool_call") {
+        const id = typeof payload.id === "string"
+          ? payload.id
+          : typeof payload.call_id === "string"
+            ? payload.call_id
+            : `mcp-${index}`;
+        const server = typeof payload.server === "string" ? payload.server : "unknown";
+        const tool = typeof payload.tool === "string" ? payload.tool : "tool";
+        appendToolUseMessage(
+          messages,
+          id,
+          `mcp:${server}/${tool}`,
+          parseObjectLike(payload.arguments),
+        );
+        continue;
+      }
+
+      if (payload.type === "file_change") {
+        const id = typeof payload.id === "string"
+          ? payload.id
+          : typeof payload.call_id === "string"
+            ? payload.call_id
+            : `file-change-${index}`;
+        const input = Array.isArray(payload.changes)
+          ? { changes: payload.changes as unknown[] }
+          : parseObjectLike(payload.changes);
+        appendToolUseMessage(messages, id, "FileChange", input);
+        continue;
+      }
+
+      if (payload.type === "web_search") {
+        const id = typeof payload.id === "string"
+          ? payload.id
+          : typeof payload.call_id === "string"
+            ? payload.call_id
+            : `web-search-${index}`;
+        const input = typeof payload.query === "string"
+          ? { query: payload.query }
+          : getCodexSearchInput(payload);
+        appendToolUseMessage(messages, id, "WebSearch", input);
       }
     }
   }

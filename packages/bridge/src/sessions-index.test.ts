@@ -466,6 +466,218 @@ describe("codex sessions integration", () => {
     expect(history[1].content[0].text).toBe("Here is the diff summary.");
   });
 
+  it("restores codex tool-use history from response_item entries", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68012";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: "# AGENTS.md instructions for /tmp/project-a",
+            },
+          ],
+        },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: { type: "user_message", message: "check simulator status" },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "function_call",
+          name: "mcp__dart-mcp__list_running_apps",
+          call_id: "call-1",
+          arguments: "{\"root\":\"/tmp/project-a\"}",
+        },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "custom_tool_call",
+          name: "apply_patch",
+          call_id: "call-2",
+          input: "*** Begin Patch\n*** End Patch\n",
+          status: "completed",
+        },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "web_search_call",
+          status: "completed",
+          action: {
+            type: "search",
+            query: "ccpocket codex mcp history restore",
+          },
+        },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "Checked all logs." }],
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    const history = await getCodexSessionHistory(threadId);
+
+    expect(history).toHaveLength(5);
+    expect(history[0]).toEqual({
+      role: "user",
+      content: [{ type: "text", text: "check simulator status" }],
+    });
+    expect(history[1]).toEqual({
+      role: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "call-1",
+          name: "mcp:dart-mcp/list_running_apps",
+          input: { root: "/tmp/project-a" },
+        },
+      ],
+    });
+    expect(history[2].content[0].type).toBe("tool_use");
+    expect(history[2].content[0].name).toBe("apply_patch");
+    expect(history[3]).toEqual({
+      role: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "web-search-5",
+          name: "WebSearch",
+          input: { query: "ccpocket codex mcp history restore" },
+        },
+      ],
+    });
+    expect(history[4]).toEqual({
+      role: "assistant",
+      content: [{ type: "text", text: "Checked all logs." }],
+    });
+  });
+
+  it("renders placeholder text for image-only codex user messages", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68013";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "",
+          images: [{ id: "img1" }],
+          local_images: [{ path: "/tmp/1.png" }],
+          text_elements: [],
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    const history = await getCodexSessionHistory(threadId);
+    expect(history).toEqual([
+      {
+        role: "user",
+        content: [{ type: "text", text: "[Image attached x2]" }],
+      },
+    ]);
+  });
+
+  it("supports legacy codex response_item tool schemas", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68014";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: { type: "user_message", message: "legacy tool schema" },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "command_execution",
+          id: "cmd-1",
+          command: "git status",
+        },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "mcp_tool_call",
+          id: "mcp-1",
+          server: "dart-mcp",
+          tool: "launch_app",
+          arguments: { device: "ios" },
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    const history = await getCodexSessionHistory(threadId);
+    expect(history).toEqual([
+      {
+        role: "user",
+        content: [{ type: "text", text: "legacy tool schema" }],
+      },
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "cmd-1",
+            name: "Bash",
+            input: { command: "git status" },
+          },
+        ],
+      },
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "mcp-1",
+            name: "mcp:dart-mcp/launch_app",
+            input: { device: "ios" },
+          },
+        ],
+      },
+    ]);
+  });
+
   it("joins multiple assistant output_text chunks and ignores non-text chunks", async () => {
     const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68011";
     const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
