@@ -97,14 +97,14 @@ https://codemagic.io/start/ でサインアップし、GitHub リポジトリを
 
 ### 2-2. App Store Connect 連携の設定
 
-Codemagic Dashboard → Settings → Integrations → App Store Connect:
+Codemagic Dashboard → **Teams** → **Personal Account** → **Integrations**:
 
-1. **API key** を選択
+1. 「Developer Portal」の **Connect** をクリック
 2. Part 1-1 で作成した API キー情報を入力:
    - **Name**: `Codemagic` (codemagic.yaml の `integrations.app_store_connect` と一致させる)
    - **Issuer ID**: App Store Connect の Issuer ID
    - **Key ID**: API Key ID
-   - **API Key (.p8)**: ダウンロードした .p8 ファイルをアップロード
+   - **API key**: ダウンロードした .p8 ファイルをアップロード
 3. 保存
 
 ### 2-3. Android Keystore の登録
@@ -120,7 +120,7 @@ Codemagic Dashboard → Settings → Code signing → Android:
 
 ### 2-4. 環境変数の登録
 
-Codemagic Dashboard → Settings → Environment variables:
+Codemagic Dashboard → アプリ選択 → **Settings** → **Environment variables**:
 
 | グループ名 | 変数名 | 値 | Secure |
 |-----------|--------|-----|--------|
@@ -141,12 +141,15 @@ cat ~/ios-cert-private-key.pem
 Google Play Console への自動アップロードに必要。
 
 1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成（または既存を使用）
-2. **IAM と管理** → **サービスアカウント** → サービスアカウントを作成
+2. [Google Play Developer API](https://console.cloud.google.com/apis/library/androidpublisher.googleapis.com) を有効化
+3. **IAM と管理** → **サービスアカウント** → サービスアカウントを作成
    - 名前: `codemagic-ci`
-3. **キー** タブ → **鍵を追加** → **新しい鍵を作成** → **JSON**
-4. ダウンロードした JSON の中身を `GCLOUD_SERVICE_ACCOUNT_CREDENTIALS` に登録
-5. [Google Play Console](https://play.google.com/console/) → **設定** → **API アクセス** で、作成したサービスアカウントをリンク
+4. 作成したサービスアカウントの **キー** タブ → **鍵を追加** → **新しい鍵を作成** → **JSON**
+5. ダウンロードした JSON の中身を Codemagic の `GCLOUD_SERVICE_ACCOUNT_CREDENTIALS` に登録
+6. [Google Play Console](https://play.google.com/console/) → **ユーザーと権限** → **新しいユーザーを招待**
+   - サービスアカウントのメールアドレスを入力
    - 権限: **リリースマネージャー** 以上
+   - 反映まで最大24時間かかる場合がある
 
 ### 2-6. codemagic.yaml
 
