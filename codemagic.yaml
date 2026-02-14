@@ -10,6 +10,11 @@ definitions:
       script: |
         curl --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh -sSf | bash
         echo "PATH=\"\$HOME/.shorebird/bin:\$PATH\"" >> $CM_ENV
+    - &flutter_pub_get
+      name: Flutter Pub Get
+      script: |
+        cd apps/mobile
+        flutter pub get
     - &flutter_analyze
       name: Dart Analyze
       script: |
@@ -55,6 +60,7 @@ workflows:
         - pattern: main
           include: true
     scripts:
+      - *flutter_pub_get
       - *flutter_analyze
       - *flutter_test
 
@@ -74,6 +80,7 @@ workflows:
         - android_keystore
     scripts:
       - *install_shorebird
+      - *flutter_pub_get
       - *flutter_analyze
       - *flutter_test
       - *setup_android_signing
@@ -107,6 +114,7 @@ workflows:
         bundle_identifier: com.k9i.ccpocket
     scripts:
       - *install_shorebird
+      - *flutter_pub_get
       - *flutter_analyze
       - *flutter_test
       - *setup_ios_signing
@@ -141,6 +149,7 @@ workflows:
         description: パッチ対象の release version (例 1.0.0+3)
     scripts:
       - *install_shorebird
+      - *flutter_pub_get
       - *flutter_analyze
       - *flutter_test
       - *setup_android_signing
@@ -172,6 +181,7 @@ workflows:
         description: パッチ対象の release version (例 1.0.0+3)
     scripts:
       - *install_shorebird
+      - *flutter_pub_get
       - *flutter_analyze
       - *flutter_test
       - *setup_ios_signing
