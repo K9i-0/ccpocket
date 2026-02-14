@@ -9,7 +9,7 @@ definitions:
       name: Install Shorebird
       script: |
         curl --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh -sSf | bash
-        echo "PATH=\"\$HOME/.shorebird/bin:\$PATH\"" >> $CM_ENV
+        echo "PATH=$HOME/.shorebird/bin:$PATH" >> $CM_ENV
     - &flutter_pub_get
       name: Flutter Pub Get
       script: |
