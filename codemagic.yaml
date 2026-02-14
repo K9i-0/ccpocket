@@ -116,9 +116,6 @@ workflows:
       groups:
         - shorebird
         - ios_signing
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.k9i.ccpocket
     scripts:
       - *shorebird_install
       - *fetch_dependencies
@@ -180,9 +177,6 @@ workflows:
       groups:
         - shorebird
         - ios_signing
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.k9i.ccpocket
     inputs:
       release_version:
         description: The release version to patch (e.g. 1.0.0+4)
