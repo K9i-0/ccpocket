@@ -53,6 +53,92 @@ class NewSessionParams {
   });
 }
 
+// ---- Serialization helpers for SharedPreferences ----
+
+T? enumByValue<T>(List<T> values, String? raw, String Function(T) readValue) {
+  if (raw == null || raw.isEmpty) return null;
+  for (final v in values) {
+    if (readValue(v) == raw) return v;
+  }
+  return null;
+}
+
+SandboxMode? sandboxModeFromRaw(String? raw) =>
+    enumByValue(SandboxMode.values, raw, (v) => v.value);
+
+ApprovalPolicy? approvalPolicyFromRaw(String? raw) =>
+    enumByValue(ApprovalPolicy.values, raw, (v) => v.value);
+
+ReasoningEffort? reasoningEffortFromRaw(String? raw) =>
+    enumByValue(ReasoningEffort.values, raw, (v) => v.value);
+
+WebSearchMode? webSearchModeFromRaw(String? raw) =>
+    enumByValue(WebSearchMode.values, raw, (v) => v.value);
+
+Provider _providerFromRaw(String? raw) =>
+    enumByValue(Provider.values, raw, (v) => v.value) ?? Provider.claude;
+
+PermissionMode _permissionModeFromRaw(String? raw) =>
+    enumByValue(PermissionMode.values, raw, (v) => v.value) ??
+    PermissionMode.acceptEdits;
+
+ClaudeEffort? _claudeEffortFromRaw(String? raw) =>
+    enumByValue(ClaudeEffort.values, raw, (v) => v.value);
+
+/// Serialize [NewSessionParams] to JSON for SharedPreferences.
+///
+/// Session-specific values (worktree branch/path, useWorktree,
+/// maxTurns, maxBudgetUsd) are intentionally excluded to avoid
+/// dangerous or stale defaults on next session creation.
+Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
+  return {
+    'projectPath': params.projectPath,
+    'provider': params.provider.value,
+    'permissionMode': params.permissionMode.value,
+    // NOTE: useWorktree, worktreeBranch, existingWorktreePath are
+    // session-specific and intentionally NOT persisted.
+    'model': params.model,
+    'sandboxMode': params.sandboxMode?.value,
+    'approvalPolicy': params.approvalPolicy?.value,
+    'modelReasoningEffort': params.modelReasoningEffort?.value,
+    'networkAccessEnabled': params.networkAccessEnabled,
+    'webSearchMode': params.webSearchMode?.value,
+    'claudeModel': params.claudeModel,
+    'claudeEffort': params.claudeEffort?.value,
+    // NOTE: claudeMaxTurns, claudeMaxBudgetUsd are session-specific
+    // and intentionally NOT persisted.
+    'claudeFallbackModel': params.claudeFallbackModel,
+    'claudeForkSession': params.claudeForkSession,
+    'claudePersistSession': params.claudePersistSession,
+  };
+}
+
+/// Deserialize [NewSessionParams] from JSON stored in SharedPreferences.
+NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
+  final projectPath = json['projectPath'] as String?;
+  if (projectPath == null || projectPath.isEmpty) return null;
+  return NewSessionParams(
+    projectPath: projectPath,
+    provider: _providerFromRaw(json['provider'] as String?),
+    permissionMode: _permissionModeFromRaw(json['permissionMode'] as String?),
+    // useWorktree, worktreeBranch, existingWorktreePath default to off/null
+    model: json['model'] as String?,
+    sandboxMode: sandboxModeFromRaw(json['sandboxMode'] as String?),
+    approvalPolicy: approvalPolicyFromRaw(json['approvalPolicy'] as String?),
+    modelReasoningEffort: reasoningEffortFromRaw(
+      json['modelReasoningEffort'] as String?,
+    ),
+    networkAccessEnabled: json['networkAccessEnabled'] as bool?,
+    webSearchMode: webSearchModeFromRaw(json['webSearchMode'] as String?),
+    claudeModel: json['claudeModel'] as String?,
+    claudeEffort: _claudeEffortFromRaw(json['claudeEffort'] as String?),
+    // claudeMaxTurns, claudeMaxBudgetUsd default to null
+    claudeFallbackModel: json['claudeFallbackModel'] as String?,
+    claudeForkSession: json['claudeForkSession'] as bool?,
+    claudePersistSession: json['claudePersistSession'] as bool?,
+  );
+}
+
 /// Shows a modal bottom sheet for creating a new Claude Code session.
 ///
 /// Returns [NewSessionParams] if the user starts a session, or null on cancel.
@@ -81,6 +167,9 @@ Future<NewSessionParams?> showNewSessionSheet({
     ),
   );
 }
+
+/// Maximum number of recent projects shown in the bottom sheet.
+const _maxRecentProjects = 5;
 
 class _NewSessionSheetContent extends StatefulWidget {
   final List<({String path, String name})> recentProjects;
@@ -145,26 +234,39 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   bool _networkAccessEnabled = true;
   WebSearchMode? _webSearchMode;
 
+  // Inline validation errors
+  String? _maxTurnsError;
+  String? _maxBudgetError;
+
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
 
   /// Merge projectHistory (Bridge-managed, preferred) with recentProjects (session fallback).
   /// projectHistory paths are shown first; recentProjects paths not already covered are appended.
+  /// Capped at [_maxRecentProjects].
   List<({String path, String name})> get _effectiveProjects {
-    if (widget.projectHistory.isEmpty) return widget.recentProjects;
-    final seen = <String>{};
-    final result = <({String path, String name})>[];
-    for (final path in widget.projectHistory) {
-      if (seen.add(path)) {
-        final name = path.split('/').last;
-        result.add((path: path, name: name));
+    List<({String path, String name})> merged;
+    if (widget.projectHistory.isEmpty) {
+      merged = widget.recentProjects;
+    } else {
+      final seen = <String>{};
+      final result = <({String path, String name})>[];
+      for (final path in widget.projectHistory) {
+        if (seen.add(path)) {
+          final name = path.split('/').last;
+          result.add((path: path, name: name));
+        }
       }
-    }
-    for (final project in widget.recentProjects) {
-      if (seen.add(project.path)) {
-        result.add(project);
+      for (final project in widget.recentProjects) {
+        if (seen.add(project.path)) {
+          result.add(project);
+        }
       }
+      merged = result;
     }
-    return result;
+    if (merged.length > _maxRecentProjects) {
+      return merged.sublist(0, _maxRecentProjects);
+    }
+    return merged;
   }
 
   @override
@@ -257,93 +359,93 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     });
   }
 
-  void _start() {
+  /// Validate Max Turns field inline. Returns true if valid.
+  bool _validateMaxTurns() {
+    final raw = _claudeMaxTurnsController.text.trim();
+    if (raw.isEmpty) {
+      _maxTurnsError = null;
+      return true;
+    }
+    final value = int.tryParse(raw);
+    if (value == null || value < 1) {
+      _maxTurnsError = 'Must be an integer > 0';
+      return false;
+    }
+    _maxTurnsError = null;
+    return true;
+  }
+
+  /// Validate Max Budget field inline. Returns true if valid.
+  bool _validateMaxBudget() {
+    final raw = _claudeMaxBudgetController.text.trim();
+    if (raw.isEmpty) {
+      _maxBudgetError = null;
+      return true;
+    }
+    final value = double.tryParse(raw);
+    if (value == null || value < 0) {
+      _maxBudgetError = 'Must be a number >= 0';
+      return false;
+    }
+    _maxBudgetError = null;
+    return true;
+  }
+
+  NewSessionParams _buildParams() {
     final path = _pathController.text.trim();
     final branch = _branchController.text.trim();
     final isCodex = _provider == Provider.codex;
     final claudeModel = _claudeModelController.text.trim();
-    final claudeMaxTurnsRaw = _claudeMaxTurnsController.text.trim();
-    final claudeMaxTurns = int.tryParse(claudeMaxTurnsRaw);
-    final claudeMaxBudgetRaw = _claudeMaxBudgetController.text.trim();
-    final claudeMaxBudgetUsd = double.tryParse(claudeMaxBudgetRaw);
+    final claudeMaxTurns = int.tryParse(
+      _claudeMaxTurnsController.text.trim(),
+    );
+    final claudeMaxBudgetUsd = double.tryParse(
+      _claudeMaxBudgetController.text.trim(),
+    );
     final claudeFallbackModel = _claudeFallbackModelController.text.trim();
 
-    if (!isCodex) {
-      if (claudeMaxTurnsRaw.isNotEmpty &&
-          (claudeMaxTurns == null || claudeMaxTurns < 1)) {
-        _showValidationError('Max Turns must be an integer greater than 0');
-        return;
-      }
-      if (claudeMaxBudgetRaw.isNotEmpty &&
-          (claudeMaxBudgetUsd == null || claudeMaxBudgetUsd < 0)) {
-        _showValidationError(
-          'Max Budget must be a number greater than or equal to 0',
-        );
-        return;
-      }
-    }
+    final useExisting =
+        _useWorktree && _worktreeMode == _WorktreeMode.useExisting;
 
-    if (_useWorktree && _worktreeMode == _WorktreeMode.useExisting) {
-      // Use existing worktree
-      Navigator.pop(
-        context,
-        NewSessionParams(
-          projectPath: path,
-          provider: _provider,
-          permissionMode: _permissionMode,
-          existingWorktreePath: _selectedWorktree?.worktreePath,
-          worktreeBranch: _selectedWorktree?.branch,
-          model: isCodex ? _selectedModel : null,
-          sandboxMode: isCodex ? _sandboxMode : null,
-          approvalPolicy: isCodex ? _approvalPolicy : null,
-          modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
-          networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
-          webSearchMode: isCodex ? _webSearchMode : null,
-          claudeModel: !isCodex && claudeModel.isNotEmpty ? claudeModel : null,
-          claudeEffort: !isCodex ? _claudeEffort : null,
-          claudeMaxTurns: !isCodex ? claudeMaxTurns : null,
-          claudeMaxBudgetUsd: !isCodex ? claudeMaxBudgetUsd : null,
-          claudeFallbackModel: !isCodex && claudeFallbackModel.isNotEmpty
+    return NewSessionParams(
+      projectPath: path,
+      provider: _provider,
+      permissionMode: _permissionMode,
+      useWorktree: useExisting ? false : _useWorktree,
+      worktreeBranch: useExisting
+          ? _selectedWorktree?.branch
+          : (branch.isNotEmpty ? branch : null),
+      existingWorktreePath:
+          useExisting ? _selectedWorktree?.worktreePath : null,
+      model: isCodex ? _selectedModel : null,
+      sandboxMode: isCodex ? _sandboxMode : null,
+      approvalPolicy: isCodex ? _approvalPolicy : null,
+      modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
+      networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
+      webSearchMode: isCodex ? _webSearchMode : null,
+      claudeModel: !isCodex && claudeModel.isNotEmpty ? claudeModel : null,
+      claudeEffort: !isCodex ? _claudeEffort : null,
+      claudeMaxTurns: !isCodex ? claudeMaxTurns : null,
+      claudeMaxBudgetUsd: !isCodex ? claudeMaxBudgetUsd : null,
+      claudeFallbackModel:
+          !isCodex && claudeFallbackModel.isNotEmpty
               ? claudeFallbackModel
               : null,
-          claudeForkSession: !isCodex ? _claudeForkSession : null,
-          claudePersistSession: !isCodex ? _claudePersistSession : null,
-        ),
-      );
-    } else {
-      // Create new worktree or no worktree
-      Navigator.pop(
-        context,
-        NewSessionParams(
-          projectPath: path,
-          provider: _provider,
-          permissionMode: _permissionMode,
-          useWorktree: _useWorktree,
-          worktreeBranch: branch.isNotEmpty ? branch : null,
-          model: isCodex ? _selectedModel : null,
-          sandboxMode: isCodex ? _sandboxMode : null,
-          approvalPolicy: isCodex ? _approvalPolicy : null,
-          modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
-          networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
-          webSearchMode: isCodex ? _webSearchMode : null,
-          claudeModel: !isCodex && claudeModel.isNotEmpty ? claudeModel : null,
-          claudeEffort: !isCodex ? _claudeEffort : null,
-          claudeMaxTurns: !isCodex ? claudeMaxTurns : null,
-          claudeMaxBudgetUsd: !isCodex ? claudeMaxBudgetUsd : null,
-          claudeFallbackModel: !isCodex && claudeFallbackModel.isNotEmpty
-              ? claudeFallbackModel
-              : null,
-          claudeForkSession: !isCodex ? _claudeForkSession : null,
-          claudePersistSession: !isCodex ? _claudePersistSession : null,
-        ),
-      );
-    }
+      claudeForkSession: !isCodex ? _claudeForkSession : null,
+      claudePersistSession: !isCodex ? _claudePersistSession : null,
+    );
   }
 
-  void _showValidationError(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  void _start() {
+    // Run inline validation
+    final turnsOk = _validateMaxTurns();
+    final budgetOk = _validateMaxBudget();
+    if (!turnsOk || !budgetOk) {
+      setState(() {});
+      return;
+    }
+
+    Navigator.pop(context, _buildParams());
   }
 
   @override
@@ -560,7 +662,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_provider == Provider.claude) ...[
+          // Primary control: Permission (Claude) or Approval (Codex)
+          if (_provider == Provider.claude)
             DropdownButtonFormField<PermissionMode>(
               key: const ValueKey('dialog_permission_mode'),
               initialValue: _permissionMode,
@@ -586,8 +689,38 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 }
               },
             ),
-            const SizedBox(height: 8),
-          ],
+          if (_provider == Provider.codex)
+            DropdownButtonFormField<ApprovalPolicy>(
+              key: const ValueKey('dialog_codex_approval'),
+              initialValue: _approvalPolicy,
+              decoration: const InputDecoration(
+                labelText: 'Approval',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              items: ApprovalPolicy.values
+                  .map(
+                    (p) => DropdownMenuItem(
+                      value: p,
+                      child: Text(
+                        p.label,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _approvalPolicy = value);
+                }
+              },
+            ),
+          const SizedBox(height: 8),
+          // Worktree toggle (shared)
           Align(
             alignment: Alignment.centerLeft,
             child: FilterChip(
@@ -604,332 +737,312 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             const SizedBox(height: 8),
             _buildWorktreeOptions(appColors),
           ],
-          if (_provider == Provider.claude) ...[
-            const SizedBox(height: 8),
-            _buildClaudeAdvancedOptions(appColors),
-          ],
-          if (_provider == Provider.codex) ...[
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String?>(
-              key: const ValueKey('dialog_codex_model'),
-              initialValue: _selectedModel,
-              decoration: const InputDecoration(
-                labelText: 'Model',
-                border: OutlineInputBorder(),
-                isDense: true,
-                prefixIcon: Icon(Icons.psychology_outlined, size: 18),
-              ),
-              style: TextStyle(
-                fontSize: 13,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('Default', style: TextStyle(fontSize: 13)),
-                ),
-                for (final model in _codexModels)
-                  DropdownMenuItem<String?>(
-                    value: model,
-                    child: Text(model, style: const TextStyle(fontSize: 13)),
-                  ),
-              ],
-              onChanged: (value) => setState(() => _selectedModel = value),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<SandboxMode>(
-                    key: const ValueKey('dialog_codex_sandbox'),
-                    initialValue: _sandboxMode,
-                    decoration: const InputDecoration(
-                      labelText: 'Sandbox',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    items: SandboxMode.values
-                        .map(
-                          (m) => DropdownMenuItem(
-                            value: m,
-                            child: Text(
-                              m.label,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) setState(() => _sandboxMode = value);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<ApprovalPolicy>(
-                    key: const ValueKey('dialog_codex_approval'),
-                    initialValue: _approvalPolicy,
-                    decoration: const InputDecoration(
-                      labelText: 'Approval',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    items: ApprovalPolicy.values
-                        .map(
-                          (p) => DropdownMenuItem(
-                            value: p,
-                            child: Text(
-                              p.label,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _approvalPolicy = value);
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<ReasoningEffort?>(
-                    key: const ValueKey('dialog_codex_reasoning_effort'),
-                    initialValue: _modelReasoningEffort,
-                    decoration: const InputDecoration(
-                      labelText: 'Reasoning',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    items: [
-                      const DropdownMenuItem<ReasoningEffort?>(
-                        value: null,
-                        child: Text('Default', style: TextStyle(fontSize: 13)),
-                      ),
-                      for (final effort in ReasoningEffort.values)
-                        DropdownMenuItem<ReasoningEffort?>(
-                          value: effort,
-                          child: Text(
-                            effort.label,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                    ],
-                    onChanged: (value) {
-                      setState(() => _modelReasoningEffort = value);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<WebSearchMode?>(
-                    key: const ValueKey('dialog_codex_web_search_mode'),
-                    initialValue: _webSearchMode,
-                    decoration: const InputDecoration(
-                      labelText: 'Web Search',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    items: [
-                      const DropdownMenuItem<WebSearchMode?>(
-                        value: null,
-                        child: Text('Default', style: TextStyle(fontSize: 13)),
-                      ),
-                      for (final mode in WebSearchMode.values)
-                        DropdownMenuItem<WebSearchMode?>(
-                          value: mode,
-                          child: Text(
-                            mode.label,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                    ],
-                    onChanged: (value) {
-                      setState(() => _webSearchMode = value);
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              key: const ValueKey('dialog_codex_network_access'),
-              contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'Network Access',
-                style: TextStyle(fontSize: 13),
-              ),
-              value: _networkAccessEnabled,
-              onChanged: (value) {
-                setState(() => _networkAccessEnabled = value);
-              },
-            ),
-          ],
+          // Advanced section (unified for both providers)
+          const SizedBox(height: 8),
+          _buildAdvancedOptions(appColors),
         ],
       ),
     );
   }
 
-  Widget _buildClaudeAdvancedOptions(AppColors appColors) {
+  /// Unified Advanced options section for both providers.
+  Widget _buildAdvancedOptions(AppColors appColors) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: appColors.subtleText.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: ExpansionTile(
-        key: const ValueKey('dialog_claude_advanced'),
+        key: ValueKey('dialog_advanced_${_provider.value}'),
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        title: const Text('Claude Advanced', style: TextStyle(fontSize: 13)),
+        title: const Text('Advanced', style: TextStyle(fontSize: 13)),
+        children: _provider == Provider.claude
+            ? _buildClaudeAdvancedChildren()
+            : _buildCodexAdvancedChildren(),
+      ),
+    );
+  }
+
+  List<Widget> _buildClaudeAdvancedChildren() {
+    return [
+      TextField(
+        key: const ValueKey('dialog_claude_model'),
+        controller: _claudeModelController,
+        decoration: const InputDecoration(
+          labelText: 'Model (optional)',
+          hintText: 'claude-sonnet-4-5',
+          border: OutlineInputBorder(),
+          isDense: true,
+          prefixIcon: Icon(Icons.psychology_outlined, size: 18),
+        ),
+        style: const TextStyle(fontSize: 13),
+      ),
+      const SizedBox(height: 8),
+      Row(
         children: [
-          TextField(
-            key: const ValueKey('dialog_claude_model'),
-            controller: _claudeModelController,
-            decoration: const InputDecoration(
-              labelText: 'Model (optional)',
-              hintText: 'claude-sonnet-4-5',
-              border: OutlineInputBorder(),
-              isDense: true,
-              prefixIcon: Icon(Icons.psychology_outlined, size: 18),
-            ),
-            style: const TextStyle(fontSize: 13),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<ClaudeEffort?>(
-                  key: const ValueKey('dialog_claude_effort'),
-                  initialValue: _claudeEffort,
-                  decoration: const InputDecoration(
-                    labelText: 'Effort',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                  items: [
-                    const DropdownMenuItem<ClaudeEffort?>(
-                      value: null,
-                      child: Text('Default', style: TextStyle(fontSize: 13)),
+          Expanded(
+            child: DropdownButtonFormField<ClaudeEffort?>(
+              key: const ValueKey('dialog_claude_effort'),
+              initialValue: _claudeEffort,
+              decoration: const InputDecoration(
+                labelText: 'Effort',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              items: [
+                const DropdownMenuItem<ClaudeEffort?>(
+                  value: null,
+                  child: Text('Default', style: TextStyle(fontSize: 13)),
+                ),
+                for (final effort in ClaudeEffort.values)
+                  DropdownMenuItem<ClaudeEffort?>(
+                    value: effort,
+                    child: Text(
+                      effort.label,
+                      style: const TextStyle(fontSize: 13),
                     ),
-                    for (final effort in ClaudeEffort.values)
-                      DropdownMenuItem<ClaudeEffort?>(
-                        value: effort,
-                        child: Text(
-                          effort.label,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
-                  ],
-                  onChanged: (value) {
-                    setState(() => _claudeEffort = value);
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  key: const ValueKey('dialog_claude_max_turns'),
-                  controller: _claudeMaxTurnsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Max Turns',
-                    hintText: 'e.g. 8',
-                    border: OutlineInputBorder(),
-                    isDense: true,
                   ),
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  key: const ValueKey('dialog_claude_max_budget'),
-                  controller: _claudeMaxBudgetController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Max Budget (USD)',
-                    hintText: 'e.g. 1.00',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  key: const ValueKey('dialog_claude_fallback_model'),
-                  controller: _claudeFallbackModelController,
-                  decoration: const InputDecoration(
-                    labelText: 'Fallback Model',
-                    hintText: 'claude-haiku-4-5',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          SwitchListTile(
-            key: const ValueKey('dialog_claude_fork_session'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Fork Session on Resume',
-              style: TextStyle(fontSize: 13),
+              ],
+              onChanged: (value) {
+                setState(() => _claudeEffort = value);
+              },
             ),
-            value: _claudeForkSession,
-            onChanged: (value) {
-              setState(() => _claudeForkSession = value);
-            },
           ),
-          SwitchListTile(
-            key: const ValueKey('dialog_claude_persist_session'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Persist Session History',
-              style: TextStyle(fontSize: 13),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              key: const ValueKey('dialog_claude_max_turns'),
+              controller: _claudeMaxTurnsController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Max Turns',
+                hintText: 'e.g. 8',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                errorText: _maxTurnsError,
+                errorStyle: const TextStyle(fontSize: 11),
+              ),
+              style: const TextStyle(fontSize: 13),
+              onChanged: (_) {
+                setState(() => _validateMaxTurns());
+              },
             ),
-            value: _claudePersistSession,
-            onChanged: (value) {
-              setState(() => _claudePersistSession = value);
-            },
           ),
         ],
       ),
-    );
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: TextField(
+              key: const ValueKey('dialog_claude_max_budget'),
+              controller: _claudeMaxBudgetController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Max Budget (USD)',
+                hintText: 'e.g. 1.00',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                errorText: _maxBudgetError,
+                errorStyle: const TextStyle(fontSize: 11),
+              ),
+              style: const TextStyle(fontSize: 13),
+              onChanged: (_) {
+                setState(() => _validateMaxBudget());
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              key: const ValueKey('dialog_claude_fallback_model'),
+              controller: _claudeFallbackModelController,
+              decoration: const InputDecoration(
+                labelText: 'Fallback Model',
+                hintText: 'claude-haiku-4-5',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 4),
+      SwitchListTile(
+        key: const ValueKey('dialog_claude_fork_session'),
+        contentPadding: EdgeInsets.zero,
+        title: const Text(
+          'Fork Session on Resume',
+          style: TextStyle(fontSize: 13),
+        ),
+        value: _claudeForkSession,
+        onChanged: (value) {
+          setState(() => _claudeForkSession = value);
+        },
+      ),
+      SwitchListTile(
+        key: const ValueKey('dialog_claude_persist_session'),
+        contentPadding: EdgeInsets.zero,
+        title: const Text(
+          'Persist Session History',
+          style: TextStyle(fontSize: 13),
+        ),
+        value: _claudePersistSession,
+        onChanged: (value) {
+          setState(() => _claudePersistSession = value);
+        },
+      ),
+    ];
+  }
+
+  List<Widget> _buildCodexAdvancedChildren() {
+    return [
+      DropdownButtonFormField<String?>(
+        key: const ValueKey('dialog_codex_model'),
+        initialValue: _selectedModel,
+        decoration: const InputDecoration(
+          labelText: 'Model',
+          border: OutlineInputBorder(),
+          isDense: true,
+          prefixIcon: Icon(Icons.psychology_outlined, size: 18),
+        ),
+        style: TextStyle(
+          fontSize: 13,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+        items: [
+          const DropdownMenuItem<String?>(
+            value: null,
+            child: Text('Default', style: TextStyle(fontSize: 13)),
+          ),
+          for (final model in _codexModels)
+            DropdownMenuItem<String?>(
+              value: model,
+              child: Text(model, style: const TextStyle(fontSize: 13)),
+            ),
+        ],
+        onChanged: (value) => setState(() => _selectedModel = value),
+      ),
+      const SizedBox(height: 8),
+      DropdownButtonFormField<SandboxMode>(
+        key: const ValueKey('dialog_codex_sandbox'),
+        initialValue: _sandboxMode,
+        decoration: const InputDecoration(
+          labelText: 'Sandbox',
+          border: OutlineInputBorder(),
+          isDense: true,
+        ),
+        style: TextStyle(
+          fontSize: 13,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+        items: SandboxMode.values
+            .map(
+              (m) => DropdownMenuItem(
+                value: m,
+                child: Text(
+                  m.label,
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          if (value != null) setState(() => _sandboxMode = value);
+        },
+      ),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: DropdownButtonFormField<ReasoningEffort?>(
+              key: const ValueKey('dialog_codex_reasoning_effort'),
+              initialValue: _modelReasoningEffort,
+              decoration: const InputDecoration(
+                labelText: 'Reasoning',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              items: [
+                const DropdownMenuItem<ReasoningEffort?>(
+                  value: null,
+                  child: Text('Default', style: TextStyle(fontSize: 13)),
+                ),
+                for (final effort in ReasoningEffort.values)
+                  DropdownMenuItem<ReasoningEffort?>(
+                    value: effort,
+                    child: Text(
+                      effort.label,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+              ],
+              onChanged: (value) {
+                setState(() => _modelReasoningEffort = value);
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DropdownButtonFormField<WebSearchMode?>(
+              key: const ValueKey('dialog_codex_web_search_mode'),
+              initialValue: _webSearchMode,
+              decoration: const InputDecoration(
+                labelText: 'Web Search',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              items: [
+                const DropdownMenuItem<WebSearchMode?>(
+                  value: null,
+                  child: Text('Default', style: TextStyle(fontSize: 13)),
+                ),
+                for (final mode in WebSearchMode.values)
+                  DropdownMenuItem<WebSearchMode?>(
+                    value: mode,
+                    child: Text(
+                      mode.label,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+              ],
+              onChanged: (value) {
+                setState(() => _webSearchMode = value);
+              },
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 4),
+      SwitchListTile(
+        key: const ValueKey('dialog_codex_network_access'),
+        contentPadding: EdgeInsets.zero,
+        title: const Text(
+          'Network Access',
+          style: TextStyle(fontSize: 13),
+        ),
+        value: _networkAccessEnabled,
+        onChanged: (value) {
+          setState(() => _networkAccessEnabled = value);
+        },
+      ),
+    ];
   }
 
   Widget _buildWorktreeOptions(AppColors appColors) {

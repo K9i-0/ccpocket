@@ -232,13 +232,37 @@ void main() {
       expect(restored, isNotNull);
       expect(restored!.projectPath, '/tmp/project-a');
       expect(restored.provider, Provider.codex);
-      expect(restored.useWorktree, isTrue);
-      expect(
-        restored.existingWorktreePath,
-        '/tmp/project-a-worktrees/feature-x',
-      );
+      // Session-specific fields are intentionally NOT persisted
+      expect(restored.useWorktree, isFalse);
+      expect(restored.existingWorktreePath, isNull);
+      expect(restored.worktreeBranch, isNull);
+      // Provider settings ARE persisted
       expect(restored.approvalPolicy, ApprovalPolicy.onRequest);
       expect(restored.webSearchMode, WebSearchMode.live);
+    });
+
+    test('does not persist session-specific fields', () {
+      final params = NewSessionParams(
+        projectPath: '/tmp/project-c',
+        provider: Provider.claude,
+        permissionMode: PermissionMode.acceptEdits,
+        useWorktree: true,
+        worktreeBranch: 'feature/y',
+        existingWorktreePath: '/tmp/project-c-worktrees/feature-y',
+        claudeMaxTurns: 10,
+        claudeMaxBudgetUsd: 2.50,
+      );
+
+      final json = sessionStartDefaultsToJson(params);
+      final restored = sessionStartDefaultsFromJson(json);
+
+      expect(restored, isNotNull);
+      // These session-specific values must NOT be restored
+      expect(restored!.useWorktree, isFalse);
+      expect(restored.worktreeBranch, isNull);
+      expect(restored.existingWorktreePath, isNull);
+      expect(restored.claudeMaxTurns, isNull);
+      expect(restored.claudeMaxBudgetUsd, isNull);
     });
 
     test('returns null when required projectPath is missing', () {
@@ -268,8 +292,9 @@ void main() {
       expect(restored.permissionMode, PermissionMode.plan);
       expect(restored.claudeModel, 'claude-sonnet-4-5');
       expect(restored.claudeEffort, ClaudeEffort.max);
-      expect(restored.claudeMaxTurns, 6);
-      expect(restored.claudeMaxBudgetUsd, 0.75);
+      // maxTurns and maxBudgetUsd are session-specific, NOT persisted
+      expect(restored.claudeMaxTurns, isNull);
+      expect(restored.claudeMaxBudgetUsd, isNull);
       expect(restored.claudeFallbackModel, 'claude-haiku-4-5');
       expect(restored.claudeForkSession, isTrue);
       expect(restored.claudePersistSession, isFalse);

@@ -81,88 +81,6 @@ List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
   }).toList();
 }
 
-T? _enumByValue<T>(List<T> values, String? raw, String Function(T) readValue) {
-  if (raw == null || raw.isEmpty) return null;
-  for (final v in values) {
-    if (readValue(v) == raw) return v;
-  }
-  return null;
-}
-
-Provider _providerFromRaw(String? raw) =>
-    _enumByValue(Provider.values, raw, (v) => v.value) ?? Provider.claude;
-
-PermissionMode _permissionModeFromRaw(String? raw) =>
-    _enumByValue(PermissionMode.values, raw, (v) => v.value) ??
-    PermissionMode.acceptEdits;
-
-SandboxMode? _sandboxModeFromRaw(String? raw) =>
-    _enumByValue(SandboxMode.values, raw, (v) => v.value);
-
-ApprovalPolicy? _approvalPolicyFromRaw(String? raw) =>
-    _enumByValue(ApprovalPolicy.values, raw, (v) => v.value);
-
-ReasoningEffort? _reasoningEffortFromRaw(String? raw) =>
-    _enumByValue(ReasoningEffort.values, raw, (v) => v.value);
-
-WebSearchMode? _webSearchModeFromRaw(String? raw) =>
-    _enumByValue(WebSearchMode.values, raw, (v) => v.value);
-
-ClaudeEffort? _claudeEffortFromRaw(String? raw) =>
-    _enumByValue(ClaudeEffort.values, raw, (v) => v.value);
-
-Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
-  return {
-    'projectPath': params.projectPath,
-    'provider': params.provider.value,
-    'permissionMode': params.permissionMode.value,
-    'useWorktree': params.useWorktree,
-    'worktreeBranch': params.worktreeBranch,
-    'existingWorktreePath': params.existingWorktreePath,
-    'model': params.model,
-    'sandboxMode': params.sandboxMode?.value,
-    'approvalPolicy': params.approvalPolicy?.value,
-    'modelReasoningEffort': params.modelReasoningEffort?.value,
-    'networkAccessEnabled': params.networkAccessEnabled,
-    'webSearchMode': params.webSearchMode?.value,
-    'claudeModel': params.claudeModel,
-    'claudeEffort': params.claudeEffort?.value,
-    'claudeMaxTurns': params.claudeMaxTurns,
-    'claudeMaxBudgetUsd': params.claudeMaxBudgetUsd,
-    'claudeFallbackModel': params.claudeFallbackModel,
-    'claudeForkSession': params.claudeForkSession,
-    'claudePersistSession': params.claudePersistSession,
-  };
-}
-
-NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
-  final projectPath = json['projectPath'] as String?;
-  if (projectPath == null || projectPath.isEmpty) return null;
-  return NewSessionParams(
-    projectPath: projectPath,
-    provider: _providerFromRaw(json['provider'] as String?),
-    permissionMode: _permissionModeFromRaw(json['permissionMode'] as String?),
-    useWorktree: json['useWorktree'] as bool? ?? false,
-    worktreeBranch: json['worktreeBranch'] as String?,
-    existingWorktreePath: json['existingWorktreePath'] as String?,
-    model: json['model'] as String?,
-    sandboxMode: _sandboxModeFromRaw(json['sandboxMode'] as String?),
-    approvalPolicy: _approvalPolicyFromRaw(json['approvalPolicy'] as String?),
-    modelReasoningEffort: _reasoningEffortFromRaw(
-      json['modelReasoningEffort'] as String?,
-    ),
-    networkAccessEnabled: json['networkAccessEnabled'] as bool?,
-    webSearchMode: _webSearchModeFromRaw(json['webSearchMode'] as String?),
-    claudeModel: json['claudeModel'] as String?,
-    claudeEffort: _claudeEffortFromRaw(json['claudeEffort'] as String?),
-    claudeMaxTurns: (json['claudeMaxTurns'] as num?)?.toInt(),
-    claudeMaxBudgetUsd: (json['claudeMaxBudgetUsd'] as num?)?.toDouble(),
-    claudeFallbackModel: json['claudeFallbackModel'] as String?,
-    claudeForkSession: json['claudeForkSession'] as bool?,
-    claudePersistSession: json['claudePersistSession'] as bool?,
-  );
-}
-
 // ---- Screen ----
 
 class SessionListScreen extends StatefulWidget {
@@ -603,13 +521,13 @@ class _SessionListScreenState extends State<SessionListScreen> {
       worktreeBranch: session.gitBranch.isNotEmpty ? session.gitBranch : null,
       existingWorktreePath: hasExistingWorktree ? existingWorktreePath : null,
       model: session.codexModel,
-      sandboxMode: _sandboxModeFromRaw(session.codexSandboxMode),
-      approvalPolicy: _approvalPolicyFromRaw(session.codexApprovalPolicy),
-      modelReasoningEffort: _reasoningEffortFromRaw(
+      sandboxMode: sandboxModeFromRaw(session.codexSandboxMode),
+      approvalPolicy: approvalPolicyFromRaw(session.codexApprovalPolicy),
+      modelReasoningEffort: reasoningEffortFromRaw(
         session.codexModelReasoningEffort,
       ),
       networkAccessEnabled: session.codexNetworkAccessEnabled,
-      webSearchMode: _webSearchModeFromRaw(session.codexWebSearchMode),
+      webSearchMode: webSearchModeFromRaw(session.codexWebSearchMode),
     );
   }
 
