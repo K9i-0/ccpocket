@@ -20,7 +20,9 @@ jobs:
           flutter-version: '3.41.1'
           cache: true
       - name: Install Codemagic CLI Tools
-        run: pip3 install codemagic-cli-tools
+        run: |
+          pipx install codemagic-cli-tools
+          pipx ensurepath
       - run: flutter pub get
         working-directory: apps/mobile
       - run: dart analyze .
