@@ -1,0 +1,48 @@
+name: Android Release (Shorebird)
+on:
+  workflow_dispatch: {}
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.1'
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      # Android signing: decode keystore from base64 secret
+      - name: Setup Android signing
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > apps/mobile/android/keystore.jks
+          cat > apps/mobile/android/keystore.properties << EOF
+          storeFile=${{ github.workspace }}/apps/mobile/android/keystore.jks
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          EOF
+      - run: flutter pub get
+        working-directory: apps/mobile
+      - run: dart analyze .
+        working-directory: apps/mobile
+      - run: flutter test
+        working-directory: apps/mobile
+      - name: Shorebird Release Android
+        working-directory: apps/mobile
+        run: shorebird release android --flutter-version="3.41.1"
+      - name: Upload to Google Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GCLOUD_SERVICE_ACCOUNT_CREDENTIALS }}
+          packageName: com.k9i.ccpocket
+          releaseFiles: apps/mobile/build/app/outputs/bundle/release/*.aab
+          track: internal
+          status: completed

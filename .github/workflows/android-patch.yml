@@ -1,0 +1,46 @@
+name: Android Patch (Shorebird)
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'The release version to patch (e.g. 1.0.0+8)'
+        required: true
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    env:
+      SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.1'
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Android signing
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > apps/mobile/android/keystore.jks
+          cat > apps/mobile/android/keystore.properties << EOF
+          storeFile=${{ github.workspace }}/apps/mobile/android/keystore.jks
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          EOF
+      - run: flutter pub get
+        working-directory: apps/mobile
+      - run: dart analyze .
+        working-directory: apps/mobile
+      - run: flutter test
+        working-directory: apps/mobile
+      - name: Shorebird Patch Android
+        working-directory: apps/mobile
+        run: |
+          shorebird patch android \
+            --release-version=${{ inputs.release_version }} \
+            --track=staging

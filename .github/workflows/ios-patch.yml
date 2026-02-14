@@ -1,0 +1,50 @@
+name: iOS Patch (Shorebird)
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'The release version to patch (e.g. 1.0.0+8)'
+        required: true
+jobs:
+  patch:
+    runs-on: macos-15
+    env:
+      SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shorebirdtech/setup-shorebird@v1
+        with:
+          cache: true
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.1'
+          cache: true
+      - name: Install Codemagic CLI Tools
+        run: pip3 install codemagic-cli-tools
+      - run: flutter pub get
+        working-directory: apps/mobile
+      - run: dart analyze .
+        working-directory: apps/mobile
+      - run: flutter test
+        working-directory: apps/mobile
+      - name: Fetch signing files
+        run: |
+          app-store-connect fetch-signing-files com.k9i.ccpocket \
+            --type IOS_APP_STORE --create
+      - name: Setup keychain
+        run: keychain initialize
+      - name: Add certs to keychain
+        run: keychain add-certificates
+      - name: Set up code signing
+        run: xcode-project use-profiles
+      - name: Shorebird Patch iOS
+        working-directory: apps/mobile
+        run: |
+          shorebird patch ios \
+            --release-version=${{ inputs.release_version }} \
+            --track=staging \
+            --export-options-plist=/Users/runner/export_options.plist
