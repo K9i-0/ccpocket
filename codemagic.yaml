@@ -57,7 +57,7 @@ workflows:
   # ============================================
   test:
     name: Test
-    instance_type: mac_mini_m4
+    instance_type: mac_mini_m2
     environment:
       <<: *shared_env
     triggering:
@@ -76,7 +76,7 @@ workflows:
   # ============================================
   android-release:
     name: Android Release (Shorebird)
-    instance_type: mac_mini_m4
+    instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
       <<: *shared_env
@@ -107,7 +107,7 @@ workflows:
   # ============================================
   ios-release:
     name: iOS Release (Shorebird)
-    instance_type: mac_mini_m4
+    instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
       app_store_connect: Codemagic
@@ -145,7 +145,7 @@ workflows:
   # ============================================
   android-patch:
     name: Android Patch (Shorebird)
-    instance_type: mac_mini_m4
+    instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
       <<: *shared_env
@@ -173,7 +173,7 @@ workflows:
   # ============================================
   ios-patch:
     name: iOS Patch (Shorebird)
-    instance_type: mac_mini_m4
+    instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
       <<: *shared_env
