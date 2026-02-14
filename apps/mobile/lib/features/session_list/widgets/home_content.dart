@@ -27,10 +27,12 @@ class HomeContent extends StatefulWidget {
     String? projectPath,
     String? gitBranch,
     String? worktreePath,
+    String? provider,
   })
   onTapRunning;
   final ValueChanged<String> onStopSession;
   final ValueChanged<RecentSession> onResumeSession;
+  final ValueChanged<RecentSession> onLongPressRecentSession;
   final ValueChanged<String?> onSelectProject;
   final VoidCallback onLoadMore;
 
@@ -49,6 +51,7 @@ class HomeContent extends StatefulWidget {
     required this.onTapRunning,
     required this.onStopSession,
     required this.onResumeSession,
+    required this.onLongPressRecentSession,
     required this.onSelectProject,
     required this.onLoadMore,
   });
@@ -97,7 +100,9 @@ class _HomeContentState extends State<HomeContent> {
 
     // Compute derived state
     // Exclude running sessions from recent list to avoid duplicates
-    final runningSessionIds = widget.sessions.map((s) => s.id).toSet();
+    final runningSessionIds = widget.sessions
+        .map((s) => s.claudeSessionId ?? s.id)
+        .toSet();
     var filteredSessions = widget.currentProjectFilter != null
         ? widget.recentSessions
         : filterByProject(widget.recentSessions, widget.selectedProject);
@@ -142,6 +147,7 @@ class _HomeContentState extends State<HomeContent> {
                     ? session.worktreeBranch
                     : session.gitBranch,
                 worktreePath: session.worktreePath,
+                provider: session.provider,
               ),
               onStop: () => widget.onStopSession(session.id),
             ),
@@ -216,6 +222,7 @@ class _HomeContentState extends State<HomeContent> {
             RecentSessionCard(
               session: session,
               onTap: () => widget.onResumeSession(session),
+              onLongPress: () => widget.onLongPressRecentSession(session),
               hideProjectBadge: widget.selectedProject != null,
             ),
           if (widget.hasMoreSessions) ...[

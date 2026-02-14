@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ import '../../services/connection_url_parser.dart';
 import '../../services/server_discovery_service.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../chat/chat_screen.dart';
+import '../chat_codex/codex_chat_screen.dart';
 import '../gallery/gallery_screen.dart';
 import '../settings/settings_screen.dart';
 import 'state/session_list_cubit.dart';
@@ -79,6 +81,71 @@ List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
   }).toList();
 }
 
+T? _enumByValue<T>(List<T> values, String? raw, String Function(T) readValue) {
+  if (raw == null || raw.isEmpty) return null;
+  for (final v in values) {
+    if (readValue(v) == raw) return v;
+  }
+  return null;
+}
+
+Provider _providerFromRaw(String? raw) =>
+    _enumByValue(Provider.values, raw, (v) => v.value) ?? Provider.claude;
+
+PermissionMode _permissionModeFromRaw(String? raw) =>
+    _enumByValue(PermissionMode.values, raw, (v) => v.value) ??
+    PermissionMode.acceptEdits;
+
+SandboxMode? _sandboxModeFromRaw(String? raw) =>
+    _enumByValue(SandboxMode.values, raw, (v) => v.value);
+
+ApprovalPolicy? _approvalPolicyFromRaw(String? raw) =>
+    _enumByValue(ApprovalPolicy.values, raw, (v) => v.value);
+
+ReasoningEffort? _reasoningEffortFromRaw(String? raw) =>
+    _enumByValue(ReasoningEffort.values, raw, (v) => v.value);
+
+WebSearchMode? _webSearchModeFromRaw(String? raw) =>
+    _enumByValue(WebSearchMode.values, raw, (v) => v.value);
+
+Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
+  return {
+    'projectPath': params.projectPath,
+    'provider': params.provider.value,
+    'permissionMode': params.permissionMode.value,
+    'useWorktree': params.useWorktree,
+    'worktreeBranch': params.worktreeBranch,
+    'existingWorktreePath': params.existingWorktreePath,
+    'model': params.model,
+    'sandboxMode': params.sandboxMode?.value,
+    'approvalPolicy': params.approvalPolicy?.value,
+    'modelReasoningEffort': params.modelReasoningEffort?.value,
+    'networkAccessEnabled': params.networkAccessEnabled,
+    'webSearchMode': params.webSearchMode?.value,
+  };
+}
+
+NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
+  final projectPath = json['projectPath'] as String?;
+  if (projectPath == null || projectPath.isEmpty) return null;
+  return NewSessionParams(
+    projectPath: projectPath,
+    provider: _providerFromRaw(json['provider'] as String?),
+    permissionMode: _permissionModeFromRaw(json['permissionMode'] as String?),
+    useWorktree: json['useWorktree'] as bool? ?? false,
+    worktreeBranch: json['worktreeBranch'] as String?,
+    existingWorktreePath: json['existingWorktreePath'] as String?,
+    model: json['model'] as String?,
+    sandboxMode: _sandboxModeFromRaw(json['sandboxMode'] as String?),
+    approvalPolicy: _approvalPolicyFromRaw(json['approvalPolicy'] as String?),
+    modelReasoningEffort: _reasoningEffortFromRaw(
+      json['modelReasoningEffort'] as String?,
+    ),
+    networkAccessEnabled: json['networkAccessEnabled'] as bool?,
+    webSearchMode: _webSearchModeFromRaw(json['webSearchMode'] as String?),
+  );
+}
+
 // ---- Screen ----
 
 class SessionListScreen extends StatefulWidget {
@@ -110,11 +177,17 @@ class _SessionListScreenState extends State<SessionListScreen> {
   // Flag: already navigated to chat for pending session creation
   bool _pendingNavigation = false;
 
+  // Notifier for session_created that fires before chat screen listens.
+  // When session_created arrives while _pendingNavigation is true,
+  // we store the message here so the chat screen can replay it.
+  final _pendingSessionCreated = ValueNotifier<SystemMessage?>(null);
+
   // Only subscription that remains: session_created navigation
   StreamSubscription<ServerMessage>? _messageSub;
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyApiKey = 'bridge_api_key';
+  static const _prefKeySessionStartDefaults = 'session_start_defaults_v1';
 
   @override
   void initState() {
@@ -126,14 +199,16 @@ class _SessionListScreenState extends State<SessionListScreen> {
         bridge.requestSessionList();
         if (msg.sessionId != null) {
           if (_pendingNavigation) {
-            // Already navigated to chat screen; it will pick up session_created
+            // Chat screen may not have its listener yet — store for replay.
             _pendingNavigation = false;
+            _pendingSessionCreated.value = msg;
           } else {
             _navigateToChat(
               msg.sessionId!,
               projectPath: msg.projectPath ?? _pendingResumeProjectPath,
               gitBranch: _pendingResumeGitBranch,
               worktreePath: msg.worktreePath,
+              provider: msg.provider == 'codex' ? Provider.codex : null,
             );
           }
           _pendingResumeProjectPath = null;
@@ -398,27 +473,52 @@ class _SessionListScreenState extends State<SessionListScreen> {
   }
 
   void _showNewSessionDialog() async {
+    final defaults = await _loadSessionStartDefaults();
+    if (!mounted) return;
+    final result = await _openNewSessionSheet(initialParams: defaults);
+    if (result == null || !mounted) return;
+    await _saveSessionStartDefaults(result);
+    if (!mounted) return;
+    _startNewSession(result);
+  }
+
+  Future<NewSessionParams?> _openNewSessionSheet({
+    NewSessionParams? initialParams,
+  }) async {
     final sessions =
         widget.debugRecentSessions ??
         context.read<SessionListCubit>().state.sessions;
     final history = context.read<ProjectHistoryCubit>().state;
     final bridge = context.read<BridgeService>();
-    final result = await showNewSessionSheet(
+    return showNewSessionSheet(
       context: context,
       recentProjects: recentProjects(sessions),
       projectHistory: history,
       bridge: bridge,
+      initialParams: initialParams,
     );
-    if (result == null) return;
-    if (!mounted) return;
+  }
+
+  void _startNewSession(NewSessionParams result) {
+    final bridge = context.read<BridgeService>();
     _pendingResumeProjectPath = result.projectPath;
+    _pendingResumeGitBranch = result.worktreeBranch;
     bridge.send(
       ClientMessage.start(
         result.projectPath,
-        permissionMode: result.permissionMode.value,
+        permissionMode: result.provider == Provider.claude
+            ? result.permissionMode.value
+            : null,
         useWorktree: result.useWorktree ? true : null,
         worktreeBranch: result.worktreeBranch,
         existingWorktreePath: result.existingWorktreePath,
+        provider: result.provider.value,
+        model: result.model,
+        approvalPolicy: result.approvalPolicy?.value,
+        sandboxMode: result.sandboxMode?.value,
+        modelReasoningEffort: result.modelReasoningEffort?.value,
+        networkAccessEnabled: result.networkAccessEnabled,
+        webSearchMode: result.webSearchMode?.value,
       ),
     );
     // Navigate immediately to chat with pending state
@@ -427,8 +527,96 @@ class _SessionListScreenState extends State<SessionListScreen> {
     _navigateToChat(
       pendingId,
       projectPath: result.projectPath,
+      gitBranch: result.worktreeBranch,
+      worktreePath: result.existingWorktreePath,
       isPending: true,
+      provider: result.provider,
     );
+  }
+
+  Future<NewSessionParams?> _loadSessionStartDefaults() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_prefKeySessionStartDefaults);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      return sessionStartDefaultsFromJson(json);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveSessionStartDefaults(NewSessionParams params) async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = sessionStartDefaultsToJson(params);
+    await prefs.setString(_prefKeySessionStartDefaults, jsonEncode(json));
+  }
+
+  NewSessionParams _newSessionFromRecentSession(RecentSession session) {
+    final provider = session.provider == Provider.codex.value
+        ? Provider.codex
+        : Provider.claude;
+    final existingWorktreePath = session.resumeCwd;
+    final hasExistingWorktree =
+        existingWorktreePath != null && existingWorktreePath.isNotEmpty;
+    return NewSessionParams(
+      projectPath: session.projectPath,
+      provider: provider,
+      permissionMode: PermissionMode.acceptEdits,
+      useWorktree: hasExistingWorktree,
+      worktreeBranch: session.gitBranch.isNotEmpty ? session.gitBranch : null,
+      existingWorktreePath: hasExistingWorktree ? existingWorktreePath : null,
+      model: session.codexModel,
+      sandboxMode: _sandboxModeFromRaw(session.codexSandboxMode),
+      approvalPolicy: _approvalPolicyFromRaw(session.codexApprovalPolicy),
+      modelReasoningEffort: _reasoningEffortFromRaw(
+        session.codexModelReasoningEffort,
+      ),
+      networkAccessEnabled: session.codexNetworkAccessEnabled,
+      webSearchMode: _webSearchModeFromRaw(session.codexWebSearchMode),
+    );
+  }
+
+  void _showRecentSessionActions(RecentSession session) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.play_arrow),
+              title: const Text('Start New with Same Settings'),
+              onTap: () => Navigator.pop(ctx, 'start_same'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.tune),
+              title: const Text('Edit Settings Then Start'),
+              onTap: () => Navigator.pop(ctx, 'start_edit'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    if (action == 'start_same') {
+      final params = _newSessionFromRecentSession(session);
+      await _saveSessionStartDefaults(params);
+      if (!mounted) return;
+      _startNewSession(params);
+      return;
+    }
+
+    if (action == 'start_edit') {
+      final initialParams = _newSessionFromRecentSession(session);
+      final edited = await _openNewSessionSheet(initialParams: initialParams);
+      if (edited == null || !mounted) return;
+      await _saveSessionStartDefaults(edited);
+      if (!mounted) return;
+      _startNewSession(edited);
+    }
   }
 
   void _navigateToChat(
@@ -437,19 +625,35 @@ class _SessionListScreenState extends State<SessionListScreen> {
     String? gitBranch,
     String? worktreePath,
     bool isPending = false,
+    Provider? provider,
   }) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ChatScreen(
-          sessionId: sessionId,
-          projectPath: projectPath,
-          gitBranch: gitBranch,
-          worktreePath: worktreePath,
-          isPending: isPending,
-        ),
-      ),
-    ).then((_) {
+    // Reset the notifier for this navigation.
+    if (isPending) {
+      _pendingSessionCreated.value = null;
+    }
+    final Widget screen;
+    if (provider == Provider.codex) {
+      screen = CodexChatScreen(
+        sessionId: sessionId,
+        projectPath: projectPath,
+        gitBranch: gitBranch,
+        worktreePath: worktreePath,
+        isPending: isPending,
+        pendingSessionCreated: isPending ? _pendingSessionCreated : null,
+      );
+    } else {
+      screen = ChatScreen(
+        sessionId: sessionId,
+        projectPath: projectPath,
+        gitBranch: gitBranch,
+        worktreePath: worktreePath,
+        isPending: isPending,
+        pendingSessionCreated: isPending ? _pendingSessionCreated : null,
+      );
+    }
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen)).then((
+      _,
+    ) {
       if (!mounted) return;
       final isConnected =
           context.read<ConnectionCubit>().state ==
@@ -461,11 +665,19 @@ class _SessionListScreenState extends State<SessionListScreen> {
   }
 
   void _resumeSession(RecentSession session) {
-    _pendingResumeProjectPath = session.projectPath;
+    final resumeProjectPath = session.resumeCwd ?? session.projectPath;
+    _pendingResumeProjectPath = resumeProjectPath;
     _pendingResumeGitBranch = session.gitBranch;
     context.read<BridgeService>().resumeSession(
       session.sessionId,
-      session.projectPath,
+      resumeProjectPath,
+      provider: session.provider,
+      approvalPolicy: session.codexApprovalPolicy,
+      sandboxMode: session.codexSandboxMode,
+      model: session.codexModel,
+      modelReasoningEffort: session.codexModelReasoningEffort,
+      networkAccessEnabled: session.codexNetworkAccessEnabled,
+      webSearchMode: session.codexWebSearchMode,
     );
   }
 
@@ -588,14 +800,17 @@ class _SessionListScreenState extends State<SessionListScreen> {
                         String? projectPath,
                         String? gitBranch,
                         String? worktreePath,
+                        String? provider,
                       }) => _navigateToChat(
                         sessionId,
                         projectPath: projectPath,
                         gitBranch: gitBranch,
                         worktreePath: worktreePath,
+                        provider: provider == 'codex' ? Provider.codex : null,
                       ),
                   onStopSession: _stopSession,
                   onResumeSession: _resumeSession,
+                  onLongPressRecentSession: _showRecentSessionActions,
                   onSelectProject: (path) =>
                       context.read<SessionListCubit>().selectProject(path),
                   onLoadMore: () => context.read<SessionListCubit>().loadMore(),

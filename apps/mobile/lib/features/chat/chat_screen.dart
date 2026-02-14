@@ -17,6 +17,7 @@ import '../../widgets/message_bubble.dart';
 import '../../widgets/plan_detail_sheet.dart';
 import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
+import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
 import '../diff/diff_screen.dart';
 import '../gallery/gallery_screen.dart';
@@ -45,6 +46,10 @@ class ChatScreen extends StatefulWidget {
   final String? worktreePath;
   final bool isPending;
 
+  /// Notifier from the parent that may already hold a [SystemMessage]
+  /// with subtype `session_created` (race condition fix).
+  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
+
   const ChatScreen({
     super.key,
     required this.sessionId,
@@ -52,6 +57,7 @@ class ChatScreen extends StatefulWidget {
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
+    this.pendingSessionCreated,
   });
 
   @override
@@ -79,6 +85,15 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _listenForSessionCreated() {
+    // Check if session_list_screen already captured the message (race fix).
+    final buffered = widget.pendingSessionCreated?.value;
+    if (buffered != null && buffered.sessionId != null) {
+      _resolveSession(buffered);
+      return;
+    }
+    // Also listen for future notification via the ValueNotifier.
+    widget.pendingSessionCreated?.addListener(_onPendingSessionCreated);
+
     final bridge = context.read<BridgeService>();
     _pendingSub = bridge.messages.listen((msg) {
       if (msg is SystemMessage && msg.subtype == 'session_created') {
@@ -89,21 +104,34 @@ class _ChatScreenState extends State<ChatScreen> {
           return;
         }
         if (msg.sessionId != null && mounted) {
-          setState(() {
-            _sessionId = msg.sessionId!;
-            _worktreePath = msg.worktreePath ?? _worktreePath;
-            _gitBranch = msg.worktreeBranch ?? _gitBranch;
-            _isPending = false;
-          });
-          _pendingSub?.cancel();
-          _pendingSub = null;
+          _resolveSession(msg);
         }
       }
     });
   }
 
+  void _onPendingSessionCreated() {
+    final msg = widget.pendingSessionCreated?.value;
+    if (msg != null && msg.sessionId != null && mounted && _isPending) {
+      _resolveSession(msg);
+    }
+  }
+
+  void _resolveSession(SystemMessage msg) {
+    widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
+    setState(() {
+      _sessionId = msg.sessionId!;
+      _worktreePath = msg.worktreePath ?? _worktreePath;
+      _gitBranch = msg.worktreeBranch ?? _gitBranch;
+      _isPending = false;
+    });
+    _pendingSub?.cancel();
+    _pendingSub = null;
+  }
+
   @override
   void dispose() {
+    widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
     _pendingSub?.cancel();
     super.dispose();
   }
@@ -160,6 +188,7 @@ class _ChatScreenProviders extends StatelessWidget {
         BlocProvider(
           create: (_) => ChatSessionCubit(
             sessionId: sessionId,
+            provider: Provider.claude,
             bridge: bridge,
             streamingCubit: streamingCubit,
           ),
@@ -368,7 +397,20 @@ class _ChatScreenBody extends HookWidget {
                   ),
                   onPressed: () => _showRewindMessageList(context),
                 ),
-                // 2. View Changes
+                // 2. Copy agent investigation prompt
+                IconButton(
+                  key: const ValueKey('share_debug_bundle_button'),
+                  icon: const Icon(Icons.bug_report, size: 18),
+                  tooltip: 'Copy for Agent',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  onPressed: () => copyDebugBundleForAgent(context, sessionId),
+                ),
+                // 3. View Changes
                 if (projectPath != null)
                   IconButton(
                     icon: const Icon(Icons.difference, size: 18),
@@ -386,7 +428,7 @@ class _ChatScreenBody extends HookWidget {
                       existingSelection: diffSelectionFromNav.value,
                     ),
                   ),
-                // 3. Screenshot
+                // 4. Screenshot
                 if (projectPath != null)
                   IconButton(
                     icon: const Icon(Icons.screenshot_monitor, size: 18),
@@ -406,7 +448,7 @@ class _ChatScreenBody extends HookWidget {
                       );
                     },
                   ),
-                // 4. Gallery (session preview)
+                // 5. Gallery (session preview)
                 IconButton(
                   key: const ValueKey('gallery_button'),
                   icon: const Icon(Icons.collections, size: 18),
@@ -426,7 +468,7 @@ class _ChatScreenBody extends HookWidget {
                     );
                   },
                 ),
-                // 5. Branch chip
+                // 6. Branch chip
                 if (projectPath != null)
                   BranchChip(
                     branchName: gitBranch,
@@ -440,9 +482,9 @@ class _ChatScreenBody extends HookWidget {
                       );
                     },
                   ),
-                // 6. Plan mode chip
+                // 7. Plan mode chip
                 if (inPlanMode) const PlanModeChip(),
-                // 7. Status indicator
+                // 8. Status indicator
                 StatusIndicator(status: status),
               ],
             ),

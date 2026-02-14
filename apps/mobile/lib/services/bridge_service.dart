@@ -30,6 +30,8 @@ class BridgeService implements BridgeServiceBase {
   final _windowListController = StreamController<List<WindowInfo>>.broadcast();
   final _screenshotResultController =
       StreamController<ScreenshotResultMessage>.broadcast();
+  final _debugBundleController =
+      StreamController<DebugBundleMessage>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
@@ -49,10 +51,6 @@ class BridgeService implements BridgeServiceBase {
   int _reconnectAttempt = 0;
   static const _maxReconnectDelay = 30;
   bool _intentionalDisconnect = false;
-
-  /// Buffered past history from resume_session, consumed by ChatScreen.
-  @override
-  PastHistoryMessage? pendingPastHistory;
 
   @override
   Stream<ServerMessage> get messages => _messageController.stream;
@@ -74,6 +72,7 @@ class BridgeService implements BridgeServiceBase {
   Stream<List<WindowInfo>> get windowList => _windowListController.stream;
   Stream<ScreenshotResultMessage> get screenshotResults =>
       _screenshotResultController.stream;
+  Stream<DebugBundleMessage> get debugBundles => _debugBundleController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
@@ -142,12 +141,6 @@ class BridgeService implements BridgeServiceBase {
                 _appendMode = false;
                 _recentSessionsController.add(_recentSessions);
               case PastHistoryMessage():
-                // Only buffer for resume_session flow (no sessionId).
-                // get_history responses include sessionId and are already
-                // delivered via the tagged stream to the correct ChatScreen.
-                if (sessionId == null) {
-                  pendingPastHistory = msg;
-                }
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
               case GalleryListMessage(:final images):
@@ -169,6 +162,8 @@ class BridgeService implements BridgeServiceBase {
                 _windowListController.add(windows);
               case ScreenshotResultMessage():
                 _screenshotResultController.add(msg);
+              case DebugBundleMessage():
+                _debugBundleController.add(msg);
               case WorktreeRemovedMessage():
                 _messageController.add(msg);
               default:
@@ -289,12 +284,26 @@ class BridgeService implements BridgeServiceBase {
     String sessionId,
     String projectPath, {
     String? permissionMode,
+    String? provider,
+    String? approvalPolicy,
+    String? sandboxMode,
+    String? model,
+    String? modelReasoningEffort,
+    bool? networkAccessEnabled,
+    String? webSearchMode,
   }) {
     send(
       ClientMessage.resumeSession(
         sessionId,
         projectPath,
         permissionMode: permissionMode,
+        provider: provider,
+        approvalPolicy: approvalPolicy,
+        sandboxMode: sandboxMode,
+        model: model,
+        modelReasoningEffort: modelReasoningEffort,
+        networkAccessEnabled: networkAccessEnabled,
+        webSearchMode: webSearchMode,
       ),
     );
   }
@@ -306,6 +315,20 @@ class BridgeService implements BridgeServiceBase {
 
   void requestProjectHistory() {
     send(ClientMessage.listProjectHistory());
+  }
+
+  void requestDebugBundle(
+    String sessionId, {
+    int? traceLimit,
+    bool includeDiff = true,
+  }) {
+    send(
+      ClientMessage.getDebugBundle(
+        sessionId,
+        traceLimit: traceLimit,
+        includeDiff: includeDiff,
+      ),
+    );
   }
 
   void removeProjectHistory(String path) {
@@ -513,5 +536,6 @@ class BridgeService implements BridgeServiceBase {
     _worktreeListController.close();
     _windowListController.close();
     _screenshotResultController.close();
+    _debugBundleController.close();
   }
 }

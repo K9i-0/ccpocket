@@ -44,6 +44,26 @@ void main() {
       expect(info.lastMessage, '');
       expect(info.messageCount, 0);
     });
+
+    test('parses codex settings from codexSettings object', () {
+      final json = {
+        'id': 'codex1',
+        'provider': 'codex',
+        'projectPath': '/home/user/my-app',
+        'status': 'idle',
+        'createdAt': '',
+        'lastActivityAt': '',
+        'codexSettings': {
+          'approvalPolicy': 'on-request',
+          'sandboxMode': 'workspace-write',
+          'model': 'gpt-5.3-codex',
+        },
+      };
+      final info = SessionInfo.fromJson(json);
+      expect(info.codexApprovalPolicy, 'on-request');
+      expect(info.codexSandboxMode, 'workspace-write');
+      expect(info.codexModel, 'gpt-5.3-codex');
+    });
   });
 
   group('RunningSessionCard', () {
@@ -125,6 +145,35 @@ void main() {
       expect(find.byIcon(Icons.stop_circle_outlined), findsOneWidget);
     });
 
+    testWidgets('shows codex settings summary for codex provider', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'codex-running',
+        provider: 'codex',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        codexModel: 'gpt-5.3-codex',
+        codexSandboxMode: 'workspace-write',
+        codexApprovalPolicy: 'on-request',
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(session: session, onTap: () {}, onStop: () {}),
+        ),
+      );
+
+      expect(
+        find.text(
+          'gpt-5.3-codex  sandbox:workspace-write  approval:on-request',
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('hides lastMessage row when empty', (tester) async {
       final session = SessionInfo(
         id: 'test-id',
@@ -147,6 +196,69 @@ void main() {
       // Message count should show
       expect(find.text('5'), findsOneWidget);
       // No lastMessage text rendered (empty by default)
+    });
+  });
+
+  group('RecentSessionCard', () {
+    testWidgets('shows codex settings summary for codex provider', (
+      tester,
+    ) async {
+      final session = RecentSession(
+        sessionId: 'recent-codex',
+        provider: 'codex',
+        summary: 'summary',
+        firstPrompt: 'prompt',
+        messageCount: 2,
+        created: DateTime.now().toIso8601String(),
+        modified: DateTime.now().toIso8601String(),
+        gitBranch: 'main',
+        projectPath: '/home/user/my-app',
+        isSidechain: false,
+        codexApprovalPolicy: 'on-failure',
+        codexSandboxMode: 'danger-full-access',
+        codexModel: 'gpt-5-codex',
+      );
+
+      await tester.pumpWidget(
+        _wrap(RecentSessionCard(session: session, onTap: () {})),
+      );
+
+      expect(
+        find.text(
+          'gpt-5-codex  sandbox:danger-full-access  approval:on-failure',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('calls onLongPress callback', (tester) async {
+      var longPressed = false;
+      final session = RecentSession(
+        sessionId: 'recent-long-press',
+        provider: 'codex',
+        summary: 'summary',
+        firstPrompt: 'prompt',
+        messageCount: 2,
+        created: DateTime.now().toIso8601String(),
+        modified: DateTime.now().toIso8601String(),
+        gitBranch: 'main',
+        projectPath: '/home/user/my-app',
+        isSidechain: false,
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RecentSessionCard(
+            session: session,
+            onTap: () {},
+            onLongPress: () => longPressed = true,
+          ),
+        ),
+      );
+
+      await tester.longPress(find.byType(ListTile));
+      await tester.pumpAndSettle();
+      expect(longPressed, isTrue);
     });
   });
 }

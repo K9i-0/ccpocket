@@ -78,6 +78,25 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage('{"type":"input"}')).toBeNull();
   });
 
+  it("parses set_permission_mode message", () => {
+    const msg = parseClientMessage(
+      '{"type":"set_permission_mode","mode":"plan","sessionId":"s1"}',
+    );
+    expect(msg).toEqual({
+      type: "set_permission_mode",
+      mode: "plan",
+      sessionId: "s1",
+    });
+  });
+
+  it("rejects set_permission_mode with invalid mode", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"set_permission_mode","mode":"unsupported"}',
+      ),
+    ).toBeNull();
+  });
+
   it("parses approve message", () => {
     const msg = parseClientMessage('{"type":"approve","id":"tu1"}');
     expect(msg).toEqual({ type: "approve", id: "tu1" });
@@ -178,12 +197,21 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "resume_session", sessionId: "s3", projectPath: "/p" });
   });
 
+  it("parses resume_session with provider", () => {
+    const msg = parseClientMessage('{"type":"resume_session","sessionId":"s3","projectPath":"/p","provider":"codex"}');
+    expect(msg).toEqual({ type: "resume_session", sessionId: "s3", projectPath: "/p", provider: "codex" });
+  });
+
   it("rejects resume_session without sessionId", () => {
     expect(parseClientMessage('{"type":"resume_session","projectPath":"/p"}')).toBeNull();
   });
 
   it("rejects resume_session without projectPath", () => {
     expect(parseClientMessage('{"type":"resume_session","sessionId":"s3"}')).toBeNull();
+  });
+
+  it("rejects resume_session with invalid provider", () => {
+    expect(parseClientMessage('{"type":"resume_session","sessionId":"s3","projectPath":"/p","provider":"foo"}')).toBeNull();
   });
 
   it("parses list_gallery message", () => {
@@ -224,6 +252,22 @@ describe("parseClientMessage", () => {
   it("parses list_project_history message", () => {
     const msg = parseClientMessage('{"type":"list_project_history"}');
     expect(msg).toEqual({ type: "list_project_history" });
+  });
+
+  it("parses get_debug_bundle message", () => {
+    const msg = parseClientMessage(
+      '{"type":"get_debug_bundle","sessionId":"s1","traceLimit":120,"includeDiff":false}',
+    );
+    expect(msg).toEqual({
+      type: "get_debug_bundle",
+      sessionId: "s1",
+      traceLimit: 120,
+      includeDiff: false,
+    });
+  });
+
+  it("rejects get_debug_bundle without sessionId", () => {
+    expect(parseClientMessage('{"type":"get_debug_bundle"}')).toBeNull();
   });
 
   it("parses remove_project_history message", () => {

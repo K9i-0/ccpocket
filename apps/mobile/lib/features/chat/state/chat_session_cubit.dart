@@ -17,6 +17,7 @@ import 'streaming_state_cubit.dart';
 /// applied to the immutable [ChatSessionState].
 class ChatSessionCubit extends Cubit<ChatSessionState> {
   final String sessionId;
+  final Provider? provider;
   final BridgeService _bridge;
   final StreamingStateCubit _streamingCubit;
   final ChatMessageHandler _handler = ChatMessageHandler();
@@ -30,13 +31,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// completes ([ResultMessage]).
   final _respondedToolUseIds = <String>{};
 
+  /// Whether this session is a Codex session.
+  bool get isCodex => provider == Provider.codex;
+
   ChatSessionCubit({
     required this.sessionId,
+    this.provider,
     required BridgeService bridge,
     required StreamingStateCubit streamingCubit,
   }) : _bridge = bridge,
        _streamingCubit = streamingCubit,
-       super(_buildInitialState(bridge)) {
+       super(const ChatSessionState()) {
     // Subscribe to messages for this session
     _subscription = _bridge.messagesForSession(sessionId).listen(_onMessage);
 
@@ -45,20 +50,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
     // Re-query history while status is "starting" to handle lost broadcasts
     _startStatusRefreshTimer();
-  }
-
-  static ChatSessionState _buildInitialState(BridgeService bridge) {
-    var initialState = const ChatSessionState();
-    final pastHistory = bridge.pendingPastHistory;
-    if (pastHistory != null) {
-      bridge.pendingPastHistory = null;
-      final handler = ChatMessageHandler();
-      final update = handler.handle(pastHistory, isBackground: true);
-      if (update.entriesToPrepend.isNotEmpty) {
-        initialState = initialState.copyWith(entries: update.entriesToPrepend);
-      }
-    }
-    return initialState;
   }
 
   void _startStatusRefreshTimer() {
@@ -358,6 +349,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Interrupt the current operation.
   void interrupt() {
     _bridge.interrupt(sessionId);
+  }
+
+  /// Change permission mode for Claude sessions.
+  void setPermissionMode(PermissionMode mode) {
+    if (isCodex) return;
+    _bridge.send(
+      ClientMessage.setPermissionMode(mode.value, sessionId: sessionId),
+    );
   }
 
   /// Stop the session.

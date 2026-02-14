@@ -27,12 +27,15 @@ git diff HEAD
 git diff --stat HEAD | tail -1
 ```
 
-### Phase 2: Claude subagent レビュー（別コンテキスト視点）
+### Phase 2: サブエージェントレビュー（`code-reviewer` エージェント）
 
-Task toolで別コンテキストのレビューエージェントを起動:
+**`code-reviewer` サブエージェント**を使ってレビューを実行する。
 
 ```
-subagent_type: general-purpose
+Task tool で code-reviewer サブエージェントを起動:
+
+subagent_type: code-reviewer
+model: opus
 
 プロンプト:
 ---
@@ -44,32 +47,12 @@ subagent_type: general-purpose
 ## 変更内容
 [git diff HEADの結果]
 
-## レビュー観点（すべてチェック）
-
-### 共通観点
-1. コード品質（可読性、命名、構造化）
-2. バグ・エラー（null安全性、エッジケース、例外処理、メモリリーク）
-3. 設計パターン（アーキテクチャ整合性、依存関係、重複コード）
-
-### Dart/Flutter固有
-4. Bloc/Cubitパターンの適切な使用
-5. Freezed状態クラスの設計
-6. Widget分割（_buildXxxメソッド禁止）
-7. ValueKey命名（MCP自動テスト対応）
-
-### TypeScript固有（Bridge Server変更時）
-8. ESM + strict mode 準拠
-9. NodeNext module resolution (.js拡張子)
-10. stream-json パース処理の正確性
-
-## 出力形式
-- 重大な問題: [ファイル:行] [問題の説明と修正提案]
-- 軽微な問題: [ファイル:行] [問題の説明]
-- 問題なし: 'LGTM'
-
+重大な問題がなければ 'LGTM' と回答してください。
 日本語で回答してください。
 ---
 ```
+
+**注意:** 変更規模が小（~30行以下）の場合はサブエージェント不要、自己レビューのみでOK。
 
 ### Phase 3: 判定
 
@@ -95,8 +78,8 @@ git diff --stat HEAD | tail -1
 | 変更規模 | 行数目安 | レビュー方法 |
 |---------|---------|-------------|
 | 小 | ~30行 | 自己レビューのみ（subagent不要） |
-| 中 | 31-100行 | subagentレビュー |
-| 大 | 100行以上 | subagentレビュー + 詳細分析 |
+| 中 | 31-100行 | code-reviewer サブエージェント |
+| 大 | 100行以上 | code-reviewer サブエージェント + 詳細分析 |
 
 ## 出力テンプレート
 
@@ -104,7 +87,7 @@ git diff --stat HEAD | tail -1
 ## Self Review Result
 
 ### Claude subagent Review
-[subagentからの出力]
+[code-reviewer サブエージェントからの出力]
 
 ### 判定: [PASS/MINOR/FAIL]
 

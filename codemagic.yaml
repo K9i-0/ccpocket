@@ -1,0 +1,199 @@
+definitions:
+  environment:
+    shared_env: &shared_env
+      flutter: 3.41.1
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: com.k9i.ccpocket
+        FLUTTER_VERSION: "3.41.1"
+  scripts:
+    - &shorebird_install
+      name: Install Shorebird
+      script: |
+        curl --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh -sSf | bash
+        echo PATH="$HOME/.shorebird/bin:$PATH" >> $CM_ENV
+    - &fetch_dependencies
+      name: Fetch Dependencies
+      script: |
+        cd apps/mobile
+        flutter pub get
+    - &analyze_and_test
+      name: Analyze and Test
+      script: |
+        cd apps/mobile
+        dart analyze .
+        flutter test
+    - &setup_android_signing
+      name: Set up Android signing
+      script: |
+        cat > apps/mobile/android/keystore.properties << EOF
+        storeFile=$CM_KEYSTORE_PATH
+        storePassword=$CM_KEYSTORE_PASSWORD
+        keyAlias=$CM_KEY_ALIAS
+        keyPassword=$CM_KEY_PASSWORD
+        EOF
+    - &ios_initialize_keychain
+      name: Set up keychain
+      script: |
+        keychain initialize
+    - &fetch_signing_files
+      name: Fetch signing files
+      script: |
+        app-store-connect fetch-signing-files "$BUNDLE_ID" \
+          --type IOS_APP_STORE --create
+    - &add_certs_to_keychain
+      name: Add certs to keychain
+      script: |
+        keychain add-certificates
+    - &use_profiles
+      name: Set up code signing settings on Xcode project
+      script: |
+        xcode-project use-profiles
+
+workflows:
+  # ============================================
+  # Test (PR / main push)
+  # ============================================
+  test:
+    name: Test
+    instance_type: mac_mini_m2
+    environment:
+      <<: *shared_env
+    triggering:
+      events:
+        - pull_request
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - *fetch_dependencies
+      - *analyze_and_test
+
+  # ============================================
+  # Android Release (手動)
+  # ============================================
+  android-release:
+    name: Android Release (Shorebird)
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      <<: *shared_env
+      groups:
+        - shorebird
+        - google_play
+      android_signing:
+        - android_keystore
+    scripts:
+      - *shorebird_install
+      - *fetch_dependencies
+      - *analyze_and_test
+      - *setup_android_signing
+      - name: Shorebird Release Android
+        script: |
+          cd apps/mobile
+          shorebird release android \
+            --flutter-version="$FLUTTER_VERSION"
+    artifacts:
+      - apps/mobile/build/app/outputs/bundle/release/*.aab
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+
+  # ============================================
+  # iOS Release (手動)
+  # ============================================
+  ios-release:
+    name: iOS Release (Shorebird)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic CI
+    environment:
+      <<: *shared_env
+      groups:
+        - shorebird
+        - ios_signing
+    scripts:
+      - *shorebird_install
+      - *fetch_dependencies
+      - *analyze_and_test
+      - *fetch_signing_files
+      - *ios_initialize_keychain
+      - *add_certs_to_keychain
+      - *use_profiles
+      - name: Shorebird Release iOS
+        script: |
+          cd apps/mobile
+          shorebird release ios \
+            --flutter-version="$FLUTTER_VERSION" \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - apps/mobile/build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+
+  # ============================================
+  # Android Patch (手動 — release_version 指定)
+  # ============================================
+  android-patch:
+    name: Android Patch (Shorebird)
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      <<: *shared_env
+      groups:
+        - shorebird
+      android_signing:
+        - android_keystore
+    inputs:
+      release_version:
+        description: The release version to patch (e.g. 1.0.0+4)
+    scripts:
+      - *shorebird_install
+      - *fetch_dependencies
+      - *analyze_and_test
+      - *setup_android_signing
+      - name: Shorebird Patch Android
+        script: |
+          cd apps/mobile
+          shorebird patch android \
+            --release-version=${{ inputs.release_version }} \
+            --track=staging
+
+  # ============================================
+  # iOS Patch (手動 — release_version 指定)
+  # ============================================
+  ios-patch:
+    name: iOS Patch (Shorebird)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic CI
+    environment:
+      <<: *shared_env
+      groups:
+        - shorebird
+        - ios_signing
+    inputs:
+      release_version:
+        description: The release version to patch (e.g. 1.0.0+4)
+    scripts:
+      - *shorebird_install
+      - *fetch_dependencies
+      - *analyze_and_test
+      - *fetch_signing_files
+      - *ios_initialize_keychain
+      - *add_certs_to_keychain
+      - *use_profiles
+      - name: Shorebird Patch iOS
+        script: |
+          cd apps/mobile
+          shorebird patch ios \
+            --release-version=${{ inputs.release_version }} \
+            --track=staging \
+            --export-options-plist=/Users/builder/export_options.plist

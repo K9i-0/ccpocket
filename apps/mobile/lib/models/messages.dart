@@ -98,6 +98,17 @@ enum ProcessStatus {
   }
 }
 
+// ---- Provider ----
+
+enum Provider {
+  claude('claude', 'Claude Code'),
+  codex('codex', 'Codex');
+
+  final String value;
+  final String label;
+  const Provider(this.value, this.label);
+}
+
 // ---- Permission mode ----
 
 enum PermissionMode {
@@ -111,6 +122,53 @@ enum PermissionMode {
   final String value;
   final String label;
   const PermissionMode(this.value, this.label);
+}
+
+// ---- Codex sandbox mode ----
+
+enum SandboxMode {
+  readOnly('read-only', 'Read Only'),
+  workspaceWrite('workspace-write', 'Workspace Write'),
+  dangerFullAccess('danger-full-access', 'Full Access ⚠️');
+
+  final String value;
+  final String label;
+  const SandboxMode(this.value, this.label);
+}
+
+// ---- Codex approval policy ----
+
+enum ApprovalPolicy {
+  never('never', 'Never (Auto)'),
+  onRequest('on-request', 'On Request'),
+  onFailure('on-failure', 'On Failure'),
+  untrusted('untrusted', 'Untrusted');
+
+  final String value;
+  final String label;
+  const ApprovalPolicy(this.value, this.label);
+}
+
+enum ReasoningEffort {
+  minimal('minimal', 'Minimal'),
+  low('low', 'Low'),
+  medium('medium', 'Medium'),
+  high('high', 'High'),
+  xhigh('xhigh', 'XHigh');
+
+  final String value;
+  final String label;
+  const ReasoningEffort(this.value, this.label);
+}
+
+enum WebSearchMode {
+  disabled('disabled', 'Disabled'),
+  cached('cached', 'Cached'),
+  live('live', 'Live');
+
+  final String value;
+  final String label;
+  const WebSearchMode(this.value, this.label);
 }
 
 // ---- Image reference ----
@@ -217,7 +275,9 @@ sealed class ServerMessage {
         subtype: json['subtype'] as String? ?? '',
         sessionId: json['sessionId'] as String?,
         model: json['model'] as String?,
+        provider: json['provider'] as String?,
         projectPath: json['projectPath'] as String?,
+        permissionMode: json['permissionMode'] as String?,
         slashCommands:
             (json['slashCommands'] as List?)
                 ?.map((e) => e as String)
@@ -254,6 +314,9 @@ sealed class ServerMessage {
         duration: (json['duration'] as num?)?.toDouble(),
         sessionId: json['sessionId'] as String?,
         stopReason: json['stopReason'] as String?,
+        inputTokens: json['inputTokens'] as int?,
+        cachedInputTokens: json['cachedInputTokens'] as int?,
+        outputTokens: json['outputTokens'] as int?,
       ),
       'error' => ErrorMessage(message: json['message'] as String),
       'status' => StatusMessage(
@@ -308,6 +371,32 @@ sealed class ServerMessage {
             : null,
         error: json['error'] as String?,
       ),
+      'debug_bundle' => DebugBundleMessage(
+        sessionId: json['sessionId'] as String? ?? '',
+        generatedAt: json['generatedAt'] as String? ?? '',
+        session: DebugBundleSession.fromJson(
+          json['session'] as Map<String, dynamic>? ?? const {},
+        ),
+        pastMessageCount: json['pastMessageCount'] as int? ?? 0,
+        historySummary:
+            (json['historySummary'] as List?)?.cast<String>() ?? const [],
+        debugTrace:
+            (json['debugTrace'] as List?)
+                ?.map(
+                  (e) => DebugTraceEvent.fromJson(e as Map<String, dynamic>),
+                )
+                .toList() ??
+            const [],
+        traceFilePath: json['traceFilePath'] as String?,
+        savedBundlePath: json['savedBundlePath'] as String?,
+        reproRecipe: DebugReproRecipe.fromJson(
+          json['reproRecipe'] as Map<String, dynamic>? ??
+              const <String, dynamic>{},
+        ),
+        agentPrompt: json['agentPrompt'] as String? ?? '',
+        diff: json['diff'] as String? ?? '',
+        diffError: json['diffError'] as String?,
+      ),
       'file_list' => FileListMessage(
         files: (json['files'] as List).cast<String>(),
       ),
@@ -356,7 +445,9 @@ class SystemMessage implements ServerMessage {
   final String subtype;
   final String? sessionId;
   final String? model;
+  final String? provider;
   final String? projectPath;
+  final String? permissionMode;
   final List<String> slashCommands;
   final List<String> skills;
   final String? worktreePath;
@@ -365,7 +456,9 @@ class SystemMessage implements ServerMessage {
     required this.subtype,
     this.sessionId,
     this.model,
+    this.provider,
     this.projectPath,
+    this.permissionMode,
     this.slashCommands = const [],
     this.skills = const [],
     this.worktreePath,
@@ -402,6 +495,9 @@ class ResultMessage implements ServerMessage {
   final double? duration;
   final String? sessionId;
   final String? stopReason;
+  final int? inputTokens;
+  final int? cachedInputTokens;
+  final int? outputTokens;
   const ResultMessage({
     required this.subtype,
     this.result,
@@ -410,6 +506,9 @@ class ResultMessage implements ServerMessage {
     this.duration,
     this.sessionId,
     this.stopReason,
+    this.inputTokens,
+    this.cachedInputTokens,
+    this.outputTokens,
   });
 }
 
@@ -529,6 +628,138 @@ class ScreenshotResultMessage implements ServerMessage {
   });
 }
 
+class DebugTraceEvent {
+  final String ts;
+  final String sessionId;
+  final String direction;
+  final String channel;
+  final String type;
+  final String? detail;
+
+  const DebugTraceEvent({
+    required this.ts,
+    required this.sessionId,
+    required this.direction,
+    required this.channel,
+    required this.type,
+    this.detail,
+  });
+
+  factory DebugTraceEvent.fromJson(Map<String, dynamic> json) {
+    return DebugTraceEvent(
+      ts: json['ts'] as String? ?? '',
+      sessionId: json['sessionId'] as String? ?? '',
+      direction: json['direction'] as String? ?? '',
+      channel: json['channel'] as String? ?? '',
+      type: json['type'] as String? ?? '',
+      detail: json['detail'] as String?,
+    );
+  }
+}
+
+class DebugBundleSession {
+  final String id;
+  final String provider;
+  final String status;
+  final String projectPath;
+  final String? worktreePath;
+  final String? worktreeBranch;
+  final String? claudeSessionId;
+  final String createdAt;
+  final String lastActivityAt;
+
+  const DebugBundleSession({
+    required this.id,
+    required this.provider,
+    required this.status,
+    required this.projectPath,
+    this.worktreePath,
+    this.worktreeBranch,
+    this.claudeSessionId,
+    required this.createdAt,
+    required this.lastActivityAt,
+  });
+
+  factory DebugBundleSession.fromJson(Map<String, dynamic> json) {
+    return DebugBundleSession(
+      id: json['id'] as String? ?? '',
+      provider: json['provider'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      projectPath: json['projectPath'] as String? ?? '',
+      worktreePath: json['worktreePath'] as String?,
+      worktreeBranch: json['worktreeBranch'] as String?,
+      claudeSessionId: json['claudeSessionId'] as String?,
+      createdAt: json['createdAt'] as String? ?? '',
+      lastActivityAt: json['lastActivityAt'] as String? ?? '',
+    );
+  }
+}
+
+class DebugReproRecipe {
+  final String wsUrlHint;
+  final String startBridgeCommand;
+  final Map<String, dynamic> resumeSessionMessage;
+  final Map<String, dynamic> getHistoryMessage;
+  final Map<String, dynamic> getDebugBundleMessage;
+  final List<String> notes;
+
+  const DebugReproRecipe({
+    this.wsUrlHint = '',
+    this.startBridgeCommand = '',
+    this.resumeSessionMessage = const <String, dynamic>{},
+    this.getHistoryMessage = const <String, dynamic>{},
+    this.getDebugBundleMessage = const <String, dynamic>{},
+    this.notes = const [],
+  });
+
+  factory DebugReproRecipe.fromJson(Map<String, dynamic> json) {
+    return DebugReproRecipe(
+      wsUrlHint: json['wsUrlHint'] as String? ?? '',
+      startBridgeCommand: json['startBridgeCommand'] as String? ?? '',
+      resumeSessionMessage:
+          (json['resumeSessionMessage'] as Map<String, dynamic>?) ??
+          const <String, dynamic>{},
+      getHistoryMessage:
+          (json['getHistoryMessage'] as Map<String, dynamic>?) ??
+          const <String, dynamic>{},
+      getDebugBundleMessage:
+          (json['getDebugBundleMessage'] as Map<String, dynamic>?) ??
+          const <String, dynamic>{},
+      notes: (json['notes'] as List?)?.cast<String>() ?? const [],
+    );
+  }
+}
+
+class DebugBundleMessage implements ServerMessage {
+  final String sessionId;
+  final String generatedAt;
+  final DebugBundleSession session;
+  final int pastMessageCount;
+  final List<String> historySummary;
+  final List<DebugTraceEvent> debugTrace;
+  final String? traceFilePath;
+  final String? savedBundlePath;
+  final DebugReproRecipe reproRecipe;
+  final String agentPrompt;
+  final String diff;
+  final String? diffError;
+
+  const DebugBundleMessage({
+    required this.sessionId,
+    required this.generatedAt,
+    required this.session,
+    required this.pastMessageCount,
+    this.historySummary = const [],
+    this.debugTrace = const [],
+    this.traceFilePath,
+    this.savedBundlePath,
+    this.reproRecipe = const DebugReproRecipe(),
+    this.agentPrompt = '',
+    required this.diff,
+    this.diffError,
+  });
+}
+
 class FileListMessage implements ServerMessage {
   final List<String> files;
   const FileListMessage({required this.files});
@@ -628,6 +859,7 @@ class PastMessage {
 
 class RecentSession {
   final String sessionId;
+  final String? provider;
   final String? summary;
   final String firstPrompt;
   final int messageCount;
@@ -635,10 +867,18 @@ class RecentSession {
   final String modified;
   final String gitBranch;
   final String projectPath;
+  final String? resumeCwd;
   final bool isSidechain;
+  final String? codexApprovalPolicy;
+  final String? codexSandboxMode;
+  final String? codexModel;
+  final String? codexModelReasoningEffort;
+  final bool? codexNetworkAccessEnabled;
+  final String? codexWebSearchMode;
 
   const RecentSession({
     required this.sessionId,
+    this.provider,
     this.summary,
     required this.firstPrompt,
     required this.messageCount,
@@ -646,12 +886,21 @@ class RecentSession {
     required this.modified,
     required this.gitBranch,
     required this.projectPath,
+    this.resumeCwd,
     required this.isSidechain,
+    this.codexApprovalPolicy,
+    this.codexSandboxMode,
+    this.codexModel,
+    this.codexModelReasoningEffort,
+    this.codexNetworkAccessEnabled,
+    this.codexWebSearchMode,
   });
 
   factory RecentSession.fromJson(Map<String, dynamic> json) {
+    final codexSettings = json['codexSettings'] as Map<String, dynamic>?;
     return RecentSession(
       sessionId: json['sessionId'] as String,
+      provider: json['provider'] as String?,
       summary: json['summary'] as String?,
       firstPrompt: json['firstPrompt'] as String? ?? '',
       messageCount: json['messageCount'] as int? ?? 0,
@@ -659,7 +908,16 @@ class RecentSession {
       modified: json['modified'] as String? ?? '',
       gitBranch: json['gitBranch'] as String? ?? '',
       projectPath: json['projectPath'] as String? ?? '',
+      resumeCwd: json['resumeCwd'] as String?,
       isSidechain: json['isSidechain'] as bool? ?? false,
+      codexApprovalPolicy: codexSettings?['approvalPolicy'] as String?,
+      codexSandboxMode: codexSettings?['sandboxMode'] as String?,
+      codexModel: codexSettings?['model'] as String?,
+      codexModelReasoningEffort:
+          codexSettings?['modelReasoningEffort'] as String?,
+      codexNetworkAccessEnabled:
+          codexSettings?['networkAccessEnabled'] as bool?,
+      codexWebSearchMode: codexSettings?['webSearchMode'] as String?,
     );
   }
 
@@ -681,6 +939,7 @@ class RecentSession {
 
 class SessionInfo {
   final String id;
+  final String? provider;
   final String projectPath;
   final String? claudeSessionId;
   final String status;
@@ -691,9 +950,16 @@ class SessionInfo {
   final int messageCount;
   final String? worktreePath;
   final String? worktreeBranch;
+  final String? codexApprovalPolicy;
+  final String? codexSandboxMode;
+  final String? codexModel;
+  final String? codexModelReasoningEffort;
+  final bool? codexNetworkAccessEnabled;
+  final String? codexWebSearchMode;
 
   const SessionInfo({
     required this.id,
+    this.provider,
     required this.projectPath,
     this.claudeSessionId,
     required this.status,
@@ -704,11 +970,19 @@ class SessionInfo {
     this.messageCount = 0,
     this.worktreePath,
     this.worktreeBranch,
+    this.codexApprovalPolicy,
+    this.codexSandboxMode,
+    this.codexModel,
+    this.codexModelReasoningEffort,
+    this.codexNetworkAccessEnabled,
+    this.codexWebSearchMode,
   });
 
   factory SessionInfo.fromJson(Map<String, dynamic> json) {
+    final codexSettings = json['codexSettings'] as Map<String, dynamic>?;
     return SessionInfo(
       id: json['id'] as String,
+      provider: json['provider'] as String?,
       projectPath: json['projectPath'] as String,
       claudeSessionId: json['claudeSessionId'] as String?,
       status: json['status'] as String? ?? 'idle',
@@ -719,6 +993,14 @@ class SessionInfo {
       messageCount: json['messageCount'] as int? ?? 0,
       worktreePath: json['worktreePath'] as String?,
       worktreeBranch: json['worktreeBranch'] as String?,
+      codexApprovalPolicy: codexSettings?['approvalPolicy'] as String?,
+      codexSandboxMode: codexSettings?['sandboxMode'] as String?,
+      codexModel: codexSettings?['model'] as String?,
+      codexModelReasoningEffort:
+          codexSettings?['modelReasoningEffort'] as String?,
+      codexNetworkAccessEnabled:
+          codexSettings?['networkAccessEnabled'] as bool?,
+      codexWebSearchMode: codexSettings?['webSearchMode'] as String?,
     );
   }
 }
@@ -737,6 +1019,13 @@ class ClientMessage {
     bool? useWorktree,
     String? worktreeBranch,
     String? existingWorktreePath,
+    String? provider,
+    String? model,
+    String? approvalPolicy,
+    String? sandboxMode,
+    String? modelReasoningEffort,
+    bool? networkAccessEnabled,
+    String? webSearchMode,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'start',
@@ -748,6 +1037,13 @@ class ClientMessage {
       if (worktreeBranch != null && worktreeBranch.isNotEmpty)
         'worktreeBranch': worktreeBranch,
       'existingWorktreePath': ?existingWorktreePath,
+      'provider': ?provider,
+      'model': ?model,
+      'approvalPolicy': ?approvalPolicy,
+      'sandboxMode': ?sandboxMode,
+      'modelReasoningEffort': ?modelReasoningEffort,
+      'networkAccessEnabled': ?networkAccessEnabled,
+      'webSearchMode': ?webSearchMode,
     });
   }
 
@@ -765,6 +1061,14 @@ class ClientMessage {
       'imageId': ?imageId,
       'imageBase64': ?imageBase64,
       'mimeType': ?mimeType,
+    });
+  }
+
+  factory ClientMessage.setPermissionMode(String mode, {String? sessionId}) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'set_permission_mode',
+      'mode': mode,
+      'sessionId': ?sessionId,
     });
   }
 
@@ -819,6 +1123,17 @@ class ClientMessage {
   factory ClientMessage.getHistory(String sessionId) =>
       ClientMessage._({'type': 'get_history', 'sessionId': sessionId});
 
+  factory ClientMessage.getDebugBundle(
+    String sessionId, {
+    int? traceLimit,
+    bool? includeDiff,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'get_debug_bundle',
+    'sessionId': sessionId,
+    'traceLimit': ?traceLimit,
+    'includeDiff': ?includeDiff,
+  });
+
   factory ClientMessage.listSessions() =>
       ClientMessage._({'type': 'list_sessions'});
 
@@ -842,12 +1157,26 @@ class ClientMessage {
     String sessionId,
     String projectPath, {
     String? permissionMode,
+    String? provider,
+    String? approvalPolicy,
+    String? sandboxMode,
+    String? model,
+    String? modelReasoningEffort,
+    bool? networkAccessEnabled,
+    String? webSearchMode,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'resume_session',
       'sessionId': sessionId,
       'projectPath': projectPath,
       'permissionMode': ?permissionMode,
+      'provider': ?provider,
+      'approvalPolicy': ?approvalPolicy,
+      'sandboxMode': ?sandboxMode,
+      'model': ?model,
+      'modelReasoningEffort': ?modelReasoningEffort,
+      'networkAccessEnabled': ?networkAccessEnabled,
+      'webSearchMode': ?webSearchMode,
     });
   }
 

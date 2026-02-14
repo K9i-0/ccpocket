@@ -10,6 +10,10 @@
     "dev": "bash scripts/dev-restart.sh",
     "setup": "bash scripts/setup-launchd.sh",
     "test:bridge": "npm run test --workspace=packages/bridge",
-    "test:bridge:coverage": "npm run test:coverage --workspace=packages/bridge"
+    "test:bridge:coverage": "npm run test:coverage --workspace=packages/bridge",
+    "shorebird:release:android": "bash scripts/shorebird/release-android.sh",
+    "shorebird:release:ios": "bash scripts/shorebird/release-ios.sh",
+    "shorebird:patch:android": "bash scripts/shorebird/patch-android.sh",
+    "shorebird:patch:ios": "bash scripts/shorebird/patch-ios.sh"
   }
 }

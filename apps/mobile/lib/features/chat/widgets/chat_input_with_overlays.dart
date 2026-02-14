@@ -13,7 +13,11 @@ import '../../../widgets/chat_input_bar.dart';
 import '../../../widgets/file_mention_overlay.dart';
 import '../../../widgets/slash_command_overlay.dart';
 import '../../../widgets/slash_command_sheet.dart'
-    show SlashCommand, SlashCommandSheet, fallbackSlashCommands;
+    show
+        SlashCommand,
+        SlashCommandSheet,
+        fallbackCodexSlashCommands,
+        fallbackSlashCommands;
 import '../state/chat_session_cubit.dart';
 
 /// Manages the chat input bar together with slash-command and @-mention
@@ -40,6 +44,9 @@ class ChatInputWithOverlays extends HookWidget {
   /// Opens the diff screen with current selection state.
   final void Function(DiffSelection? currentSelection)? onOpenDiffScreen;
 
+  /// Custom hint text for the input field (e.g. provider-specific).
+  final String? hintText;
+
   const ChatInputWithOverlays({
     super.key,
     required this.sessionId,
@@ -50,6 +57,7 @@ class ChatInputWithOverlays extends HookWidget {
     this.onDiffSelectionConsumed,
     this.onDiffSelectionCleared,
     this.onOpenDiffScreen,
+    this.hintText,
   });
 
   @override
@@ -91,10 +99,12 @@ class ChatInputWithOverlays extends HookWidget {
     final projectFiles = context.watch<FileListCubit>().state;
 
     // Slash commands from cubit
+    final chatCubit = context.read<ChatSessionCubit>();
+    final isCodex = chatCubit.isCodex;
     final slashCommands = context.watch<ChatSessionCubit>().state.slashCommands;
     final commands = slashCommands.isNotEmpty
         ? slashCommands
-        : fallbackSlashCommands;
+        : (isCodex ? fallbackCodexSlashCommands : fallbackSlashCommands);
 
     // Input change listener
     useEffect(() {
@@ -400,6 +410,90 @@ class ChatInputWithOverlays extends HookWidget {
       );
     }
 
+    void showModeMenu() {
+      if (isCodex) {
+        final items = <({String command, String title, String subtitle})>[
+          (
+            command: '/plan',
+            title: 'Plan Prompt',
+            subtitle: 'Switch to planning-oriented responses',
+          ),
+          (
+            command: '/skills',
+            title: 'List Skills',
+            subtitle: 'Show skills available in this environment',
+          ),
+          (
+            command: '/permissions',
+            title: 'Show Permissions',
+            subtitle: 'Display current sandbox and approval state',
+          ),
+        ];
+
+        showModalBottomSheet(
+          context: context,
+          builder: (sheetContext) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final item in items)
+                  ListTile(
+                    title: Text(item.title),
+                    subtitle: Text(item.subtitle),
+                    trailing: Text(
+                      item.command,
+                      style: const TextStyle(fontFamily: 'monospace'),
+                    ),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      chatCubit.sendMessage(item.command);
+                      onScrollToBottom();
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+        return;
+      }
+
+      final modes = <PermissionMode>[
+        PermissionMode.plan,
+        PermissionMode.acceptEdits,
+        PermissionMode.dontAsk,
+        PermissionMode.delegate,
+        PermissionMode.defaultMode,
+        PermissionMode.bypassPermissions,
+      ];
+
+      showModalBottomSheet(
+        context: context,
+        builder: (sheetContext) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final mode in modes)
+                ListTile(
+                  title: Text(mode.label),
+                  subtitle: Text(mode.value),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    chatCubit.setPermissionMode(mode);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Permission mode: ${mode.label}'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final screenWidth = MediaQuery.of(context).size.width;
 
     Widget buildFollowerOverlay({required Widget child}) {
@@ -451,6 +545,7 @@ class ChatInputWithOverlays extends HookWidget {
             onInterrupt: interruptSession,
             onToggleVoice: voice.toggle,
             onShowSlashCommands: showSlashCommandSheet,
+            onShowModeMenu: showModeMenu,
             onAttachImage: showAttachOptions,
             attachedImageBytes: attachedImage.value,
             onClearAttachment: clearAttachment,
@@ -459,6 +554,7 @@ class ChatInputWithOverlays extends HookWidget {
             onTapDiffPreview: onOpenDiffScreen != null
                 ? () => onOpenDiffScreen!(attachedDiffSelection.value)
                 : null,
+            hintText: hintText,
           ),
         ),
       ),

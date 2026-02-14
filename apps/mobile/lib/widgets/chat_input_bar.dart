@@ -19,12 +19,14 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onInterrupt;
   final VoidCallback onToggleVoice;
   final VoidCallback onShowSlashCommands;
+  final VoidCallback onShowModeMenu;
   final VoidCallback? onAttachImage;
   final Uint8List? attachedImageBytes;
   final VoidCallback? onClearAttachment;
   final DiffSelection? attachedDiffSelection;
   final VoidCallback? onClearDiffSelection;
   final VoidCallback? onTapDiffPreview;
+  final String? hintText;
 
   const ChatInputBar({
     super.key,
@@ -38,12 +40,14 @@ class ChatInputBar extends StatelessWidget {
     required this.onInterrupt,
     required this.onToggleVoice,
     required this.onShowSlashCommands,
+    required this.onShowModeMenu,
     this.onAttachImage,
     this.attachedImageBytes,
     this.onClearAttachment,
     this.attachedDiffSelection,
     this.onClearDiffSelection,
     this.onTapDiffPreview,
+    this.hintText,
   });
 
   @override
@@ -76,6 +80,8 @@ class ChatInputBar extends StatelessWidget {
           Row(
             children: [
               _buildSlashButton(cs),
+              const SizedBox(width: 8),
+              _buildModeButton(cs),
               const SizedBox(width: 8),
               _buildAttachButton(cs),
               if (isVoiceAvailable) ...[
@@ -111,6 +117,24 @@ class ChatInputBar extends StatelessWidget {
               color: cs.primary,
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeButton(ColorScheme cs) {
+    return Material(
+      color: cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        key: const ValueKey('mode_button'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: onShowModeMenu,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          child: Icon(Icons.tune, size: 18, color: cs.primary),
         ),
       ),
     );
@@ -259,7 +283,7 @@ class ChatInputBar extends StatelessWidget {
       key: const ValueKey('message_input'),
       controller: inputController,
       decoration: InputDecoration(
-        hintText: 'Message Claude...',
+        hintText: hintText ?? 'Message Claude...',
         filled: true,
         fillColor: cs.surfaceContainerLow,
         border: OutlineInputBorder(

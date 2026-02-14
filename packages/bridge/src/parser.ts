@@ -45,9 +45,28 @@ export type PermissionMode =
   | "delegate"
   | "dontAsk";
 
+export type Provider = "claude" | "codex";
+
 export type ClientMessage =
-  | { type: "start"; projectPath: string; sessionId?: string; continue?: boolean; permissionMode?: PermissionMode; useWorktree?: boolean; worktreeBranch?: string; existingWorktreePath?: string }
+  | {
+      type: "start";
+      projectPath: string;
+      provider?: Provider;
+      sessionId?: string;
+      continue?: boolean;
+      permissionMode?: PermissionMode;
+      approvalPolicy?: string;
+      sandboxMode?: string;
+      model?: string;
+      modelReasoningEffort?: string;
+      networkAccessEnabled?: boolean;
+      webSearchMode?: string;
+      useWorktree?: boolean;
+      worktreeBranch?: string;
+      existingWorktreePath?: string;
+    }
   | { type: "input"; text: string; sessionId?: string; imageId?: string; imageBase64?: string; mimeType?: string }
+  | { type: "set_permission_mode"; mode: PermissionMode; sessionId?: string }
   | { type: "approve"; id: string; updatedInput?: Record<string, unknown>; clearContext?: boolean; sessionId?: string }
   | { type: "approve_always"; id: string; sessionId?: string }
   | { type: "reject"; id: string; message?: string; sessionId?: string }
@@ -56,7 +75,19 @@ export type ClientMessage =
   | { type: "stop_session"; sessionId: string }
   | { type: "get_history"; sessionId: string }
   | { type: "list_recent_sessions"; limit?: number; offset?: number; projectPath?: string }
-  | { type: "resume_session"; sessionId: string; projectPath: string; permissionMode?: PermissionMode }
+  | {
+      type: "resume_session";
+      sessionId: string;
+      projectPath: string;
+      permissionMode?: PermissionMode;
+      provider?: Provider;
+      approvalPolicy?: string;
+      sandboxMode?: string;
+      model?: string;
+      modelReasoningEffort?: string;
+      networkAccessEnabled?: boolean;
+      webSearchMode?: string;
+    }
   | { type: "list_gallery"; project?: string; sessionId?: string }
   | { type: "list_files"; projectPath: string }
   | { type: "get_diff"; projectPath: string }
@@ -68,13 +99,35 @@ export type ClientMessage =
   | { type: "rewind"; sessionId: string; targetUuid: string; mode: "conversation" | "code" | "both" }
   | { type: "rewind_dry_run"; sessionId: string; targetUuid: string }
   | { type: "list_windows" }
-  | { type: "take_screenshot"; mode: "fullscreen" | "window"; windowId?: number; projectPath: string; sessionId?: string };
+  | { type: "take_screenshot"; mode: "fullscreen" | "window"; windowId?: number; projectPath: string; sessionId?: string }
+  | { type: "get_debug_bundle"; sessionId: string; traceLimit?: number; includeDiff?: boolean };
+
+export interface DebugTraceEvent {
+  ts: string;
+  sessionId: string;
+  direction: "incoming" | "outgoing" | "internal";
+  channel: "ws" | "session" | "bridge";
+  type: string;
+  detail?: string;
+}
 
 export type ServerMessage =
-  | { type: "system"; subtype: string; sessionId?: string; model?: string; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string }
+  | { type: "system"; subtype: string; sessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string; permissionMode?: PermissionMode }
   | { type: "assistant"; message: AssistantMessage; messageUuid?: string }
   | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[]; userMessageUuid?: string }
-  | { type: "result"; subtype: string; result?: string; error?: string; cost?: number; duration?: number; sessionId?: string; stopReason?: string }
+  | {
+      type: "result";
+      subtype: string;
+      result?: string;
+      error?: string;
+      cost?: number;
+      duration?: number;
+      sessionId?: string;
+      stopReason?: string;
+      inputTokens?: number;
+      cachedInputTokens?: number;
+      outputTokens?: number;
+    }
   | { type: "error"; message: string }
   | { type: "status"; status: ProcessStatus }
   | { type: "history"; messages: ServerMessage[] }
@@ -91,7 +144,39 @@ export type ServerMessage =
   | { type: "rewind_result"; success: boolean; mode: "conversation" | "code" | "both"; error?: string }
   | { type: "user_input"; text: string; userMessageUuid?: string }
   | { type: "window_list"; windows: WindowInfo[] }
-  | { type: "screenshot_result"; success: boolean; image?: GalleryImageInfo; error?: string };
+  | { type: "screenshot_result"; success: boolean; image?: GalleryImageInfo; error?: string }
+  | {
+      type: "debug_bundle";
+      sessionId: string;
+      generatedAt: string;
+      session: {
+        id: string;
+        provider: Provider;
+        status: ProcessStatus;
+        projectPath: string;
+        worktreePath?: string;
+        worktreeBranch?: string;
+        claudeSessionId?: string;
+        createdAt: string;
+        lastActivityAt: string;
+      };
+      pastMessageCount: number;
+      historySummary: string[];
+      debugTrace: DebugTraceEvent[];
+      traceFilePath: string;
+      reproRecipe: {
+        wsUrlHint: string;
+        startBridgeCommand: string;
+        resumeSessionMessage: Record<string, unknown>;
+        getHistoryMessage: Record<string, unknown>;
+        getDebugBundleMessage: Record<string, unknown>;
+        notes: string[];
+      };
+      agentPrompt: string;
+      diff: string;
+      diffError?: string;
+      savedBundlePath?: string;
+    };
 
 export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval" | "clearing";
 
@@ -118,11 +203,26 @@ export function parseClientMessage(data: string): ClientMessage | null {
     switch (msg.type) {
       case "start":
         if (typeof msg.projectPath !== "string") return null;
+        if (msg.networkAccessEnabled !== undefined && typeof msg.networkAccessEnabled !== "boolean") return null;
+        if (
+          msg.modelReasoningEffort !== undefined
+          && !["minimal", "low", "medium", "high", "xhigh"].includes(String(msg.modelReasoningEffort))
+        ) return null;
+        if (
+          msg.webSearchMode !== undefined
+          && !["disabled", "cached", "live"].includes(String(msg.webSearchMode))
+        ) return null;
         break;
       case "input":
         if (typeof msg.text !== "string") return null;
         // imageBase64 requires mimeType
         if (msg.imageBase64 && typeof msg.mimeType !== "string") return null;
+        break;
+      case "set_permission_mode":
+        if (
+          typeof msg.mode !== "string"
+          || !["default", "acceptEdits", "bypassPermissions", "plan", "delegate", "dontAsk"].includes(msg.mode)
+        ) return null;
         break;
       case "approve":
         if (typeof msg.id !== "string") return null;
@@ -148,6 +248,16 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "resume_session":
         if (typeof msg.sessionId !== "string" || typeof msg.projectPath !== "string") return null;
+        if (msg.provider && msg.provider !== "claude" && msg.provider !== "codex") return null;
+        if (msg.networkAccessEnabled !== undefined && typeof msg.networkAccessEnabled !== "boolean") return null;
+        if (
+          msg.modelReasoningEffort !== undefined
+          && !["minimal", "low", "medium", "high", "xhigh"].includes(String(msg.modelReasoningEffort))
+        ) return null;
+        if (
+          msg.webSearchMode !== undefined
+          && !["disabled", "cached", "live"].includes(String(msg.webSearchMode))
+        ) return null;
         break;
       case "list_gallery":
         break;
@@ -183,6 +293,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (msg.mode !== "fullscreen" && msg.mode !== "window") return null;
         if (msg.mode === "window" && typeof msg.windowId !== "number") return null;
         if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "get_debug_bundle":
+        if (typeof msg.sessionId !== "string") return null;
+        if (msg.traceLimit !== undefined && typeof msg.traceLimit !== "number") return null;
+        if (msg.includeDiff !== undefined && typeof msg.includeDiff !== "boolean") return null;
         break;
       default:
         return null;

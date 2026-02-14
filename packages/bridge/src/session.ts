@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { SdkProcess, type StartOptions, type RewindFilesResult } from "./sdk-process.js";
-import type { ServerMessage, ProcessStatus, AssistantToolUseContent } from "./parser.js";
+import { CodexProcess, type CodexStartOptions } from "./codex-process.js";
+import type { ServerMessage, ProcessStatus, AssistantToolUseContent, Provider } from "./parser.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
 import { createWorktree, worktreeExists } from "./worktree.js";
@@ -16,7 +17,8 @@ export interface WorktreeOptions {
 
 export interface SessionInfo {
   id: string;
-  process: SdkProcess;
+  process: SdkProcess | CodexProcess;
+  provider: Provider;
   history: ServerMessage[];
   /** Past conversation loaded from disk on resume (SessionHistoryMessage[]). */
   pastMessages?: unknown[];
@@ -30,10 +32,20 @@ export interface SessionInfo {
   worktreePath?: string;
   /** Branch name of the worktree. */
   worktreeBranch?: string;
+  /** Codex-specific settings used to start this session (for resume). */
+  codexSettings?: {
+    approvalPolicy?: string;
+    sandboxMode?: string;
+    model?: string;
+    modelReasoningEffort?: string;
+    networkAccessEnabled?: boolean;
+    webSearchMode?: string;
+  };
 }
 
 export interface SessionSummary {
   id: string;
+  provider: Provider;
   projectPath: string;
   claudeSessionId?: string;
   status: ProcessStatus;
@@ -44,6 +56,14 @@ export interface SessionSummary {
   messageCount: number;
   worktreePath?: string;
   worktreeBranch?: string;
+  codexSettings?: {
+    approvalPolicy?: string;
+    sandboxMode?: string;
+    model?: string;
+    modelReasoningEffort?: string;
+    networkAccessEnabled?: boolean;
+    webSearchMode?: string;
+  };
 }
 
 const MAX_HISTORY_PER_SESSION = 100;
@@ -80,9 +100,12 @@ export class SessionManager {
     options?: StartOptions,
     pastMessages?: unknown[],
     worktreeOpts?: WorktreeOptions,
+    provider?: Provider,
+    codexOptions?: CodexStartOptions,
   ): string {
     const id = randomUUID().slice(0, 8);
-    const proc = new SdkProcess();
+    const effectiveProvider = provider ?? "claude";
+    const proc = effectiveProvider === "codex" ? new CodexProcess() : new SdkProcess();
 
     // Handle worktree: reuse existing or create new
     let wtPath: string | undefined;
@@ -118,6 +141,7 @@ export class SessionManager {
     const session: SessionInfo = {
       id,
       process: proc,
+      provider: effectiveProvider,
       history: [],
       pastMessages: pastMessages && pastMessages.length > 0 ? pastMessages : undefined,
       projectPath,
@@ -136,68 +160,76 @@ export class SessionManager {
       try {
         session.lastActivityAt = new Date();
 
-        // Capture Claude session_id from result events
-        if (msg.type === "result" && "sessionId" in msg && msg.sessionId) {
-          session.claudeSessionId = msg.sessionId;
-          this.saveWorktreeMapping(session);
-        }
-        if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
-          session.claudeSessionId = msg.sessionId;
-          this.saveWorktreeMapping(session);
-        }
+        if (effectiveProvider === "claude") {
+          // Capture Claude session_id from result events
+          if (msg.type === "result" && "sessionId" in msg && msg.sessionId) {
+            session.claudeSessionId = msg.sessionId;
+            this.saveWorktreeMapping(session);
+          }
+          if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
+            session.claudeSessionId = msg.sessionId;
+            this.saveWorktreeMapping(session);
+          }
 
-        // Cache slash commands and skills from system messages.
-        if (
-          msg.type === "system" &&
-          (msg.subtype === "init" || msg.subtype === "supported_commands") &&
-          msg.slashCommands
-        ) {
-          this.commandCache.set(projectPath, {
-            slashCommands: msg.slashCommands,
-            skills: msg.skills ?? this.commandCache.get(projectPath)?.skills ?? [],
-          });
-        }
+          // Cache slash commands and skills from system messages.
+          if (
+            msg.type === "system" &&
+            (msg.subtype === "init" || msg.subtype === "supported_commands") &&
+            msg.slashCommands
+          ) {
+            this.commandCache.set(projectPath, {
+              slashCommands: msg.slashCommands,
+              skills: msg.skills ?? this.commandCache.get(projectPath)?.skills ?? [],
+            });
+          }
 
-        // Cache tool_use names from assistant messages
-        if (msg.type === "assistant") {
-          for (const content of msg.message.content) {
-            if (content.type === "tool_use") {
-              const toolUse = content as AssistantToolUseContent;
-              toolUseNames.set(toolUse.id, toolUse.name);
+          // Cache tool_use names from assistant messages
+          if (msg.type === "assistant") {
+            for (const content of msg.message.content) {
+              if (content.type === "tool_use") {
+                const toolUse = content as AssistantToolUseContent;
+                toolUseNames.set(toolUse.id, toolUse.name);
+              }
             }
           }
-        }
 
-        // Enrich tool_result with toolName
-        if (msg.type === "tool_result") {
-          const cachedName = toolUseNames.get(msg.toolUseId);
-          if (cachedName) {
-            msg = { ...msg, toolName: cachedName };
-          }
-        }
-
-        // Extract images from tool_result content
-        if (msg.type === "tool_result" && this.imageStore) {
-          const paths = this.imageStore.extractImagePaths(msg.content);
-          if (paths.length > 0) {
-            const images = await this.imageStore.registerImages(paths);
-            if (images.length > 0) {
-              msg = { ...msg, images };
+          // Enrich tool_result with toolName
+          if (msg.type === "tool_result") {
+            const cachedName = toolUseNames.get(msg.toolUseId);
+            if (cachedName) {
+              msg = { ...msg, toolName: cachedName };
             }
+          }
 
-            // Also register in GalleryStore (disk-persistent)
-            if (this.galleryStore) {
-              for (const p of paths) {
-                const meta = await this.galleryStore.addImage(
-                  p,
-                  session.projectPath,
-                  session.id,
-                );
-                if (meta && this.onGalleryImage) {
-                  this.onGalleryImage(meta);
+          // Extract images from tool_result content
+          if (msg.type === "tool_result" && this.imageStore) {
+            const paths = this.imageStore.extractImagePaths(msg.content);
+            if (paths.length > 0) {
+              const images = await this.imageStore.registerImages(paths);
+              if (images.length > 0) {
+                msg = { ...msg, images };
+              }
+
+              // Also register in GalleryStore (disk-persistent)
+              if (this.galleryStore) {
+                for (const p of paths) {
+                  const meta = await this.galleryStore.addImage(
+                    p,
+                    session.projectPath,
+                    session.id,
+                  );
+                  if (meta && this.onGalleryImage) {
+                    this.onGalleryImage(meta);
+                  }
                 }
               }
             }
+          }
+        } else {
+          // Codex: capture thread_id for session tracking and worktree restore.
+          if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
+            session.claudeSessionId = msg.sessionId;
+            this.saveWorktreeMapping(session);
           }
         }
 
@@ -225,10 +257,31 @@ export class SessionManager {
       session.history.push({ type: "status", status: "idle" } as ServerMessage);
     });
 
-    this.sessions.set(id, session);
-    proc.start(effectiveCwd, options);
+    if (effectiveProvider === "codex" && codexOptions) {
+      session.codexSettings = {
+        approvalPolicy: codexOptions.approvalPolicy,
+        sandboxMode: codexOptions.sandboxMode,
+        model: codexOptions.model,
+        modelReasoningEffort: codexOptions.modelReasoningEffort,
+        networkAccessEnabled: codexOptions.networkAccessEnabled,
+        webSearchMode: codexOptions.webSearchMode,
+      };
+      // Resume starts know the thread id up front.
+      if (codexOptions.threadId) {
+        session.claudeSessionId = codexOptions.threadId;
+        this.saveWorktreeMapping(session);
+      }
+    }
 
-    console.log(`[session] Created session ${id} for ${effectiveCwd}${wtPath ? ` (worktree of ${projectPath})` : ""}`);
+    this.sessions.set(id, session);
+
+    if (effectiveProvider === "codex") {
+      (proc as CodexProcess).start(effectiveCwd, codexOptions);
+    } else {
+      (proc as SdkProcess).start(effectiveCwd, options);
+    }
+
+    console.log(`[session] Created ${effectiveProvider} session ${id} for ${effectiveCwd}${wtPath ? ` (worktree of ${projectPath})` : ""}`);
     return id;
   }
 
@@ -239,6 +292,7 @@ export class SessionManager {
   list(): SessionSummary[] {
     return Array.from(this.sessions.values()).map((s) => ({
       id: s.id,
+      provider: s.provider,
       projectPath: s.projectPath,
       claudeSessionId: s.claudeSessionId,
       status: s.status,
@@ -249,6 +303,7 @@ export class SessionManager {
       messageCount: (s.pastMessages?.length ?? 0) + s.history.length,
       worktreePath: s.worktreePath,
       worktreeBranch: s.worktreeBranch,
+      codexSettings: s.codexSettings,
     }));
   }
 
@@ -286,7 +341,7 @@ export class SessionManager {
     return this.worktreeStore;
   }
 
-  /** Save worktree mapping when claudeSessionId is captured. */
+  /** Save worktree mapping when a provider session ID is available. */
   private saveWorktreeMapping(session: SessionInfo): void {
     if (this.worktreeStore && session.claudeSessionId && session.worktreePath && session.worktreeBranch) {
       this.worktreeStore.set(session.claudeSessionId, {
@@ -306,7 +361,10 @@ export class SessionManager {
     if (!session) {
       return { canRewind: false, error: "Session not found" };
     }
-    return session.process.rewindFiles(targetUuid, dryRun);
+    if (session.provider === "codex") {
+      return { canRewind: false, error: "Rewind is not supported for Codex sessions" };
+    }
+    return (session.process as SdkProcess).rewindFiles(targetUuid, dryRun);
   }
 
   /**
@@ -326,6 +384,9 @@ export class SessionManager {
     if (!session) {
       throw new Error(`Session ${id} not found`);
     }
+    if (session.provider === "codex") {
+      throw new Error("Rewind is not supported for Codex sessions");
+    }
 
     const claudeSessionId = session.claudeSessionId;
     if (!claudeSessionId) {
@@ -340,7 +401,7 @@ export class SessionManager {
     }
 
     const projectPath = session.projectPath;
-    const permissionMode = session.process.permissionMode;
+    const permissionMode = (session.process as SdkProcess).permissionMode;
     const worktreePath = session.worktreePath;
     const worktreeBranch = session.worktreeBranch;
 

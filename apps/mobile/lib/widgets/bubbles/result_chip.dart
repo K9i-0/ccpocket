@@ -20,6 +20,14 @@ class ResultChip extends StatelessWidget {
     if (message.duration != null) {
       parts.add('${(message.duration! / 1000).toStringAsFixed(1)}s');
     }
+    if (message.inputTokens != null || message.outputTokens != null) {
+      final inTok = message.inputTokens ?? 0;
+      final outTok = message.outputTokens ?? 0;
+      parts.add('${inTok}in/${outTok}out tok');
+    }
+    if (message.cachedInputTokens != null && message.cachedInputTokens! > 0) {
+      parts.add('${message.cachedInputTokens} cached');
+    }
     final String label;
     final Color chipColor;
     switch (message.subtype) {

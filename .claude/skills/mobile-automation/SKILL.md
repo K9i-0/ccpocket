@@ -7,6 +7,35 @@ description: MCP (dart-mcp + Marionette) を使ったFlutterアプリのE2E自�
 
 dart-mcp と Marionette MCP を使ったFlutterアプリのUI検証・E2E自動化の包括ガイド。
 
+## サブエージェント活用
+
+**`e2e-verifier` サブエージェント**を使ってE2E検証を委譲できる。
+
+```
+Task tool で e2e-verifier サブエージェントを起動:
+
+subagent_type: e2e-verifier
+model: opus
+
+プロンプト:
+---
+アプリが起動済みです。以下の検証を実施してください。
+
+## 検証内容
+[検証したい項目を記述]
+
+## 接続情報（必要に応じて）
+- VM Service URI: [wsUri]
+- PID: [pid]
+
+日本語で回答してください。
+---
+```
+
+**使い分け:**
+- 単純なUI確認（要素存在チェック等）→ 直接MCP操作
+- 包括的なE2E検証 → `e2e-verifier` サブエージェントに委譲
+
 ## CLI vs MCP 判断基準
 
 **原則: DTD/VM Service接続が必要な操作はMCP、それ以外はCLI**

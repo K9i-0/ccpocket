@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/messages.dart';
 import '../theme/app_theme.dart';
+import '../theme/provider_style.dart';
 
 /// Card for a currently running session
 class RunningSessionCard extends StatelessWidget {
@@ -34,10 +35,20 @@ class RunningSessionCard extends StatelessWidget {
     };
 
     final projectName = session.projectPath.split('/').last;
+    final provider = providerFromRaw(session.provider);
+    final providerLabel = provider.label;
+    final providerStyle = providerStyleFor(context, provider);
     final elapsed = _formatElapsed(session.lastActivityAt);
     final displayMessage = session.lastMessage
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+    final codexSummary = session.provider == 'codex'
+        ? _buildCodexSettingsSummary(
+            model: session.codexModel,
+            sandboxMode: session.codexSandboxMode,
+            approvalPolicy: session.codexApprovalPolicy,
+          )
+        : null;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 0),
@@ -120,6 +131,11 @@ class RunningSessionCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      _ProviderBadge(
+                        label: providerLabel,
+                        style: providerStyle,
+                      ),
                       const Spacer(),
                       Text(
                         elapsed,
@@ -137,6 +153,18 @@ class RunningSessionCard extends StatelessWidget {
                       displayMessage,
                       style: const TextStyle(fontSize: 13),
                       maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  if (codexSummary != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      codexSummary,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: appColors.subtleText,
+                      ),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -290,24 +318,37 @@ class _StatusDotState extends State<_StatusDot>
 class RecentSessionCard extends StatelessWidget {
   final RecentSession session;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final bool hideProjectBadge;
 
   const RecentSessionCard({
     super.key,
     required this.session,
     required this.onTap,
+    this.onLongPress,
     this.hideProjectBadge = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final provider = providerFromRaw(session.provider);
+    final providerLabel = provider.label;
+    final providerStyle = providerStyleFor(context, provider);
+    final codexSummary = session.provider == 'codex'
+        ? _buildCodexSettingsSummary(
+            model: session.codexModel,
+            sandboxMode: session.codexSandboxMode,
+            approvalPolicy: session.codexApprovalPolicy,
+          )
+        : null;
     final dateStr = _formatDate(session.modified);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 0),
       child: ListTile(
         onTap: onTap,
+        onLongPress: onLongPress,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         title: Row(
           children: [
@@ -333,6 +374,8 @@ class RecentSessionCard extends StatelessWidget {
               const Spacer(),
             ] else
               const Spacer(),
+            _ProviderBadge(label: providerLabel, style: providerStyle),
+            const SizedBox(width: 8),
             Text(
               dateStr,
               style: TextStyle(fontSize: 11, color: appColors.subtleText),
@@ -349,6 +392,15 @@ class RecentSessionCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
+            if (codexSummary != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                codexSummary,
+                style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
             const SizedBox(height: 4),
             Row(
               children: [
@@ -398,4 +450,46 @@ class RecentSessionCard extends StatelessWidget {
       return '';
     }
   }
+}
+
+class _ProviderBadge extends StatelessWidget {
+  final String label;
+  final ProviderStyle style;
+
+  const _ProviderBadge({required this.label, required this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: style.background,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: style.border),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: style.foreground,
+        ),
+      ),
+    );
+  }
+}
+
+String _buildCodexSettingsSummary({
+  String? model,
+  String? sandboxMode,
+  String? approvalPolicy,
+}) {
+  final modelText = (model == null || model.isEmpty) ? 'model:auto' : model;
+  final sandboxText = (sandboxMode == null || sandboxMode.isEmpty)
+      ? 'sandbox:default'
+      : 'sandbox:$sandboxMode';
+  final approvalText = (approvalPolicy == null || approvalPolicy.isEmpty)
+      ? 'approval:default'
+      : 'approval:$approvalPolicy';
+  return '$modelText  $sandboxText  $approvalText';
 }

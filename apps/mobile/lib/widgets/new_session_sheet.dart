@@ -6,21 +6,36 @@ import '../models/messages.dart';
 import '../features/session_list/session_list_screen.dart' show shortenPath;
 import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/provider_style.dart';
 
 /// Result returned when the user submits the new session sheet.
 class NewSessionParams {
   final String projectPath;
+  final Provider provider;
   final PermissionMode permissionMode;
   final bool useWorktree;
   final String? worktreeBranch;
   final String? existingWorktreePath;
+  final String? model;
+  final SandboxMode? sandboxMode;
+  final ApprovalPolicy? approvalPolicy;
+  final ReasoningEffort? modelReasoningEffort;
+  final bool? networkAccessEnabled;
+  final WebSearchMode? webSearchMode;
 
   const NewSessionParams({
     required this.projectPath,
+    this.provider = Provider.claude,
     required this.permissionMode,
     this.useWorktree = false,
     this.worktreeBranch,
     this.existingWorktreePath,
+    this.model,
+    this.sandboxMode,
+    this.approvalPolicy,
+    this.modelReasoningEffort,
+    this.networkAccessEnabled,
+    this.webSearchMode,
   });
 }
 
@@ -35,6 +50,7 @@ Future<NewSessionParams?> showNewSessionSheet({
   required List<({String path, String name})> recentProjects,
   List<String> projectHistory = const [],
   BridgeService? bridge,
+  NewSessionParams? initialParams,
 }) {
   return showModalBottomSheet<NewSessionParams>(
     context: context,
@@ -47,6 +63,7 @@ Future<NewSessionParams?> showNewSessionSheet({
       recentProjects: recentProjects,
       projectHistory: projectHistory,
       bridge: bridge,
+      initialParams: initialParams,
     ),
   );
 }
@@ -55,11 +72,13 @@ class _NewSessionSheetContent extends StatefulWidget {
   final List<({String path, String name})> recentProjects;
   final List<String> projectHistory;
   final BridgeService? bridge;
+  final NewSessionParams? initialParams;
 
   const _NewSessionSheetContent({
     required this.recentProjects,
     this.projectHistory = const [],
     this.bridge,
+    this.initialParams,
   });
 
   @override
@@ -76,15 +95,32 @@ enum _WorktreeMode {
   useExisting,
 }
 
+/// Available Codex models for the dropdown.
+const _codexModels = <String>[
+  'gpt-5.3-codex',
+  'gpt-5.3-codex-spark',
+  'gpt-5.2-codex',
+  'gpt-5.1-codex-max',
+];
+
 class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _pathController = TextEditingController();
   final _branchController = TextEditingController();
+  var _provider = Provider.claude;
   var _permissionMode = PermissionMode.acceptEdits;
   var _useWorktree = false;
   var _worktreeMode = _WorktreeMode.createNew;
   WorktreeInfo? _selectedWorktree;
   List<WorktreeInfo>? _worktrees;
   StreamSubscription<WorktreeListMessage>? _worktreeSub;
+
+  // Codex-specific options
+  String? _selectedModel;
+  var _sandboxMode = SandboxMode.workspaceWrite;
+  var _approvalPolicy = ApprovalPolicy.never;
+  ReasoningEffort? _modelReasoningEffort;
+  bool _networkAccessEnabled = true;
+  WebSearchMode? _webSearchMode;
 
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
 
@@ -114,6 +150,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _worktreeSub = widget.bridge?.worktreeList.listen((msg) {
       if (mounted) setState(() => _worktrees = msg.worktrees);
     });
+    _applyInitialParams();
+    if (_useWorktree) {
+      _fetchWorktrees();
+    }
   }
 
   @override
@@ -135,6 +175,32 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         _worktrees = null;
       }
     });
+  }
+
+  void _applyInitialParams() {
+    final p = widget.initialParams;
+    if (p == null) return;
+
+    _pathController.text = p.projectPath;
+    _provider = p.provider;
+    _permissionMode = p.permissionMode;
+    _useWorktree = p.useWorktree || p.existingWorktreePath != null;
+    _branchController.text = p.worktreeBranch ?? "";
+    _selectedModel = p.model;
+    _sandboxMode = p.sandboxMode ?? _sandboxMode;
+    _approvalPolicy = p.approvalPolicy ?? _approvalPolicy;
+    _modelReasoningEffort = p.modelReasoningEffort;
+    _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
+    _webSearchMode = p.webSearchMode;
+
+    if (p.existingWorktreePath != null) {
+      _worktreeMode = _WorktreeMode.useExisting;
+      _selectedWorktree = WorktreeInfo(
+        worktreePath: p.existingWorktreePath!,
+        branch: p.worktreeBranch ?? "",
+        projectPath: p.projectPath,
+      );
+    }
   }
 
   void _fetchWorktrees() {
@@ -160,6 +226,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   void _start() {
     final path = _pathController.text.trim();
     final branch = _branchController.text.trim();
+    final isCodex = _provider == Provider.codex;
 
     if (_useWorktree && _worktreeMode == _WorktreeMode.useExisting) {
       // Use existing worktree
@@ -167,9 +234,16 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         context,
         NewSessionParams(
           projectPath: path,
+          provider: _provider,
           permissionMode: _permissionMode,
           existingWorktreePath: _selectedWorktree?.worktreePath,
           worktreeBranch: _selectedWorktree?.branch,
+          model: isCodex ? _selectedModel : null,
+          sandboxMode: isCodex ? _sandboxMode : null,
+          approvalPolicy: isCodex ? _approvalPolicy : null,
+          modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
+          networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
+          webSearchMode: isCodex ? _webSearchMode : null,
         ),
       );
     } else {
@@ -178,9 +252,16 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         context,
         NewSessionParams(
           projectPath: path,
+          provider: _provider,
           permissionMode: _permissionMode,
           useWorktree: _useWorktree,
           worktreeBranch: branch.isNotEmpty ? branch : null,
+          model: isCodex ? _selectedModel : null,
+          sandboxMode: isCodex ? _sandboxMode : null,
+          approvalPolicy: isCodex ? _approvalPolicy : null,
+          modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
+          networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
+          webSearchMode: isCodex ? _webSearchMode : null,
         ),
       );
     }
@@ -234,11 +315,66 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Widget _buildTitle() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: Text(
-        'New Session',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+    final colorScheme = Theme.of(context).colorScheme;
+    final claudeStyle = providerStyleFor(context, Provider.claude);
+    final codexStyle = providerStyleFor(context, Provider.codex);
+    final claudeLabelColor = _provider == Provider.claude
+        ? claudeStyle.foreground
+        : claudeStyle.foreground.withValues(alpha: 0.72);
+    final codexLabelColor = _provider == Provider.codex
+        ? codexStyle.foreground
+        : codexStyle.foreground.withValues(alpha: 0.72);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'New Session',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<Provider>(
+              segments: [
+                ButtonSegment(
+                  value: Provider.claude,
+                  label: Text(
+                    Provider.claude.label,
+                    style: TextStyle(fontSize: 13, color: claudeLabelColor),
+                  ),
+                  icon: Icon(
+                    claudeStyle.icon,
+                    size: 16,
+                    color: claudeLabelColor,
+                  ),
+                ),
+                ButtonSegment(
+                  value: Provider.codex,
+                  label: Text(
+                    Provider.codex.label,
+                    style: TextStyle(fontSize: 13, color: codexLabelColor),
+                  ),
+                  icon: Icon(codexStyle.icon, size: 16, color: codexLabelColor),
+                ),
+              ],
+              selected: {_provider},
+              onSelectionChanged: (selected) {
+                setState(() {
+                  _provider = selected.first;
+                });
+              },
+              style: SegmentedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                backgroundColor: colorScheme.surfaceContainerLow,
+                selectedBackgroundColor: colorScheme.surfaceContainerHighest,
+                side: BorderSide(color: colorScheme.outlineVariant),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -345,49 +481,227 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<PermissionMode>(
-                  key: const ValueKey('dialog_permission_mode'),
-                  initialValue: _permissionMode,
-                  decoration: const InputDecoration(
-                    labelText: 'Permission',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: PermissionMode.values
-                      .map(
-                        (m) => DropdownMenuItem(
-                          value: m,
-                          child: Text(
-                            m.label,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) setState(() => _permissionMode = value);
-                  },
-                ),
+          if (_provider == Provider.claude) ...[
+            DropdownButtonFormField<PermissionMode>(
+              key: const ValueKey('dialog_permission_mode'),
+              initialValue: _permissionMode,
+              decoration: const InputDecoration(
+                labelText: 'Permission',
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
-              const SizedBox(width: 12),
-              FilterChip(
-                key: const ValueKey('dialog_worktree'),
-                avatar: _useWorktree
-                    ? null
-                    : const Icon(Icons.account_tree_outlined, size: 16),
-                label: const Text('Worktree', style: TextStyle(fontSize: 13)),
-                selected: _useWorktree,
-                onSelected: _onWorktreeToggle,
-              ),
-            ],
+              items: PermissionMode.values
+                  .map(
+                    (m) => DropdownMenuItem(
+                      value: m,
+                      child: Text(
+                        m.label,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _permissionMode = value);
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilterChip(
+              key: const ValueKey('dialog_worktree'),
+              avatar: _useWorktree
+                  ? null
+                  : const Icon(Icons.account_tree_outlined, size: 16),
+              label: const Text('Worktree', style: TextStyle(fontSize: 13)),
+              selected: _useWorktree,
+              onSelected: _onWorktreeToggle,
+            ),
           ),
           if (_useWorktree) ...[
             const SizedBox(height: 8),
             _buildWorktreeOptions(appColors),
+          ],
+          if (_provider == Provider.codex) ...[
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String?>(
+              key: const ValueKey('dialog_codex_model'),
+              initialValue: _selectedModel,
+              decoration: const InputDecoration(
+                labelText: 'Model',
+                border: OutlineInputBorder(),
+                isDense: true,
+                prefixIcon: Icon(Icons.psychology_outlined, size: 18),
+              ),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Default', style: TextStyle(fontSize: 13)),
+                ),
+                for (final model in _codexModels)
+                  DropdownMenuItem<String?>(
+                    value: model,
+                    child: Text(model, style: const TextStyle(fontSize: 13)),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _selectedModel = value),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<SandboxMode>(
+                    key: const ValueKey('dialog_codex_sandbox'),
+                    initialValue: _sandboxMode,
+                    decoration: const InputDecoration(
+                      labelText: 'Sandbox',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    items: SandboxMode.values
+                        .map(
+                          (m) => DropdownMenuItem(
+                            value: m,
+                            child: Text(
+                              m.label,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) setState(() => _sandboxMode = value);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<ApprovalPolicy>(
+                    key: const ValueKey('dialog_codex_approval'),
+                    initialValue: _approvalPolicy,
+                    decoration: const InputDecoration(
+                      labelText: 'Approval',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    items: ApprovalPolicy.values
+                        .map(
+                          (p) => DropdownMenuItem(
+                            value: p,
+                            child: Text(
+                              p.label,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _approvalPolicy = value);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<ReasoningEffort?>(
+                    key: const ValueKey('dialog_codex_reasoning_effort'),
+                    initialValue: _modelReasoningEffort,
+                    decoration: const InputDecoration(
+                      labelText: 'Reasoning',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    items: [
+                      const DropdownMenuItem<ReasoningEffort?>(
+                        value: null,
+                        child: Text('Default', style: TextStyle(fontSize: 13)),
+                      ),
+                      for (final effort in ReasoningEffort.values)
+                        DropdownMenuItem<ReasoningEffort?>(
+                          value: effort,
+                          child: Text(
+                            effort.label,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _modelReasoningEffort = value);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<WebSearchMode?>(
+                    key: const ValueKey('dialog_codex_web_search_mode'),
+                    initialValue: _webSearchMode,
+                    decoration: const InputDecoration(
+                      labelText: 'Web Search',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    items: [
+                      const DropdownMenuItem<WebSearchMode?>(
+                        value: null,
+                        child: Text('Default', style: TextStyle(fontSize: 13)),
+                      ),
+                      for (final mode in WebSearchMode.values)
+                        DropdownMenuItem<WebSearchMode?>(
+                          value: mode,
+                          child: Text(
+                            mode.label,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _webSearchMode = value);
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              key: const ValueKey('dialog_codex_network_access'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Network Access',
+                style: TextStyle(fontSize: 13),
+              ),
+              value: _networkAccessEnabled,
+              onChanged: (value) {
+                setState(() => _networkAccessEnabled = value);
+              },
+            ),
           ],
         ],
       ),
