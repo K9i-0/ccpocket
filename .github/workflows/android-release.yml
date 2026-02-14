@@ -45,4 +45,4 @@ jobs:
           packageName: com.k9i.ccpocket
           releaseFiles: apps/mobile/build/app/outputs/bundle/release/*.aab
           track: internal
-          status: completed
+          status: draft
