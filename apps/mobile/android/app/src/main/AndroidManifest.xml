@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="ccpocket"
         android:name="${applicationName}"
@@ -38,7 +39,7 @@
             android:value="2" />
         <provider
             android:name="com.superlist.super_native_extensions.DataProvider"
-            android:authorities="com.example.ccpocket.SuperClipboardDataProvider"
+            android:authorities="com.k9i.ccpocket.SuperClipboardDataProvider"
             android:exported="true"
             android:grantUriPermissions="true" />
     </application>
