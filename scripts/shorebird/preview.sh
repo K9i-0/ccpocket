@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export PATH="$HOME/.shorebird/bin:$PATH"
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 <release-version> <patch-number> [extra-args...]"

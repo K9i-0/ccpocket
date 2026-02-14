@@ -181,23 +181,27 @@ iOS は `--no-codesign` で CI ビルドし、署名は既存の配布工程へ�
 
 ### 初回 release 検証
 
-- [ ] `shorebird release android` 成功
-- [ ] 実機で起動確認 (接続・チャット・承認フロー)
-- [ ] `shorebird release ios --no-codesign` 成功
-- [ ] iOS 実機で起動確認
+- [x] `shorebird release android` 成功 (1.0.0+2)
+- [x] 実機で起動確認 (shorebird preview)
+- [x] `shorebird release ios` 成功 (1.0.0+3)
+- [x] iOS 実機で起動確認 (shorebird preview)
 
 ### 初回 patch 検証
 
-- [ ] Dart のみの軽微変更を作成
-- [ ] `staging` track で patch 配信
-- [ ] `shorebird preview` で確認
-- [ ] `stable` へ promote
-- [ ] 既存インストール端末で差分適用を確認
+- [x] Dart のみの軽微変更を作成 (Connect ボタン色変更)
+- [x] `staging` track で patch 配信 (Android + iOS)
+- [x] `shorebird preview --track=staging` で確認
+- [x] `stable` へ promote (Android + iOS)
+- [x] OTA 差分適用を確認
 
 ### 失敗系検証
 
-- [ ] native 変更を含むケースで patch 不可になることを確認
-- [ ] patch 不可時に `release` へ切り替える運用を確定
+- [x] native 変更を含むケースで patch の挙動を確認 → **検証済み (2026-02-14)**
+
+> **重要な知見**: Shorebird は native コード変更を**エラーにせず、サイレントに無視**する。
+> Kotlin/Swift の変更のみの patch は成功するが、差分サイズが極小 (~300B) で実質何も反映されない。
+> native + Dart の混在変更では Dart 部分のみ配信され、native 部分は無視される。
+> → **native 変更がある場合は必ず新しい release を作成すること。**
 
 ## トラブルシューティング
 
@@ -210,10 +214,11 @@ shorebird doctor
 - Flutter version が release 時と一致しているか確認
 - `--flutter-version` オプションで明示指定
 
-### native 変更が含まれるエラー
+### native 変更が含まれる場合
 
 native コード (Kotlin/Swift, plugin のネイティブ部分) が変更された場合、
-patch ではなく新しい release が必要。
+patch では反映されない。新しい release が必要。
+Shorebird はエラーを出さずに patch を受け付けるため、**開発者が判断する必要がある**。
 
 ```bash
 # release として再ビルド
