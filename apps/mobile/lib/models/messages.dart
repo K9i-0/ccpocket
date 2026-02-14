@@ -124,6 +124,17 @@ enum PermissionMode {
   const PermissionMode(this.value, this.label);
 }
 
+enum ClaudeEffort {
+  low('low', 'Low'),
+  medium('medium', 'Medium'),
+  high('high', 'High'),
+  max('max', 'Max');
+
+  final String value;
+  final String label;
+  const ClaudeEffort(this.value, this.label);
+}
+
 // ---- Codex sandbox mode ----
 
 enum SandboxMode {
@@ -1016,6 +1027,12 @@ class ClientMessage {
     String? sessionId,
     bool? continueMode,
     String? permissionMode,
+    String? effort,
+    int? maxTurns,
+    double? maxBudgetUsd,
+    String? fallbackModel,
+    bool? forkSession,
+    bool? persistSession,
     bool? useWorktree,
     String? worktreeBranch,
     String? existingWorktreePath,
@@ -1033,6 +1050,12 @@ class ClientMessage {
       'sessionId': ?sessionId,
       if (continueMode == true) 'continue': true,
       'permissionMode': ?permissionMode,
+      'effort': ?effort,
+      'maxTurns': ?maxTurns,
+      'maxBudgetUsd': ?maxBudgetUsd,
+      'fallbackModel': ?fallbackModel,
+      'forkSession': ?forkSession,
+      'persistSession': ?persistSession,
       if (useWorktree == true) 'useWorktree': true,
       if (worktreeBranch != null && worktreeBranch.isNotEmpty)
         'worktreeBranch': worktreeBranch,
@@ -1157,6 +1180,12 @@ class ClientMessage {
     String sessionId,
     String projectPath, {
     String? permissionMode,
+    String? effort,
+    int? maxTurns,
+    double? maxBudgetUsd,
+    String? fallbackModel,
+    bool? forkSession,
+    bool? persistSession,
     String? provider,
     String? approvalPolicy,
     String? sandboxMode,
@@ -1170,6 +1199,12 @@ class ClientMessage {
       'sessionId': sessionId,
       'projectPath': projectPath,
       'permissionMode': ?permissionMode,
+      'effort': ?effort,
+      'maxTurns': ?maxTurns,
+      'maxBudgetUsd': ?maxBudgetUsd,
+      'fallbackModel': ?fallbackModel,
+      'forkSession': ?forkSession,
+      'persistSession': ?persistSession,
       'provider': ?provider,
       'approvalPolicy': ?approvalPolicy,
       'sandboxMode': ?sandboxMode,

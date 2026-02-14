@@ -245,5 +245,34 @@ void main() {
       final restored = sessionStartDefaultsFromJson(<String, dynamic>{});
       expect(restored, isNull);
     });
+
+    test('serializes and restores Claude advanced defaults', () {
+      final params = NewSessionParams(
+        projectPath: '/tmp/project-b',
+        provider: Provider.claude,
+        permissionMode: PermissionMode.plan,
+        claudeModel: 'claude-sonnet-4-5',
+        claudeEffort: ClaudeEffort.max,
+        claudeMaxTurns: 6,
+        claudeMaxBudgetUsd: 0.75,
+        claudeFallbackModel: 'claude-haiku-4-5',
+        claudeForkSession: true,
+        claudePersistSession: false,
+      );
+
+      final json = sessionStartDefaultsToJson(params);
+      final restored = sessionStartDefaultsFromJson(json);
+
+      expect(restored, isNotNull);
+      expect(restored!.provider, Provider.claude);
+      expect(restored.permissionMode, PermissionMode.plan);
+      expect(restored.claudeModel, 'claude-sonnet-4-5');
+      expect(restored.claudeEffort, ClaudeEffort.max);
+      expect(restored.claudeMaxTurns, 6);
+      expect(restored.claudeMaxBudgetUsd, 0.75);
+      expect(restored.claudeFallbackModel, 'claude-haiku-4-5');
+      expect(restored.claudeForkSession, isTrue);
+      expect(restored.claudePersistSession, isFalse);
+    });
   });
 }

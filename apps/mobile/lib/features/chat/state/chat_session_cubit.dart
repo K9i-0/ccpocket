@@ -196,13 +196,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       hiddenToolUseIds = {...hiddenToolUseIds, ...update.toolUseIdsToHide};
     }
 
+    final nextEntries = didModifyEntries ? entries : current.entries;
+    final usage = _calculateUsageTotals(nextEntries);
+
     // --- Apply state update ---
     emit(
       current.copyWith(
         status: update.status ?? current.status,
-        entries: didModifyEntries ? entries : current.entries,
+        entries: nextEntries,
         approval: approval,
-        totalCost: current.totalCost + (update.costDelta ?? 0),
+        totalCost: usage.totalCost,
+        totalDuration: usage.totalDuration,
         inPlanMode: update.inPlanMode ?? current.inPlanMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
         claudeSessionId: update.resultSessionId ?? current.claudeSessionId,
@@ -214,6 +218,33 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     if (update.sideEffects.isNotEmpty) {
       _sideEffectsController.add(update.sideEffects);
     }
+  }
+
+  _UsageTotals _calculateUsageTotals(List<ChatEntry> entries) {
+    double totalCost = 0;
+    double durationMs = 0;
+    var hasDuration = false;
+
+    for (final entry in entries) {
+      if (entry is! ServerChatEntry) continue;
+      final msg = entry.message;
+      if (msg is! ResultMessage) continue;
+
+      if (msg.cost != null) {
+        totalCost += msg.cost!;
+      }
+      if (msg.duration != null && msg.duration! >= 0) {
+        durationMs += msg.duration!;
+        hasDuration = true;
+      }
+    }
+
+    return _UsageTotals(
+      totalCost: totalCost,
+      totalDuration: hasDuration
+          ? Duration(milliseconds: durationMs.round())
+          : null,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -422,4 +453,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _sideEffectsController.close();
     return super.close();
   }
+}
+
+class _UsageTotals {
+  final double totalCost;
+  final Duration? totalDuration;
+
+  const _UsageTotals({required this.totalCost, required this.totalDuration});
 }

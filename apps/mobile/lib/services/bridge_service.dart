@@ -84,7 +84,7 @@ class BridgeService implements BridgeServiceBase {
   List<String> get projectHistory => _projectHistory;
 
   /// Derive HTTP base URL from the WebSocket URL.
-  /// e.g. ws://host:8765?token=x -> http://host:8765
+  /// Example: ws://host:8765/path?query=1 -> http://host:8765
   @override
   String? get httpBaseUrl {
     final url = _lastUrl;
@@ -284,6 +284,12 @@ class BridgeService implements BridgeServiceBase {
     String sessionId,
     String projectPath, {
     String? permissionMode,
+    String? effort,
+    int? maxTurns,
+    double? maxBudgetUsd,
+    String? fallbackModel,
+    bool? forkSession,
+    bool? persistSession,
     String? provider,
     String? approvalPolicy,
     String? sandboxMode,
@@ -297,6 +303,12 @@ class BridgeService implements BridgeServiceBase {
         sessionId,
         projectPath,
         permissionMode: permissionMode,
+        effort: effort,
+        maxTurns: maxTurns,
+        maxBudgetUsd: maxBudgetUsd,
+        fallbackModel: fallbackModel,
+        forkSession: forkSession,
+        persistSession: persistSession,
         provider: provider,
         approvalPolicy: approvalPolicy,
         sandboxMode: sandboxMode,

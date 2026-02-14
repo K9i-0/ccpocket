@@ -22,6 +22,13 @@ class NewSessionParams {
   final ReasoningEffort? modelReasoningEffort;
   final bool? networkAccessEnabled;
   final WebSearchMode? webSearchMode;
+  final String? claudeModel;
+  final ClaudeEffort? claudeEffort;
+  final int? claudeMaxTurns;
+  final double? claudeMaxBudgetUsd;
+  final String? claudeFallbackModel;
+  final bool? claudeForkSession;
+  final bool? claudePersistSession;
 
   const NewSessionParams({
     required this.projectPath,
@@ -36,6 +43,13 @@ class NewSessionParams {
     this.modelReasoningEffort,
     this.networkAccessEnabled,
     this.webSearchMode,
+    this.claudeModel,
+    this.claudeEffort,
+    this.claudeMaxTurns,
+    this.claudeMaxBudgetUsd,
+    this.claudeFallbackModel,
+    this.claudeForkSession,
+    this.claudePersistSession,
   });
 }
 
@@ -106,6 +120,10 @@ const _codexModels = <String>[
 class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _pathController = TextEditingController();
   final _branchController = TextEditingController();
+  final _claudeModelController = TextEditingController();
+  final _claudeMaxTurnsController = TextEditingController();
+  final _claudeMaxBudgetController = TextEditingController();
+  final _claudeFallbackModelController = TextEditingController();
   var _provider = Provider.claude;
   var _permissionMode = PermissionMode.acceptEdits;
   var _useWorktree = false;
@@ -113,6 +131,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   WorktreeInfo? _selectedWorktree;
   List<WorktreeInfo>? _worktrees;
   StreamSubscription<WorktreeListMessage>? _worktreeSub;
+
+  // Claude-specific options
+  ClaudeEffort? _claudeEffort;
+  bool _claudeForkSession = false;
+  bool _claudePersistSession = true;
 
   // Codex-specific options
   String? _selectedModel;
@@ -161,6 +184,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _worktreeSub?.cancel();
     _pathController.dispose();
     _branchController.dispose();
+    _claudeModelController.dispose();
+    _claudeMaxTurnsController.dispose();
+    _claudeMaxBudgetController.dispose();
+    _claudeFallbackModelController.dispose();
     super.dispose();
   }
 
@@ -192,6 +219,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _modelReasoningEffort = p.modelReasoningEffort;
     _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
     _webSearchMode = p.webSearchMode;
+    _claudeModelController.text = p.claudeModel ?? "";
+    _claudeEffort = p.claudeEffort;
+    _claudeMaxTurnsController.text = p.claudeMaxTurns?.toString() ?? "";
+    _claudeMaxBudgetController.text = p.claudeMaxBudgetUsd?.toString() ?? "";
+    _claudeFallbackModelController.text = p.claudeFallbackModel ?? "";
+    _claudeForkSession = p.claudeForkSession ?? _claudeForkSession;
+    _claudePersistSession = p.claudePersistSession ?? _claudePersistSession;
 
     if (p.existingWorktreePath != null) {
       _worktreeMode = _WorktreeMode.useExisting;
@@ -227,6 +261,27 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     final path = _pathController.text.trim();
     final branch = _branchController.text.trim();
     final isCodex = _provider == Provider.codex;
+    final claudeModel = _claudeModelController.text.trim();
+    final claudeMaxTurnsRaw = _claudeMaxTurnsController.text.trim();
+    final claudeMaxTurns = int.tryParse(claudeMaxTurnsRaw);
+    final claudeMaxBudgetRaw = _claudeMaxBudgetController.text.trim();
+    final claudeMaxBudgetUsd = double.tryParse(claudeMaxBudgetRaw);
+    final claudeFallbackModel = _claudeFallbackModelController.text.trim();
+
+    if (!isCodex) {
+      if (claudeMaxTurnsRaw.isNotEmpty &&
+          (claudeMaxTurns == null || claudeMaxTurns < 1)) {
+        _showValidationError('Max Turns must be an integer greater than 0');
+        return;
+      }
+      if (claudeMaxBudgetRaw.isNotEmpty &&
+          (claudeMaxBudgetUsd == null || claudeMaxBudgetUsd < 0)) {
+        _showValidationError(
+          'Max Budget must be a number greater than or equal to 0',
+        );
+        return;
+      }
+    }
 
     if (_useWorktree && _worktreeMode == _WorktreeMode.useExisting) {
       // Use existing worktree
@@ -244,6 +299,15 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
           networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
           webSearchMode: isCodex ? _webSearchMode : null,
+          claudeModel: !isCodex && claudeModel.isNotEmpty ? claudeModel : null,
+          claudeEffort: !isCodex ? _claudeEffort : null,
+          claudeMaxTurns: !isCodex ? claudeMaxTurns : null,
+          claudeMaxBudgetUsd: !isCodex ? claudeMaxBudgetUsd : null,
+          claudeFallbackModel: !isCodex && claudeFallbackModel.isNotEmpty
+              ? claudeFallbackModel
+              : null,
+          claudeForkSession: !isCodex ? _claudeForkSession : null,
+          claudePersistSession: !isCodex ? _claudePersistSession : null,
         ),
       );
     } else {
@@ -262,9 +326,24 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
           networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
           webSearchMode: isCodex ? _webSearchMode : null,
+          claudeModel: !isCodex && claudeModel.isNotEmpty ? claudeModel : null,
+          claudeEffort: !isCodex ? _claudeEffort : null,
+          claudeMaxTurns: !isCodex ? claudeMaxTurns : null,
+          claudeMaxBudgetUsd: !isCodex ? claudeMaxBudgetUsd : null,
+          claudeFallbackModel: !isCodex && claudeFallbackModel.isNotEmpty
+              ? claudeFallbackModel
+              : null,
+          claudeForkSession: !isCodex ? _claudeForkSession : null,
+          claudePersistSession: !isCodex ? _claudePersistSession : null,
         ),
       );
     }
+  }
+
+  void _showValidationError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -525,6 +604,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             const SizedBox(height: 8),
             _buildWorktreeOptions(appColors),
           ],
+          if (_provider == Provider.claude) ...[
+            const SizedBox(height: 8),
+            _buildClaudeAdvancedOptions(appColors),
+          ],
           if (_provider == Provider.codex) ...[
             const SizedBox(height: 8),
             DropdownButtonFormField<String?>(
@@ -703,6 +786,147 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               },
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClaudeAdvancedOptions(AppColors appColors) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: appColors.subtleText.withValues(alpha: 0.2)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ExpansionTile(
+        key: const ValueKey('dialog_claude_advanced'),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        title: const Text('Claude Advanced', style: TextStyle(fontSize: 13)),
+        children: [
+          TextField(
+            key: const ValueKey('dialog_claude_model'),
+            controller: _claudeModelController,
+            decoration: const InputDecoration(
+              labelText: 'Model (optional)',
+              hintText: 'claude-sonnet-4-5',
+              border: OutlineInputBorder(),
+              isDense: true,
+              prefixIcon: Icon(Icons.psychology_outlined, size: 18),
+            ),
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<ClaudeEffort?>(
+                  key: const ValueKey('dialog_claude_effort'),
+                  initialValue: _claudeEffort,
+                  decoration: const InputDecoration(
+                    labelText: 'Effort',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  items: [
+                    const DropdownMenuItem<ClaudeEffort?>(
+                      value: null,
+                      child: Text('Default', style: TextStyle(fontSize: 13)),
+                    ),
+                    for (final effort in ClaudeEffort.values)
+                      DropdownMenuItem<ClaudeEffort?>(
+                        value: effort,
+                        child: Text(
+                          effort.label,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    setState(() => _claudeEffort = value);
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('dialog_claude_max_turns'),
+                  controller: _claudeMaxTurnsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Max Turns',
+                    hintText: 'e.g. 8',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('dialog_claude_max_budget'),
+                  controller: _claudeMaxBudgetController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Max Budget (USD)',
+                    hintText: 'e.g. 1.00',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('dialog_claude_fallback_model'),
+                  controller: _claudeFallbackModelController,
+                  decoration: const InputDecoration(
+                    labelText: 'Fallback Model',
+                    hintText: 'claude-haiku-4-5',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SwitchListTile(
+            key: const ValueKey('dialog_claude_fork_session'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Fork Session on Resume',
+              style: TextStyle(fontSize: 13),
+            ),
+            value: _claudeForkSession,
+            onChanged: (value) {
+              setState(() => _claudeForkSession = value);
+            },
+          ),
+          SwitchListTile(
+            key: const ValueKey('dialog_claude_persist_session'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Persist Session History',
+              style: TextStyle(fontSize: 13),
+            ),
+            value: _claudePersistSession,
+            onChanged: (value) {
+              setState(() => _claudePersistSession = value);
+            },
+          ),
         ],
       ),
     );

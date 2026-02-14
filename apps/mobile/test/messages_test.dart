@@ -103,4 +103,56 @@ void main() {
       expect(session.resumeCwd, '/tmp/project-worktrees/feature-x');
     });
   });
+
+  group('Claude advanced options', () {
+    test('ClientMessage.start serializes advanced Claude options', () {
+      final msg = ClientMessage.start(
+        '/tmp/project',
+        provider: 'claude',
+        model: 'claude-sonnet-4-5',
+        effort: 'high',
+        maxTurns: 8,
+        maxBudgetUsd: 1.25,
+        fallbackModel: 'claude-haiku-4-5',
+        persistSession: false,
+      );
+
+      final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(json['model'], 'claude-sonnet-4-5');
+      expect(json['effort'], 'high');
+      expect(json['maxTurns'], 8);
+      expect(json['maxBudgetUsd'], 1.25);
+      expect(json['fallbackModel'], 'claude-haiku-4-5');
+      expect(json['persistSession'], false);
+      expect(json.containsKey('forkSession'), isFalse);
+    });
+
+    test('ClientMessage.resumeSession serializes resume-only options', () {
+      final msg = ClientMessage.resumeSession(
+        'session-1',
+        '/tmp/project',
+        provider: 'claude',
+        permissionMode: 'acceptEdits',
+        model: 'claude-sonnet-4-5',
+        effort: 'medium',
+        maxTurns: 5,
+        maxBudgetUsd: 0.5,
+        fallbackModel: 'claude-haiku-4-5',
+        forkSession: true,
+        persistSession: true,
+      );
+
+      final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(json['type'], 'resume_session');
+      expect(json['sessionId'], 'session-1');
+      expect(json['permissionMode'], 'acceptEdits');
+      expect(json['model'], 'claude-sonnet-4-5');
+      expect(json['effort'], 'medium');
+      expect(json['maxTurns'], 5);
+      expect(json['maxBudgetUsd'], 0.5);
+      expect(json['fallbackModel'], 'claude-haiku-4-5');
+      expect(json['forkSession'], true);
+      expect(json['persistSession'], true);
+    });
+  });
 }

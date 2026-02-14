@@ -75,6 +75,13 @@ export interface StartOptions {
   sessionId?: string;
   continueMode?: boolean;
   permissionMode?: PermissionMode;
+  model?: string;
+  effort?: "low" | "medium" | "high" | "max";
+  maxTurns?: number;
+  maxBudgetUsd?: number;
+  fallbackModel?: string;
+  forkSession?: boolean;
+  persistSession?: boolean;
   /** When resuming, only resume messages up to this UUID (for conversation rewind). */
   resumeSessionAt?: string;
 }
@@ -328,6 +335,13 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         resume: options?.sessionId,
         continue: options?.continueMode,
         permissionMode: options?.permissionMode ?? "default",
+        ...(options?.model ? { model: options.model } : {}),
+        ...(options?.effort ? { effort: options.effort } : {}),
+        ...(options?.maxTurns != null ? { maxTurns: options.maxTurns } : {}),
+        ...(options?.maxBudgetUsd != null ? { maxBudgetUsd: options.maxBudgetUsd } : {}),
+        ...(options?.fallbackModel ? { fallbackModel: options.fallbackModel } : {}),
+        ...(options?.forkSession != null ? { forkSession: options.forkSession } : {}),
+        ...(options?.persistSession != null ? { persistSession: options.persistSession } : {}),
         includePartialMessages: true,
         canUseTool: this.handleCanUseTool.bind(this),
         settingSources: ["user", "project", "local"],

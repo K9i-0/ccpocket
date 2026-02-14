@@ -32,6 +32,7 @@ import 'widgets/chat_message_list.dart';
 import 'widgets/plan_mode_chip.dart';
 import 'widgets/reconnect_banner.dart';
 import 'widgets/status_indicator.dart';
+import 'widgets/usage_summary_bar.dart';
 
 /// Outer widget that creates screen-scoped [ChatSessionCubit] and
 /// [StreamingStateCubit] via [MultiBlocProvider], replacing Riverpod's
@@ -251,6 +252,7 @@ class _ChatScreenBody extends HookWidget {
     // --- Bloc state ---
     final sessionState = context.watch<ChatSessionCubit>().state;
     final bridgeState = context.watch<ConnectionCubit>().state;
+    final tokenUsage = _collectTokenUsage(sessionState.entries);
 
     // --- Side effects subscription ---
     useEffect(() {
@@ -511,6 +513,13 @@ class _ChatScreenBody extends HookWidget {
                       ],
                     ),
                   ),
+                UsageSummaryBar(
+                  totalCost: sessionState.totalCost,
+                  totalDuration: sessionState.totalDuration,
+                  inputTokens: tokenUsage.inputTokens,
+                  cachedInputTokens: tokenUsage.cachedInputTokens,
+                  outputTokens: tokenUsage.outputTokens,
+                ),
                 Expanded(
                   child: Stack(
                     children: [
@@ -804,4 +813,27 @@ void _retryFailedMessages(BuildContext context, String sessionId) {
       cubit.retryMessage(entry);
     }
   }
+}
+
+({int inputTokens, int cachedInputTokens, int outputTokens}) _collectTokenUsage(
+  List<ChatEntry> entries,
+) {
+  var inputTokens = 0;
+  var cachedInputTokens = 0;
+  var outputTokens = 0;
+
+  for (final entry in entries) {
+    if (entry is! ServerChatEntry) continue;
+    final msg = entry.message;
+    if (msg is! ResultMessage) continue;
+    inputTokens += msg.inputTokens ?? 0;
+    cachedInputTokens += msg.cachedInputTokens ?? 0;
+    outputTokens += msg.outputTokens ?? 0;
+  }
+
+  return (
+    inputTokens: inputTokens,
+    cachedInputTokens: cachedInputTokens,
+    outputTokens: outputTokens,
+  );
 }

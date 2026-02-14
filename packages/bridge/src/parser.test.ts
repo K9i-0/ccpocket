@@ -65,6 +65,29 @@ describe("parseClientMessage", () => {
     });
   });
 
+  it("parses start with advanced Claude options", () => {
+    const msg = parseClientMessage(
+      '{"type":"start","projectPath":"/p","model":"claude-sonnet","effort":"high","maxTurns":5,"maxBudgetUsd":1.5,"fallbackModel":"claude-haiku","forkSession":true,"persistSession":false}',
+    );
+    expect(msg).toEqual({
+      type: "start",
+      projectPath: "/p",
+      model: "claude-sonnet",
+      effort: "high",
+      maxTurns: 5,
+      maxBudgetUsd: 1.5,
+      fallbackModel: "claude-haiku",
+      forkSession: true,
+      persistSession: false,
+    });
+  });
+
+  it("rejects start with invalid maxTurns", () => {
+    expect(
+      parseClientMessage('{"type":"start","projectPath":"/p","maxTurns":0}'),
+    ).toBeNull();
+  });
+
   it("rejects start without projectPath", () => {
     expect(parseClientMessage('{"type":"start"}')).toBeNull();
   });
@@ -200,6 +223,30 @@ describe("parseClientMessage", () => {
   it("parses resume_session with provider", () => {
     const msg = parseClientMessage('{"type":"resume_session","sessionId":"s3","projectPath":"/p","provider":"codex"}');
     expect(msg).toEqual({ type: "resume_session", sessionId: "s3", projectPath: "/p", provider: "codex" });
+  });
+
+  it("parses resume_session with advanced Claude options", () => {
+    const msg = parseClientMessage(
+      '{"type":"resume_session","sessionId":"s3","projectPath":"/p","model":"claude-sonnet","effort":"medium","maxTurns":3,"maxBudgetUsd":0.8,"fallbackModel":"claude-haiku","forkSession":true,"persistSession":false}',
+    );
+    expect(msg).toEqual({
+      type: "resume_session",
+      sessionId: "s3",
+      projectPath: "/p",
+      model: "claude-sonnet",
+      effort: "medium",
+      maxTurns: 3,
+      maxBudgetUsd: 0.8,
+      fallbackModel: "claude-haiku",
+      forkSession: true,
+      persistSession: false,
+    });
+  });
+
+  it("rejects resume_session with invalid effort", () => {
+    expect(
+      parseClientMessage('{"type":"resume_session","sessionId":"s3","projectPath":"/p","effort":"xhigh"}'),
+    ).toBeNull();
   });
 
   it("rejects resume_session without sessionId", () => {

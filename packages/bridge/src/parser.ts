@@ -58,6 +58,12 @@ export type ClientMessage =
       approvalPolicy?: string;
       sandboxMode?: string;
       model?: string;
+      effort?: "low" | "medium" | "high" | "max";
+      maxTurns?: number;
+      maxBudgetUsd?: number;
+      fallbackModel?: string;
+      forkSession?: boolean;
+      persistSession?: boolean;
       modelReasoningEffort?: string;
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
@@ -84,6 +90,12 @@ export type ClientMessage =
       approvalPolicy?: string;
       sandboxMode?: string;
       model?: string;
+      effort?: "low" | "medium" | "high" | "max";
+      maxTurns?: number;
+      maxBudgetUsd?: number;
+      fallbackModel?: string;
+      forkSession?: boolean;
+      persistSession?: boolean;
       modelReasoningEffort?: string;
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
@@ -203,6 +215,19 @@ export function parseClientMessage(data: string): ClientMessage | null {
     switch (msg.type) {
       case "start":
         if (typeof msg.projectPath !== "string") return null;
+        if (msg.model !== undefined && typeof msg.model !== "string") return null;
+        if (msg.effort !== undefined && !["low", "medium", "high", "max"].includes(String(msg.effort))) return null;
+        if (
+          msg.maxTurns !== undefined
+          && (!Number.isInteger(msg.maxTurns) || Number(msg.maxTurns) < 1)
+        ) return null;
+        if (
+          msg.maxBudgetUsd !== undefined
+          && (typeof msg.maxBudgetUsd !== "number" || !Number.isFinite(msg.maxBudgetUsd) || msg.maxBudgetUsd < 0)
+        ) return null;
+        if (msg.fallbackModel !== undefined && typeof msg.fallbackModel !== "string") return null;
+        if (msg.forkSession !== undefined && typeof msg.forkSession !== "boolean") return null;
+        if (msg.persistSession !== undefined && typeof msg.persistSession !== "boolean") return null;
         if (msg.networkAccessEnabled !== undefined && typeof msg.networkAccessEnabled !== "boolean") return null;
         if (
           msg.modelReasoningEffort !== undefined
@@ -249,6 +274,19 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "resume_session":
         if (typeof msg.sessionId !== "string" || typeof msg.projectPath !== "string") return null;
         if (msg.provider && msg.provider !== "claude" && msg.provider !== "codex") return null;
+        if (msg.model !== undefined && typeof msg.model !== "string") return null;
+        if (msg.effort !== undefined && !["low", "medium", "high", "max"].includes(String(msg.effort))) return null;
+        if (
+          msg.maxTurns !== undefined
+          && (!Number.isInteger(msg.maxTurns) || Number(msg.maxTurns) < 1)
+        ) return null;
+        if (
+          msg.maxBudgetUsd !== undefined
+          && (typeof msg.maxBudgetUsd !== "number" || !Number.isFinite(msg.maxBudgetUsd) || msg.maxBudgetUsd < 0)
+        ) return null;
+        if (msg.fallbackModel !== undefined && typeof msg.fallbackModel !== "string") return null;
+        if (msg.forkSession !== undefined && typeof msg.forkSession !== "boolean") return null;
+        if (msg.persistSession !== undefined && typeof msg.persistSession !== "boolean") return null;
         if (msg.networkAccessEnabled !== undefined && typeof msg.networkAccessEnabled !== "boolean") return null;
         if (
           msg.modelReasoningEffort !== undefined

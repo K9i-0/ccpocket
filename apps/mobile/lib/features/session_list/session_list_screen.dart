@@ -108,6 +108,9 @@ ReasoningEffort? _reasoningEffortFromRaw(String? raw) =>
 WebSearchMode? _webSearchModeFromRaw(String? raw) =>
     _enumByValue(WebSearchMode.values, raw, (v) => v.value);
 
+ClaudeEffort? _claudeEffortFromRaw(String? raw) =>
+    _enumByValue(ClaudeEffort.values, raw, (v) => v.value);
+
 Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
   return {
     'projectPath': params.projectPath,
@@ -122,6 +125,13 @@ Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
     'modelReasoningEffort': params.modelReasoningEffort?.value,
     'networkAccessEnabled': params.networkAccessEnabled,
     'webSearchMode': params.webSearchMode?.value,
+    'claudeModel': params.claudeModel,
+    'claudeEffort': params.claudeEffort?.value,
+    'claudeMaxTurns': params.claudeMaxTurns,
+    'claudeMaxBudgetUsd': params.claudeMaxBudgetUsd,
+    'claudeFallbackModel': params.claudeFallbackModel,
+    'claudeForkSession': params.claudeForkSession,
+    'claudePersistSession': params.claudePersistSession,
   };
 }
 
@@ -143,6 +153,13 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
     ),
     networkAccessEnabled: json['networkAccessEnabled'] as bool?,
     webSearchMode: _webSearchModeFromRaw(json['webSearchMode'] as String?),
+    claudeModel: json['claudeModel'] as String?,
+    claudeEffort: _claudeEffortFromRaw(json['claudeEffort'] as String?),
+    claudeMaxTurns: (json['claudeMaxTurns'] as num?)?.toInt(),
+    claudeMaxBudgetUsd: (json['claudeMaxBudgetUsd'] as num?)?.toDouble(),
+    claudeFallbackModel: json['claudeFallbackModel'] as String?,
+    claudeForkSession: json['claudeForkSession'] as bool?,
+    claudePersistSession: json['claudePersistSession'] as bool?,
   );
 }
 
@@ -509,11 +526,30 @@ class _SessionListScreenState extends State<SessionListScreen> {
         permissionMode: result.provider == Provider.claude
             ? result.permissionMode.value
             : null,
+        effort: result.provider == Provider.claude
+            ? result.claudeEffort?.value
+            : null,
+        maxTurns: result.provider == Provider.claude
+            ? result.claudeMaxTurns
+            : null,
+        maxBudgetUsd: result.provider == Provider.claude
+            ? result.claudeMaxBudgetUsd
+            : null,
+        fallbackModel: result.provider == Provider.claude
+            ? result.claudeFallbackModel
+            : null,
+        // --fork-session applies to resume/continue only.
+        forkSession: null,
+        persistSession: result.provider == Provider.claude
+            ? result.claudePersistSession
+            : null,
         useWorktree: result.useWorktree ? true : null,
         worktreeBranch: result.worktreeBranch,
         existingWorktreePath: result.existingWorktreePath,
         provider: result.provider.value,
-        model: result.model,
+        model: result.provider == Provider.claude
+            ? result.claudeModel
+            : result.model,
         approvalPolicy: result.approvalPolicy?.value,
         sandboxMode: result.sandboxMode?.value,
         modelReasoningEffort: result.modelReasoningEffort?.value,
@@ -664,17 +700,35 @@ class _SessionListScreenState extends State<SessionListScreen> {
     });
   }
 
-  void _resumeSession(RecentSession session) {
+  void _resumeSession(RecentSession session) async {
     final resumeProjectPath = session.resumeCwd ?? session.projectPath;
     _pendingResumeProjectPath = resumeProjectPath;
     _pendingResumeGitBranch = session.gitBranch;
+
+    final isCodex = session.provider == Provider.codex.value;
+    NewSessionParams? claudeDefaults;
+    if (!isCodex) {
+      final defaults = await _loadSessionStartDefaults();
+      if (!mounted) return;
+      if (defaults?.provider == Provider.claude) {
+        claudeDefaults = defaults;
+      }
+    }
+
     context.read<BridgeService>().resumeSession(
       session.sessionId,
       resumeProjectPath,
+      permissionMode: !isCodex ? claudeDefaults?.permissionMode.value : null,
+      effort: !isCodex ? claudeDefaults?.claudeEffort?.value : null,
+      maxTurns: !isCodex ? claudeDefaults?.claudeMaxTurns : null,
+      maxBudgetUsd: !isCodex ? claudeDefaults?.claudeMaxBudgetUsd : null,
+      fallbackModel: !isCodex ? claudeDefaults?.claudeFallbackModel : null,
+      forkSession: !isCodex ? claudeDefaults?.claudeForkSession : null,
+      persistSession: !isCodex ? claudeDefaults?.claudePersistSession : null,
       provider: session.provider,
       approvalPolicy: session.codexApprovalPolicy,
       sandboxMode: session.codexSandboxMode,
-      model: session.codexModel,
+      model: isCodex ? session.codexModel : claudeDefaults?.claudeModel,
       modelReasoningEffort: session.codexModelReasoningEffort,
       networkAccessEnabled: session.codexNetworkAccessEnabled,
       webSearchMode: session.codexWebSearchMode,
