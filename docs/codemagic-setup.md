@@ -95,210 +95,111 @@ https://codemagic.io/start/ でサインアップし、GitHub リポジトリを
 - 無料枠: macOS M2 で月 500 分
 - 個人利用なら無料枠で十分
 
-### 2-2. Codemagic に Secret を登録
+### 2-2. App Store Connect 連携の設定
 
-Codemagic Dashboard → Settings → Environment variables で以下を登録:
+Codemagic Dashboard → Settings → Integrations → App Store Connect:
+
+1. **API key** を選択
+2. Part 1-1 で作成した API キー情報を入力:
+   - **Name**: `Codemagic` (codemagic.yaml の `integrations.app_store_connect` と一致させる)
+   - **Issuer ID**: App Store Connect の Issuer ID
+   - **Key ID**: API Key ID
+   - **API Key (.p8)**: ダウンロードした .p8 ファイルをアップロード
+3. 保存
+
+### 2-3. Android Keystore の登録
+
+Codemagic Dashboard → Settings → Code signing → Android:
+
+1. **Keystore** セクションで keystore をアップロード
+   - **Reference name**: `android_keystore` (codemagic.yaml で参照する名前)
+   - **Keystore file**: `ccpocket-release.jks` をアップロード
+   - **Keystore password**: keystore パスワード
+   - **Key alias**: key alias
+   - **Key password**: key パスワード
+
+### 2-4. 環境変数の登録
+
+Codemagic Dashboard → Settings → Environment variables:
 
 | グループ名 | 変数名 | 値 | Secure |
 |-----------|--------|-----|--------|
 | `shorebird` | `SHOREBIRD_TOKEN` | `shorebird login:ci` の出力 | Yes |
-| `ios_signing` | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID | Yes |
-| `ios_signing` | `APP_STORE_CONNECT_KEY_IDENTIFIER` | Key ID | Yes |
-| `ios_signing` | `APP_STORE_CONNECT_PRIVATE_KEY` | .p8 ファイルの中身 | Yes |
-| `android_signing` | `CM_KEYSTORE` | keystore の base64 | Yes |
-| `android_signing` | `CM_KEYSTORE_PASSWORD` | keystore パスワード | Yes |
-| `android_signing` | `CM_KEY_ALIAS` | key alias | Yes |
-| `android_signing` | `CM_KEY_PASSWORD` | key パスワード | Yes |
+| `ios_signing` | `CERTIFICATE_PRIVATE_KEY` | `~/ios-cert-private-key.pem` の中身 | Yes |
+| `google_play` | `GCLOUD_SERVICE_ACCOUNT_CREDENTIALS` | GCP サービスアカウント JSON の中身 | Yes |
 
 ```bash
 # Shorebird CI トークンの取得
 ~/.shorebird/bin/shorebird login:ci
 
-# Android keystore の base64 エンコード
-base64 -i ~/ccpocket-release.jks
+# 証明書秘密鍵の内容を確認
+cat ~/ios-cert-private-key.pem
 ```
 
-### 2-3. codemagic.yaml の作成
+### 2-5. Google Play サービスアカウントの作成
 
-リポジトリルートに `codemagic.yaml` を配置（後述の実装フェーズで作成）。
+Google Play Console への自動アップロードに必要。
+
+1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成（または既存を使用）
+2. **IAM と管理** → **サービスアカウント** → サービスアカウントを作成
+   - 名前: `codemagic-ci`
+3. **キー** タブ → **鍵を追加** → **新しい鍵を作成** → **JSON**
+4. ダウンロードした JSON の中身を `GCLOUD_SERVICE_ACCOUNT_CREDENTIALS` に登録
+5. [Google Play Console](https://play.google.com/console/) → **設定** → **API アクセス** で、作成したサービスアカウントをリンク
+   - 権限: **リリースマネージャー** 以上
+
+### 2-6. codemagic.yaml
+
+リポジトリルートに `codemagic.yaml` を配置済み。
 
 ---
 
-## Part 3: codemagic.yaml ワークフロー設計
+## Part 3: codemagic.yaml ワークフロー解説
+
+`codemagic.yaml` はリポジトリルートに配置済み。
 
 ### ワークフロー一覧
 
 | ワークフロー | トリガー | 内容 |
 |------------|---------|------|
-| `android-release` | 手動 | Shorebird release → Play Console 内部テスト |
+| `test` | PR / main push | `dart analyze` + `flutter test` |
+| `android-release` | 手動 | Shorebird release → Google Play 内部テスト |
 | `ios-release` | 手動 | Shorebird release → TestFlight |
-| `android-patch` | 手動 (release_version 指定) | Shorebird patch → staging |
-| `ios-patch` | 手動 (release_version 指定) | Shorebird patch → staging |
-| `test` | PR / push | analyze + test のみ |
+| `android-patch` | 手動 (release_version 入力) | Shorebird patch → staging |
+| `ios-patch` | 手動 (release_version 入力) | Shorebird patch → staging |
 
-### 共通スクリプト (definitions)
+### Android signing の仕組み
 
-```yaml
-definitions:
-  env_versions: &env_versions
-    flutter: 3.41.1
-    xcode: latest
-  scripts:
-    - &install_shorebird
-      name: Install Shorebird
-      script: |
-        curl --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh -sSf | bash
-        echo "export PATH=$HOME/.shorebird/bin:$PATH" >> $CM_ENV
-    - &shorebird_doctor
-      name: Shorebird Doctor
-      script: shorebird doctor
-    - &flutter_analyze
-      name: Flutter Analyze
-      script: |
-        cd apps/mobile
-        flutter analyze
-    - &flutter_test
-      name: Flutter Test
-      script: |
-        cd apps/mobile
-        flutter test
+Codemagic の `android_signing` が keystore をデコードし、`CM_KEYSTORE_PATH` 等の環境変数をセットする。
+CI スクリプトでこれらから `keystore.properties` を生成し、既存の `build.gradle.kts` を無修正で動作させる:
+
+```bash
+cat > apps/mobile/android/keystore.properties << EOF
+storeFile=$CM_KEYSTORE_PATH
+storePassword=$CM_KEYSTORE_PASSWORD
+keyAlias=$CM_KEY_ALIAS
+keyPassword=$CM_KEY_PASSWORD
+EOF
 ```
 
-### Android Release ワークフロー
+### iOS signing の仕組み
 
-```yaml
-workflows:
-  android-release:
-    name: Android Release (Shorebird)
-    max_build_duration: 30
-    environment:
-      groups:
-        - shorebird
-        - android_signing
-      <<: *env_versions
-      android_signing:
-        - keystore_reference: CM_KEYSTORE
-    triggering:
-      events:
-        - push
-      cancel_previous_builds: true
-    when:
-      changeset:
-        includes:
-          - 'never-auto-trigger'  # 手動のみ
-    scripts:
-      - *install_shorebird
-      - *flutter_analyze
-      - *flutter_test
-      - name: Shorebird Release Android
-        script: |
-          cd apps/mobile
-          shorebird release android \
-            --flutter-version=$FLUTTER_VERSION \
-            --no-confirm
-    artifacts:
-      - apps/mobile/build/app/outputs/bundle/release/*.aab
-    publishing:
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal
-```
+Codemagic CLI Tools (CI にプリインストール済み) で自動署名:
 
-### iOS Release ワークフロー
+1. `app-store-connect fetch-signing-files` — App Store Connect API 経由で証明書・Profile を取得
+2. `keychain initialize` + `keychain add-certificates` — CI キーチェーンにインストール
+3. `xcode-project use-profiles` — Xcode プロジェクトに署名設定を適用
+4. `shorebird release/patch ios --export-options-plist=...` — 生成された export options を使用
 
-```yaml
-  ios-release:
-    name: iOS Release (Shorebird)
-    max_build_duration: 60
-    instance_type: mac_mini_m2
-    environment:
-      groups:
-        - shorebird
-        - ios_signing
-      <<: *env_versions
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.k9i.ccpocket
-    scripts:
-      - *install_shorebird
-      - *flutter_analyze
-      - *flutter_test
-      - name: Set up iOS signing
-        script: |
-          app-store-connect fetch-signing-files com.k9i.ccpocket \
-            --type IOS_APP_STORE --create
-          keychain initialize
-          keychain add-certificates
-          xcode-project use-profiles
-      - name: Shorebird Release iOS
-        script: |
-          cd apps/mobile
-          shorebird release ios \
-            --flutter-version=$FLUTTER_VERSION \
-            --no-confirm
-    artifacts:
-      - apps/mobile/build/ios/ipa/*.ipa
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
-```
+### Patch ワークフローの inputs
 
-### Patch ワークフロー（Android / iOS 共通パターン）
+Codemagic UI から手動トリガー時に `release_version` を入力する。
+`${{ inputs.release_version }}` で参照され、Shorebird の `--release-version` に渡される。
 
-```yaml
-  android-patch:
-    name: Android Patch (Shorebird)
-    max_build_duration: 30
-    environment:
-      groups:
-        - shorebird
-        - android_signing
-      <<: *env_versions
-      android_signing:
-        - keystore_reference: CM_KEYSTORE
-      vars:
-        RELEASE_VERSION: "latest"  # Codemagic UIで上書き可能
-    scripts:
-      - *install_shorebird
-      - name: Shorebird Patch Android
-        script: |
-          cd apps/mobile
-          shorebird patch android \
-            --release-version=$RELEASE_VERSION \
-            --flutter-version=$FLUTTER_VERSION \
-            --track=staging \
-            --no-confirm
+### Publishing
 
-  ios-patch:
-    name: iOS Patch (Shorebird)
-    max_build_duration: 60
-    instance_type: mac_mini_m2
-    environment:
-      groups:
-        - shorebird
-        - ios_signing
-      <<: *env_versions
-      vars:
-        RELEASE_VERSION: "latest"
-    scripts:
-      - *install_shorebird
-      - name: Set up iOS signing
-        script: |
-          app-store-connect fetch-signing-files com.k9i.ccpocket \
-            --type IOS_APP_STORE --create
-          keychain initialize
-          keychain add-certificates
-          xcode-project use-profiles
-      - name: Shorebird Patch iOS
-        script: |
-          cd apps/mobile
-          shorebird patch ios \
-            --release-version=$RELEASE_VERSION \
-            --flutter-version=$FLUTTER_VERSION \
-            --track=staging \
-            --no-confirm
-```
+- **Android**: Google Play 内部テストトラックにアップロード (`GCLOUD_SERVICE_ACCOUNT_CREDENTIALS` 必要)
+- **iOS**: TestFlight に自動提出 (App Store Connect 連携で認証)
 
 ---
 
@@ -306,13 +207,16 @@ workflows:
 
 ### 初回のみ（1回きり）
 
-| 作業 | 場所 | 所要時間 |
-|------|------|---------|
-| App Store Connect API キー作成 | Web (App Store Connect) | 5分 |
-| Codemagic CLI Tools インストール | ローカル PC | 2分 |
-| Codemagic アカウント作成・リポジトリ接続 | Web (Codemagic) | 10分 |
-| Secret 登録 (SHOREBIRD_TOKEN, 署名情報) | Web (Codemagic) | 10分 |
-| codemagic.yaml 作成・コミット | ローカル PC | ー（Claude Codeで実装） |
+| 作業 | 場所 | 状態 |
+|------|------|------|
+| App Store Connect API キー作成 | Web (App Store Connect) | **済** |
+| Codemagic CLI Tools インストール | ローカル PC | **済** |
+| Codemagic アカウント作成・リポジトリ接続 | Web (Codemagic) | 要実施 |
+| App Store Connect 連携設定 | Web (Codemagic) | 要実施 |
+| Android Keystore 登録 | Web (Codemagic) | 要実施 |
+| 環境変数登録 (SHOREBIRD_TOKEN, CERTIFICATE_PRIVATE_KEY) | Web (Codemagic) | 要実施 |
+| Google Play サービスアカウント作成 | Web (GCP + Play Console) | 要実施 |
+| codemagic.yaml コミット | ローカル PC | **済** |
 
 ### リリースごと
 
@@ -331,7 +235,7 @@ workflows:
 | Dart コード変更・コミット | 手動 |
 | Shorebird patch (staging) | **CI で自動** |
 | staging 確認 | 手動（実機で確認） |
-| stable 昇格 | 手動（`shorebird patches promote` or Console） |
+| stable 昇格 | 手動（`scripts/shorebird/promote.sh` or Console） |
 
 ### 年次更新
 
@@ -343,22 +247,26 @@ workflows:
 
 ---
 
-## Part 5: 導入ステップ（推奨順序）
+## Part 5: 導入ステップ
 
 ```
-Phase 1: ローカル iOS 署名 (今すぐ)
+Phase 1: ローカル iOS 署名 ✅ 完了
   ├── App Store Connect API キー作成
   ├── Codemagic CLI Tools インストール
   ├── fetch-signing-files で証明書取得
-  └── shorebird release ios (署名付き) → preview 確認
+  └── shorebird release ios → preview 確認
 
-Phase 2: CI/CD 構築 (Phase 1 完了後)
-  ├── Codemagic アカウント作成
-  ├── Secret 登録
-  ├── codemagic.yaml 作成・コミット
-  └── テストビルド実行
+Phase 2: CI/CD 構築 ✅ codemagic.yaml 作成済み
+  ├── codemagic.yaml コミット
+  └── 以下は Codemagic Web で設定:
+      ├── アカウント作成・リポジトリ接続
+      ├── App Store Connect 連携
+      ├── Android Keystore 登録
+      ├── 環境変数登録
+      └── Google Play サービスアカウント
 
 Phase 3: 運用開始
+  ├── test ワークフローで CI 動作確認
   ├── 初回 release (Android + iOS) を CI で実行
   ├── 初回 patch を CI で実行
   └── runbook を更新
