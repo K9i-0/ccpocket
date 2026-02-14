@@ -449,6 +449,13 @@ sealed class ServerMessage {
         mode: json['mode'] as String? ?? 'both',
         error: json['error'] as String?,
       ),
+      'input_ack' => InputAckMessage(
+        sessionId: json['sessionId'] as String?,
+      ),
+      'input_rejected' => InputRejectedMessage(
+        sessionId: json['sessionId'] as String?,
+        reason: json['reason'] as String?,
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -852,6 +859,17 @@ class RewindResultMessage implements ServerMessage {
     required this.mode,
     this.error,
   });
+}
+
+class InputAckMessage implements ServerMessage {
+  final String? sessionId;
+  const InputAckMessage({this.sessionId});
+}
+
+class InputRejectedMessage implements ServerMessage {
+  final String? sessionId;
+  final String? reason;
+  const InputRejectedMessage({this.sessionId, this.reason});
 }
 
 class PastMessage {

@@ -335,6 +335,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     return this._status;
   }
 
+  get isWaitingForInput(): boolean {
+    return this.userMessageResolve !== null;
+  }
+
   get sessionId(): string | null {
     return this._sessionId;
   }

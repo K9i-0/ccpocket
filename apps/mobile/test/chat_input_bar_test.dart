@@ -198,14 +198,15 @@ void main() {
       expect(textField.keyboardType, TextInputType.multiline);
     });
 
-    testWidgets('send button shows when running with text', (tester) async {
-      // When hasInputText=true, the stop condition (!hasInputText) is false,
-      // so it falls through to send button even when running.
+    testWidgets('stop button shows when running even with text', (tester) async {
+      // When running, always show stop button regardless of input text.
+      // This prevents sending messages while the process is busy.
       await tester.pumpWidget(
         buildSubject(status: ProcessStatus.running, hasInputText: true),
       );
 
-      expect(find.byKey(const ValueKey('send_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('stop_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('send_button')), findsNothing);
     });
   });
 }

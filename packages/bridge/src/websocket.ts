@@ -225,6 +225,15 @@ export class BridgeWebSocketServer {
         }
         const text = msg.text;
 
+        // Check if the process is ready to accept input
+        if (!session.process.isWaitingForInput) {
+          this.send(ws, { type: "input_rejected", sessionId: session.id, reason: "Process is busy" });
+          break;
+        }
+
+        // Acknowledge receipt immediately so the client can mark the message as sent
+        this.send(ws, { type: "input_ack", sessionId: session.id });
+
         // Codex input path (text + optional image)
         if (session.provider === "codex") {
           const codexProc = session.process as CodexProcess;

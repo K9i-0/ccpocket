@@ -31,6 +31,7 @@ class ChatStateUpdate {
   final bool resetAsk;
   final bool resetStreaming;
   final bool markUserMessagesSent;
+  final bool markUserMessagesFailed;
   final Set<ChatSideEffect> sideEffects;
   final String? resultSessionId;
 
@@ -52,6 +53,7 @@ class ChatStateUpdate {
     this.resetAsk = false,
     this.resetStreaming = false,
     this.markUserMessagesSent = false,
+    this.markUserMessagesFailed = false,
     this.sideEffects = const {},
     this.resultSessionId,
     this.toolUseIdsToHide = const {},
@@ -118,6 +120,10 @@ class ChatMessageHandler {
             ),
           ],
         );
+      case InputAckMessage():
+        return const ChatStateUpdate(markUserMessagesSent: true);
+      case InputRejectedMessage():
+        return const ChatStateUpdate(markUserMessagesFailed: true);
       default:
         return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
     }

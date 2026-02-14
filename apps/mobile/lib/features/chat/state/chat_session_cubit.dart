@@ -140,6 +140,27 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       }
     }
 
+    // Mark user messages as failed (rejected by bridge)
+    if (update.markUserMessagesFailed) {
+      var changed = false;
+      final updated = entries.map((e) {
+        if (e is UserChatEntry && e.status == MessageStatus.sending) {
+          changed = true;
+          return UserChatEntry(
+            e.text,
+            sessionId: e.sessionId,
+            status: MessageStatus.failed,
+            timestamp: e.timestamp,
+          );
+        }
+        return e;
+      }).toList();
+      if (changed) {
+        entries = updated;
+        didModifyEntries = true;
+      }
+    }
+
     // Add new entries (skip streaming entries — those go to StreamingState)
     final nonStreamingEntries = update.entriesToAdd
         .where((e) => e is! StreamingChatEntry)

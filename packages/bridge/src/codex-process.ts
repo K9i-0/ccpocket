@@ -38,6 +38,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     return this._status;
   }
 
+  get isWaitingForInput(): boolean {
+    return this.inputResolve !== null;
+  }
+
   get sessionId(): string | null {
     return this._threadId;
   }
