@@ -790,7 +790,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('ccpocket'),
+          title: const Text('CC Pocket'),
           actions: [
             IconButton(
               key: const ValueKey('settings_button'),

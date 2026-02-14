@@ -163,7 +163,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, settings) {
         return MaterialApp(
-          title: 'ccpocket',
+          title: 'CC Pocket',
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: settings.themeMode,

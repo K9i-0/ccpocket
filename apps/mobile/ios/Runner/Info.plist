@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Ccpocket</string>
+	<string>CC Pocket</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -44,7 +44,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>QR code scanning requires camera access to connect to bridge server</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Searching for ccpocket bridge servers on your local network</string>
+	<string>Searching for CC Pocket bridge servers on your local network</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Voice input requires microphone access to transcribe speech to text</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

@@ -60,6 +60,6 @@ void main() {
     await tester.pump(const Duration(seconds: 4));
 
     // App title
-    expect(find.text('ccpocket'), findsOneWidget);
+    expect(find.text('CC Pocket'), findsOneWidget);
   });
 }
