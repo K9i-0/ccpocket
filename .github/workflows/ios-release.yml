@@ -47,10 +47,15 @@ jobs:
           shorebird release ios \
             --flutter-version="3.41.1" \
             --export-options-plist=/Users/runner/export_options.plist
+      - name: Find IPA file
+        id: find_ipa
+        run: |
+          IPA_PATH=$(ls apps/mobile/build/ios/ipa/*.ipa)
+          echo "ipa_path=$IPA_PATH" >> "$GITHUB_OUTPUT"
       - name: Upload to TestFlight
         uses: apple-actions/upload-testflight-build@v3
         with:
-          app-path: apps/mobile/build/ios/ipa/*.ipa
+          app-path: ${{ steps.find_ipa.outputs.ipa_path }}
           issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
           api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
