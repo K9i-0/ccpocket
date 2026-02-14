@@ -155,4 +155,28 @@ void main() {
       expect(json['persistSession'], true);
     });
   });
+
+  group('Result message parsing', () {
+    test('parses token and tool usage fields', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'result',
+        'subtype': 'success',
+        'cost': 0.1234,
+        'duration': 4567,
+        'inputTokens': 1000,
+        'cachedInputTokens': 250,
+        'outputTokens': 333,
+        'toolCalls': 9,
+        'fileEdits': 3,
+      });
+
+      expect(msg, isA<ResultMessage>());
+      final result = msg as ResultMessage;
+      expect(result.inputTokens, 1000);
+      expect(result.cachedInputTokens, 250);
+      expect(result.outputTokens, 333);
+      expect(result.toolCalls, 9);
+      expect(result.fileEdits, 3);
+    });
+  });
 }

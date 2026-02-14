@@ -139,6 +139,8 @@ export type ServerMessage =
       inputTokens?: number;
       cachedInputTokens?: number;
       outputTokens?: number;
+      toolCalls?: number;
+      fileEdits?: number;
     }
   | { type: "error"; message: string }
   | { type: "status"; status: ProcessStatus }

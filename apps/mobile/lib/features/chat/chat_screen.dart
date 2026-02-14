@@ -253,6 +253,7 @@ class _ChatScreenBody extends HookWidget {
     final sessionState = context.watch<ChatSessionCubit>().state;
     final bridgeState = context.watch<ConnectionCubit>().state;
     final tokenUsage = _collectTokenUsage(sessionState.entries);
+    final toolUsage = _collectToolUsage(sessionState.entries);
 
     // --- Side effects subscription ---
     useEffect(() {
@@ -519,6 +520,8 @@ class _ChatScreenBody extends HookWidget {
                   inputTokens: tokenUsage.inputTokens,
                   cachedInputTokens: tokenUsage.cachedInputTokens,
                   outputTokens: tokenUsage.outputTokens,
+                  toolCalls: toolUsage.toolCalls,
+                  fileEdits: toolUsage.fileEdits,
                 ),
                 Expanded(
                   child: Stack(
@@ -836,4 +839,19 @@ void _retryFailedMessages(BuildContext context, String sessionId) {
     cachedInputTokens: cachedInputTokens,
     outputTokens: outputTokens,
   );
+}
+
+({int toolCalls, int fileEdits}) _collectToolUsage(List<ChatEntry> entries) {
+  var toolCalls = 0;
+  var fileEdits = 0;
+
+  for (final entry in entries) {
+    if (entry is! ServerChatEntry) continue;
+    final msg = entry.message;
+    if (msg is! ResultMessage) continue;
+    toolCalls += msg.toolCalls ?? 0;
+    fileEdits += msg.fileEdits ?? 0;
+  }
+
+  return (toolCalls: toolCalls, fileEdits: fileEdits);
 }

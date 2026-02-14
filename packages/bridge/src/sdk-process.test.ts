@@ -4,6 +4,8 @@ import {
   matchesSessionRule,
   buildSessionRule,
   ACCEPT_EDITS_AUTO_APPROVE,
+  extractTokenUsage,
+  isFileEditToolName,
   sdkMessageToServerMessage,
 } from "./sdk-process.js";
 
@@ -161,6 +163,56 @@ describe("buildSessionRule", () => {
   });
 });
 
+describe("isFileEditToolName", () => {
+  it("returns true for file mutation tools", () => {
+    expect(isFileEditToolName("Edit")).toBe(true);
+    expect(isFileEditToolName("Write")).toBe(true);
+    expect(isFileEditToolName("MultiEdit")).toBe(true);
+    expect(isFileEditToolName("NotebookEdit")).toBe(true);
+  });
+
+  it("returns false for non-file tools", () => {
+    expect(isFileEditToolName("Read")).toBe(false);
+    expect(isFileEditToolName("Bash")).toBe(false);
+  });
+});
+
+describe("extractTokenUsage", () => {
+  it("extracts snake_case usage fields", () => {
+    expect(
+      extractTokenUsage({
+        input_tokens: 1200,
+        cached_input_tokens: 300,
+        output_tokens: 450,
+      }),
+    ).toEqual({
+      inputTokens: 1200,
+      cachedInputTokens: 300,
+      outputTokens: 450,
+    });
+  });
+
+  it("extracts camelCase usage fields", () => {
+    expect(
+      extractTokenUsage({
+        inputTokens: 10,
+        cacheReadInputTokens: 4,
+        outputTokens: 20,
+      }),
+    ).toEqual({
+      inputTokens: 10,
+      cachedInputTokens: 4,
+      outputTokens: 20,
+    });
+  });
+
+  it("returns empty object for invalid usage payload", () => {
+    expect(extractTokenUsage(null)).toEqual({});
+    expect(extractTokenUsage("invalid")).toEqual({});
+    expect(extractTokenUsage([])).toEqual({});
+  });
+});
+
 // ---- sdkMessageToServerMessage ----
 
 describe("sdkMessageToServerMessage", () => {
@@ -267,6 +319,33 @@ describe("sdkMessageToServerMessage", () => {
         subtype: "success",
       });
       expect((serverMsg as any).stopReason).toBeUndefined();
+    });
+
+    it("includes token usage from SDK result.usage", () => {
+      const sdkMsg = {
+        type: "result" as const,
+        subtype: "success",
+        result: "Done",
+        total_cost_usd: 0.02,
+        duration_ms: 777,
+        usage: {
+          input_tokens: 1234,
+          cached_input_tokens: 321,
+          output_tokens: 456,
+        },
+        uuid: "test-uuid" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "result",
+        subtype: "success",
+        inputTokens: 1234,
+        cachedInputTokens: 321,
+        outputTokens: 456,
+      });
     });
   });
 

@@ -85,7 +85,7 @@ claude -p --output-format stream-json --verbose --include-partial-messages "quer
 |--------|------|-------------------|
 | `--resume <session-id>` | セッション復帰 | **利用中** (`resume` オプション) |
 | `--continue` | 最新セッション継続 | **利用中** (`continueMode` オプション) |
-| `--fork-session` | セッション分岐 | **未利用** — 検討の価値あり |
+| `--fork-session` | セッション分岐 | **利用中** (resume時オプションとしてUI対応済み) |
 | `--from-pr 123` | PR紐付きセッション再開 | **未利用** — GitHub連携で有用 |
 | `--session-id <uuid>` | 明示的セッションID指定 | **未利用** |
 | `--no-session-persistence` | 永続化無効 | **未利用** |
@@ -94,9 +94,9 @@ claude -p --output-format stream-json --verbose --include-partial-messages "quer
 
 | フラグ | 説明 | 活用案 |
 |--------|------|--------|
-| `--max-budget-usd` | コスト上限設定 | モバイルUIからコスト上限指定 |
-| `--max-turns` | ターン数制限 | 長時間タスクの安全弁 |
-| `--fallback-model` | 過負荷時フォールバック | Bridgeのセッション作成時に設定 |
+| `--max-budget-usd` | コスト上限設定 | **利用中** (モバイルUI + Bridge連携済み) |
+| `--max-turns` | ターン数制限 | **利用中** (モバイルUI + Bridge連携済み) |
+| `--fallback-model` | 過負荷時フォールバック | **利用中** (モバイルUI + Bridge連携済み) |
 | `--tools` | 使用ツール制限 | 特定ワークフローでの制限 |
 
 #### その他
@@ -287,11 +287,11 @@ claude -p --output-format json --json-schema '{"type":"object",...}' "query"
 
 | 項目 | 内容 | 優先度 |
 |------|------|--------|
-| SDK Hooks 活用 | `PostToolUse` でファイル変更通知、コスト追跡 | 高 |
-| `--fork-session` 対応 | セッション分岐UI | 中 |
-| `--max-budget-usd` 対応 | コスト上限設定UI | 中 |
-| `--max-turns` 対応 | ターン数制限UI | 低 |
-| `--fallback-model` 対応 | フォールバックモデル設定 | 低 |
+| SDK Hooks 活用 | `PostToolUse` でファイル変更/ツール使用統計、コスト追跡強化 | 完了 |
+| `--fork-session` 対応 | セッション分岐UI | 完了 |
+| `--max-budget-usd` 対応 | コスト上限設定UI | 完了 |
+| `--max-turns` 対応 | ターン数制限UI | 完了 |
+| `--fallback-model` 対応 | フォールバックモデル設定 | 完了 |
 
 ### Phase 2: サブエージェント活用 (中期)
 

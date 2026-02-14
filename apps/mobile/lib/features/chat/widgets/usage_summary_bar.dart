@@ -7,6 +7,8 @@ class UsageSummaryBar extends StatelessWidget {
   final int inputTokens;
   final int cachedInputTokens;
   final int outputTokens;
+  final int toolCalls;
+  final int fileEdits;
 
   const UsageSummaryBar({
     super.key,
@@ -15,6 +17,8 @@ class UsageSummaryBar extends StatelessWidget {
     required this.inputTokens,
     required this.cachedInputTokens,
     required this.outputTokens,
+    required this.toolCalls,
+    required this.fileEdits,
   });
 
   bool get _hasCost => totalCost > 0;
@@ -22,6 +26,7 @@ class UsageSummaryBar extends StatelessWidget {
       totalDuration != null && totalDuration! > Duration.zero;
   bool get _hasTokenUsage =>
       inputTokens > 0 || cachedInputTokens > 0 || outputTokens > 0;
+  bool get _hasToolUsage => toolCalls > 0 || fileEdits > 0;
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +69,14 @@ class UsageSummaryBar extends StatelessWidget {
                 outputTokens: outputTokens,
               ),
             ),
+          if (_hasToolUsage)
+            _UsageStat(
+              icon: Icons.build_circle_outlined,
+              text: _formatToolSummary(
+                toolCalls: toolCalls,
+                fileEdits: fileEdits,
+              ),
+            ),
         ],
       ),
     );
@@ -90,6 +103,19 @@ class UsageSummaryBar extends StatelessWidget {
       return 'in $inText (cache ${_formatCompactNumber(cachedInputTokens)}) / out $outText';
     }
     return 'in $inText / out $outText';
+  }
+
+  static String _formatToolSummary({
+    required int toolCalls,
+    required int fileEdits,
+  }) {
+    if (toolCalls <= 0) {
+      return 'edits $fileEdits';
+    }
+    if (fileEdits <= 0) {
+      return 'tools $toolCalls';
+    }
+    return 'tools $toolCalls / edits $fileEdits';
   }
 
   static String _formatCompactNumber(int value) {

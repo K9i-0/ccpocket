@@ -328,6 +328,8 @@ sealed class ServerMessage {
         inputTokens: json['inputTokens'] as int?,
         cachedInputTokens: json['cachedInputTokens'] as int?,
         outputTokens: json['outputTokens'] as int?,
+        toolCalls: json['toolCalls'] as int?,
+        fileEdits: json['fileEdits'] as int?,
       ),
       'error' => ErrorMessage(message: json['message'] as String),
       'status' => StatusMessage(
@@ -509,6 +511,8 @@ class ResultMessage implements ServerMessage {
   final int? inputTokens;
   final int? cachedInputTokens;
   final int? outputTokens;
+  final int? toolCalls;
+  final int? fileEdits;
   const ResultMessage({
     required this.subtype,
     this.result,
@@ -520,6 +524,8 @@ class ResultMessage implements ServerMessage {
     this.inputTokens,
     this.cachedInputTokens,
     this.outputTokens,
+    this.toolCalls,
+    this.fileEdits,
   });
 }
 

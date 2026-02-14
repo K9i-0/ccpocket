@@ -19,6 +19,50 @@ export const ACCEPT_EDITS_AUTO_APPROVE = new Set([
   "Task", "Skill",
 ]);
 
+const FILE_EDIT_TOOLS = new Set([
+  "Edit",
+  "Write",
+  "MultiEdit",
+  "NotebookEdit",
+]);
+
+function toFiniteNumber(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return value;
+}
+
+export function isFileEditToolName(toolName: string): boolean {
+  return FILE_EDIT_TOOLS.has(toolName);
+}
+
+export function extractTokenUsage(
+  usage: unknown,
+): {
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  outputTokens?: number;
+} {
+  if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
+    return {};
+  }
+  const obj = usage as Record<string, unknown>;
+
+  const inputTokens = toFiniteNumber(obj.input_tokens)
+    ?? toFiniteNumber(obj.inputTokens);
+  const outputTokens = toFiniteNumber(obj.output_tokens)
+    ?? toFiniteNumber(obj.outputTokens);
+  const cachedReadTokens = toFiniteNumber(obj.cached_input_tokens)
+    ?? toFiniteNumber(obj.cache_read_input_tokens)
+    ?? toFiniteNumber(obj.cachedInputTokens)
+    ?? toFiniteNumber(obj.cacheReadInputTokens);
+
+  return {
+    ...(inputTokens != null ? { inputTokens } : {}),
+    ...(cachedReadTokens != null ? { cachedInputTokens: cachedReadTokens } : {}),
+    ...(outputTokens != null ? { outputTokens } : {}),
+  };
+}
+
 /**
  * Parse a permission rule in ToolName(ruleContent) format.
  * Matches the CLI's internal pzT() function: /^([^(]+)\(([^)]+)\)$/
@@ -160,6 +204,7 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
 
     case "result": {
       const res = msg as Record<string, unknown>;
+      const tokenUsage = extractTokenUsage(res.usage);
       if (res.subtype === "success") {
         return {
           type: "result",
@@ -169,6 +214,7 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
           duration: res.duration_ms as number,
           sessionId: msg.session_id,
           stopReason: res.stop_reason as string | undefined,
+          ...tokenUsage,
         };
       }
       // All other result subtypes are errors
@@ -183,6 +229,7 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
         error: errorText,
         sessionId: msg.session_id,
         stopReason: res.stop_reason as string | undefined,
+        ...tokenUsage,
       };
     }
 
@@ -281,6 +328,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   } | null = null;
   private pendingInput: string | null = null;
   private _projectPath: string | null = null;
+  private toolCallsSinceLastResult = 0;
+  private fileEditsSinceLastResult = 0;
 
   get status(): ProcessStatus {
     return this._status;
@@ -310,6 +359,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.pendingPermissions.clear();
     this._permissionMode = options?.permissionMode;
     this.sessionAllowRules.clear();
+    this.toolCallsSinceLastResult = 0;
+    this.fileEditsSinceLastResult = 0;
 
     this.setStatus("starting");
 
@@ -342,6 +393,14 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         ...(options?.fallbackModel ? { fallbackModel: options.fallbackModel } : {}),
         ...(options?.forkSession != null ? { forkSession: options.forkSession } : {}),
         ...(options?.persistSession != null ? { persistSession: options.persistSession } : {}),
+        hooks: {
+          PostToolUse: [{
+            hooks: [async (input) => {
+              this.handlePostToolUseHook(input);
+              return { continue: true };
+            }],
+          }],
+        },
         includePartialMessages: true,
         canUseTool: this.handleCanUseTool.bind(this),
         settingSources: ["user", "project", "local"],
@@ -381,6 +440,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
     this.pendingPermissions.clear();
     this.userMessageResolve = null;
+    this.toolCallsSinceLastResult = 0;
+    this.fileEditsSinceLastResult = 0;
     this.setStatus("idle");
   }
 
@@ -654,7 +715,22 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       if (this.stopped) break;
 
       // Convert SDK message to ServerMessage
-      const serverMsg = sdkMessageToServerMessage(message);
+      let serverMsg = sdkMessageToServerMessage(message);
+      if (serverMsg?.type === "result") {
+        if (this.toolCallsSinceLastResult > 0 || this.fileEditsSinceLastResult > 0) {
+          serverMsg = {
+            ...serverMsg,
+            ...(this.toolCallsSinceLastResult > 0
+              ? { toolCalls: this.toolCallsSinceLastResult }
+              : {}),
+            ...(this.fileEditsSinceLastResult > 0
+              ? { fileEdits: this.fileEditsSinceLastResult }
+              : {}),
+          };
+        }
+        this.toolCallsSinceLastResult = 0;
+        this.fileEditsSinceLastResult = 0;
+      }
       if (serverMsg) {
         this.emitMessage(serverMsg);
       }
@@ -801,6 +877,21 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
           this.setStatus("idle");
         }
         break;
+    }
+  }
+
+  private handlePostToolUseHook(input: unknown): void {
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      return;
+    }
+    const hookInput = input as Record<string, unknown>;
+    const toolName = hookInput.tool_name;
+    if (typeof toolName !== "string" || toolName.length === 0) {
+      return;
+    }
+    this.toolCallsSinceLastResult += 1;
+    if (isFileEditToolName(toolName)) {
+      this.fileEditsSinceLastResult += 1;
     }
   }
 
