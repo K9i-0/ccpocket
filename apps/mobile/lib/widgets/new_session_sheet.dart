@@ -145,12 +145,19 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
 /// [projectHistory] is the Bridge-managed project history (preferred).
 /// [recentProjects] is the fallback from session-based history.
 /// [bridge] is required for fetching existing worktree list.
+/// Shows a modal bottom sheet for creating a new session.
+///
+/// When [lockProvider] is true the provider toggle is disabled so the user
+/// cannot switch between Claude Code and Codex. This is used when starting a
+/// new session from a recent session's long-press menu, where the provider
+/// should remain the same as the original session.
 Future<NewSessionParams?> showNewSessionSheet({
   required BuildContext context,
   required List<({String path, String name})> recentProjects,
   List<String> projectHistory = const [],
   BridgeService? bridge,
   NewSessionParams? initialParams,
+  bool lockProvider = false,
 }) {
   return showModalBottomSheet<NewSessionParams>(
     context: context,
@@ -164,6 +171,7 @@ Future<NewSessionParams?> showNewSessionSheet({
       projectHistory: projectHistory,
       bridge: bridge,
       initialParams: initialParams,
+      lockProvider: lockProvider,
     ),
   );
 }
@@ -176,12 +184,14 @@ class _NewSessionSheetContent extends StatefulWidget {
   final List<String> projectHistory;
   final BridgeService? bridge;
   final NewSessionParams? initialParams;
+  final bool lockProvider;
 
   const _NewSessionSheetContent({
     required this.recentProjects,
     this.projectHistory = const [],
     this.bridge,
     this.initialParams,
+    this.lockProvider = false,
   });
 
   @override
@@ -542,11 +552,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 ),
               ],
               selected: {_provider},
-              onSelectionChanged: (selected) {
-                setState(() {
-                  _provider = selected.first;
-                });
-              },
+              onSelectionChanged: widget.lockProvider
+                  ? null
+                  : (selected) {
+                      setState(() {
+                        _provider = selected.first;
+                      });
+                    },
               style: SegmentedButton.styleFrom(
                 visualDensity: VisualDensity.compact,
                 backgroundColor: colorScheme.surfaceContainerLow,

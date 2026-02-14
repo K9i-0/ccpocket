@@ -419,6 +419,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
   Future<NewSessionParams?> _openNewSessionSheet({
     NewSessionParams? initialParams,
+    bool lockProvider = false,
   }) async {
     final sessions =
         widget.debugRecentSessions ??
@@ -431,6 +432,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
       projectHistory: history,
       bridge: bridge,
       initialParams: initialParams,
+      lockProvider: lockProvider,
     );
   }
 
@@ -557,15 +559,18 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
     if (action == 'start_same') {
       final params = _newSessionFromRecentSession(session);
-      await _saveSessionStartDefaults(params);
-      if (!mounted) return;
+      // Don't save as defaults — these are session-specific settings from a
+      // recent session, not user-chosen defaults for future sessions.
       _startNewSession(params);
       return;
     }
 
     if (action == 'start_edit') {
       final initialParams = _newSessionFromRecentSession(session);
-      final edited = await _openNewSessionSheet(initialParams: initialParams);
+      final edited = await _openNewSessionSheet(
+        initialParams: initialParams,
+        lockProvider: true,
+      );
       if (edited == null || !mounted) return;
       await _saveSessionStartDefaults(edited);
       if (!mounted) return;
