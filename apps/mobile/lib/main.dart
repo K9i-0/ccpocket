@@ -166,8 +166,13 @@ class _CcpocketAppState extends State<CcpocketApp> {
 
   void _handleUri(Uri uri) {
     final params = ConnectionUrlParser.parse(uri.toString());
-    if (params != null) {
-      _deepLinkNotifier.value = params;
+    if (params == null) return;
+
+    switch (params) {
+      case ConnectionParams():
+        _deepLinkNotifier.value = params;
+      case SessionLinkParams(:final sessionId):
+        _appRouter.push(ClaudeCodeSessionRoute(sessionId: sessionId));
     }
   }
 
