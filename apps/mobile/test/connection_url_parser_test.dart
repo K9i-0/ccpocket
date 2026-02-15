@@ -26,8 +26,7 @@ void main() {
 
       test('parses ws:// without port', () {
         final result =
-            ConnectionUrlParser.parse('ws://192.168.1.1')
-                as ConnectionParams?;
+            ConnectionUrlParser.parse('ws://192.168.1.1') as ConnectionParams?;
 
         expect(result, isNotNull);
         expect(result!.serverUrl, 'ws://192.168.1.1');
@@ -46,8 +45,7 @@ void main() {
     group('bare host:port', () {
       test('parses IP:port and prepends ws://', () {
         final result =
-            ConnectionUrlParser.parse('192.168.1.1:8765')
-                as ConnectionParams?;
+            ConnectionUrlParser.parse('192.168.1.1:8765') as ConnectionParams?;
 
         expect(result, isNotNull);
         expect(result!.serverUrl, 'ws://192.168.1.1:8765');
@@ -56,8 +54,7 @@ void main() {
 
       test('parses hostname:port', () {
         final result =
-            ConnectionUrlParser.parse('my-server:8765')
-                as ConnectionParams?;
+            ConnectionUrlParser.parse('my-server:8765') as ConnectionParams?;
 
         expect(result, isNotNull);
         expect(result!.serverUrl, 'ws://my-server:8765');
@@ -65,8 +62,7 @@ void main() {
 
       test('parses Tailscale IP:port', () {
         final result =
-            ConnectionUrlParser.parse('100.64.0.1:8765')
-                as ConnectionParams?;
+            ConnectionUrlParser.parse('100.64.0.1:8765') as ConnectionParams?;
 
         expect(result, isNotNull);
         expect(result!.serverUrl, 'ws://100.64.0.1:8765');
@@ -74,8 +70,7 @@ void main() {
 
       test('parses localhost:port', () {
         final result =
-            ConnectionUrlParser.parse('localhost:8765')
-                as ConnectionParams?;
+            ConnectionUrlParser.parse('localhost:8765') as ConnectionParams?;
 
         expect(result, isNotNull);
         expect(result!.serverUrl, 'ws://localhost:8765');
@@ -84,9 +79,11 @@ void main() {
 
     group('deep link - connect (ccpocket://connect)', () {
       test('parses deep link with url and token', () {
-        final result = ConnectionUrlParser.parse(
-          'ccpocket://connect?url=ws://192.168.1.1:8765&token=my-secret',
-        ) as ConnectionParams?;
+        final result =
+            ConnectionUrlParser.parse(
+                  'ccpocket://connect?url=ws://192.168.1.1:8765&token=my-secret',
+                )
+                as ConnectionParams?;
 
         expect(result, isNotNull);
         expect(result!.serverUrl, 'ws://192.168.1.1:8765');
@@ -94,9 +91,11 @@ void main() {
       });
 
       test('parses deep link with url only (no token)', () {
-        final result = ConnectionUrlParser.parse(
-          'ccpocket://connect?url=ws://192.168.1.1:8765',
-        ) as ConnectionParams?;
+        final result =
+            ConnectionUrlParser.parse(
+                  'ccpocket://connect?url=ws://192.168.1.1:8765',
+                )
+                as ConnectionParams?;
 
         expect(result, isNotNull);
         expect(result!.serverUrl, 'ws://192.168.1.1:8765');
@@ -118,9 +117,11 @@ void main() {
       });
 
       test('treats empty token as null', () {
-        final result = ConnectionUrlParser.parse(
-          'ccpocket://connect?url=ws://192.168.1.1:8765&token=',
-        ) as ConnectionParams?;
+        final result =
+            ConnectionUrlParser.parse(
+                  'ccpocket://connect?url=ws://192.168.1.1:8765&token=',
+                )
+                as ConnectionParams?;
 
         expect(result, isNotNull);
         expect(result!.token, isNull);
@@ -129,24 +130,23 @@ void main() {
 
     group('deep link - session (ccpocket://session)', () {
       test('parses session link with sessionId', () {
-        final result = ConnectionUrlParser.parse(
-          'ccpocket://session/abc-123-def',
-        ) as SessionLinkParams?;
+        final result =
+            ConnectionUrlParser.parse('ccpocket://session/abc-123-def')
+                as SessionLinkParams?;
 
         expect(result, isNotNull);
         expect(result!.sessionId, 'abc-123-def');
       });
 
       test('parses session link with UUID sessionId', () {
-        final result = ConnectionUrlParser.parse(
-          'ccpocket://session/550e8400-e29b-41d4-a716-446655440000',
-        ) as SessionLinkParams?;
+        final result =
+            ConnectionUrlParser.parse(
+                  'ccpocket://session/550e8400-e29b-41d4-a716-446655440000',
+                )
+                as SessionLinkParams?;
 
         expect(result, isNotNull);
-        expect(
-          result!.sessionId,
-          '550e8400-e29b-41d4-a716-446655440000',
-        );
+        expect(result!.sessionId, '550e8400-e29b-41d4-a716-446655440000');
       });
 
       test('returns null for session link without sessionId', () {

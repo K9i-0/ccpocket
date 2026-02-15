@@ -137,9 +137,7 @@ class ApprovalBar extends StatelessWidget {
     return Container(
       key: const ValueKey('keep_planning_card'),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: cs.outline.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
@@ -191,8 +189,7 @@ class ApprovalBar extends StatelessWidget {
                 icon: Icon(Icons.send, size: 20, color: cs.primary),
                 tooltip: 'Send feedback & keep planning',
                 onPressed: onReject,
-                constraints:
-                    const BoxConstraints(minWidth: 40, minHeight: 40),
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 padding: EdgeInsets.zero,
               ),
             ],
@@ -213,10 +210,7 @@ class ApprovalBar extends StatelessWidget {
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
               ),
-              child: const Text(
-                'Accept Plan',
-                style: TextStyle(fontSize: 13),
-              ),
+              child: const Text('Accept Plan', style: TextStyle(fontSize: 13)),
             ),
           ),
           if (onApproveClearContext != null) ...[

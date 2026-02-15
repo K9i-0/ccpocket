@@ -241,8 +241,9 @@ class ChatMessageHandler {
   ChatStateUpdate _handlePastHistory(List<PastMessage> messages) {
     final entries = <ChatEntry>[];
     for (final m in messages) {
-      final ts =
-          m.timestamp != null ? DateTime.tryParse(m.timestamp!)?.toLocal() : null;
+      final ts = m.timestamp != null
+          ? DateTime.tryParse(m.timestamp!)?.toLocal()
+          : null;
       if (m.role == 'user') {
         final texts = m.content
             .whereType<TextContent>()

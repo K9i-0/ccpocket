@@ -901,8 +901,9 @@ class PastMessage {
     final List<AssistantContent> contentList;
     if (rawContent is String) {
       // Handle string content (e.g. user message after interrupt)
-      contentList =
-          rawContent.isNotEmpty ? [TextContent(text: rawContent)] : [];
+      contentList = rawContent.isNotEmpty
+          ? [TextContent(text: rawContent)]
+          : [];
     } else {
       contentList = (rawContent as List? ?? [])
           .map((c) => AssistantContent.fromJson(c as Map<String, dynamic>))

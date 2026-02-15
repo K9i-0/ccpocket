@@ -79,19 +79,18 @@ void main() {
       );
     });
 
-    patrolWidgetTest(
-      'C4: Accept & Clear button exists for plan approval',
-      ($) async {
-        final bridge = MockBridgeService();
-        await setupPlanApproval($, bridge);
+    patrolWidgetTest('C4: Accept & Clear button exists for plan approval', (
+      $,
+    ) async {
+      final bridge = MockBridgeService();
+      await setupPlanApproval($, bridge);
 
-        final buttonFinder = find.byKey(
-          const ValueKey('approve_clear_context_button'),
-        );
-        expect($(buttonFinder), findsOneWidget);
-        expect(find.text('Accept & Clear'), findsOneWidget);
-      },
-    );
+      final buttonFinder = find.byKey(
+        const ValueKey('approve_clear_context_button'),
+      );
+      expect($(buttonFinder), findsOneWidget);
+      expect(find.text('Accept & Clear'), findsOneWidget);
+    });
 
     patrolWidgetTest('C5: Accept Plan sends approve', ($) async {
       final bridge = MockBridgeService();
@@ -127,23 +126,20 @@ void main() {
       },
     );
 
-    patrolWidgetTest(
-      'C7: Accept & Clear sends clearContext: true',
-      ($) async {
-        final bridge = MockBridgeService();
-        await setupPlanApproval($, bridge);
+    patrolWidgetTest('C7: Accept & Clear sends clearContext: true', ($) async {
+      final bridge = MockBridgeService();
+      await setupPlanApproval($, bridge);
 
-        // Tap "Accept & Clear" button
-        await $.tester.tap(
-          find.byKey(const ValueKey('approve_clear_context_button')),
-        );
-        await pumpN($.tester);
+      // Tap "Accept & Clear" button
+      await $.tester.tap(
+        find.byKey(const ValueKey('approve_clear_context_button')),
+      );
+      await pumpN($.tester);
 
-        final msg = findSentMessage(bridge, 'approve');
-        expect(msg, isNotNull);
-        expect(msg!['clearContext'], true);
-      },
-    );
+      final msg = findSentMessage(bridge, 'approve');
+      expect(msg, isNotNull);
+      expect(msg!['clearContext'], true);
+    });
 
     patrolWidgetTest('C8: View Plan button exists', ($) async {
       final bridge = MockBridgeService();

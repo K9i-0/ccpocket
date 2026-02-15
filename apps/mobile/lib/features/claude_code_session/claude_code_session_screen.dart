@@ -617,8 +617,9 @@ class _ChatScreenBody extends HookWidget {
                     onApprove: approveToolUse,
                     onReject: rejectToolUse,
                     onApproveAlways: approveAlwaysToolUse,
-                    onApproveClearContext:
-                        isPlanApproval ? approveWithClearContext : null,
+                    onApproveClearContext: isPlanApproval
+                        ? approveWithClearContext
+                        : null,
                     onViewPlan: isPlanApproval
                         ? () async {
                             final originalText = _extractPlanText(

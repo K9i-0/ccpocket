@@ -98,14 +98,8 @@ void main() {
       );
 
       // Feedback input is inside the Keep Planning card
-      expect(
-        find.byKey(const ValueKey('keep_planning_card')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('plan_feedback_input')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('keep_planning_card')), findsOneWidget);
+      expect(find.byKey(const ValueKey('plan_feedback_input')), findsOneWidget);
     });
 
     testWidgets('hides feedback field for regular approval', (tester) async {
@@ -246,9 +240,7 @@ void main() {
       );
     });
 
-    testWidgets('hides View Plan button for regular approval', (
-      tester,
-    ) async {
+    testWidgets('hides View Plan button for regular approval', (tester) async {
       await tester.pumpWidget(
         buildSubject(
           pendingPermission: const PermissionRequestMessage(
