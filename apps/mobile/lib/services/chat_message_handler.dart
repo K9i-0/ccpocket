@@ -113,6 +113,7 @@ class ChatMessageHandler {
         :final text,
         :final userMessageUuid,
         :final isSynthetic,
+        :final isMeta,
       ):
         // Skip synthetic messages (e.g. plan approval, Task agent prompts)
         if (isSynthetic) return const ChatStateUpdate();
@@ -123,6 +124,7 @@ class ChatMessageHandler {
               text,
               status: MessageStatus.sent,
               messageUuid: userMessageUuid,
+              isMeta: isMeta,
             ),
           ],
         );
@@ -245,11 +247,13 @@ class ChatMessageHandler {
             .map((c) => c.text)
             .toList();
         if (texts.isNotEmpty) {
+          final joined = texts.join('\n');
           entries.add(
             UserChatEntry(
-              texts.join('\n'),
+              joined,
               status: MessageStatus.sent,
               messageUuid: m.uuid,
+              isMeta: joined.startsWith('Base directory for this skill:'),
             ),
           );
         }
@@ -295,6 +299,7 @@ class ChatMessageHandler {
             m.text,
             status: MessageStatus.sent,
             messageUuid: m.userMessageUuid,
+            isMeta: m.isMeta,
           ),
         );
       } else {

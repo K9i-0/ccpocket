@@ -5,9 +5,21 @@ import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 
+/// Pattern to extract a skill name from a skill loading prompt.
+/// Matches `Base directory for this skill: .../.claude/skills/{name}`
+final _skillPathPattern = RegExp(r'\.claude/skills/([^/\s]+)');
+
+/// Extract the skill name from a meta message, or return null.
+String? _extractSkillName(String text) {
+  if (!text.startsWith('Base directory for this skill:')) return null;
+  final match = _skillPathPattern.firstMatch(text);
+  return match?.group(1);
+}
+
 class UserBubble extends StatelessWidget {
   final String text;
   final MessageStatus status;
+  final bool isMeta;
   final VoidCallback? onRetry;
   final VoidCallback? onRewind;
   final String? imageUrl;
@@ -17,6 +29,7 @@ class UserBubble extends StatelessWidget {
     super.key,
     required this.text,
     this.status = MessageStatus.sent,
+    this.isMeta = false,
     this.onRetry,
     this.onRewind,
     this.imageUrl,
@@ -26,6 +39,12 @@ class UserBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Detect skill loading prompt
+    final skillName = isMeta ? _extractSkillName(text) : null;
+    if (skillName != null) {
+      return _buildSkillChip(context, skillName);
+    }
+
     final appColors = Theme.of(context).extension<AppColors>()!;
     return Align(
       alignment: Alignment.centerRight,
@@ -104,6 +123,32 @@ class UserBubble extends StatelessWidget {
               child: _buildStatusIndicator(context, appColors),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Compact chip for skill loading prompts (e.g. "/self-review").
+  Widget _buildSkillChip(BuildContext context, String skillName) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        margin: const EdgeInsets.symmetric(
+          vertical: 2,
+          horizontal: AppSpacing.bubbleMarginH,
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+        decoration: BoxDecoration(
+          color: appColors.userBubble.withAlpha(128),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          '/$skillName',
+          style: TextStyle(
+            color: appColors.userBubbleText.withAlpha(200),
+            fontSize: 13,
+          ),
         ),
       ),
     );

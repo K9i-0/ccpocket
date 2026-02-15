@@ -158,7 +158,7 @@ export type ServerMessage =
   | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] }
   | { type: "rewind_preview"; canRewind: boolean; filesChanged?: string[]; insertions?: number; deletions?: number; error?: string }
   | { type: "rewind_result"; success: boolean; mode: "conversation" | "code" | "both"; error?: string }
-  | { type: "user_input"; text: string; userMessageUuid?: string; isSynthetic?: boolean }
+  | { type: "user_input"; text: string; userMessageUuid?: string; isSynthetic?: boolean; isMeta?: boolean }
   | { type: "window_list"; windows: WindowInfo[] }
   | { type: "screenshot_result"; success: boolean; image?: GalleryImageInfo; error?: string }
   | {
