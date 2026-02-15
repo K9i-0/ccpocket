@@ -1033,6 +1033,29 @@ class SessionInfo {
     this.codexWebSearchMode,
   });
 
+  SessionInfo copyWith({String? status}) {
+    return SessionInfo(
+      id: id,
+      provider: provider,
+      projectPath: projectPath,
+      claudeSessionId: claudeSessionId,
+      status: status ?? this.status,
+      createdAt: createdAt,
+      lastActivityAt: lastActivityAt,
+      gitBranch: gitBranch,
+      lastMessage: lastMessage,
+      messageCount: messageCount,
+      worktreePath: worktreePath,
+      worktreeBranch: worktreeBranch,
+      codexApprovalPolicy: codexApprovalPolicy,
+      codexSandboxMode: codexSandboxMode,
+      codexModel: codexModel,
+      codexModelReasoningEffort: codexModelReasoningEffort,
+      codexNetworkAccessEnabled: codexNetworkAccessEnabled,
+      codexWebSearchMode: codexWebSearchMode,
+    );
+  }
+
   factory SessionInfo.fromJson(Map<String, dynamic> json) {
     final codexSettings = json['codexSettings'] as Map<String, dynamic>?;
     return SessionInfo(

@@ -166,6 +166,14 @@ class BridgeService implements BridgeServiceBase {
                 _debugBundleController.add(msg);
               case WorktreeRemovedMessage():
                 _messageController.add(msg);
+              case StatusMessage(:final status):
+                // Patch cached session list so the session list screen
+                // reflects status changes in real-time.
+                if (sessionId != null) {
+                  _patchSessionStatus(sessionId, status);
+                }
+                _taggedMessageController.add((msg, sessionId));
+                _messageController.add(msg);
               default:
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
@@ -395,6 +403,24 @@ class BridgeService implements BridgeServiceBase {
 
   void unregisterPushToken(String token) {
     send(ClientMessage.pushUnregister(token));
+  }
+
+  /// Update the cached [_sessions] list when a [StatusMessage] arrives,
+  /// so the session list screen reflects the change in real-time.
+  void _patchSessionStatus(String sessionId, ProcessStatus status) {
+    final statusStr = switch (status) {
+      ProcessStatus.starting => 'starting',
+      ProcessStatus.idle => 'idle',
+      ProcessStatus.running => 'running',
+      ProcessStatus.waitingApproval => 'waiting_approval',
+      ProcessStatus.clearing => 'clearing',
+    };
+    final idx = _sessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) return;
+    if (_sessions[idx].status == statusStr) return;
+    _sessions = List.of(_sessions)
+      ..[idx] = _sessions[idx].copyWith(status: statusStr);
+    _sessionListController.add(_sessions);
   }
 
   @override
