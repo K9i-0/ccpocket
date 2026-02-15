@@ -225,8 +225,9 @@ export class BridgeWebSocketServer {
         }
         const text = msg.text;
 
-        // Check if the process is ready to accept input
-        if (!session.process.isWaitingForInput) {
+        // Codex: reject if the process is not waiting for input (turn-based, no internal queue)
+        // SDK (Claude Code): always accept — the async generator keeps the resolver set during processing
+        if (session.provider === "codex" && !session.process.isWaitingForInput) {
           this.send(ws, { type: "input_rejected", sessionId: session.id, reason: "Process is busy" });
           break;
         }

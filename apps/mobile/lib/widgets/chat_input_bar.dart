@@ -319,7 +319,7 @@ class ChatInputBar extends StatelessWidget {
     if (status == ProcessStatus.starting) {
       return _buildSendButton(cs, enabled: false);
     }
-    if (status != ProcessStatus.idle) {
+    if (status != ProcessStatus.idle && !hasInputText) {
       return _buildStopButton(cs);
     }
     return _buildSendButton(cs, enabled: hasInputText);
