@@ -9,11 +9,13 @@ import '../../../hooks/use_list_auto_complete.dart';
 import '../../../hooks/use_voice_input.dart';
 import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
+import '../../../services/prompt_history_service.dart';
 import '../../../utils/diff_parser.dart';
 import '../../../widgets/chat_input_bar.dart';
 import '../../../widgets/file_mention_overlay.dart';
 import '../../../widgets/slash_command_overlay.dart';
 import '../../../services/draft_service.dart';
+import '../../prompt_history/widgets/prompt_history_sheet.dart';
 import '../../../widgets/slash_command_sheet.dart'
     show
         SlashCommand,
@@ -238,14 +240,26 @@ class ChatInputWithOverlays extends HookWidget {
         }
       }
 
+      final messageToSend = finalText.isEmpty
+          ? 'What is in this image?'
+          : finalText;
       cubit.sendMessage(
-        finalText.isEmpty ? 'What is in this image?' : finalText,
+        messageToSend,
         imageBytes: imageBytes,
         imageMimeType: mimeType,
       );
       inputController.clear();
       context.read<DraftService>().deleteDraft(sessionId);
       onScrollToBottom();
+
+      // Record prompt in history (skip auto-generated fallback text)
+      if (finalText.isNotEmpty) {
+        final projectPath = cubit.state.projectPath ?? '';
+        context.read<PromptHistoryService>().recordPrompt(
+          finalText,
+          projectPath: projectPath,
+        );
+      }
     }
 
     Future<void> pickImageFromGallery() async {
@@ -416,6 +430,28 @@ class ChatInputWithOverlays extends HookWidget {
       );
     }
 
+    void showPromptHistory() {
+      final service = context.read<PromptHistoryService>();
+      final projectPath = context.read<ChatSessionCubit>().state.projectPath;
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        builder: (_) => PromptHistorySheet(
+          service: service,
+          currentProjectPath: projectPath,
+          onSelect: (text) {
+            inputController.text = text;
+            inputController.selection = TextSelection.fromPosition(
+              TextPosition(offset: text.length),
+            );
+          },
+        ),
+      );
+    }
+
     void showModeMenu() {
       if (isCodex) {
         final items = <({String command, String title, String subtitle})>[
@@ -552,6 +588,7 @@ class ChatInputWithOverlays extends HookWidget {
             onToggleVoice: voice.toggle,
             onShowSlashCommands: showSlashCommandSheet,
             onShowModeMenu: showModeMenu,
+            onShowPromptHistory: showPromptHistory,
             onAttachImage: showAttachOptions,
             attachedImageBytes: attachedImage.value,
             onClearAttachment: clearAttachment,

@@ -18,9 +18,11 @@ import 'providers/server_discovery_cubit.dart';
 import 'router/app_router.dart';
 import 'services/bridge_service.dart';
 import 'services/connection_url_parser.dart';
+import 'services/database_service.dart';
 import 'services/draft_service.dart';
 import 'services/machine_manager_service.dart';
 import 'services/notification_service.dart';
+import 'services/prompt_history_service.dart';
 import 'services/ssh_startup_service.dart';
 import 'theme/app_theme.dart';
 
@@ -50,11 +52,16 @@ void main() async {
 
   final bridge = BridgeService();
   final draftService = DraftService(prefs);
+  final dbService = DatabaseService();
+  final promptHistoryService = PromptHistoryService(dbService);
   runApp(
     MultiRepositoryProvider(
       providers: [
         RepositoryProvider<BridgeService>.value(value: bridge),
         RepositoryProvider<DraftService>.value(value: draftService),
+        RepositoryProvider<PromptHistoryService>.value(
+          value: promptHistoryService,
+        ),
         RepositoryProvider<MachineManagerService>.value(
           value: machineManagerService,
         ),

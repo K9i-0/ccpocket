@@ -5,7 +5,9 @@ import 'package:ccpocket/features/claude_code_session/claude_code_session_screen
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/services/bridge_service.dart';
+import 'package:ccpocket/services/database_service.dart';
 import 'package:ccpocket/services/draft_service.dart';
+import 'package:ccpocket/services/prompt_history_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
@@ -110,6 +112,9 @@ Future<Widget> buildTestClaudeCodeSessionScreen({
       providers: [
         RepositoryProvider<BridgeService>.value(value: bridge),
         RepositoryProvider<DraftService>.value(value: DraftService(prefs)),
+        RepositoryProvider<PromptHistoryService>.value(
+          value: PromptHistoryService(DatabaseService()),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
