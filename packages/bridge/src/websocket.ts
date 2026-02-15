@@ -15,6 +15,7 @@ import { listWorktrees, removeWorktree, createWorktree, worktreeExists } from ".
 import { listWindows, takeScreenshot } from "./screenshot.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
 import { PushRelayClient } from "./push-relay.js";
+import { fetchAllUsage } from "./usage.js";
 
 export interface BridgeServerOptions {
   server: HttpServer;
@@ -520,6 +521,15 @@ export class BridgeWebSocketServer {
         const cwd = session.worktreePath ?? session.projectPath;
         this.collectGitDiff(cwd, ({ diff, error }) => {
           emitBundle(diff, error);
+        });
+        break;
+      }
+
+      case "get_usage": {
+        fetchAllUsage().then((providers) => {
+          this.send(ws, { type: "usage_result", providers } as Record<string, unknown>);
+        }).catch((err) => {
+          this.send(ws, { type: "error", message: `Failed to fetch usage: ${err}` });
         });
         break;
       }
@@ -1150,6 +1160,8 @@ export class BridgeWebSocketServer {
         return `sessionId=${msg.sessionId} provider=${msg.provider ?? "claude"}`;
       case "get_debug_bundle":
         return `traceLimit=${msg.traceLimit ?? BridgeWebSocketServer.MAX_DEBUG_EVENTS} includeDiff=${msg.includeDiff ?? true}`;
+      case "get_usage":
+        return "get_usage";
       default:
         return msg.type;
     }

@@ -114,7 +114,8 @@ export type ClientMessage =
   | { type: "rewind_dry_run"; sessionId: string; targetUuid: string }
   | { type: "list_windows" }
   | { type: "take_screenshot"; mode: "fullscreen" | "window"; windowId?: number; projectPath: string; sessionId?: string }
-  | { type: "get_debug_bundle"; sessionId: string; traceLimit?: number; includeDiff?: boolean };
+  | { type: "get_debug_bundle"; sessionId: string; traceLimit?: number; includeDiff?: boolean }
+  | { type: "get_usage" };
 
 export interface DebugTraceEvent {
   ts: string;
@@ -192,7 +193,20 @@ export type ServerMessage =
       diff: string;
       diffError?: string;
       savedBundlePath?: string;
-    };
+    }
+  | { type: "usage_result"; providers: UsageInfoPayload[] };
+
+export interface UsageWindowPayload {
+  utilization: number;
+  resetsAt: string;
+}
+
+export interface UsageInfoPayload {
+  provider: "claude" | "codex";
+  fiveHour: UsageWindowPayload | null;
+  sevenDay: UsageWindowPayload | null;
+  error?: string;
+}
 
 export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval" | "clearing";
 
@@ -347,6 +361,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (typeof msg.sessionId !== "string") return null;
         if (msg.traceLimit !== undefined && typeof msg.traceLimit !== "number") return null;
         if (msg.includeDiff !== undefined && typeof msg.includeDiff !== "boolean") return null;
+        break;
+      case "get_usage":
         break;
       default:
         return null;

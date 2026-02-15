@@ -5,10 +5,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
 
 import '../../router/app_router.dart';
+import '../../services/bridge_service.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
 import 'widgets/speech_locale_bottom_sheet.dart';
 import 'widgets/theme_bottom_sheet.dart';
+import 'widgets/usage_section.dart';
 
 @RoutePage()
 class SettingsScreen extends StatelessWidget {
@@ -79,6 +81,10 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 8),
+
+              // ── Usage ──
+              UsageSection(bridgeService: context.read<BridgeService>()),
               const SizedBox(height: 8),
 
               // ── About ──

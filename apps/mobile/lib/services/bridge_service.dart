@@ -32,6 +32,7 @@ class BridgeService implements BridgeServiceBase {
       StreamController<ScreenshotResultMessage>.broadcast();
   final _debugBundleController =
       StreamController<DebugBundleMessage>.broadcast();
+  final _usageController = StreamController<UsageResultMessage>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
@@ -73,6 +74,7 @@ class BridgeService implements BridgeServiceBase {
   Stream<ScreenshotResultMessage> get screenshotResults =>
       _screenshotResultController.stream;
   Stream<DebugBundleMessage> get debugBundles => _debugBundleController.stream;
+  Stream<UsageResultMessage> get usageResults => _usageController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
@@ -164,6 +166,8 @@ class BridgeService implements BridgeServiceBase {
                 _screenshotResultController.add(msg);
               case DebugBundleMessage():
                 _debugBundleController.add(msg);
+              case UsageResultMessage():
+                _usageController.add(msg);
               case WorktreeRemovedMessage():
                 _messageController.add(msg);
               case StatusMessage(:final status):
@@ -349,6 +353,10 @@ class BridgeService implements BridgeServiceBase {
         includeDiff: includeDiff,
       ),
     );
+  }
+
+  void requestUsage() {
+    send(ClientMessage.getUsage());
   }
 
   void removeProjectHistory(String path) {
@@ -583,5 +591,6 @@ class BridgeService implements BridgeServiceBase {
     _windowListController.close();
     _screenshotResultController.close();
     _debugBundleController.close();
+    _usageController.close();
   }
 }

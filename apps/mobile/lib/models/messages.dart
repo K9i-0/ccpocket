@@ -262,6 +262,55 @@ class GalleryImage {
   }
 }
 
+// ---- Usage info ----
+
+class UsageWindow {
+  final double utilization;
+  final String resetsAt;
+
+  const UsageWindow({required this.utilization, required this.resetsAt});
+
+  factory UsageWindow.fromJson(Map<String, dynamic> json) {
+    return UsageWindow(
+      utilization: (json['utilization'] as num).toDouble(),
+      resetsAt: json['resetsAt'] as String,
+    );
+  }
+
+  /// Parse resetsAt as DateTime (ISO 8601).
+  DateTime? get resetsAtDateTime => DateTime.tryParse(resetsAt);
+}
+
+class UsageInfo {
+  final String provider;
+  final UsageWindow? fiveHour;
+  final UsageWindow? sevenDay;
+  final String? error;
+
+  const UsageInfo({
+    required this.provider,
+    this.fiveHour,
+    this.sevenDay,
+    this.error,
+  });
+
+  factory UsageInfo.fromJson(Map<String, dynamic> json) {
+    return UsageInfo(
+      provider: json['provider'] as String,
+      fiveHour: json['fiveHour'] != null
+          ? UsageWindow.fromJson(json['fiveHour'] as Map<String, dynamic>)
+          : null,
+      sevenDay: json['sevenDay'] != null
+          ? UsageWindow.fromJson(json['sevenDay'] as Map<String, dynamic>)
+          : null,
+      error: json['error'] as String?,
+    );
+  }
+
+  bool get hasData => fiveHour != null || sevenDay != null;
+  bool get hasError => error != null && !hasData;
+}
+
 // ---- Helpers ----
 
 /// Normalize tool_result content: Claude CLI may send String or List of content blocks.
@@ -455,6 +504,11 @@ sealed class ServerMessage {
       'input_rejected' => InputRejectedMessage(
         sessionId: json['sessionId'] as String?,
         reason: json['reason'] as String?,
+      ),
+      'usage_result' => UsageResultMessage(
+        providers: (json['providers'] as List)
+            .map((p) => UsageInfo.fromJson(p as Map<String, dynamic>))
+            .toList(),
       ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
@@ -882,6 +936,11 @@ class InputRejectedMessage implements ServerMessage {
   final String? sessionId;
   final String? reason;
   const InputRejectedMessage({this.sessionId, this.reason});
+}
+
+class UsageResultMessage implements ServerMessage {
+  final List<UsageInfo> providers;
+  const UsageResultMessage({required this.providers});
 }
 
 class PastMessage {
@@ -1374,6 +1433,8 @@ class ClientMessage {
 
   factory ClientMessage.listWindows() =>
       ClientMessage._({'type': 'list_windows'});
+
+  factory ClientMessage.getUsage() => ClientMessage._({'type': 'get_usage'});
 
   factory ClientMessage.takeScreenshot({
     required String mode,
