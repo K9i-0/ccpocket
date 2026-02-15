@@ -10,12 +10,13 @@ import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../providers/machine_manager_cubit.dart';
 import '../../providers/server_discovery_cubit.dart';
-import '../../router/app_router.dart';
 import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/server_discovery_service.dart';
 import '../session_list/widgets/connect_form.dart';
 import '../session_list/widgets/machine_edit_sheet.dart';
+import '../../screens/qr_scan_screen.dart';
+import '../settings/settings_screen.dart';
 
 /// Screen shown when the app is not connected to a Bridge server.
 ///
@@ -262,8 +263,10 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
   }
 
   Future<void> _scanQrCode() async {
-    final result = await context.router.push<ConnectionParams>(
-      const QrScanRoute(),
+    final result = await Navigator.of(context).push<ConnectionParams>(
+      MaterialPageRoute<ConnectionParams>(
+        builder: (_) => const QrScanScreen(),
+      ),
     );
     if (result != null && mounted) {
       _urlController.text = result.serverUrl;
@@ -535,7 +538,13 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
             IconButton(
               key: const ValueKey('settings_button'),
               icon: const Icon(Icons.settings),
-              onPressed: () => context.router.push(const SettingsRoute()),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SettingsScreen(),
+                  ),
+                );
+              },
               tooltip: 'Settings',
             ),
           ],

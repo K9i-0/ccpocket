@@ -53,7 +53,14 @@ class ConnectionGuard extends AutoRouteGuard {
     if (isConnected) {
       resolver.next();
     } else {
-      router.push(ConnectionRoute());
+      // Only push ConnectionRoute if we're not already showing it.
+      // Without this check, reevaluateListenable would repeatedly push
+      // ConnectionRoute, wiping out any routes pushed from ConnectionScreen
+      // (e.g. SettingsRoute).
+      final currentPath = router.current.name;
+      if (currentPath != ConnectionRoute.name) {
+        router.push(ConnectionRoute());
+      }
       resolver.next(false);
     }
   }
