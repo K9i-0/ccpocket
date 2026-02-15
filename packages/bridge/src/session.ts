@@ -237,7 +237,14 @@ export class SessionManager {
         if (msg.type !== "stream_delta" && msg.type !== "thinking_delta") {
           session.history.push(msg);
           if (session.history.length > MAX_HISTORY_PER_SESSION) {
-            session.history.shift();
+            // Protect user_input messages from eviction so they remain
+            // visible when the client requests history after reconnecting.
+            const idx = session.history.findIndex(m => m.type !== "user_input");
+            if (idx >= 0) {
+              session.history.splice(idx, 1);
+            } else {
+              session.history.shift();
+            }
           }
         }
 

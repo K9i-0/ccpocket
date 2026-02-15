@@ -775,11 +775,26 @@ export async function getSessionHistory(
     if (type !== "user" && type !== "assistant") continue;
 
     const message = entry.message as
-      | { role: string; content: unknown[] }
+      | { role: string; content: unknown[] | string }
       | undefined;
-    if (!message?.content || !Array.isArray(message.content)) continue;
+    if (!message?.content) continue;
 
     const role = message.role as "user" | "assistant";
+
+    // Handle string content (e.g. user message after interrupt)
+    if (typeof message.content === "string") {
+      if (message.content) {
+        const uuid = entry.uuid as string | undefined;
+        messages.push({
+          role,
+          content: [{ type: "text" as const, text: message.content }],
+          ...(uuid ? { uuid } : {}),
+        });
+      }
+      continue;
+    }
+
+    if (!Array.isArray(message.content)) continue;
 
     // Filter content to only text and tool_use (skip tool_result for cleaner display)
     const content: SessionHistoryMessage["content"] = [];
