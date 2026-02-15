@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 
+import '../../../hooks/use_list_auto_complete.dart';
 import '../../../hooks/use_voice_input.dart';
 import '../../../models/messages.dart';
 import '../../../providers/bridge_cubits.dart';
@@ -65,6 +66,9 @@ class ChatInputWithOverlays extends HookWidget {
   Widget build(BuildContext context) {
     // Track if input has text (initialize from controller's current value)
     final hasInputText = useState(inputController.text.trim().isNotEmpty);
+
+    // List auto-complete (Google Keep-style)
+    useListAutoComplete(inputController);
 
     // Voice input
     final voice = useVoiceInput(inputController);
