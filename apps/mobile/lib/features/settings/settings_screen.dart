@@ -49,18 +49,17 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     // Voice Input
                     ListTile(
-                      leading:
-                          Icon(Icons.record_voice_over, color: cs.primary),
+                      leading: Icon(Icons.record_voice_over, color: cs.primary),
                       title: const Text('Voice Input'),
-                      subtitle:
-                          Text(getSpeechLocaleLabel(state.speechLocaleId)),
+                      subtitle: Text(
+                        getSpeechLocaleLabel(state.speechLocaleId),
+                      ),
                       trailing: const Icon(Icons.chevron_right, size: 20),
                       onTap: () => showSpeechLocaleBottomSheet(
                         context: context,
                         current: state.speechLocaleId,
-                        onChanged: (id) => context
-                            .read<SettingsCubit>()
-                            .setSpeechLocaleId(id),
+                        onChanged: (id) =>
+                            context.read<SettingsCubit>().setSpeechLocaleId(id),
                       ),
                     ),
                     Divider(
@@ -121,15 +120,15 @@ class SettingsScreen extends StatelessWidget {
                     Text(
                       'ccpocket',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '\u00a9 2026 K9i',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                          ),
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
                     ),
                   ],
                 ),

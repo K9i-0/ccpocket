@@ -56,9 +56,7 @@ class _LicensesScreenState extends State<LicensesScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Open Source Licenses'),
-      ),
+      appBar: AppBar(title: const Text('Open Source Licenses')),
       body: Column(
         children: [
           // Search bar
@@ -89,15 +87,11 @@ class _LicensesScreenState extends State<LicensesScreen> {
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: cs.outlineVariant,
-                  ),
+                  borderSide: BorderSide(color: cs.outlineVariant),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: cs.outlineVariant,
-                  ),
+                  borderSide: BorderSide(color: cs.outlineVariant),
                 ),
               ),
               style: const TextStyle(fontSize: 14),
@@ -135,8 +129,8 @@ class _FilteredLicenseList extends StatelessWidget {
     final filtered = query.isEmpty
         ? licenses.entries.toList()
         : licenses.entries
-            .where((e) => e.key.toLowerCase().contains(query))
-            .toList();
+              .where((e) => e.key.toLowerCase().contains(query))
+              .toList();
 
     if (filtered.isEmpty) {
       return Center(
@@ -166,17 +160,13 @@ class _LicensePackageTile extends StatelessWidget {
   final String packageName;
   final List<LicenseEntry> entries;
 
-  const _LicensePackageTile({
-    required this.packageName,
-    required this.entries,
-  });
+  const _LicensePackageTile({required this.packageName, required this.entries});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final licenseCount = entries.length;
-    final subtitle =
-        '$licenseCount license${licenseCount == 1 ? '' : 's'}';
+    final subtitle = '$licenseCount license${licenseCount == 1 ? '' : 's'}';
 
     return ExpansionTile(
       title: Text(
@@ -185,10 +175,7 @@ class _LicensePackageTile extends StatelessWidget {
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(
-          fontSize: 12,
-          color: cs.onSurfaceVariant,
-        ),
+        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
       ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
@@ -216,10 +203,7 @@ class _LicenseTextContent extends StatelessWidget {
       children: [
         for (final paragraph in paragraphs)
           Padding(
-            padding: EdgeInsets.only(
-              left: paragraph.indent * 16.0,
-              bottom: 8,
-            ),
+            padding: EdgeInsets.only(left: paragraph.indent * 16.0, bottom: 8),
             child: Text(
               paragraph.text,
               style: TextStyle(

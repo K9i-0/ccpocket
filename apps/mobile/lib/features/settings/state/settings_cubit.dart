@@ -72,9 +72,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     _tokenRefreshSub = _fcmService.onTokenRefresh.listen((token) {
       final previousToken = _fcmService.cacheToken(token);
       _activeToken = token;
-      if (state.fcmEnabled &&
-          previousToken != null &&
-          previousToken != token) {
+      if (state.fcmEnabled && previousToken != null && previousToken != token) {
         bridge.unregisterPushToken(previousToken);
       }
       if (state.fcmEnabled) {

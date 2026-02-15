@@ -63,10 +63,7 @@ class _ThemeBottomSheetContent extends StatelessWidget {
             children: [
               Icon(Icons.palette, color: cs.primary, size: 20),
               const SizedBox(width: 8),
-              Text(
-                'Theme',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              Text('Theme', style: Theme.of(context).textTheme.titleMedium),
             ],
           ),
         ),

@@ -165,8 +165,7 @@ class _HomeContentState extends State<HomeContent> {
                 _SessionDisplayModeToggle(
                   key: const ValueKey('session_display_mode_toggle'),
                   mode: _displayMode,
-                  onChanged: (mode) =>
-                      setState(() => _displayMode = mode),
+                  onChanged: (mode) => setState(() => _displayMode = mode),
                 ),
                 const SizedBox(width: 4),
                 IconButton(
@@ -179,8 +178,10 @@ class _HomeContentState extends State<HomeContent> {
                   onPressed: _toggleSearch,
                   tooltip: 'Search',
                   padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               ],
@@ -282,18 +283,9 @@ class _SessionDisplayModeToggle extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return SegmentedButton<SessionDisplayMode>(
       segments: const [
-        ButtonSegment(
-          value: SessionDisplayMode.first,
-          label: Text('First'),
-        ),
-        ButtonSegment(
-          value: SessionDisplayMode.last,
-          label: Text('Last'),
-        ),
-        ButtonSegment(
-          value: SessionDisplayMode.summary,
-          label: Text('Sum.'),
-        ),
+        ButtonSegment(value: SessionDisplayMode.first, label: Text('First')),
+        ButtonSegment(value: SessionDisplayMode.last, label: Text('Last')),
+        ButtonSegment(value: SessionDisplayMode.summary, label: Text('Sum.')),
       ],
       selected: {mode},
       onSelectionChanged: (s) => onChanged(s.first),

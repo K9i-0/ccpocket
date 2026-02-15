@@ -406,9 +406,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     final branch = _branchController.text.trim();
     final isCodex = _provider == Provider.codex;
     final claudeModel = _claudeModelController.text.trim();
-    final claudeMaxTurns = int.tryParse(
-      _claudeMaxTurnsController.text.trim(),
-    );
+    final claudeMaxTurns = int.tryParse(_claudeMaxTurnsController.text.trim());
     final claudeMaxBudgetUsd = double.tryParse(
       _claudeMaxBudgetController.text.trim(),
     );
@@ -425,8 +423,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       worktreeBranch: useExisting
           ? _selectedWorktree?.branch
           : (branch.isNotEmpty ? branch : null),
-      existingWorktreePath:
-          useExisting ? _selectedWorktree?.worktreePath : null,
+      existingWorktreePath: useExisting
+          ? _selectedWorktree?.worktreePath
+          : null,
       model: isCodex ? _selectedModel : null,
       sandboxMode: isCodex ? _sandboxMode : null,
       approvalPolicy: isCodex ? _approvalPolicy : null,
@@ -437,10 +436,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       claudeEffort: !isCodex ? _claudeEffort : null,
       claudeMaxTurns: !isCodex ? claudeMaxTurns : null,
       claudeMaxBudgetUsd: !isCodex ? claudeMaxBudgetUsd : null,
-      claudeFallbackModel:
-          !isCodex && claudeFallbackModel.isNotEmpty
-              ? claudeFallbackModel
-              : null,
+      claudeFallbackModel: !isCodex && claudeFallbackModel.isNotEmpty
+          ? claudeFallbackModel
+          : null,
       claudeForkSession: !isCodex ? _claudeForkSession : null,
       claudePersistSession: !isCodex ? _claudePersistSession : null,
     );
@@ -960,10 +958,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             .map(
               (m) => DropdownMenuItem(
                 value: m,
-                child: Text(
-                  m.label,
-                  style: const TextStyle(fontSize: 13),
-                ),
+                child: Text(m.label, style: const TextStyle(fontSize: 13)),
               ),
             )
             .toList(),
@@ -1045,10 +1040,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       SwitchListTile(
         key: const ValueKey('dialog_codex_network_access'),
         contentPadding: EdgeInsets.zero,
-        title: const Text(
-          'Network Access',
-          style: TextStyle(fontSize: 13),
-        ),
+        title: const Text('Network Access', style: TextStyle(fontSize: 13)),
         value: _networkAccessEnabled,
         onChanged: (value) {
           setState(() => _networkAccessEnabled = value);
