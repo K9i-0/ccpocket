@@ -887,8 +887,14 @@ class InputRejectedMessage implements ServerMessage {
 class PastMessage {
   final String role;
   final String? uuid;
+  final String? timestamp;
   final List<AssistantContent> content;
-  const PastMessage({required this.role, this.uuid, required this.content});
+  const PastMessage({
+    required this.role,
+    this.uuid,
+    this.timestamp,
+    required this.content,
+  });
 
   factory PastMessage.fromJson(Map<String, dynamic> json) {
     final rawContent = json['content'];
@@ -905,6 +911,7 @@ class PastMessage {
     return PastMessage(
       role: json['role'] as String? ?? '',
       uuid: json['uuid'] as String?,
+      timestamp: json['timestamp'] as String?,
       content: contentList,
     );
   }

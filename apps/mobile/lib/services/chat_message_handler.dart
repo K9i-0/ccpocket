@@ -241,6 +241,8 @@ class ChatMessageHandler {
   ChatStateUpdate _handlePastHistory(List<PastMessage> messages) {
     final entries = <ChatEntry>[];
     for (final m in messages) {
+      final ts =
+          m.timestamp != null ? DateTime.tryParse(m.timestamp!)?.toLocal() : null;
       if (m.role == 'user') {
         final texts = m.content
             .whereType<TextContent>()
@@ -251,6 +253,7 @@ class ChatMessageHandler {
           entries.add(
             UserChatEntry(
               joined,
+              timestamp: ts,
               status: MessageStatus.sent,
               messageUuid: m.uuid,
               isMeta: joined.startsWith('Base directory for this skill:'),
@@ -269,6 +272,7 @@ class ChatMessageHandler {
               ),
               messageUuid: m.uuid,
             ),
+            timestamp: ts,
           ),
         );
       }

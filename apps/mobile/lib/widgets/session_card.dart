@@ -239,7 +239,7 @@ class RunningSessionCard extends StatelessWidget {
   String _formatElapsed(String isoDate) {
     if (isoDate.isEmpty) return '';
     try {
-      final dt = DateTime.parse(isoDate);
+      final dt = DateTime.parse(isoDate).toLocal();
       final diff = DateTime.now().difference(dt);
       if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
       if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
@@ -346,7 +346,7 @@ class RecentSessionCard extends StatelessWidget {
             approvalPolicy: session.codexApprovalPolicy,
           )
         : null;
-    final dateStr = _formatDate(session.modified);
+    final dateStr = _formatDateRange(session.created, session.modified);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 0),
@@ -479,10 +479,48 @@ class RecentSessionCard extends StatelessWidget {
     }
   }
 
+  String _formatDateRange(String createdIso, String modifiedIso) {
+    if (modifiedIso.isEmpty) return _formatDate(createdIso);
+    final modified = _formatDate(modifiedIso);
+    if (createdIso.isEmpty || createdIso == modifiedIso) return modified;
+    try {
+      final first = DateTime.parse(createdIso).toLocal();
+      final last = DateTime.parse(modifiedIso).toLocal();
+      // Same minute → single timestamp
+      if (first.year == last.year &&
+          first.month == last.month &&
+          first.day == last.day &&
+          first.hour == last.hour &&
+          first.minute == last.minute) {
+        return modified;
+      }
+      final firstTime =
+          '${first.hour.toString().padLeft(2, '0')}:${first.minute.toString().padLeft(2, '0')}';
+      final lastTime =
+          '${last.hour.toString().padLeft(2, '0')}:${last.minute.toString().padLeft(2, '0')}';
+      // Same day → "Today 10:00–12:30"
+      if (first.year == last.year &&
+          first.month == last.month &&
+          first.day == last.day) {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final yesterday = today.subtract(const Duration(days: 1));
+        final dtDate = DateTime(first.year, first.month, first.day);
+        if (dtDate == today) return 'Today $firstTime–$lastTime';
+        if (dtDate == yesterday) return 'Yesterday $firstTime–$lastTime';
+        return '${first.month}/${first.day} $firstTime–$lastTime';
+      }
+      // Different days → "1/10 10:00–1/11 12:30"
+      return '${first.month}/${first.day} $firstTime–${last.month}/${last.day} $lastTime';
+    } catch (_) {
+      return modified;
+    }
+  }
+
   String _formatDate(String isoDate) {
     if (isoDate.isEmpty) return '';
     try {
-      final dt = DateTime.parse(isoDate);
+      final dt = DateTime.parse(isoDate).toLocal();
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final yesterday = today.subtract(const Duration(days: 1));

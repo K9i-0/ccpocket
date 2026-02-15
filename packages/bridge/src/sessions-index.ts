@@ -531,6 +531,7 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
 export interface SessionHistoryMessage {
   role: "user" | "assistant";
   uuid?: string;
+  timestamp?: string;
   content: Array<{
     type: string;
     text?: string;
@@ -563,6 +564,7 @@ function appendTextMessage(
   messages: SessionHistoryMessage[],
   role: "user" | "assistant",
   text: string,
+  timestamp?: string,
 ): void {
   const normalized = text.trim();
   if (!normalized) return;
@@ -582,6 +584,7 @@ function appendTextMessage(
   messages.push({
     role,
     content: [{ type: "text", text }],
+    ...(timestamp ? { timestamp } : {}),
   });
 }
 
@@ -785,10 +788,12 @@ export async function getSessionHistory(
     if (typeof message.content === "string") {
       if (message.content) {
         const uuid = entry.uuid as string | undefined;
+        const ts = entry.timestamp as string | undefined;
         messages.push({
           role,
           content: [{ type: "text" as const, text: message.content }],
           ...(uuid ? { uuid } : {}),
+          ...(ts ? { timestamp: ts } : {}),
         });
       }
       continue;
@@ -817,7 +822,8 @@ export async function getSessionHistory(
 
     if (content.length > 0) {
       const uuid = entry.uuid as string | undefined;
-      messages.push({ role, content, ...(uuid ? { uuid } : {}) });
+      const ts = entry.timestamp as string | undefined;
+      messages.push({ role, content, ...(uuid ? { uuid } : {}), ...(ts ? { timestamp: ts } : {}) });
     }
   }
 
@@ -849,6 +855,8 @@ export async function getCodexSessionHistory(
       continue;
     }
 
+    const entryTimestamp = entry.timestamp as string | undefined;
+
     if (entry.type === "event_msg") {
       const payload = asObject(entry.payload);
       if (!payload) continue;
@@ -866,12 +874,12 @@ export async function getCodexSessionHistory(
           : imageCount > 0
             ? `[Image attached${imageCount > 1 ? ` x${imageCount}` : ""}]`
             : "";
-        appendTextMessage(messages, "user", text);
+        appendTextMessage(messages, "user", text, entryTimestamp);
         continue;
       }
 
       if (payload.type === "agent_message" && typeof payload.message === "string") {
-        appendTextMessage(messages, "assistant", payload.message);
+        appendTextMessage(messages, "assistant", payload.message, entryTimestamp);
       }
       continue;
     }
@@ -890,7 +898,7 @@ export async function getCodexSessionHistory(
             .filter((item) => item.type === "output_text" && typeof item.text === "string")
             .map((item) => item.text as string)
             .join("\n");
-          appendTextMessage(messages, "assistant", text);
+          appendTextMessage(messages, "assistant", text, entryTimestamp);
           continue;
         }
 
@@ -900,7 +908,7 @@ export async function getCodexSessionHistory(
             .map((item) => item.text as string)
             .join("\n");
           if (!isCodexInjectedUserContext(text)) {
-            appendTextMessage(messages, "user", text);
+            appendTextMessage(messages, "user", text, entryTimestamp);
           }
           continue;
         }

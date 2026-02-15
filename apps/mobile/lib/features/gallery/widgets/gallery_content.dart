@@ -37,7 +37,7 @@ class GalleryContent extends StatelessWidget {
   }
 
   static String timeAgo(String isoDate) {
-    final date = DateTime.tryParse(isoDate);
+    final date = DateTime.tryParse(isoDate)?.toLocal();
     if (date == null) return '';
     final diff = DateTime.now().difference(date);
     if (diff.inMinutes < 1) return 'now';
