@@ -62,7 +62,7 @@ void main() {
     });
 
     patrolWidgetTest('B3: Three consecutive approvals', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       // Emit 3 tool uses with permission requests

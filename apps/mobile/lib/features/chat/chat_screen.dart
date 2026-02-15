@@ -9,6 +9,7 @@ import '../../hooks/use_scroll_tracking.dart';
 import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../services/bridge_service.dart';
+import '../../services/draft_service.dart';
 import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
@@ -120,8 +121,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _resolveSession(SystemMessage msg) {
     widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
+    final oldId = _sessionId;
+    final newId = msg.sessionId!;
+    // Migrate draft from pending ID to real session ID
+    context.read<DraftService>().migrateDraft(oldId, newId);
     setState(() {
-      _sessionId = msg.sessionId!;
+      _sessionId = newId;
       _worktreePath = msg.worktreePath ?? _worktreePath;
       _gitBranch = msg.worktreeBranch ?? _gitBranch;
       _isPending = false;
@@ -234,6 +239,34 @@ class _ChatScreenBody extends HookWidget {
 
     // Chat input controller (managed here to preserve text across rebuilds)
     final chatInputController = useTextEditingController();
+
+    // --- Draft persistence: restore on mount, auto-save on change ---
+    useEffect(() {
+      final draftService = context.read<DraftService>();
+      final draft = draftService.getDraft(sessionId);
+      if (draft != null && draft.isNotEmpty) {
+        chatInputController.text = draft;
+        chatInputController.selection = TextSelection.collapsed(
+          offset: draft.length,
+        );
+      }
+
+      Timer? debounce;
+      void onChanged() {
+        debounce?.cancel();
+        debounce = Timer(const Duration(milliseconds: 500), () {
+          draftService.saveDraft(sessionId, chatInputController.text);
+        });
+      }
+
+      chatInputController.addListener(onChanged);
+      return () {
+        debounce?.cancel();
+        // Flush current text on dispose (navigating away)
+        draftService.saveDraft(sessionId, chatInputController.text);
+        chatInputController.removeListener(onChanged);
+      };
+    }, [sessionId]);
 
     // Collapse tool results notifier
     final collapseToolResults = useMemoized(() => ValueNotifier<int>(0));

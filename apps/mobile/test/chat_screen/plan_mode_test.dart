@@ -24,7 +24,7 @@ const _planText = '''# Implementation Plan
 - Wire up navigation''';
 
 Future<void> setupPlanApproval(PatrolTester $, MockBridgeService bridge) async {
-  await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+  await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
   await pumpN($.tester);
   await emitAndPump($.tester, bridge, [
     makeEnterPlanMessage('enter-1', 'tool-enter-1'),
@@ -43,7 +43,7 @@ void main() {
   group('Plan Mode', () {
     patrolWidgetTest('C1: PlanModeChip displays when EnterPlanMode', ($) async {
       final bridge = MockBridgeService();
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [

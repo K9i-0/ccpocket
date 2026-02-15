@@ -5,7 +5,9 @@ import 'package:ccpocket/features/chat/chat_screen.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/services/bridge_service.dart';
+import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,15 +97,20 @@ class MockBridgeService extends BridgeService {
 
 const testSessionId = 'test-session';
 
-Widget buildTestChatScreen({
+Future<Widget> buildTestChatScreen({
   required MockBridgeService bridge,
   String sessionId = testSessionId,
   String? projectPath,
-}) {
+}) async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
   return MaterialApp(
     theme: AppTheme.darkTheme,
     home: MultiRepositoryProvider(
-      providers: [RepositoryProvider<BridgeService>.value(value: bridge)],
+      providers: [
+        RepositoryProvider<BridgeService>.value(value: bridge),
+        RepositoryProvider<DraftService>.value(value: DraftService(prefs)),
+      ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<ConnectionCubit>(
@@ -247,7 +254,7 @@ Future<void> setupPlanApproval(
   MockBridgeService bridge, {
   String planText = '# Implementation Plan\n\n## Steps\n- Step 1\n- Step 2',
 }) async {
-  await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+  await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
   await pumpN($.tester);
   await emitAndPump($.tester, bridge, [
     makeEnterPlanMessage('enter-1', 'tool-enter-1'),
@@ -271,7 +278,7 @@ Future<void> setupMultiApproval(
   PatrolTester $,
   MockBridgeService bridge,
 ) async {
-  await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+  await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
   await pumpN($.tester);
   await emitAndPump($.tester, bridge, [
     makeAssistantMessage(

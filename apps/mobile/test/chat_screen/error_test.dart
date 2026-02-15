@@ -18,7 +18,7 @@ void main() {
 
   group('Error display', () {
     patrolWidgetTest('I1: ErrorMessage displays in chat', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -31,7 +31,7 @@ void main() {
     });
 
     patrolWidgetTest('I2: After error, idle restores input', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [

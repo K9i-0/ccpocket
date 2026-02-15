@@ -321,6 +321,7 @@ class RecentSessionCard extends StatelessWidget {
   final VoidCallback? onLongPress;
   final bool hideProjectBadge;
   final SessionDisplayMode displayMode;
+  final String? draftText;
 
   const RecentSessionCard({
     super.key,
@@ -329,6 +330,7 @@ class RecentSessionCard extends StatelessWidget {
     this.onLongPress,
     this.hideProjectBadge = false,
     this.displayMode = SessionDisplayMode.first,
+    this.draftText,
   });
 
   @override
@@ -388,12 +390,39 @@ class RecentSessionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
-            Text(
-              _displayTextForMode(session, displayMode),
-              style: const TextStyle(fontSize: 13),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
+            if (draftText != null && draftText!.isNotEmpty) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2, right: 4),
+                    child: Icon(
+                      Icons.edit_note,
+                      size: 14,
+                      color: appColors.subtleText,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      draftText!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
+                        color: appColors.subtleText,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ] else
+              Text(
+                _displayTextForMode(session, displayMode),
+                style: const TextStyle(fontSize: 13),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             if (codexSummary != null) ...[
               const SizedBox(height: 4),
               Text(

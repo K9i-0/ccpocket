@@ -22,7 +22,7 @@ void main() {
     patrolWidgetTest(
       'K1: Approve then immediate new permission without tool_result',
       ($) async {
-        await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
         await pumpN($.tester);
 
         // Setup single approval
@@ -138,7 +138,7 @@ void main() {
     });
 
     patrolWidgetTest('K4: Five rapid approvals in sequence', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       // Emit 5 tool uses with permissions

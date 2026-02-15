@@ -21,7 +21,7 @@ void main() {
   /// Emit an assistant message with a Bash tool use, a permission request,
   /// and a waitingApproval status so the ApprovalBar becomes visible.
   Future<void> setupApproval(PatrolTester $) async {
-    await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+    await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
     await pumpN($.tester);
     await emitAndPump($.tester, bridge, [
       makeAssistantMessage(

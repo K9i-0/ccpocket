@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../models/messages.dart';
+import '../../../services/draft_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/session_card.dart';
 import '../session_list_screen.dart';
@@ -237,6 +238,9 @@ class _HomeContentState extends State<HomeContent> {
             RecentSessionCard(
               session: session,
               displayMode: _displayMode,
+              draftText: context.read<DraftService>().getDraft(
+                session.sessionId,
+              ),
               onTap: () => widget.onResumeSession(session),
               onLongPress: () => widget.onLongPressRecentSession(session),
               hideProjectBadge: widget.selectedProject != null,

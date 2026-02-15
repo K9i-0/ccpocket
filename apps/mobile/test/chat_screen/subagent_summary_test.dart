@@ -20,7 +20,7 @@ void main() {
     patrolWidgetTest('F1: ToolUseSummaryMessage displays summary text', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -38,7 +38,7 @@ void main() {
     });
 
     patrolWidgetTest('F2: Preceding tool results are hidden', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -57,7 +57,7 @@ void main() {
     });
 
     patrolWidgetTest('F3: Non-hidden tool results display normally', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [

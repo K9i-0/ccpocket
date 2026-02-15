@@ -18,6 +18,7 @@ import 'providers/machine_manager_cubit.dart';
 import 'providers/server_discovery_cubit.dart';
 import 'services/bridge_service.dart';
 import 'services/connection_url_parser.dart';
+import 'services/draft_service.dart';
 import 'services/machine_manager_service.dart';
 import 'services/notification_service.dart';
 import 'services/ssh_startup_service.dart';
@@ -48,10 +49,12 @@ void main() async {
       : SshStartupService(machineManagerService);
 
   final bridge = BridgeService();
+  final draftService = DraftService(prefs);
   runApp(
     MultiRepositoryProvider(
       providers: [
         RepositoryProvider<BridgeService>.value(value: bridge),
+        RepositoryProvider<DraftService>.value(value: draftService),
         RepositoryProvider<MachineManagerService>.value(
           value: machineManagerService,
         ),

@@ -17,7 +17,7 @@ void main() {
 
   group('Usage summary', () {
     patrolWidgetTest('U1: Shows usage from restored history', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [

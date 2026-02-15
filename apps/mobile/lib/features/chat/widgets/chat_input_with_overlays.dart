@@ -12,6 +12,7 @@ import '../../../utils/diff_parser.dart';
 import '../../../widgets/chat_input_bar.dart';
 import '../../../widgets/file_mention_overlay.dart';
 import '../../../widgets/slash_command_overlay.dart';
+import '../../../services/draft_service.dart';
 import '../../../widgets/slash_command_sheet.dart'
     show
         SlashCommand,
@@ -239,6 +240,7 @@ class ChatInputWithOverlays extends HookWidget {
         imageMimeType: mimeType,
       );
       inputController.clear();
+      context.read<DraftService>().deleteDraft(sessionId);
       onScrollToBottom();
     }
 

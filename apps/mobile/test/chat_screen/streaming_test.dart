@@ -20,7 +20,7 @@ void main() {
 
   group('Streaming', () {
     patrolWidgetTest('G1: StreamDelta accumulates text', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -35,7 +35,7 @@ void main() {
     });
 
     patrolWidgetTest('G2: AssistantMessage replaces streaming', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       // First emit stream deltas to show streaming text
@@ -56,7 +56,7 @@ void main() {
     });
 
     patrolWidgetTest('G3: ThinkingDelta accumulates thinking text', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [

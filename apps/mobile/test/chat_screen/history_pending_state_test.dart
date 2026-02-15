@@ -24,7 +24,7 @@ void main() {
     patrolWidgetTest(
       'L1: History with plan approval pending shows plan approval bar',
       ($) async {
-        await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
         await pumpN($.tester);
 
         await emitAndPump($.tester, bridge, [
@@ -55,7 +55,7 @@ void main() {
     patrolWidgetTest(
       'L2: History with AskUserQuestion pending shows question widget',
       ($) async {
-        await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
         await pumpN($.tester);
 
         final question = [
@@ -90,7 +90,7 @@ void main() {
     patrolWidgetTest('L3: History with mixed resolved/unresolved permissions', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       // 3 permissions: tool-2 resolved by ToolResult, tool-1 and tool-3 pending
@@ -176,7 +176,7 @@ void main() {
     patrolWidgetTest(
       'L4: History with ResultMessage clears all pending state',
       ($) async {
-        await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
         await pumpN($.tester);
 
         // History with permissions but ending with ResultMessage
@@ -214,7 +214,7 @@ void main() {
     );
 
     patrolWidgetTest('L5: History plan approval can be accepted', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -239,7 +239,7 @@ void main() {
     patrolWidgetTest(
       'L6: History plan approval can be rejected with feedback',
       ($) async {
-        await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
         await pumpN($.tester);
 
         await emitAndPump($.tester, bridge, [

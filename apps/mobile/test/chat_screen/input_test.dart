@@ -19,7 +19,7 @@ void main() {
 
   group('Chat input', () {
     patrolWidgetTest('H1: Idle shows input field', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -32,7 +32,7 @@ void main() {
     });
 
     patrolWidgetTest('H2: Send message sends to bridge', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -61,7 +61,7 @@ void main() {
     });
 
     patrolWidgetTest('H3: Running shows stop button', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -73,7 +73,7 @@ void main() {
     });
 
     patrolWidgetTest('H4: Empty text does not send', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -89,7 +89,7 @@ void main() {
     });
 
     patrolWidgetTest('H5: WaitingApproval hides input area', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [

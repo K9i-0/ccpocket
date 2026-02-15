@@ -21,7 +21,7 @@ void main() {
     patrolWidgetTest('D1: History with waitingApproval shows ApprovalBar', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -36,7 +36,7 @@ void main() {
     patrolWidgetTest('D2: History with idle does NOT show ApprovalBar', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -54,7 +54,7 @@ void main() {
     patrolWidgetTest('D3: History with 2 unresolved permissions shows first', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       final historyWith2 = HistoryMessage(
@@ -105,7 +105,7 @@ void main() {
     patrolWidgetTest('D4: History restored permission can be approved', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [

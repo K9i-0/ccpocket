@@ -57,7 +57,7 @@ void main() {
     patrolWidgetTest('E1: Single question displays question text and options', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -81,7 +81,7 @@ void main() {
     patrolWidgetTest(
       'E2: Single question - tapping option sends answer immediately',
       ($) async {
-        await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
         await pumpN($.tester);
 
         await emitAndPump($.tester, bridge, [
@@ -105,7 +105,7 @@ void main() {
     patrolWidgetTest('E3: Multiple questions display with Submit button', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -125,7 +125,7 @@ void main() {
     patrolWidgetTest('E4: All answers enable Submit, submit sends answer', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -158,7 +158,7 @@ void main() {
     });
 
     patrolWidgetTest('E5: After answering shows "Answered" text', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -183,7 +183,7 @@ void main() {
     patrolWidgetTest(
       'E6: permission_request for AskUserQuestion does not show ApprovalBar',
       ($) async {
-        await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
         await pumpN($.tester);
 
         // Simulate the real message sequence from the bridge:

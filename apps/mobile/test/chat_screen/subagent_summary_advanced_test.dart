@@ -20,7 +20,7 @@ void main() {
     patrolWidgetTest(
       'M1: Two consecutive summaries hide their respective tool results',
       ($) async {
-        await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
         await pumpN($.tester);
 
         await emitAndPump($.tester, bridge, [
@@ -46,7 +46,7 @@ void main() {
     patrolWidgetTest('M2: Summary interleaved with regular tool results', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -72,7 +72,7 @@ void main() {
     });
 
     patrolWidgetTest('M3: Summary with 10 tool IDs compressed', ($) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       // Generate 10 tool results
@@ -102,7 +102,7 @@ void main() {
         // _handleHistory does NOT extract toolUseIdsToHide from
         // ToolUseSummaryMessage, so hidden IDs are empty and all tool
         // results render normally alongside the summary bubble.
-        await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
         await pumpN($.tester);
 
         final history = HistoryMessage(
@@ -146,7 +146,7 @@ void main() {
     patrolWidgetTest('M5: Summary followed by new live tool results', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       // Phase 1: summary hides some results
@@ -174,7 +174,7 @@ void main() {
     patrolWidgetTest('M6: Three summaries accumulate hiddenToolUseIds', (
       $,
     ) async {
-      await $.pumpWidget(buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
