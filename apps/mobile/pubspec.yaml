@@ -61,6 +61,7 @@ dependencies:
   firebase_messaging: ^16.1.1
   shorebird_code_push: ^2.0.5
   package_info_plus: ^9.0.0
+  auto_route: ^11.1.0
 
 dev_dependencies:
   flutter_test:
@@ -80,6 +81,7 @@ dev_dependencies:
   bloc_test: ^10.0.0
   patrol_finders: ^3.1.0
   json_serializable: ^6.9.5
+  auto_route_generator: ^10.4.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

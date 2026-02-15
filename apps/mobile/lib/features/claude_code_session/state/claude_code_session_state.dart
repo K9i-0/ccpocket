@@ -3,7 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../../models/messages.dart';
 import '../../../widgets/slash_command_sheet.dart' show SlashCommand;
 
-part 'chat_session_state.freezed.dart';
+part 'claude_code_session_state.freezed.dart';
 
 /// Core state for a single chat session, managed by [ChatSessionNotifier].
 @freezed

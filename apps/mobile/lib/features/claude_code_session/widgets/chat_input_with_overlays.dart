@@ -20,7 +20,7 @@ import '../../../widgets/slash_command_sheet.dart'
         SlashCommandSheet,
         fallbackCodexSlashCommands,
         fallbackSlashCommands;
-import '../state/chat_session_cubit.dart';
+import '../state/claude_code_session_cubit.dart';
 
 /// Manages the chat input bar together with slash-command and @-mention
 /// overlays using [OverlayPortal].

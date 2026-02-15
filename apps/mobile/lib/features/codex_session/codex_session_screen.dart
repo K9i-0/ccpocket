@@ -15,23 +15,23 @@ import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
 import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
-import '../chat/state/chat_session_cubit.dart';
-import '../chat/state/streaming_state_cubit.dart';
-import '../chat/widgets/branch_chip.dart';
-import '../chat/widgets/chat_input_with_overlays.dart';
-import '../chat/widgets/chat_message_list.dart';
-import '../chat/widgets/reconnect_banner.dart';
-import '../chat/widgets/status_indicator.dart';
+import '../claude_code_session/state/claude_code_session_cubit.dart';
+import '../claude_code_session/state/streaming_state_cubit.dart';
+import '../claude_code_session/widgets/branch_chip.dart';
+import '../claude_code_session/widgets/chat_input_with_overlays.dart';
+import '../claude_code_session/widgets/chat_message_list.dart';
+import '../claude_code_session/widgets/reconnect_banner.dart';
+import '../claude_code_session/widgets/status_indicator.dart';
 import '../diff/diff_screen.dart';
 import '../gallery/gallery_screen.dart';
 import 'state/codex_session_cubit.dart';
 
 /// Codex-specific chat screen.
 ///
-/// Simpler than [ChatScreen] — no approval flow, no rewind, no plan mode.
+/// Simpler than [ClaudeCodeSessionScreen] — no approval flow, no rewind, no plan mode.
 /// Shares UI components (`ChatMessageList`, `ChatInputWithOverlays`, etc.)
 /// via [CodexSessionCubit] which extends [ChatSessionCubit].
-class CodexChatScreen extends StatefulWidget {
+class CodexSessionScreen extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
   final String? gitBranch;
@@ -42,7 +42,7 @@ class CodexChatScreen extends StatefulWidget {
   /// with subtype `session_created` (race condition fix).
   final ValueNotifier<SystemMessage?>? pendingSessionCreated;
 
-  const CodexChatScreen({
+  const CodexSessionScreen({
     super.key,
     required this.sessionId,
     this.projectPath,
@@ -53,10 +53,10 @@ class CodexChatScreen extends StatefulWidget {
   });
 
   @override
-  State<CodexChatScreen> createState() => _CodexChatScreenState();
+  State<CodexSessionScreen> createState() => _CodexSessionScreenState();
 }
 
-class _CodexChatScreenState extends State<CodexChatScreen> {
+class _CodexSessionScreenState extends State<CodexSessionScreen> {
   late String _sessionId;
   late String? _projectPath;
   late String? _gitBranch;

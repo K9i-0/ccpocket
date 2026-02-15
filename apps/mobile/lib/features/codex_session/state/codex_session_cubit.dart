@@ -1,5 +1,5 @@
 import '../../../models/messages.dart';
-import '../../chat/state/chat_session_cubit.dart';
+import '../../claude_code_session/state/claude_code_session_cubit.dart';
 
 /// Codex-specific session cubit.
 ///

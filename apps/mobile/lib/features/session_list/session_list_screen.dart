@@ -19,8 +19,8 @@ import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/server_discovery_service.dart';
 import '../../widgets/new_session_sheet.dart';
-import '../chat/chat_screen.dart';
-import '../chat_codex/codex_chat_screen.dart';
+import '../claude_code_session/claude_code_session_screen.dart';
+import '../codex_session/codex_session_screen.dart';
 import '../gallery/gallery_screen.dart';
 import '../settings/settings_screen.dart';
 import 'state/session_list_cubit.dart';
@@ -593,7 +593,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
     }
     final Widget screen;
     if (provider == Provider.codex) {
-      screen = CodexChatScreen(
+      screen = CodexSessionScreen(
         sessionId: sessionId,
         projectPath: projectPath,
         gitBranch: gitBranch,
@@ -602,7 +602,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
         pendingSessionCreated: isPending ? _pendingSessionCreated : null,
       );
     } else {
-      screen = ChatScreen(
+      screen = ClaudeCodeSessionScreen(
         sessionId: sessionId,
         projectPath: projectPath,
         gitBranch: gitBranch,

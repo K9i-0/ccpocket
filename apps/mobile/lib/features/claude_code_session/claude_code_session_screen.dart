@@ -22,10 +22,10 @@ import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
 import '../diff/diff_screen.dart';
 import '../gallery/gallery_screen.dart';
-import 'state/chat_session_cubit.dart';
+import 'state/claude_code_session_cubit.dart';
 import 'widgets/rewind_action_sheet.dart';
 import 'widgets/rewind_message_list_sheet.dart';
-import 'state/chat_session_state.dart';
+import 'state/claude_code_session_state.dart';
 import 'state/streaming_state_cubit.dart';
 import 'widgets/branch_chip.dart';
 import 'widgets/chat_input_with_overlays.dart';
@@ -41,7 +41,7 @@ import 'widgets/usage_summary_bar.dart';
 ///
 /// When [isPending] is true, shows a loading overlay until [session_created]
 /// is received from the bridge, then swaps to the real session.
-class ChatScreen extends StatefulWidget {
+class ClaudeCodeSessionScreen extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
   final String? gitBranch;
@@ -52,7 +52,7 @@ class ChatScreen extends StatefulWidget {
   /// with subtype `session_created` (race condition fix).
   final ValueNotifier<SystemMessage?>? pendingSessionCreated;
 
-  const ChatScreen({
+  const ClaudeCodeSessionScreen({
     super.key,
     required this.sessionId,
     this.projectPath,
@@ -63,10 +63,10 @@ class ChatScreen extends StatefulWidget {
   });
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  State<ClaudeCodeSessionScreen> createState() => _ClaudeCodeSessionScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ClaudeCodeSessionScreenState extends State<ClaudeCodeSessionScreen> {
   late String _sessionId;
   late String? _worktreePath;
   late String? _gitBranch;

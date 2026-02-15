@@ -7,7 +7,7 @@ import '../providers/bridge_cubits.dart';
 import '../services/bridge_service.dart';
 import '../services/mock_bridge_service.dart';
 import '../theme/app_theme.dart';
-import '../features/chat/chat_screen.dart';
+import '../features/claude_code_session/claude_code_session_screen.dart';
 
 class MockPreviewScreen extends StatelessWidget {
   const MockPreviewScreen({super.key});
@@ -109,7 +109,7 @@ class MockPreviewScreen extends StatelessWidget {
   }
 }
 
-/// Wrapper that starts scenario playback after ChatScreen's initState completes.
+/// Wrapper that starts scenario playback after ClaudeCodeSessionScreen's initState completes.
 class _MockChatWrapper extends StatefulWidget {
   final MockBridgeService mockService;
   final MockScenario scenario;
@@ -124,7 +124,7 @@ class _MockChatWrapperState extends State<_MockChatWrapper> {
   @override
   void initState() {
     super.initState();
-    // Start playback after the frame so ChatScreen's listener is ready
+    // Start playback after the frame so ClaudeCodeSessionScreen's listener is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.mockService.playScenario(widget.scenario);
     });
@@ -159,7 +159,7 @@ class _MockChatWrapperState extends State<_MockChatWrapper> {
             create: (_) => FileListCubit(const [], mockService.fileList),
           ),
         ],
-        child: ChatScreen(sessionId: sessionId, projectPath: '/mock/preview'),
+        child: ClaudeCodeSessionScreen(sessionId: sessionId, projectPath: '/mock/preview'),
       ),
     );
   }

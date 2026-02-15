@@ -4,8 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../models/messages.dart';
 import '../../../widgets/message_bubble.dart';
-import '../state/chat_session_cubit.dart';
-import '../state/chat_session_state.dart';
+import '../state/claude_code_session_cubit.dart';
+import '../state/claude_code_session_state.dart';
 import '../state/streaming_state.dart';
 import '../state/streaming_state_cubit.dart';
 

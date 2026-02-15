@@ -7,7 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/chat_message_handler.dart';
-import 'chat_session_state.dart';
+import 'claude_code_session_state.dart';
 import 'streaming_state_cubit.dart';
 
 /// Manages the state of a single chat session.

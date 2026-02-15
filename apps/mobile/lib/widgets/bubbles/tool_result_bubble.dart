@@ -15,7 +15,7 @@ class ToolResultBubble extends StatefulWidget {
   final String? httpBaseUrl;
 
   /// When this notifier's value changes, the bubble auto-collapses.
-  /// ChatScreen increments it whenever a new assistant message arrives.
+  /// ClaudeCodeSessionScreen increments it whenever a new assistant message arrives.
   final ValueNotifier<int>? collapseNotifier;
 
   const ToolResultBubble({
