@@ -259,7 +259,7 @@ cd apps/mobile/build/web && python3 -m http.server 8888
 | web-preview | `/web-preview` | Web版ビルド・サーバー起動・Playwrightアクセス確認・URL案内 |
 | flutter-ui-design | `/flutter-ui-design` | Flutter UI実装規約 (Bloc/Cubit + Freezed) |
 | merge | `/merge` | 作業ブランチをmainにマージ |
-| shorebird-patch | `/shorebird-patch` | Shorebird OTA パッチ作成・検証・プロモート |
+| shorebird-patch | `/shorebird-patch` | Shorebird OTA パッチ作成・配布 |
 
 実装後の検証では、変更領域に応じて対応するスキルを実行する。
 Bridge と Flutter の両方に影響がある場合は両方実行する。
@@ -276,10 +276,8 @@ Bridge と Flutter の両方に影響がある場合は両方実行する。
 ### フロー
 
 ```
-patch (staging) → preview → promote (stable)
+patch (stable) → ユーザーがアプリ再起動で受信
 ```
-
-**必ず staging → stable の2段階で配布する。** 直接 stable に配布しない。
 
 ### コマンド
 
@@ -287,23 +285,16 @@ patch (staging) → preview → promote (stable)
 # バージョン確認
 grep '^version:' apps/mobile/pubspec.yaml
 
-# パッチ作成 (staging)
+# パッチ作成 (stable)
 bash scripts/shorebird/patch-ios.sh <version>
 bash scripts/shorebird/patch-android.sh <version>
-
-# 検証
-bash scripts/shorebird/preview.sh <version> <patch-number>
-
-# プロモート (staging → stable)
-bash scripts/shorebird/promote.sh <version> <patch-number>
 ```
 
 ### 注意事項
 
 - パッチスクリプトは `--allow-asset-diffs` を常時付与し、非TTY環境でも安定動作する
-- `promote.sh` は `--force` で確認プロンプトをスキップ可能
 - `shorebird` コマンドを直接実行する場合は `--release-version` フラグ必須（省略するとインタラクティブプロンプトでエラーになる）
-- 詳細は `/shorebird-patch` スキルまたは `docs/shorebird-runbook.md` を参照
+- 詳細は `/shorebird-patch` スキルを参照
 
 ## 規約
 

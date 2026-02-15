@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# patch-ios.sh - iOS向けShorebirdパッチ作成 (staging)
+# patch-ios.sh - iOS向けShorebirdパッチ作成 (stable)
 #
 # Usage: patch-ios.sh <release-version> [extra-args...]
 # Example: patch-ios.sh 1.0.0+1
@@ -23,7 +23,7 @@ PROJECT_DIR="$SCRIPT_DIR/../../apps/mobile"
 
 echo "=== Shorebird Patch (iOS) ==="
 echo "Release version: $RELEASE_VERSION"
-echo "Track: staging"
+echo "Track: stable"
 echo ""
 
 cd "$PROJECT_DIR"
@@ -33,14 +33,12 @@ echo "--- Running dart analyze ---"
 dart analyze .
 
 echo ""
-echo "--- Creating iOS patch (staging) ---"
+echo "--- Creating iOS patch (stable) ---"
 shorebird patch ios \
   --release-version="$RELEASE_VERSION" \
-  --track=staging \
   --allow-asset-diffs \
   "$@"
 
 echo ""
 echo "=== Done ==="
-echo "Next: Verify with 'scripts/shorebird/preview.sh $RELEASE_VERSION <patch-number>'"
-echo "Then promote with 'scripts/shorebird/promote.sh $RELEASE_VERSION <patch-number>'"
+echo "Patch published to stable. Users will receive it on next app restart."
