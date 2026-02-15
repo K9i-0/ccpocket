@@ -95,16 +95,16 @@ class _PromptHistorySheetBody extends StatelessWidget {
                       children: [
                         _buildSortChip(
                           context,
-                          label: 'Recent',
-                          value: PromptSortOrder.recency,
+                          label: 'Frequent',
+                          value: PromptSortOrder.frequency,
                           current: sortOrder,
                           cs: cs,
                         ),
                         const SizedBox(width: 4),
                         _buildSortChip(
                           context,
-                          label: 'Frequent',
-                          value: PromptSortOrder.frequency,
+                          label: 'Recent',
+                          value: PromptSortOrder.recency,
                           current: sortOrder,
                           cs: cs,
                         ),

@@ -10,7 +10,12 @@ import '../../../theme/app_theme.dart';
 /// Tap to show a tooltip with status text.
 class StatusIndicator extends HookWidget {
   final ProcessStatus status;
-  const StatusIndicator({super.key, required this.status});
+  final bool inPlanMode;
+  const StatusIndicator({
+    super.key,
+    required this.status,
+    this.inPlanMode = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -50,10 +55,15 @@ class StatusIndicator extends HookWidget {
       return timer.cancel;
     }, [isActive, startTime.value]);
 
+    final cs = Theme.of(context).colorScheme;
     final (color, label) = switch (status) {
       ProcessStatus.starting => (appColors.statusStarting, 'Starting'),
-      ProcessStatus.idle => (appColors.statusIdle, 'Idle'),
-      ProcessStatus.running => (appColors.statusRunning, 'Running'),
+      ProcessStatus.idle => inPlanMode
+          ? (cs.tertiary, 'Plan')
+          : (appColors.statusIdle, 'Idle'),
+      ProcessStatus.running => inPlanMode
+          ? (cs.tertiary, 'Plan')
+          : (appColors.statusRunning, 'Running'),
       ProcessStatus.waitingApproval => (appColors.statusApproval, 'Approval'),
       ProcessStatus.clearing => (appColors.statusRunning, 'Clearing'),
     };

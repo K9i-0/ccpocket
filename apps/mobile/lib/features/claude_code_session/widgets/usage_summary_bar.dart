@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Compact usage summary row shown in chat.
+/// Compact single-line usage summary shown above the chat.
+///
+/// Horizontally scrollable so it never wraps, keeping the message list visible.
 class UsageSummaryBar extends StatelessWidget {
   final double totalCost;
   final Duration? totalDuration;
@@ -36,48 +38,75 @@ class UsageSummaryBar extends StatelessWidget {
 
     final cs = Theme.of(context).colorScheme;
 
+    final items = <Widget>[];
+
+    if (_hasCost) {
+      items.add(_UsageStat(
+        icon: Icons.attach_money,
+        text: '\$${totalCost.toStringAsFixed(4)}',
+      ));
+    }
+    if (_hasDuration) {
+      items.add(_UsageStat(
+        icon: Icons.timer_outlined,
+        text: _formatDuration(totalDuration!),
+      ));
+    }
+    if (_hasTokenUsage) {
+      items.add(_UsageStat(
+        icon: Icons.data_usage_outlined,
+        text: _formatTokenSummary(
+          inputTokens: inputTokens,
+          cachedInputTokens: cachedInputTokens,
+          outputTokens: outputTokens,
+        ),
+      ));
+    }
+    if (_hasToolUsage) {
+      items.add(_UsageStat(
+        icon: Icons.build_circle_outlined,
+        text: _formatToolSummary(
+          toolCalls: toolCalls,
+          fileEdits: fileEdits,
+        ),
+      ));
+    }
+
+    // Build separator-interleaved list
+    final children = <Widget>[];
+    for (var i = 0; i < items.length; i++) {
+      if (i > 0) {
+        children.add(Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Text(
+            '·',
+            style: TextStyle(
+              fontSize: 11,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ));
+      }
+      children.add(items[i]);
+    }
+
     return Container(
       key: const ValueKey('usage_summary_bar'),
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      height: 28,
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+        border: Border(
+          bottom: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+          ),
+        ),
       ),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          if (_hasCost)
-            _UsageStat(
-              icon: Icons.attach_money,
-              text: '\$${totalCost.toStringAsFixed(4)}',
-            ),
-          if (_hasDuration)
-            _UsageStat(
-              icon: Icons.timer_outlined,
-              text: _formatDuration(totalDuration!),
-            ),
-          if (_hasTokenUsage)
-            _UsageStat(
-              icon: Icons.data_usage_outlined,
-              text: _formatTokenSummary(
-                inputTokens: inputTokens,
-                cachedInputTokens: cachedInputTokens,
-                outputTokens: outputTokens,
-              ),
-            ),
-          if (_hasToolUsage)
-            _UsageStat(
-              icon: Icons.build_circle_outlined,
-              text: _formatToolSummary(
-                toolCalls: toolCalls,
-                fileEdits: fileEdits,
-              ),
-            ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: children,
+        ),
       ),
     );
   }
@@ -100,7 +129,8 @@ class UsageSummaryBar extends StatelessWidget {
     final inText = _formatCompactNumber(effectiveInput);
     final outText = _formatCompactNumber(outputTokens);
     if (cachedInputTokens > 0) {
-      return 'in $inText (cache ${_formatCompactNumber(cachedInputTokens)}) / out $outText';
+      final cacheText = _formatCompactNumber(cachedInputTokens);
+      return 'in $inText($cacheText) / out $outText';
     }
     return 'in $inText / out $outText';
   }
@@ -141,14 +171,14 @@ class _UsageStat extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: cs.onSurfaceVariant),
-        const SizedBox(width: 4),
+        Icon(icon, size: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
+        const SizedBox(width: 3),
         Text(
           text,
           style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: cs.onSurfaceVariant,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.8),
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),

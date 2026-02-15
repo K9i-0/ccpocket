@@ -30,7 +30,6 @@ import 'state/streaming_state_cubit.dart';
 import 'widgets/branch_chip.dart';
 import 'widgets/chat_input_with_overlays.dart';
 import 'widgets/chat_message_list.dart';
-import 'widgets/plan_mode_chip.dart';
 import 'widgets/reconnect_banner.dart';
 import 'widgets/status_indicator.dart';
 import 'widgets/usage_summary_bar.dart';
@@ -432,20 +431,7 @@ class _ChatScreenBody extends HookWidget {
           child: Scaffold(
             appBar: AppBar(
               actions: [
-                // 1. Rewind
-                IconButton(
-                  key: const ValueKey('rewind_button'),
-                  icon: const Icon(Icons.history, size: 18),
-                  tooltip: 'Rewind',
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  onPressed: () => _showRewindMessageList(context),
-                ),
-                // 2. Copy agent investigation prompt
+                // 1. Copy agent investigation prompt (debug)
                 IconButton(
                   key: const ValueKey('share_debug_bundle_button'),
                   icon: const Icon(Icons.bug_report, size: 18),
@@ -457,6 +443,19 @@ class _ChatScreenBody extends HookWidget {
                     minHeight: 36,
                   ),
                   onPressed: () => copyDebugBundleForAgent(context, sessionId),
+                ),
+                // 2. Rewind
+                IconButton(
+                  key: const ValueKey('rewind_button'),
+                  icon: const Icon(Icons.history, size: 18),
+                  tooltip: 'Rewind',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  onPressed: () => _showRewindMessageList(context),
                 ),
                 // 3. View Changes
                 if (projectPath != null)
@@ -525,10 +524,11 @@ class _ChatScreenBody extends HookWidget {
                       );
                     },
                   ),
-                // 7. Plan mode chip
-                if (inPlanMode) const PlanModeChip(),
-                // 8. Status indicator
-                StatusIndicator(status: status),
+                // 7. Status indicator (plan mode shown via color)
+                StatusIndicator(
+                  status: status,
+                  inPlanMode: inPlanMode,
+                ),
               ],
             ),
             body: Column(

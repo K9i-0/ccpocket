@@ -1,5 +1,5 @@
 import 'package:ccpocket/features/claude_code_session/widgets/chat_input_with_overlays.dart';
-import 'package:ccpocket/features/claude_code_session/widgets/plan_mode_chip.dart';
+import 'package:ccpocket/features/claude_code_session/widgets/status_indicator.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/widgets/approval_bar.dart';
 import 'package:ccpocket/widgets/bubbles/ask_user_question_widget.dart';
@@ -26,7 +26,10 @@ void main() {
 
       // Verify plan approval bar is showing
       expect(find.text('Accept Plan'), findsOneWidget);
-      expect($(PlanModeChip), findsOneWidget);
+      final indicator = $.tester.widget<StatusIndicator>(
+        find.byType(StatusIndicator),
+      );
+      expect(indicator.inPlanMode, isTrue);
 
       // Accept plan
       await $.tester.tap(find.byKey(const ValueKey('approve_button')));
@@ -66,8 +69,11 @@ void main() {
         findsOneWidget,
       );
 
-      // PlanModeChip still visible (inPlanMode not reset by approve)
-      expect($(PlanModeChip), findsOneWidget);
+      // Plan mode still active (inPlanMode not reset by approve)
+      final indicator2 = $.tester.widget<StatusIndicator>(
+        find.byType(StatusIndicator),
+      );
+      expect(indicator2.inPlanMode, isTrue);
     });
 
     patrolWidgetTest('J2: Plan reject with feedback triggers re-plan cycle', (

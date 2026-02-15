@@ -203,18 +203,7 @@ class ApprovalBar extends StatelessWidget {
     if (isPlanApproval) {
       return Row(
         children: [
-          Expanded(
-            child: FilledButton(
-              key: const ValueKey('approve_button'),
-              onPressed: onApprove,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-              child: const Text('Accept Plan', style: TextStyle(fontSize: 13)),
-            ),
-          ),
           if (onApproveClearContext != null) ...[
-            const SizedBox(width: 10),
             Expanded(
               child: FilledButton.tonal(
                 key: const ValueKey('approve_clear_context_button'),
@@ -228,7 +217,18 @@ class ApprovalBar extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(width: 10),
           ],
+          Expanded(
+            child: FilledButton(
+              key: const ValueKey('approve_button'),
+              onPressed: onApprove,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              child: const Text('Accept Plan', style: TextStyle(fontSize: 13)),
+            ),
+          ),
         ],
       );
     }
