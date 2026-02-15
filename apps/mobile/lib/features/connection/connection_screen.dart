@@ -10,6 +10,7 @@ import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../providers/machine_manager_cubit.dart';
 import '../../providers/server_discovery_cubit.dart';
+import '../../router/app_router.dart';
 import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/server_discovery_service.dart';
@@ -529,6 +530,12 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
       listener: (context, nextState) {
         if (_isAutoConnecting) {
           setState(() => _isAutoConnecting = false);
+        }
+        // Navigate to session list when connection succeeds.
+        // We cannot rely on reevaluateListenable because rejected guard
+        // navigations are not re-attempted by auto_route.
+        if (nextState == BridgeConnectionState.connected) {
+          context.router.root.replaceAll([SessionListRoute()]);
         }
       },
       child: Scaffold(
