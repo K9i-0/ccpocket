@@ -121,12 +121,10 @@ void main() {
       ($) async {
         await setupPlanApproval($, bridge);
 
-        // Toggle Clear Context chip
-        await $.tester.tap(find.byKey(const ValueKey('clear_context_chip')));
-        await pumpN($.tester);
-
-        // Accept Plan
-        await $.tester.tap(find.byKey(const ValueKey('approve_button')));
+        // Tap "Accept & Clear" button
+        await $.tester.tap(
+          find.byKey(const ValueKey('approve_clear_context_button')),
+        );
         await pumpN($.tester);
 
         final msg = findSentMessage(bridge, 'approve');

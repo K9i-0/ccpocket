@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# patch-android.sh - Android向けShorebirdパッチ作成 (staging)
+#
+# Usage: patch-android.sh <release-version> [extra-args...]
+# Example: patch-android.sh 1.0.0+1
+#
+# 常に --allow-asset-diffs を付与し、非TTY環境でも安定動作する。
+
 set -euo pipefail
 export PATH="$HOME/.shorebird/bin:$PATH"
 
@@ -30,6 +37,7 @@ echo "--- Creating Android patch (staging) ---"
 shorebird patch android \
   --release-version="$RELEASE_VERSION" \
   --track=staging \
+  --allow-asset-diffs \
   "$@"
 
 echo ""

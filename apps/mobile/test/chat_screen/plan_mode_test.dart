@@ -79,25 +79,19 @@ void main() {
       );
     });
 
-    patrolWidgetTest('C4: Clear Context chip exists and toggles', ($) async {
-      final bridge = MockBridgeService();
-      await setupPlanApproval($, bridge);
+    patrolWidgetTest(
+      'C4: Accept & Clear button exists for plan approval',
+      ($) async {
+        final bridge = MockBridgeService();
+        await setupPlanApproval($, bridge);
 
-      final chipFinder = find.byKey(const ValueKey('clear_context_chip'));
-      expect($(chipFinder), findsOneWidget);
-
-      // Verify chip is initially not selected
-      var chip = $.tester.widget<FilterChip>(chipFinder);
-      expect(chip.selected, isFalse);
-
-      // Tap to toggle
-      await $.tester.tap(chipFinder);
-      await pumpN($.tester);
-
-      // Verify chip is now selected
-      chip = $.tester.widget<FilterChip>(chipFinder);
-      expect(chip.selected, isTrue);
-    });
+        final buttonFinder = find.byKey(
+          const ValueKey('approve_clear_context_button'),
+        );
+        expect($(buttonFinder), findsOneWidget);
+        expect(find.text('Accept & Clear'), findsOneWidget);
+      },
+    );
 
     patrolWidgetTest('C5: Accept Plan sends approve', ($) async {
       final bridge = MockBridgeService();
@@ -133,24 +127,23 @@ void main() {
       },
     );
 
-    patrolWidgetTest('C7: Clear Context enabled sends clearContext: true', (
-      $,
-    ) async {
-      final bridge = MockBridgeService();
-      await setupPlanApproval($, bridge);
+    patrolWidgetTest(
+      'C7: Accept & Clear sends clearContext: true',
+      ($) async {
+        final bridge = MockBridgeService();
+        await setupPlanApproval($, bridge);
 
-      // Tap clear context chip to enable it
-      await $.tester.tap(find.byKey(const ValueKey('clear_context_chip')));
-      await pumpN($.tester);
+        // Tap "Accept & Clear" button
+        await $.tester.tap(
+          find.byKey(const ValueKey('approve_clear_context_button')),
+        );
+        await pumpN($.tester);
 
-      // Tap Accept Plan (approve)
-      await $.tester.tap(find.byKey(const ValueKey('approve_button')));
-      await pumpN($.tester);
-
-      final msg = findSentMessage(bridge, 'approve');
-      expect(msg, isNotNull);
-      expect(msg!['clearContext'], true);
-    });
+        final msg = findSentMessage(bridge, 'approve');
+        expect(msg, isNotNull);
+        expect(msg!['clearContext'], true);
+      },
+    );
 
     patrolWidgetTest('C8: View Plan button exists', ($) async {
       final bridge = MockBridgeService();

@@ -300,7 +300,9 @@ bash scripts/shorebird/promote.sh <version> <patch-number>
 
 ### 注意事項
 
-- `shorebird patch` を直接実行する場合は `--release-version` フラグ必須（省略するとインタラクティブプロンプトで CI/非TTY 環境がエラーになる）
+- パッチスクリプトは `--allow-asset-diffs` を常時付与し、非TTY環境でも安定動作する
+- `promote.sh` は `--force` で確認プロンプトをスキップ可能
+- `shorebird` コマンドを直接実行する場合は `--release-version` フラグ必須（省略するとインタラクティブプロンプトでエラーになる）
 - 詳細は `/shorebird-patch` スキルまたは `docs/shorebird-runbook.md` を参照
 
 ## 規約

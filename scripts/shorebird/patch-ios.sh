@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# patch-ios.sh - iOS向けShorebirdパッチ作成 (staging)
+#
+# Usage: patch-ios.sh <release-version> [extra-args...]
+# Example: patch-ios.sh 1.0.0+1
+#
+# 常に --allow-asset-diffs を付与し、非TTY環境でも安定動作する。
+
 set -euo pipefail
 export PATH="$HOME/.shorebird/bin:$PATH"
 
@@ -30,6 +37,7 @@ echo "--- Creating iOS patch (staging) ---"
 shorebird patch ios \
   --release-version="$RELEASE_VERSION" \
   --track=staging \
+  --allow-asset-diffs \
   "$@"
 
 echo ""

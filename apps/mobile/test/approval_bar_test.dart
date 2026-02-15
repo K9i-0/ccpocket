@@ -23,8 +23,7 @@ void main() {
     VoidCallback? onReject,
     VoidCallback? onApproveAlways,
     VoidCallback? onViewPlan,
-    bool clearContext = false,
-    ValueChanged<bool>? onClearContextChanged,
+    VoidCallback? onApproveClearContext,
   }) {
     return MaterialApp(
       theme: AppTheme.darkTheme,
@@ -38,8 +37,7 @@ void main() {
           onReject: onReject ?? () {},
           onApproveAlways: onApproveAlways ?? () {},
           onViewPlan: onViewPlan,
-          clearContext: clearContext,
-          onClearContextChanged: onClearContextChanged,
+          onApproveClearContext: onApproveClearContext,
         ),
       ),
     );
@@ -85,7 +83,9 @@ void main() {
       expect(find.text('Always'), findsNothing);
     });
 
-    testWidgets('shows feedback field for plan approval', (tester) async {
+    testWidgets('shows feedback field inside Keep Planning card', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         buildSubject(
           pendingPermission: const PermissionRequestMessage(
@@ -97,7 +97,15 @@ void main() {
         ),
       );
 
-      expect(find.byKey(const ValueKey('plan_feedback_input')), findsOneWidget);
+      // Feedback input is inside the Keep Planning card
+      expect(
+        find.byKey(const ValueKey('keep_planning_card')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('plan_feedback_input')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('hides feedback field for regular approval', (tester) async {
@@ -112,6 +120,26 @@ void main() {
       );
 
       expect(find.byKey(const ValueKey('plan_feedback_input')), findsNothing);
+      expect(find.byKey(const ValueKey('keep_planning_card')), findsNothing);
+    });
+
+    testWidgets('reject callback fires on send button tap', (tester) async {
+      var rejected = false;
+      await tester.pumpWidget(
+        buildSubject(
+          pendingPermission: const PermissionRequestMessage(
+            toolUseId: 'tu-1',
+            toolName: 'ExitPlanMode',
+            input: {},
+          ),
+          isPlanApproval: true,
+          onReject: () => rejected = true,
+        ),
+      );
+
+      // Send button inside Keep Planning card triggers reject
+      await tester.tap(find.byKey(const ValueKey('reject_button')));
+      expect(rejected, isTrue);
     });
 
     testWidgets('approve callback fires on tap', (tester) async {
@@ -131,7 +159,9 @@ void main() {
       expect(approved, isTrue);
     });
 
-    testWidgets('reject callback fires on tap', (tester) async {
+    testWidgets('reject callback fires on tap for regular approval', (
+      tester,
+    ) async {
       var rejected = false;
       await tester.pumpWidget(
         buildSubject(
@@ -216,7 +246,9 @@ void main() {
       );
     });
 
-    testWidgets('hides View Plan button for regular approval', (tester) async {
+    testWidgets('hides View Plan button for regular approval', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         buildSubject(
           pendingPermission: const PermissionRequestMessage(
@@ -253,62 +285,52 @@ void main() {
       expect(iconButton.tooltip, 'View / Edit Plan');
     });
 
-    testWidgets('shows Clear Context chip for plan approval with callback', (
-      tester,
-    ) async {
-      var toggled = false;
-      await tester.pumpWidget(
-        buildSubject(
-          pendingPermission: const PermissionRequestMessage(
-            toolUseId: 'tu-1',
-            toolName: 'ExitPlanMode',
-            input: {},
+    testWidgets(
+      'shows Accept & Clear button when onApproveClearContext is set',
+      (tester) async {
+        var cleared = false;
+        await tester.pumpWidget(
+          buildSubject(
+            pendingPermission: const PermissionRequestMessage(
+              toolUseId: 'tu-1',
+              toolName: 'ExitPlanMode',
+              input: {},
+            ),
+            isPlanApproval: true,
+            onApproveClearContext: () => cleared = true,
           ),
-          isPlanApproval: true,
-          onClearContextChanged: (v) => toggled = true,
-        ),
-      );
+        );
 
-      final chip = find.byKey(const ValueKey('clear_context_chip'));
-      expect(chip, findsOneWidget);
+        final button = find.byKey(
+          const ValueKey('approve_clear_context_button'),
+        );
+        expect(button, findsOneWidget);
+        expect(find.text('Accept & Clear'), findsOneWidget);
 
-      await tester.tap(chip);
-      await tester.pumpAndSettle();
-      expect(toggled, isTrue);
-    });
+        await tester.tap(button);
+        expect(cleared, isTrue);
+      },
+    );
 
-    testWidgets('hides Clear Context chip when onClearContextChanged is null', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        buildSubject(
-          pendingPermission: const PermissionRequestMessage(
-            toolUseId: 'tu-1',
-            toolName: 'ExitPlanMode',
-            input: {},
+    testWidgets(
+      'hides Accept & Clear button when onApproveClearContext is null',
+      (tester) async {
+        await tester.pumpWidget(
+          buildSubject(
+            pendingPermission: const PermissionRequestMessage(
+              toolUseId: 'tu-1',
+              toolName: 'ExitPlanMode',
+              input: {},
+            ),
+            isPlanApproval: true,
           ),
-          isPlanApproval: true,
-        ),
-      );
+        );
 
-      expect(find.byKey(const ValueKey('clear_context_chip')), findsNothing);
-    });
-
-    testWidgets('hides Clear Context chip for regular (non-plan) approval', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        buildSubject(
-          pendingPermission: const PermissionRequestMessage(
-            toolUseId: 'tu-1',
-            toolName: 'Bash',
-            input: {'command': 'ls'},
-          ),
-          onClearContextChanged: (v) {},
-        ),
-      );
-
-      expect(find.byKey(const ValueKey('clear_context_chip')), findsNothing);
-    });
+        expect(
+          find.byKey(const ValueKey('approve_clear_context_button')),
+          findsNothing,
+        );
+      },
+    );
   });
 }

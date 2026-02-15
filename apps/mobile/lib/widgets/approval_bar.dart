@@ -15,8 +15,9 @@ class ApprovalBar extends StatelessWidget {
   final VoidCallback onReject;
   final VoidCallback onApproveAlways;
   final VoidCallback? onViewPlan;
-  final bool clearContext;
-  final ValueChanged<bool>? onClearContextChanged;
+
+  /// Callback for "Accept & Clear Context" button (plan approval only).
+  final VoidCallback? onApproveClearContext;
 
   const ApprovalBar({
     super.key,
@@ -28,8 +29,7 @@ class ApprovalBar extends StatelessWidget {
     required this.onReject,
     required this.onApproveAlways,
     this.onViewPlan,
-    this.clearContext = false,
-    this.onClearContextChanged,
+    this.onApproveClearContext,
   });
 
   @override
@@ -68,9 +68,10 @@ class ApprovalBar extends StatelessWidget {
             const SizedBox(height: 6),
             if (isPlanApproval) ...[
               const SizedBox(height: 6),
-              _buildFeedbackField(context),
-            ],
-            const SizedBox(height: 6),
+              _buildKeepPlanningCard(context),
+              const SizedBox(height: 10),
+            ] else
+              const SizedBox(height: 6),
             _buildButtons(context),
           ],
         ),
@@ -130,80 +131,110 @@ class ApprovalBar extends StatelessWidget {
     );
   }
 
-  Widget _buildFeedbackField(BuildContext context) {
-    return TextField(
-      key: const ValueKey('plan_feedback_input'),
-      controller: planFeedbackController,
-      decoration: InputDecoration(
-        hintText: 'Feedback for plan revision...',
-        hintStyle: TextStyle(fontSize: 12, color: appColors.subtleText),
-        filled: true,
-        fillColor: Theme.of(context).colorScheme.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
+  /// "Keep Planning" card with feedback input + send button.
+  Widget _buildKeepPlanningCard(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey('keep_planning_card'),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: cs.outline.withValues(alpha: 0.4),
         ),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        borderRadius: BorderRadius.circular(12),
       ),
-      style: const TextStyle(fontSize: 13),
-      maxLines: 3,
-      minLines: 1,
+      padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Keep Planning',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: appColors.subtleText,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('plan_feedback_input'),
+                  controller: planFeedbackController,
+                  decoration: InputDecoration(
+                    hintText: 'What should be changed...',
+                    hintStyle: TextStyle(
+                      fontSize: 12,
+                      color: appColors.subtleText,
+                    ),
+                    filled: true,
+                    fillColor: cs.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  style: const TextStyle(fontSize: 13),
+                  maxLines: 3,
+                  minLines: 1,
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                key: const ValueKey('reject_button'),
+                icon: Icon(Icons.send, size: 20, color: cs.primary),
+                tooltip: 'Send feedback & keep planning',
+                onPressed: onReject,
+                constraints:
+                    const BoxConstraints(minWidth: 40, minHeight: 40),
+                padding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildButtons(BuildContext context) {
     if (isPlanApproval) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
+      return Row(
         children: [
-          if (onClearContextChanged != null)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilterChip(
-                key: const ValueKey('clear_context_chip'),
-                label: const Text(
-                  'Clear Context',
-                  style: TextStyle(fontSize: 12),
-                ),
-                selected: clearContext,
-                onSelected: onClearContextChanged!,
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          Expanded(
+            child: FilledButton(
+              key: const ValueKey('approve_button'),
+              onPressed: onApprove,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              child: const Text(
+                'Accept Plan',
+                style: TextStyle(fontSize: 13),
               ),
             ),
-          if (onClearContextChanged != null) const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  key: const ValueKey('reject_button'),
-                  onPressed: onReject,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  child: const Text(
-                    'Keep Planning',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  key: const ValueKey('approve_button'),
-                  onPressed: onApprove,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  child: const Text(
-                    'Accept Plan',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
-              ),
-            ],
           ),
+          if (onApproveClearContext != null) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton.tonal(
+                key: const ValueKey('approve_clear_context_button'),
+                onPressed: onApproveClearContext,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                child: const Text(
+                  'Accept & Clear',
+                  style: TextStyle(fontSize: 13),
+                ),
+              ),
+            ),
+          ],
         ],
       );
     }

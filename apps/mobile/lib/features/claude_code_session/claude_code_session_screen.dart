@@ -278,9 +278,6 @@ class _ChatScreenBody extends HookWidget {
     final editedPlanText = useMemoized(() => ValueNotifier<String?>(null));
     useEffect(() => editedPlanText.dispose, const []);
 
-    // Clear context toggle for plan approval
-    final clearContext = useState(false);
-
     // Diff selection from DiffScreen navigation
     final diffSelectionFromNav = useState<DiffSelection?>(null);
 
@@ -375,11 +372,23 @@ class _ChatScreenBody extends HookWidget {
       context.read<ChatSessionCubit>().approve(
         pendingToolUseId,
         updatedInput: updatedInput,
-        clearContext: isPlanApproval && clearContext.value,
       );
       editedPlanText.value = null;
       planFeedbackController.clear();
-      clearContext.value = false;
+    }
+
+    void approveWithClearContext() {
+      if (pendingToolUseId == null) return;
+      final updatedInput = editedPlanText.value != null
+          ? {'plan': editedPlanText.value!}
+          : null;
+      context.read<ChatSessionCubit>().approve(
+        pendingToolUseId,
+        updatedInput: updatedInput,
+        clearContext: true,
+      );
+      editedPlanText.value = null;
+      planFeedbackController.clear();
     }
 
     void rejectToolUse() {
@@ -608,10 +617,8 @@ class _ChatScreenBody extends HookWidget {
                     onApprove: approveToolUse,
                     onReject: rejectToolUse,
                     onApproveAlways: approveAlwaysToolUse,
-                    clearContext: clearContext.value,
-                    onClearContextChanged: isPlanApproval
-                        ? (v) => clearContext.value = v
-                        : null,
+                    onApproveClearContext:
+                        isPlanApproval ? approveWithClearContext : null,
                     onViewPlan: isPlanApproval
                         ? () async {
                             final originalText = _extractPlanText(
