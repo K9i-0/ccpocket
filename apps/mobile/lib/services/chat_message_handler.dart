@@ -109,7 +109,13 @@ class ChatMessageHandler {
           entriesToAdd: [ServerChatEntry(msg)],
           toolUseIdsToHide: precedingToolUseIds.toSet(),
         );
-      case UserInputMessage(:final text, :final userMessageUuid):
+      case UserInputMessage(
+        :final text,
+        :final userMessageUuid,
+        :final isSynthetic,
+      ):
+        // Skip synthetic messages (e.g. plan approval, Task agent prompts)
+        if (isSynthetic) return const ChatStateUpdate();
         // Convert user_input to UserChatEntry (same as in _handleHistory)
         return ChatStateUpdate(
           entriesToAdd: [
@@ -281,6 +287,8 @@ class ChatMessageHandler {
       if (m is StatusMessage) {
         lastStatus = m.status;
       } else if (m is UserInputMessage) {
+        // Skip synthetic messages (e.g. plan approval, Task agent prompts)
+        if (m.isSynthetic) continue;
         // Convert user_input to UserChatEntry with UUID
         entries.add(
           UserChatEntry(

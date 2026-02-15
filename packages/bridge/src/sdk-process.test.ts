@@ -488,6 +488,49 @@ describe("sdkMessageToServerMessage", () => {
       expect((serverMsg as any).userMessageUuid).toBeUndefined();
     });
 
+    it("passes isSynthetic flag on synthetic user message", () => {
+      const sdkMsg = {
+        type: "user" as const,
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "Plan approval prompt" }],
+        },
+        isSynthetic: true,
+        uuid: "usr-syn-111" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "user_input",
+        text: "Plan approval prompt",
+        userMessageUuid: "usr-syn-111",
+        isSynthetic: true,
+      });
+    });
+
+    it("omits isSynthetic when not set on user message", () => {
+      const sdkMsg = {
+        type: "user" as const,
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "Hello Claude" }],
+        },
+        uuid: "usr-real-222" as `${string}-${string}-${string}-${string}-${string}`,
+        session_id: "test-session",
+      };
+
+      const serverMsg = sdkMessageToServerMessage(sdkMsg as any);
+
+      expect(serverMsg).toMatchObject({
+        type: "user_input",
+        text: "Hello Claude",
+        userMessageUuid: "usr-real-222",
+      });
+      expect((serverMsg as any).isSynthetic).toBeUndefined();
+    });
+
     it("prefers tool_result over text when both present in user message", () => {
       const sdkMsg = {
         type: "user" as const,

@@ -169,7 +169,7 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
     }
 
     case "user": {
-      const usr = msg as { message: { content?: unknown[] }; uuid?: string };
+      const usr = msg as { message: { content?: unknown[] }; uuid?: string; isSynthetic?: boolean };
       const content = usr.message?.content;
       if (!Array.isArray(content)) return null;
 
@@ -196,6 +196,7 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
           type: "user_input",
           text: texts.join("\n"),
           ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
+          ...(usr.isSynthetic ? { isSynthetic: true } : {}),
         } as ServerMessage;
       }
 
