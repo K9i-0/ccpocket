@@ -1,20 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shorebird_code_push/shorebird_code_push.dart';
 
+import 'licenses_screen.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
-
-/// Available speech recognition locales.
-const _speechLocales = <(String id, String label, String? subtitle)>[
-  ('ja-JP', 'Japanese', '日本語'),
-  ('en-US', 'English (US)', null),
-  ('en-GB', 'English (UK)', null),
-  ('zh-Hans-CN', 'Chinese (Mandarin)', '中文'),
-  ('ko-KR', 'Korean', '한국어'),
-  ('es-ES', 'Spanish', 'Español'),
-  ('fr-FR', 'French', 'Français'),
-  ('de-DE', 'German', 'Deutsch'),
-];
+import 'widgets/speech_locale_bottom_sheet.dart';
+import 'widgets/theme_bottom_sheet.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -29,36 +22,135 @@ class SettingsScreen extends StatelessWidget {
         builder: (context, state) {
           return ListView(
             children: [
-              // ── Theme ──
-              _SectionHeader(title: 'APPEARANCE'),
-              _ThemeSelector(
-                current: state.themeMode,
-                onChanged: (mode) =>
-                    context.read<SettingsCubit>().setThemeMode(mode),
+              // ── General ──
+              _SectionHeader(title: 'GENERAL'),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    // Theme
+                    ListTile(
+                      leading: Icon(Icons.palette, color: cs.primary),
+                      title: const Text('Theme'),
+                      subtitle: Text(_getThemeLabel(state.themeMode)),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => showThemeBottomSheet(
+                        context: context,
+                        current: state.themeMode,
+                        onChanged: (mode) =>
+                            context.read<SettingsCubit>().setThemeMode(mode),
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    // Voice Input
+                    ListTile(
+                      leading:
+                          Icon(Icons.record_voice_over, color: cs.primary),
+                      title: const Text('Voice Input'),
+                      subtitle:
+                          Text(getSpeechLocaleLabel(state.speechLocaleId)),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => showSpeechLocaleBottomSheet(
+                        context: context,
+                        current: state.speechLocaleId,
+                        onChanged: (id) => context
+                            .read<SettingsCubit>()
+                            .setSpeechLocaleId(id),
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    // Push Notifications
+                    _PushNotificationTile(
+                      state: state,
+                      onChanged: (enabled) =>
+                          context.read<SettingsCubit>().toggleFcm(enabled),
+                    ),
+                  ],
+                ),
               ),
-              Divider(height: 1, color: cs.outlineVariant),
+              const SizedBox(height: 8),
 
-              // ── Push ──
-              _SectionHeader(title: 'PUSH NOTIFICATIONS'),
-              _PushNotificationTile(
-                state: state,
-                onChanged: (enabled) =>
-                    context.read<SettingsCubit>().toggleFcm(enabled),
+              // ── About ──
+              _SectionHeader(title: 'ABOUT'),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    // Version
+                    const _VersionTile(),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    // Licenses
+                    ListTile(
+                      leading: Icon(
+                        Icons.article_outlined,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      title: const Text('Open Source Licenses'),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LicensesScreen(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              Divider(height: 1, color: cs.outlineVariant),
+              const SizedBox(height: 32),
 
-              // ── Speech ──
-              _SectionHeader(title: 'VOICE INPUT'),
-              _SpeechLocaleSelector(
-                current: state.speechLocaleId,
-                onChanged: (id) =>
-                    context.read<SettingsCubit>().setSpeechLocaleId(id),
+              // ── Footer ──
+              Center(
+                child: Column(
+                  children: [
+                    Text(
+                      'ccpocket',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '\u00a9 2026 K9i',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(height: 32),
             ],
           );
         },
       ),
     );
+  }
+
+  static String _getThemeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return 'System';
+      case ThemeMode.light:
+        return 'Light';
+      case ThemeMode.dark:
+        return 'Dark';
+    }
   }
 }
 
@@ -84,76 +176,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _ThemeSelector extends StatelessWidget {
-  final ThemeMode current;
-  final ValueChanged<ThemeMode> onChanged;
-
-  const _ThemeSelector({required this.current, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: SegmentedButton<ThemeMode>(
-        segments: const [
-          ButtonSegment(
-            value: ThemeMode.system,
-            icon: Icon(Icons.settings_brightness, size: 18),
-            label: Text('System'),
-          ),
-          ButtonSegment(
-            value: ThemeMode.light,
-            icon: Icon(Icons.light_mode, size: 18),
-            label: Text('Light'),
-          ),
-          ButtonSegment(
-            value: ThemeMode.dark,
-            icon: Icon(Icons.dark_mode, size: 18),
-            label: Text('Dark'),
-          ),
-        ],
-        selected: {current},
-        onSelectionChanged: (s) => onChanged(s.first),
-        style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return cs.primaryContainer;
-            }
-            return cs.surfaceContainerLow;
-          }),
-        ),
-      ),
-    );
-  }
-}
-
-class _SpeechLocaleSelector extends StatelessWidget {
-  final String current;
-  final ValueChanged<String> onChanged;
-
-  const _SpeechLocaleSelector({required this.current, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        for (final (id, label, subtitle) in _speechLocales)
-          ListTile(
-            leading: Icon(Icons.language, color: cs.onSurfaceVariant),
-            title: Text(label),
-            subtitle: subtitle != null ? Text(subtitle) : null,
-            trailing: current == id
-                ? Icon(Icons.check, color: cs.primary)
-                : null,
-            onTap: () => onChanged(id),
-          ),
-      ],
-    );
-  }
-}
-
 class _PushNotificationTile extends StatelessWidget {
   final SettingsState state;
   final ValueChanged<bool> onChanged;
@@ -170,7 +192,7 @@ class _PushNotificationTile extends StatelessWidget {
     return SwitchListTile(
       value: state.fcmEnabled,
       onChanged: state.fcmSyncInProgress ? null : onChanged,
-      title: const Text('Enable Push Notifications'),
+      title: const Text('Push Notifications'),
       subtitle: Text(subtitle),
       secondary: state.fcmSyncInProgress
           ? const SizedBox(
@@ -179,6 +201,54 @@ class _PushNotificationTile extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : const Icon(Icons.notifications_active_outlined),
+    );
+  }
+}
+
+class _VersionTile extends StatefulWidget {
+  const _VersionTile();
+
+  @override
+  State<_VersionTile> createState() => _VersionTileState();
+}
+
+class _VersionTileState extends State<_VersionTile> {
+  String? _versionText;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    final version = '${info.version}+${info.buildNumber}';
+
+    String result = version;
+    try {
+      final updater = ShorebirdUpdater();
+      final patch = await updater.readCurrentPatch();
+      if (patch != null) {
+        result = '$version (patch ${patch.number})';
+      }
+    } catch (_) {
+      // Shorebird not available (e.g. debug builds)
+    }
+
+    if (mounted) {
+      setState(() => _versionText = result);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return ListTile(
+      leading: Icon(Icons.info_outline, color: cs.onSurfaceVariant),
+      title: const Text('Version'),
+      subtitle: Text(_versionText ?? 'Loading...'),
     );
   }
 }

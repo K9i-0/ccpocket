@@ -59,6 +59,8 @@ dependencies:
   super_clipboard: ^0.9.1
   firebase_core: ^4.4.0
   firebase_messaging: ^16.1.1
+  shorebird_code_push: ^2.0.5
+  package_info_plus: ^9.0.0
 
 dev_dependencies:
   flutter_test:
