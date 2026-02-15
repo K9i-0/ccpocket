@@ -211,7 +211,7 @@ return $default(_that.prompts,_that.sortOrder,_that.projectFilter,_that.searchQu
 
 
 class _PromptHistoryState implements PromptHistoryState {
-  const _PromptHistoryState({final  List<PromptHistoryEntry> prompts = const [], this.sortOrder = PromptSortOrder.recency, this.projectFilter, this.searchQuery = '', this.isLoading = false, final  List<String> availableProjects = const []}): _prompts = prompts,_availableProjects = availableProjects;
+  const _PromptHistoryState({final  List<PromptHistoryEntry> prompts = const [], this.sortOrder = PromptSortOrder.frequency, this.projectFilter, this.searchQuery = '', this.isLoading = false, final  List<String> availableProjects = const []}): _prompts = prompts,_availableProjects = availableProjects;
   
 
  final  List<PromptHistoryEntry> _prompts;

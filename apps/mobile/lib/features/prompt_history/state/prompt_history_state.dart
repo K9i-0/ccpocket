@@ -8,7 +8,7 @@ part 'prompt_history_state.freezed.dart';
 abstract class PromptHistoryState with _$PromptHistoryState {
   const factory PromptHistoryState({
     @Default([]) List<PromptHistoryEntry> prompts,
-    @Default(PromptSortOrder.recency) PromptSortOrder sortOrder,
+    @Default(PromptSortOrder.frequency) PromptSortOrder sortOrder,
     String? projectFilter,
     @Default('') String searchQuery,
     @Default(false) bool isLoading,
