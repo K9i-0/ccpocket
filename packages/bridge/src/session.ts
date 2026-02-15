@@ -184,7 +184,7 @@ export class SessionManager {
           }
 
           // Cache tool_use names from assistant messages
-          if (msg.type === "assistant") {
+          if (msg.type === "assistant" && Array.isArray(msg.message.content)) {
             for (const content of msg.message.content) {
               if (content.type === "tool_use") {
                 const toolUse = content as AssistantToolUseContent;
@@ -330,6 +330,10 @@ export class SessionManager {
       for (let i = s.pastMessages.length - 1; i >= 0; i--) {
         const msg = s.pastMessages[i] as Record<string, unknown>;
         if (msg.role === "assistant") {
+          // Handle string content (defensive — normally array)
+          if (typeof msg.content === "string") {
+            return msg.content.replace(/\s+/g, " ").trim().slice(0, 100);
+          }
           const content = msg.content as Array<Record<string, unknown>> | undefined;
           const textBlock = content?.find((c) => c.type === "text");
           if (textBlock?.text) return (textBlock.text as string).replace(/\s+/g, " ").trim().slice(0, 100);

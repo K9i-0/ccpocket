@@ -886,9 +886,17 @@ class PastMessage {
   const PastMessage({required this.role, this.uuid, required this.content});
 
   factory PastMessage.fromJson(Map<String, dynamic> json) {
-    final contentList = (json['content'] as List? ?? [])
-        .map((c) => AssistantContent.fromJson(c as Map<String, dynamic>))
-        .toList();
+    final rawContent = json['content'];
+    final List<AssistantContent> contentList;
+    if (rawContent is String) {
+      // Handle string content (e.g. user message after interrupt)
+      contentList =
+          rawContent.isNotEmpty ? [TextContent(text: rawContent)] : [];
+    } else {
+      contentList = (rawContent as List? ?? [])
+          .map((c) => AssistantContent.fromJson(c as Map<String, dynamic>))
+          .toList();
+    }
     return PastMessage(
       role: json['role'] as String? ?? '',
       uuid: json['uuid'] as String?,
