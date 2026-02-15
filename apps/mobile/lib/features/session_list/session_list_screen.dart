@@ -14,8 +14,6 @@ import '../../providers/bridge_cubits.dart';
 import '../../router/app_router.dart';
 import '../../services/bridge_service.dart';
 import '../../widgets/new_session_sheet.dart';
-import '../claude_code_session/claude_code_session_screen.dart';
-import '../codex_session/codex_session_screen.dart';
 import 'state/session_list_cubit.dart';
 import 'widgets/home_content.dart';
 
@@ -333,29 +331,32 @@ class _SessionListScreenState extends State<SessionListScreen> {
     if (isPending) {
       _pendingSessionCreated.value = null;
     }
-    final Widget screen;
+    final pendingNotifier = isPending ? _pendingSessionCreated : null;
+    final Future<Object?> nav;
     if (provider == Provider.codex) {
-      screen = CodexSessionScreen(
-        sessionId: sessionId,
-        projectPath: projectPath,
-        gitBranch: gitBranch,
-        worktreePath: worktreePath,
-        isPending: isPending,
-        pendingSessionCreated: isPending ? _pendingSessionCreated : null,
+      nav = context.router.push(
+        CodexSessionRoute(
+          sessionId: sessionId,
+          projectPath: projectPath,
+          gitBranch: gitBranch,
+          worktreePath: worktreePath,
+          isPending: isPending,
+          pendingSessionCreated: pendingNotifier,
+        ),
       );
     } else {
-      screen = ClaudeCodeSessionScreen(
-        sessionId: sessionId,
-        projectPath: projectPath,
-        gitBranch: gitBranch,
-        worktreePath: worktreePath,
-        isPending: isPending,
-        pendingSessionCreated: isPending ? _pendingSessionCreated : null,
+      nav = context.router.push(
+        ClaudeCodeSessionRoute(
+          sessionId: sessionId,
+          projectPath: projectPath,
+          gitBranch: gitBranch,
+          worktreePath: worktreePath,
+          isPending: isPending,
+          pendingSessionCreated: pendingNotifier,
+        ),
       );
     }
-    Navigator.push(context, MaterialPageRoute(builder: (_) => screen)).then((
-      _,
-    ) {
+    nav.then((_) {
       if (!mounted) return;
       final isConnected =
           context.read<ConnectionCubit>().state ==
