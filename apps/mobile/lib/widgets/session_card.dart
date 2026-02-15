@@ -392,6 +392,32 @@ class RecentSessionCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
+            if (session.lastPrompt != null &&
+                session.lastPrompt!.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Text(
+                    '↳ ',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: appColors.subtleText,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      session.lastPrompt!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: appColors.subtleText,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (codexSummary != null) ...[
               const SizedBox(height: 4),
               Text(

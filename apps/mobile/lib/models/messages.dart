@@ -897,6 +897,7 @@ class RecentSession {
   final String? provider;
   final String? summary;
   final String firstPrompt;
+  final String? lastPrompt;
   final int messageCount;
   final String created;
   final String modified;
@@ -916,6 +917,7 @@ class RecentSession {
     this.provider,
     this.summary,
     required this.firstPrompt,
+    this.lastPrompt,
     required this.messageCount,
     required this.created,
     required this.modified,
@@ -938,6 +940,7 @@ class RecentSession {
       provider: json['provider'] as String?,
       summary: json['summary'] as String?,
       firstPrompt: json['firstPrompt'] as String? ?? '',
+      lastPrompt: json['lastPrompt'] as String?,
       messageCount: json['messageCount'] as int? ?? 0,
       created: json['created'] as String? ?? '',
       modified: json['modified'] as String? ?? '',

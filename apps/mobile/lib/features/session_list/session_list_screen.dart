@@ -71,12 +71,13 @@ String shortenPath(String path) {
   return path;
 }
 
-/// Filter sessions by text query (matches firstPrompt and summary).
+/// Filter sessions by text query (matches firstPrompt, lastPrompt and summary).
 List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
   if (query.isEmpty) return sessions;
   final q = query.toLowerCase();
   return sessions.where((s) {
     return s.firstPrompt.toLowerCase().contains(q) ||
+        (s.lastPrompt?.toLowerCase().contains(q) ?? false) ||
         (s.summary?.toLowerCase().contains(q) ?? false);
   }).toList();
 }

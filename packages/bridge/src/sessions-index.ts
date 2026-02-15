@@ -7,6 +7,7 @@ export interface SessionIndexEntry {
   provider: "claude" | "codex";
   summary?: string;
   firstPrompt: string;
+  lastPrompt?: string;
   messageCount: number;
   created: string;
   modified: string;
@@ -106,6 +107,7 @@ export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]
 
     const lines = raw.split("\n");
     let firstPrompt = "";
+    let lastPrompt = "";
     let messageCount = 0;
     let created = "";
     let modified = "";
@@ -147,20 +149,25 @@ export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]
         projectPath = normalizeWorktreePath(entry.cwd as string);
       }
 
-      if (type === "user" && !firstPrompt) {
+      if (type === "user") {
         const message = entry.message as
           | { content?: unknown }
           | undefined;
         if (message?.content) {
+          let text = "";
           if (typeof message.content === "string") {
-            firstPrompt = message.content;
+            text = message.content;
           } else if (Array.isArray(message.content)) {
             const textBlock = (
               message.content as Array<{ type: string; text?: string }>
             ).find((c) => c.type === "text" && c.text);
             if (textBlock?.text) {
-              firstPrompt = textBlock.text;
+              text = textBlock.text;
             }
+          }
+          if (text) {
+            if (!firstPrompt) firstPrompt = text;
+            lastPrompt = text;
           }
         }
       }
@@ -176,6 +183,7 @@ export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]
         provider: "claude",
         summary,
         firstPrompt,
+        ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
         messageCount,
         created,
         modified,
@@ -348,6 +356,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   let created = "";
   let modified = "";
   let firstPrompt = "";
+  let lastPrompt = "";
   let summary = "";
   let messageCount = 0;
   let lastAssistantText = "";
@@ -426,6 +435,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       if (payload?.type === "user_message" && typeof payload.message === "string") {
         messageCount += 1;
         if (!firstPrompt) firstPrompt = payload.message;
+        lastPrompt = payload.message;
       }
       continue;
     }
@@ -477,6 +487,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       provider: "codex",
       summary: summary || undefined,
       firstPrompt,
+      ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
       messageCount,
       created,
       modified,
