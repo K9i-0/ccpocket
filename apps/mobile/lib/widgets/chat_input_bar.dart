@@ -20,6 +20,7 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onToggleVoice;
   final VoidCallback onShowSlashCommands;
   final VoidCallback onShowModeMenu;
+  final VoidCallback? onShowPromptHistory;
   final VoidCallback? onAttachImage;
   final Uint8List? attachedImageBytes;
   final VoidCallback? onClearAttachment;
@@ -41,6 +42,7 @@ class ChatInputBar extends StatelessWidget {
     required this.onToggleVoice,
     required this.onShowSlashCommands,
     required this.onShowModeMenu,
+    this.onShowPromptHistory,
     this.onAttachImage,
     this.attachedImageBytes,
     this.onClearAttachment,
@@ -84,6 +86,10 @@ class ChatInputBar extends StatelessWidget {
               _buildModeButton(cs),
               const SizedBox(width: 8),
               _buildAttachButton(cs),
+              if (onShowPromptHistory != null) ...[
+                const SizedBox(width: 8),
+                _buildHistoryButton(cs),
+              ],
               if (isVoiceAvailable) ...[
                 const SizedBox(width: 8),
                 _buildVoiceButton(cs),
@@ -158,6 +164,24 @@ class ChatInputBar extends StatelessWidget {
             size: 18,
             color: hasAttachment ? cs.onPrimaryContainer : cs.primary,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryButton(ColorScheme cs) {
+    return Material(
+      color: cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        key: const ValueKey('prompt_history_button'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: onShowPromptHistory,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          child: Icon(Icons.history, size: 18, color: cs.primary),
         ),
       ),
     );

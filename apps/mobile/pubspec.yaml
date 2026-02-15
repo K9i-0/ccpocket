@@ -37,6 +37,7 @@ dependencies:
   web_socket_channel: ^3.0.3
   marionette_flutter: ^0.3.0
   shared_preferences: ^2.5.0
+  sqflite: ^2.4.2
   flutter_local_notifications: ^20.0.0
   flutter_markdown: ^0.7.7+1
   markdown: ^7.3.0
