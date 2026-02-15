@@ -63,6 +63,7 @@ class HomeContent extends StatefulWidget {
 class _HomeContentState extends State<HomeContent> {
   bool _isSearching = false;
   final _searchController = TextEditingController();
+  SessionDisplayMode _displayMode = SessionDisplayMode.first;
 
   @override
   void didUpdateWidget(covariant HomeContent oldWidget) {
@@ -158,18 +159,31 @@ class _HomeContentState extends State<HomeContent> {
             icon: Icons.history,
             label: 'Recent Sessions',
             color: appColors.subtleText,
-            trailing: IconButton(
-              key: const ValueKey('search_button'),
-              icon: Icon(
-                _isSearching ? Icons.close : Icons.search,
-                size: 18,
-                color: appColors.subtleText,
-              ),
-              onPressed: _toggleSearch,
-              tooltip: 'Search',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              visualDensity: VisualDensity.compact,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _SessionDisplayModeToggle(
+                  key: const ValueKey('session_display_mode_toggle'),
+                  mode: _displayMode,
+                  onChanged: (mode) =>
+                      setState(() => _displayMode = mode),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  key: const ValueKey('search_button'),
+                  icon: Icon(
+                    _isSearching ? Icons.close : Icons.search,
+                    size: 18,
+                    color: appColors.subtleText,
+                  ),
+                  onPressed: _toggleSearch,
+                  tooltip: 'Search',
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
             ),
           ),
           if (_isSearching) ...[
@@ -221,6 +235,7 @@ class _HomeContentState extends State<HomeContent> {
           for (final session in filteredSessions)
             RecentSessionCard(
               session: session,
+              displayMode: _displayMode,
               onTap: () => widget.onResumeSession(session),
               onLongPress: () => widget.onLongPressRecentSession(session),
               hideProjectBadge: widget.selectedProject != null,
@@ -248,6 +263,49 @@ class _HomeContentState extends State<HomeContent> {
           ],
         ],
       ],
+    );
+  }
+}
+
+class _SessionDisplayModeToggle extends StatelessWidget {
+  final SessionDisplayMode mode;
+  final ValueChanged<SessionDisplayMode> onChanged;
+
+  const _SessionDisplayModeToggle({
+    super.key,
+    required this.mode,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SegmentedButton<SessionDisplayMode>(
+      segments: const [
+        ButtonSegment(
+          value: SessionDisplayMode.first,
+          label: Text('First'),
+        ),
+        ButtonSegment(
+          value: SessionDisplayMode.last,
+          label: Text('Last'),
+        ),
+        ButtonSegment(
+          value: SessionDisplayMode.summary,
+          label: Text('Sum.'),
+        ),
+      ],
+      selected: {mode},
+      onSelectionChanged: (s) => onChanged(s.first),
+      showSelectedIcon: false,
+      style: SegmentedButton.styleFrom(
+        visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        backgroundColor: colorScheme.surfaceContainerLow,
+        selectedBackgroundColor: colorScheme.primaryContainer,
+        side: BorderSide(color: colorScheme.outlineVariant),
+        textStyle: const TextStyle(fontSize: 10),
+      ),
     );
   }
 }

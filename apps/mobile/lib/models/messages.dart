@@ -892,6 +892,16 @@ class PastMessage {
 
 // ---- Recent session (from sessions-index.json) ----
 
+/// Display mode for session list cards.
+enum SessionDisplayMode {
+  first('First'),
+  last('Last'),
+  summary('Summary');
+
+  final String label;
+  const SessionDisplayMode(this.label);
+}
+
 class RecentSession {
   final String sessionId;
   final String? provider;

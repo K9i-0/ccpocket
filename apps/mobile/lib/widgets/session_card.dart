@@ -320,6 +320,7 @@ class RecentSessionCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final bool hideProjectBadge;
+  final SessionDisplayMode displayMode;
 
   const RecentSessionCard({
     super.key,
@@ -327,6 +328,7 @@ class RecentSessionCard extends StatelessWidget {
     required this.onTap,
     this.onLongPress,
     this.hideProjectBadge = false,
+    this.displayMode = SessionDisplayMode.first,
   });
 
   @override
@@ -387,37 +389,11 @@ class RecentSessionCard extends StatelessWidget {
           children: [
             const SizedBox(height: 4),
             Text(
-              session.displayText,
+              _displayTextForMode(session, displayMode),
               style: const TextStyle(fontSize: 13),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            if (session.lastPrompt != null &&
-                session.lastPrompt!.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Row(
-                children: [
-                  Text(
-                    '↳ ',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: appColors.subtleText,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      session.lastPrompt!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: appColors.subtleText,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ],
             if (codexSummary != null) ...[
               const SizedBox(height: 4),
               Text(
@@ -455,6 +431,23 @@ class RecentSessionCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static String _displayTextForMode(
+    RecentSession session,
+    SessionDisplayMode mode,
+  ) {
+    switch (mode) {
+      case SessionDisplayMode.first:
+        if (session.firstPrompt.isNotEmpty) return session.firstPrompt;
+        return session.displayText;
+      case SessionDisplayMode.last:
+        final text = session.lastPrompt ?? session.firstPrompt;
+        return text.isNotEmpty ? text : '(no description)';
+      case SessionDisplayMode.summary:
+        final text = session.summary ?? session.firstPrompt;
+        return text.isNotEmpty ? text : '(no description)';
+    }
   }
 
   String _formatDate(String isoDate) {
