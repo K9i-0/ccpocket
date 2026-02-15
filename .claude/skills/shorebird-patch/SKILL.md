@@ -46,18 +46,49 @@ bash scripts/shorebird/patch-android.sh <version>
 
 完了後の出力から **パッチ番号** を記録する（= `<patch-number>`）。
 
-### 3. 完了報告
+### 3. アセット差分の検証（重要）
+
+パッチ出力に以下の警告が含まれていないか確認する:
+
+```
+[WARN] Your app contains asset changes, which will not be included in the patch.
+```
+
+**この警告が出た場合、パッチは publish されるが実機に適用されない可能性が高い。**
+
+#### 対処法
+
+アセット差分が検出された場合、ユーザーに以下を報告する:
+
+1. **警告内容**: どのファイルにアセット差分があるか（例: `MaterialIcons-Regular.otf`）
+2. **影響**: パッチは作成されるが、デバイスでダウンロード後に適用されない
+3. **推奨対応**: 新しいリリース (`shorebird release`) を作成してから、クリーンな状態でパッチを再作成する
+
+```bash
+# 新リリースを作成（バージョンをbumpしてから）
+bash scripts/shorebird/release-ios.sh --export-method development
+
+# デバイスにインストール
+xcrun devicectl device install app --device <DEVICE_ID> apps/mobile/build/ios/ipa/ccpocket.ipa
+
+# その後パッチを作成
+bash scripts/shorebird/patch-ios.sh <new-version>
+```
+
+### 4. 完了報告
 
 以下を報告する:
 - パッチ番号
 - 対象プラットフォーム
 - リリースバージョン
 - トラック: **stable**
+- アセット差分: あり/なし（ありの場合は警告を明記）
 
 ユーザーにアプリの再起動を案内する（1回目でダウンロード、2回目で適用）。
 
 ## トラブルシュート
 
-- **アセット変更警告**: スクリプトが `--allow-asset-diffs` を付与するため自動スキップされる。フォントファイル等の変更は OTA パッチに含まれない点をユーザーに伝える
+- **アセット差分でパッチが適用されない**: `--allow-asset-diffs` でパッチ作成は成功するが、アセット変更（フォント、画像等）を含むパッチは実機で適用に失敗する。新リリースの作成が必要
 - **署名エラー（exportArchive）**: IPA生成時のエラーはShorebirdパッチ自体には影響しない。パッチが `Published Patch N!` と表示されていれば成功
 - **インタラクティブプロンプト**: `shorebird` コマンドを直接実行する場合は `--release-version` フラグ必須（省略するとインタラクティブプロンプトで非TTY環境がエラーになる）
+- **パッチが反映されない場合の確認**: 設定画面のバージョン表示で `(patch N)` が出ているか確認。出ていなければShorebirdリリースビルドでない可能性がある

@@ -36,12 +36,12 @@ class AppTheme {
 
   static ThemeData get darkTheme {
     final colorScheme = ColorScheme.dark(
-      surface: const Color(0xFF131211), // warm near-black
-      surfaceContainerLowest: const Color(0xFF131211),
-      surfaceContainerLow: const Color(0xFF1E1D1A), // warm dark (lifted)
-      surfaceContainer: const Color(0xFF262522), // warm dark grey (lifted)
-      surfaceContainerHigh: const Color(0xFF332F2B), // card bg (lifted)
-      surfaceContainerHighest: const Color(0xFF3D3935), // lifted
+      surface: const Color(0xFF171717), // neutral near-black
+      surfaceContainerLowest: const Color(0xFF141414),
+      surfaceContainerLow: const Color(0xFF1E1E1E), // neutral dark (lifted)
+      surfaceContainer: const Color(0xFF242424), // neutral dark grey (lifted)
+      surfaceContainerHigh: const Color(0xFF2A2A2A), // card bg (ChatGPT-like)
+      surfaceContainerHighest: const Color(0xFF333333), // lifted
       primary: const Color(0xFFF97316), // Orange 500 (brighter for dark)
       onPrimary: Colors.white,
       primaryContainer: const Color(0xFFC2410C),
@@ -50,8 +50,10 @@ class AppTheme {
       tertiary: const Color(0xFFFBBF24), // Amber 400
       error: const Color(0xFFF87171), // Red 400
       onError: Colors.black,
-      outline: const Color(0xFF6B645C), // warm dark grey (brighter)
-      outlineVariant: const Color(0xFF4A4640), // card border (brighter)
+      onSurface: const Color(0xFFE8E5E1), // slightly warm white
+      onSurfaceVariant: const Color(0xFFB8B5B1), // neutral-warm grey
+      outline: const Color(0xFF6E6E6E), // neutral grey
+      outlineVariant: const Color(0xFF3D3D3D), // card border (clean)
     );
 
     return _buildTheme(colorScheme, Brightness.dark, AppColors.dark());
@@ -467,33 +469,33 @@ class AppColors extends ThemeExtension<AppColors> {
   factory AppColors.dark() => const AppColors(
     userBubble: Color(0xFFF97316), // Orange 500
     userBubbleText: Color(0xFFFFFFFF),
-    assistantBubble: Color(0xFF1E1D1A), // warm very dark
+    assistantBubble: Color(0xFF1E1E1E), // neutral dark
     toolBubble: Color(0xFF0A1F12), // deep green
     toolBubbleBorder: Color(0xFF1A5C35),
     toolIcon: Color(0xFF86EFAC), // Green 300
     errorBubble: Color(0xFF2A1215),
     errorBubbleBorder: Color(0xFF5C2020),
     errorText: Color(0xFFFCA5A5), // Red 300
-    permissionBubble: Color(0xFF261A0B), // deep warm
+    permissionBubble: Color(0xFF241A0B), // deep warm
     permissionBubbleBorder: Color(0xFF5C3D15),
     permissionIcon: Color(0xFFFDBA74), // Orange 300
-    askBubble: Color(0xFF261A0B), // deep warm
+    askBubble: Color(0xFF241A0B), // deep warm
     askBubbleBorder: Color(0xFF5C3D15),
     askIcon: Color(0xFFFDBA74), // Orange 300
-    systemChip: Color(0xFF0F1A16), // warm dark green
+    systemChip: Color(0xFF0F1A16), // dark green
     successChip: Color(0xFF0A1F12),
     errorChip: Color(0xFF2A1215),
-    approvalBar: Color(0xFF261A0B),
+    approvalBar: Color(0xFF241A0B),
     approvalBarBorder: Color(0xFF5C3D15),
-    statusStarting: Color(0xFF60A5FA), // Blue 400 (higher chroma)
-    statusRunning: Color(0xFF4ADE80), // Green 400 (higher chroma)
+    statusStarting: Color(0xFF60A5FA), // Blue 400
+    statusRunning: Color(0xFF4ADE80), // Green 400
     statusApproval: Color(0xFFFDBA74), // Orange 300
-    statusIdle: Color(0xFF6B645C), // warm dark grey (brighter)
-    subtleText: Color(0xFFBAB5B0), // warm stone (brighter)
-    codeBackground: Color(0xFF1E1D1A), // lifted
-    codeBorder: Color(0xFF4A4640), // match outlineVariant
-    toolResultBackground: Color(0xFF1E1D1A),
-    toolResultText: Color(0xFFBAB5B0), // warm stone (brighter)
+    statusIdle: Color(0xFF6E6E6E), // neutral grey
+    subtleText: Color(0xFFB8B5B0), // neutral-warm stone
+    codeBackground: Color(0xFF1E1E1E), // neutral lifted
+    codeBorder: Color(0xFF3D3D3D), // match outlineVariant
+    toolResultBackground: Color(0xFF1E1E1E),
+    toolResultText: Color(0xFFB8B5B0), // neutral-warm stone
     toolResultTextExpanded: Color(0xFFD6D3D1), // Stone 300
     diffAdditionBackground: Color(0xFF14532D), // Green 900
     diffAdditionText: Color(0xFF86EFAC), // Green 300
