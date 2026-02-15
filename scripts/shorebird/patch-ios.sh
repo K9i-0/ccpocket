@@ -14,11 +14,8 @@ shift
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/../../apps/mobile"
 
-FLUTTER_VERSION="${FLUTTER_VERSION:-$(flutter --version --machine | grep -o '"frameworkVersion":"[^"]*"' | cut -d'"' -f4)}"
-
 echo "=== Shorebird Patch (iOS) ==="
 echo "Release version: $RELEASE_VERSION"
-echo "Flutter version: $FLUTTER_VERSION"
 echo "Track: staging"
 echo ""
 
@@ -32,7 +29,6 @@ echo ""
 echo "--- Creating iOS patch (staging) ---"
 shorebird patch ios \
   --release-version="$RELEASE_VERSION" \
-  --flutter-version="$FLUTTER_VERSION" \
   --track=staging \
   "$@"
 

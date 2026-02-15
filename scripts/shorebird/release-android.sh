@@ -5,10 +5,7 @@ export PATH="$HOME/.shorebird/bin:$PATH"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/../../apps/mobile"
 
-FLUTTER_VERSION="${FLUTTER_VERSION:-$(flutter --version --machine | grep -o '"frameworkVersion":"[^"]*"' | cut -d'"' -f4)}"
-
 echo "=== Shorebird Release (Android) ==="
-echo "Flutter version: $FLUTTER_VERSION"
 echo "Project: $PROJECT_DIR"
 echo ""
 
@@ -20,7 +17,7 @@ dart analyze .
 
 echo ""
 echo "--- Creating Android release ---"
-shorebird release android --flutter-version="$FLUTTER_VERSION" "$@"
+shorebird release android "$@"
 
 echo ""
 echo "=== Done ==="
