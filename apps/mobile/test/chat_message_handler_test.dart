@@ -517,6 +517,18 @@ void main() {
       expect(update.slashCommands!.length, 2);
       expect(update.pendingToolUseId, 'tu-perm');
     });
+
+    test('history sets replaceEntries to true to prevent duplicates', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            StatusMessage(status: ProcessStatus.idle),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.replaceEntries, isTrue);
+    });
   });
 
   group('SystemMessage slash command handling', () {

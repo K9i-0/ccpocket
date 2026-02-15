@@ -38,6 +38,11 @@ class ChatStateUpdate {
   /// Tool use IDs that should be hidden from display (replaced by a summary).
   final Set<String> toolUseIdsToHide;
 
+  /// When true, [entriesToAdd] replaces all non-past-history entries instead of
+  /// appending. Used by [_handleHistory] so that repeated history loads do not
+  /// duplicate messages.
+  final bool replaceEntries;
+
   const ChatStateUpdate({
     this.status,
     this.entriesToAdd = const [],
@@ -57,6 +62,7 @@ class ChatStateUpdate {
     this.sideEffects = const {},
     this.resultSessionId,
     this.toolUseIdsToHide = const {},
+    this.replaceEntries = false,
   });
 }
 
@@ -364,6 +370,7 @@ class ChatMessageHandler {
     return ChatStateUpdate(
       status: lastStatus,
       entriesToAdd: entries,
+      replaceEntries: true,
       slashCommands: commands,
       pendingToolUseId: isWaiting ? lastPermission?.toolUseId : null,
       pendingPermission: isWaiting ? lastPermission : null,

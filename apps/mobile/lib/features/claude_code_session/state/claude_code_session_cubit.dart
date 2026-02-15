@@ -26,6 +26,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   bool _pastHistoryLoaded = false;
   Timer? _statusRefreshTimer;
 
+  /// Number of entries prepended from past_history, so that [replaceEntries]
+  /// can preserve them while replacing in-memory history entries.
+  int _pastEntryCount = 0;
+
   /// Tool use IDs that have been approved or rejected locally.
   /// Cleared when corresponding [ToolResultMessage] arrives or session
   /// completes ([ResultMessage]).
@@ -115,6 +119,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
     // Prepend entries (past history)
     if (update.entriesToPrepend.isNotEmpty) {
+      _pastEntryCount += update.entriesToPrepend.length;
       entries = [...update.entriesToPrepend, ...entries];
       didModifyEntries = true;
     }
@@ -165,7 +170,13 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     final nonStreamingEntries = update.entriesToAdd
         .where((e) => e is! StreamingChatEntry)
         .toList();
-    if (nonStreamingEntries.isNotEmpty) {
+    if (update.replaceEntries) {
+      // History is a full snapshot — replace all non-past-history entries
+      // to prevent duplicates when get_history is received multiple times.
+      final pastEntries = entries.take(_pastEntryCount).toList();
+      entries = [...pastEntries, ...nonStreamingEntries];
+      didModifyEntries = true;
+    } else if (nonStreamingEntries.isNotEmpty) {
       entries = [...entries, ...nonStreamingEntries];
       didModifyEntries = true;
     }
@@ -442,6 +453,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// restoring approval state that may have arrived while disconnected.
   void refreshHistory() {
     _pastHistoryLoaded = false;
+    _pastEntryCount = 0;
     _bridge.requestSessionHistory(sessionId);
   }
 
