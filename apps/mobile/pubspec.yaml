@@ -62,6 +62,7 @@ dependencies:
   shorebird_code_push: ^2.0.5
   package_info_plus: ^9.0.0
   auto_route: ^11.1.0
+  collection: ^1.19.1
 
 dev_dependencies:
   flutter_test:

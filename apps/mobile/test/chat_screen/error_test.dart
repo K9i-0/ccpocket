@@ -1,4 +1,4 @@
-import 'package:ccpocket/features/chat/widgets/chat_input_with_overlays.dart';
+import 'package:ccpocket/features/claude_code_session/widgets/chat_input_with_overlays.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol_finders/patrol_finders.dart';

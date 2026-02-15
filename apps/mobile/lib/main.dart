@@ -8,7 +8,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'features/session_list/session_list_screen.dart';
 import 'features/session_list/state/session_list_cubit.dart';
 import 'features/settings/state/settings_cubit.dart';
 import 'features/settings/state/settings_state.dart';
@@ -16,6 +15,8 @@ import 'models/messages.dart';
 import 'providers/bridge_cubits.dart';
 import 'providers/machine_manager_cubit.dart';
 import 'providers/server_discovery_cubit.dart';
+import 'router/app_router.dart';
+import 'router/connection_guard.dart';
 import 'services/bridge_service.dart';
 import 'services/connection_url_parser.dart';
 import 'services/draft_service.dart';
@@ -115,13 +116,34 @@ class _CcpocketAppState extends State<CcpocketApp> {
   final _deepLinkNotifier = ValueNotifier<ConnectionParams?>(null);
   StreamSubscription<Uri>? _linkSub;
 
+  late final ConnectionChangeNotifier _connectionNotifier;
+  late final AppRouter _appRouter;
+  bool _routerInitialized = false;
+
   @override
   void initState() {
     super.initState();
+    _connectionNotifier = ConnectionChangeNotifier();
     if (!kIsWeb) {
       _appLinks = AppLinks();
       _initDeepLinks();
     }
+  }
+
+  void _initRouter() {
+    if (_routerInitialized) return;
+    _routerInitialized = true;
+    final cubit = context.read<ConnectionCubit>();
+    _connectionNotifier.listen(cubit);
+    _appRouter = AppRouter(
+      connectionGuard: ConnectionGuard(_connectionNotifier),
+    );
+    // Navigate to session screen when user taps a notification
+    NotificationService.instance.onNotificationTap = (payload) {
+      if (payload != null && payload.isNotEmpty) {
+        _appRouter.push(ClaudeCodeSessionRoute(sessionId: payload));
+      }
+    };
   }
 
   Future<void> _initDeepLinks() async {
@@ -160,19 +182,25 @@ class _CcpocketAppState extends State<CcpocketApp> {
   void dispose() {
     _linkSub?.cancel();
     _deepLinkNotifier.dispose();
+    _connectionNotifier.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Initialize router on first build (needs BlocProvider context)
+    _initRouter();
+
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, settings) {
-        return MaterialApp(
+        return MaterialApp.router(
           title: 'CC Pocket',
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: settings.themeMode,
-          home: SessionListScreen(deepLinkNotifier: _deepLinkNotifier),
+          routerConfig: _appRouter.config(
+            reevaluateListenable: _connectionNotifier,
+          ),
         );
       },
     );

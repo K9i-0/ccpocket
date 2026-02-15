@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -7,6 +8,7 @@ import 'package:flutter/material.dart';
 ///
 /// Uses [LicenseRegistry.licenses] to load all licenses and groups them
 /// by package name. A search bar filters packages by name.
+@RoutePage()
 class LicensesScreen extends StatefulWidget {
   const LicensesScreen({super.key});
 

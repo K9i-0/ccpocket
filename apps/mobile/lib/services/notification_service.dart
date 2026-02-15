@@ -10,6 +10,10 @@ class NotificationService {
 
   bool _initialized = false;
 
+  /// Called when the user taps a notification. The [payload] string
+  /// (typically a sessionId) is forwarded.
+  void Function(String? payload)? onNotificationTap;
+
   Future<void> init() async {
     if (kIsWeb) return;
     if (_initialized) return;
@@ -27,14 +31,22 @@ class NotificationService {
       iOS: iosSettings,
     );
 
-    await _plugin.initialize(settings: settings);
+    await _plugin.initialize(
+      settings: settings,
+      onDidReceiveNotificationResponse: _onNotificationResponse,
+    );
     _initialized = true;
+  }
+
+  void _onNotificationResponse(NotificationResponse response) {
+    onNotificationTap?.call(response.payload);
   }
 
   Future<void> show({
     required String title,
     required String body,
     int id = 0,
+    String? payload,
   }) async {
     if (!_initialized) return;
 
@@ -56,6 +68,7 @@ class NotificationService {
       title: title,
       body: body,
       notificationDetails: details,
+      payload: payload,
     );
   }
 }

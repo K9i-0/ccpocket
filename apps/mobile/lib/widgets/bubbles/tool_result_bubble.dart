@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/messages.dart';
-import '../../features/diff/diff_screen.dart';
+import 'package:auto_route/auto_route.dart';
+
+import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import 'image_preview.dart';
@@ -139,14 +141,8 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
   }
 
   void _openDiffScreen() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DiffScreen(
-          initialDiff: widget.message.content,
-          title: _extractFilePath(),
-        ),
-      ),
+    context.router.push(
+      DiffRoute(initialDiff: widget.message.content, title: _extractFilePath()),
     );
   }
 

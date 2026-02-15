@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../../hooks/use_scroll_tracking.dart';
@@ -22,8 +23,7 @@ import '../claude_code_session/widgets/chat_input_with_overlays.dart';
 import '../claude_code_session/widgets/chat_message_list.dart';
 import '../claude_code_session/widgets/reconnect_banner.dart';
 import '../claude_code_session/widgets/status_indicator.dart';
-import '../diff/diff_screen.dart';
-import '../gallery/gallery_screen.dart';
+import '../../router/app_router.dart';
 import 'state/codex_session_cubit.dart';
 
 /// Codex-specific chat screen.
@@ -31,6 +31,7 @@ import 'state/codex_session_cubit.dart';
 /// Simpler than [ClaudeCodeSessionScreen] — no approval flow, no rewind, no plan mode.
 /// Shares UI components (`ChatMessageList`, `ChatInputWithOverlays`, etc.)
 /// via [CodexSessionCubit] which extends [ChatSessionCubit].
+@RoutePage()
 class CodexSessionScreen extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
@@ -246,6 +247,7 @@ class _CodexChatBody extends HookWidget {
       final sub = context.read<ChatSessionCubit>().sideEffects.listen(
         (effects) => _executeSideEffects(
           effects,
+          sessionId: sessionId,
           isBackground: isBackground,
           collapseToolResults: collapseToolResults,
           scrollToBottom: scroll.scrollToBottom,
@@ -380,12 +382,7 @@ class _CodexChatBody extends HookWidget {
                     minHeight: 36,
                   ),
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => GalleryScreen(sessionId: sessionId),
-                      ),
-                    );
+                    context.router.push(GalleryRoute(sessionId: sessionId));
                   },
                 ),
                 if (projectPath != null)
@@ -484,13 +481,10 @@ Future<void> _openDiffScreen(
   ValueNotifier<DiffSelection?> diffSelectionNotifier, {
   DiffSelection? existingSelection,
 }) async {
-  final selection = await Navigator.push<DiffSelection>(
-    context,
-    MaterialPageRoute(
-      builder: (_) => DiffScreen(
-        projectPath: projectPath,
-        initialSelectedHunkKeys: existingSelection?.selectedHunkKeys,
-      ),
+  final selection = await context.router.push<DiffSelection>(
+    DiffRoute(
+      projectPath: projectPath,
+      initialSelectedHunkKeys: existingSelection?.selectedHunkKeys,
     ),
   );
   if (selection != null && !selection.isEmpty) {
@@ -502,6 +496,7 @@ Future<void> _openDiffScreen(
 
 void _executeSideEffects(
   Set<ChatSideEffect> effects, {
+  required String sessionId,
   required bool isBackground,
   required ValueNotifier<int> collapseToolResults,
   required VoidCallback scrollToBottom,
@@ -531,6 +526,7 @@ void _executeSideEffects(
             title: 'Session Complete',
             body: 'Codex session done',
             id: 3,
+            payload: sessionId,
           );
         }
       case ChatSideEffect.scrollToBottom:

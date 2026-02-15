@@ -1,0 +1,523 @@
+// dart format width=80
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+// **************************************************************************
+// AutoRouterGenerator
+// **************************************************************************
+
+// ignore_for_file: type=lint
+// coverage:ignore-file
+
+part of 'app_router.dart';
+
+/// generated route for
+/// [ClaudeCodeSessionScreen]
+class ClaudeCodeSessionRoute extends PageRouteInfo<ClaudeCodeSessionRouteArgs> {
+  ClaudeCodeSessionRoute({
+    Key? key,
+    required String sessionId,
+    String? projectPath,
+    String? gitBranch,
+    String? worktreePath,
+    bool isPending = false,
+    ValueNotifier<SystemMessage?>? pendingSessionCreated,
+    List<PageRouteInfo>? children,
+  }) : super(
+         ClaudeCodeSessionRoute.name,
+         args: ClaudeCodeSessionRouteArgs(
+           key: key,
+           sessionId: sessionId,
+           projectPath: projectPath,
+           gitBranch: gitBranch,
+           worktreePath: worktreePath,
+           isPending: isPending,
+           pendingSessionCreated: pendingSessionCreated,
+         ),
+         initialChildren: children,
+       );
+
+  static const String name = 'ClaudeCodeSessionRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<ClaudeCodeSessionRouteArgs>();
+      return ClaudeCodeSessionScreen(
+        key: args.key,
+        sessionId: args.sessionId,
+        projectPath: args.projectPath,
+        gitBranch: args.gitBranch,
+        worktreePath: args.worktreePath,
+        isPending: args.isPending,
+        pendingSessionCreated: args.pendingSessionCreated,
+      );
+    },
+  );
+}
+
+class ClaudeCodeSessionRouteArgs {
+  const ClaudeCodeSessionRouteArgs({
+    this.key,
+    required this.sessionId,
+    this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
+    this.isPending = false,
+    this.pendingSessionCreated,
+  });
+
+  final Key? key;
+
+  final String sessionId;
+
+  final String? projectPath;
+
+  final String? gitBranch;
+
+  final String? worktreePath;
+
+  final bool isPending;
+
+  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
+
+  @override
+  String toString() {
+    return 'ClaudeCodeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, pendingSessionCreated: $pendingSessionCreated}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! ClaudeCodeSessionRouteArgs) return false;
+    return key == other.key &&
+        sessionId == other.sessionId &&
+        projectPath == other.projectPath &&
+        gitBranch == other.gitBranch &&
+        worktreePath == other.worktreePath &&
+        isPending == other.isPending &&
+        pendingSessionCreated == other.pendingSessionCreated;
+  }
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      sessionId.hashCode ^
+      projectPath.hashCode ^
+      gitBranch.hashCode ^
+      worktreePath.hashCode ^
+      isPending.hashCode ^
+      pendingSessionCreated.hashCode;
+}
+
+/// generated route for
+/// [CodexSessionScreen]
+class CodexSessionRoute extends PageRouteInfo<CodexSessionRouteArgs> {
+  CodexSessionRoute({
+    Key? key,
+    required String sessionId,
+    String? projectPath,
+    String? gitBranch,
+    String? worktreePath,
+    bool isPending = false,
+    ValueNotifier<SystemMessage?>? pendingSessionCreated,
+    List<PageRouteInfo>? children,
+  }) : super(
+         CodexSessionRoute.name,
+         args: CodexSessionRouteArgs(
+           key: key,
+           sessionId: sessionId,
+           projectPath: projectPath,
+           gitBranch: gitBranch,
+           worktreePath: worktreePath,
+           isPending: isPending,
+           pendingSessionCreated: pendingSessionCreated,
+         ),
+         initialChildren: children,
+       );
+
+  static const String name = 'CodexSessionRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<CodexSessionRouteArgs>();
+      return CodexSessionScreen(
+        key: args.key,
+        sessionId: args.sessionId,
+        projectPath: args.projectPath,
+        gitBranch: args.gitBranch,
+        worktreePath: args.worktreePath,
+        isPending: args.isPending,
+        pendingSessionCreated: args.pendingSessionCreated,
+      );
+    },
+  );
+}
+
+class CodexSessionRouteArgs {
+  const CodexSessionRouteArgs({
+    this.key,
+    required this.sessionId,
+    this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
+    this.isPending = false,
+    this.pendingSessionCreated,
+  });
+
+  final Key? key;
+
+  final String sessionId;
+
+  final String? projectPath;
+
+  final String? gitBranch;
+
+  final String? worktreePath;
+
+  final bool isPending;
+
+  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
+
+  @override
+  String toString() {
+    return 'CodexSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, pendingSessionCreated: $pendingSessionCreated}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! CodexSessionRouteArgs) return false;
+    return key == other.key &&
+        sessionId == other.sessionId &&
+        projectPath == other.projectPath &&
+        gitBranch == other.gitBranch &&
+        worktreePath == other.worktreePath &&
+        isPending == other.isPending &&
+        pendingSessionCreated == other.pendingSessionCreated;
+  }
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      sessionId.hashCode ^
+      projectPath.hashCode ^
+      gitBranch.hashCode ^
+      worktreePath.hashCode ^
+      isPending.hashCode ^
+      pendingSessionCreated.hashCode;
+}
+
+/// generated route for
+/// [ConnectionScreen]
+class ConnectionRoute extends PageRouteInfo<ConnectionRouteArgs> {
+  ConnectionRoute({
+    Key? key,
+    ValueNotifier<ConnectionParams?>? deepLinkNotifier,
+    List<PageRouteInfo>? children,
+  }) : super(
+         ConnectionRoute.name,
+         args: ConnectionRouteArgs(
+           key: key,
+           deepLinkNotifier: deepLinkNotifier,
+         ),
+         initialChildren: children,
+       );
+
+  static const String name = 'ConnectionRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<ConnectionRouteArgs>(
+        orElse: () => const ConnectionRouteArgs(),
+      );
+      return ConnectionScreen(
+        key: args.key,
+        deepLinkNotifier: args.deepLinkNotifier,
+      );
+    },
+  );
+}
+
+class ConnectionRouteArgs {
+  const ConnectionRouteArgs({this.key, this.deepLinkNotifier});
+
+  final Key? key;
+
+  final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
+
+  @override
+  String toString() {
+    return 'ConnectionRouteArgs{key: $key, deepLinkNotifier: $deepLinkNotifier}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! ConnectionRouteArgs) return false;
+    return key == other.key && deepLinkNotifier == other.deepLinkNotifier;
+  }
+
+  @override
+  int get hashCode => key.hashCode ^ deepLinkNotifier.hashCode;
+}
+
+/// generated route for
+/// [DiffScreen]
+class DiffRoute extends PageRouteInfo<DiffRouteArgs> {
+  DiffRoute({
+    Key? key,
+    String? initialDiff,
+    String? projectPath,
+    String? title,
+    Set<String>? initialSelectedHunkKeys,
+    List<PageRouteInfo>? children,
+  }) : super(
+         DiffRoute.name,
+         args: DiffRouteArgs(
+           key: key,
+           initialDiff: initialDiff,
+           projectPath: projectPath,
+           title: title,
+           initialSelectedHunkKeys: initialSelectedHunkKeys,
+         ),
+         initialChildren: children,
+       );
+
+  static const String name = 'DiffRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<DiffRouteArgs>(
+        orElse: () => const DiffRouteArgs(),
+      );
+      return DiffScreen(
+        key: args.key,
+        initialDiff: args.initialDiff,
+        projectPath: args.projectPath,
+        title: args.title,
+        initialSelectedHunkKeys: args.initialSelectedHunkKeys,
+      );
+    },
+  );
+}
+
+class DiffRouteArgs {
+  const DiffRouteArgs({
+    this.key,
+    this.initialDiff,
+    this.projectPath,
+    this.title,
+    this.initialSelectedHunkKeys,
+  });
+
+  final Key? key;
+
+  final String? initialDiff;
+
+  final String? projectPath;
+
+  final String? title;
+
+  final Set<String>? initialSelectedHunkKeys;
+
+  @override
+  String toString() {
+    return 'DiffRouteArgs{key: $key, initialDiff: $initialDiff, projectPath: $projectPath, title: $title, initialSelectedHunkKeys: $initialSelectedHunkKeys}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! DiffRouteArgs) return false;
+    return key == other.key &&
+        initialDiff == other.initialDiff &&
+        projectPath == other.projectPath &&
+        title == other.title &&
+        const SetEquality<String>().equals(
+          initialSelectedHunkKeys,
+          other.initialSelectedHunkKeys,
+        );
+  }
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      initialDiff.hashCode ^
+      projectPath.hashCode ^
+      title.hashCode ^
+      const SetEquality<String>().hash(initialSelectedHunkKeys);
+}
+
+/// generated route for
+/// [GalleryScreen]
+class GalleryRoute extends PageRouteInfo<GalleryRouteArgs> {
+  GalleryRoute({Key? key, String? sessionId, List<PageRouteInfo>? children})
+    : super(
+        GalleryRoute.name,
+        args: GalleryRouteArgs(key: key, sessionId: sessionId),
+        initialChildren: children,
+      );
+
+  static const String name = 'GalleryRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<GalleryRouteArgs>(
+        orElse: () => const GalleryRouteArgs(),
+      );
+      return GalleryScreen(key: args.key, sessionId: args.sessionId);
+    },
+  );
+}
+
+class GalleryRouteArgs {
+  const GalleryRouteArgs({this.key, this.sessionId});
+
+  final Key? key;
+
+  final String? sessionId;
+
+  @override
+  String toString() {
+    return 'GalleryRouteArgs{key: $key, sessionId: $sessionId}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! GalleryRouteArgs) return false;
+    return key == other.key && sessionId == other.sessionId;
+  }
+
+  @override
+  int get hashCode => key.hashCode ^ sessionId.hashCode;
+}
+
+/// generated route for
+/// [LicensesScreen]
+class LicensesRoute extends PageRouteInfo<void> {
+  const LicensesRoute({List<PageRouteInfo>? children})
+    : super(LicensesRoute.name, initialChildren: children);
+
+  static const String name = 'LicensesRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const LicensesScreen();
+    },
+  );
+}
+
+/// generated route for
+/// [MockPreviewScreen]
+class MockPreviewRoute extends PageRouteInfo<void> {
+  const MockPreviewRoute({List<PageRouteInfo>? children})
+    : super(MockPreviewRoute.name, initialChildren: children);
+
+  static const String name = 'MockPreviewRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const MockPreviewScreen();
+    },
+  );
+}
+
+/// generated route for
+/// [QrScanScreen]
+class QrScanRoute extends PageRouteInfo<void> {
+  const QrScanRoute({List<PageRouteInfo>? children})
+    : super(QrScanRoute.name, initialChildren: children);
+
+  static const String name = 'QrScanRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const QrScanScreen();
+    },
+  );
+}
+
+/// generated route for
+/// [SessionListScreen]
+class SessionListRoute extends PageRouteInfo<SessionListRouteArgs> {
+  SessionListRoute({
+    Key? key,
+    List<RecentSession>? debugRecentSessions,
+    List<PageRouteInfo>? children,
+  }) : super(
+         SessionListRoute.name,
+         args: SessionListRouteArgs(
+           key: key,
+           debugRecentSessions: debugRecentSessions,
+         ),
+         initialChildren: children,
+       );
+
+  static const String name = 'SessionListRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<SessionListRouteArgs>(
+        orElse: () => const SessionListRouteArgs(),
+      );
+      return SessionListScreen(
+        key: args.key,
+        debugRecentSessions: args.debugRecentSessions,
+      );
+    },
+  );
+}
+
+class SessionListRouteArgs {
+  const SessionListRouteArgs({this.key, this.debugRecentSessions});
+
+  final Key? key;
+
+  final List<RecentSession>? debugRecentSessions;
+
+  @override
+  String toString() {
+    return 'SessionListRouteArgs{key: $key, debugRecentSessions: $debugRecentSessions}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! SessionListRouteArgs) return false;
+    return key == other.key &&
+        const ListEquality<RecentSession>().equals(
+          debugRecentSessions,
+          other.debugRecentSessions,
+        );
+  }
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      const ListEquality<RecentSession>().hash(debugRecentSessions);
+}
+
+/// generated route for
+/// [SettingsScreen]
+class SettingsRoute extends PageRouteInfo<void> {
+  const SettingsRoute({List<PageRouteInfo>? children})
+    : super(SettingsRoute.name, initialChildren: children);
+
+  static const String name = 'SettingsRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const SettingsScreen();
+    },
+  );
+}

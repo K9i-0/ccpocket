@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -7,6 +8,7 @@ import '../../services/bridge_service.dart';
 import 'widgets/gallery_content.dart';
 import 'widgets/gallery_empty_state.dart';
 
+@RoutePage()
 class GalleryScreen extends HookWidget {
   final String? sessionId;
 

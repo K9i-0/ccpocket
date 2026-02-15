@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../../hooks/use_scroll_tracking.dart';
@@ -20,8 +21,7 @@ import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
 import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
-import '../diff/diff_screen.dart';
-import '../gallery/gallery_screen.dart';
+import '../../router/app_router.dart';
 import 'state/claude_code_session_cubit.dart';
 import 'widgets/rewind_action_sheet.dart';
 import 'widgets/rewind_message_list_sheet.dart';
@@ -41,6 +41,7 @@ import 'widgets/usage_summary_bar.dart';
 ///
 /// When [isPending] is true, shows a loading overlay until [session_created]
 /// is received from the bridge, then swaps to the real session.
+@RoutePage()
 class ClaudeCodeSessionScreen extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
@@ -63,7 +64,8 @@ class ClaudeCodeSessionScreen extends StatefulWidget {
   });
 
   @override
-  State<ClaudeCodeSessionScreen> createState() => _ClaudeCodeSessionScreenState();
+  State<ClaudeCodeSessionScreen> createState() =>
+      _ClaudeCodeSessionScreenState();
 }
 
 class _ClaudeCodeSessionScreenState extends State<ClaudeCodeSessionScreen> {
@@ -293,6 +295,7 @@ class _ChatScreenBody extends HookWidget {
       final sub = context.read<ChatSessionCubit>().sideEffects.listen(
         (effects) => _executeSideEffects(
           effects,
+          sessionId: sessionId,
           isBackground: isBackground,
           collapseToolResults: collapseToolResults,
           planFeedbackController: planFeedbackController,
@@ -496,12 +499,7 @@ class _ChatScreenBody extends HookWidget {
                     minHeight: 36,
                   ),
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => GalleryScreen(sessionId: sessionId),
-                      ),
-                    );
+                    context.router.push(GalleryRoute(sessionId: sessionId));
                   },
                 ),
                 // 6. Branch chip
@@ -673,13 +671,10 @@ Future<void> _openDiffScreen(
   ValueNotifier<DiffSelection?> diffSelectionNotifier, {
   DiffSelection? existingSelection,
 }) async {
-  final selection = await Navigator.push<DiffSelection>(
-    context,
-    MaterialPageRoute(
-      builder: (_) => DiffScreen(
-        projectPath: projectPath,
-        initialSelectedHunkKeys: existingSelection?.selectedHunkKeys,
-      ),
+  final selection = await context.router.push<DiffSelection>(
+    DiffRoute(
+      projectPath: projectPath,
+      initialSelectedHunkKeys: existingSelection?.selectedHunkKeys,
     ),
   );
   if (selection != null && !selection.isEmpty) {
@@ -696,6 +691,7 @@ Future<void> _openDiffScreen(
 
 void _executeSideEffects(
   Set<ChatSideEffect> effects, {
+  required String sessionId,
   required bool isBackground,
   required ValueNotifier<int> collapseToolResults,
   required TextEditingController planFeedbackController,
@@ -719,6 +715,7 @@ void _executeSideEffects(
             title: 'Approval Required',
             body: 'Tool approval needed',
             id: 1,
+            payload: sessionId,
           );
         }
       case ChatSideEffect.notifyAskQuestion:
@@ -727,6 +724,7 @@ void _executeSideEffects(
             title: 'Claude is asking',
             body: 'Question needs your answer',
             id: 2,
+            payload: sessionId,
           );
         }
       case ChatSideEffect.notifySessionComplete:
@@ -735,6 +733,7 @@ void _executeSideEffects(
             title: 'Session Complete',
             body: 'Session done',
             id: 3,
+            payload: sessionId,
           );
         }
       case ChatSideEffect.scrollToBottom:

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:ccpocket/features/chat/chat_screen.dart';
+import 'package:ccpocket/features/claude_code_session/claude_code_session_screen.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/services/bridge_service.dart';
@@ -15,7 +15,7 @@ import 'package:patrol_finders/patrol_finders.dart';
 
 // ---------------------------------------------------------------------------
 // MockBridgeService — extends the cubit-test version with streams needed by
-// ChatScreen (connectionStatus, fileList, sessionList).
+// ClaudeCodeSessionScreen (connectionStatus, fileList, sessionList).
 // ---------------------------------------------------------------------------
 
 class MockBridgeService extends BridgeService {
@@ -92,12 +92,12 @@ class MockBridgeService extends BridgeService {
 }
 
 // ---------------------------------------------------------------------------
-// Widget test wrapper — provides all required providers for ChatScreen.
+// Widget test wrapper — provides all required providers for ClaudeCodeSessionScreen.
 // ---------------------------------------------------------------------------
 
 const testSessionId = 'test-session';
 
-Future<Widget> buildTestChatScreen({
+Future<Widget> buildTestClaudeCodeSessionScreen({
   required MockBridgeService bridge,
   String sessionId = testSessionId,
   String? projectPath,
@@ -123,11 +123,23 @@ Future<Widget> buildTestChatScreen({
             create: (_) => FileListCubit(const <String>[], bridge.fileList),
           ),
         ],
-        child: ChatScreen(sessionId: sessionId, projectPath: projectPath),
+        child: ClaudeCodeSessionScreen(sessionId: sessionId, projectPath: projectPath),
       ),
     ),
   );
 }
+
+/// Backward-compatible alias used by existing tests.
+Future<Widget> buildTestChatScreen({
+  required MockBridgeService bridge,
+  String sessionId = testSessionId,
+  String? projectPath,
+}) =>
+    buildTestClaudeCodeSessionScreen(
+      bridge: bridge,
+      sessionId: sessionId,
+      projectPath: projectPath,
+    );
 
 // ---------------------------------------------------------------------------
 // Message builder helpers
@@ -254,7 +266,7 @@ Future<void> setupPlanApproval(
   MockBridgeService bridge, {
   String planText = '# Implementation Plan\n\n## Steps\n- Step 1\n- Step 2',
 }) async {
-  await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+  await $.pumpWidget(await buildTestClaudeCodeSessionScreen(bridge: bridge));
   await pumpN($.tester);
   await emitAndPump($.tester, bridge, [
     makeEnterPlanMessage('enter-1', 'tool-enter-1'),
@@ -278,7 +290,7 @@ Future<void> setupMultiApproval(
   PatrolTester $,
   MockBridgeService bridge,
 ) async {
-  await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+  await $.pumpWidget(await buildTestClaudeCodeSessionScreen(bridge: bridge));
   await pumpN($.tester);
   await emitAndPump($.tester, bridge, [
     makeAssistantMessage(

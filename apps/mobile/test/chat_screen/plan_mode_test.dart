@@ -1,4 +1,4 @@
-import 'package:ccpocket/features/chat/widgets/plan_mode_chip.dart';
+import 'package:ccpocket/features/claude_code_session/widgets/plan_mode_chip.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

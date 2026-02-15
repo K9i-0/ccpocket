@@ -51,10 +51,10 @@ void main() {
     );
   }
 
-  group('List auto-complete in ChatScreen', () {
+  group('List auto-complete in ClaudeCodeSessionScreen', () {
     patrolWidgetTest('numbered list continuation works in real input',
         ($) async {
-      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestClaudeCodeSessionScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -73,7 +73,7 @@ void main() {
 
     patrolWidgetTest('bullet list continuation works in real input',
         ($) async {
-      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestClaudeCodeSessionScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -91,7 +91,7 @@ void main() {
     });
 
     patrolWidgetTest('empty list item cancels list', ($) async {
-      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestClaudeCodeSessionScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [
@@ -109,7 +109,7 @@ void main() {
     });
 
     patrolWidgetTest('plain text does not trigger auto-complete', ($) async {
-      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+      await $.pumpWidget(await buildTestClaudeCodeSessionScreen(bridge: bridge));
       await pumpN($.tester);
 
       await emitAndPump($.tester, bridge, [

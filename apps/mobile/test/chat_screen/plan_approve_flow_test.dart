@@ -1,5 +1,5 @@
-import 'package:ccpocket/features/chat/widgets/chat_input_with_overlays.dart';
-import 'package:ccpocket/features/chat/widgets/plan_mode_chip.dart';
+import 'package:ccpocket/features/claude_code_session/widgets/chat_input_with_overlays.dart';
+import 'package:ccpocket/features/claude_code_session/widgets/plan_mode_chip.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/widgets/approval_bar.dart';
 import 'package:ccpocket/widgets/bubbles/ask_user_question_widget.dart';

@@ -1,8 +1,10 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../services/connection_url_parser.dart';
 
+@RoutePage()
 class QrScanScreen extends StatefulWidget {
   const QrScanScreen({super.key});
 
@@ -30,7 +32,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
       final params = ConnectionUrlParser.parse(value);
       if (params != null) {
         _hasPopped = true;
-        Navigator.pop(context, params);
+        context.router.maybePop(params);
         return;
       }
     }

@@ -1,14 +1,16 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
 
-import 'licenses_screen.dart';
+import '../../router/app_router.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
 import 'widgets/speech_locale_bottom_sheet.dart';
 import 'widgets/theme_bottom_sheet.dart';
 
+@RoutePage()
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -101,12 +103,7 @@ class SettingsScreen extends StatelessWidget {
                       ),
                       title: const Text('Open Source Licenses'),
                       trailing: const Icon(Icons.chevron_right, size: 20),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const LicensesScreen(),
-                        ),
-                      ),
+                      onTap: () => context.router.push(const LicensesRoute()),
                     ),
                   ],
                 ),

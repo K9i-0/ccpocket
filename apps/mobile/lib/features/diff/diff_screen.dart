@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -19,6 +20,7 @@ import 'widgets/diff_stats_badge.dart';
 ///
 /// Returns a [String] (reconstructed diff) via [Navigator.pop] when the user
 /// selects hunks and taps the send-to-chat FAB.
+@RoutePage()
 class DiffScreen extends StatelessWidget {
   /// Raw diff text for immediate display (individual tool result).
   final String? initialDiff;
@@ -105,7 +107,7 @@ class _DiffScreenBody extends StatelessWidget {
                   state.files,
                   state.selectedHunkKeys,
                 );
-                Navigator.pop<DiffSelection>(context, selection);
+                context.router.maybePop(selection);
               },
               icon: const Icon(Icons.attach_file),
               label: Text(_buildAttachLabel(cubit.selectionSummary)),

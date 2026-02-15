@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -9,6 +10,7 @@ import '../services/mock_bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../features/claude_code_session/claude_code_session_screen.dart';
 
+@RoutePage()
 class MockPreviewScreen extends StatelessWidget {
   const MockPreviewScreen({super.key});
 
@@ -159,7 +161,10 @@ class _MockChatWrapperState extends State<_MockChatWrapper> {
             create: (_) => FileListCubit(const [], mockService.fileList),
           ),
         ],
-        child: ClaudeCodeSessionScreen(sessionId: sessionId, projectPath: '/mock/preview'),
+        child: ClaudeCodeSessionScreen(
+          sessionId: sessionId,
+          projectPath: '/mock/preview',
+        ),
       ),
     );
   }
