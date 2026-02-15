@@ -209,61 +209,6 @@ class CodexSessionRouteArgs {
 }
 
 /// generated route for
-/// [ConnectionScreen]
-class ConnectionRoute extends PageRouteInfo<ConnectionRouteArgs> {
-  ConnectionRoute({
-    Key? key,
-    ValueNotifier<ConnectionParams?>? deepLinkNotifier,
-    List<PageRouteInfo>? children,
-  }) : super(
-         ConnectionRoute.name,
-         args: ConnectionRouteArgs(
-           key: key,
-           deepLinkNotifier: deepLinkNotifier,
-         ),
-         initialChildren: children,
-       );
-
-  static const String name = 'ConnectionRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      final args = data.argsAs<ConnectionRouteArgs>(
-        orElse: () => const ConnectionRouteArgs(),
-      );
-      return ConnectionScreen(
-        key: args.key,
-        deepLinkNotifier: args.deepLinkNotifier,
-      );
-    },
-  );
-}
-
-class ConnectionRouteArgs {
-  const ConnectionRouteArgs({this.key, this.deepLinkNotifier});
-
-  final Key? key;
-
-  final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
-
-  @override
-  String toString() {
-    return 'ConnectionRouteArgs{key: $key, deepLinkNotifier: $deepLinkNotifier}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! ConnectionRouteArgs) return false;
-    return key == other.key && deepLinkNotifier == other.deepLinkNotifier;
-  }
-
-  @override
-  int get hashCode => key.hashCode ^ deepLinkNotifier.hashCode;
-}
-
-/// generated route for
 /// [DiffScreen]
 class DiffRoute extends PageRouteInfo<DiffRouteArgs> {
   DiffRoute({
@@ -450,12 +395,14 @@ class QrScanRoute extends PageRouteInfo<void> {
 class SessionListRoute extends PageRouteInfo<SessionListRouteArgs> {
   SessionListRoute({
     Key? key,
+    ValueNotifier<ConnectionParams?>? deepLinkNotifier,
     List<RecentSession>? debugRecentSessions,
     List<PageRouteInfo>? children,
   }) : super(
          SessionListRoute.name,
          args: SessionListRouteArgs(
            key: key,
+           deepLinkNotifier: deepLinkNotifier,
            debugRecentSessions: debugRecentSessions,
          ),
          initialChildren: children,
@@ -471,6 +418,7 @@ class SessionListRoute extends PageRouteInfo<SessionListRouteArgs> {
       );
       return SessionListScreen(
         key: args.key,
+        deepLinkNotifier: args.deepLinkNotifier,
         debugRecentSessions: args.debugRecentSessions,
       );
     },
@@ -478,15 +426,21 @@ class SessionListRoute extends PageRouteInfo<SessionListRouteArgs> {
 }
 
 class SessionListRouteArgs {
-  const SessionListRouteArgs({this.key, this.debugRecentSessions});
+  const SessionListRouteArgs({
+    this.key,
+    this.deepLinkNotifier,
+    this.debugRecentSessions,
+  });
 
   final Key? key;
+
+  final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
 
   final List<RecentSession>? debugRecentSessions;
 
   @override
   String toString() {
-    return 'SessionListRouteArgs{key: $key, debugRecentSessions: $debugRecentSessions}';
+    return 'SessionListRouteArgs{key: $key, deepLinkNotifier: $deepLinkNotifier, debugRecentSessions: $debugRecentSessions}';
   }
 
   @override
@@ -494,6 +448,7 @@ class SessionListRouteArgs {
     if (identical(this, other)) return true;
     if (other is! SessionListRouteArgs) return false;
     return key == other.key &&
+        deepLinkNotifier == other.deepLinkNotifier &&
         const ListEquality<RecentSession>().equals(
           debugRecentSessions,
           other.debugRecentSessions,
@@ -503,6 +458,7 @@ class SessionListRouteArgs {
   @override
   int get hashCode =>
       key.hashCode ^
+      deepLinkNotifier.hashCode ^
       const ListEquality<RecentSession>().hash(debugRecentSessions);
 }
 

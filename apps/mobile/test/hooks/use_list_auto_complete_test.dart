@@ -26,8 +26,7 @@ void main() {
     void typeNewline(TextEditingController ctrl) {
       final pos = ctrl.selection.baseOffset;
       final text = ctrl.text;
-      final newText =
-          '${text.substring(0, pos)}\n${text.substring(pos)}';
+      final newText = '${text.substring(0, pos)}\n${text.substring(pos)}';
       ctrl.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(offset: pos + 1),
@@ -50,8 +49,9 @@ void main() {
       controller.dispose();
     });
 
-    testWidgets('continues numbered list: "1. foo" + newline → "2. "',
-        (tester) async {
+    testWidgets('continues numbered list: "1. foo" + newline → "2. "', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildHarness(controller));
       setText(controller, '1. foo');
       await tester.pump();
@@ -63,21 +63,24 @@ void main() {
       expect(controller.selection.baseOffset, '1. foo\n2. '.length);
     });
 
-    testWidgets('continues numbered list with larger numbers: "9. bar" → "10. "',
-        (tester) async {
-      await tester.pumpWidget(buildHarness(controller));
-      setText(controller, '9. bar');
-      await tester.pump();
+    testWidgets(
+      'continues numbered list with larger numbers: "9. bar" → "10. "',
+      (tester) async {
+        await tester.pumpWidget(buildHarness(controller));
+        setText(controller, '9. bar');
+        await tester.pump();
 
-      typeNewline(controller);
-      await tester.pump();
+        typeNewline(controller);
+        await tester.pump();
 
-      expect(controller.text, '9. bar\n10. ');
-      expect(controller.selection.baseOffset, '9. bar\n10. '.length);
-    });
+        expect(controller.text, '9. bar\n10. ');
+        expect(controller.selection.baseOffset, '9. bar\n10. '.length);
+      },
+    );
 
-    testWidgets('continues hyphen bullet list: "- foo" + newline → "- "',
-        (tester) async {
+    testWidgets('continues hyphen bullet list: "- foo" + newline → "- "', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildHarness(controller));
       setText(controller, '- foo');
       await tester.pump();
@@ -89,8 +92,9 @@ void main() {
       expect(controller.selection.baseOffset, '- foo\n- '.length);
     });
 
-    testWidgets('continues asterisk bullet list: "* foo" + newline → "* "',
-        (tester) async {
+    testWidgets('continues asterisk bullet list: "* foo" + newline → "* "', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildHarness(controller));
       setText(controller, '* foo');
       await tester.pump();
@@ -102,8 +106,9 @@ void main() {
       expect(controller.selection.baseOffset, '* foo\n* '.length);
     });
 
-    testWidgets('preserves indentation: "  - foo" + newline → "  - "',
-        (tester) async {
+    testWidgets('preserves indentation: "  - foo" + newline → "  - "', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildHarness(controller));
       setText(controller, '  - foo');
       await tester.pump();
@@ -115,21 +120,24 @@ void main() {
       expect(controller.selection.baseOffset, '  - foo\n  - '.length);
     });
 
-    testWidgets('cancels empty numbered list: "3. " + newline → removes prefix',
-        (tester) async {
-      await tester.pumpWidget(buildHarness(controller));
-      setText(controller, '3. ');
-      await tester.pump();
+    testWidgets(
+      'cancels empty numbered list: "3. " + newline → removes prefix',
+      (tester) async {
+        await tester.pumpWidget(buildHarness(controller));
+        setText(controller, '3. ');
+        await tester.pump();
 
-      typeNewline(controller);
-      await tester.pump();
+        typeNewline(controller);
+        await tester.pump();
 
-      expect(controller.text, '');
-      expect(controller.selection.baseOffset, 0);
-    });
+        expect(controller.text, '');
+        expect(controller.selection.baseOffset, 0);
+      },
+    );
 
-    testWidgets('cancels empty bullet list: "- " + newline → removes prefix',
-        (tester) async {
+    testWidgets('cancels empty bullet list: "- " + newline → removes prefix', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildHarness(controller));
       setText(controller, '- ');
       await tester.pump();
@@ -141,8 +149,9 @@ void main() {
       expect(controller.selection.baseOffset, 0);
     });
 
-    testWidgets('does nothing for plain text: "hello" + newline → "hello\\n"',
-        (tester) async {
+    testWidgets('does nothing for plain text: "hello" + newline → "hello\\n"', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildHarness(controller));
       setText(controller, 'hello');
       await tester.pump();
@@ -154,8 +163,9 @@ void main() {
       expect(controller.selection.baseOffset, 'hello\n'.length);
     });
 
-    testWidgets('works with multiline: second list item continues',
-        (tester) async {
+    testWidgets('works with multiline: second list item continues', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildHarness(controller));
       setText(controller, '1. first\n2. second');
       await tester.pump();
@@ -170,8 +180,9 @@ void main() {
       );
     });
 
-    testWidgets('cancels empty item in multiline preserves previous lines',
-        (tester) async {
+    testWidgets('cancels empty item in multiline preserves previous lines', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildHarness(controller));
       setText(controller, '1. first\n2. ');
       await tester.pump();
@@ -183,8 +194,7 @@ void main() {
       expect(controller.selection.baseOffset, '1. first\n'.length);
     });
 
-    testWidgets('newline in middle of text does not trigger',
-        (tester) async {
+    testWidgets('newline in middle of text does not trigger', (tester) async {
       await tester.pumpWidget(buildHarness(controller));
       // Place cursor after "hello" (not at end of a list item)
       controller.value = const TextEditingValue(

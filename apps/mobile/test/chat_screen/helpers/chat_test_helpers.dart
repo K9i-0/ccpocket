@@ -123,7 +123,10 @@ Future<Widget> buildTestClaudeCodeSessionScreen({
             create: (_) => FileListCubit(const <String>[], bridge.fileList),
           ),
         ],
-        child: ClaudeCodeSessionScreen(sessionId: sessionId, projectPath: projectPath),
+        child: ClaudeCodeSessionScreen(
+          sessionId: sessionId,
+          projectPath: projectPath,
+        ),
       ),
     ),
   );
@@ -134,12 +137,11 @@ Future<Widget> buildTestChatScreen({
   required MockBridgeService bridge,
   String sessionId = testSessionId,
   String? projectPath,
-}) =>
-    buildTestClaudeCodeSessionScreen(
-      bridge: bridge,
-      sessionId: sessionId,
-      projectPath: projectPath,
-    );
+}) => buildTestClaudeCodeSessionScreen(
+  bridge: bridge,
+  sessionId: sessionId,
+  projectPath: projectPath,
+);
 
 // ---------------------------------------------------------------------------
 // Message builder helpers

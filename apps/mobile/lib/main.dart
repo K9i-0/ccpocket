@@ -16,7 +16,6 @@ import 'providers/bridge_cubits.dart';
 import 'providers/machine_manager_cubit.dart';
 import 'providers/server_discovery_cubit.dart';
 import 'router/app_router.dart';
-import 'router/connection_guard.dart';
 import 'services/bridge_service.dart';
 import 'services/connection_url_parser.dart';
 import 'services/draft_service.dart';
@@ -116,14 +115,12 @@ class _CcpocketAppState extends State<CcpocketApp> {
   final _deepLinkNotifier = ValueNotifier<ConnectionParams?>(null);
   StreamSubscription<Uri>? _linkSub;
 
-  late final ConnectionChangeNotifier _connectionNotifier;
   late final AppRouter _appRouter;
   bool _routerInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _connectionNotifier = ConnectionChangeNotifier();
     if (!kIsWeb) {
       _appLinks = AppLinks();
       _initDeepLinks();
@@ -133,11 +130,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
   void _initRouter() {
     if (_routerInitialized) return;
     _routerInitialized = true;
-    final cubit = context.read<ConnectionCubit>();
-    _connectionNotifier.listen(cubit);
-    _appRouter = AppRouter(
-      connectionGuard: ConnectionGuard(_connectionNotifier),
-    );
+    _appRouter = AppRouter();
     // Navigate to session screen when user taps a notification
     NotificationService.instance.onNotificationTap = (payload) {
       if (payload != null && payload.isNotEmpty) {
@@ -182,7 +175,6 @@ class _CcpocketAppState extends State<CcpocketApp> {
   void dispose() {
     _linkSub?.cancel();
     _deepLinkNotifier.dispose();
-    _connectionNotifier.dispose();
     super.dispose();
   }
 
@@ -198,9 +190,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: settings.themeMode,
-          routerConfig: _appRouter.config(
-            reevaluateListenable: _connectionNotifier,
-          ),
+          routerConfig: _appRouter.config(),
         );
       },
     );
