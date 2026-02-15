@@ -259,6 +259,7 @@ cd apps/mobile/build/web && python3 -m http.server 8888
 | web-preview | `/web-preview` | Web版ビルド・サーバー起動・Playwrightアクセス確認・URL案内 |
 | flutter-ui-design | `/flutter-ui-design` | Flutter UI実装規約 (Bloc/Cubit + Freezed) |
 | merge | `/merge` | 作業ブランチをmainにマージ |
+| shorebird-patch | `/shorebird-patch` | Shorebird OTA パッチ作成・検証・プロモート |
 
 実装後の検証では、変更領域に応じて対応するスキルを実行する。
 Bridge と Flutter の両方に影響がある場合は両方実行する。
@@ -269,6 +270,38 @@ Bridge と Flutter の両方に影響がある場合は両方実行する。
 |------|---------|------|
 | post-edit-analyze | Dartファイル編集後 | `dart analyze` 自動実行 |
 | pre-stop-check | タスク完了前 | `dart analyze` + `flutter test` で品質チェック |
+
+## Shorebird OTA パッチ配布
+
+### フロー
+
+```
+patch (staging) → preview → promote (stable)
+```
+
+**必ず staging → stable の2段階で配布する。** 直接 stable に配布しない。
+
+### コマンド
+
+```bash
+# バージョン確認
+grep '^version:' apps/mobile/pubspec.yaml
+
+# パッチ作成 (staging)
+bash scripts/shorebird/patch-ios.sh <version>
+bash scripts/shorebird/patch-android.sh <version>
+
+# 検証
+bash scripts/shorebird/preview.sh <version> <patch-number>
+
+# プロモート (staging → stable)
+bash scripts/shorebird/promote.sh <version> <patch-number>
+```
+
+### 注意事項
+
+- `shorebird patch` を直接実行する場合は `--release-version` フラグ必須（省略するとインタラクティブプロンプトで CI/非TTY 環境がエラーになる）
+- 詳細は `/shorebird-patch` スキルまたは `docs/shorebird-runbook.md` を参照
 
 ## 規約
 
