@@ -12,6 +12,7 @@ class ConnectForm extends StatelessWidget {
   final List<DiscoveredServer> discoveredServers;
   final VoidCallback onConnect;
   final VoidCallback onScanQrCode;
+  final VoidCallback? onViewSetupGuide;
   final ValueChanged<DiscoveredServer> onConnectToDiscovered;
 
   // Machine management
@@ -35,6 +36,7 @@ class ConnectForm extends StatelessWidget {
     required this.discoveredServers,
     required this.onConnect,
     required this.onScanQrCode,
+    this.onViewSetupGuide,
     required this.onConnectToDiscovered,
     // Machine management
     this.machines = const [],
@@ -165,6 +167,15 @@ class ConnectForm extends StatelessWidget {
                 icon: const Icon(Icons.qr_code_scanner),
                 label: const Text('Scan QR Code'),
               ),
+            ),
+          ],
+          if (onViewSetupGuide != null) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              key: const ValueKey('setup_guide_button'),
+              onPressed: onViewSetupGuide,
+              icon: const Icon(Icons.lightbulb_outline, size: 18),
+              label: const Text('Setup Guide'),
             ),
           ],
         ],

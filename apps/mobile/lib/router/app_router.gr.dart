@@ -479,6 +479,22 @@ class SettingsRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
+/// [SetupGuideScreen]
+class SetupGuideRoute extends PageRouteInfo<void> {
+  const SetupGuideRoute({List<PageRouteInfo>? children})
+    : super(SetupGuideRoute.name, initialChildren: children);
+
+  static const String name = 'SetupGuideRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const SetupGuideScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [SwipeQueueScreen]
 class SwipeQueueRoute extends PageRouteInfo<void> {
   const SwipeQueueRoute({List<PageRouteInfo>? children})

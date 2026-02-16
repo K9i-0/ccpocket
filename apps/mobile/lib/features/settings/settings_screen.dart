@@ -101,6 +101,23 @@ class SettingsScreen extends StatelessWidget {
                       endIndent: 16,
                       color: cs.outlineVariant,
                     ),
+                    // Setup Guide
+                    ListTile(
+                      leading: Icon(
+                        Icons.lightbulb_outline,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      title: const Text('Setup Guide'),
+                      subtitle: const Text('初めての方はこちら'),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => context.router.push(const SetupGuideRoute()),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
                     // Licenses
                     ListTile(
                       leading: Icon(

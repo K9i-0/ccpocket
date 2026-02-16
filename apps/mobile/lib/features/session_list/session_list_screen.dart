@@ -839,6 +839,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
       discoveredServers: discoveredServers,
       onConnect: _connect,
       onScanQrCode: _scanQrCode,
+      onViewSetupGuide: () => context.router.push(const SetupGuideRoute()),
       onConnectToDiscovered: _connectToDiscovered,
       // Machine management
       machines: machineState?.machines ?? [],
