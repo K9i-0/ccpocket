@@ -64,6 +64,7 @@ dependencies:
   package_info_plus: ^9.0.0
   auto_route: ^11.1.0
   collection: ^1.19.1
+  extended_image: ^10.0.1
 
 dev_dependencies:
   flutter_test:

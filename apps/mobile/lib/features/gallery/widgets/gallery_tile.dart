@@ -1,7 +1,10 @@
+import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
+
+const _kCacheMaxAge = Duration(days: 7);
 
 class GalleryTile extends StatelessWidget {
   final GalleryImage image;
@@ -39,17 +42,25 @@ class GalleryTile extends StatelessWidget {
                 child: Container(
                   width: double.infinity,
                   color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                  child: Image.network(
+                  child: ExtendedImage.network(
                     imageUrl,
                     fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      );
+                    cache: true,
+                    cacheMaxAge: _kCacheMaxAge,
+                    loadStateChanged: (state) {
+                      switch (state.extendedImageLoadState) {
+                        case LoadState.loading:
+                          return const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          );
+                        case LoadState.completed:
+                          return state.completedWidget;
+                        case LoadState.failed:
+                          return const Center(
+                            child: Icon(Icons.broken_image, size: 32),
+                          );
+                      }
                     },
-                    errorBuilder: (context, error, stack) =>
-                        const Center(child: Icon(Icons.broken_image, size: 32)),
                   ),
                 ),
               ),

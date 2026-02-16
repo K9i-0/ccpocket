@@ -1,6 +1,9 @@
+import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/messages.dart';
+
+const _kCacheMaxAge = Duration(days: 7);
 
 class ImagePreviewWidget extends StatelessWidget {
   final List<ImageRef> images;
@@ -54,24 +57,35 @@ class _SingleImage extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 200),
-          child: Image.network(
+          child: ExtendedImage.network(
             url,
             fit: BoxFit.cover,
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return const SizedBox(
-                height: 100,
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-              );
+            cache: true,
+            cacheMaxAge: _kCacheMaxAge,
+            loadStateChanged: (state) {
+              switch (state.extendedImageLoadState) {
+                case LoadState.loading:
+                  return const SizedBox(
+                    height: 100,
+                    child: Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                case LoadState.completed:
+                  return state.completedWidget;
+                case LoadState.failed:
+                  return Container(
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.broken_image, size: 32),
+                    ),
+                  );
+              }
             },
-            errorBuilder: (context, error, stack) => Container(
-              height: 100,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(child: Icon(Icons.broken_image, size: 32)),
-            ),
           ),
         ),
       ),
@@ -97,29 +111,38 @@ class _ImageThumbnail extends StatelessWidget {
       onTap: () => _openFullScreen(context, url),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.network(
+        child: ExtendedImage.network(
           url,
           height: height,
           fit: BoxFit.cover,
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return SizedBox(
-              width: height * 0.75,
-              height: height,
-              child: const Center(
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            );
+          cache: true,
+          cacheMaxAge: _kCacheMaxAge,
+          loadStateChanged: (state) {
+            switch (state.extendedImageLoadState) {
+              case LoadState.loading:
+                return SizedBox(
+                  width: height * 0.75,
+                  height: height,
+                  child: const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
+              case LoadState.completed:
+                return state.completedWidget;
+              case LoadState.failed:
+                return Container(
+                  width: height * 0.75,
+                  height: height,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.broken_image, size: 24),
+                  ),
+                );
+            }
           },
-          errorBuilder: (context, error, stack) => Container(
-            width: height * 0.75,
-            height: height,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Center(child: Icon(Icons.broken_image, size: 24)),
-          ),
         ),
       ),
     );
@@ -149,18 +172,29 @@ class FullScreenImageViewer extends StatelessWidget {
         child: InteractiveViewer(
           minScale: 0.5,
           maxScale: 4.0,
-          child: Image.network(
+          child: ExtendedImage.network(
             url,
             fit: BoxFit.contain,
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              );
+            cache: true,
+            cacheMaxAge: _kCacheMaxAge,
+            loadStateChanged: (state) {
+              switch (state.extendedImageLoadState) {
+                case LoadState.loading:
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  );
+                case LoadState.completed:
+                  return state.completedWidget;
+                case LoadState.failed:
+                  return const Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: Colors.white54,
+                      size: 48,
+                    ),
+                  );
+              }
             },
-            errorBuilder: (context, error, stack) => const Center(
-              child: Icon(Icons.broken_image, color: Colors.white54, size: 48),
-            ),
           ),
         ),
       ),
