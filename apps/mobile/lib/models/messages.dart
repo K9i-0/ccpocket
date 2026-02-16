@@ -83,8 +83,7 @@ enum ProcessStatus {
   starting,
   idle,
   running,
-  waitingApproval,
-  clearing;
+  waitingApproval;
 
   static ProcessStatus fromString(String value) {
     return switch (value) {
@@ -92,7 +91,6 @@ enum ProcessStatus {
       'idle' => ProcessStatus.idle,
       'running' => ProcessStatus.running,
       'waiting_approval' => ProcessStatus.waitingApproval,
-      'clearing' => ProcessStatus.clearing,
       _ => ProcessStatus.idle,
     };
   }
@@ -348,6 +346,7 @@ sealed class ServerMessage {
             const [],
         worktreePath: json['worktreePath'] as String?,
         worktreeBranch: json['worktreeBranch'] as String?,
+        clearContext: json['clearContext'] as bool? ?? false,
       ),
       'assistant' => AssistantServerMessage(
         message: AssistantMessage.fromJson(
@@ -526,6 +525,7 @@ class SystemMessage implements ServerMessage {
   final List<String> skills;
   final String? worktreePath;
   final String? worktreeBranch;
+  final bool clearContext;
   const SystemMessage({
     required this.subtype,
     this.sessionId,
@@ -537,6 +537,7 @@ class SystemMessage implements ServerMessage {
     this.skills = const [],
     this.worktreePath,
     this.worktreeBranch,
+    this.clearContext = false,
   });
 }
 

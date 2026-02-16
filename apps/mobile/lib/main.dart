@@ -1,3 +1,15 @@
+/// ccpocket - Claude Code Mobile Client
+///
+/// This is the main entry point for the ccpocket Flutter application.
+///
+/// Key responsibilities:
+/// - Initializes Marionette binding for E2E testing in debug mode
+/// - Sets up global error handling
+/// - Initializes core services (BridgeService, DatabaseService, NotificationService, etc.)
+/// - Configures repository and Bloc providers for state management
+/// - Handles deep links for connection URLs and session navigation
+library;
+
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';

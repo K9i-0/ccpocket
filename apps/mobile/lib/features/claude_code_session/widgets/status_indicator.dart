@@ -24,8 +24,7 @@ class StatusIndicator extends HookWidget {
     // Track elapsed time when running/starting
     final isActive =
         status == ProcessStatus.running ||
-        status == ProcessStatus.starting ||
-        status == ProcessStatus.clearing;
+        status == ProcessStatus.starting;
 
     // Store the start time when entering active state
     final startTime = useRef<DateTime?>(null);
@@ -65,7 +64,6 @@ class StatusIndicator extends HookWidget {
           ? (cs.tertiary, 'Plan')
           : (appColors.statusRunning, 'Running'),
       ProcessStatus.waitingApproval => (appColors.statusApproval, 'Approval'),
-      ProcessStatus.clearing => (appColors.statusRunning, 'Clearing'),
     };
 
     // Format elapsed time

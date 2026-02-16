@@ -73,6 +73,7 @@ class _ClaudeCodeSessionScreenState extends State<ClaudeCodeSessionScreen> {
   late String? _gitBranch;
   late bool _isPending;
   StreamSubscription<ServerMessage>? _pendingSub;
+  StreamSubscription<ServerMessage>? _clearContextSub;
 
   @override
   void initState() {
@@ -85,6 +86,7 @@ class _ClaudeCodeSessionScreenState extends State<ClaudeCodeSessionScreen> {
     if (_isPending) {
       _listenForSessionCreated();
     }
+    _listenForClearContext();
   }
 
   void _listenForSessionCreated() {
@@ -120,6 +122,30 @@ class _ClaudeCodeSessionScreenState extends State<ClaudeCodeSessionScreen> {
     }
   }
 
+  /// Listen for clear context session switches (Accept & Clear plan approval).
+  /// When the bridge destroys the old session and creates a new one with
+  /// clearContext: true, we switch to the new session so old messages disappear.
+  void _listenForClearContext() {
+    final bridge = context.read<BridgeService>();
+    _clearContextSub = bridge.messages.listen((msg) {
+      if (msg is SystemMessage &&
+          msg.subtype == 'session_created' &&
+          msg.clearContext &&
+          msg.sessionId != null &&
+          msg.sessionId != _sessionId &&
+          !_isPending &&
+          mounted) {
+        // Filter by projectPath to avoid picking up another project's event
+        if (widget.projectPath != null &&
+            msg.projectPath != null &&
+            msg.projectPath != widget.projectPath) {
+          return;
+        }
+        _switchSession(msg);
+      }
+    });
+  }
+
   void _resolveSession(SystemMessage msg) {
     widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
     final oldId = _sessionId;
@@ -136,10 +162,20 @@ class _ClaudeCodeSessionScreenState extends State<ClaudeCodeSessionScreen> {
     _pendingSub = null;
   }
 
+  /// Switch to a new session (e.g. after clear context).
+  void _switchSession(SystemMessage msg) {
+    setState(() {
+      _sessionId = msg.sessionId!;
+      _worktreePath = msg.worktreePath ?? _worktreePath;
+      _gitBranch = msg.worktreeBranch ?? _gitBranch;
+    });
+  }
+
   @override
   void dispose() {
     widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
     _pendingSub?.cancel();
+    _clearContextSub?.cancel();
     super.dispose();
   }
 
@@ -536,24 +572,6 @@ class _ChatScreenBody extends HookWidget {
                 if (bridgeState == BridgeConnectionState.reconnecting ||
                     bridgeState == BridgeConnectionState.disconnected)
                   ReconnectBanner(bridgeState: bridgeState),
-                if (status == ProcessStatus.clearing)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text('Clearing context...'),
-                      ],
-                    ),
-                  ),
                 UsageSummaryBar(
                   totalCost: sessionState.totalCost,
                   totalDuration: sessionState.totalDuration,

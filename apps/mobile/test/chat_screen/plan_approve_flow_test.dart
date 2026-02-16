@@ -1,4 +1,3 @@
-import 'package:ccpocket/features/claude_code_session/widgets/chat_input_with_overlays.dart';
 import 'package:ccpocket/features/claude_code_session/widgets/status_indicator.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/widgets/approval_bar.dart';
@@ -123,7 +122,7 @@ void main() {
     });
 
     patrolWidgetTest(
-      'J3: Plan accept with clearContext sends clearContext and transitions',
+      'J3: Plan accept with clearContext sends clearContext flag',
       ($) async {
         await setupPlanApproval($, bridge);
 
@@ -137,27 +136,8 @@ void main() {
         expect(msg, isNotNull);
         expect(msg!['clearContext'], true);
 
-        // Bridge sends tool result, then clearing status, then idle
-        await emitAndPump($.tester, bridge, [
-          const ToolResultMessage(
-            toolUseId: 'tool-exit-1',
-            content: 'Plan approved',
-          ),
-          const StatusMessage(status: ProcessStatus.clearing),
-        ]);
-        await pumpN($.tester);
-
-        // During clearing: approval bar should be gone
+        // Approval bar should be gone after approve
         expect($(ApprovalBar), findsNothing);
-
-        // Transition to idle
-        await emitAndPump($.tester, bridge, [
-          const StatusMessage(status: ProcessStatus.idle),
-        ]);
-        await pumpN($.tester);
-
-        // Input should be restored
-        expect($(ChatInputWithOverlays), findsOneWidget);
       },
     );
 

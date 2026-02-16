@@ -128,6 +128,8 @@ export interface StartOptions {
   persistSession?: boolean;
   /** When resuming, only resume messages up to this UUID (for conversation rewind). */
   resumeSessionAt?: string;
+  /** Text to send as the first user message immediately after session starts. */
+  initialInput?: string;
 }
 
 export interface RewindFilesResult {
@@ -323,11 +325,6 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private userMessageResolve: ((msg: SDKUserMsg) => void) | null = null;
   private stopped = false;
 
-  // Clear context state machine
-  private pendingClear: {
-    planText: string;
-    phase: "wait_result" | "sent_clear" | "wait_plan_result";
-  } | null = null;
   private pendingInput: string | null = null;
   private _projectPath: string | null = null;
   private toolCallsSinceLastResult = 0;
@@ -367,6 +364,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.sessionAllowRules.clear();
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
+    if (options?.initialInput) {
+      this.pendingInput = options.initialInput;
+    }
 
     this.setStatus("starting");
 
@@ -437,7 +437,6 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.initTimeoutId = null;
     }
     this.stopped = true;
-    this.pendingClear = null;
     this.pendingInput = null;
     if (this.queryInstance) {
       console.log("[sdk-process] Stopping query");
@@ -454,7 +453,6 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   interrupt(): void {
     if (this.queryInstance) {
       console.log("[sdk-process] Interrupting query");
-      this.pendingClear = null;
       this.pendingInput = null;
       this.queryInstance.interrupt().catch((err) => {
         console.error("[sdk-process] Interrupt error:", err);
@@ -526,7 +524,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
    * Approve a pending permission request.
    * With the SDK, this actually blocks tool execution until approved.
    */
-  approve(toolUseId?: string, updatedInput?: Record<string, unknown>, clearContext?: boolean): void {
+  approve(toolUseId?: string, updatedInput?: Record<string, unknown>): void {
     const id = toolUseId ?? this.firstPendingId();
     const pending = id ? this.pendingPermissions.get(id) : undefined;
     if (!pending) {
@@ -537,11 +535,6 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     const mergedInput = updatedInput
       ? { ...pending.input, ...updatedInput }
       : pending.input;
-
-    if (clearContext && typeof mergedInput.plan === "string") {
-      this.pendingClear = { planText: mergedInput.plan as string, phase: "wait_result" };
-      console.log("[sdk-process] Clear context requested after plan approval");
-    }
 
     this.pendingPermissions.delete(id!);
     pending.resolve({
@@ -758,20 +751,6 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     // Query finished
     this.queryInstance = null;
 
-    if (this.pendingClear?.phase === "sent_clear" && this._projectPath) {
-      // /clear caused query to exit → restart and send plan text
-      const planText = this.pendingClear.planText;
-      const sessionId = this._sessionId;
-      this.pendingClear = null;
-      console.log("[sdk-process] Query exited after /clear, restarting with plan");
-      this.pendingInput = planText;
-      this.start(this._projectPath, {
-        sessionId: sessionId ?? undefined,
-        continueMode: true,
-      });
-      return; // start() begins a new processMessages()
-    }
-
     this.setStatus("idle");
     this.emit("exit", 0);
   }
@@ -856,32 +835,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         break;
       case "result":
         this.pendingPermissions.clear();
-        if (this.pendingClear?.phase === "wait_result") {
-          // Turn completed → send /clear
-          this.pendingClear.phase = "sent_clear";
-          this.setStatus("clearing");
-          setTimeout(() => {
-            if (!this.stopped && this.userMessageResolve) {
-              console.log("[sdk-process] Auto-sending /clear after plan approval");
-              this.sendInput("/clear");
-            }
-          }, 0);
-        } else if (this.pendingClear?.phase === "sent_clear") {
-          // /clear result → query continued → send plan text
-          this.pendingClear.phase = "wait_plan_result";
-          setTimeout(() => {
-            if (!this.stopped && this.userMessageResolve && this.pendingClear) {
-              console.log("[sdk-process] Sending plan text after /clear");
-              this.sendInput(this.pendingClear.planText);
-            }
-          }, 0);
-        } else if (this.pendingClear?.phase === "wait_plan_result") {
-          // Plan execution completed
-          this.pendingClear = null;
-          this.setStatus("idle");
-        } else {
-          this.setStatus("idle");
-        }
+        this.setStatus("idle");
         break;
     }
   }

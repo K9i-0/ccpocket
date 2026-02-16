@@ -156,7 +156,7 @@ class ChatMessageHandler {
     } else if (status == ProcessStatus.idle ||
         status == ProcessStatus.starting) {
       // Only reset pending on terminal states, not on transient 'running'
-      // or 'clearing' status. This prevents a race condition where
+      // status. This prevents a race condition where
       // PermissionRequestMessage arrives before StatusMessage(waitingApproval)
       // and an intervening StatusMessage(running) would clear the pending state.
       resetPending = true;

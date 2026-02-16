@@ -127,7 +127,7 @@ export interface DebugTraceEvent {
 }
 
 export type ServerMessage =
-  | { type: "system"; subtype: string; sessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string; permissionMode?: PermissionMode }
+  | { type: "system"; subtype: string; sessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string; permissionMode?: PermissionMode; clearContext?: boolean }
   | { type: "assistant"; message: AssistantMessage; messageUuid?: string }
   | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[]; userMessageUuid?: string }
   | {
@@ -208,7 +208,7 @@ export interface UsageInfoPayload {
   error?: string;
 }
 
-export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval" | "clearing";
+export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval";
 
 // ---- Helpers ----
 
