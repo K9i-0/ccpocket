@@ -15,6 +15,7 @@ import '../screens/mock_preview_screen.dart';
 import '../services/connection_url_parser.dart';
 import '../features/setup_guide/setup_guide_screen.dart';
 import '../screens/qr_scan_screen.dart';
+import '../features/hello/hello_screen.dart';
 
 part 'app_router.gr.dart';
 
@@ -33,5 +34,6 @@ class AppRouter extends RootStackRouter {
     AutoRoute(page: MockPreviewRoute.page, path: '/mock-preview'),
     AutoRoute(page: SwipeQueueRoute.page, path: '/swipe-queue'),
     AutoRoute(page: SetupGuideRoute.page, path: '/setup-guide'),
+    AutoRoute(page: HelloRoute.page, path: '/hello'),
   ];
 }

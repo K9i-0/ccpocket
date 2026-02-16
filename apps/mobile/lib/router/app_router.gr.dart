@@ -343,6 +343,22 @@ class GalleryRouteArgs {
 }
 
 /// generated route for
+/// [HelloScreen]
+class HelloRoute extends PageRouteInfo<void> {
+  const HelloRoute({List<PageRouteInfo>? children})
+    : super(HelloRoute.name, initialChildren: children);
+
+  static const String name = 'HelloRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const HelloScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [LicensesScreen]
 class LicensesRoute extends PageRouteInfo<void> {
   const LicensesRoute({List<PageRouteInfo>? children})

@@ -752,6 +752,13 @@ class _SessionListScreenState extends State<SessionListScreen> {
               ),
             if (showConnectedUI)
               IconButton(
+                key: const ValueKey('hello_button'),
+                icon: const Icon(Icons.waving_hand),
+                onPressed: () => context.router.push(const HelloRoute()),
+                tooltip: 'Hello',
+              ),
+            if (showConnectedUI)
+              IconButton(
                 key: const ValueKey('disconnect_button'),
                 icon: const Icon(Icons.link_off),
                 onPressed: _disconnect,
