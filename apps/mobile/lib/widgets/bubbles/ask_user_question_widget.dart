@@ -36,6 +36,12 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
 
   bool get _isSingleQuestion => _questions.length <= 1;
 
+  bool get _singleQuestionIsMultiSelect {
+    if (!_isSingleQuestion || _questions.isEmpty) return false;
+    final q = _questions.first as Map<String, dynamic>;
+    return q['multiSelect'] as bool? ?? false;
+  }
+
   @override
   void dispose() {
     _textController.dispose();
@@ -202,7 +208,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
             ),
           ),
           const SizedBox(height: 6),
-          // Submit all answers button (multi-question mode)
+          // Submit button for multi-question mode or single multiSelect question
           if (!_isSingleQuestion) ...[
             SizedBox(
               width: double.infinity,
@@ -220,13 +226,31 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
               ),
             ),
             const SizedBox(height: 4),
+          ] else if (_singleQuestionIsMultiSelect) ...[
+            // Single question with multiSelect needs an explicit submit button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _allQuestionsAnswered ? _sendAllAnswers : null,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                child: Text(
+                  _allQuestionsAnswered
+                      ? 'Submit (${_multiAnswers.values.firstOrNull?.length ?? 0} selected)'
+                      : 'Select options to submit',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
           ],
           // Free text input
-          if (_isSingleQuestion) ...[
-            // Single question: always show text input
+          if (_isSingleQuestion && !_singleQuestionIsMultiSelect) ...[
+            // Single question (single-select): always show text input
             _buildTextInputRow(),
           ] else ...[
-            // Multi-question: collapsible "Other answer..." toggle
+            // Multi-question or single multiSelect: collapsible text input
             if (!_showCustomInput)
               Align(
                 alignment: Alignment.centerRight,
@@ -363,6 +387,13 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
           question,
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
+        if (multiSelect) ...[
+          const SizedBox(height: 2),
+          Text(
+            'Select all that apply',
+            style: TextStyle(fontSize: 11, color: appColors.subtleText),
+          ),
+        ],
         if (options.isNotEmpty) ...[
           const SizedBox(height: 6),
           for (final opt in options)
