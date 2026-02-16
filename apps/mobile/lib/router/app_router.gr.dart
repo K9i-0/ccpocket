@@ -477,3 +477,19 @@ class SettingsRoute extends PageRouteInfo<void> {
     },
   );
 }
+
+/// generated route for
+/// [SwipeQueueScreen]
+class SwipeQueueRoute extends PageRouteInfo<void> {
+  const SwipeQueueRoute({List<PageRouteInfo>? children})
+    : super(SwipeQueueRoute.name, initialChildren: children);
+
+  static const String name = 'SwipeQueueRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const SwipeQueueScreen();
+    },
+  );
+}

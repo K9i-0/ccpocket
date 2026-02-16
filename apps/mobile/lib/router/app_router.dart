@@ -10,6 +10,7 @@ import '../features/session_list/session_list_screen.dart';
 import '../features/settings/licenses_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../models/messages.dart';
+import '../features/swipe_queue/swipe_queue_screen.dart';
 import '../screens/mock_preview_screen.dart';
 import '../services/connection_url_parser.dart';
 import '../screens/qr_scan_screen.dart';
@@ -29,5 +30,6 @@ class AppRouter extends RootStackRouter {
     AutoRoute(page: LicensesRoute.page, path: '/licenses'),
     AutoRoute(page: QrScanRoute.page, path: '/qr-scan'),
     AutoRoute(page: MockPreviewRoute.page, path: '/mock-preview'),
+    AutoRoute(page: SwipeQueueRoute.page, path: '/swipe-queue'),
   ];
 }

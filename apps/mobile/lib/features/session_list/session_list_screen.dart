@@ -725,6 +725,12 @@ class _SessionListScreenState extends State<SessionListScreen> {
           title: const Text('CC Pocket'),
           actions: [
             IconButton(
+              key: const ValueKey('swipe_queue_button'),
+              icon: const Icon(Icons.style_outlined),
+              onPressed: () => context.router.push(const SwipeQueueRoute()),
+              tooltip: 'Approval Queue',
+            ),
+            IconButton(
               key: const ValueKey('settings_button'),
               icon: const Icon(Icons.settings),
               onPressed: () => context.router.push(const SettingsRoute()),
