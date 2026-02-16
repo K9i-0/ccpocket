@@ -12,6 +12,7 @@ abstract class PromptHistoryState with _$PromptHistoryState {
     String? projectFilter,
     @Default('') String searchQuery,
     @Default(false) bool isLoading,
+    @Default(true) bool hasMore,
     @Default([]) List<String> availableProjects,
   }) = _PromptHistoryState;
 }

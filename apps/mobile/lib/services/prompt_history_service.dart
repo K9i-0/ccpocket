@@ -73,7 +73,6 @@ class PromptHistoryService {
   /// Record a sent prompt.
   ///
   /// Skips recording for:
-  /// - Slash commands (`/` prefix)
   /// - Short texts (< 5 characters)
   /// - Long texts (> 2000 characters)
   ///
@@ -85,7 +84,6 @@ class PromptHistoryService {
 
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
-    if (trimmed.startsWith('/')) return;
     if (trimmed.length < 5) return;
     if (trimmed.length > 2000) return;
 
@@ -136,7 +134,8 @@ class PromptHistoryService {
     PromptSortOrder sort = PromptSortOrder.recency,
     String? projectPath,
     String? searchQuery,
-    int limit = 50,
+    int limit = 30,
+    int offset = 0,
   }) async {
     final db = await _db;
     if (db == null) return const [];
@@ -168,8 +167,8 @@ class PromptHistoryService {
     };
 
     final rows = await db.rawQuery(
-      'SELECT * FROM prompt_history $whereClause ORDER BY $orderBy LIMIT ?',
-      [...args, limit],
+      'SELECT * FROM prompt_history $whereClause ORDER BY $orderBy LIMIT ? OFFSET ?',
+      [...args, limit, offset],
     );
 
     return rows.map(PromptHistoryEntry.fromMap).toList();

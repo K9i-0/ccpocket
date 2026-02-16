@@ -83,8 +83,9 @@ class _ApprovalCardState extends State<ApprovalCard> {
 
   /// Drag distance for radial mode.
   double get _dragDist => sqrt(
-      widget.dragOffset * widget.dragOffset +
-      widget.dragOffsetY * widget.dragOffsetY);
+    widget.dragOffset * widget.dragOffset +
+        widget.dragOffsetY * widget.dragOffsetY,
+  );
 
   /// Whether the card is being dragged primarily downward (non-selectOption).
   bool get _isDraggingDown =>
@@ -122,9 +123,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
           borderHighlight = Colors.amber.withValues(alpha: 0.4);
         } else {
           final color = _highlightedColor ?? Colors.blue;
-          bgOverlay = color.withValues(
-            alpha: (_dragDist / 200).clamp(0, 0.12),
-          );
+          bgOverlay = color.withValues(alpha: (_dragDist / 200).clamp(0, 0.12));
           borderHighlight = color.withValues(alpha: 0.4);
         }
       }
@@ -431,13 +430,8 @@ class _ApprovalCardState extends State<ApprovalCard> {
         const SizedBox(height: 12),
         if (options != null)
           ...options.asMap().entries.map(
-                (entry) => _buildOptionTile(
-                  entry.value,
-                  entry.key,
-                  cs,
-                  appColors,
-                ),
-              ),
+            (entry) => _buildOptionTile(entry.value, entry.key, cs, appColors),
+          ),
         if (widget.item.multiSelect && _selectedOptions.isNotEmpty) ...[
           const SizedBox(height: 12),
           SizedBox(
@@ -518,8 +512,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
               }
             },
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
                   // Color indicator dot for single-select
@@ -795,8 +788,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
             color: Colors.amber.withValues(
               alpha: widget.isInSkipZone ? 0.9 : 0.5,
             ),
-            fontWeight:
-                widget.isInSkipZone ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: widget.isInSkipZone ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
         const SizedBox(width: 8),

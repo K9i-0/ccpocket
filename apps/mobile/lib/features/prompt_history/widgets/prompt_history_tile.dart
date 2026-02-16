@@ -29,7 +29,9 @@ class PromptHistoryTile extends StatelessWidget {
 
     return Dismissible(
       key: ValueKey('prompt_history_dismiss_${entry.id}'),
-      direction: DismissDirection.endToStart,
+      direction: entry.isFavorite
+          ? DismissDirection.none
+          : DismissDirection.endToStart,
       onDismissed: (_) => onDelete(),
       background: Container(
         alignment: Alignment.centerRight,

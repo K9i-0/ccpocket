@@ -4,6 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../services/prompt_history_service.dart';
 import 'prompt_history_state.dart';
 
+/// Page size for prompt history pagination.
+const _pageSize = 30;
+
 /// Manages the prompt history bottom sheet state.
 ///
 /// Created when the sheet is displayed and disposed when it closes.
@@ -12,7 +15,7 @@ class PromptHistoryCubit extends Cubit<PromptHistoryState> {
 
   PromptHistoryCubit(this._service) : super(const PromptHistoryState());
 
-  /// Load prompt history with current filters.
+  /// Load prompt history with current filters (resets to first page).
   Future<void> load() async {
     emit(state.copyWith(isLoading: true));
 
@@ -22,6 +25,8 @@ class PromptHistoryCubit extends Cubit<PromptHistoryState> {
           sort: state.sortOrder,
           projectPath: state.projectFilter,
           searchQuery: state.searchQuery.isEmpty ? null : state.searchQuery,
+          limit: _pageSize,
+          offset: 0,
         ),
         _service.getProjectPaths(),
       ]);
@@ -34,10 +39,39 @@ class PromptHistoryCubit extends Cubit<PromptHistoryState> {
           prompts: prompts,
           availableProjects: projects,
           isLoading: false,
+          hasMore: prompts.length >= _pageSize,
         ),
       );
     } catch (e) {
       debugPrint('[PromptHistoryCubit] load failed: $e');
+      emit(state.copyWith(isLoading: false));
+    }
+  }
+
+  /// Load the next page of prompt history and append to existing results.
+  Future<void> loadMore() async {
+    if (!state.hasMore || state.isLoading) return;
+
+    emit(state.copyWith(isLoading: true));
+
+    try {
+      final prompts = await _service.getPrompts(
+        sort: state.sortOrder,
+        projectPath: state.projectFilter,
+        searchQuery: state.searchQuery.isEmpty ? null : state.searchQuery,
+        limit: _pageSize,
+        offset: state.prompts.length,
+      );
+
+      emit(
+        state.copyWith(
+          prompts: [...state.prompts, ...prompts],
+          isLoading: false,
+          hasMore: prompts.length >= _pageSize,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[PromptHistoryCubit] loadMore failed: $e');
       emit(state.copyWith(isLoading: false));
     }
   }

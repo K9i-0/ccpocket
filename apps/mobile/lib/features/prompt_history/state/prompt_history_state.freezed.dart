@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$PromptHistoryState {
 
- List<PromptHistoryEntry> get prompts; PromptSortOrder get sortOrder; String? get projectFilter; String get searchQuery; bool get isLoading; List<String> get availableProjects;
+ List<PromptHistoryEntry> get prompts; PromptSortOrder get sortOrder; String? get projectFilter; String get searchQuery; bool get isLoading; bool get hasMore; List<String> get availableProjects;
 /// Create a copy of PromptHistoryState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $PromptHistoryStateCopyWith<PromptHistoryState> get copyWith => _$PromptHistoryS
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PromptHistoryState&&const DeepCollectionEquality().equals(other.prompts, prompts)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.projectFilter, projectFilter) || other.projectFilter == projectFilter)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&const DeepCollectionEquality().equals(other.availableProjects, availableProjects));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PromptHistoryState&&const DeepCollectionEquality().equals(other.prompts, prompts)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.projectFilter, projectFilter) || other.projectFilter == projectFilter)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&const DeepCollectionEquality().equals(other.availableProjects, availableProjects));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(prompts),sortOrder,projectFilter,searchQuery,isLoading,const DeepCollectionEquality().hash(availableProjects));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(prompts),sortOrder,projectFilter,searchQuery,isLoading,hasMore,const DeepCollectionEquality().hash(availableProjects));
 
 @override
 String toString() {
-  return 'PromptHistoryState(prompts: $prompts, sortOrder: $sortOrder, projectFilter: $projectFilter, searchQuery: $searchQuery, isLoading: $isLoading, availableProjects: $availableProjects)';
+  return 'PromptHistoryState(prompts: $prompts, sortOrder: $sortOrder, projectFilter: $projectFilter, searchQuery: $searchQuery, isLoading: $isLoading, hasMore: $hasMore, availableProjects: $availableProjects)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $PromptHistoryStateCopyWith<$Res>  {
   factory $PromptHistoryStateCopyWith(PromptHistoryState value, $Res Function(PromptHistoryState) _then) = _$PromptHistoryStateCopyWithImpl;
 @useResult
 $Res call({
- List<PromptHistoryEntry> prompts, PromptSortOrder sortOrder, String? projectFilter, String searchQuery, bool isLoading, List<String> availableProjects
+ List<PromptHistoryEntry> prompts, PromptSortOrder sortOrder, String? projectFilter, String searchQuery, bool isLoading, bool hasMore, List<String> availableProjects
 });
 
 
@@ -62,13 +62,14 @@ class _$PromptHistoryStateCopyWithImpl<$Res>
 
 /// Create a copy of PromptHistoryState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? prompts = null,Object? sortOrder = null,Object? projectFilter = freezed,Object? searchQuery = null,Object? isLoading = null,Object? availableProjects = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? prompts = null,Object? sortOrder = null,Object? projectFilter = freezed,Object? searchQuery = null,Object? isLoading = null,Object? hasMore = null,Object? availableProjects = null,}) {
   return _then(_self.copyWith(
 prompts: null == prompts ? _self.prompts : prompts // ignore: cast_nullable_to_non_nullable
 as List<PromptHistoryEntry>,sortOrder: null == sortOrder ? _self.sortOrder : sortOrder // ignore: cast_nullable_to_non_nullable
 as PromptSortOrder,projectFilter: freezed == projectFilter ? _self.projectFilter : projectFilter // ignore: cast_nullable_to_non_nullable
 as String?,searchQuery: null == searchQuery ? _self.searchQuery : searchQuery // ignore: cast_nullable_to_non_nullable
 as String,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
+as bool,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
 as bool,availableProjects: null == availableProjects ? _self.availableProjects : availableProjects // ignore: cast_nullable_to_non_nullable
 as List<String>,
   ));
@@ -155,10 +156,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<PromptHistoryEntry> prompts,  PromptSortOrder sortOrder,  String? projectFilter,  String searchQuery,  bool isLoading,  List<String> availableProjects)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<PromptHistoryEntry> prompts,  PromptSortOrder sortOrder,  String? projectFilter,  String searchQuery,  bool isLoading,  bool hasMore,  List<String> availableProjects)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PromptHistoryState() when $default != null:
-return $default(_that.prompts,_that.sortOrder,_that.projectFilter,_that.searchQuery,_that.isLoading,_that.availableProjects);case _:
+return $default(_that.prompts,_that.sortOrder,_that.projectFilter,_that.searchQuery,_that.isLoading,_that.hasMore,_that.availableProjects);case _:
   return orElse();
 
 }
@@ -176,10 +177,10 @@ return $default(_that.prompts,_that.sortOrder,_that.projectFilter,_that.searchQu
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<PromptHistoryEntry> prompts,  PromptSortOrder sortOrder,  String? projectFilter,  String searchQuery,  bool isLoading,  List<String> availableProjects)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<PromptHistoryEntry> prompts,  PromptSortOrder sortOrder,  String? projectFilter,  String searchQuery,  bool isLoading,  bool hasMore,  List<String> availableProjects)  $default,) {final _that = this;
 switch (_that) {
 case _PromptHistoryState():
-return $default(_that.prompts,_that.sortOrder,_that.projectFilter,_that.searchQuery,_that.isLoading,_that.availableProjects);case _:
+return $default(_that.prompts,_that.sortOrder,_that.projectFilter,_that.searchQuery,_that.isLoading,_that.hasMore,_that.availableProjects);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -196,10 +197,10 @@ return $default(_that.prompts,_that.sortOrder,_that.projectFilter,_that.searchQu
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<PromptHistoryEntry> prompts,  PromptSortOrder sortOrder,  String? projectFilter,  String searchQuery,  bool isLoading,  List<String> availableProjects)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<PromptHistoryEntry> prompts,  PromptSortOrder sortOrder,  String? projectFilter,  String searchQuery,  bool isLoading,  bool hasMore,  List<String> availableProjects)?  $default,) {final _that = this;
 switch (_that) {
 case _PromptHistoryState() when $default != null:
-return $default(_that.prompts,_that.sortOrder,_that.projectFilter,_that.searchQuery,_that.isLoading,_that.availableProjects);case _:
+return $default(_that.prompts,_that.sortOrder,_that.projectFilter,_that.searchQuery,_that.isLoading,_that.hasMore,_that.availableProjects);case _:
   return null;
 
 }
@@ -211,7 +212,7 @@ return $default(_that.prompts,_that.sortOrder,_that.projectFilter,_that.searchQu
 
 
 class _PromptHistoryState implements PromptHistoryState {
-  const _PromptHistoryState({final  List<PromptHistoryEntry> prompts = const [], this.sortOrder = PromptSortOrder.frequency, this.projectFilter, this.searchQuery = '', this.isLoading = false, final  List<String> availableProjects = const []}): _prompts = prompts,_availableProjects = availableProjects;
+  const _PromptHistoryState({final  List<PromptHistoryEntry> prompts = const [], this.sortOrder = PromptSortOrder.frequency, this.projectFilter, this.searchQuery = '', this.isLoading = false, this.hasMore = true, final  List<String> availableProjects = const []}): _prompts = prompts,_availableProjects = availableProjects;
   
 
  final  List<PromptHistoryEntry> _prompts;
@@ -225,6 +226,7 @@ class _PromptHistoryState implements PromptHistoryState {
 @override final  String? projectFilter;
 @override@JsonKey() final  String searchQuery;
 @override@JsonKey() final  bool isLoading;
+@override@JsonKey() final  bool hasMore;
  final  List<String> _availableProjects;
 @override@JsonKey() List<String> get availableProjects {
   if (_availableProjects is EqualUnmodifiableListView) return _availableProjects;
@@ -243,16 +245,16 @@ _$PromptHistoryStateCopyWith<_PromptHistoryState> get copyWith => __$PromptHisto
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PromptHistoryState&&const DeepCollectionEquality().equals(other._prompts, _prompts)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.projectFilter, projectFilter) || other.projectFilter == projectFilter)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&const DeepCollectionEquality().equals(other._availableProjects, _availableProjects));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PromptHistoryState&&const DeepCollectionEquality().equals(other._prompts, _prompts)&&(identical(other.sortOrder, sortOrder) || other.sortOrder == sortOrder)&&(identical(other.projectFilter, projectFilter) || other.projectFilter == projectFilter)&&(identical(other.searchQuery, searchQuery) || other.searchQuery == searchQuery)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&const DeepCollectionEquality().equals(other._availableProjects, _availableProjects));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_prompts),sortOrder,projectFilter,searchQuery,isLoading,const DeepCollectionEquality().hash(_availableProjects));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_prompts),sortOrder,projectFilter,searchQuery,isLoading,hasMore,const DeepCollectionEquality().hash(_availableProjects));
 
 @override
 String toString() {
-  return 'PromptHistoryState(prompts: $prompts, sortOrder: $sortOrder, projectFilter: $projectFilter, searchQuery: $searchQuery, isLoading: $isLoading, availableProjects: $availableProjects)';
+  return 'PromptHistoryState(prompts: $prompts, sortOrder: $sortOrder, projectFilter: $projectFilter, searchQuery: $searchQuery, isLoading: $isLoading, hasMore: $hasMore, availableProjects: $availableProjects)';
 }
 
 
@@ -263,7 +265,7 @@ abstract mixin class _$PromptHistoryStateCopyWith<$Res> implements $PromptHistor
   factory _$PromptHistoryStateCopyWith(_PromptHistoryState value, $Res Function(_PromptHistoryState) _then) = __$PromptHistoryStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<PromptHistoryEntry> prompts, PromptSortOrder sortOrder, String? projectFilter, String searchQuery, bool isLoading, List<String> availableProjects
+ List<PromptHistoryEntry> prompts, PromptSortOrder sortOrder, String? projectFilter, String searchQuery, bool isLoading, bool hasMore, List<String> availableProjects
 });
 
 
@@ -280,13 +282,14 @@ class __$PromptHistoryStateCopyWithImpl<$Res>
 
 /// Create a copy of PromptHistoryState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? prompts = null,Object? sortOrder = null,Object? projectFilter = freezed,Object? searchQuery = null,Object? isLoading = null,Object? availableProjects = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? prompts = null,Object? sortOrder = null,Object? projectFilter = freezed,Object? searchQuery = null,Object? isLoading = null,Object? hasMore = null,Object? availableProjects = null,}) {
   return _then(_PromptHistoryState(
 prompts: null == prompts ? _self._prompts : prompts // ignore: cast_nullable_to_non_nullable
 as List<PromptHistoryEntry>,sortOrder: null == sortOrder ? _self.sortOrder : sortOrder // ignore: cast_nullable_to_non_nullable
 as PromptSortOrder,projectFilter: freezed == projectFilter ? _self.projectFilter : projectFilter // ignore: cast_nullable_to_non_nullable
 as String?,searchQuery: null == searchQuery ? _self.searchQuery : searchQuery // ignore: cast_nullable_to_non_nullable
 as String,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
+as bool,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
 as bool,availableProjects: null == availableProjects ? _self._availableProjects : availableProjects // ignore: cast_nullable_to_non_nullable
 as List<String>,
   ));

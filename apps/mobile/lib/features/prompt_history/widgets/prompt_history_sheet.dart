@@ -42,7 +42,7 @@ class PromptHistorySheet extends StatelessWidget {
   }
 }
 
-class _PromptHistorySheetBody extends StatelessWidget {
+class _PromptHistorySheetBody extends StatefulWidget {
   final String? currentProjectPath;
   final void Function(String text) onSelect;
 
@@ -50,6 +50,35 @@ class _PromptHistorySheetBody extends StatelessWidget {
     this.currentProjectPath,
     required this.onSelect,
   });
+
+  @override
+  State<_PromptHistorySheetBody> createState() =>
+      _PromptHistorySheetBodyState();
+}
+
+class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      context.read<PromptHistoryCubit>().loadMore();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +231,7 @@ class _PromptHistorySheetBody extends StatelessWidget {
           Flexible(
             child: BlocBuilder<PromptHistoryCubit, PromptHistoryState>(
               builder: (context, state) {
-                if (state.isLoading) {
+                if (state.isLoading && state.prompts.isEmpty) {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(32),
@@ -226,18 +255,34 @@ class _PromptHistorySheetBody extends StatelessWidget {
                 }
 
                 final showProjectBadge = state.projectFilter == null;
+                // +1 for the loading indicator when there are more items
+                final itemCount =
+                    state.prompts.length + (state.hasMore ? 1 : 0);
 
                 return ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: state.prompts.length,
+                  controller: _scrollController,
+                  itemCount: itemCount,
                   itemBuilder: (context, index) {
+                    if (index >= state.prompts.length) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      );
+                    }
+
                     final entry = state.prompts[index];
                     return PromptHistoryTile(
                       entry: entry,
                       showProjectBadge: showProjectBadge,
                       onTap: () {
                         Navigator.pop(context);
-                        onSelect(entry.text);
+                        widget.onSelect(entry.text);
                       },
                       onToggleFavorite: () {
                         context.read<PromptHistoryCubit>().toggleFavorite(

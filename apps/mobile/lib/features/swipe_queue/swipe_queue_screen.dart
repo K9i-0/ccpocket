@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import 'swipe_queue_data.dart';
 import 'widgets/approval_card.dart';
 import 'widgets/progress_bar.dart';
+import 'widgets/prompt_card.dart';
 
 /// Color palette for option swipe zones.
 const optionSwipeColors = [
@@ -17,6 +18,21 @@ const optionSwipeColors = [
   Colors.purple,
   Colors.orange,
 ];
+
+/// Why the queue is currently empty.
+enum QueueEmptyReason {
+  /// All items have been processed.
+  allCleared,
+
+  /// Session is idle, waiting for user's next prompt.
+  waitingForPrompt,
+
+  /// Agent is working, no approval requests yet.
+  agentWorking,
+
+  /// No sessions connected.
+  noSessions,
+}
 
 /// How the current card responds to swipe gestures.
 enum SwipeMode {
@@ -28,6 +44,10 @@ enum SwipeMode {
 
   /// Left only: skip / defer. Right is clamped.
   deferOnly,
+
+  /// Prompt card: right = send (if content), left = dismiss.
+  /// Disabled entirely when text field has focus.
+  promptInput,
 }
 
 /// Swipe-based approval queue screen.
@@ -45,7 +65,9 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
   int _processedCount = 0;
   int _streak = 0;
   int _bestStreak = 0;
-  bool _allCleared = false;
+  QueueEmptyReason? _emptyReason;
+  bool _isTextFieldFocused = false;
+  bool _showPromptCard = false;
 
   // Defer tracking
   final Map<String, int> _deferCounts = {};
@@ -70,29 +92,31 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
     super.initState();
     _queue = List.of(sampleApprovalItems);
 
-    _flyAwayController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 350),
-    )..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          _onFlyAwayComplete();
-        }
-      });
+    _flyAwayController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 350),
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            _onFlyAwayComplete();
+          }
+        });
     _flyAwayCurve = CurvedAnimation(
       parent: _flyAwayController,
       curve: Curves.easeIn,
     );
 
-    _snapBackController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    )..addListener(() {
-        setState(() {
-          final t = _snapBackController.value;
-          _dragX = _snapStartX * (1 - t);
-          _dragY = _snapStartY * (1 - t);
+    _snapBackController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 600),
+        )..addListener(() {
+          setState(() {
+            final t = _snapBackController.value;
+            _dragX = _snapStartX * (1 - t);
+            _dragY = _snapStartY * (1 - t);
+          });
         });
-      });
   }
 
   @override
@@ -106,6 +130,7 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
   // ── Swipe mode classification ────────────────────────────────────────
 
   SwipeMode get _swipeMode {
+    if (_showPromptCard) return SwipeMode.promptInput;
     if (_queue.isEmpty) return SwipeMode.full;
     final item = _queue.first;
     switch (item.type) {
@@ -179,6 +204,9 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
   void _onPanUpdate(DragUpdateDetails details) {
     if (_isFlyingAway) return;
     final mode = _swipeMode;
+
+    // Block swiping when text field is focused in prompt mode
+    if (mode == SwipeMode.promptInput && _isTextFieldFocused) return;
 
     final dx = details.delta.dx;
     final dy = details.delta.dy;
@@ -260,14 +288,22 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
     final screenHeight = MediaQuery.of(context).size.height;
     final velocity = details.velocity.pixelsPerSecond;
 
+    // Block swiping when text field is focused in prompt mode
+    if (mode == SwipeMode.promptInput && _isTextFieldFocused) {
+      _snapBack();
+      return;
+    }
+
     if (mode == SwipeMode.selectOption) {
       // Radial mode: distance + angle based
       final dist = _dragDist;
-      final velMagnitude =
-          sqrt(velocity.dx * velocity.dx + velocity.dy * velocity.dy);
+      final velMagnitude = sqrt(
+        velocity.dx * velocity.dx + velocity.dy * velocity.dy,
+      );
       final threshold = screenWidth * 0.25;
-      final effectiveThreshold =
-          velMagnitude > 800 ? threshold * 0.5 : threshold;
+      final effectiveThreshold = velMagnitude > 800
+          ? threshold * 0.5
+          : threshold;
 
       if (dist > effectiveThreshold) {
         // Fly away in drag direction (normalized vector)
@@ -285,12 +321,12 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
     // Non-selectOption modes: original horizontal + downward logic
     final horizontalThreshold = screenWidth * 0.3;
     final verticalThreshold = screenHeight * 0.15;
-    final effectiveHorizontalThreshold =
-        velocity.dx.abs() > 800
-            ? horizontalThreshold * 0.5
-            : horizontalThreshold;
-    final effectiveVerticalThreshold =
-        velocity.dy > 500 ? verticalThreshold * 0.5 : verticalThreshold;
+    final effectiveHorizontalThreshold = velocity.dx.abs() > 800
+        ? horizontalThreshold * 0.5
+        : horizontalThreshold;
+    final effectiveVerticalThreshold = velocity.dy > 500
+        ? verticalThreshold * 0.5
+        : verticalThreshold;
 
     // Priority 1: Downward skip
     if (_dragY > effectiveVerticalThreshold && _isDraggingDown) {
@@ -331,6 +367,23 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
 
   void _onFlyAwayComplete() {
     final mode = _swipeMode;
+
+    // Prompt card fly-away
+    if (mode == SwipeMode.promptInput) {
+      if (_flyDirectionX > 0) {
+        // Right swipe = send prompt (mock: just transition to allCleared)
+        HapticFeedback.lightImpact();
+      } else {
+        // Left swipe = dismiss
+        HapticFeedback.mediumImpact();
+      }
+      setState(() {
+        _showPromptCard = false;
+        _emptyReason = QueueEmptyReason.allCleared;
+        _resetDragState();
+      });
+      return;
+    }
 
     if (mode == SwipeMode.selectOption) {
       // Radial: determine zone by fly direction angle
@@ -383,7 +436,10 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
       _streak = newStreak;
       if (_streak > _bestStreak) _bestStreak = _streak;
       _resetDragState();
-      if (_queue.isEmpty) _allCleared = true;
+      if (_queue.isEmpty) {
+        _emptyReason = QueueEmptyReason.allCleared;
+        _showPromptCardAfterDelay();
+      }
     });
   }
 
@@ -430,13 +486,27 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
     _snapBackController.reset();
   }
 
+  void _showPromptCardAfterDelay() {
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && _emptyReason == QueueEmptyReason.allCleared) {
+        setState(() {
+          _showPromptCard = true;
+          _emptyReason = null;
+          _resetDragState();
+        });
+      }
+    });
+  }
+
   void _resetQueue() {
     setState(() {
       _queue = List.of(sampleApprovalItems);
       _processedCount = 0;
       _streak = 0;
       _bestStreak = 0;
-      _allCleared = false;
+      _emptyReason = null;
+      _showPromptCard = false;
+      _isTextFieldFocused = false;
       _deferCounts.clear();
       _resetDragState();
     });
@@ -470,8 +540,11 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
           ),
           const SizedBox(height: 8),
           Expanded(
-            child:
-                _allCleared ? _buildAllClearedState(cs) : _buildCardStack(cs),
+            child: _showPromptCard
+                ? _buildPromptCardStack(cs)
+                : _emptyReason != null
+                ? _buildEmptyState(cs)
+                : _buildCardStack(cs),
           ),
         ],
       ),
@@ -545,27 +618,30 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
               left: 0,
               right: 0,
               child: AnimatedBuilder(
-                animation:
-                    Listenable.merge([_flyAwayController, _snapBackController]),
+                animation: Listenable.merge([
+                  _flyAwayController,
+                  _snapBackController,
+                ]),
                 builder: (context, child) {
                   final flyProgress = _flyAwayCurve.value;
                   final totalX = _isFlyingAway
                       ? _dragX +
-                          _flyDirectionX * screenWidth * 1.5 * flyProgress
+                            _flyDirectionX * screenWidth * 1.5 * flyProgress
                       : _dragX;
                   final totalY = _isFlyingAway
                       ? _dragY +
-                          _flyDirectionY * screenHeight * 1.5 * flyProgress
+                            _flyDirectionY * screenHeight * 1.5 * flyProgress
                       : _dragY;
                   final rotation = (totalX / screenWidth) * 0.3;
                   final opacity = _isFlyingAway
                       ? (1.0 - ((flyProgress - 0.3) / 0.7).clamp(0.0, 1.0))
-                          .clamp(0.0, 1.0)
+                            .clamp(0.0, 1.0)
                       : 1.0;
-                  final isDragging = (_dragX.abs() > 5 || _dragY > 5) &&
-                      !_isFlyingAway;
-                  final scale =
-                      isDragging ? _lerp(1.0, 1.02, dragProgress) : 1.0;
+                  final isDragging =
+                      (_dragX.abs() > 5 || _dragY > 5) && !_isFlyingAway;
+                  final scale = isDragging
+                      ? _lerp(1.0, 1.02, dragProgress)
+                      : 1.0;
 
                   return Transform.translate(
                     offset: Offset(totalX, totalY),
@@ -573,10 +649,7 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
                       angle: rotation,
                       child: Transform.scale(
                         scale: scale,
-                        child: Opacity(
-                          opacity: opacity,
-                          child: child,
-                        ),
+                        child: Opacity(opacity: opacity, child: child),
                       ),
                     ),
                   );
@@ -613,9 +686,7 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
                 _queue.first.options != null)
               Positioned.fill(
                 child: IgnorePointer(
-                  child: _buildRadialZoneOverlay(
-                    _queue.first.options!.length,
-                  ),
+                  child: _buildRadialZoneOverlay(_queue.first.options!.length),
                 ),
               ),
 
@@ -651,20 +722,105 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
               ),
 
             // Overlay label — downward skip (non-selectOption)
-            if (mode != SwipeMode.selectOption &&
-                inSkipZone &&
-                _dragY > 30)
+            if (mode != SwipeMode.selectOption && inSkipZone && _dragY > 30)
               Positioned(
                 bottom: 60,
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: _buildSwipeLabel(
-                    'SKIP',
-                    Colors.amber,
-                    _dragY,
+                  child: _buildSwipeLabel('SKIP', Colors.amber, _dragY),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ── Prompt card stack ───────────────────────────────────────────────
+
+  Widget _buildPromptCardStack(ColorScheme cs) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          alignment: Alignment.topCenter,
+          children: [
+            // Prompt card — draggable
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: AnimatedBuilder(
+                animation: Listenable.merge([
+                  _flyAwayController,
+                  _snapBackController,
+                ]),
+                builder: (context, child) {
+                  final flyProgress = _flyAwayCurve.value;
+                  final totalX = _isFlyingAway
+                      ? _dragX +
+                            _flyDirectionX * screenWidth * 1.5 * flyProgress
+                      : _dragX;
+                  final totalY = _isFlyingAway
+                      ? _dragY +
+                            _flyDirectionY * screenHeight * 1.5 * flyProgress
+                      : _dragY;
+                  final rotation = (totalX / screenWidth) * 0.3;
+                  final opacity = _isFlyingAway
+                      ? (1.0 - ((flyProgress - 0.3) / 0.7).clamp(0.0, 1.0))
+                            .clamp(0.0, 1.0)
+                      : 1.0;
+
+                  return Transform.translate(
+                    offset: Offset(totalX, totalY),
+                    child: Transform.rotate(
+                      angle: rotation,
+                      child: Opacity(opacity: opacity, child: child),
+                    ),
+                  );
+                },
+                child: GestureDetector(
+                  onPanStart: _isTextFieldFocused ? null : _onPanStart,
+                  onPanUpdate: _isTextFieldFocused ? null : _onPanUpdate,
+                  onPanEnd: _isTextFieldFocused ? null : _onPanEnd,
+                  child: SizedBox(
+                    height: constraints.maxHeight - 8,
+                    child: Center(
+                      child: PromptCard(
+                        dragOffset: _dragX,
+                        dragOffsetY: _dragY,
+                        onSubmit: (text) {
+                          // Mock send: fly away right then transition
+                          _flyDirectionX = 1;
+                          _flyDirectionY = 0;
+                          _isFlyingAway = true;
+                          _flyAwayController.forward(from: 0);
+                        },
+                        onFocusChanged: (focused) {
+                          setState(() => _isTextFieldFocused = focused);
+                        },
+                      ),
+                    ),
                   ),
                 ),
+              ),
+            ),
+
+            // Overlay labels for prompt card swipe
+            if (!_isTextFieldFocused && _dragX > 30)
+              Positioned(
+                top: 40,
+                right: 40,
+                child: _buildSwipeLabel('SEND', Colors.green, _dragX),
+              ),
+            if (!_isTextFieldFocused && _dragX < -30)
+              Positioned(
+                top: 40,
+                left: 40,
+                child: _buildSwipeLabel('DISMISS', Colors.amber, _dragX.abs()),
               ),
           ],
         );
@@ -705,6 +861,7 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
       return '';
     }
     if (mode == SwipeMode.deferOnly) return 'SKIP';
+    if (mode == SwipeMode.promptInput) return _dragX > 0 ? 'SEND' : 'DISMISS';
     return _dragX > 0 ? 'APPROVE' : 'REJECT';
   }
 
@@ -719,6 +876,9 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
       return Colors.blue;
     }
     if (mode == SwipeMode.deferOnly) return Colors.amber;
+    if (mode == SwipeMode.promptInput) {
+      return _dragX > 0 ? Colors.green : Colors.amber;
+    }
     return _dragX > 0 ? Colors.green : Colors.red;
   }
 
@@ -753,55 +913,158 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
     );
   }
 
-  // ── Cleared state ────────────────────────────────────────────────────
+  // ── Empty states ─────────────────────────────────────────────────────
 
-  Widget _buildAllClearedState(ColorScheme cs) {
+  Widget _buildEmptyState(ColorScheme cs) {
+    final reason = _emptyReason!;
+    return switch (reason) {
+      QueueEmptyReason.allCleared => _buildAllClearedState(cs),
+      QueueEmptyReason.waitingForPrompt => _buildWaitingForPromptState(cs),
+      QueueEmptyReason.agentWorking => _buildAgentWorkingState(cs),
+      QueueEmptyReason.noSessions => _buildNoSessionsState(cs),
+    };
+  }
+
+  Widget _buildEmptyStateLayout({
+    required Widget icon,
+    required String title,
+    String? subtitle,
+    Widget? extra,
+    Widget? action,
+  }) {
+    final cs = Theme.of(context).colorScheme;
     final appColors = Theme.of(context).extension<AppColors>()!;
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.elasticOut,
-            builder: (context, value, child) =>
-                Transform.scale(scale: value, child: child),
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.check_circle_outline,
-                  size: 48, color: cs.primary),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text('All Clear!',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            icon,
+            const SizedBox(height: 20),
+            Text(
+              title,
               style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurface)),
-          const SizedBox(height: 8),
-          Text('$_processedCount items processed',
-              style: TextStyle(fontSize: 14, color: appColors.subtleText)),
-          if (_bestStreak > 0) ...[
-            const SizedBox(height: 4),
-            Text('Best streak: $_bestStreak',
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: cs.primary)),
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface,
+              ),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: appColors.subtleText),
+              ),
+            ],
+            if (extra != null) ...[const SizedBox(height: 4), extra],
+            if (action != null) ...[const SizedBox(height: 32), action],
           ],
-          const SizedBox(height: 32),
-          FilledButton.icon(
-            onPressed: _resetQueue,
-            icon: const Icon(Icons.replay),
-            label: const Text('Try Again'),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllClearedState(ColorScheme cs) {
+    return _buildEmptyStateLayout(
+      icon: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.elasticOut,
+        builder: (context, value, child) =>
+            Transform.scale(scale: value, child: child),
+        child: Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
           ),
-        ],
+          child: Icon(Icons.check_circle_outline, size: 48, color: cs.primary),
+        ),
+      ),
+      title: 'All Clear!',
+      subtitle: '$_processedCount items processed',
+      extra: _bestStreak > 0
+          ? Text(
+              'Best streak: $_bestStreak',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: cs.primary,
+              ),
+            )
+          : null,
+      action: FilledButton.icon(
+        onPressed: _resetQueue,
+        icon: const Icon(Icons.replay),
+        label: const Text('Try Again'),
+      ),
+    );
+  }
+
+  Widget _buildWaitingForPromptState(ColorScheme cs) {
+    return _buildEmptyStateLayout(
+      icon: Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: Colors.amber.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.hourglass_empty, size: 48, color: Colors.amber),
+      ),
+      title: 'Waiting for tasks',
+      subtitle: 'The agent is ready for your next prompt.',
+      action: FilledButton.icon(
+        onPressed: () => context.router.maybePop(),
+        icon: const Icon(Icons.arrow_back),
+        label: const Text('Back to Sessions'),
+      ),
+    );
+  }
+
+  Widget _buildAgentWorkingState(ColorScheme cs) {
+    return _buildEmptyStateLayout(
+      icon: SizedBox(
+        width: 80,
+        height: 80,
+        child: Center(
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: CircularProgressIndicator(strokeWidth: 3, color: cs.primary),
+          ),
+        ),
+      ),
+      title: 'Working...',
+      subtitle: 'Waiting for approval requests from the agent.',
+      action: OutlinedButton.icon(
+        onPressed: () => context.router.maybePop(),
+        icon: const Icon(Icons.arrow_back),
+        label: const Text('Back to Sessions'),
+      ),
+    );
+  }
+
+  Widget _buildNoSessionsState(ColorScheme cs) {
+    return _buildEmptyStateLayout(
+      icon: Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: cs.primary.withValues(alpha: 0.08),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(Icons.rocket_launch_outlined, size: 48, color: cs.primary),
+      ),
+      title: 'No active sessions',
+      subtitle: 'Start a session to begin receiving approval requests.',
+      action: FilledButton.icon(
+        onPressed: () => context.router.maybePop(),
+        icon: const Icon(Icons.add),
+        label: const Text('Back to Sessions'),
       ),
     );
   }

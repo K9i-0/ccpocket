@@ -62,8 +62,8 @@ class QueueProgressBar extends StatelessWidget {
                     streak >= 5
                         ? cs.primary
                         : streak >= 3
-                            ? cs.secondary
-                            : cs.primary.withValues(alpha: 0.7),
+                        ? cs.secondary
+                        : cs.primary.withValues(alpha: 0.7),
                   ),
                 );
               },
