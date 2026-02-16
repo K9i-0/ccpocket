@@ -263,7 +263,7 @@ class ChatMessageHandler {
               timestamp: ts,
               status: MessageStatus.sent,
               messageUuid: m.uuid,
-              isMeta: joined.startsWith('Base directory for this skill:'),
+              isMeta: m.isMeta,
             ),
           );
         }

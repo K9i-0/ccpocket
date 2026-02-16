@@ -948,11 +948,15 @@ class PastMessage {
   final String role;
   final String? uuid;
   final String? timestamp;
+
+  /// Whether this is a meta message (e.g. skill loading prompt).
+  final bool isMeta;
   final List<AssistantContent> content;
   const PastMessage({
     required this.role,
     this.uuid,
     this.timestamp,
+    this.isMeta = false,
     required this.content,
   });
 
@@ -973,6 +977,7 @@ class PastMessage {
       role: json['role'] as String? ?? '',
       uuid: json['uuid'] as String?,
       timestamp: json['timestamp'] as String?,
+      isMeta: json['isMeta'] as bool? ?? false,
       content: contentList,
     );
   }

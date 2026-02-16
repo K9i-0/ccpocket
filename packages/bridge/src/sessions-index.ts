@@ -532,6 +532,8 @@ export interface SessionHistoryMessage {
   role: "user" | "assistant";
   uuid?: string;
   timestamp?: string;
+  /** Skill loading prompt or other meta message (rendered as a chip). */
+  isMeta?: boolean;
   content: Array<{
     type: string;
     text?: string;
@@ -777,12 +779,20 @@ export async function getSessionHistory(
     const type = entry.type as string;
     if (type !== "user" && type !== "assistant") continue;
 
+    // Skip context compaction and transcript-only messages (not real user input)
+    if (type === "user") {
+      if (entry.isCompactSummary === true || entry.isVisibleInTranscriptOnly === true) {
+        continue;
+      }
+    }
+
     const message = entry.message as
       | { role: string; content: unknown[] | string }
       | undefined;
     if (!message?.content) continue;
 
     const role = message.role as "user" | "assistant";
+    const isMeta = role === "user" && entry.isMeta === true ? true : undefined;
 
     // Handle string content (e.g. user message after interrupt)
     if (typeof message.content === "string") {
@@ -794,6 +804,7 @@ export async function getSessionHistory(
           content: [{ type: "text" as const, text: message.content }],
           ...(uuid ? { uuid } : {}),
           ...(ts ? { timestamp: ts } : {}),
+          ...(isMeta ? { isMeta } : {}),
         });
       }
       continue;
@@ -823,7 +834,13 @@ export async function getSessionHistory(
     if (content.length > 0) {
       const uuid = entry.uuid as string | undefined;
       const ts = entry.timestamp as string | undefined;
-      messages.push({ role, content, ...(uuid ? { uuid } : {}), ...(ts ? { timestamp: ts } : {}) });
+      messages.push({
+        role,
+        content,
+        ...(uuid ? { uuid } : {}),
+        ...(ts ? { timestamp: ts } : {}),
+        ...(isMeta ? { isMeta } : {}),
+      });
     }
   }
 

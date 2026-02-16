@@ -236,6 +236,13 @@ export class BridgeWebSocketServer {
         // Acknowledge receipt immediately so the client can mark the message as sent
         this.send(ws, { type: "input_ack", sessionId: session.id });
 
+        // Add user_input to in-memory history.
+        // The SDK stream does NOT emit user messages, so session.history would
+        // otherwise lack them.  This ensures get_history responses include user
+        // messages and replaceEntries on the client side preserves them.
+        // We do NOT broadcast this back — Flutter already shows it via sendMessage().
+        session.history.push({ type: "user_input", text } as ServerMessage);
+
         // Codex input path (text + optional image)
         if (session.provider === "codex") {
           const codexProc = session.process as CodexProcess;
