@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { SdkProcess, type StartOptions, type RewindFilesResult } from "./sdk-process.js";
 import { CodexProcess, type CodexStartOptions } from "./codex-process.js";
 import type { ServerMessage, ProcessStatus, AssistantToolUseContent, Provider } from "./parser.js";
@@ -274,6 +277,14 @@ export class SessionManager {
         }
 
         this.onMessage(id, msg);
+
+        // After a result (turn complete), backfill UUIDs from disk.
+        // The SDK does not echo user messages via the stream, so
+        // in-memory user_input entries lack UUIDs.  The disk
+        // conversation file always has them.
+        if (msg.type === "result") {
+          this.backfillUserUuidsFromDisk(session);
+        }
       } catch (err) {
         console.error(`[session] Error processing message for session ${id}:`, err);
       }
@@ -503,6 +514,87 @@ export class SessionManager {
     }
 
     return null;
+  }
+
+  /**
+   * Read the Claude CLI conversation history file from disk and backfill
+   * `userMessageUuid` into in-memory history entries that are missing it.
+   *
+   * The SDK does not echo user messages via the stream, so in-memory
+   * `user_input` entries (pushed by websocket.ts) lack UUIDs.  The disk
+   * file, however, always contains UUIDs.  We match by text content.
+   *
+   * Also re-broadcasts the updated `user_input` message so the Flutter
+   * client can update its UserChatEntry.messageUuid values.
+   */
+  private backfillUserUuidsFromDisk(session: SessionInfo): void {
+    if (!session.claudeSessionId || !session.projectPath) return;
+
+    // Build path:  ~/.claude/projects/<encoded-project-path>/<claudeSessionId>.jsonl
+    const encodedProject = session.projectPath.replace(/\//g, "-");
+    const historyPath = join(
+      homedir(),
+      ".claude",
+      "projects",
+      encodedProject,
+      `${session.claudeSessionId}.jsonl`,
+    );
+
+    let lines: string[];
+    try {
+      lines = readFileSync(historyPath, "utf-8").trim().split("\n");
+    } catch {
+      // File may not exist yet (e.g., very new session)
+      return;
+    }
+
+    // Collect user message text→uuid queue from disk.
+    // Use an array per text key so duplicate messages ("yes", "ok", etc.)
+    // are matched in order rather than collapsed to one UUID.
+    const diskUuids = new Map<string, string[]>();
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line) as {
+          type?: string;
+          role?: string;
+          uuid?: string;
+          message?: { content?: unknown[] };
+        };
+        if (entry.type !== "user" && entry.role !== "user") continue;
+        if (!entry.uuid) continue;
+
+        // Extract text from content array
+        const content = entry.message?.content;
+        if (!Array.isArray(content)) continue;
+        const texts = content
+          .filter((c: unknown) => (c as Record<string, unknown>).type === "text")
+          .map((c: unknown) => (c as Record<string, unknown>).text as string);
+        if (texts.length > 0) {
+          const key = texts.join("\n");
+          const arr = diskUuids.get(key) ?? [];
+          arr.push(entry.uuid);
+          diskUuids.set(key, arr);
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+
+    // Backfill UUIDs into in-memory history
+    for (const msg of session.history) {
+      if (
+        msg.type === "user_input" &&
+        !("userMessageUuid" in msg && (msg as Record<string, unknown>).userMessageUuid)
+      ) {
+        const text = (msg as { text?: string }).text;
+        const queue = text ? diskUuids.get(text) : undefined;
+        if (queue && queue.length > 0) {
+          (msg as Record<string, unknown>).userMessageUuid = queue.shift();
+          // Re-broadcast so Flutter can update UserChatEntry.messageUuid
+          this.onMessage(session.id, msg);
+        }
+      }
+    }
   }
 
   destroy(id: string): boolean {
