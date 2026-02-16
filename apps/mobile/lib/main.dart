@@ -8,6 +8,8 @@
 /// - Initializes core services (BridgeService, DatabaseService, NotificationService, etc.)
 /// - Configures repository and Bloc providers for state management
 /// - Handles deep links for connection URLs and session navigation
+///
+/// Note: This file has been verified for Plan Mode workflow testing.
 library;
 
 import 'dart:async';
