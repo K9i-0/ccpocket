@@ -22,6 +22,8 @@ class ChatMessageList extends StatefulWidget {
   final void Function(UserChatEntry)? onRewindMessage;
   final ValueNotifier<int>? collapseToolResults;
   final ValueNotifier<String?>? editedPlanText;
+  final bool allowPlanEditing;
+  final String? pendingPlanToolUseId;
   final VoidCallback? onScrollToBottom;
 
   const ChatMessageList({
@@ -33,6 +35,8 @@ class ChatMessageList extends StatefulWidget {
     this.onRewindMessage,
     required this.collapseToolResults,
     this.editedPlanText,
+    this.allowPlanEditing = true,
+    this.pendingPlanToolUseId,
     this.onScrollToBottom,
   });
 
@@ -257,6 +261,8 @@ class _ChatMessageListState extends State<ChatMessageList> {
               collapseToolResults: widget.collapseToolResults,
               editedPlanText: widget.editedPlanText,
               resolvedPlanText: _resolvePlanText(entry),
+              allowPlanEditing: widget.allowPlanEditing,
+              pendingPlanToolUseId: widget.pendingPlanToolUseId,
               hiddenToolUseIds: hiddenToolUseIds,
             );
             if (_bulkLoading || animation.isCompleted) return child;

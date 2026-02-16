@@ -81,6 +81,31 @@ void main() {
       expect(find.byIcon(Icons.edit), findsOneWidget);
     });
 
+    testWidgets('hides edit controls when editable is false', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                key: const ValueKey('open_sheet_readonly'),
+                onPressed: () async {
+                  await showPlanDetailSheet(context, planText, editable: false);
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('open_sheet_readonly')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('plan_edit_toggle')), findsNothing);
+      expect(find.byKey(const ValueKey('plan_edit_field')), findsNothing);
+      expect(find.byKey(const ValueKey('plan_edit_apply')), findsNothing);
+    });
+
     testWidgets('toggles to edit mode', (tester) async {
       await tester.pumpWidget(buildSubject());
       await tester.tap(find.byKey(const ValueKey('open_sheet')));
@@ -96,6 +121,28 @@ void main() {
       expect(find.byKey(const ValueKey('plan_edit_apply')), findsOneWidget);
       // Icon should change to view icon
       expect(find.byIcon(Icons.visibility), findsOneWidget);
+    });
+
+    testWidgets('applies keyboard inset padding in edit mode', (tester) async {
+      addTearDown(tester.view.resetViewInsets);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+
+      await tester.pumpWidget(buildSubject());
+      await tester.tap(find.byKey(const ValueKey('open_sheet')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('plan_edit_toggle')));
+      await tester.pumpAndSettle();
+
+      final animatedPadding = tester.widget<AnimatedPadding>(
+        find.byType(AnimatedPadding).first,
+      );
+      final padding = animatedPadding.padding as EdgeInsets;
+      final expectedBottomInset = 320 / tester.view.devicePixelRatio;
+      expect(padding.bottom, expectedBottomInset);
+
+      expect(find.byKey(const ValueKey('plan_edit_cancel')), findsOneWidget);
+      expect(find.byKey(const ValueKey('plan_edit_apply')), findsOneWidget);
     });
 
     testWidgets('Apply disabled when text unchanged', (tester) async {
@@ -299,6 +346,34 @@ void main() {
       // ValueNotifier should remain null
       expect(editedPlanText.value, isNull);
 
+      editedPlanText.dispose();
+    });
+
+    testWidgets('read-only plan card opens sheet without edit controls', (
+      tester,
+    ) async {
+      final editedPlanText = ValueNotifier<String?>('Existing edit');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: AssistantBubble(
+                message: buildExitPlanMessage(),
+                editedPlanText: editedPlanText,
+                allowPlanEditing: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('view_full_plan_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('plan_edit_toggle')), findsNothing);
       editedPlanText.dispose();
     });
   });

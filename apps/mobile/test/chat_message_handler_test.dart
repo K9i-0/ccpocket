@@ -521,9 +521,7 @@ void main() {
     test('history sets replaceEntries to true to prevent duplicates', () {
       final update = handler.handle(
         const HistoryMessage(
-          messages: [
-            StatusMessage(status: ProcessStatus.idle),
-          ],
+          messages: [StatusMessage(status: ProcessStatus.idle)],
         ),
         isBackground: false,
       );

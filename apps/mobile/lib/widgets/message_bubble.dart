@@ -24,6 +24,8 @@ class ChatEntryWidget extends StatelessWidget {
   final ValueNotifier<int>? collapseToolResults;
   final ValueNotifier<String?>? editedPlanText;
   final String? resolvedPlanText;
+  final bool allowPlanEditing;
+  final String? pendingPlanToolUseId;
 
   /// Tool use IDs that should be hidden (replaced by a tool_use_summary).
   final Set<String> hiddenToolUseIds;
@@ -38,6 +40,8 @@ class ChatEntryWidget extends StatelessWidget {
     this.collapseToolResults,
     this.editedPlanText,
     this.resolvedPlanText,
+    this.allowPlanEditing = true,
+    this.pendingPlanToolUseId,
     this.hiddenToolUseIds = const {},
   });
 
@@ -54,6 +58,8 @@ class ChatEntryWidget extends StatelessWidget {
             collapseToolResults: collapseToolResults,
             editedPlanText: editedPlanText,
             resolvedPlanText: resolvedPlanText,
+            allowPlanEditing: allowPlanEditing,
+            pendingPlanToolUseId: pendingPlanToolUseId,
             hiddenToolUseIds: hiddenToolUseIds,
           ),
           final UserChatEntry user => UserBubble(
@@ -120,6 +126,8 @@ class ServerMessageWidget extends StatelessWidget {
   final ValueNotifier<int>? collapseToolResults;
   final ValueNotifier<String?>? editedPlanText;
   final String? resolvedPlanText;
+  final bool allowPlanEditing;
+  final String? pendingPlanToolUseId;
 
   /// Tool use IDs that should be hidden (replaced by a tool_use_summary).
   final Set<String> hiddenToolUseIds;
@@ -131,6 +139,8 @@ class ServerMessageWidget extends StatelessWidget {
     this.collapseToolResults,
     this.editedPlanText,
     this.resolvedPlanText,
+    this.allowPlanEditing = true,
+    this.pendingPlanToolUseId,
     this.hiddenToolUseIds = const {},
   });
 
@@ -142,6 +152,8 @@ class ServerMessageWidget extends StatelessWidget {
         message: msg,
         editedPlanText: editedPlanText,
         resolvedPlanText: resolvedPlanText,
+        allowPlanEditing: allowPlanEditing,
+        pendingPlanToolUseId: pendingPlanToolUseId,
       ),
       // Hide tool results that are summarized by a tool_use_summary
       final ToolResultMessage msg =>

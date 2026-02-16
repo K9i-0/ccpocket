@@ -378,77 +378,58 @@ export class BridgeWebSocketServer {
         }
         const sdkProc = session.process as SdkProcess;
         if (msg.clearContext) {
-          // Clear & Accept: approve the tool, then on turn completion
-          // destroy this session and create a new one with the same CLI session ID.
-          const mergedInput = msg.updatedInput
-            ? { ...msg.updatedInput }
-            : undefined;
-          const planText = (mergedInput?.plan ?? "") as string;
-          // Use session.id (always present) instead of msg.sessionId which may be undefined
+          // Clear & Accept: immediately destroy this runtime session and
+          // create a fresh one that continues the same Claude conversation.
+          // This guarantees chat history is cleared in the mobile UI without
+          // waiting for additional in-turn tool approvals.
+          const pending = sdkProc.getPendingPermission(msg.id);
+          const mergedInput = {
+            ...(pending?.input ?? {}),
+            ...(msg.updatedInput ?? {}),
+          };
+          const planText = typeof mergedInput.plan === "string" ? mergedInput.plan : "";
+
+          // Use session.id (always present) instead of msg.sessionId.
           const sessionId = session.id;
 
-          // Capture session properties before destroy (read from session object while still valid)
+          // Capture session properties before destroy.
           const claudeSessionId = session.claudeSessionId;
           const projectPath = session.projectPath;
           const permissionMode = sdkProc.permissionMode;
           const worktreePath = session.worktreePath;
           const worktreeBranch = session.worktreeBranch;
 
-          const cleanup = () => {
-            sdkProc.removeListener("message", onMessage);
-            sdkProc.removeListener("exit", onExit);
-          };
+          this.sessionManager.destroy(sessionId);
+          console.log(`[ws] Clear context: destroyed session ${sessionId}`);
 
-          // Listen for turn completion (result message = CLI turn done)
-          // We use the "message" event instead of "status" because after plan
-          // approval the CLI may continue executing tools in the same turn,
-          // so status never becomes "idle" until the full turn completes.
-          const onMessage = (m: import("./parser.js").ServerMessage) => {
-            if (m.type !== "result") return;
-            cleanup();
+          const newId = this.sessionManager.create(
+            projectPath,
+            {
+              ...(claudeSessionId
+                ? {
+                    sessionId: claudeSessionId,
+                    continueMode: true,
+                  }
+                : {}),
+              permissionMode,
+              initialInput: planText || undefined,
+            },
+            undefined,
+            worktreePath ? { existingWorktreePath: worktreePath, worktreeBranch } : undefined,
+          );
+          console.log(`[ws] Clear context: created new session ${newId} (CLI session: ${claudeSessionId ?? "new"})`);
 
-            // Destroy old session
-            this.sessionManager.destroy(sessionId);
-            console.log(`[ws] Clear context: destroyed session ${sessionId}`);
-
-            // Create new session with same CLI session ID
-            const newId = this.sessionManager.create(
-              projectPath,
-              {
-                sessionId: claudeSessionId,
-                continueMode: true,
-                permissionMode,
-                initialInput: planText || undefined,
-              },
-              undefined,
-              worktreePath ? { existingWorktreePath: worktreePath, worktreeBranch } : undefined,
-            );
-            console.log(`[ws] Clear context: created new session ${newId} (CLI session: ${claudeSessionId})`);
-
-            // Notify ALL connected clients of new session.
-            // We broadcast instead of using the captured `ws` because the
-            // client may have disconnected and reconnected (e.g. app restart
-            // during a long CLI turn), making the original `ws` stale.
-            const newSession = this.sessionManager.get(newId);
-            this.broadcast({
-              type: "system",
-              subtype: "session_created",
-              sessionId: newId,
-              provider: newSession?.provider ?? "claude",
-              projectPath,
-              clearContext: true,
-            });
-            this.broadcastSessionList();
-          };
-
-          // Clean up listener if process exits unexpectedly
-          const onExit = () => { cleanup(); };
-
-          sdkProc.on("message", onMessage);
-          sdkProc.on("exit", onExit);
-
-          // Approve the tool (without clearContext — sdk-process no longer handles it)
-          sdkProc.approve(msg.id, msg.updatedInput);
+          // Notify all clients. Broadcast is used so reconnecting clients also receive it.
+          const newSession = this.sessionManager.get(newId);
+          this.broadcast({
+            type: "system",
+            subtype: "session_created",
+            sessionId: newId,
+            provider: newSession?.provider ?? "claude",
+            projectPath,
+            clearContext: true,
+          });
+          this.broadcastSessionList();
         } else {
           sdkProc.approve(msg.id, msg.updatedInput);
         }

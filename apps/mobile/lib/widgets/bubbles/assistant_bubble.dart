@@ -17,6 +17,8 @@ import 'todo_write_widget.dart';
 class AssistantBubble extends StatefulWidget {
   final AssistantServerMessage message;
   final ValueNotifier<String?>? editedPlanText;
+  final bool allowPlanEditing;
+  final String? pendingPlanToolUseId;
 
   /// Pre-resolved plan text extracted from a Write tool in a *different*
   /// AssistantMessage.  When the real SDK writes the plan to a file via the
@@ -28,6 +30,8 @@ class AssistantBubble extends StatefulWidget {
     required this.message,
     this.editedPlanText,
     this.resolvedPlanText,
+    this.allowPlanEditing = true,
+    this.pendingPlanToolUseId,
   });
 
   @override
@@ -77,6 +81,18 @@ class _AssistantBubbleState extends State<AssistantBubble> {
       originalPlanText = widget.resolvedPlanText!;
     }
 
+    String? planToolUseId;
+    for (final content in contents) {
+      if (content is ToolUseContent && content.name == 'ExitPlanMode') {
+        planToolUseId = content.id;
+        break;
+      }
+    }
+    final canEditThisPlan =
+        widget.allowPlanEditing &&
+        (widget.pendingPlanToolUseId == null ||
+            widget.pendingPlanToolUseId == planToolUseId);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -97,16 +113,19 @@ class _AssistantBubbleState extends State<AssistantBubble> {
           ValueListenableBuilder<String?>(
             valueListenable: widget.editedPlanText!,
             builder: (context, edited, _) {
-              final displayText = edited ?? originalPlanText;
+              final displayText = canEditThisPlan && edited != null
+                  ? edited
+                  : originalPlanText;
               return PlanCard(
                 planText: displayText,
-                isEdited: edited != null,
+                isEdited: canEditThisPlan && edited != null,
                 onViewFullPlan: () async {
                   final edited = await showPlanDetailSheet(
                     context,
                     displayText,
+                    editable: canEditThisPlan,
                   );
-                  if (edited != null) {
+                  if (edited != null && canEditThisPlan) {
                     widget.editedPlanText!.value = edited;
                   }
                 },
@@ -116,8 +135,11 @@ class _AssistantBubbleState extends State<AssistantBubble> {
         else
           PlanCard(
             planText: originalPlanText,
-            onViewFullPlan: () =>
-                showPlanDetailSheet(context, originalPlanText),
+            onViewFullPlan: () => showPlanDetailSheet(
+              context,
+              originalPlanText,
+              editable: canEditThisPlan,
+            ),
           ),
         if (hasTextContent)
           MessageActionBar(

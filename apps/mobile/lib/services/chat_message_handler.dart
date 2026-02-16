@@ -43,6 +43,11 @@ class ChatStateUpdate {
   /// duplicate messages.
   final bool replaceEntries;
 
+  /// UUID update for an existing user entry. When the SDK echoes back a
+  /// user_input with a UUID, we update the locally-added UserChatEntry rather
+  /// than creating a duplicate.
+  final ({String text, String uuid})? userUuidUpdate;
+
   const ChatStateUpdate({
     this.status,
     this.entriesToAdd = const [],
@@ -63,6 +68,7 @@ class ChatStateUpdate {
     this.resultSessionId,
     this.toolUseIdsToHide = const {},
     this.replaceEntries = false,
+    this.userUuidUpdate,
   });
 }
 
@@ -123,15 +129,17 @@ class ChatMessageHandler {
       ):
         // Skip synthetic messages (e.g. plan approval, Task agent prompts)
         if (isSynthetic) return const ChatStateUpdate();
-        // Convert user_input to UserChatEntry (same as in _handleHistory)
+        if (userMessageUuid != null) {
+          // SDK echoed user message with UUID — update existing entry's UUID
+          // so it becomes rewindable, instead of adding a duplicate.
+          return ChatStateUpdate(
+            userUuidUpdate: (text: text, uuid: userMessageUuid),
+          );
+        }
+        // No UUID — add as new entry (fallback)
         return ChatStateUpdate(
           entriesToAdd: [
-            UserChatEntry(
-              text,
-              status: MessageStatus.sent,
-              messageUuid: userMessageUuid,
-              isMeta: isMeta,
-            ),
+            UserChatEntry(text, status: MessageStatus.sent, isMeta: isMeta),
           ],
         );
       case InputAckMessage():

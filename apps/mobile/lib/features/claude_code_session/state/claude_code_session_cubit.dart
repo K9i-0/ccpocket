@@ -166,6 +166,19 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       }
     }
 
+    // Apply UUID update from SDK echo (makes the user entry rewindable)
+    if (update.userUuidUpdate != null) {
+      final (:text, :uuid) = update.userUuidUpdate!;
+      for (int i = entries.length - 1; i >= 0; i--) {
+        final e = entries[i];
+        if (e is UserChatEntry && e.messageUuid == null && e.text == text) {
+          e.messageUuid = uuid;
+          didModifyEntries = true;
+          break;
+        }
+      }
+    }
+
     // Add new entries (skip streaming entries — those go to StreamingState)
     final nonStreamingEntries = update.entriesToAdd
         .where((e) => e is! StreamingChatEntry)

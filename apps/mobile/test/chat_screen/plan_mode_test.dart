@@ -41,7 +41,9 @@ Future<void> setupPlanApproval(PatrolTester $, MockBridgeService bridge) async {
 
 void main() {
   group('Plan Mode', () {
-    patrolWidgetTest('C1: StatusIndicator shows plan mode when EnterPlanMode', ($) async {
+    patrolWidgetTest('C1: StatusIndicator shows plan mode when EnterPlanMode', (
+      $,
+    ) async {
       final bridge = MockBridgeService();
       await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);

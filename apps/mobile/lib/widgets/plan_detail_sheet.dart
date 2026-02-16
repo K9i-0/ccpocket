@@ -8,7 +8,11 @@ import '../theme/markdown_style.dart';
 ///
 /// Returns the edited plan text if the user taps "Apply & Approve",
 /// or `null` if dismissed without editing.
-Future<String?> showPlanDetailSheet(BuildContext context, String planText) {
+Future<String?> showPlanDetailSheet(
+  BuildContext context,
+  String planText, {
+  bool editable = true,
+}) {
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
@@ -16,14 +20,16 @@ Future<String?> showPlanDetailSheet(BuildContext context, String planText) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (context) => _PlanDetailContent(planText: planText),
+    builder: (context) =>
+        _PlanDetailContent(planText: planText, editable: editable),
   );
 }
 
 class _PlanDetailContent extends StatefulWidget {
   final String planText;
+  final bool editable;
 
-  const _PlanDetailContent({required this.planText});
+  const _PlanDetailContent({required this.planText, required this.editable});
 
   @override
   State<_PlanDetailContent> createState() => _PlanDetailContentState();
@@ -53,68 +59,75 @@ class _PlanDetailContentState extends State<_PlanDetailContent> {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final cs = Theme.of(context).colorScheme;
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Drag handle
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Container(
-              width: 32,
-              height: 4,
-              decoration: BoxDecoration(
-                color: appColors.subtleText.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag handle
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: appColors.subtleText.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
           ),
-        ),
-        // Header
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Icon(Icons.assignment, size: 20, color: cs.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Implementation Plan',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: cs.primary,
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Icon(Icons.assignment, size: 20, color: cs.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Implementation Plan',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                    ),
                   ),
                 ),
-              ),
-              // Edit toggle button
-              IconButton(
-                key: const ValueKey('plan_edit_toggle'),
-                icon: Icon(
-                  _isEditing ? Icons.visibility : Icons.edit,
-                  size: 20,
-                ),
-                tooltip: _isEditing ? 'View' : 'Edit',
-                onPressed: () {
-                  setState(() => _isEditing = !_isEditing);
-                },
-              ),
-            ],
+                // Edit toggle button
+                if (widget.editable)
+                  IconButton(
+                    key: const ValueKey('plan_edit_toggle'),
+                    icon: Icon(
+                      _isEditing ? Icons.visibility : Icons.edit,
+                      size: 20,
+                    ),
+                    tooltip: _isEditing ? 'View' : 'Edit',
+                    onPressed: () {
+                      setState(() => _isEditing = !_isEditing);
+                    },
+                  ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        const Divider(height: 1),
-        // Content area
-        Expanded(
-          child: _isEditing ? _buildEditMode(appColors) : _buildViewMode(),
-        ),
-        // Bottom action bar (edit mode only)
-        if (_isEditing) _buildEditActions(appColors, cs),
-        // Bottom safe area
-        SizedBox(height: MediaQuery.of(context).padding.bottom),
-      ],
+          const SizedBox(height: 4),
+          const Divider(height: 1),
+          // Content area
+          Expanded(
+            child: _isEditing ? _buildEditMode(appColors) : _buildViewMode(),
+          ),
+          // Bottom action bar (edit mode only)
+          if (widget.editable && _isEditing) _buildEditActions(appColors, cs),
+          // Bottom safe area
+          SizedBox(height: MediaQuery.of(context).padding.bottom),
+        ],
+      ),
     );
   }
 
@@ -122,7 +135,7 @@ class _PlanDetailContentState extends State<_PlanDetailContent> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: MarkdownBody(
-        data: _isEditing ? _editController.text : widget.planText,
+        data: widget.planText,
         selectable: true,
         styleSheet: buildMarkdownStyle(context),
         onTapLink: handleMarkdownLink,

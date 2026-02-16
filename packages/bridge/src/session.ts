@@ -235,7 +235,32 @@ export class SessionManager {
 
         // Don't add streaming deltas to history
         if (msg.type !== "stream_delta" && msg.type !== "thinking_delta") {
-          session.history.push(msg);
+          // When SDK echoes back a user_input with UUID, merge into the
+          // UUID-less placeholder that websocket.ts pushed earlier.
+          // This avoids duplicate entries while preserving the UUID needed
+          // for rewind candidate matching.
+          let merged = false;
+          if (
+            msg.type === "user_input" &&
+            "userMessageUuid" in msg &&
+            msg.userMessageUuid
+          ) {
+            for (let i = session.history.length - 1; i >= 0; i--) {
+              const m = session.history[i];
+              if (
+                m.type === "user_input" &&
+                !("userMessageUuid" in m && m.userMessageUuid)
+              ) {
+                session.history[i] = msg;
+                merged = true;
+                break;
+              }
+            }
+          }
+
+          if (!merged) {
+            session.history.push(msg);
+          }
           if (session.history.length > MAX_HISTORY_PER_SESSION) {
             // Protect user_input messages from eviction so they remain
             // visible when the client requests history after reconnecting.

@@ -46,7 +46,12 @@ vi.mock("./session.js", () => ({
 
     create(
       projectPath: string,
-      options?: { sessionId?: string },
+      options?: {
+        sessionId?: string;
+        continueMode?: boolean;
+        permissionMode?: string;
+        initialInput?: string;
+      },
       pastMessages?: unknown[],
       _worktreeOptions?: unknown,
       provider: "claude" | "codex" = "claude",
@@ -61,10 +66,12 @@ vi.mock("./session.js", () => ({
         reject: vi.fn(),
         answer: vi.fn(),
         interrupt: vi.fn(),
+        getPendingPermission: vi.fn(() => undefined),
       };
       this.sessions.set(id, {
         id,
         projectPath,
+        startOptions: options,
         claudeSessionId: options?.sessionId,
         pastMessages,
         history: [],
@@ -494,6 +501,58 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     );
 
     expect((bridge as any).debugEvents.has(sessionId)).toBe(false);
+    bridge.close();
+  });
+
+  it("clearContext approve recreates session immediately with plan input", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.claudeSessionId = "claude-session-1";
+    (session.process.getPendingPermission as ReturnType<typeof vi.fn>).mockReturnValue({
+      toolUseId: "tool-exit-1",
+      toolName: "ExitPlanMode",
+      input: { plan: "original plan text" },
+    });
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "approve",
+        id: "tool-exit-1",
+        clearContext: true,
+        sessionId,
+      },
+      ws,
+    );
+
+    expect((bridge as any).sessionManager.get(sessionId)).toBeUndefined();
+    expect(session.process.approve).not.toHaveBeenCalled();
+
+    const sessions = (bridge as any).sessionManager.list();
+    expect(sessions).toHaveLength(1);
+    const newSession = (bridge as any).sessionManager.get(sessions[0].id);
+    expect(newSession.startOptions).toMatchObject({
+      sessionId: "claude-session-1",
+      continueMode: true,
+      initialInput: "original plan text",
+    });
+
     bridge.close();
   });
 

@@ -312,6 +312,7 @@ class _ChatScreenBody extends HookWidget {
     // Edited plan text (shared with PlanCard via ValueNotifier)
     final editedPlanText = useMemoized(() => ValueNotifier<String?>(null));
     useEffect(() => editedPlanText.dispose, const []);
+    final activePlanApprovalToolUseId = useRef<String?>(null);
 
     // Diff selection from DiffScreen navigation
     final diffSelectionFromNav = useState<DiffSelection?>(null);
@@ -392,16 +393,18 @@ class _ChatScreenBody extends HookWidget {
     }
 
     final isPlanApproval = pendingPermission?.toolName == 'ExitPlanMode';
+    final pendingPlanToolUseId = isPlanApproval ? pendingToolUseId : null;
 
-    // Clear edited plan when approval state resets
-    if (pendingToolUseId == null) {
+    // Clear edited plan when plan approval target changes.
+    if (activePlanApprovalToolUseId.value != pendingPlanToolUseId) {
+      activePlanApprovalToolUseId.value = pendingPlanToolUseId;
       editedPlanText.value = null;
     }
 
     // --- Action callbacks ---
     void approveToolUse() {
       if (pendingToolUseId == null) return;
-      final updatedInput = editedPlanText.value != null
+      final updatedInput = isPlanApproval && editedPlanText.value != null
           ? {'plan': editedPlanText.value!}
           : null;
       context.read<ChatSessionCubit>().approve(
@@ -414,7 +417,7 @@ class _ChatScreenBody extends HookWidget {
 
     void approveWithClearContext() {
       if (pendingToolUseId == null) return;
-      final updatedInput = editedPlanText.value != null
+      final updatedInput = isPlanApproval && editedPlanText.value != null
           ? {'plan': editedPlanText.value!}
           : null;
       context.read<ChatSessionCubit>().approve(
@@ -561,10 +564,7 @@ class _ChatScreenBody extends HookWidget {
                     },
                   ),
                 // 7. Status indicator (plan mode shown via color)
-                StatusIndicator(
-                  status: status,
-                  inPlanMode: inPlanMode,
-                ),
+                StatusIndicator(status: status, inPlanMode: inPlanMode),
               ],
             ),
             body: Column(
@@ -596,6 +596,8 @@ class _ChatScreenBody extends HookWidget {
                         },
                         collapseToolResults: collapseToolResults,
                         editedPlanText: editedPlanText,
+                        allowPlanEditing: pendingPlanToolUseId != null,
+                        pendingPlanToolUseId: pendingPlanToolUseId,
                         onScrollToBottom: scroll.scrollToBottom,
                       ),
                       if (scroll.isScrolledUp)
@@ -649,6 +651,7 @@ class _ChatScreenBody extends HookWidget {
                             final edited = await showPlanDetailSheet(
                               context,
                               current,
+                              editable: true,
                             );
                             if (edited != null) {
                               editedPlanText.value = edited;

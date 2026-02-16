@@ -41,51 +41,58 @@ class UsageSummaryBar extends StatelessWidget {
     final items = <Widget>[];
 
     if (_hasCost) {
-      items.add(_UsageStat(
-        icon: Icons.attach_money,
-        text: '\$${totalCost.toStringAsFixed(4)}',
-      ));
+      items.add(
+        _UsageStat(
+          icon: Icons.attach_money,
+          text: '\$${totalCost.toStringAsFixed(4)}',
+        ),
+      );
     }
     if (_hasDuration) {
-      items.add(_UsageStat(
-        icon: Icons.timer_outlined,
-        text: _formatDuration(totalDuration!),
-      ));
+      items.add(
+        _UsageStat(
+          icon: Icons.timer_outlined,
+          text: _formatDuration(totalDuration!),
+        ),
+      );
     }
     if (_hasTokenUsage) {
-      items.add(_UsageStat(
-        icon: Icons.data_usage_outlined,
-        text: _formatTokenSummary(
-          inputTokens: inputTokens,
-          cachedInputTokens: cachedInputTokens,
-          outputTokens: outputTokens,
+      items.add(
+        _UsageStat(
+          icon: Icons.data_usage_outlined,
+          text: _formatTokenSummary(
+            inputTokens: inputTokens,
+            cachedInputTokens: cachedInputTokens,
+            outputTokens: outputTokens,
+          ),
         ),
-      ));
+      );
     }
     if (_hasToolUsage) {
-      items.add(_UsageStat(
-        icon: Icons.build_circle_outlined,
-        text: _formatToolSummary(
-          toolCalls: toolCalls,
-          fileEdits: fileEdits,
+      items.add(
+        _UsageStat(
+          icon: Icons.build_circle_outlined,
+          text: _formatToolSummary(toolCalls: toolCalls, fileEdits: fileEdits),
         ),
-      ));
+      );
     }
 
     // Build separator-interleaved list
     final children = <Widget>[];
     for (var i = 0; i < items.length; i++) {
       if (i > 0) {
-        children.add(Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Text(
-            '·',
-            style: TextStyle(
-              fontSize: 11,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+        children.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              '·',
+              style: TextStyle(
+                fontSize: 11,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
             ),
           ),
-        ));
+        );
       }
       children.add(items[i]);
     }
@@ -95,18 +102,13 @@ class UsageSummaryBar extends StatelessWidget {
       height: 28,
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: cs.outlineVariant.withValues(alpha: 0.3),
-          ),
+          bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.3)),
         ),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: children,
-        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: children),
       ),
     );
   }

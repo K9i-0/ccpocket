@@ -682,6 +682,23 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     return first.done ? undefined : first.value;
   }
 
+  /**
+   * Returns a snapshot of a pending permission request.
+   * Used by the bridge to support Clear & Accept flows.
+   */
+  getPendingPermission(
+    toolUseId?: string,
+  ): { toolUseId: string; toolName: string; input: Record<string, unknown> } | undefined {
+    const id = toolUseId ?? this.firstPendingId();
+    const pending = id ? this.pendingPermissions.get(id) : undefined;
+    if (!pending || !id) return undefined;
+    return {
+      toolUseId: id,
+      toolName: pending.toolName,
+      input: { ...pending.input },
+    };
+  }
+
   private async *createUserMessageStream(): AsyncGenerator<SDKUserMsg> {
     while (!this.stopped) {
       if (this.pendingInput) {
