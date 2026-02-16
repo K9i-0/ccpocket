@@ -24,11 +24,14 @@
       "Bash(gh api:*)",
       "Bash(gh search:*)",
       "Bash(gh issue view:*)",
+      "Bash(gh run view:*)",
       "Bash(pgrep:*)",
       "Bash(ps:*)",
       "Bash(kill:*)",
       "Bash(pkill:*)",
       "Bash(lsof:*)",
+      "Bash(open:*)",
+      "Bash(python3:*)",
       "Bash(xargs:*)",
       "mcp__dart-mcp__pub",
       "mcp__dart-mcp__analyze_files",
@@ -64,6 +67,7 @@
       "WebFetch(domain:docs.anthropic.com)",
       "WebFetch(domain:docs.claude.com)",
       "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:gist.github.com)",
       "WebFetch(domain:www.npmjs.com)"
     ],
@@ -95,8 +99,5 @@
     ]
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "marionette",
-    "dart-mcp"
-  ]
+  "enabledMcpjsonServers": ["marionette", "dart-mcp"]
 }
