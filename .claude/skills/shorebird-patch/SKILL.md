@@ -2,7 +2,7 @@
 name: shorebird-patch
 description: Shorebird OTA パッチの作成・配布
 disable-model-invocation: true
-allowed-tools: Bash(bash:*), Bash(grep:*), Read
+allowed-tools: Bash(bash:*), Bash(shorebird:*), Bash(dart:*), Bash(xcrun:*), Bash(grep:*), Read
 ---
 
 # Shorebird パッチ配布
@@ -15,7 +15,7 @@ Shorebird OTA パッチを作成し、stable に直接配布する。
 patch (stable) → ユーザーがアプリ再起動で受信
 ```
 
-## 手順
+## パッチ手順
 
 ### 1. バージョン確認
 
@@ -31,10 +31,10 @@ grep '^version:' apps/mobile/pubspec.yaml
 
 ```bash
 # iOS
-bash scripts/shorebird/patch-ios.sh <version>
+bash .claude/skills/shorebird-patch/patch.sh ios <version>
 
 # Android
-bash scripts/shorebird/patch-android.sh <version>
+bash .claude/skills/shorebird-patch/patch.sh android <version>
 
 # 両方の場合は順番に実行
 ```
@@ -62,18 +62,7 @@ bash scripts/shorebird/patch-android.sh <version>
 
 1. **警告内容**: どのファイルにアセット差分があるか（例: `MaterialIcons-Regular.otf`）
 2. **影響**: パッチは作成されるが、デバイスでダウンロード後に適用されない
-3. **推奨対応**: 新しいリリース (`shorebird release`) を作成してから、クリーンな状態でパッチを再作成する
-
-```bash
-# 新リリースを作成（バージョンをbumpしてから）
-bash scripts/shorebird/release-ios.sh --export-method development
-
-# デバイスにインストール
-xcrun devicectl device install app --device <DEVICE_ID> apps/mobile/build/ios/ipa/ccpocket.ipa
-
-# その後パッチを作成
-bash scripts/shorebird/patch-ios.sh <new-version>
-```
+3. **推奨対応**: 新しいリリースを作成してから、クリーンな状態でパッチを再作成する（下記「リリース手順」参照）
 
 ### 4. 完了報告
 
@@ -85,6 +74,41 @@ bash scripts/shorebird/patch-ios.sh <new-version>
 - アセット差分: あり/なし（ありの場合は警告を明記）
 
 ユーザーにアプリの再起動を案内する（1回目でダウンロード、2回目で適用）。
+
+## リリース手順
+
+アセット差分でパッチが適用されない場合や、新バージョンをリリースする場合に使用する。
+
+### 1. バージョン bump
+
+`apps/mobile/pubspec.yaml` の `version:` を更新する。
+
+### 2. リリース作成
+
+```bash
+# iOS（実機プレビュー用）
+bash .claude/skills/shorebird-patch/release.sh ios --export-method development
+
+# Android
+bash .claude/skills/shorebird-patch/release.sh android
+```
+
+### 3. デバイスインストール（iOS）
+
+```bash
+# デバイスID確認
+xcrun devicectl list devices
+
+# IPAインストール
+xcrun devicectl device install app --device <DEVICE_ID> apps/mobile/build/ios/ipa/ccpocket.ipa
+```
+
+### 4. その後のパッチ
+
+クリーンなリリースベースが出来たので、以降のパッチはアセット差分なしで作成可能:
+```bash
+bash .claude/skills/shorebird-patch/patch.sh ios <new-version>
+```
 
 ## トラブルシュート
 

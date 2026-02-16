@@ -286,12 +286,17 @@ patch (stable) → ユーザーがアプリ再起動で受信
 grep '^version:' apps/mobile/pubspec.yaml
 
 # パッチ作成 (stable)
-bash scripts/shorebird/patch-ios.sh <version>
-bash scripts/shorebird/patch-android.sh <version>
+bash .claude/skills/shorebird-patch/patch.sh ios <version>
+bash .claude/skills/shorebird-patch/patch.sh android <version>
+
+# リリース作成
+bash .claude/skills/shorebird-patch/release.sh ios [extra-args]
+bash .claude/skills/shorebird-patch/release.sh android [extra-args]
 ```
 
 ### 注意事項
 
+- スクリプトは `.claude/skills/shorebird-patch/` に集約（スキル自己完結）
 - パッチスクリプトは `--allow-asset-diffs` を常時付与し、非TTY環境でも安定動作する
 - `shorebird` コマンドを直接実行する場合は `--release-version` フラグ必須（省略するとインタラクティブプロンプトでエラーになる）
 - 詳細は `/shorebird-patch` スキルを参照

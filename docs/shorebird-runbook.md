@@ -78,32 +78,32 @@ version: x.y.z+build
 
 ```bash
 # Android
-scripts/shorebird/release-android.sh
+bash .claude/skills/shorebird-patch/release.sh android
 
 # iOS
-scripts/shorebird/release-ios.sh
+bash .claude/skills/shorebird-patch/release.sh ios
 ```
 
 ### Patch
 
 ```bash
-# Android (staging track)
-scripts/shorebird/patch-android.sh <release-version>
+# Android (stable track)
+bash .claude/skills/shorebird-patch/patch.sh android <release-version>
 
-# iOS (staging track)
-scripts/shorebird/patch-ios.sh <release-version>
+# iOS (stable track)
+bash .claude/skills/shorebird-patch/patch.sh ios <release-version>
 ```
 
-### Preview (staging patch の実機確認)
+### Preview (実機確認)
 
 ```bash
-scripts/shorebird/preview.sh <release-version> <patch-number>
+shorebird preview --release-version=<release-version> --patch-number=<patch-number>
 ```
 
 ### Promote (staging → stable)
 
 ```bash
-scripts/shorebird/promote.sh <release-version> <patch-number>
+shorebird patch promote --release-version=<release-version> --patch-number=<patch-number>
 ```
 
 ### npm scripts
@@ -127,9 +127,9 @@ npm run shorebird:patch:ios -- <release-version>
 ### Hotfix (Dart のみの変更)
 
 1. 修正をコミット
-2. `scripts/shorebird/patch-android.sh <release-version>`
-3. `scripts/shorebird/preview.sh <release-version> <patch-number>` で staging 確認
-4. `scripts/shorebird/promote.sh <release-version> <patch-number>` で stable 昇格
+2. `bash .claude/skills/shorebird-patch/patch.sh android <release-version>`
+3. `shorebird preview --release-version=<release-version> --patch-number=<patch-number>` で確認
+4. `shorebird patch promote --release-version=<release-version> --patch-number=<patch-number>` で stable 昇格
 5. iOS も同様に実施
 
 ### 緊急ロールバック
@@ -222,7 +222,7 @@ Shorebird はエラーを出さずに patch を受け付けるため、**開発�
 
 ```bash
 # release として再ビルド
-scripts/shorebird/release-android.sh
+bash .claude/skills/shorebird-patch/release.sh android
 ```
 
 ## 参考リンク

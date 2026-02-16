@@ -238,7 +238,7 @@ Codemagic UI から手動トリガー時に `release_version` を入力する。
 | Dart コード変更・コミット | 手動 |
 | Shorebird patch (staging) | **CI で自動** |
 | staging 確認 | 手動（実機で確認） |
-| stable 昇格 | 手動（`scripts/shorebird/promote.sh` or Console） |
+| stable 昇格 | 手動（`shorebird patch promote` or Console） |
 
 ### 年次更新
 

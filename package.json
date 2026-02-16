@@ -15,9 +15,9 @@
     "functions:typecheck": "npm --prefix functions run typecheck",
     "functions:build": "npm --prefix functions run build",
     "functions:deploy": "npm --prefix functions run deploy",
-    "shorebird:release:android": "bash scripts/shorebird/release-android.sh",
-    "shorebird:release:ios": "bash scripts/shorebird/release-ios.sh",
-    "shorebird:patch:android": "bash scripts/shorebird/patch-android.sh",
-    "shorebird:patch:ios": "bash scripts/shorebird/patch-ios.sh"
+    "shorebird:release:android": "bash .claude/skills/shorebird-patch/release.sh android",
+    "shorebird:release:ios": "bash .claude/skills/shorebird-patch/release.sh ios",
+    "shorebird:patch:android": "bash .claude/skills/shorebird-patch/patch.sh android",
+    "shorebird:patch:ios": "bash .claude/skills/shorebird-patch/patch.sh ios"
   }
 }
