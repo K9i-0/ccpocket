@@ -1,8 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProcessStatus, ServerMessage } from "./parser.js";
 
-const { codexInstances, sdkInstances } = vi.hoisted(() => ({
+const { codexInstances, sdkInstances, fakeDirs, fakeFiles } = vi.hoisted(() => ({
   codexInstances: [] as Array<{
     start: ReturnType<typeof vi.fn>;
     stop: ReturnType<typeof vi.fn>;
@@ -13,8 +16,51 @@ const { codexInstances, sdkInstances } = vi.hoisted(() => ({
     start: ReturnType<typeof vi.fn>;
     stop: ReturnType<typeof vi.fn>;
     rewindFiles: ReturnType<typeof vi.fn>;
+    emit: (event: string, ...args: unknown[]) => boolean;
   }>,
+  fakeDirs: new Set<string>(),
+  fakeFiles: new Map<string, string>(),
 }));
+
+vi.mock("node:fs", () => {
+  const normalize = (value: unknown): string => String(value);
+  return {
+    existsSync: vi.fn((path: unknown) => {
+      const key = normalize(path);
+      return fakeDirs.has(key) || fakeFiles.has(key);
+    }),
+    readFileSync: vi.fn((path: unknown) => {
+      const key = normalize(path);
+      const content = fakeFiles.get(key);
+      if (content == null) {
+        const err = new Error(`ENOENT: no such file or directory, open '${key}'`);
+        (err as NodeJS.ErrnoException).code = "ENOENT";
+        throw err;
+      }
+      return content;
+    }),
+    readdirSync: vi.fn((path: unknown, options?: { withFileTypes?: boolean }) => {
+      const base = normalize(path);
+      const prefix = base.endsWith("/") ? base : `${base}/`;
+      const childNames = new Set<string>();
+
+      for (const dir of fakeDirs) {
+        if (!dir.startsWith(prefix)) continue;
+        const rest = dir.slice(prefix.length);
+        if (!rest || rest.includes("/")) continue;
+        childNames.add(rest);
+      }
+
+      if (options?.withFileTypes) {
+        return [...childNames].map((name) => ({
+          name,
+          isDirectory: () => true,
+        }));
+      }
+      return [...childNames];
+    }),
+  };
+});
 
 vi.mock("./codex-process.js", () => ({
   CodexProcess: class MockCodexProcess extends EventEmitter {
@@ -214,5 +260,132 @@ describe("SessionManager codex path", () => {
 
     const summary = manager.list().find((s) => s.id === sessionId);
     expect(summary?.messageCount).toBe(3);
+  });
+});
+
+describe("SessionManager claude UUID backfill", () => {
+  const toSlug = (path: string): string =>
+    path.replaceAll("/", "-").replaceAll("_", "-");
+
+  const registerHistoryJsonl = (
+    projectLikePath: string,
+    threadId: string,
+    lines: string[],
+  ): void => {
+    const projectsDir = join(homedir(), ".claude", "projects");
+    const dir = join(projectsDir, toSlug(projectLikePath));
+    fakeDirs.add(projectsDir);
+    fakeDirs.add(dir);
+    fakeFiles.set(join(dir, `${threadId}.jsonl`), `${lines.join("\n")}\n`);
+  };
+
+  beforeEach(() => {
+    codexInstances.length = 0;
+    sdkInstances.length = 0;
+    fakeDirs.clear();
+    fakeFiles.clear();
+  });
+
+  it("backfills user UUIDs from worktree history jsonl", () => {
+    const testId = randomUUID();
+    const projectPath = `/tmp/ccpocket-main-${testId}`;
+    const worktreePath = `/tmp/ccpocket-main-${testId}-worktrees/feat`;
+    const threadId = `thread-${testId}`;
+
+    registerHistoryJsonl(
+      worktreePath,
+      threadId,
+      [
+        JSON.stringify({
+          type: "user",
+          uuid: "user-uuid-1",
+          message: {
+            content: [{ type: "text", text: "hello from worktree" }],
+          },
+        }),
+      ],
+    );
+
+    const forwarded: ServerMessage[] = [];
+    const manager = new SessionManager((_, msg) => {
+      forwarded.push(msg);
+    });
+    const sessionId = manager.create(
+      projectPath,
+      undefined,
+      undefined,
+      { existingWorktreePath: worktreePath, worktreeBranch: "feat" },
+      "claude",
+    );
+
+    const session = manager.get(sessionId);
+    expect(session).toBeDefined();
+    if (!session) return;
+
+    session.claudeSessionId = threadId;
+    session.history.push({ type: "user_input", text: "hello from worktree" } as ServerMessage);
+
+    sdkInstances[0].emit(
+      "message",
+      {
+        type: "result",
+        subtype: "success",
+        sessionId: threadId,
+      } satisfies ServerMessage,
+    );
+
+    const userInput = session.history.find((msg) => msg.type === "user_input");
+    expect(userInput).toBeDefined();
+    expect(userInput && "userMessageUuid" in userInput ? userInput.userMessageUuid : undefined)
+      .toBe("user-uuid-1");
+    expect(
+      forwarded.some(
+        (msg) => msg.type === "user_input" && "userMessageUuid" in msg && msg.userMessageUuid === "user-uuid-1",
+      ),
+    ).toBe(true);
+  });
+
+  it("falls back to scanning all project dirs when primary slug lookup misses", () => {
+    const testId = randomUUID();
+    const projectPath = `/tmp/ccpocket-main-${testId}`;
+    const unrelatedPath = `/tmp/ccpocket-other-${testId}`;
+    const threadId = `thread-${testId}`;
+
+    registerHistoryJsonl(
+      unrelatedPath,
+      threadId,
+      [
+        JSON.stringify({
+          type: "user",
+          uuid: "user-uuid-fallback",
+          message: {
+            content: [{ type: "text", text: "fallback match" }],
+          },
+        }),
+      ],
+    );
+
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(projectPath);
+    const session = manager.get(sessionId);
+    expect(session).toBeDefined();
+    if (!session) return;
+
+    session.claudeSessionId = threadId;
+    session.history.push({ type: "user_input", text: "fallback match" } as ServerMessage);
+
+    sdkInstances[0].emit(
+      "message",
+      {
+        type: "result",
+        subtype: "success",
+        sessionId: threadId,
+      } satisfies ServerMessage,
+    );
+
+    const userInput = session.history.find((msg) => msg.type === "user_input");
+    expect(userInput).toBeDefined();
+    expect(userInput && "userMessageUuid" in userInput ? userInput.userMessageUuid : undefined)
+      .toBe("user-uuid-fallback");
   });
 });

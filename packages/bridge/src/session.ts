@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { SdkProcess, type StartOptions, type RewindFilesResult } from "./sdk-process.js";
@@ -530,19 +530,14 @@ export class SessionManager {
   private backfillUserUuidsFromDisk(session: SessionInfo): void {
     if (!session.claudeSessionId || !session.projectPath) return;
 
-    // Build path:  ~/.claude/projects/<encoded-project-path>/<claudeSessionId>.jsonl
-    const encodedProject = session.projectPath.replace(/\//g, "-");
-    const historyPath = join(
-      homedir(),
-      ".claude",
-      "projects",
-      encodedProject,
-      `${session.claudeSessionId}.jsonl`,
-    );
+    const historyPath = this.findHistoryJsonlPath(session);
+    if (!historyPath) return;
 
     let lines: string[];
     try {
-      lines = readFileSync(historyPath, "utf-8").trim().split("\n");
+      const raw = readFileSync(historyPath, "utf-8").trim();
+      if (!raw) return;
+      lines = raw.split("\n");
     } catch {
       // File may not exist yet (e.g., very new session)
       return;
@@ -595,6 +590,45 @@ export class SessionManager {
         }
       }
     }
+  }
+
+  private toClaudeProjectSlug(path: string): string {
+    // Keep slug logic aligned with Claude's project directory naming.
+    return path.replaceAll("/", "-").replaceAll("_", "-");
+  }
+
+  private findHistoryJsonlPath(session: SessionInfo): string | null {
+    if (!session.claudeSessionId) return null;
+
+    const projectsDir = join(homedir(), ".claude", "projects");
+    const fileName = `${session.claudeSessionId}.jsonl`;
+    const slugCandidates = new Set<string>([
+      this.toClaudeProjectSlug(session.projectPath),
+    ]);
+
+    // Worktree sessions are persisted under the worktree slug, not projectPath.
+    if (session.worktreePath) {
+      slugCandidates.add(this.toClaudeProjectSlug(session.worktreePath));
+    }
+
+    for (const slug of slugCandidates) {
+      const candidate = join(projectsDir, slug, fileName);
+      if (existsSync(candidate)) return candidate;
+    }
+
+    // Fallback: scan all project dirs in case metadata paths drift.
+    try {
+      const entries = readdirSync(projectsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+        const candidate = join(projectsDir, entry.name, fileName);
+        if (existsSync(candidate)) return candidate;
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
   }
 
   destroy(id: string): boolean {
