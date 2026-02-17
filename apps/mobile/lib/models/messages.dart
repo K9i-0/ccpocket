@@ -973,19 +973,46 @@ class RecordingInfo {
   final String name;
   final String modified;
   final int sizeBytes;
+  final String? projectPath;
+  final String? summary;
+  final String? firstPrompt;
+  final String? lastPrompt;
 
   const RecordingInfo({
     required this.name,
     required this.modified,
     required this.sizeBytes,
+    this.projectPath,
+    this.summary,
+    this.firstPrompt,
+    this.lastPrompt,
   });
 
   factory RecordingInfo.fromJson(Map<String, dynamic> json) {
+    final meta = json['meta'] as Map<String, dynamic>?;
     return RecordingInfo(
       name: json['name'] as String? ?? '',
       modified: json['modified'] as String? ?? '',
       sizeBytes: json['sizeBytes'] as int? ?? 0,
+      projectPath: meta?['projectPath'] as String?,
+      summary: json['summary'] as String?,
+      firstPrompt: json['firstPrompt'] as String?,
+      lastPrompt: json['lastPrompt'] as String?,
     );
+  }
+
+  /// Display text prioritizing summary > firstPrompt > name fallback.
+  String get displayText {
+    if (summary != null && summary!.isNotEmpty) return summary!;
+    if (firstPrompt != null && firstPrompt!.isNotEmpty) return firstPrompt!;
+    return name;
+  }
+
+  /// Short project name (last path component).
+  String? get projectName {
+    if (projectPath == null || projectPath!.isEmpty) return null;
+    final parts = projectPath!.split('/');
+    return parts.last;
   }
 
   String get sizeLabel {

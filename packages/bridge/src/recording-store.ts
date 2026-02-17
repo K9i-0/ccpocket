@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readdir, readFile, stat } from "node:fs/promises";
+import { appendFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ClientMessage, ServerMessage } from "./parser.js";
@@ -6,11 +6,23 @@ import type { ClientMessage, ServerMessage } from "./parser.js";
 const DEFAULT_ROOT_DIR = join(homedir(), ".ccpocket", "debug");
 const RECORDING_DIRNAME = "recordings";
 
+export interface RecordingMeta {
+  bridgeSessionId: string;
+  claudeSessionId?: string;
+  projectPath: string;
+  createdAt: string;
+}
+
 export interface RecordingFileInfo {
   name: string;
   path: string;
   modified: string;
   sizeBytes: number;
+  meta?: RecordingMeta;
+  // Enriched from sessions-index (populated by websocket layer)
+  summary?: string;
+  firstPrompt?: string;
+  lastPrompt?: string;
 }
 
 export interface RecordedEvent {
@@ -35,6 +47,28 @@ export class RecordingStore {
     return join(this.recordingDir, `${sanitizeSegment(sessionId)}.jsonl`);
   }
 
+  private getMetaPath(sessionId: string): string {
+    return join(this.recordingDir, `${sanitizeSegment(sessionId)}.meta.json`);
+  }
+
+  /** Save or update session metadata alongside the recording. */
+  saveMeta(sessionId: string, meta: RecordingMeta): void {
+    const path = this.getMetaPath(sessionId);
+    this.enqueue(path, async () => {
+      await writeFile(path, JSON.stringify(meta, null, 2), "utf-8");
+    });
+  }
+
+  /** Read session metadata. */
+  async getMeta(sessionId: string): Promise<RecordingMeta | null> {
+    try {
+      const raw = await readFile(this.getMetaPath(sessionId), "utf-8");
+      return JSON.parse(raw) as RecordingMeta;
+    } catch {
+      return null;
+    }
+  }
+
   record(
     sessionId: string,
     direction: "outgoing" | "incoming",
@@ -52,20 +86,23 @@ export class RecordingStore {
     });
   }
 
-  /** List all recording files, newest first. */
+  /** List all recording files, newest first, with metadata if available. */
   async listRecordings(): Promise<RecordingFileInfo[]> {
     try {
       const entries = await readdir(this.recordingDir);
       const results: RecordingFileInfo[] = [];
       for (const entry of entries) {
         if (!entry.endsWith(".jsonl")) continue;
+        const name = entry.replace(/\.jsonl$/, "");
         const filePath = join(this.recordingDir, entry);
         const s = await stat(filePath);
+        const meta = await this.getMeta(name);
         results.push({
-          name: entry.replace(/\.jsonl$/, ""),
+          name,
           path: filePath,
           modified: s.mtime.toISOString(),
           sizeBytes: s.size,
+          ...(meta ? { meta } : {}),
         });
       }
       results.sort((a, b) => b.modified.localeCompare(a.modified));

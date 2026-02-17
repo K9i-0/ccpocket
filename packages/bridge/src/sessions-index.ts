@@ -1025,3 +1025,62 @@ export async function getCodexSessionHistory(
 
   return messages;
 }
+
+/**
+ * Look up session metadata for a set of Claude CLI sessionIds.
+ * Returns a map from sessionId to a subset of session metadata.
+ * More efficient than getAllRecentSessions when you only need a few entries.
+ */
+export async function findSessionsByClaudeIds(
+  ids: Set<string>,
+): Promise<Map<string, Pick<SessionIndexEntry, "summary" | "firstPrompt" | "lastPrompt" | "projectPath">>> {
+  if (ids.size === 0) return new Map();
+
+  const result = new Map<string, Pick<SessionIndexEntry, "summary" | "firstPrompt" | "lastPrompt" | "projectPath">>();
+  const remaining = new Set(ids);
+
+  const projectsDir = join(homedir(), ".claude", "projects");
+  let projectDirs: string[];
+  try {
+    projectDirs = await readdir(projectsDir);
+  } catch {
+    return result;
+  }
+
+  for (const dirName of projectDirs) {
+    if (remaining.size === 0) break;
+    if (dirName.startsWith(".")) continue;
+
+    const indexPath = join(projectsDir, dirName, "sessions-index.json");
+    let raw: string;
+    try {
+      raw = await readFile(indexPath, "utf-8");
+    } catch {
+      continue;
+    }
+
+    let index: { entries?: Array<Record<string, unknown>> };
+    try {
+      index = JSON.parse(raw) as { entries?: Array<Record<string, unknown>> };
+    } catch {
+      continue;
+    }
+
+    if (!Array.isArray(index.entries)) continue;
+
+    for (const entry of index.entries) {
+      const sid = entry.sessionId as string | undefined;
+      if (!sid || !remaining.has(sid)) continue;
+
+      result.set(sid, {
+        summary: entry.summary as string | undefined,
+        firstPrompt: (entry.firstPrompt as string) ?? "",
+        lastPrompt: entry.lastPrompt as string | undefined,
+        projectPath: normalizeWorktreePath((entry.projectPath as string) ?? ""),
+      });
+      remaining.delete(sid);
+    }
+  }
+
+  return result;
+}

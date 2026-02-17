@@ -302,16 +302,21 @@ class _ReplayTabState extends State<_ReplayTab> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  info.name,
+                                  info.displayText,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 15,
                                   ),
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  '${info.sizeLabel}${dt != null ? ' · ${_formatDate(dt)}' : ''}',
+                                  [
+                                    if (info.projectName != null) info.projectName!,
+                                    info.sizeLabel,
+                                    if (dt != null) _formatDate(dt),
+                                  ].join(' · '),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: cs.onSurfaceVariant,

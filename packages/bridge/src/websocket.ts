@@ -6,7 +6,7 @@ import { SessionManager, type SessionInfo } from "./session.js";
 import type { SdkProcess } from "./sdk-process.js";
 import type { CodexProcess } from "./codex-process.js";
 import { parseClientMessage, type ClientMessage, type DebugTraceEvent, type ServerMessage } from "./parser.js";
-import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory } from "./sessions-index.js";
+import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory, findSessionsByClaudeIds } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
@@ -221,6 +221,11 @@ export class BridgeWebSocketServer {
           channel: "bridge",
           type: "session_created",
           detail: `provider=${provider} projectPath=${msg.projectPath}`,
+        });
+        this.recordingStore.saveMeta(sessionId, {
+          bridgeSessionId: sessionId,
+          projectPath: msg.projectPath,
+          createdAt: new Date().toISOString(),
         });
         this.projectHistory?.addProject(msg.projectPath);
         break;
@@ -800,7 +805,33 @@ export class BridgeWebSocketServer {
       }
 
       case "list_recordings": {
-        void this.recordingStore.listRecordings().then((recordings) => {
+        void this.recordingStore.listRecordings().then(async (recordings) => {
+          // Collect claudeSessionIds to look up summaries
+          const claudeIds = new Set<string>();
+          const idToIdx = new Map<string, number[]>();
+          for (let i = 0; i < recordings.length; i++) {
+            const cid = recordings[i].meta?.claudeSessionId;
+            if (cid) {
+              claudeIds.add(cid);
+              const arr = idToIdx.get(cid) ?? [];
+              arr.push(i);
+              idToIdx.set(cid, arr);
+            }
+          }
+
+          // Look up session metadata from sessions-index
+          if (claudeIds.size > 0) {
+            const sessionInfo = await findSessionsByClaudeIds(claudeIds);
+            for (const [cid, info] of sessionInfo) {
+              const indices = idToIdx.get(cid) ?? [];
+              for (const idx of indices) {
+                recordings[idx].summary = info.summary;
+                recordings[idx].firstPrompt = info.firstPrompt;
+                recordings[idx].lastPrompt = info.lastPrompt;
+              }
+            }
+          }
+
           this.send(ws, { type: "recording_list", recordings } as Record<string, unknown>);
         });
         break;
@@ -1042,6 +1073,19 @@ export class BridgeWebSocketServer {
       detail: this.summarizeServerMessage(msg),
     });
     this.recordingStore.record(sessionId, "outgoing", msg);
+
+    // Update recording meta with claudeSessionId when it becomes available
+    if ((msg.type === "system" || msg.type === "result") && "sessionId" in msg && msg.sessionId) {
+      const session = this.sessionManager.get(sessionId);
+      if (session) {
+        this.recordingStore.saveMeta(sessionId, {
+          bridgeSessionId: sessionId,
+          claudeSessionId: msg.sessionId as string,
+          projectPath: session.projectPath,
+          createdAt: session.createdAt.toISOString(),
+        });
+      }
+    }
     // Wrap the message with sessionId
     const data = JSON.stringify({ ...msg, sessionId });
     for (const client of this.wss.clients) {
