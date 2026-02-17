@@ -18,7 +18,7 @@ Widget _wrap(Widget child) {
 
 void main() {
   group('ToolUseTile - collapsed state', () {
-    testWidgets('shows inline row with dot, name, summary, chevron', (
+    testWidgets('shows inline row with icon, name, summary, chevron', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -32,22 +32,21 @@ void main() {
 
       // Tool name
       expect(find.text('Read'), findsOneWidget);
-      // Input summary extracted from file_path key
-      expect(find.text('lib/main.dart'), findsOneWidget);
+      // Input summary: file name only (category=read extracts basename)
+      expect(find.text('main.dart'), findsOneWidget);
       // Chevron right (collapsed)
       expect(find.byIcon(Icons.chevron_right), findsOneWidget);
       // No expand icons
       expect(find.byIcon(Icons.expand_less), findsNothing);
 
-      // Colored dot (6px circle)
-      final dotFinder = find.byWidgetPredicate((w) {
-        if (w is Container && w.decoration is BoxDecoration) {
-          final deco = w.decoration as BoxDecoration;
-          return deco.shape == BoxShape.circle;
+      // Category icon (12px) instead of colored dot
+      final iconFinder = find.byWidgetPredicate((w) {
+        if (w is Icon && w.size == 12) {
+          return true;
         }
         return false;
       });
-      expect(dotFinder, findsOneWidget);
+      expect(iconFinder, findsOneWidget);
 
       // No card background (no Container with borderRadius + color)
       final cardFinder = find.byWidgetPredicate((w) {
@@ -73,13 +72,15 @@ void main() {
       expect(find.text('ls -la /project'), findsOneWidget);
     });
 
-    testWidgets('summary truncates long values', (tester) async {
+    testWidgets('summary truncates long commands', (tester) async {
       await tester.pumpWidget(
-        _wrap(ToolUseTile(name: 'Read', input: {'file_path': 'a' * 100})),
+        _wrap(
+          ToolUseTile(name: 'Bash', input: {'command': 'a' * 100}),
+        ),
       );
 
-      // Should be truncated to 60 chars + ellipsis
-      expect(find.text('${'a' * 60}…'), findsOneWidget);
+      // Bash category: truncated to 57 chars + '...'
+      expect(find.text('${'a' * 57}...'), findsOneWidget);
     });
 
     testWidgets('summary falls back to key names', (tester) async {

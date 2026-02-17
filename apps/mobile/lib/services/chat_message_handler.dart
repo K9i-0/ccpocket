@@ -127,8 +127,9 @@ class ChatMessageHandler {
         :final isSynthetic,
         :final isMeta,
       ):
-        // Skip synthetic messages (e.g. plan approval, Task agent prompts)
-        if (isSynthetic) return const ChatStateUpdate();
+        // Skip synthetic and meta messages (e.g. plan approval, Task agent
+        // prompts, skill loading prompts).
+        if (isSynthetic || isMeta) return const ChatStateUpdate();
         if (userMessageUuid != null) {
           // SDK echoed user message with UUID — update existing entry's UUID
           // so it becomes rewindable, instead of adding a duplicate.
@@ -138,9 +139,7 @@ class ChatMessageHandler {
         }
         // No UUID — add as new entry (fallback)
         return ChatStateUpdate(
-          entriesToAdd: [
-            UserChatEntry(text, status: MessageStatus.sent, isMeta: isMeta),
-          ],
+          entriesToAdd: [UserChatEntry(text, status: MessageStatus.sent)],
         );
       case InputAckMessage():
         return const ChatStateUpdate(markUserMessagesSent: true);
@@ -259,6 +258,8 @@ class ChatMessageHandler {
           ? DateTime.tryParse(m.timestamp!)?.toLocal()
           : null;
       if (m.role == 'user') {
+        // Skip meta messages (e.g. skill loading prompts)
+        if (m.isMeta) continue;
         final texts = m.content
             .whereType<TextContent>()
             .map((c) => c.text)
@@ -271,7 +272,6 @@ class ChatMessageHandler {
               timestamp: ts,
               status: MessageStatus.sent,
               messageUuid: m.uuid,
-              isMeta: m.isMeta,
             ),
           );
         }
@@ -310,15 +310,14 @@ class ChatMessageHandler {
       if (m is StatusMessage) {
         lastStatus = m.status;
       } else if (m is UserInputMessage) {
-        // Skip synthetic messages (e.g. plan approval, Task agent prompts)
-        if (m.isSynthetic) continue;
+        // Skip synthetic and meta messages
+        if (m.isSynthetic || m.isMeta) continue;
         // Convert user_input to UserChatEntry with UUID
         entries.add(
           UserChatEntry(
             m.text,
             status: MessageStatus.sent,
             messageUuid: m.userMessageUuid,
-            isMeta: m.isMeta,
           ),
         );
       } else {

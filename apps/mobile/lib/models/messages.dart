@@ -1566,9 +1566,6 @@ class UserChatEntry implements ChatEntry {
   final Uint8List? imageBytes;
   MessageStatus status;
 
-  /// Whether this is a meta message (e.g. skill loading prompt).
-  final bool isMeta;
-
   /// UUID assigned by the SDK for this user message (set when tool_result arrives).
   String? messageUuid;
   @override
@@ -1582,7 +1579,6 @@ class UserChatEntry implements ChatEntry {
     this.imageBytes,
     this.status = MessageStatus.sending,
     this.messageUuid,
-    this.isMeta = false,
   }) : timestamp = timestamp ?? DateTime.now();
 }
 

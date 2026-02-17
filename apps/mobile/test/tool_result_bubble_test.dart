@@ -43,18 +43,17 @@ void main() {
       expect(find.byIcon(Icons.expand_more), findsNothing);
       expect(find.byIcon(Icons.expand_less), findsNothing);
 
-      // The colored dot should be present (6x6 circle container)
-      final dotFinder = find.byWidgetPredicate((w) {
-        if (w is Container && w.decoration is BoxDecoration) {
-          final deco = w.decoration as BoxDecoration;
-          return deco.shape == BoxShape.circle;
+      // The category icon should be present (12px icon replacing the old dot)
+      // For Bash tool, the icon is Icons.terminal
+      final iconFinder = find.byWidgetPredicate((w) {
+        if (w is Icon && w.size == 12) {
+          return true;
         }
         return false;
       });
-      expect(dotFinder, findsOneWidget);
+      expect(iconFinder, findsOneWidget);
 
       // No card-style background container with toolResultBackground
-      // (The only Container with BoxDecoration should be the dot)
       final cardFinder = find.byWidgetPredicate((w) {
         if (w is Container && w.decoration is BoxDecoration) {
           final deco = w.decoration as BoxDecoration;
@@ -62,7 +61,6 @@ void main() {
         }
         return false;
       });
-      // Only the dot has a decoration — no card
       expect(cardFinder, findsNothing);
     });
 

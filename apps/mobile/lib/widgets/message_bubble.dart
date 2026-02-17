@@ -65,7 +65,6 @@ class ChatEntryWidget extends StatelessWidget {
           final UserChatEntry user => UserBubble(
             text: user.text,
             status: user.status,
-            isMeta: user.isMeta,
             onRetry: onRetryMessage != null
                 ? () => onRetryMessage!(user)
                 : null,

@@ -9,6 +9,7 @@ import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/markdown_style.dart';
+import '../../utils/tool_categories.dart';
 import '../plan_detail_sheet.dart';
 import 'message_action_bar.dart';
 import 'plan_card.dart';
@@ -216,25 +217,10 @@ class ToolUseTile extends StatefulWidget {
 class _ToolUseTileState extends State<ToolUseTile> {
   bool _expanded = false;
 
+  late final ToolCategory _category = categorizeToolName(widget.name);
+
   String _inputSummary() {
-    final input = widget.input;
-    // Pick the most informative key for a one-line summary.
-    for (final key in [
-      'command',
-      'file_path',
-      'path',
-      'pattern',
-      'url',
-      'query',
-      'prompt',
-    ]) {
-      if (input.containsKey(key)) {
-        final val = input[key].toString();
-        return val.length > 60 ? '${val.substring(0, 60)}…' : val;
-      }
-    }
-    final keys = input.keys.take(3).join(', ');
-    return keys.isNotEmpty ? keys : '{}';
+    return getToolSummary(_category, widget.input);
   }
 
   void _copyContent() {
@@ -271,16 +257,13 @@ class _ToolUseTileState extends State<ToolUseTile> {
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
             children: [
-              // Colored dot
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: appColors.toolIcon,
-                  shape: BoxShape.circle,
-                ),
+              // Category icon
+              Icon(
+                getToolCategoryIcon(_category),
+                size: 12,
+                color: getToolCategoryColor(_category, appColors),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               // Tool name
               Text(
                 widget.name,
@@ -336,7 +319,11 @@ class _ToolUseTileState extends State<ToolUseTile> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.build, size: 14, color: appColors.toolIcon),
+                  Icon(
+                    getToolCategoryIcon(_category),
+                    size: 14,
+                    color: getToolCategoryColor(_category, appColors),
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     widget.name,
@@ -346,11 +333,16 @@ class _ToolUseTileState extends State<ToolUseTile> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    _inputSummary(),
-                    style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                  Expanded(
+                    child: Text(
+                      _inputSummary(),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: appColors.subtleText,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  const Spacer(),
                   Icon(
                     Icons.expand_less,
                     size: 16,

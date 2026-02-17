@@ -172,6 +172,11 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
 
     case "user": {
       const usr = msg as { message: { content?: unknown[] }; uuid?: string; isSynthetic?: boolean; isMeta?: boolean };
+
+      // Filter out meta messages early (e.g., skill loading prompts).
+      // Following Happy Coder's approach: isMeta messages are not user-facing.
+      if (usr.isMeta) return null;
+
       const content = usr.message?.content;
       if (!Array.isArray(content)) return null;
 

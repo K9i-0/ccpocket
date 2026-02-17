@@ -95,20 +95,21 @@ void main() {
       },
     );
 
-    patrolWidgetTest('Meta messages are displayed but marked differently', (
+    patrolWidgetTest('Meta messages (isMeta=true) are NOT displayed', (
       $,
     ) async {
       await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
 
-      await ChatTestScenario($, bridge).emit([
-        msg.running,
-        const UserInputMessage(text: 'Meta command executed', isMeta: true),
-        msg.assistant('a1', 'Acknowledged'),
-      ]).run();
-
-      // Meta message should still appear (unlike synthetic which is hidden)
-      expect(find.text('Meta command executed'), findsOneWidget);
+      await ChatTestScenario($, bridge)
+          .emit([
+            msg.running,
+            const UserInputMessage(text: 'Meta command executed', isMeta: true),
+            msg.assistant('a1', 'Acknowledged'),
+          ])
+          .expectNoText('Meta command executed')
+          .expectText('Acknowledged')
+          .run();
     });
   });
 }

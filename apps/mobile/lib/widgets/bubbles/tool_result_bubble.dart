@@ -8,6 +8,7 @@ import 'package:auto_route/auto_route.dart';
 import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/tool_categories.dart';
 import 'image_preview.dart';
 
 /// Three-level expansion state for tool result content.
@@ -75,21 +76,9 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     HapticFeedback.selectionClick();
   }
 
-  IconData _toolIcon(String? name) {
-    return switch (name) {
-      'Bash' => Icons.terminal,
-      'Edit' || 'FileEdit' => Icons.edit_note,
-      'Read' || 'FileRead' => Icons.description_outlined,
-      'Write' || 'FileWrite' => Icons.create_new_folder_outlined,
-      'Grep' => Icons.search,
-      'Glob' => Icons.folder_open,
-      'WebFetch' => Icons.language,
-      'WebSearch' => Icons.travel_explore,
-      'Task' || 'Agent' => Icons.smart_toy_outlined,
-      'NotebookEdit' => Icons.code,
-      _ => Icons.build_outlined,
-    };
-  }
+  late final ToolCategory _category = categorizeToolName(
+    widget.message.toolName ?? '',
+  );
 
   String _buildSummary(String content, String? toolName, AppLocalizations l) {
     final lines = content.split('\n');
@@ -184,16 +173,13 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
             children: [
-              // Colored dot
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: appColors.toolIcon,
-                  shape: BoxShape.circle,
-                ),
+              // Category icon
+              Icon(
+                getToolCategoryIcon(_category),
+                size: 12,
+                color: getToolCategoryColor(_category, appColors),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               // Tool name
               Text(
                 toolName ?? l.toolResult,
@@ -265,9 +251,9 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
               Row(
                 children: [
                   Icon(
-                    _toolIcon(toolName),
+                    getToolCategoryIcon(_category),
                     size: 14,
-                    color: appColors.toolIcon,
+                    color: getToolCategoryColor(_category, appColors),
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -278,11 +264,16 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    summary,
-                    style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                  Expanded(
+                    child: Text(
+                      summary,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: appColors.subtleText,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  const Spacer(),
                   Icon(chevronIcon, size: 16, color: appColors.subtleText),
                 ],
               ),
