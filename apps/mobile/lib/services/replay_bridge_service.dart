@@ -118,6 +118,12 @@ class ReplayBridgeService extends BridgeService {
           // Skip messages that can't be parsed
         }
       } else if (event.isIncoming) {
+        // Skip infrastructure messages that aren't real user actions.
+        // These are sent automatically by the session screen and shouldn't
+        // create breakpoints in the replay.
+        final type = event.type;
+        if (_isInfrastructureMessage(type)) continue;
+
         // Incoming event = breakpoint. Flush current chunk if non-empty.
         if (currentMessages.isNotEmpty) {
           _chunks.add(
@@ -143,6 +149,23 @@ class ReplayBridgeService extends BridgeService {
       );
     }
   }
+
+  /// Messages that are sent automatically by the session screen and should
+  /// not create breakpoints in the replay.
+  static const _infrastructureTypes = {
+    'get_history',
+    'list_sessions',
+    'list_recent_sessions',
+    'list_files',
+    'list_gallery',
+    'list_project_history',
+    'get_debug_bundle',
+    'list_recordings',
+    'get_usage',
+  };
+
+  static bool _isInfrastructureMessage(String type) =>
+      _infrastructureTypes.contains(type);
 
   // ---------------------------------------------------------------------------
   // Playback
@@ -244,7 +267,12 @@ class ReplayBridgeService extends BridgeService {
   void requestSessionList() {}
 
   @override
-  void requestSessionHistory(String sessionId) {}
+  void requestSessionHistory(String sessionId) {
+    // Trigger initial playback when the session screen requests history.
+    if (!_isPlaying) {
+      scheduleMicrotask(play);
+    }
+  }
 
   @override
   void dispose() {
