@@ -41,6 +41,7 @@ class SessionListCubit extends Cubit<SessionListState> {
         sessions: sessions,
         hasMore: _bridge.recentSessionsHasMore,
         isLoadingMore: false,
+        isInitialLoading: false,
         accumulatedProjectPaths: merged,
       ),
     );
@@ -90,10 +91,12 @@ class SessionListCubit extends Cubit<SessionListState> {
   void resetFilters() {
     emit(
       state.copyWith(
+        sessions: const [],
         selectedProject: null,
         searchQuery: '',
         accumulatedProjectPaths: const {},
         isLoadingMore: false,
+        isInitialLoading: true,
       ),
     );
   }

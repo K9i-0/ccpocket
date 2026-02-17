@@ -779,6 +779,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
                   selectedProject: slState.selectedProject,
                   searchQuery: slState.searchQuery,
                   isLoadingMore: slState.isLoadingMore,
+                  isInitialLoading: slState.isInitialLoading,
                   hasMoreSessions: slState.hasMore,
                   currentProjectFilter: context
                       .read<BridgeService>()

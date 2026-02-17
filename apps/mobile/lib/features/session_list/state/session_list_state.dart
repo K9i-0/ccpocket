@@ -17,6 +17,9 @@ abstract class SessionListState with _$SessionListState {
     /// Loading more sessions (pagination).
     @Default(false) bool isLoadingMore,
 
+    /// Initial loading (true until the first recent sessions response arrives).
+    @Default(true) bool isInitialLoading,
+
     /// Client-side project name filter (null = show all).
     String? selectedProject,
 

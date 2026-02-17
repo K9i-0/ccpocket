@@ -206,5 +206,74 @@ void main() {
       expect(cubit.state.searchQuery, isEmpty);
       expect(cubit.state.accumulatedProjectPaths, isEmpty);
     });
+
+    test('initial state has isInitialLoading true', () {
+      expect(cubit.state.isInitialLoading, isTrue);
+    });
+
+    test('isInitialLoading becomes false when sessions arrive', () async {
+      expect(cubit.state.isInitialLoading, isTrue);
+
+      mockBridge.emitSessions([_session(id: 's1')]);
+      await Future.microtask(() {});
+
+      expect(cubit.state.isInitialLoading, isFalse);
+    });
+
+    test('isInitialLoading becomes false even with empty sessions', () async {
+      expect(cubit.state.isInitialLoading, isTrue);
+
+      mockBridge.emitSessions([]);
+      await Future.microtask(() {});
+
+      expect(cubit.state.isInitialLoading, isFalse);
+    });
+
+    test('resetFilters restores isInitialLoading to true', () async {
+      mockBridge.emitSessions([_session(id: 's1')]);
+      await Future.microtask(() {});
+      expect(cubit.state.isInitialLoading, isFalse);
+
+      cubit.resetFilters();
+
+      expect(cubit.state.isInitialLoading, isTrue);
+    });
+
+    test('resetFilters clears sessions list', () async {
+      mockBridge.emitSessions([
+        _session(id: 's1'),
+        _session(id: 's2'),
+      ]);
+      await Future.microtask(() {});
+      expect(cubit.state.sessions, hasLength(2));
+
+      cubit.resetFilters();
+
+      expect(cubit.state.sessions, isEmpty);
+    });
+
+    test('skeleton condition: sessions empty + isInitialLoading after reset',
+        () async {
+      // Simulate: connected, sessions loaded
+      mockBridge.emitSessions([_session(id: 's1')]);
+      await Future.microtask(() {});
+      expect(cubit.state.sessions, isNotEmpty);
+      expect(cubit.state.isInitialLoading, isFalse);
+
+      // Simulate: disconnect → resetFilters
+      cubit.resetFilters();
+
+      // After reset, skeleton condition should be met:
+      // sessions empty + isInitialLoading true
+      expect(cubit.state.sessions, isEmpty);
+      expect(cubit.state.isInitialLoading, isTrue);
+
+      // Simulate: reconnect → sessions arrive again
+      mockBridge.emitSessions([_session(id: 's2')]);
+      await Future.microtask(() {});
+
+      expect(cubit.state.sessions, hasLength(1));
+      expect(cubit.state.isInitialLoading, isFalse);
+    });
   });
 }

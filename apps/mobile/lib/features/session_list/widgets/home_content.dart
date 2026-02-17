@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../models/messages.dart';
 import '../../../services/draft_service.dart';
@@ -20,6 +21,7 @@ class HomeContent extends StatefulWidget {
   final String? selectedProject;
   final String searchQuery;
   final bool isLoadingMore;
+  final bool isInitialLoading;
   final bool hasMoreSessions;
   final String? currentProjectFilter;
   final VoidCallback onNewSession;
@@ -46,6 +48,7 @@ class HomeContent extends StatefulWidget {
     required this.selectedProject,
     required this.searchQuery,
     required this.isLoadingMore,
+    required this.isInitialLoading,
     required this.hasMoreSessions,
     required this.currentProjectFilter,
     required this.onNewSession,
@@ -116,6 +119,24 @@ class _HomeContentState extends State<HomeContent> {
     final hasActiveFilter = widget.currentProjectFilter != null;
 
     if (!hasRunningSessions && !hasRecentSessions && !hasActiveFilter) {
+      // Show skeleton while initial data is loading
+      if (widget.isInitialLoading) {
+        return ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(12),
+          children: [
+            if (isReconnecting) const SessionReconnectBanner(),
+            SectionHeader(
+              icon: Icons.history,
+              label: 'Recent Sessions',
+              color: appColors.subtleText,
+            ),
+            const SizedBox(height: 8),
+            const _SessionListSkeleton(),
+          ],
+        );
+      }
+
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
@@ -155,7 +176,16 @@ class _HomeContentState extends State<HomeContent> {
             ),
           const SizedBox(height: 16),
         ],
-        if (hasRecentSessions || hasActiveFilter) ...[
+        // Show skeleton placeholder while waiting for recent sessions
+        if (widget.isInitialLoading && !hasRecentSessions) ...[
+          SectionHeader(
+            icon: Icons.history,
+            label: 'Recent Sessions',
+            color: appColors.subtleText,
+          ),
+          const SizedBox(height: 8),
+          const _SessionListSkeleton(),
+        ] else if (hasRecentSessions || hasActiveFilter) ...[
           SectionHeader(
             icon: Icons.history,
             label: 'Recent Sessions',
@@ -268,6 +298,79 @@ class _HomeContentState extends State<HomeContent> {
           ],
         ],
       ],
+    );
+  }
+}
+
+/// Skeleton placeholder that mimics a list of [RecentSessionCard] widgets.
+///
+/// Uses [Skeletonizer] to render dummy cards with a shimmer animation,
+/// providing visual feedback while the initial session list is loading.
+class _SessionListSkeleton extends StatelessWidget {
+  const _SessionListSkeleton();
+
+  static const _dummySessions = [
+    RecentSession(
+      sessionId: 'skeleton-1',
+      firstPrompt: 'Implement the new feature for user authentication flow',
+      messageCount: 12,
+      created: '2025-01-01T00:00:00Z',
+      modified: '2025-01-01T01:00:00Z',
+      gitBranch: 'feat/auth',
+      projectPath: '/projects/my-app',
+      isSidechain: false,
+    ),
+    RecentSession(
+      sessionId: 'skeleton-2',
+      firstPrompt: 'Fix the CI pipeline build failure on main branch',
+      messageCount: 8,
+      created: '2025-01-01T00:00:00Z',
+      modified: '2025-01-01T01:00:00Z',
+      gitBranch: 'fix/ci',
+      projectPath: '/projects/backend',
+      isSidechain: false,
+    ),
+    RecentSession(
+      sessionId: 'skeleton-3',
+      firstPrompt: 'Add dark mode support to the settings page',
+      messageCount: 5,
+      created: '2025-01-01T00:00:00Z',
+      modified: '2025-01-01T01:00:00Z',
+      gitBranch: 'main',
+      projectPath: '/projects/mobile',
+      isSidechain: false,
+    ),
+    RecentSession(
+      sessionId: 'skeleton-4',
+      firstPrompt: 'Refactor database queries for better performance',
+      messageCount: 15,
+      created: '2025-01-01T00:00:00Z',
+      modified: '2025-01-01T01:00:00Z',
+      gitBranch: 'perf/db',
+      projectPath: '/projects/api',
+      isSidechain: false,
+    ),
+    RecentSession(
+      sessionId: 'skeleton-5',
+      firstPrompt: 'Update documentation for the REST API endpoints',
+      messageCount: 3,
+      created: '2025-01-01T00:00:00Z',
+      modified: '2025-01-01T01:00:00Z',
+      gitBranch: 'docs',
+      projectPath: '/projects/docs',
+      isSidechain: false,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer(
+      child: Column(
+        children: [
+          for (final session in _dummySessions)
+            RecentSessionCard(session: session, onTap: () {}),
+        ],
+      ),
     );
   }
 }
