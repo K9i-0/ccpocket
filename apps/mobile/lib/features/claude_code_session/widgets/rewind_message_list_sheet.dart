@@ -3,17 +3,21 @@ import 'package:flutter/material.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 
-/// Bottom sheet that lists all rewindable user messages.
+/// Bottom sheet that lists all rewindable user messages as a message history.
 ///
-/// Tapping a message calls [onMessageSelected] with the selected entry.
-class RewindMessageListSheet extends StatelessWidget {
+/// Provides two actions per message:
+/// - Tap message → [onScrollToMessage] (scroll chat to that position)
+/// - Tap rewind icon → [onRewindMessage] (open rewind action sheet)
+class UserMessageHistorySheet extends StatelessWidget {
   final List<UserChatEntry> messages;
-  final void Function(UserChatEntry message) onMessageSelected;
+  final void Function(UserChatEntry message) onScrollToMessage;
+  final void Function(UserChatEntry message) onRewindMessage;
 
-  const RewindMessageListSheet({
+  const UserMessageHistorySheet({
     super.key,
     required this.messages,
-    required this.onMessageSelected,
+    required this.onScrollToMessage,
+    required this.onRewindMessage,
   });
 
   @override
@@ -52,7 +56,7 @@ class RewindMessageListSheet extends StatelessWidget {
                   Icon(Icons.history, size: 20, color: colorScheme.primary),
                   const SizedBox(width: 8),
                   Text(
-                    'Rewind to message',
+                    'Message History',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -84,14 +88,14 @@ class RewindMessageListSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'No rewindable messages',
+                        'No messages yet',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: appColors.subtleText,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Messages become rewindable after Claude processes them',
+                        'Messages will appear here after Claude processes them',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: appColors.subtleText,
                         ),
@@ -117,7 +121,11 @@ class RewindMessageListSheet extends StatelessWidget {
                       index: messages.length - index,
                       onTap: () {
                         Navigator.of(context).pop();
-                        onMessageSelected(msg);
+                        onScrollToMessage(msg);
+                      },
+                      onRewind: () {
+                        Navigator.of(context).pop();
+                        onRewindMessage(msg);
                       },
                     );
                   },
@@ -134,11 +142,13 @@ class _MessageTile extends StatelessWidget {
   final UserChatEntry message;
   final int index;
   final VoidCallback onTap;
+  final VoidCallback onRewind;
 
   const _MessageTile({
     required this.message,
     required this.index,
     required this.onTap,
+    required this.onRewind,
   });
 
   @override
@@ -168,11 +178,19 @@ class _MessageTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodySmall,
       ),
-      trailing: Text(
+      subtitle: Text(
         timeStr,
         style: Theme.of(
           context,
         ).textTheme.labelSmall?.copyWith(color: appColors.subtleText),
+      ),
+      trailing: IconButton(
+        icon: Icon(Icons.history, size: 18, color: colorScheme.primary),
+        tooltip: 'Rewind to here',
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        onPressed: onRewind,
       ),
       onTap: onTap,
     );

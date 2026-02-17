@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../../../models/messages.dart';
 import '../../../widgets/message_bubble.dart';
@@ -16,7 +17,7 @@ import '../state/streaming_state_cubit.dart';
 /// imperative API ([insertItem]/[removeItem]).
 class ChatMessageList extends StatefulWidget {
   final String sessionId;
-  final ScrollController scrollController;
+  final AutoScrollController scrollController;
   final String? httpBaseUrl;
   final void Function(UserChatEntry)? onRetryMessage;
   final void Function(UserChatEntry)? onRewindMessage;
@@ -25,6 +26,10 @@ class ChatMessageList extends StatefulWidget {
   final bool allowPlanEditing;
   final String? pendingPlanToolUseId;
   final VoidCallback? onScrollToBottom;
+
+  /// When set (non-null), the list scrolls to the given [UserChatEntry].
+  /// The notifier is reset to null after scrolling.
+  final ValueNotifier<UserChatEntry?>? scrollToUserEntry;
 
   const ChatMessageList({
     super.key,
@@ -38,6 +43,7 @@ class ChatMessageList extends StatefulWidget {
     this.allowPlanEditing = true,
     this.pendingPlanToolUseId,
     this.onScrollToBottom,
+    this.scrollToUserEntry,
   });
 
   @override
@@ -57,6 +63,48 @@ class _ChatMessageListState extends State<ChatMessageList> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bulkLoading = false;
     });
+    widget.scrollToUserEntry?.addListener(_onScrollToUserEntry);
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatMessageList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollToUserEntry != widget.scrollToUserEntry) {
+      oldWidget.scrollToUserEntry?.removeListener(_onScrollToUserEntry);
+      widget.scrollToUserEntry?.addListener(_onScrollToUserEntry);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scrollToUserEntry?.removeListener(_onScrollToUserEntry);
+    super.dispose();
+  }
+
+  void _onScrollToUserEntry() {
+    final entry = widget.scrollToUserEntry?.value;
+    if (entry == null) return;
+    // Reset the notifier
+    widget.scrollToUserEntry?.value = null;
+    _scrollToUserEntry(entry);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Scroll to user entry
+  // ---------------------------------------------------------------------------
+
+  /// Scrolls the chat list to make the given [UserChatEntry] visible.
+  ///
+  /// Uses [AutoScrollController.scrollToIndex] which handles both on-screen
+  /// and off-screen items correctly with variable-height widgets.
+  void _scrollToUserEntry(UserChatEntry entry) {
+    final idx = _entries.indexOf(entry);
+    if (idx < 0) return;
+    widget.scrollController.scrollToIndex(
+      idx,
+      preferPosition: AutoScrollPosition.middle,
+      duration: const Duration(milliseconds: 300),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -252,7 +300,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
           itemBuilder: (context, index, animation) {
             final entry = _entries[index];
             final previous = index > 0 ? _entries[index - 1] : null;
-            final child = ChatEntryWidget(
+            Widget child = ChatEntryWidget(
               entry: entry,
               previous: previous,
               httpBaseUrl: widget.httpBaseUrl,
@@ -264,6 +312,13 @@ class _ChatMessageListState extends State<ChatMessageList> {
               allowPlanEditing: widget.allowPlanEditing,
               pendingPlanToolUseId: widget.pendingPlanToolUseId,
               hiddenToolUseIds: hiddenToolUseIds,
+            );
+            // Wrap with AutoScrollTag for scroll-to-index support
+            child = AutoScrollTag(
+              key: ValueKey(index),
+              controller: widget.scrollController,
+              index: index,
+              child: child,
             );
             if (_bulkLoading || animation.isCompleted) return child;
             return SlideTransition(

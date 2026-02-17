@@ -24,7 +24,7 @@ import '../../utils/diff_parser.dart';
 import '../../router/app_router.dart';
 import 'state/claude_code_session_cubit.dart';
 import 'widgets/rewind_action_sheet.dart';
-import 'widgets/rewind_message_list_sheet.dart';
+import 'widgets/rewind_message_list_sheet.dart' show UserMessageHistorySheet;
 import 'state/claude_code_session_state.dart';
 import 'state/streaming_state_cubit.dart';
 import 'widgets/branch_chip.dart';
@@ -309,6 +309,12 @@ class _ChatScreenBody extends HookWidget {
     final collapseToolResults = useMemoized(() => ValueNotifier<int>(0));
     useEffect(() => collapseToolResults.dispose, const []);
 
+    // Scroll-to-user-entry notifier (set by message history sheet)
+    final scrollToUserEntry = useMemoized(
+      () => ValueNotifier<UserChatEntry?>(null),
+    );
+    useEffect(() => scrollToUserEntry.dispose, const []);
+
     // Edited plan text (shared with PlanCard via ValueNotifier)
     final editedPlanText = useMemoized(() => ValueNotifier<String?>(null));
     useEffect(() => editedPlanText.dispose, const []);
@@ -483,18 +489,19 @@ class _ChatScreenBody extends HookWidget {
                   ),
                   onPressed: () => copyDebugBundleForAgent(context, sessionId),
                 ),
-                // 2. Rewind
+                // 2. Message History (rewind + scroll)
                 IconButton(
-                  key: const ValueKey('rewind_button'),
+                  key: const ValueKey('message_history_button'),
                   icon: const Icon(Icons.history, size: 18),
-                  tooltip: 'Rewind',
+                  tooltip: 'Message History',
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 36,
                     minHeight: 36,
                   ),
-                  onPressed: () => _showRewindMessageList(context),
+                  onPressed: () =>
+                      _showUserMessageHistory(context, scrollToUserEntry),
                 ),
                 // 3. View Changes
                 if (projectPath != null)
@@ -599,6 +606,7 @@ class _ChatScreenBody extends HookWidget {
                         allowPlanEditing: pendingPlanToolUseId != null,
                         pendingPlanToolUseId: pendingPlanToolUseId,
                         onScrollToBottom: scroll.scrollToBottom,
+                        scrollToUserEntry: scrollToUserEntry,
                       ),
                       if (scroll.isScrolledUp)
                         Positioned(
@@ -821,7 +829,10 @@ String? findPlanFromWriteTool(List<ChatEntry> entries) {
   return null;
 }
 
-void _showRewindMessageList(BuildContext context) {
+void _showUserMessageHistory(
+  BuildContext context,
+  ValueNotifier<UserChatEntry?> scrollToUserEntry,
+) {
   final cubit = context.read<ChatSessionCubit>();
   final messages = cubit.rewindableUserMessages;
 
@@ -829,9 +840,12 @@ void _showRewindMessageList(BuildContext context) {
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (_) => RewindMessageListSheet(
+    builder: (_) => UserMessageHistorySheet(
       messages: messages,
-      onMessageSelected: (msg) => _showRewindActionSheet(context, msg),
+      onScrollToMessage: (msg) {
+        scrollToUserEntry.value = msg;
+      },
+      onRewindMessage: (msg) => _showRewindActionSheet(context, msg),
     ),
   );
 }
