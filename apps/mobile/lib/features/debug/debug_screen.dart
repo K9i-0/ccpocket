@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../core/logger.dart';
+import '../../router/app_router.dart';
 
 @RoutePage()
 class DebugScreen extends StatelessWidget {
@@ -24,6 +25,13 @@ class DebugScreen extends StatelessWidget {
                 builder: (_) => TalkerScreen(talker: logger),
               ),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.science),
+            title: const Text('Mock Preview'),
+            subtitle: const Text('View mock chat scenarios'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.router.push(MockPreviewRoute()),
           ),
         ],
       ),
