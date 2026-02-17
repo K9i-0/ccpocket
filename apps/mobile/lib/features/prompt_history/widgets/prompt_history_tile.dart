@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../services/prompt_history_service.dart';
+import '../../../utils/command_parser.dart';
 
 /// A single row in the prompt history list.
 ///
@@ -46,7 +47,7 @@ class PromptHistoryTile extends StatelessWidget {
           onTap();
         },
         title: Text(
-          entry.text,
+          formatCommandText(entry.text),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 14),

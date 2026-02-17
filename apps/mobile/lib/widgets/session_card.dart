@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/messages.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
+import '../utils/command_parser.dart';
 
 /// Card for a currently running session
 class RunningSessionCard extends StatelessWidget {
@@ -39,9 +40,9 @@ class RunningSessionCard extends StatelessWidget {
     final providerLabel = provider.label;
     final providerStyle = providerStyleFor(context, provider);
     final elapsed = _formatElapsed(session.lastActivityAt);
-    final displayMessage = session.lastMessage
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    final displayMessage = formatCommandText(
+      session.lastMessage.replaceAll(RegExp(r'\s+'), ' ').trim(),
+    );
     final codexSummary = session.provider == 'codex'
         ? _buildCodexSettingsSummary(
             model: session.codexModel,
@@ -466,17 +467,20 @@ class RecentSessionCard extends StatelessWidget {
     RecentSession session,
     SessionDisplayMode mode,
   ) {
+    final String raw;
     switch (mode) {
       case SessionDisplayMode.first:
-        if (session.firstPrompt.isNotEmpty) return session.firstPrompt;
-        return session.displayText;
+        raw = session.firstPrompt.isNotEmpty
+            ? session.firstPrompt
+            : session.displayText;
       case SessionDisplayMode.last:
         final text = session.lastPrompt ?? session.firstPrompt;
-        return text.isNotEmpty ? text : '(no description)';
+        raw = text.isNotEmpty ? text : '(no description)';
       case SessionDisplayMode.summary:
         final text = session.summary ?? session.firstPrompt;
-        return text.isNotEmpty ? text : '(no description)';
+        raw = text.isNotEmpty ? text : '(no description)';
     }
+    return formatCommandText(raw);
   }
 
   String _formatDateRange(String createdIso, String modifiedIso) {

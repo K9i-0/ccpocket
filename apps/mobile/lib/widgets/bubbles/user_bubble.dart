@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/command_parser.dart';
 
 /// Pattern to extract a skill name from a skill loading prompt.
 /// Matches `Base directory for this skill: .../.claude/skills/{name}`
@@ -45,7 +46,22 @@ class UserBubble extends StatelessWidget {
       return _buildSkillChip(context, skillName);
     }
 
+    // Detect command message with XML tags
+    final parsed = parseCommandMessage(text);
+    if (parsed != null) {
+      return _buildCommandBubble(context, parsed);
+    }
+
     final appColors = Theme.of(context).extension<AppColors>()!;
+    return _buildStandardBubble(context, appColors, text);
+  }
+
+  /// Standard user message bubble.
+  Widget _buildStandardBubble(
+    BuildContext context,
+    AppColors appColors,
+    String displayText,
+  ) {
     return Align(
       alignment: Alignment.centerRight,
       child: GestureDetector(
@@ -110,12 +126,81 @@ class UserBubble extends StatelessWidget {
                               ),
                       ),
                     ),
-                  if (text.isNotEmpty)
+                  if (displayText.isNotEmpty)
                     Text(
-                      text,
+                      displayText,
                       style: TextStyle(color: appColors.userBubbleText),
                     ),
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.bubbleMarginH),
+              child: _buildStatusIndicator(context, appColors),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// CLI-style command bubble: "/command-name args" in a single bubble.
+  Widget _buildCommandBubble(
+    BuildContext context,
+    ParsedCommand command,
+  ) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final hasArgs = command.args != null && command.args!.isNotEmpty;
+
+    return Align(
+      alignment: Alignment.centerRight,
+      child: GestureDetector(
+        onLongPress: () {
+          _showContextMenu(context);
+        },
+        onTap: status == MessageStatus.failed ? onRetry : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(
+                vertical: AppSpacing.bubbleMarginV,
+                horizontal: AppSpacing.bubbleMarginH,
+              ),
+              padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.bubblePaddingV,
+                horizontal: AppSpacing.bubblePaddingH,
+              ),
+              constraints: BoxConstraints(
+                maxWidth:
+                    MediaQuery.of(context).size.width *
+                    AppSpacing.maxBubbleWidthFraction,
+              ),
+              decoration: BoxDecoration(
+                color: appColors.userBubble,
+                borderRadius: AppSpacing.userBubbleBorderRadius,
+              ),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: command.commandName,
+                      style: TextStyle(
+                        color: appColors.userBubbleText,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    if (hasArgs) ...[
+                      TextSpan(
+                        text: ' ${command.args}',
+                        style: TextStyle(
+                          color: appColors.userBubbleText,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
             Padding(
