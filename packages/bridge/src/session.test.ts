@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProcessStatus, ServerMessage } from "./parser.js";
+import { pathToSlug } from "./sessions-index.js";
 
 const { codexInstances, sdkInstances, fakeDirs, fakeFiles } = vi.hoisted(() => ({
   codexInstances: [] as Array<{
@@ -264,16 +265,13 @@ describe("SessionManager codex path", () => {
 });
 
 describe("SessionManager claude UUID backfill", () => {
-  const toSlug = (path: string): string =>
-    path.replaceAll("/", "-").replaceAll("_", "-");
-
   const registerHistoryJsonl = (
     projectLikePath: string,
     threadId: string,
     lines: string[],
   ): void => {
     const projectsDir = join(homedir(), ".claude", "projects");
-    const dir = join(projectsDir, toSlug(projectLikePath));
+    const dir = join(projectsDir, pathToSlug(projectLikePath));
     fakeDirs.add(projectsDir);
     fakeDirs.add(dir);
     fakeFiles.set(join(dir, `${threadId}.jsonl`), `${lines.join("\n")}\n`);

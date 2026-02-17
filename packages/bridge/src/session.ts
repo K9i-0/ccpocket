@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { pathToSlug } from "./sessions-index.js";
 import { SdkProcess, type StartOptions, type RewindFilesResult } from "./sdk-process.js";
 import { CodexProcess, type CodexStartOptions } from "./codex-process.js";
 import type { ServerMessage, ProcessStatus, AssistantToolUseContent, Provider } from "./parser.js";
@@ -592,23 +593,18 @@ export class SessionManager {
     }
   }
 
-  private toClaudeProjectSlug(path: string): string {
-    // Keep slug logic aligned with Claude's project directory naming.
-    return path.replaceAll("/", "-").replaceAll("_", "-");
-  }
-
   private findHistoryJsonlPath(session: SessionInfo): string | null {
     if (!session.claudeSessionId) return null;
 
     const projectsDir = join(homedir(), ".claude", "projects");
     const fileName = `${session.claudeSessionId}.jsonl`;
     const slugCandidates = new Set<string>([
-      this.toClaudeProjectSlug(session.projectPath),
+      pathToSlug(session.projectPath),
     ]);
 
     // Worktree sessions are persisted under the worktree slug, not projectPath.
     if (session.worktreePath) {
-      slugCandidates.add(this.toClaudeProjectSlug(session.worktreePath));
+      slugCandidates.add(pathToSlug(session.worktreePath));
     }
 
     for (const slug of slugCandidates) {
