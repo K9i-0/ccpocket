@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../core/logger.dart';
+
 /// Singleton service managing the sqflite [Database] lifecycle.
 ///
 /// Handles database creation and schema migrations.
@@ -23,7 +25,7 @@ class DatabaseService {
       _database = await _initDatabase();
     } catch (e) {
       // sqflite factory not initialized (e.g. unit test environment)
-      debugPrint('[DatabaseService] init failed (no-op): $e');
+      logger.warning('[DatabaseService] init failed (no-op)', e);
       _database = null;
     }
     _initialized = true;

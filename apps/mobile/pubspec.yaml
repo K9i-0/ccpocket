@@ -66,6 +66,9 @@ dependencies:
   collection: ^1.19.1
   extended_image: ^10.0.1
   smooth_page_indicator: ^2.0.1
+  talker: ^5.1.13
+  talker_flutter: ^5.1.13
+  talker_bloc_logger: ^5.1.13
 
 dev_dependencies:
   flutter_test:

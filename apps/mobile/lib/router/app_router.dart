@@ -3,6 +3,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 
 import '../features/claude_code_session/claude_code_session_screen.dart';
+import '../features/debug/debug_screen.dart';
 import '../features/codex_session/codex_session_screen.dart';
 import '../features/diff/diff_screen.dart';
 import '../features/gallery/gallery_screen.dart';
@@ -15,7 +16,6 @@ import '../screens/mock_preview_screen.dart';
 import '../services/connection_url_parser.dart';
 import '../features/setup_guide/setup_guide_screen.dart';
 import '../screens/qr_scan_screen.dart';
-import '../features/hello/hello_screen.dart';
 
 part 'app_router.gr.dart';
 
@@ -34,6 +34,6 @@ class AppRouter extends RootStackRouter {
     AutoRoute(page: MockPreviewRoute.page, path: '/mock-preview'),
     AutoRoute(page: SwipeQueueRoute.page, path: '/swipe-queue'),
     AutoRoute(page: SetupGuideRoute.page, path: '/setup-guide'),
-    AutoRoute(page: HelloRoute.page, path: '/hello'),
+    AutoRoute(page: DebugRoute.page, path: '/debug'),
   ];
 }

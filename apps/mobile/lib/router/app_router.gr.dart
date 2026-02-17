@@ -209,6 +209,22 @@ class CodexSessionRouteArgs {
 }
 
 /// generated route for
+/// [DebugScreen]
+class DebugRoute extends PageRouteInfo<void> {
+  const DebugRoute({List<PageRouteInfo>? children})
+    : super(DebugRoute.name, initialChildren: children);
+
+  static const String name = 'DebugRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const DebugScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [DiffScreen]
 class DiffRoute extends PageRouteInfo<DiffRouteArgs> {
   DiffRoute({
@@ -340,22 +356,6 @@ class GalleryRouteArgs {
 
   @override
   int get hashCode => key.hashCode ^ sessionId.hashCode;
-}
-
-/// generated route for
-/// [HelloScreen]
-class HelloRoute extends PageRouteInfo<void> {
-  const HelloRoute({List<PageRouteInfo>? children})
-    : super(HelloRoute.name, initialChildren: children);
-
-  static const String name = 'HelloRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      return const HelloScreen();
-    },
-  );
 }
 
 /// generated route for

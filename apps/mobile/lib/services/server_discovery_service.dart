@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import '../core/logger.dart';
 
 import 'server_discovery_impl_stub.dart'
     if (dart.library.io) 'server_discovery_impl_io.dart'
@@ -57,7 +57,7 @@ class ServerDiscoveryService {
         },
       );
     } catch (e) {
-      debugPrint('[discovery] Failed to start: $e');
+      logger.error('[discovery] Failed to start', e);
     }
   }
 

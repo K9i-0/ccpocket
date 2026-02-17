@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../core/logger.dart';
 import 'database_service.dart';
 
 /// Sort order for prompt history queries.
@@ -112,7 +112,7 @@ class PromptHistoryService {
         });
       } catch (e) {
         // UNIQUE constraint violation (race condition) — update instead
-        debugPrint('[PromptHistory] insert conflict, updating: $e');
+        logger.warning('[PromptHistory] insert conflict, updating', e);
         await db.rawUpdate(
           '''
           UPDATE prompt_history

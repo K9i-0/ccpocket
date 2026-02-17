@@ -1,5 +1,6 @@
 import 'package:bonsoir/bonsoir.dart';
-import 'package:flutter/foundation.dart';
+
+import '../core/logger.dart';
 
 Future<BonsoirDiscovery> startDiscovery({
   required void Function(String name, String host, int port, bool authRequired)
@@ -30,7 +31,7 @@ Future<BonsoirDiscovery> startDiscovery({
   });
 
   await discovery.start();
-  debugPrint('[discovery] Started scanning for _ccpocket._tcp');
+  logger.info('[discovery] Started scanning for _ccpocket._tcp');
   return discovery;
 }
 

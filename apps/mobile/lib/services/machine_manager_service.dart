@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../core/logger.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -108,7 +109,7 @@ class MachineManagerService {
           }
         }
       } catch (e) {
-        debugPrint('[MachineManager] Failed to migrate old machines: $e');
+        logger.error('[MachineManager] Failed to migrate old machines', e);
       }
     }
 
@@ -158,7 +159,7 @@ class MachineManagerService {
           }
         }
       } catch (e) {
-        debugPrint('[MachineManager] Failed to migrate URL history: $e');
+        logger.error('[MachineManager] Failed to migrate URL history', e);
       }
     }
 
@@ -166,7 +167,7 @@ class MachineManagerService {
     if (machines.isNotEmpty) {
       _machines = machines;
       await _saveToPrefs();
-      debugPrint('[MachineManager] Migrated ${machines.length} machines');
+      logger.info('[MachineManager] Migrated ${machines.length} machines');
     }
 
     // Note: Keep old keys for rollback safety
@@ -187,7 +188,7 @@ class MachineManagerService {
           .map((e) => Machine.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      debugPrint('[MachineManager] Failed to load machines: $e');
+      logger.error('[MachineManager] Failed to load machines', e);
       return [];
     }
   }
@@ -527,8 +528,9 @@ class MachineManagerService {
       }
     } catch (e) {
       // Version endpoint is optional, don't treat as error
-      debugPrint(
-        '[MachineManager] Failed to fetch version for ${machine.id}: $e',
+      logger.warning(
+        '[MachineManager] Failed to fetch version for ${machine.id}',
+        e,
       );
     }
   }

@@ -103,6 +103,10 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
   bool _isAutoConnecting = false;
 
+  // Debug screen: 5 consecutive taps on title
+  int _debugTapCount = 0;
+  DateTime? _lastDebugTapTime;
+
   // Cache for resume navigation
   String? _pendingResumeProjectPath;
   String? _pendingResumeGitBranch;
@@ -393,6 +397,20 @@ class _SessionListScreenState extends State<SessionListScreen> {
     _urlController.dispose();
     _apiKeyController.dispose();
     super.dispose();
+  }
+
+  void _onTitleTap() {
+    final now = DateTime.now();
+    if (_lastDebugTapTime != null &&
+        now.difference(_lastDebugTapTime!).inMilliseconds > 3000) {
+      _debugTapCount = 0;
+    }
+    _lastDebugTapTime = now;
+    _debugTapCount++;
+    if (_debugTapCount >= 5) {
+      _debugTapCount = 0;
+      context.router.push(const DebugRoute());
+    }
   }
 
   void _disconnect() {
@@ -722,14 +740,11 @@ class _SessionListScreenState extends State<SessionListScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('CC Pocket'),
+          title: GestureDetector(
+            onTap: _onTitleTap,
+            child: const Text('CC Pocket'),
+          ),
           actions: [
-            IconButton(
-              key: const ValueKey('swipe_queue_button'),
-              icon: const Icon(Icons.style_outlined),
-              onPressed: () => context.router.push(const SwipeQueueRoute()),
-              tooltip: 'Approval Queue',
-            ),
             IconButton(
               key: const ValueKey('settings_button'),
               icon: const Icon(Icons.settings),
@@ -749,13 +764,6 @@ class _SessionListScreenState extends State<SessionListScreen> {
                 icon: const Icon(Icons.collections),
                 onPressed: () => context.router.push(GalleryRoute()),
                 tooltip: 'Gallery',
-              ),
-            if (showConnectedUI)
-              IconButton(
-                key: const ValueKey('hello_button'),
-                icon: const Icon(Icons.waving_hand),
-                onPressed: () => context.router.push(const HelloRoute()),
-                tooltip: 'Hello',
               ),
             if (showConnectedUI)
               IconButton(

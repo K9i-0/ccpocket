@@ -2,6 +2,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
+import '../core/logger.dart';
+
 class FcmService {
   FcmService({FirebaseMessaging? messaging}) : _messaging = messaging;
 
@@ -45,8 +47,7 @@ class FcmService {
       _available = true;
       return true;
     } catch (e, st) {
-      debugPrint('[fcm] init failed: $e');
-      debugPrint('[fcm] stack: $st');
+      logger.error('[fcm] init failed', e, st);
       _available = false;
       return false;
     }

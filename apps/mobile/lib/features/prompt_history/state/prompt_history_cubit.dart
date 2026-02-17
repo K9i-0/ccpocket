@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/logger.dart';
 import '../../../services/prompt_history_service.dart';
 import 'prompt_history_state.dart';
 
@@ -43,7 +43,7 @@ class PromptHistoryCubit extends Cubit<PromptHistoryState> {
         ),
       );
     } catch (e) {
-      debugPrint('[PromptHistoryCubit] load failed: $e');
+      logger.error('[PromptHistoryCubit] load failed', e);
       emit(state.copyWith(isLoading: false));
     }
   }
@@ -71,7 +71,7 @@ class PromptHistoryCubit extends Cubit<PromptHistoryState> {
         ),
       );
     } catch (e) {
-      debugPrint('[PromptHistoryCubit] loadMore failed: $e');
+      logger.error('[PromptHistoryCubit] loadMore failed', e);
       emit(state.copyWith(isLoading: false));
     }
   }

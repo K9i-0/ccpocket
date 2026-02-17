@@ -3,6 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/logger.dart';
 import 'app_theme.dart';
 
 /// Handles tapping on markdown links by opening them in browser.
@@ -15,7 +16,7 @@ Future<void> handleMarkdownLink(String text, String? href, String title) async {
   try {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   } catch (e) {
-    debugPrint('Failed to open URL: $href - $e');
+    logger.error('Failed to open URL: $href', e);
   }
 }
 

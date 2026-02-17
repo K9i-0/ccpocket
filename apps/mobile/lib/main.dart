@@ -21,7 +21,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:talker_bloc_logger/talker_bloc_logger.dart';
 
+import 'core/logger.dart';
 import 'features/session_list/state/session_list_cubit.dart';
 import 'features/settings/state/settings_cubit.dart';
 import 'features/settings/state/settings_state.dart';
@@ -46,13 +48,18 @@ void main() async {
   } else {
     WidgetsFlutterBinding.ensureInitialized();
   }
+  Bloc.observer = TalkerBlocObserver(talker: logger);
+
   FlutterError.onError = (details) {
-    debugPrint('[FlutterError] ${details.exceptionAsString()}');
-    debugPrint('[FlutterError] ${details.stack}');
+    logger.error(
+      '[FlutterError] ${details.exceptionAsString()}',
+      details.exception,
+      details.stack,
+    );
   };
   // Initialize notifications in background to avoid blocking app startup
   NotificationService.instance.init().catchError((e) {
-    debugPrint('[main] NotificationService init failed: $e');
+    logger.error('[main] NotificationService init failed', e);
   });
 
   // Initialize SharedPreferences and services
@@ -71,6 +78,7 @@ void main() async {
   runApp(
     MultiRepositoryProvider(
       providers: [
+        RepositoryProvider.value(value: logger),
         RepositoryProvider<BridgeService>.value(value: bridge),
         RepositoryProvider<DraftService>.value(value: draftService),
         RepositoryProvider<PromptHistoryService>.value(
@@ -171,17 +179,17 @@ class _CcpocketAppState extends State<CcpocketApp> {
         _handleUri(initialUri);
       }
     } catch (e) {
-      debugPrint('[deep_link] getInitialLink failed: $e');
+      logger.error('[deep_link] getInitialLink failed', e);
     }
 
     // Handle warm start / incoming links while running
     try {
       _linkSub = _appLinks!.uriLinkStream.listen(
         _handleUri,
-        onError: (e) => debugPrint('[deep_link] stream error: $e'),
+        onError: (e) => logger.error('[deep_link] stream error', e),
       );
     } catch (e) {
-      debugPrint('[deep_link] uriLinkStream failed: $e');
+      logger.error('[deep_link] uriLinkStream failed', e);
     }
   }
 
