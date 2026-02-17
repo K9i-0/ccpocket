@@ -14,6 +14,7 @@ import { WorktreeStore } from "./worktree-store.js";
 import { listWorktrees, removeWorktree, createWorktree, worktreeExists } from "./worktree.js";
 import { listWindows, takeScreenshot } from "./screenshot.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
+import { RecordingStore } from "./recording-store.js";
 import { PushRelayClient } from "./push-relay.js";
 import { fetchAllUsage } from "./usage.js";
 
@@ -24,6 +25,7 @@ export interface BridgeServerOptions {
   galleryStore?: GalleryStore;
   projectHistory?: ProjectHistory;
   debugTraceStore?: DebugTraceStore;
+  recordingStore?: RecordingStore;
 }
 
 export class BridgeWebSocketServer {
@@ -36,6 +38,7 @@ export class BridgeWebSocketServer {
   private galleryStore: GalleryStore | null;
   private projectHistory: ProjectHistory | null;
   private debugTraceStore: DebugTraceStore;
+  private recordingStore: RecordingStore;
   private worktreeStore: WorktreeStore;
   private pushRelay: PushRelayClient;
   private recentSessionsRequestId = 0;
@@ -43,15 +46,19 @@ export class BridgeWebSocketServer {
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
 
   constructor(options: BridgeServerOptions) {
-    const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore } = options;
+    const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore, recordingStore } = options;
     this.apiKey = apiKey ?? null;
     this.galleryStore = galleryStore ?? null;
     this.projectHistory = projectHistory ?? null;
     this.debugTraceStore = debugTraceStore ?? new DebugTraceStore();
+    this.recordingStore = recordingStore ?? new RecordingStore();
     this.worktreeStore = new WorktreeStore();
     this.pushRelay = new PushRelayClient();
     void this.debugTraceStore.init().catch((err) => {
       console.error("[ws] Failed to initialize debug trace store:", err);
+    });
+    void this.recordingStore.init().catch((err) => {
+      console.error("[ws] Failed to initialize recording store:", err);
     });
     if (!this.pushRelay.isConfigured) {
       console.log("[ws] Push relay disabled (set PUSH_RELAY_URL and PUSH_RELAY_SECRET to enable)");
@@ -155,6 +162,7 @@ export class BridgeWebSocketServer {
         type: msg.type,
         detail: this.summarizeClientMessage(msg),
       });
+      this.recordingStore.record(incomingSessionId, "incoming", msg);
     }
 
     switch (msg.type) {
@@ -1015,6 +1023,7 @@ export class BridgeWebSocketServer {
       type: msg.type,
       detail: this.summarizeServerMessage(msg),
     });
+    this.recordingStore.record(sessionId, "outgoing", msg);
     // Wrap the message with sessionId
     const data = JSON.stringify({ ...msg, sessionId });
     for (const client of this.wss.clients) {
