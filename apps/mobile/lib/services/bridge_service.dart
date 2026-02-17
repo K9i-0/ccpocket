@@ -33,6 +33,10 @@ class BridgeService implements BridgeServiceBase {
   final _debugBundleController =
       StreamController<DebugBundleMessage>.broadcast();
   final _usageController = StreamController<UsageResultMessage>.broadcast();
+  final _recordingListController =
+      StreamController<RecordingListMessage>.broadcast();
+  final _recordingContentController =
+      StreamController<RecordingContentMessage>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
@@ -75,6 +79,10 @@ class BridgeService implements BridgeServiceBase {
       _screenshotResultController.stream;
   Stream<DebugBundleMessage> get debugBundles => _debugBundleController.stream;
   Stream<UsageResultMessage> get usageResults => _usageController.stream;
+  Stream<RecordingListMessage> get recordingList =>
+      _recordingListController.stream;
+  Stream<RecordingContentMessage> get recordingContent =>
+      _recordingContentController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
@@ -168,6 +176,10 @@ class BridgeService implements BridgeServiceBase {
                 _debugBundleController.add(msg);
               case UsageResultMessage():
                 _usageController.add(msg);
+              case RecordingListMessage():
+                _recordingListController.add(msg);
+              case RecordingContentMessage():
+                _recordingContentController.add(msg);
               case WorktreeRemovedMessage():
                 _messageController.add(msg);
               case StatusMessage(:final status):

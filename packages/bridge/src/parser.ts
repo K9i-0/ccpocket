@@ -115,7 +115,9 @@ export type ClientMessage =
   | { type: "list_windows" }
   | { type: "take_screenshot"; mode: "fullscreen" | "window"; windowId?: number; projectPath: string; sessionId?: string }
   | { type: "get_debug_bundle"; sessionId: string; traceLimit?: number; includeDiff?: boolean }
-  | { type: "get_usage" };
+  | { type: "get_usage" }
+  | { type: "list_recordings" }
+  | { type: "get_recording"; sessionId: string };
 
 export interface DebugTraceEvent {
   ts: string;
@@ -363,6 +365,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (msg.includeDiff !== undefined && typeof msg.includeDiff !== "boolean") return null;
         break;
       case "get_usage":
+        break;
+      case "list_recordings":
+        break;
+      case "get_recording":
+        if (typeof msg.sessionId !== "string") return null;
         break;
       default:
         return null;

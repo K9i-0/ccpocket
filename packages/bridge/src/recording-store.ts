@@ -1,10 +1,17 @@
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, mkdir, readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ClientMessage, ServerMessage } from "./parser.js";
 
 const DEFAULT_ROOT_DIR = join(homedir(), ".ccpocket", "debug");
 const RECORDING_DIRNAME = "recordings";
+
+export interface RecordingFileInfo {
+  name: string;
+  path: string;
+  modified: string;
+  sizeBytes: number;
+}
 
 export interface RecordedEvent {
   ts: string;
@@ -43,6 +50,39 @@ export class RecordingStore {
     this.enqueue(path, async () => {
       await appendFile(path, line, "utf-8");
     });
+  }
+
+  /** List all recording files, newest first. */
+  async listRecordings(): Promise<RecordingFileInfo[]> {
+    try {
+      const entries = await readdir(this.recordingDir);
+      const results: RecordingFileInfo[] = [];
+      for (const entry of entries) {
+        if (!entry.endsWith(".jsonl")) continue;
+        const filePath = join(this.recordingDir, entry);
+        const s = await stat(filePath);
+        results.push({
+          name: entry.replace(/\.jsonl$/, ""),
+          path: filePath,
+          modified: s.mtime.toISOString(),
+          sizeBytes: s.size,
+        });
+      }
+      results.sort((a, b) => b.modified.localeCompare(a.modified));
+      return results;
+    } catch {
+      return [];
+    }
+  }
+
+  /** Read recording content as string. */
+  async getRecordingContent(sessionId: string): Promise<string | null> {
+    try {
+      const filePath = this.getFilePath(sessionId);
+      return await readFile(filePath, "utf-8");
+    } catch {
+      return null;
+    }
   }
 
   async flush(): Promise<void> {

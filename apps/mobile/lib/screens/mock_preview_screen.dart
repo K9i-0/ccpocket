@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,7 +9,6 @@ import '../models/messages.dart';
 import '../providers/bridge_cubits.dart';
 import '../services/bridge_service.dart';
 import '../services/mock_bridge_service.dart';
-import '../services/recording_loader.dart';
 import '../services/replay_bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../features/claude_code_session/claude_code_session_screen.dart';
@@ -137,42 +138,63 @@ class _ReplayTab extends StatefulWidget {
 }
 
 class _ReplayTabState extends State<_ReplayTab> {
-  final _loader = RecordingLoader();
-  List<RecordingFileInfo>? _recordings;
+  List<RecordingInfo>? _recordings;
   bool _loading = true;
   String? _error;
+  StreamSubscription<RecordingListMessage>? _sub;
+
+  BridgeService get _bridge => context.read<BridgeService>();
 
   @override
   void initState() {
     super.initState();
+    _sub = _bridge.recordingList.listen((msg) {
+      if (mounted) {
+        setState(() {
+          _recordings = msg.recordings;
+          _loading = false;
+          _error = null;
+        });
+      }
+    });
     _loadRecordings();
   }
 
-  Future<void> _loadRecordings() async {
-    try {
-      final recordings = await _loader.listRecordings();
-      if (mounted) {
-        setState(() {
-          _recordings = recordings;
-          _loading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _loading = false;
-        });
-      }
-    }
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 
-  Future<void> _launchReplay(RecordingFileInfo info) async {
-    final lines = await _loader.loadLines(info.path);
-    if (!mounted) return;
+  Future<void> _loadRecordings() async {
+    setState(() => _loading = true);
+    _bridge.send(ClientMessage.listRecordings());
+    // Response comes via the stream listener
+  }
+
+  Future<void> _launchReplay(RecordingInfo info) async {
+    // Request content from Bridge
+    final completer = Completer<String>();
+    late final StreamSubscription<RecordingContentMessage> sub;
+    sub = _bridge.recordingContent.listen((msg) {
+      if (msg.sessionId == info.name) {
+        completer.complete(msg.content);
+        sub.cancel();
+      }
+    });
+    _bridge.send(ClientMessage.getRecording(info.name));
+
+    final content = await completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        sub.cancel();
+        return '';
+      },
+    );
+    if (!mounted || content.isEmpty) return;
 
     final replayService = ReplayBridgeService();
-    replayService.loadFromJsonLines(lines);
+    replayService.loadFromJsonlString(content);
 
     Navigator.push(
       context,
@@ -224,7 +246,7 @@ class _ReplayTabState extends State<_ReplayTab> {
               const SizedBox(height: 8),
               Text(
                 'Recordings are automatically created when you use '
-                'the Bridge Server. Check ~/.ccpocket/debug/recordings/',
+                'the Bridge Server.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: appColors.subtleText),
               ),
@@ -251,6 +273,7 @@ class _ReplayTabState extends State<_ReplayTab> {
               itemCount: recordings.length,
               itemBuilder: (context, index) {
                 final info = recordings[index];
+                final dt = info.modifiedDate;
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: InkWell(
@@ -288,7 +311,7 @@ class _ReplayTabState extends State<_ReplayTab> {
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  '${info.sizeLabel} · ${_formatDate(info.modified)}',
+                                  '${info.sizeLabel}${dt != null ? ' · ${_formatDate(dt)}' : ''}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: cs.onSurfaceVariant,

@@ -509,6 +509,17 @@ sealed class ServerMessage {
             .map((p) => UsageInfo.fromJson(p as Map<String, dynamic>))
             .toList(),
       ),
+      'recording_list' => RecordingListMessage(
+        recordings: (json['recordings'] as List)
+            .map(
+              (r) => RecordingInfo.fromJson(r as Map<String, dynamic>),
+            )
+            .toList(),
+      ),
+      'recording_content' => RecordingContentMessage(
+        sessionId: json['sessionId'] as String? ?? '',
+        content: json['content'] as String? ?? '',
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -942,6 +953,50 @@ class InputRejectedMessage implements ServerMessage {
 class UsageResultMessage implements ServerMessage {
   final List<UsageInfo> providers;
   const UsageResultMessage({required this.providers});
+}
+
+class RecordingListMessage implements ServerMessage {
+  final List<RecordingInfo> recordings;
+  const RecordingListMessage({required this.recordings});
+}
+
+class RecordingContentMessage implements ServerMessage {
+  final String sessionId;
+  final String content;
+  const RecordingContentMessage({
+    required this.sessionId,
+    required this.content,
+  });
+}
+
+class RecordingInfo {
+  final String name;
+  final String modified;
+  final int sizeBytes;
+
+  const RecordingInfo({
+    required this.name,
+    required this.modified,
+    required this.sizeBytes,
+  });
+
+  factory RecordingInfo.fromJson(Map<String, dynamic> json) {
+    return RecordingInfo(
+      name: json['name'] as String? ?? '',
+      modified: json['modified'] as String? ?? '',
+      sizeBytes: json['sizeBytes'] as int? ?? 0,
+    );
+  }
+
+  String get sizeLabel {
+    if (sizeBytes < 1024) return '$sizeBytes B';
+    if (sizeBytes < 1024 * 1024) {
+      return '${(sizeBytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  DateTime? get modifiedDate => DateTime.tryParse(modified);
 }
 
 class PastMessage {
@@ -1441,6 +1496,12 @@ class ClientMessage {
       ClientMessage._({'type': 'list_windows'});
 
   factory ClientMessage.getUsage() => ClientMessage._({'type': 'get_usage'});
+
+  factory ClientMessage.listRecordings() =>
+      ClientMessage._({'type': 'list_recordings'});
+
+  factory ClientMessage.getRecording(String sessionId) =>
+      ClientMessage._({'type': 'get_recording', 'sessionId': sessionId});
 
   factory ClientMessage.takeScreenshot({
     required String mode,

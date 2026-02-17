@@ -799,6 +799,24 @@ export class BridgeWebSocketServer {
         break;
       }
 
+      case "list_recordings": {
+        void this.recordingStore.listRecordings().then((recordings) => {
+          this.send(ws, { type: "recording_list", recordings } as Record<string, unknown>);
+        });
+        break;
+      }
+
+      case "get_recording": {
+        void this.recordingStore.getRecordingContent(msg.sessionId).then((content) => {
+          if (content !== null) {
+            this.send(ws, { type: "recording_content", sessionId: msg.sessionId, content } as Record<string, unknown>);
+          } else {
+            this.send(ws, { type: "error", message: `Recording ${msg.sessionId} not found` });
+          }
+        });
+        break;
+      }
+
       case "get_diff": {
         this.collectGitDiff(msg.projectPath, ({ diff, error }) => {
           if (error) {
