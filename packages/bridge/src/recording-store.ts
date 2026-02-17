@@ -112,6 +112,59 @@ export class RecordingStore {
     }
   }
 
+  /**
+   * Extract key info directly from JSONL content without requiring meta or sessions-index.
+   * Scans for first/last user input messages and claudeSessionId from system messages.
+   */
+  async extractInfoFromJsonl(sessionId: string): Promise<{
+    firstPrompt?: string;
+    lastPrompt?: string;
+    claudeSessionId?: string;
+    projectPath?: string;
+  }> {
+    try {
+      const content = await readFile(this.getFilePath(sessionId), "utf-8");
+      const lines = content.trim().split("\n");
+      let firstPrompt: string | undefined;
+      let lastPrompt: string | undefined;
+      let claudeSessionId: string | undefined;
+      let projectPath: string | undefined;
+
+      for (const line of lines) {
+        try {
+          const event = JSON.parse(line) as RecordedEvent;
+          const msg = event.message as Record<string, unknown>;
+
+          // Extract user input messages (incoming "input" type)
+          if (event.direction === "incoming" && msg.type === "input" && typeof msg.text === "string") {
+            if (!firstPrompt) firstPrompt = msg.text;
+            lastPrompt = msg.text;
+          }
+
+          // Extract claudeSessionId from system messages
+          if (event.direction === "outgoing" && msg.type === "system" && typeof msg.sessionId === "string") {
+            // Claude CLI session IDs are full UUIDs (36 chars)
+            const sid = msg.sessionId as string;
+            if (sid.length > 8 && !claudeSessionId) {
+              claudeSessionId = sid;
+            }
+          }
+
+          // Extract projectPath from start messages
+          if (event.direction === "incoming" && msg.type === "start" && typeof msg.projectPath === "string") {
+            projectPath = msg.projectPath as string;
+          }
+        } catch {
+          // skip malformed lines
+        }
+      }
+
+      return { firstPrompt, lastPrompt, claudeSessionId, projectPath };
+    } catch {
+      return {};
+    }
+  }
+
   /** Read recording content as string. */
   async getRecordingContent(sessionId: string): Promise<string | null> {
     try {

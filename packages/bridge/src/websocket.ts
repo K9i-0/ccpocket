@@ -806,7 +806,26 @@ export class BridgeWebSocketServer {
 
       case "list_recordings": {
         void this.recordingStore.listRecordings().then(async (recordings) => {
-          // Collect claudeSessionIds to look up summaries
+          // First pass: extract info from JSONL for recordings missing firstPrompt
+          // This covers both meta-less legacy recordings and new ones where sessions-index hasn't indexed yet
+          await Promise.all(
+            recordings.map(async (rec) => {
+              const info = await this.recordingStore.extractInfoFromJsonl(rec.name);
+              if (info.firstPrompt && !rec.firstPrompt) rec.firstPrompt = info.firstPrompt;
+              if (info.lastPrompt && !rec.lastPrompt) rec.lastPrompt = info.lastPrompt;
+              // Backfill meta for legacy recordings
+              if (!rec.meta && (info.claudeSessionId || info.projectPath)) {
+                rec.meta = {
+                  bridgeSessionId: rec.name,
+                  claudeSessionId: info.claudeSessionId,
+                  projectPath: info.projectPath ?? "",
+                  createdAt: rec.modified,
+                };
+              }
+            }),
+          );
+
+          // Second pass: look up sessions-index for summaries (if claudeSessionIds available)
           const claudeIds = new Set<string>();
           const idToIdx = new Map<string, number[]>();
           for (let i = 0; i < recordings.length; i++) {
@@ -819,15 +838,14 @@ export class BridgeWebSocketServer {
             }
           }
 
-          // Look up session metadata from sessions-index
           if (claudeIds.size > 0) {
             const sessionInfo = await findSessionsByClaudeIds(claudeIds);
             for (const [cid, info] of sessionInfo) {
               const indices = idToIdx.get(cid) ?? [];
               for (const idx of indices) {
-                recordings[idx].summary = info.summary;
-                recordings[idx].firstPrompt = info.firstPrompt;
-                recordings[idx].lastPrompt = info.lastPrompt;
+                if (info.summary) recordings[idx].summary = info.summary;
+                if (info.firstPrompt) recordings[idx].firstPrompt = info.firstPrompt;
+                if (info.lastPrompt) recordings[idx].lastPrompt = info.lastPrompt;
               }
             }
           }
