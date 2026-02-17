@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
 import 'package:ccpocket/features/session_list/widgets/home_content.dart';
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
@@ -91,12 +92,13 @@ Widget _buildHomeContent({
   required DraftService draftService,
 }) {
   return MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    locale: const Locale('en'),
     theme: AppTheme.darkTheme,
     home: Scaffold(
       body: MultiBlocProvider(
-        providers: [
-          BlocProvider<SessionListCubit>.value(value: cubit),
-        ],
+        providers: [BlocProvider<SessionListCubit>.value(value: cubit)],
         child: RepositoryProvider<DraftService>.value(
           value: draftService,
           child: HomeContent(
@@ -111,8 +113,8 @@ Widget _buildHomeContent({
             hasMoreSessions: false,
             currentProjectFilter: null,
             onNewSession: () {},
-            onTapRunning: (id,
-                {projectPath, gitBranch, worktreePath, provider}) {},
+            onTapRunning:
+                (id, {projectPath, gitBranch, worktreePath, provider}) {},
             onStopSession: (_) {},
             onResumeSession: (_) {},
             onLongPressRecentSession: (_) {},
@@ -185,7 +187,10 @@ void main() {
         'and isInitialLoading is false', (tester) async {
       await tester.pumpWidget(
         _buildHomeContent(
-          recentSessions: [_session(id: 's1'), _session(id: 's2')],
+          recentSessions: [
+            _session(id: 's1'),
+            _session(id: 's2'),
+          ],
           isInitialLoading: false,
           cubit: cubit,
           draftService: draftService,

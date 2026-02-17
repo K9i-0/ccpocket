@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../services/prompt_history_service.dart';
 import '../../../theme/app_theme.dart';
 import '../state/prompt_history_cubit.dart';
@@ -82,6 +83,7 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final appColors = Theme.of(context).extension<AppColors>()!;
     final cs = Theme.of(context).colorScheme;
 
@@ -107,9 +109,12 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                const Text(
-                  'Prompt History',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                Text(
+                  l.promptHistory,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const Spacer(),
                 BlocSelector<
@@ -124,7 +129,7 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
                       children: [
                         _buildSortChip(
                           context,
-                          label: 'Frequent',
+                          label: l.frequent,
                           value: PromptSortOrder.frequency,
                           current: sortOrder,
                           cs: cs,
@@ -132,7 +137,7 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
                         const SizedBox(width: 4),
                         _buildSortChip(
                           context,
-                          label: 'Recent',
+                          label: l.recent,
                           value: PromptSortOrder.recency,
                           current: sortOrder,
                           cs: cs,
@@ -160,7 +165,7 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
             child: TextField(
               key: const ValueKey('prompt_history_search'),
               decoration: InputDecoration(
-                hintText: 'Search...',
+                hintText: l.searchHint,
                 prefixIcon: Icon(Icons.search, size: 20, color: cs.outline),
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(
@@ -203,7 +208,7 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
                   children: [
                     _buildProjectChip(
                       context,
-                      label: 'All',
+                      label: l.all,
                       value: null,
                       current: data.filter,
                       cs: cs,
@@ -246,8 +251,8 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
                       padding: const EdgeInsets.all(32),
                       child: Text(
                         state.searchQuery.isNotEmpty
-                            ? 'No matching prompts'
-                            : 'No prompt history yet',
+                            ? l.noMatchingPrompts
+                            : l.noPromptHistoryYet,
                         style: TextStyle(color: cs.outline),
                       ),
                     ),

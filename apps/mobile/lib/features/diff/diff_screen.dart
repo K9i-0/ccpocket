@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/bridge_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/diff_parser.dart';
@@ -66,10 +67,11 @@ class _DiffScreenBody extends StatelessWidget {
     final state = context.watch<DiffViewCubit>().state;
     final cubit = context.read<DiffViewCubit>();
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final l = AppLocalizations.of(context);
 
     final screenTitle =
         title ??
-        (state.files.length == 1 ? state.files.first.filePath : 'Changes');
+        (state.files.length == 1 ? state.files.first.filePath : l.changes);
 
     return Scaffold(
       appBar: AppBar(
@@ -85,15 +87,15 @@ class _DiffScreenBody extends StatelessWidget {
                     : null,
               ),
               tooltip: state.selectionMode
-                  ? 'Cancel selection'
-                  : 'Select & attach',
+                  ? l.cancelSelection
+                  : l.selectAndAttach,
               onPressed: cubit.toggleSelectionMode,
             ),
           // Filter (hidden during selection mode)
           if (state.files.length > 1 && !state.selectionMode)
             IconButton(
               icon: const Icon(Icons.filter_list),
-              tooltip: 'Filter files',
+              tooltip: l.filterFiles,
               onPressed: () =>
                   _showFilterBottomSheet(context, appColors, cubit),
             ),
@@ -110,7 +112,12 @@ class _DiffScreenBody extends StatelessWidget {
                 context.router.maybePop(selection);
               },
               icon: const Icon(Icons.attach_file),
-              label: Text(_buildAttachLabel(cubit.selectionSummary)),
+              label: Text(
+                l.attachFilesAndHunks(
+                  cubit.selectionSummary.files,
+                  cubit.selectionSummary.hunks,
+                ),
+              ),
             )
           : null,
       body: state.loading
@@ -135,17 +142,6 @@ class _DiffScreenBody extends StatelessWidget {
     );
   }
 
-  String _buildAttachLabel(({int files, int hunks}) summary) {
-    final parts = <String>[];
-    if (summary.files > 0) {
-      parts.add('${summary.files} file${summary.files > 1 ? 's' : ''}');
-    }
-    if (summary.hunks > 0) {
-      parts.add('${summary.hunks} hunk${summary.hunks > 1 ? 's' : ''}');
-    }
-    return 'Attach ${parts.join(', ')}';
-  }
-
   void _showFilterBottomSheet(
     BuildContext context,
     AppColors appColors,
@@ -157,6 +153,7 @@ class _DiffScreenBody extends StatelessWidget {
         return BlocBuilder<DiffViewCubit, DiffViewState>(
           bloc: cubit,
           builder: (context, state) {
+            final l = AppLocalizations.of(context);
             return SafeArea(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -166,7 +163,7 @@ class _DiffScreenBody extends StatelessWidget {
                     child: Row(
                       children: [
                         Text(
-                          'Filter Files',
+                          l.filterFilesTitle,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -176,7 +173,7 @@ class _DiffScreenBody extends StatelessWidget {
                         const Spacer(),
                         TextButton(
                           onPressed: cubit.clearHidden,
-                          child: const Text('All'),
+                          child: Text(l.all),
                         ),
                         TextButton(
                           onPressed: () => cubit.setHiddenFiles(
@@ -184,7 +181,7 @@ class _DiffScreenBody extends StatelessWidget {
                               List.generate(state.files.length, (i) => i),
                             ),
                           ),
-                          child: const Text('None'),
+                          child: Text(l.none),
                         ),
                       ],
                     ),

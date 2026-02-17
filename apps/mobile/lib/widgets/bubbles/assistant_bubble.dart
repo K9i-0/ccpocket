@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
@@ -240,7 +241,10 @@ class _ToolUseTileState extends State<ToolUseTile> {
     final inputStr = const JsonEncoder.withIndent('  ').convert(widget.input);
     Clipboard.setData(ClipboardData(text: '${widget.name}\n$inputStr'));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Copied'), duration: Duration(seconds: 1)),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).copied),
+        duration: const Duration(seconds: 1),
+      ),
     );
   }
 

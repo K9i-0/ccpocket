@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../utils/platform_helper.dart';
 
 import '../../models/messages.dart';
@@ -241,82 +242,75 @@ class _SessionListScreenState extends State<SessionListScreen> {
   Future<bool?> _showSetupGuide(String url) {
     return showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              color: Theme.of(ctx).colorScheme.primary,
-            ),
-            SizedBox(width: 8),
-            Expanded(child: Text('Server Unreachable')),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+      builder: (ctx) {
+        final l = AppLocalizations.of(ctx);
+        return AlertDialog(
+          title: Row(
             children: [
-              Text(
-                'Could not reach the Bridge server at:',
-                style: TextStyle(
-                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                ),
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Theme.of(ctx).colorScheme.primary,
               ),
-              const SizedBox(height: 4),
-              SelectableText(
-                url,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(ctx).colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Setup Steps:',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(ctx).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 8),
-              _setupStep(
-                ctx,
-                '1',
-                'Install and build the Bridge server',
-                'cd packages/bridge && npm install && npm run bridge:build',
-              ),
-              _setupStep(ctx, '2', 'Start the server', 'npm run bridge'),
-              _setupStep(
-                ctx,
-                '3',
-                'For persistent startup, register as service',
-                'npm run setup',
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Make sure both devices are on the same network (or use Tailscale).',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                ),
-              ),
+              SizedBox(width: 8),
+              Expanded(child: Text(l.serverUnreachable)),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l.serverUnreachableBody,
+                  style: TextStyle(
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  url,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(ctx).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  l.setupSteps,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(ctx).colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _setupStep(ctx, '1', l.setupStep1Title, l.setupStep1Command),
+                _setupStep(ctx, '2', l.setupStep2Title, l.setupStep2Command),
+                _setupStep(ctx, '3', l.setupStep3Title, l.setupStep3Command),
+                const SizedBox(height: 12),
+                Text(
+                  l.setupNetworkHint,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Connect Anyway'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l.connectAnyway),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -348,7 +342,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 13)),
+                Text(title, style: TextStyle(fontSize: 13)),
                 const SizedBox(height: 2),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -548,6 +542,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
   }
 
   void _showRecentSessionActions(RecentSession session) async {
+    final l = AppLocalizations.of(context);
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -557,12 +552,12 @@ class _SessionListScreenState extends State<SessionListScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.play_arrow),
-              title: const Text('Start New with Same Settings'),
+              title: Text(l.startNewWithSameSettings),
               onTap: () => Navigator.pop(ctx, 'start_same'),
             ),
             ListTile(
               leading: const Icon(Icons.tune),
-              title: const Text('Edit Settings Then Start'),
+              title: Text(l.editSettingsThenStart),
               onTap: () => Navigator.pop(ctx, 'start_edit'),
             ),
           ],
@@ -685,27 +680,26 @@ class _SessionListScreenState extends State<SessionListScreen> {
   }
 
   void _stopSession(String sessionId) {
+    final l = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Stop Session'),
-        content: const Text(
-          'Stop this session? The Claude process will be terminated.',
-        ),
+      builder: (ctx) => AlertDialog(
+        title: Text(l.stopSession),
+        content: Text(l.stopSessionConfirm),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+              backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               context.read<BridgeService>().stopSession(sessionId);
             },
-            child: const Text('Stop'),
+            child: Text(l.stop),
           ),
         ],
       ),
@@ -727,6 +721,8 @@ class _SessionListScreenState extends State<SessionListScreen> {
     final showConnectedUI =
         isConnected || connectionState == BridgeConnectionState.reconnecting;
 
+    final l = AppLocalizations.of(context);
+
     return BlocListener<ConnectionCubit, BridgeConnectionState>(
       listener: (context, nextState) {
         // Clear auto-connecting spinner once we get any connection state update
@@ -739,30 +735,27 @@ class _SessionListScreenState extends State<SessionListScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: GestureDetector(
-            onTap: _onTitleTap,
-            child: const Text('CC Pocket'),
-          ),
+          title: GestureDetector(onTap: _onTitleTap, child: Text(l.appTitle)),
           actions: [
             IconButton(
               key: const ValueKey('settings_button'),
               icon: const Icon(Icons.settings),
               onPressed: () => context.router.push(const SettingsRoute()),
-              tooltip: 'Settings',
+              tooltip: l.settings,
             ),
             if (showConnectedUI)
               IconButton(
                 key: const ValueKey('gallery_button'),
                 icon: const Icon(Icons.collections),
                 onPressed: () => context.router.push(GalleryRoute()),
-                tooltip: 'Gallery',
+                tooltip: l.gallery,
               ),
             if (showConnectedUI)
               IconButton(
                 key: const ValueKey('disconnect_button'),
                 icon: const Icon(Icons.link_off),
                 onPressed: _disconnect,
-                tooltip: 'Disconnect',
+                tooltip: l.disconnect,
               ),
           ],
         ),
@@ -826,9 +819,10 @@ class _SessionListScreenState extends State<SessionListScreen> {
     _apiKeyController.clear();
     if (server.authRequired) {
       // Let user fill in the API key manually
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This server requires an API key')),
-      );
+      final l = AppLocalizations.of(context);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l.serverRequiresApiKey)));
       return;
     }
     _connect();
@@ -891,6 +885,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
 
   void _updateMachine(MachineWithStatus m) async {
     final cubit = context.read<MachineManagerCubit>();
+    final l = AppLocalizations.of(context);
 
     // Check if password is saved
     final savedPassword = await cubit.getSshPassword(m.machine.id);
@@ -907,17 +902,18 @@ class _SessionListScreenState extends State<SessionListScreen> {
     if (success && mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Bridge Server updated')));
+      ).showSnackBar(SnackBar(content: Text(l.bridgeServerUpdated)));
     } else if (mounted) {
       final error = cubit.state.error;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error ?? 'Failed to update server')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error ?? l.failedToUpdateServer)));
     }
   }
 
   void _startMachine(MachineWithStatus m) async {
     final cubit = context.read<MachineManagerCubit>();
+    final l = AppLocalizations.of(context);
 
     // Check if password is saved
     final savedPassword = await cubit.getSshPassword(m.machine.id);
@@ -934,17 +930,18 @@ class _SessionListScreenState extends State<SessionListScreen> {
     if (success && mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Bridge Server started')));
+      ).showSnackBar(SnackBar(content: Text(l.bridgeServerStarted)));
     } else if (mounted) {
       final error = cubit.state.error;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error ?? 'Failed to start server')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error ?? l.failedToStartServer)));
     }
   }
 
   void _stopMachine(MachineWithStatus m) async {
     final cubit = context.read<MachineManagerCubit>();
+    final l = AppLocalizations.of(context);
 
     // Check if password is saved
     final savedPassword = await cubit.getSshPassword(m.machine.id);
@@ -961,33 +958,34 @@ class _SessionListScreenState extends State<SessionListScreen> {
     if (success && mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Bridge Server stopped')));
+      ).showSnackBar(SnackBar(content: Text(l.bridgeServerStopped)));
     } else if (mounted) {
       final error = cubit.state.error;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error ?? 'Failed to stop server')));
+      ).showSnackBar(SnackBar(content: Text(error ?? l.failedToStopServer)));
     }
   }
 
   Future<String?> _promptForPassword(String machineName) async {
     final controller = TextEditingController();
+    final l = AppLocalizations.of(context);
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('SSH Password'),
+        title: Text(l.sshPassword),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Enter SSH password for $machineName'),
+            Text(l.sshPasswordPrompt(machineName)),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
               obscureText: true,
               autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l.password,
+                border: const OutlineInputBorder(),
               ),
               onSubmitted: (v) => Navigator.pop(ctx, v),
             ),
@@ -996,11 +994,11 @@ class _SessionListScreenState extends State<SessionListScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Connect'),
+            child: Text(l.connect),
           ),
         ],
       ),
@@ -1036,24 +1034,23 @@ class _SessionListScreenState extends State<SessionListScreen> {
   }
 
   void _deleteMachine(MachineWithStatus m) async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Machine'),
-        content: Text(
-          'Delete "${m.machine.displayName}"? This will remove all saved credentials.',
-        ),
+        title: Text(l.deleteMachine),
+        content: Text(l.deleteMachineConfirm(m.machine.displayName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: Text(l.delete),
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../theme/app_theme.dart';
 
@@ -34,13 +35,12 @@ class ApprovalBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final summary = pendingPermission != null
-        ? (isPlanApproval
-              ? 'Review the plan above and approve or continue planning'
-              : pendingPermission!.summary)
-        : 'Tool execution requires approval';
+        ? (isPlanApproval ? l.planApprovalSummary : pendingPermission!.summary)
+        : l.toolApprovalSummary;
     final toolName = isPlanApproval
-        ? 'Plan Approval'
+        ? l.planApproval
         : pendingPermission?.toolName;
 
     return Container(
@@ -80,6 +80,7 @@ class ApprovalBar extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context, String? toolName, String summary) {
+    final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
@@ -102,7 +103,7 @@ class ApprovalBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                toolName ?? 'Approval Required',
+                toolName ?? l.approvalRequired,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -122,7 +123,7 @@ class ApprovalBar extends StatelessWidget {
           IconButton(
             key: const ValueKey('view_plan_header_button'),
             icon: Icon(Icons.open_in_full, size: 18, color: cs.primary),
-            tooltip: 'View / Edit Plan',
+            tooltip: l.viewEditPlan,
             onPressed: onViewPlan,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,
@@ -133,6 +134,7 @@ class ApprovalBar extends StatelessWidget {
 
   /// "Keep Planning" card with feedback input + send button.
   Widget _buildKeepPlanningCard(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     return Container(
       key: const ValueKey('keep_planning_card'),
@@ -146,7 +148,7 @@ class ApprovalBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Keep Planning',
+            l.keepPlanning,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -161,7 +163,7 @@ class ApprovalBar extends StatelessWidget {
                   key: const ValueKey('plan_feedback_input'),
                   controller: planFeedbackController,
                   decoration: InputDecoration(
-                    hintText: 'What should be changed...',
+                    hintText: l.keepPlanningHint,
                     hintStyle: TextStyle(
                       fontSize: 12,
                       color: appColors.subtleText,
@@ -187,7 +189,7 @@ class ApprovalBar extends StatelessWidget {
               IconButton(
                 key: const ValueKey('reject_button'),
                 icon: Icon(Icons.send, size: 20, color: cs.primary),
-                tooltip: 'Send feedback & keep planning',
+                tooltip: l.sendFeedbackKeepPlanning,
                 onPressed: onReject,
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 padding: EdgeInsets.zero,
@@ -200,6 +202,7 @@ class ApprovalBar extends StatelessWidget {
   }
 
   Widget _buildButtons(BuildContext context) {
+    final l = AppLocalizations.of(context);
     if (isPlanApproval) {
       return Row(
         children: [
@@ -211,9 +214,9 @@ class ApprovalBar extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                 ),
-                child: const Text(
-                  'Accept & Clear',
-                  style: TextStyle(fontSize: 13),
+                child: Text(
+                  l.acceptAndClear,
+                  style: const TextStyle(fontSize: 13),
                 ),
               ),
             ),
@@ -226,7 +229,7 @@ class ApprovalBar extends StatelessWidget {
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 10),
               ),
-              child: const Text('Accept Plan', style: TextStyle(fontSize: 13)),
+              child: Text(l.acceptPlan, style: const TextStyle(fontSize: 13)),
             ),
           ),
         ],
@@ -242,7 +245,7 @@ class ApprovalBar extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 10),
             ),
-            child: const Text('Reject', style: TextStyle(fontSize: 13)),
+            child: Text(l.reject, style: const TextStyle(fontSize: 13)),
           ),
         ),
         const SizedBox(width: 8),
@@ -253,7 +256,7 @@ class ApprovalBar extends StatelessWidget {
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 10),
             ),
-            child: const Text('Approve', style: TextStyle(fontSize: 13)),
+            child: Text(l.approve, style: const TextStyle(fontSize: 13)),
           ),
         ),
         const SizedBox(width: 8),
@@ -264,7 +267,7 @@ class ApprovalBar extends StatelessWidget {
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 10),
             ),
-            child: const Text('Always', style: TextStyle(fontSize: 13)),
+            child: Text(l.always, style: const TextStyle(fontSize: 13)),
           ),
         ),
       ],

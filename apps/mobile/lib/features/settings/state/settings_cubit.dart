@@ -19,6 +19,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   String? _activeToken;
 
   static const _keyThemeMode = 'settings_theme_mode';
+  static const _keyAppLocale = 'settings_app_locale';
   static const _keySpeechLocale = 'settings_speech_locale';
   static const _keyFcmEnabled = 'settings_fcm_enabled';
 
@@ -42,6 +43,7 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   static SettingsState _load(SharedPreferences prefs) {
     final themeModeIndex = prefs.getInt(_keyThemeMode);
+    final appLocale = prefs.getString(_keyAppLocale) ?? '';
     final speechLocale = prefs.getString(_keySpeechLocale);
     final fcmEnabled = prefs.getBool(_keyFcmEnabled) ?? false;
     return SettingsState(
@@ -51,6 +53,7 @@ class SettingsCubit extends Cubit<SettingsState> {
               themeModeIndex < ThemeMode.values.length)
           ? ThemeMode.values[themeModeIndex]
           : ThemeMode.system,
+      appLocaleId: appLocale,
       speechLocaleId: speechLocale ?? 'ja-JP',
       fcmEnabled: fcmEnabled,
     );
@@ -63,7 +66,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(
       state.copyWith(
         fcmAvailable: available,
-        fcmStatusMessage: available ? null : 'Firebase 設定後に利用できます',
+        fcmStatusKey: available ? null : FcmStatusKey.unavailable,
       ),
     );
     if (!available) return;
@@ -90,6 +93,11 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(state.copyWith(themeMode: mode));
   }
 
+  void setAppLocaleId(String localeId) {
+    _prefs.setString(_keyAppLocale, localeId);
+    emit(state.copyWith(appLocaleId: localeId));
+  }
+
   void setSpeechLocaleId(String localeId) {
     _prefs.setString(_keySpeechLocale, localeId);
     emit(state.copyWith(speechLocaleId: localeId));
@@ -101,7 +109,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       state.copyWith(
         fcmEnabled: enabled,
         fcmSyncInProgress: true,
-        fcmStatusMessage: null,
+        fcmStatusKey: null,
       ),
     );
 
@@ -119,7 +127,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       emit(
         state.copyWith(
           fcmSyncInProgress: false,
-          fcmStatusMessage: 'Firebase 設定後に利用できます',
+          fcmStatusKey: FcmStatusKey.unavailable,
         ),
       );
       return;
@@ -133,7 +141,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       emit(
         state.copyWith(
           fcmSyncInProgress: false,
-          fcmStatusMessage: 'Bridge が未初期化です',
+          fcmStatusKey: FcmStatusKey.bridgeNotInitialized,
         ),
       );
       return;
@@ -144,7 +152,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       emit(
         state.copyWith(
           fcmSyncInProgress: false,
-          fcmStatusMessage: 'FCM token を取得できませんでした',
+          fcmStatusKey: FcmStatusKey.tokenFailed,
         ),
       );
       return;
@@ -152,12 +160,10 @@ class SettingsCubit extends Cubit<SettingsState> {
 
     _activeToken = token;
     bridge.registerPushToken(token: token, platform: _fcmService.platform);
-    final syncedMessage = bridge.isConnected
-        ? '通知を有効化しました'
-        : 'Bridge 再接続後に通知登録します';
-    emit(
-      state.copyWith(fcmSyncInProgress: false, fcmStatusMessage: syncedMessage),
-    );
+    final statusKey = bridge.isConnected
+        ? FcmStatusKey.enabled
+        : FcmStatusKey.enabledPending;
+    emit(state.copyWith(fcmSyncInProgress: false, fcmStatusKey: statusKey));
   }
 
   Future<void> _syncPushUnregister() async {
@@ -166,7 +172,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       emit(
         state.copyWith(
           fcmSyncInProgress: false,
-          fcmStatusMessage: '通知を無効化しました',
+          fcmStatusKey: FcmStatusKey.disabled,
         ),
       );
       return;
@@ -177,12 +183,10 @@ class SettingsCubit extends Cubit<SettingsState> {
       bridge.unregisterPushToken(token);
     }
     _activeToken = null;
-    final syncedMessage = bridge.isConnected
-        ? '通知を無効化しました'
-        : 'Bridge 再接続後に通知解除します';
-    emit(
-      state.copyWith(fcmSyncInProgress: false, fcmStatusMessage: syncedMessage),
-    );
+    final statusKey = bridge.isConnected
+        ? FcmStatusKey.disabled
+        : FcmStatusKey.disabledPending;
+    emit(state.copyWith(fcmSyncInProgress: false, fcmStatusKey: statusKey));
   }
 
   @override

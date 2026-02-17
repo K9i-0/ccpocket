@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import 'guide_page.dart';
 
 /// Page 3: 接続方法（自宅 / 同一 LAN）
@@ -9,36 +10,38 @@ class GuidePageConnection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     final bodyStyle = Theme.of(context).textTheme.bodyLarge;
 
     return GuidePage(
       icon: Icons.wifi,
-      title: '接続方法',
+      title: l.guideConnectionTitle,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('同じ Wi-Fi ネットワーク内なら、すぐに接続できます。', style: bodyStyle),
+          Text(l.guideConnectionDescription, style: bodyStyle),
           const SizedBox(height: 20),
           _ConnectionMethod(
             colorScheme: cs,
             icon: Icons.qr_code_scanner,
-            title: 'QR コードスキャン',
-            description: 'ターミナルに表示された QR コードを読み取るだけ。一番簡単です。',
+            title: l.guideConnectionQr,
+            description: l.guideConnectionQrDescription,
             recommended: true,
+            recommendedLabel: l.guideConnectionRecommended,
           ),
           const SizedBox(height: 12),
           _ConnectionMethod(
             colorScheme: cs,
             icon: Icons.search,
-            title: '自動検出 (mDNS)',
-            description: '同一 LAN 内の Bridge Server を自動で見つけて表示します。',
+            title: l.guideConnectionMdns,
+            description: l.guideConnectionMdnsDescription,
           ),
           const SizedBox(height: 12),
           _ConnectionMethod(
             colorScheme: cs,
             icon: Icons.edit,
-            title: '手動入力',
-            description: 'ws://<IP アドレス>:8765 の形式で直接入力します。',
+            title: l.guideConnectionManual,
+            description: l.guideConnectionManualDescription,
           ),
         ],
       ),
@@ -52,6 +55,7 @@ class _ConnectionMethod extends StatelessWidget {
   final String title;
   final String description;
   final bool recommended;
+  final String? recommendedLabel;
 
   const _ConnectionMethod({
     required this.colorScheme,
@@ -59,6 +63,7 @@ class _ConnectionMethod extends StatelessWidget {
     required this.title,
     required this.description,
     this.recommended = false,
+    this.recommendedLabel,
   });
 
   @override
@@ -102,7 +107,7 @@ class _ConnectionMethod extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          'おすすめ',
+                          recommendedLabel ?? '',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,

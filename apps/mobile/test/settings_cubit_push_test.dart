@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
+import 'package:ccpocket/features/settings/state/settings_state.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/fcm_service.dart';
@@ -109,7 +110,7 @@ void main() {
 
       expect(bridge.registerCalls, [(token: 'token-1', platform: 'ios')]);
       expect(cubit.state.fcmAvailable, isTrue);
-      expect(cubit.state.fcmStatusMessage, '通知を有効化しました');
+      expect(cubit.state.fcmStatusKey, FcmStatusKey.enabled);
 
       await cubit.close();
       await fcm.disposeFake();

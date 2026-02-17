@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../utils/diff_parser.dart';
 
@@ -75,9 +76,9 @@ class ChatInputBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (attachedDiffSelection != null) _buildDiffPreview(cs),
+          if (attachedDiffSelection != null) _buildDiffPreview(context, cs),
           if (attachedImageBytes != null) _buildImagePreview(cs),
-          _buildTextField(cs),
+          _buildTextField(context, cs),
           const SizedBox(height: 4),
           Row(
             children: [
@@ -95,7 +96,7 @@ class ChatInputBar extends StatelessWidget {
                 _buildVoiceButton(cs),
               ],
               const Spacer(),
-              _buildActionButton(cs),
+              _buildActionButton(context, cs),
             ],
           ),
         ],
@@ -220,18 +221,19 @@ class ChatInputBar extends StatelessWidget {
     );
   }
 
-  Widget _buildDiffPreview(ColorScheme cs) {
+  Widget _buildDiffPreview(BuildContext context, ColorScheme cs) {
+    final l = AppLocalizations.of(context);
     final sel = attachedDiffSelection!;
     final parts = <String>[];
 
     // Build summary
     final summaryParts = <String>[];
     if (sel.mentions.isNotEmpty) {
-      summaryParts.add('${sel.mentions.length} file(s) @mentioned');
+      summaryParts.add(l.filesMentioned(sel.mentions.length));
     }
     if (sel.diffText.isNotEmpty) {
       final lineCount = sel.diffText.split('\n').length;
-      summaryParts.add('$lineCount diff lines');
+      summaryParts.add(l.diffLines(lineCount));
     }
     final summary = summaryParts.join(', ');
 
@@ -302,12 +304,13 @@ class ChatInputBar extends StatelessWidget {
     );
   }
 
-  Widget _buildTextField(ColorScheme cs) {
+  Widget _buildTextField(BuildContext context, ColorScheme cs) {
+    final l = AppLocalizations.of(context);
     return TextField(
       key: const ValueKey('message_input'),
       controller: inputController,
       decoration: InputDecoration(
-        hintText: hintText ?? 'Message Claude...',
+        hintText: hintText ?? l.messagePlaceholder,
         filled: true,
         fillColor: cs.surfaceContainerLow,
         border: OutlineInputBorder(
@@ -339,19 +342,20 @@ class ChatInputBar extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButton(ColorScheme cs) {
+  Widget _buildActionButton(BuildContext context, ColorScheme cs) {
     if (status == ProcessStatus.starting) {
       return _buildSendButton(cs, enabled: false);
     }
     if (status != ProcessStatus.idle && !hasInputText) {
-      return _buildStopButton(cs);
+      return _buildStopButton(context, cs);
     }
     return _buildSendButton(cs, enabled: hasInputText);
   }
 
-  Widget _buildStopButton(ColorScheme cs) {
+  Widget _buildStopButton(BuildContext context, ColorScheme cs) {
+    final l = AppLocalizations.of(context);
     return Tooltip(
-      message: 'Tap: interrupt, Hold: stop',
+      message: l.tapInterruptHoldStop,
       child: Material(
         color: cs.error,
         borderRadius: BorderRadius.circular(20),

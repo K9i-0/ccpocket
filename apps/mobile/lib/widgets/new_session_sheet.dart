@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../features/session_list/session_list_screen.dart' show shortenPath;
 import '../services/bridge_service.dart';
@@ -378,7 +379,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     }
     final value = int.tryParse(raw);
     if (value == null || value < 1) {
-      _maxTurnsError = 'Must be an integer > 0';
+      _maxTurnsError = AppLocalizations.of(context).maxTurnsError;
       return false;
     }
     _maxTurnsError = null;
@@ -394,7 +395,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     }
     final value = double.tryParse(raw);
     if (value == null || value < 0) {
-      _maxBudgetError = 'Must be a number >= 0';
+      _maxBudgetError = AppLocalizations.of(context).maxBudgetError;
       return false;
     }
     _maxBudgetError = null;
@@ -504,6 +505,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Widget _buildTitle() {
+    final l = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     final claudeStyle = providerStyleFor(context, Provider.claude);
     final codexStyle = providerStyleFor(context, Provider.codex);
@@ -519,9 +521,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'New Session',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          Text(
+            l.newSession,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -571,13 +573,14 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Widget _buildRecentProjectsSection(AppColors appColors) {
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'Recent Projects',
+            l.recentProjects,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -627,6 +630,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Widget _buildDivider(AppColors appColors) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -637,7 +641,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text(
-              'or enter path',
+              l.orEnterPath,
               style: TextStyle(fontSize: 11, color: appColors.subtleText),
             ),
           ),
@@ -650,15 +654,16 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Widget _buildPathInput() {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: TextField(
         key: const ValueKey('dialog_project_path'),
         controller: _pathController,
-        decoration: const InputDecoration(
-          labelText: 'Project Path',
-          hintText: '/path/to/your/project',
-          border: OutlineInputBorder(),
+        decoration: InputDecoration(
+          labelText: l.projectPath,
+          hintText: l.projectPathHint,
+          border: const OutlineInputBorder(),
           isDense: true,
         ),
         onChanged: (_) => setState(() {}),
@@ -667,6 +672,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Widget _buildOptions(AppColors appColors) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -677,9 +683,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             DropdownButtonFormField<PermissionMode>(
               key: const ValueKey('dialog_permission_mode'),
               initialValue: _permissionMode,
-              decoration: const InputDecoration(
-                labelText: 'Permission',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l.permission,
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
               items: PermissionMode.values
@@ -703,9 +709,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             DropdownButtonFormField<ApprovalPolicy>(
               key: const ValueKey('dialog_codex_approval'),
               initialValue: _approvalPolicy,
-              decoration: const InputDecoration(
-                labelText: 'Approval',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l.approval,
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
               style: TextStyle(
@@ -738,7 +744,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               avatar: _useWorktree
                   ? null
                   : const Icon(Icons.account_tree_outlined, size: 16),
-              label: const Text('Worktree', style: TextStyle(fontSize: 13)),
+              label: Text(l.worktree, style: const TextStyle(fontSize: 13)),
               selected: _useWorktree,
               onSelected: _onWorktreeToggle,
             ),
@@ -757,6 +763,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
   /// Unified Advanced options section for both providers.
   Widget _buildAdvancedOptions(AppColors appColors) {
+    final l = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: appColors.subtleText.withValues(alpha: 0.2)),
@@ -766,7 +773,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         key: ValueKey('dialog_advanced_${_provider.value}'),
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        title: const Text('Advanced', style: TextStyle(fontSize: 13)),
+        title: Text(l.advanced, style: const TextStyle(fontSize: 13)),
         children: _provider == Provider.claude
             ? _buildClaudeAdvancedChildren()
             : _buildCodexAdvancedChildren(),
@@ -775,16 +782,17 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   List<Widget> _buildClaudeAdvancedChildren() {
+    final l = AppLocalizations.of(context);
     return [
       TextField(
         key: const ValueKey('dialog_claude_model'),
         controller: _claudeModelController,
-        decoration: const InputDecoration(
-          labelText: 'Model (optional)',
+        decoration: InputDecoration(
+          labelText: l.modelOptional,
           hintText: 'claude-sonnet-4-5',
-          border: OutlineInputBorder(),
+          border: const OutlineInputBorder(),
           isDense: true,
-          prefixIcon: Icon(Icons.psychology_outlined, size: 18),
+          prefixIcon: const Icon(Icons.psychology_outlined, size: 18),
         ),
         style: const TextStyle(fontSize: 13),
       ),
@@ -795,9 +803,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             child: DropdownButtonFormField<ClaudeEffort?>(
               key: const ValueKey('dialog_claude_effort'),
               initialValue: _claudeEffort,
-              decoration: const InputDecoration(
-                labelText: 'Effort',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l.effort,
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
               style: TextStyle(
@@ -805,9 +813,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               items: [
-                const DropdownMenuItem<ClaudeEffort?>(
+                DropdownMenuItem<ClaudeEffort?>(
                   value: null,
-                  child: Text('Default', style: TextStyle(fontSize: 13)),
+                  child: Text(
+                    l.defaultLabel,
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ),
                 for (final effort in ClaudeEffort.values)
                   DropdownMenuItem<ClaudeEffort?>(
@@ -830,8 +841,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               controller: _claudeMaxTurnsController,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                labelText: 'Max Turns',
-                hintText: 'e.g. 8',
+                labelText: l.maxTurns,
+                hintText: l.maxTurnsHint,
                 border: const OutlineInputBorder(),
                 isDense: true,
                 errorText: _maxTurnsError,
@@ -856,8 +867,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 decimal: true,
               ),
               decoration: InputDecoration(
-                labelText: 'Max Budget (USD)',
-                hintText: 'e.g. 1.00',
+                labelText: l.maxBudgetUsd,
+                hintText: l.maxBudgetHint,
                 border: const OutlineInputBorder(),
                 isDense: true,
                 errorText: _maxBudgetError,
@@ -874,10 +885,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             child: TextField(
               key: const ValueKey('dialog_claude_fallback_model'),
               controller: _claudeFallbackModelController,
-              decoration: const InputDecoration(
-                labelText: 'Fallback Model',
+              decoration: InputDecoration(
+                labelText: l.fallbackModel,
                 hintText: 'claude-haiku-4-5',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
               style: const TextStyle(fontSize: 13),
@@ -889,9 +900,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       SwitchListTile(
         key: const ValueKey('dialog_claude_fork_session'),
         contentPadding: EdgeInsets.zero,
-        title: const Text(
-          'Fork Session on Resume',
-          style: TextStyle(fontSize: 13),
+        title: Text(
+          l.forkSessionOnResume,
+          style: const TextStyle(fontSize: 13),
         ),
         value: _claudeForkSession,
         onChanged: (value) {
@@ -901,9 +912,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       SwitchListTile(
         key: const ValueKey('dialog_claude_persist_session'),
         contentPadding: EdgeInsets.zero,
-        title: const Text(
-          'Persist Session History',
-          style: TextStyle(fontSize: 13),
+        title: Text(
+          l.persistSessionHistory,
+          style: const TextStyle(fontSize: 13),
         ),
         value: _claudePersistSession,
         onChanged: (value) {
@@ -914,24 +925,25 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   List<Widget> _buildCodexAdvancedChildren() {
+    final l = AppLocalizations.of(context);
     return [
       DropdownButtonFormField<String?>(
         key: const ValueKey('dialog_codex_model'),
         initialValue: _selectedModel,
-        decoration: const InputDecoration(
-          labelText: 'Model',
-          border: OutlineInputBorder(),
+        decoration: InputDecoration(
+          labelText: l.model,
+          border: const OutlineInputBorder(),
           isDense: true,
-          prefixIcon: Icon(Icons.psychology_outlined, size: 18),
+          prefixIcon: const Icon(Icons.psychology_outlined, size: 18),
         ),
         style: TextStyle(
           fontSize: 13,
           color: Theme.of(context).colorScheme.onSurface,
         ),
         items: [
-          const DropdownMenuItem<String?>(
+          DropdownMenuItem<String?>(
             value: null,
-            child: Text('Default', style: TextStyle(fontSize: 13)),
+            child: Text(l.defaultLabel, style: const TextStyle(fontSize: 13)),
           ),
           for (final model in _codexModels)
             DropdownMenuItem<String?>(
@@ -945,9 +957,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       DropdownButtonFormField<SandboxMode>(
         key: const ValueKey('dialog_codex_sandbox'),
         initialValue: _sandboxMode,
-        decoration: const InputDecoration(
-          labelText: 'Sandbox',
-          border: OutlineInputBorder(),
+        decoration: InputDecoration(
+          labelText: l.sandbox,
+          border: const OutlineInputBorder(),
           isDense: true,
         ),
         style: TextStyle(
@@ -973,9 +985,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             child: DropdownButtonFormField<ReasoningEffort?>(
               key: const ValueKey('dialog_codex_reasoning_effort'),
               initialValue: _modelReasoningEffort,
-              decoration: const InputDecoration(
-                labelText: 'Reasoning',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l.reasoning,
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
               style: TextStyle(
@@ -983,9 +995,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               items: [
-                const DropdownMenuItem<ReasoningEffort?>(
+                DropdownMenuItem<ReasoningEffort?>(
                   value: null,
-                  child: Text('Default', style: TextStyle(fontSize: 13)),
+                  child: Text(
+                    l.defaultLabel,
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ),
                 for (final effort in ReasoningEffort.values)
                   DropdownMenuItem<ReasoningEffort?>(
@@ -1006,9 +1021,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             child: DropdownButtonFormField<WebSearchMode?>(
               key: const ValueKey('dialog_codex_web_search_mode'),
               initialValue: _webSearchMode,
-              decoration: const InputDecoration(
-                labelText: 'Web Search',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l.webSearch,
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
               style: TextStyle(
@@ -1016,9 +1031,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               items: [
-                const DropdownMenuItem<WebSearchMode?>(
+                DropdownMenuItem<WebSearchMode?>(
                   value: null,
-                  child: Text('Default', style: TextStyle(fontSize: 13)),
+                  child: Text(
+                    l.defaultLabel,
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ),
                 for (final mode in WebSearchMode.values)
                   DropdownMenuItem<WebSearchMode?>(
@@ -1040,7 +1058,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       SwitchListTile(
         key: const ValueKey('dialog_codex_network_access'),
         contentPadding: EdgeInsets.zero,
-        title: const Text('Network Access', style: TextStyle(fontSize: 13)),
+        title: Text(l.networkAccess, style: const TextStyle(fontSize: 13)),
         value: _networkAccessEnabled,
         onChanged: (value) {
           setState(() => _networkAccessEnabled = value);
@@ -1050,6 +1068,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Widget _buildWorktreeOptions(AppColors appColors) {
+    final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     final hasWorktrees = _worktrees != null && _worktrees!.isNotEmpty;
 
@@ -1061,7 +1080,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           Row(
             children: [
               ChoiceChip(
-                label: const Text('New', style: TextStyle(fontSize: 12)),
+                label: Text(
+                  l.worktreeNew,
+                  style: const TextStyle(fontSize: 12),
+                ),
                 selected: _worktreeMode == _WorktreeMode.createNew,
                 onSelected: (_) => setState(() {
                   _worktreeMode = _WorktreeMode.createNew;
@@ -1072,7 +1094,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               const SizedBox(width: 8),
               ChoiceChip(
                 label: Text(
-                  'Existing (${_worktrees!.length})',
+                  l.worktreeExisting(_worktrees!.length),
                   style: const TextStyle(fontSize: 12),
                 ),
                 selected: _worktreeMode == _WorktreeMode.useExisting,
@@ -1090,12 +1112,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           TextField(
             key: const ValueKey('dialog_worktree_branch'),
             controller: _branchController,
-            decoration: const InputDecoration(
-              labelText: 'Branch (optional)',
-              hintText: 'ccpocket/<auto>',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l.branchOptional,
+              hintText: l.branchHint,
+              border: const OutlineInputBorder(),
               isDense: true,
-              prefixIcon: Icon(Icons.account_tree_outlined, size: 18),
+              prefixIcon: const Icon(Icons.account_tree_outlined, size: 18),
             ),
             style: const TextStyle(fontSize: 13),
           ),
@@ -1116,7 +1138,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
-                'No existing worktrees',
+                l.noExistingWorktrees,
                 style: TextStyle(fontSize: 13, color: appColors.subtleText),
               ),
             )
@@ -1190,6 +1212,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Widget _buildActions() {
+    final l = AppLocalizations.of(context);
     final canStart =
         _hasPath &&
         (!_useWorktree ||
@@ -1202,7 +1225,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           Expanded(
             child: OutlinedButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(l.cancel),
             ),
           ),
           const SizedBox(width: 12),
@@ -1210,7 +1233,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             child: FilledButton(
               key: const ValueKey('dialog_start_button'),
               onPressed: canStart ? _start : null,
-              child: const Text('Start'),
+              child: Text(l.start),
             ),
           ),
         ],

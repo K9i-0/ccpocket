@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
+import '../../l10n/app_localizations.dart';
 import 'widgets/guide_page_about.dart';
 import 'widgets/guide_page_bridge_setup.dart';
 import 'widgets/guide_page_connection.dart';
@@ -19,6 +20,7 @@ class SetupGuideScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     final pageController = usePageController();
     final currentPage = useState(0);
 
@@ -46,12 +48,12 @@ class SetupGuideScreen extends HookWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Setup Guide'),
+        title: Text(l.setupGuideTitle),
         actions: [
           TextButton(
             key: const ValueKey('guide_skip_button'),
             onPressed: close,
-            child: const Text('Skip'),
+            child: Text(l.skip),
           ),
         ],
       ),
@@ -84,7 +86,7 @@ class SetupGuideScreen extends HookWidget {
                       key: const ValueKey('guide_back_button'),
                       onPressed: goBack,
                       icon: const Icon(Icons.arrow_back, size: 18),
-                      label: const Text('Back'),
+                      label: Text(l.back),
                     )
                   else
                     const SizedBox(width: 80),
@@ -109,7 +111,7 @@ class SetupGuideScreen extends HookWidget {
                       onPressed: goNext,
                       iconAlignment: IconAlignment.end,
                       icon: const Icon(Icons.arrow_forward, size: 18),
-                      label: const Text('Next'),
+                      label: Text(l.next),
                     )
                   else
                     SizedBox(
@@ -117,7 +119,7 @@ class SetupGuideScreen extends HookWidget {
                       child: TextButton(
                         key: const ValueKey('guide_done_button'),
                         onPressed: close,
-                        child: const Text('Done'),
+                        child: Text(l.done),
                       ),
                     ),
                 ],

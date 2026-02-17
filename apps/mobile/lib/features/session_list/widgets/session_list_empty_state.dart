@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 
 class SessionListEmptyState extends StatelessWidget {
@@ -9,6 +10,7 @@ class SessionListEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final appColors = Theme.of(context).extension<AppColors>()!;
     return Center(
       child: Padding(
@@ -34,13 +36,16 @@ class SessionListEmptyState extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Ready to start',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                Text(
+                  l.readyToStart,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Press the + button to create a new session and start coding with Claude.',
+                  l.readyToStartDescription,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 14, color: appColors.subtleText),
                 ),
@@ -48,7 +53,7 @@ class SessionListEmptyState extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: onNewSession,
                   icon: const Icon(Icons.add),
-                  label: const Text('New Session'),
+                  label: Text(l.newSession),
                 ),
               ],
             ),

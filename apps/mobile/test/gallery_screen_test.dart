@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
 import 'package:ccpocket/features/gallery/gallery_screen.dart';
+import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 
@@ -49,7 +50,13 @@ Widget _wrapWithTheme(Widget child, _MockBridgeService mock) {
           create: (_) => GalleryCubit(const [], mock.galleryStream),
         ),
       ],
-      child: MaterialApp(theme: AppTheme.darkTheme, home: child),
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('en'),
+        theme: AppTheme.darkTheme,
+        home: child,
+      ),
     ),
   );
 }

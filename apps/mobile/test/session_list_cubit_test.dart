@@ -240,10 +240,7 @@ void main() {
     });
 
     test('resetFilters clears sessions list', () async {
-      mockBridge.emitSessions([
-        _session(id: 's1'),
-        _session(id: 's2'),
-      ]);
+      mockBridge.emitSessions([_session(id: 's1'), _session(id: 's2')]);
       await Future.microtask(() {});
       expect(cubit.state.sessions, hasLength(2));
 
@@ -252,28 +249,30 @@ void main() {
       expect(cubit.state.sessions, isEmpty);
     });
 
-    test('skeleton condition: sessions empty + isInitialLoading after reset',
-        () async {
-      // Simulate: connected, sessions loaded
-      mockBridge.emitSessions([_session(id: 's1')]);
-      await Future.microtask(() {});
-      expect(cubit.state.sessions, isNotEmpty);
-      expect(cubit.state.isInitialLoading, isFalse);
+    test(
+      'skeleton condition: sessions empty + isInitialLoading after reset',
+      () async {
+        // Simulate: connected, sessions loaded
+        mockBridge.emitSessions([_session(id: 's1')]);
+        await Future.microtask(() {});
+        expect(cubit.state.sessions, isNotEmpty);
+        expect(cubit.state.isInitialLoading, isFalse);
 
-      // Simulate: disconnect → resetFilters
-      cubit.resetFilters();
+        // Simulate: disconnect → resetFilters
+        cubit.resetFilters();
 
-      // After reset, skeleton condition should be met:
-      // sessions empty + isInitialLoading true
-      expect(cubit.state.sessions, isEmpty);
-      expect(cubit.state.isInitialLoading, isTrue);
+        // After reset, skeleton condition should be met:
+        // sessions empty + isInitialLoading true
+        expect(cubit.state.sessions, isEmpty);
+        expect(cubit.state.isInitialLoading, isTrue);
 
-      // Simulate: reconnect → sessions arrive again
-      mockBridge.emitSessions([_session(id: 's2')]);
-      await Future.microtask(() {});
+        // Simulate: reconnect → sessions arrive again
+        mockBridge.emitSessions([_session(id: 's2')]);
+        await Future.microtask(() {});
 
-      expect(cubit.state.sessions, hasLength(1));
-      expect(cubit.state.isInitialLoading, isFalse);
-    });
+        expect(cubit.state.sessions, hasLength(1));
+        expect(cubit.state.isInitialLoading, isFalse);
+      },
+    );
   });
 }

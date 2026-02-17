@@ -313,7 +313,8 @@ class _ReplayTabState extends State<_ReplayTab> {
                                 const SizedBox(height: 3),
                                 Text(
                                   [
-                                    if (info.projectName != null) info.projectName!,
+                                    if (info.projectName != null)
+                                      info.projectName!,
                                     info.sizeLabel,
                                     if (dt != null) _formatDate(dt),
                                   ].join(' · '),

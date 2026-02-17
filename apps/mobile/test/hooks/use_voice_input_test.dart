@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/hooks/use_voice_input.dart';
+import 'package:ccpocket/l10n/app_localizations.dart';
 
 void main() {
   group('useVoiceInput', () {
@@ -12,6 +13,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
           home: HookBuilder(
             builder: (context) {
               result = useVoiceInput(controller);

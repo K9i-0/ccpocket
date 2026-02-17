@@ -24,6 +24,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:talker_bloc_logger/talker_bloc_logger.dart';
 
 import 'core/logger.dart';
+import 'l10n/app_localizations.dart';
 import 'features/session_list/state/session_list_cubit.dart';
 import 'features/settings/state/settings_cubit.dart';
 import 'features/settings/state/settings_state.dart';
@@ -224,6 +225,11 @@ class _CcpocketAppState extends State<CcpocketApp> {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: settings.themeMode,
+          locale: settings.appLocaleId.isEmpty
+              ? null
+              : Locale(settings.appLocaleId),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           routerConfig: _appRouter.config(),
         );
       },

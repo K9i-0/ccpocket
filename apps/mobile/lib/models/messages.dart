@@ -113,7 +113,7 @@ enum PermissionMode {
   acceptEdits('acceptEdits', 'Accept Edits'),
   bypassPermissions('bypassPermissions', 'Bypass All'),
   plan('plan', 'Plan Only'),
-  defaultMode('default', 'Default (非推奨)'),
+  defaultMode('default', 'Default'),
   delegate('delegate', 'Delegate'),
   dontAsk('dontAsk', "Don't Ask");
 
@@ -511,9 +511,7 @@ sealed class ServerMessage {
       ),
       'recording_list' => RecordingListMessage(
         recordings: (json['recordings'] as List)
-            .map(
-              (r) => RecordingInfo.fromJson(r as Map<String, dynamic>),
-            )
+            .map((r) => RecordingInfo.fromJson(r as Map<String, dynamic>))
             .toList(),
       ),
       'recording_content' => RecordingContentMessage(

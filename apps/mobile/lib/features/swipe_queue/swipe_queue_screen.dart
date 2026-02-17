@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 import 'swipe_queue_data.dart';
 import 'widgets/approval_card.dart';
@@ -516,17 +517,18 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     final total = sampleApprovalItems.length;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Approval Queue'),
+        title: Text(l.approvalQueue),
         actions: [
           if (_processedCount > 0)
             IconButton(
               icon: const Icon(Icons.refresh),
-              tooltip: 'Reset queue',
+              tooltip: l.resetQueue,
               onPressed: _resetQueue,
             ),
         ],
@@ -553,6 +555,7 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
 
   Widget _buildCardStack(ColorScheme cs) {
     if (_queue.isEmpty) return const SizedBox.shrink();
+    final l = AppLocalizations.of(context);
 
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
@@ -728,7 +731,7 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: _buildSwipeLabel('SKIP', Colors.amber, _dragY),
+                  child: _buildSwipeLabel(l.swipeSkip, Colors.amber, _dragY),
                 ),
               ),
           ],
@@ -740,6 +743,7 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
   // ── Prompt card stack ───────────────────────────────────────────────
 
   Widget _buildPromptCardStack(ColorScheme cs) {
+    final l = AppLocalizations.of(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
@@ -814,13 +818,17 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
               Positioned(
                 top: 40,
                 right: 40,
-                child: _buildSwipeLabel('SEND', Colors.green, _dragX),
+                child: _buildSwipeLabel(l.swipeSend, Colors.green, _dragX),
               ),
             if (!_isTextFieldFocused && _dragX < -30)
               Positioned(
                 top: 40,
                 left: 40,
-                child: _buildSwipeLabel('DISMISS', Colors.amber, _dragX.abs()),
+                child: _buildSwipeLabel(
+                  l.swipeDismiss,
+                  Colors.amber,
+                  _dragX.abs(),
+                ),
               ),
           ],
         );
@@ -851,18 +859,20 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
   // ── Overlay helpers ──────────────────────────────────────────────────
 
   String get _overlayText {
+    final l = AppLocalizations.of(context);
     final mode = _swipeMode;
     if (mode == SwipeMode.selectOption) {
-      if (_isInSkipZone) return 'SKIP';
+      if (_isInSkipZone) return l.swipeSkip;
       final idx = _highlightedOptionIndex;
       if (idx != null && _queue.first.options != null) {
         return _queue.first.options![idx].label.toUpperCase();
       }
       return '';
     }
-    if (mode == SwipeMode.deferOnly) return 'SKIP';
-    if (mode == SwipeMode.promptInput) return _dragX > 0 ? 'SEND' : 'DISMISS';
-    return _dragX > 0 ? 'APPROVE' : 'REJECT';
+    if (mode == SwipeMode.deferOnly) return l.swipeSkip;
+    if (mode == SwipeMode.promptInput)
+      return _dragX > 0 ? l.swipeSend : l.swipeDismiss;
+    return _dragX > 0 ? l.swipeApprove : l.swipeReject;
   }
 
   Color get _overlayColor {
@@ -967,6 +977,7 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
   }
 
   Widget _buildAllClearedState(ColorScheme cs) {
+    final l = AppLocalizations.of(context);
     return _buildEmptyStateLayout(
       icon: TweenAnimationBuilder<double>(
         tween: Tween(begin: 0, end: 1),
@@ -984,11 +995,11 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
           child: Icon(Icons.check_circle_outline, size: 48, color: cs.primary),
         ),
       ),
-      title: 'All Clear!',
-      subtitle: '$_processedCount items processed',
+      title: l.allClear,
+      subtitle: l.itemsProcessed(_processedCount),
       extra: _bestStreak > 0
           ? Text(
-              'Best streak: $_bestStreak',
+              l.bestStreak(_bestStreak),
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -999,12 +1010,13 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
       action: FilledButton.icon(
         onPressed: _resetQueue,
         icon: const Icon(Icons.replay),
-        label: const Text('Try Again'),
+        label: Text(l.tryAgain),
       ),
     );
   }
 
   Widget _buildWaitingForPromptState(ColorScheme cs) {
+    final l = AppLocalizations.of(context);
     return _buildEmptyStateLayout(
       icon: Container(
         width: 80,
@@ -1015,17 +1027,18 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
         ),
         child: const Icon(Icons.hourglass_empty, size: 48, color: Colors.amber),
       ),
-      title: 'Waiting for tasks',
-      subtitle: 'The agent is ready for your next prompt.',
+      title: l.waitingForTasks,
+      subtitle: l.agentReadyForPrompt,
       action: FilledButton.icon(
         onPressed: () => context.router.maybePop(),
         icon: const Icon(Icons.arrow_back),
-        label: const Text('Back to Sessions'),
+        label: Text(l.backToSessions),
       ),
     );
   }
 
   Widget _buildAgentWorkingState(ColorScheme cs) {
+    final l = AppLocalizations.of(context);
     return _buildEmptyStateLayout(
       icon: SizedBox(
         width: 80,
@@ -1038,17 +1051,18 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
           ),
         ),
       ),
-      title: 'Working...',
-      subtitle: 'Waiting for approval requests from the agent.',
+      title: l.working,
+      subtitle: l.waitingForApprovalRequests,
       action: OutlinedButton.icon(
         onPressed: () => context.router.maybePop(),
         icon: const Icon(Icons.arrow_back),
-        label: const Text('Back to Sessions'),
+        label: Text(l.backToSessions),
       ),
     );
   }
 
   Widget _buildNoSessionsState(ColorScheme cs) {
+    final l = AppLocalizations.of(context);
     return _buildEmptyStateLayout(
       icon: Container(
         width: 80,
@@ -1059,12 +1073,12 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
         ),
         child: Icon(Icons.rocket_launch_outlined, size: 48, color: cs.primary),
       ),
-      title: 'No active sessions',
-      subtitle: 'Start a session to begin receiving approval requests.',
+      title: l.noActiveSessions,
+      subtitle: l.startSessionToBegin,
       action: FilledButton.icon(
         onPressed: () => context.router.maybePop(),
         icon: const Icon(Icons.add),
-        label: const Text('Back to Sessions'),
+        label: Text(l.backToSessions),
       ),
     );
   }

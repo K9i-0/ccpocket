@@ -3,13 +3,20 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/features/diff/diff_screen.dart';
+import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 
 Widget _wrap(Widget child) {
   return RepositoryProvider<BridgeService>.value(
     value: BridgeService(),
-    child: MaterialApp(theme: AppTheme.darkTheme, home: child),
+    child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('en'),
+      theme: AppTheme.darkTheme,
+      home: child,
+    ),
   );
 }
 

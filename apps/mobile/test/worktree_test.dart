@@ -2,11 +2,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/widgets/new_session_sheet.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 
 Widget _wrap(Widget child) {
   return MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    locale: const Locale('en'),
     theme: AppTheme.darkTheme,
     home: Scaffold(body: child),
   );
@@ -222,6 +226,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
           theme: AppTheme.darkTheme,
           home: Scaffold(
             body: Builder(
@@ -270,6 +277,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
           theme: AppTheme.darkTheme,
           home: Scaffold(
             body: Builder(
@@ -339,6 +349,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
           theme: AppTheme.darkTheme,
           home: Scaffold(
             body: Builder(

@@ -4,10 +4,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../router/app_router.dart';
 import '../../services/bridge_service.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
+import 'widgets/app_locale_bottom_sheet.dart';
 import 'widgets/speech_locale_bottom_sheet.dart';
 import 'widgets/theme_bottom_sheet.dart';
 import 'widgets/usage_section.dart';
@@ -19,15 +21,16 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(l.settingsTitle)),
       body: BlocBuilder<SettingsCubit, SettingsState>(
         builder: (context, state) {
           return ListView(
             children: [
               // ── General ──
-              _SectionHeader(title: 'GENERAL'),
+              _SectionHeader(title: l.sectionGeneral),
               Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -35,8 +38,8 @@ class SettingsScreen extends StatelessWidget {
                     // Theme
                     ListTile(
                       leading: Icon(Icons.palette, color: cs.primary),
-                      title: const Text('Theme'),
-                      subtitle: Text(_getThemeLabel(state.themeMode)),
+                      title: Text(l.theme),
+                      subtitle: Text(_getThemeLabel(context, state.themeMode)),
                       trailing: const Icon(Icons.chevron_right, size: 20),
                       onTap: () => showThemeBottomSheet(
                         context: context,
@@ -51,10 +54,31 @@ class SettingsScreen extends StatelessWidget {
                       endIndent: 16,
                       color: cs.outlineVariant,
                     ),
+                    // Language
+                    ListTile(
+                      leading: Icon(Icons.language, color: cs.primary),
+                      title: Text(l.language),
+                      subtitle: Text(
+                        getAppLocaleLabel(context, state.appLocaleId),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => showAppLocaleBottomSheet(
+                        context: context,
+                        current: state.appLocaleId,
+                        onChanged: (id) =>
+                            context.read<SettingsCubit>().setAppLocaleId(id),
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
                     // Voice Input
                     ListTile(
                       leading: Icon(Icons.record_voice_over, color: cs.primary),
-                      title: const Text('Voice Input'),
+                      title: Text(l.voiceInput),
                       subtitle: Text(
                         getSpeechLocaleLabel(state.speechLocaleId),
                       ),
@@ -88,7 +112,7 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(height: 8),
 
               // ── About ──
-              _SectionHeader(title: 'ABOUT'),
+              _SectionHeader(title: l.sectionAbout),
               Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -107,8 +131,8 @@ class SettingsScreen extends StatelessWidget {
                         Icons.lightbulb_outline,
                         color: cs.onSurfaceVariant,
                       ),
-                      title: const Text('Setup Guide'),
-                      subtitle: const Text('初めての方はこちら'),
+                      title: Text(l.setupGuide),
+                      subtitle: Text(l.setupGuideSubtitle),
                       trailing: const Icon(Icons.chevron_right, size: 20),
                       onTap: () => context.router.push(const SetupGuideRoute()),
                     ),
@@ -124,7 +148,7 @@ class SettingsScreen extends StatelessWidget {
                         Icons.article_outlined,
                         color: cs.onSurfaceVariant,
                       ),
-                      title: const Text('Open Source Licenses'),
+                      title: Text(l.openSourceLicenses),
                       trailing: const Icon(Icons.chevron_right, size: 20),
                       onTap: () => context.router.push(const LicensesRoute()),
                     ),
@@ -161,14 +185,15 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  static String _getThemeLabel(ThemeMode mode) {
+  static String _getThemeLabel(BuildContext context, ThemeMode mode) {
+    final l = AppLocalizations.of(context);
     switch (mode) {
       case ThemeMode.system:
-        return 'System';
+        return l.themeSystem;
       case ThemeMode.light:
-        return 'Light';
+        return l.themeLight;
       case ThemeMode.dark:
-        return 'Dark';
+        return l.themeDark;
     }
   }
 }
@@ -201,17 +226,31 @@ class _PushNotificationTile extends StatelessWidget {
 
   const _PushNotificationTile({required this.state, required this.onChanged});
 
+  static String? _resolveFcmStatus(AppLocalizations l, FcmStatusKey? key) {
+    if (key == null) return null;
+    return switch (key) {
+      FcmStatusKey.unavailable => l.pushNotificationsUnavailable,
+      FcmStatusKey.bridgeNotInitialized => l.fcmBridgeNotInitialized,
+      FcmStatusKey.tokenFailed => l.fcmTokenFailed,
+      FcmStatusKey.enabled => l.fcmEnabled,
+      FcmStatusKey.enabledPending => l.fcmEnabledPending,
+      FcmStatusKey.disabled => l.fcmDisabled,
+      FcmStatusKey.disabledPending => l.fcmDisabledPending,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final baseSubtitle = state.fcmAvailable
-        ? 'Bridge 経由でセッション通知を受け取ります'
-        : 'Firebase 設定後に利用できます';
-    final subtitle = state.fcmStatusMessage ?? baseSubtitle;
+        ? l.pushNotificationsSubtitle
+        : l.pushNotificationsUnavailable;
+    final subtitle = _resolveFcmStatus(l, state.fcmStatusKey) ?? baseSubtitle;
 
     return SwitchListTile(
       value: state.fcmEnabled,
       onChanged: state.fcmSyncInProgress ? null : onChanged,
-      title: const Text('Push Notifications'),
+      title: Text(l.pushNotifications),
       subtitle: Text(subtitle),
       secondary: state.fcmSyncInProgress
           ? const SizedBox(
@@ -264,10 +303,12 @@ class _VersionTileState extends State<_VersionTile> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
+    final l = AppLocalizations.of(context);
+
     return ListTile(
       leading: Icon(Icons.info_outline, color: cs.onSurfaceVariant),
-      title: const Text('Version'),
-      subtitle: Text(_versionText ?? 'Loading...'),
+      title: Text(l.version),
+      subtitle: Text(_versionText ?? l.loading),
     );
   }
 }

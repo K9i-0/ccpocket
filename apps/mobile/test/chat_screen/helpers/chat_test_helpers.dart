@@ -8,6 +8,7 @@ import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/database_service.dart';
 import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/services/prompt_history_service.dart';
+import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
@@ -107,6 +108,9 @@ Future<Widget> buildTestClaudeCodeSessionScreen({
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   return MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    locale: const Locale('en'),
     theme: AppTheme.darkTheme,
     home: MultiRepositoryProvider(
       providers: [

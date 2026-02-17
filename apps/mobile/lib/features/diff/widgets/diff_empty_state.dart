@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 
 class DiffEmptyState extends StatelessWidget {
@@ -15,7 +16,7 @@ class DiffEmptyState extends StatelessWidget {
           Icon(Icons.check_circle_outline, size: 48, color: appColors.toolIcon),
           const SizedBox(height: 12),
           Text(
-            'No changes',
+            AppLocalizations.of(context).noChanges,
             style: TextStyle(fontSize: 16, color: appColors.subtleText),
           ),
         ],

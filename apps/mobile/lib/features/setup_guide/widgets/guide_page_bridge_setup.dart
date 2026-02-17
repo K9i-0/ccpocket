@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import 'guide_page.dart';
 
 /// Page 2: Bridge Server のセットアップ
@@ -9,38 +10,44 @@ class GuidePageBridgeSetup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     final bodyStyle = Theme.of(context).textTheme.bodyLarge;
 
     return GuidePage(
       icon: Icons.dns,
-      title: 'Bridge Server の\nセットアップ',
+      title: l.guideBridgeTitle,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('PC で Bridge Server を起動しましょう。', style: bodyStyle),
+          Text(l.guideBridgeDescription, style: bodyStyle),
           const SizedBox(height: 16),
           // Prerequisites
           _InfoCard(
             colorScheme: cs,
             icon: Icons.checklist,
-            title: '必要なもの',
-            items: const [
-              'Node.js がインストールされた Mac / PC',
-              'Claude Code CLI または Codex CLI\n（使いたい方だけでOK）',
-            ],
+            title: l.guideBridgePrerequisites,
+            items: [l.guideBridgePrereq1, l.guideBridgePrereq2],
           ),
           const SizedBox(height: 16),
           // Steps
           _StepCard(
             colorScheme: cs,
-            steps: const [
+            steps: [
               _Step(
                 number: '1',
-                title: 'プロジェクトを取得',
-                code: 'git clone <repo-url>\nnpm install',
+                title: l.guideBridgeStep1,
+                code: l.guideBridgeStep1Command,
               ),
-              _Step(number: '2', title: 'ビルド', code: 'npm run bridge:build'),
-              _Step(number: '3', title: '起動', code: 'npm run bridge'),
+              _Step(
+                number: '2',
+                title: l.guideBridgeStep2,
+                code: l.guideBridgeStep2Command,
+              ),
+              _Step(
+                number: '3',
+                title: l.guideBridgeStep3,
+                code: l.guideBridgeStep3Command,
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -57,7 +64,7 @@ class GuidePageBridgeSetup extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '起動するとターミナルに QR コードが表示されます',
+                    l.guideBridgeQrNote,
                     style: TextStyle(
                       fontSize: 13,
                       color: cs.onTertiaryContainer,

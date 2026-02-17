@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import 'guide_page.dart';
 
 /// Page 1: CC Pocketとは
@@ -9,18 +10,16 @@ class GuidePageAbout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     final bodyStyle = Theme.of(context).textTheme.bodyLarge;
 
     return GuidePage(
       icon: Icons.smartphone,
-      title: 'CC Pocket とは',
+      title: l.guideAboutTitle,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'スマートフォンから Claude Code や Codex を操作できるモバイルクライアントです。',
-            style: bodyStyle,
-          ),
+          Text(l.guideAboutDescription, style: bodyStyle),
           const SizedBox(height: 24),
           // Architecture diagram
           Container(
@@ -33,23 +32,23 @@ class GuidePageAbout extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  'しくみ',
+                  l.guideAboutDiagramTitle,
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 12),
                 _ArchDiagramRow(
-                  items: const [
-                    'iPhone',
-                    'Bridge Server',
-                    'Claude CLI\n/ Codex',
+                  items: [
+                    l.guideAboutDiagramPhone,
+                    l.guideAboutDiagramBridge,
+                    l.guideAboutDiagramClaude,
                   ],
                   colorScheme: cs,
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'PC で Bridge Server を起動し、\nスマホから接続して使います。',
+                  l.guideAboutDiagramCaption,
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),

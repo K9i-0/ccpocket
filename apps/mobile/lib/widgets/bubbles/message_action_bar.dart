@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 
@@ -41,9 +42,9 @@ class MessageActionBar extends StatelessWidget {
               Clipboard.setData(ClipboardData(text: textToCopy));
               HapticFeedback.lightImpact();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Copied'),
-                  duration: Duration(seconds: 1),
+                SnackBar(
+                  content: Text(AppLocalizations.of(context).copied),
+                  duration: const Duration(seconds: 1),
                 ),
               );
             },

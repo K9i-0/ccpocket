@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
@@ -145,10 +146,7 @@ class UserBubble extends StatelessWidget {
   }
 
   /// CLI-style command bubble: "/command-name args" in a single bubble.
-  Widget _buildCommandBubble(
-    BuildContext context,
-    ParsedCommand command,
-  ) {
+  Widget _buildCommandBubble(BuildContext context, ParsedCommand command) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final hasArgs = command.args != null && command.args!.isNotEmpty;
 
@@ -194,9 +192,7 @@ class UserBubble extends StatelessWidget {
                     if (hasArgs) ...[
                       TextSpan(
                         text: ' ${command.args}',
-                        style: TextStyle(
-                          color: appColors.userBubbleText,
-                        ),
+                        style: TextStyle(color: appColors.userBubbleText),
                       ),
                     ],
                   ],
@@ -263,7 +259,7 @@ class UserBubble extends StatelessWidget {
               ListTile(
                 dense: true,
                 leading: const Icon(Icons.copy, size: 20),
-                title: const Text('Copy'),
+                title: Text(AppLocalizations.of(context).copy),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -271,9 +267,9 @@ class UserBubble extends StatelessWidget {
                   Clipboard.setData(ClipboardData(text: text));
                   Navigator.of(ctx).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Copied'),
-                      duration: Duration(seconds: 1),
+                    SnackBar(
+                      content: Text(AppLocalizations.of(context).copied),
+                      duration: const Duration(seconds: 1),
                     ),
                   );
                 },
@@ -286,7 +282,7 @@ class UserBubble extends StatelessWidget {
                     size: 20,
                     color: Theme.of(ctx).colorScheme.primary,
                   ),
-                  title: const Text('Rewind to here'),
+                  title: Text(AppLocalizations.of(context).rewindToHere),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -327,7 +323,7 @@ class UserBubble extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            'Tap to retry',
+            AppLocalizations.of(context).tapToRetry,
             style: TextStyle(
               fontSize: 11,
               color: Theme.of(context).colorScheme.error,

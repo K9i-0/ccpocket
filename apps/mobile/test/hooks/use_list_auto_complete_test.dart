@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/hooks/use_list_auto_complete.dart';
+import 'package:ccpocket/l10n/app_localizations.dart';
 
 void main() {
   group('useListAutoComplete', () {
@@ -11,6 +12,9 @@ void main() {
     /// Builds a minimal widget tree that activates the hook.
     Widget buildHarness(TextEditingController ctrl) {
       return MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('en'),
         home: Scaffold(
           body: HookBuilder(
             builder: (context) {

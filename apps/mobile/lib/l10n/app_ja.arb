@@ -1,0 +1,376 @@
+{
+  "@@locale": "ja",
+
+  "appTitle": "CC Pocket",
+
+  "cancel": "キャンセル",
+  "delete": "削除",
+  "connect": "接続",
+  "copy": "コピー",
+  "copied": "コピーしました",
+  "copiedToClipboard": "クリップボードにコピーしました",
+  "lineCopied": "行をコピーしました",
+  "start": "開始",
+  "stop": "停止",
+  "send": "送信",
+  "settings": "設定",
+  "gallery": "ギャラリー",
+  "galleryWithCount": "ギャラリー ({count})",
+  "@galleryWithCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "disconnect": "切断",
+  "back": "戻る",
+  "next": "次へ",
+  "done": "完了",
+  "skip": "スキップ",
+  "edit": "編集",
+  "share": "共有",
+  "all": "すべて",
+  "none": "なし",
+
+  "serverUnreachable": "サーバーに接続できません",
+  "serverUnreachableBody": "Bridge サーバーに到達できません:",
+  "setupSteps": "セットアップ手順:",
+  "setupStep1Title": "Bridge Server をインストール・ビルド",
+  "setupStep1Command": "cd packages/bridge && npm install && npm run bridge:build",
+  "setupStep2Title": "サーバーを起動",
+  "setupStep2Command": "npm run bridge",
+  "setupStep3Title": "常時起動したい場合はサービス登録",
+  "setupStep3Command": "npm run setup",
+  "setupNetworkHint": "両方のデバイスが同じネットワーク上にあることを確認してください（または Tailscale を使用）。",
+  "connectAnyway": "接続を続行",
+
+  "stopSession": "セッションを停止",
+  "stopSessionConfirm": "このセッションを停止しますか？ Claude プロセスが終了します。",
+
+  "startNewWithSameSettings": "同じ設定で新規開始",
+  "editSettingsThenStart": "設定を変更して開始",
+
+  "serverRequiresApiKey": "このサーバーには API キーが必要です",
+  "bridgeServerUpdated": "Bridge Server を更新しました",
+  "failedToUpdateServer": "サーバーの更新に失敗しました",
+  "bridgeServerStarted": "Bridge Server を起動しました",
+  "failedToStartServer": "サーバーの起動に失敗しました",
+  "bridgeServerStopped": "Bridge Server を停止しました",
+  "failedToStopServer": "サーバーの停止に失敗しました",
+
+  "sshPassword": "SSH パスワード",
+  "sshPasswordPrompt": "{machineName} の SSH パスワードを入力",
+  "@sshPasswordPrompt": {
+    "placeholders": {
+      "machineName": { "type": "String" }
+    }
+  },
+  "password": "パスワード",
+
+  "deleteMachine": "マシンを削除",
+  "deleteMachineConfirm": "\"{displayName}\" を削除しますか？保存された認証情報もすべて削除されます。",
+  "@deleteMachineConfirm": {
+    "placeholders": {
+      "displayName": { "type": "String" }
+    }
+  },
+
+  "connectToBridgeServer": "Bridge Server に接続",
+  "orConnectManually": "または手動で接続",
+  "serverUrl": "サーバー URL",
+  "serverUrlHint": "ws://<host-ip>:8765",
+  "apiKeyOptional": "API キー（任意）",
+  "apiKeyHint": "認証なしの場合は空欄",
+  "scanQrCode": "QR コードをスキャン",
+  "setupGuide": "セットアップガイド",
+
+  "readyToStart": "準備完了",
+  "readyToStartDescription": "+ ボタンを押してセッションを作成し、Claude でコーディングを始めましょう。",
+  "newSession": "新規セッション",
+
+  "neverConnected": "未接続",
+  "justNow": "たった今",
+  "minutesAgo": "{minutes}分前",
+  "@minutesAgo": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "hoursAgo": "{hours}時間前",
+  "@hoursAgo": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "daysAgo": "{days}日前",
+  "@daysAgo": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "unfavorite": "お気に入り解除",
+  "favorite": "お気に入り",
+  "updateBridge": "Bridge を更新",
+  "stopServer": "サーバーを停止",
+  "update": "更新",
+  "offline": "オフライン",
+  "unreachable": "接続不可",
+  "checking": "確認中...",
+
+  "recentProjects": "最近のプロジェクト",
+  "orEnterPath": "またはパスを入力",
+  "projectPath": "プロジェクトパス",
+  "projectPathHint": "/path/to/your/project",
+  "permission": "パーミッション",
+  "approval": "承認",
+  "worktree": "Worktree",
+  "advanced": "詳細設定",
+  "modelOptional": "モデル（任意）",
+  "effort": "Effort",
+  "defaultLabel": "デフォルト",
+  "maxTurns": "Max Turns",
+  "maxTurnsHint": "例: 8",
+  "maxTurnsError": "1以上の整数を入力してください",
+  "maxBudgetUsd": "最大予算 (USD)",
+  "maxBudgetHint": "例: 1.00",
+  "maxBudgetError": "0以上の数値を入力してください",
+  "fallbackModel": "フォールバックモデル",
+  "forkSessionOnResume": "再開時にセッションを分岐",
+  "persistSessionHistory": "セッション履歴を保持",
+  "model": "モデル",
+  "sandbox": "Sandbox",
+  "reasoning": "Reasoning",
+  "webSearch": "Web Search",
+  "networkAccess": "ネットワークアクセス",
+  "worktreeNew": "新規",
+  "worktreeExisting": "既存 ({count})",
+  "@worktreeExisting": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "branchOptional": "ブランチ（任意）",
+  "branchHint": "ccpocket/<auto>",
+  "noExistingWorktrees": "既存の worktree はありません",
+
+  "planApprovalSummary": "上のプランを確認して、承認するか計画を続けてください",
+  "toolApprovalSummary": "ツール実行には承認が必要です",
+  "planApproval": "プラン承認",
+  "approvalRequired": "承認が必要",
+  "viewEditPlan": "プランを表示 / 編集",
+  "keepPlanning": "計画を続ける",
+  "keepPlanningHint": "変更点を入力...",
+  "sendFeedbackKeepPlanning": "フィードバックを送信して計画を続ける",
+  "acceptAndClear": "承認 & クリア",
+  "acceptPlan": "プラン承認",
+  "reject": "拒否",
+  "approve": "承認",
+  "always": "常に許可",
+
+  "messagePlaceholder": "Claude にメッセージ...",
+  "filesMentioned": "{count} ファイルを @メンション中",
+  "@filesMentioned": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "diffLines": "{count} 行の diff",
+  "@diffLines": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tapInterruptHoldStop": "タップ: 中断, 長押し: 停止",
+
+  "rewindToHere": "ここまで巻き戻す",
+  "tapToRetry": "タップしてリトライ",
+
+  "diffSummaryAddedRemoved": "+{added}/-{removed} 行",
+  "@diffSummaryAddedRemoved": {
+    "placeholders": {
+      "added": { "type": "int" },
+      "removed": { "type": "int" }
+    }
+  },
+  "lineCountSummary": "{count} 行",
+  "@lineCountSummary": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "toolResult": "ツール結果",
+
+  "answered": "回答済み",
+  "claudeIsAsking": "Claude が質問しています",
+  "submitAllAnswers": "すべての回答を送信",
+  "answerAllQuestionsToSubmit": "すべての質問に回答してください",
+  "submitWithCount": "送信 ({count} 件選択)",
+  "@submitWithCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "selectOptionsToSubmit": "オプションを選択してください",
+  "typeYourAnswer": "回答を入力...",
+  "orTypeCustomAnswer": "またはカスタム回答を入力...",
+  "otherAnswer": "その他の回答...",
+  "selectAllThatApply": "該当するものをすべて選択",
+
+  "noScreenshotsYet": "スクリーンショットはまだありません",
+  "screenshotButtonHint": "チャットツールバーのスクリーンショットボタンで画面をキャプチャできます。",
+  "screenshotsWillAppearHere": "Claude セッションのスクリーンショットがここに表示されます。",
+  "allWithCount": "すべて ({count})",
+  "@allWithCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "noImages": "画像がありません",
+  "failedToDeleteImage": "画像の削除に失敗しました",
+  "failedToDownloadImage": "画像のダウンロードに失敗しました",
+  "failedToShareImage": "画像の共有に失敗しました",
+  "deleteScreenshot": "スクリーンショットを削除しますか？",
+  "cannotBeUndone": "この操作は取り消せません。",
+
+  "changes": "変更",
+  "cancelSelection": "選択をキャンセル",
+  "selectAndAttach": "選択して添付",
+  "filterFiles": "ファイルをフィルター",
+  "attachFilesAndHunks": "添付 {files} ファイル, {hunks} ハンク",
+  "@attachFilesAndHunks": {
+    "placeholders": {
+      "files": { "type": "int" },
+      "hunks": { "type": "int" }
+    }
+  },
+  "filterFilesTitle": "ファイルをフィルター",
+  "noChanges": "変更なし",
+  "allFilesFilteredOut": "すべてのファイルがフィルターされています",
+  "showAll": "すべて表示",
+
+  "setupGuideTitle": "セットアップガイド",
+
+  "guideAboutTitle": "CC Pocket とは",
+  "guideAboutDescription": "スマートフォンから Claude Code や Codex を操作できるモバイルクライアントです。",
+  "guideAboutDiagramTitle": "しくみ",
+  "guideAboutDiagramPhone": "iPhone",
+  "guideAboutDiagramBridge": "Bridge Server",
+  "guideAboutDiagramClaude": "Claude CLI\n/ Codex",
+  "guideAboutDiagramCaption": "PC で Bridge Server を起動し、\nスマホから接続して使います。",
+
+  "guideBridgeTitle": "Bridge Server の\nセットアップ",
+  "guideBridgeDescription": "PC で Bridge Server を起動しましょう。",
+  "guideBridgePrerequisites": "必要なもの",
+  "guideBridgePrereq1": "Node.js がインストールされた Mac / PC",
+  "guideBridgePrereq2": "Claude Code CLI または Codex CLI\n（使いたい方だけでOK）",
+  "guideBridgeStep1": "プロジェクトを取得",
+  "guideBridgeStep1Command": "git clone <repo-url>\nnpm install",
+  "guideBridgeStep2": "ビルド",
+  "guideBridgeStep2Command": "npm run bridge:build",
+  "guideBridgeStep3": "起動",
+  "guideBridgeStep3Command": "npm run bridge",
+  "guideBridgeQrNote": "起動するとターミナルに QR コードが表示されます",
+
+  "guideConnectionTitle": "接続方法",
+  "guideConnectionDescription": "同じ Wi-Fi ネットワーク内なら、すぐに接続できます。",
+  "guideConnectionQr": "QR コードスキャン",
+  "guideConnectionQrDescription": "ターミナルに表示された QR コードを読み取るだけ。一番簡単です。",
+  "guideConnectionMdns": "自動検出 (mDNS)",
+  "guideConnectionMdnsDescription": "同一 LAN 内の Bridge Server を自動で見つけて表示します。",
+  "guideConnectionManual": "手動入力",
+  "guideConnectionManualDescription": "ws://<IP アドレス>:8765 の形式で直接入力します。",
+  "guideConnectionRecommended": "おすすめ",
+
+  "guideTailscaleTitle": "外出先からの接続",
+  "guideTailscaleDescription": "自宅の外からも使いたい場合は、Tailscale（VPN の一種）を使えば安全にリモート接続できます。",
+  "guideTailscaleStep1": "Mac と iPhone の両方に Tailscale をインストール",
+  "guideTailscaleStep2": "同じアカウントでログイン",
+  "guideTailscaleStep3": "Bridge URL に Tailscale IP を使用\n(例: ws://100.x.x.x:8765)",
+  "guideTailscaleWebsite": "Tailscale 公式サイト",
+  "guideTailscaleWebsiteHint": "詳しいセットアップ方法は公式サイトをご覧ください。",
+
+  "guideLaunchdTitle": "常時起動の設定",
+  "guideLaunchdDescription": "毎回手動で Bridge Server を起動するのが面倒な場合、Mac の起動時に自動で立ち上がるよう設定できます。",
+  "guideLaunchdCommand": "セットアップコマンド",
+  "guideLaunchdCommandValue": "npm run setup",
+  "guideLaunchdRecommendation": "まずは手動起動で動作確認してから、安定したら launchd 登録がおすすめです。",
+
+  "guideReadyTitle": "準備完了!",
+  "guideReadyDescription": "Bridge Server を起動して、\nQR コードをスキャンするところから\n始めましょう。",
+  "guideReadyStart": "さっそく始める",
+  "guideReadyHint": "このガイドは設定画面からいつでも確認できます",
+
+  "creatingSession": "セッション作成中...",
+  "copyForAgent": "エージェント用にコピー",
+  "messageHistory": "メッセージ履歴",
+  "viewChanges": "変更を確認",
+  "screenshot": "スクリーンショット",
+
+  "debug": "デバッグ",
+  "logs": "ログ",
+  "viewApplicationLogs": "アプリケーションログを表示",
+  "mockPreview": "モックプレビュー",
+  "viewMockChatScenarios": "モックチャットシナリオを表示",
+
+  "promptHistory": "プロンプト履歴",
+  "frequent": "頻度順",
+  "recent": "新しい順",
+  "searchHint": "検索...",
+  "noMatchingPrompts": "一致するプロンプトがありません",
+  "noPromptHistoryYet": "プロンプト履歴はまだありません",
+
+  "approvalQueue": "承認キュー",
+  "resetQueue": "キューをリセット",
+  "swipeSkip": "スキップ",
+  "swipeSend": "送信",
+  "swipeDismiss": "却下",
+  "swipeApprove": "承認",
+  "swipeReject": "拒否",
+  "allClear": "すべて完了!",
+  "itemsProcessed": "{count} 件処理しました",
+  "@itemsProcessed": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "bestStreak": "最高連続: {count}",
+  "@bestStreak": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tryAgain": "もう一度",
+  "waitingForTasks": "タスク待ち",
+  "agentReadyForPrompt": "エージェントは次のプロンプトを待っています。",
+  "backToSessions": "セッション一覧に戻る",
+  "working": "処理中...",
+  "waitingForApprovalRequests": "エージェントからの承認リクエストを待っています。",
+  "noActiveSessions": "アクティブなセッションがありません",
+  "startSessionToBegin": "セッションを開始して承認リクエストの受信を始めましょう。",
+
+  "settingsTitle": "設定",
+  "sectionGeneral": "一般",
+  "sectionAbout": "概要",
+  "theme": "テーマ",
+  "themeSystem": "システム",
+  "themeLight": "ライト",
+  "themeDark": "ダーク",
+  "language": "言語",
+  "languageSystem": "端末の設定に従う",
+  "voiceInput": "音声入力",
+  "pushNotifications": "プッシュ通知",
+  "pushNotificationsSubtitle": "Bridge 経由でセッション通知を受け取ります",
+  "pushNotificationsUnavailable": "Firebase 設定後に利用できます",
+  "version": "バージョン",
+  "loading": "読み込み中...",
+  "setupGuideSubtitle": "初めての方はこちら",
+  "openSourceLicenses": "オープンソースライセンス",
+
+  "fcmBridgeNotInitialized": "Bridge が未初期化です",
+  "fcmTokenFailed": "FCM token を取得できませんでした",
+  "fcmEnabled": "通知を有効化しました",
+  "fcmEnabledPending": "Bridge 再接続後に通知登録します",
+  "fcmDisabled": "通知を無効化しました",
+  "fcmDisabledPending": "Bridge 再接続後に通知解除します",
+
+  "defaultNotRecommended": "Default（非推奨）"
+}

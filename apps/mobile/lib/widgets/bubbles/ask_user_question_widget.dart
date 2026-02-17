@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../theme/app_theme.dart';
 
 class AskUserQuestionWidget extends StatefulWidget {
@@ -110,6 +111,8 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
 
+    final l = AppLocalizations.of(context);
+
     if (_answered) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -132,7 +135,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
             ),
             const SizedBox(width: 6),
             Text(
-              'Answered',
+              l.answered,
               style: TextStyle(
                 color: appColors.subtleText,
                 fontStyle: FontStyle.italic,
@@ -180,7 +183,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
               ),
               const SizedBox(width: 10),
               Text(
-                'Claude is asking',
+                l.claudeIsAsking,
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
@@ -219,8 +222,8 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                 ),
                 child: Text(
                   _allQuestionsAnswered
-                      ? 'Submit All Answers'
-                      : 'Answer all questions to submit',
+                      ? l.submitAllAnswers
+                      : l.answerAllQuestionsToSubmit,
                   style: const TextStyle(fontSize: 13),
                 ),
               ),
@@ -237,8 +240,10 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                 ),
                 child: Text(
                   _allQuestionsAnswered
-                      ? 'Submit (${_multiAnswers.values.firstOrNull?.length ?? 0} selected)'
-                      : 'Select options to submit',
+                      ? l.submitWithCount(
+                          _multiAnswers.values.firstOrNull?.length ?? 0,
+                        )
+                      : l.selectOptionsToSubmit,
                   style: const TextStyle(fontSize: 13),
                 ),
               ),
@@ -266,7 +271,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                     foregroundColor: appColors.subtleText,
                     textStyle: const TextStyle(fontSize: 11),
                   ),
-                  child: const Text('Other answer...'),
+                  child: Text(l.otherAnswer),
                 ),
               )
             else
@@ -278,6 +283,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   }
 
   Widget _buildTextInputRow() {
+    final l = AppLocalizations.of(context);
     return Row(
       children: [
         Expanded(
@@ -285,8 +291,8 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
             controller: _textController,
             decoration: InputDecoration(
               hintText: _isSingleQuestion
-                  ? 'Type your answer...'
-                  : 'Or type a custom answer...',
+                  ? l.typeYourAnswer
+                  : l.orTypeCustomAnswer,
               filled: true,
               fillColor: Theme.of(
                 context,
@@ -321,13 +327,14 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             minimumSize: Size.zero,
           ),
-          child: const Text('Send', style: TextStyle(fontSize: 13)),
+          child: Text(l.send, style: const TextStyle(fontSize: 13)),
         ),
       ],
     );
   }
 
   Widget _buildQuestion(Map<String, dynamic> q, AppColors appColors) {
+    final l = AppLocalizations.of(context);
     final header = q['header'] as String?;
     final question = q['question'] as String? ?? '';
     final options = q['options'] as List<dynamic>? ?? [];
@@ -390,7 +397,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
         if (multiSelect) ...[
           const SizedBox(height: 2),
           Text(
-            'Select all that apply',
+            l.selectAllThatApply,
             style: TextStyle(fontSize: 11, color: appColors.subtleText),
           ),
         ],

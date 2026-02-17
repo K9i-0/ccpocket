@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import 'guide_page.dart';
 
 /// Page 5: 常時起動 (launchd 登録)
@@ -9,18 +10,16 @@ class GuidePageLaunchd extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     final bodyStyle = Theme.of(context).textTheme.bodyLarge;
 
     return GuidePage(
       icon: Icons.schedule,
-      title: '常時起動の設定',
+      title: l.guideLaunchdTitle,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '毎回手動で Bridge Server を起動するのが面倒な場合、Mac の起動時に自動で立ち上がるよう設定できます。',
-            style: bodyStyle,
-          ),
+          Text(l.guideLaunchdDescription, style: bodyStyle),
           const SizedBox(height: 20),
           // Command
           Container(
@@ -34,7 +33,7 @@ class GuidePageLaunchd extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'セットアップコマンド',
+                  l.guideLaunchdCommand,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
@@ -50,7 +49,7 @@ class GuidePageLaunchd extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'npm run setup',
+                    l.guideLaunchdCommandValue,
                     style: TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 14,
@@ -82,7 +81,7 @@ class GuidePageLaunchd extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'まずは手動起動で動作確認してから、安定したら launchd 登録がおすすめです。',
+                    l.guideLaunchdRecommendation,
                     style: TextStyle(
                       fontSize: 13,
                       color: cs.onTertiaryContainer,

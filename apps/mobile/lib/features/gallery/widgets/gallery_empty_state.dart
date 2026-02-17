@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 
 class GalleryEmptyState extends StatelessWidget {
@@ -31,15 +32,15 @@ class GalleryEmptyState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'No screenshots yet',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            Text(
+              AppLocalizations.of(context).noScreenshotsYet,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
               isSessionMode
-                  ? 'Use the screenshot button in the chat toolbar to capture screenshots.'
-                  : 'Screenshots from Claude sessions will appear here.',
+                  ? AppLocalizations.of(context).screenshotButtonHint
+                  : AppLocalizations.of(context).screenshotsWillAppearHere,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: appColors.subtleText),
             ),

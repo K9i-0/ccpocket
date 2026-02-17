@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../constants/app_constants.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
 import '../../../theme/app_theme.dart';
 
@@ -180,6 +181,7 @@ class _MetadataLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -212,7 +214,7 @@ class _MetadataLine extends StatelessWidget {
       parts.add(TextSpan(text: '${machine.host}:${machine.port}'));
     } else {
       // For auto-saved machines, show last connected time
-      parts.add(TextSpan(text: _formatLastConnected(machine.lastConnected)));
+      parts.add(TextSpan(text: _formatLastConnected(machine.lastConnected, l)));
     }
 
     // Version (if available)
@@ -240,7 +242,7 @@ class _MetadataLine extends StatelessWidget {
     // Last connected (for named machines)
     if (machine.name != null && machine.lastConnected != null) {
       parts.add(const TextSpan(text: ' · '));
-      parts.add(TextSpan(text: _formatLastConnected(machine.lastConnected)));
+      parts.add(TextSpan(text: _formatLastConnected(machine.lastConnected, l)));
     }
 
     // Favorite indicator
@@ -268,15 +270,15 @@ class _MetadataLine extends StatelessWidget {
     );
   }
 
-  String _formatLastConnected(DateTime? lastConnected) {
-    if (lastConnected == null) return 'Never connected';
+  String _formatLastConnected(DateTime? lastConnected, AppLocalizations l) {
+    if (lastConnected == null) return l.neverConnected;
     final now = DateTime.now();
     final diff = now.difference(lastConnected);
 
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return l.justNow;
+    if (diff.inMinutes < 60) return l.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return l.hoursAgo(diff.inHours);
+    if (diff.inDays < 7) return l.daysAgo(diff.inDays);
     return '${lastConnected.month}/${lastConnected.day}';
   }
 }
@@ -305,6 +307,7 @@ class _MenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return SizedBox(
       width: 32,
       height: 32,
@@ -332,28 +335,28 @@ class _MenuButton extends StatelessWidget {
                       : null,
                 ),
                 const SizedBox(width: 8),
-                Text(machine.isFavorite ? 'Unfavorite' : 'Favorite'),
+                Text(machine.isFavorite ? l.unfavorite : l.favorite),
               ],
             ),
           ),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'edit',
             child: Row(
               children: [
-                Icon(Icons.edit, size: 20),
-                SizedBox(width: 8),
-                Text('Edit'),
+                const Icon(Icons.edit, size: 20),
+                const SizedBox(width: 8),
+                Text(l.edit),
               ],
             ),
           ),
           if (needsUpdate && machine.canStartRemotely)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'update',
               child: Row(
                 children: [
-                  Icon(Icons.system_update, size: 20),
-                  SizedBox(width: 8),
-                  Text('Update Bridge'),
+                  const Icon(Icons.system_update, size: 20),
+                  const SizedBox(width: 8),
+                  Text(l.updateBridge),
                 ],
               ),
             ),
@@ -369,7 +372,7 @@ class _MenuButton extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Stop Server',
+                    l.stopServer,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
                     ),
@@ -383,7 +386,7 @@ class _MenuButton extends StatelessWidget {
               children: [
                 Icon(Icons.delete, size: 20, color: colorScheme.error),
                 const SizedBox(width: 8),
-                Text('Delete', style: TextStyle(color: colorScheme.error)),
+                Text(l.delete, style: TextStyle(color: colorScheme.error)),
               ],
             ),
           ),
@@ -417,6 +420,7 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
     // Show updating spinner
@@ -448,7 +452,7 @@ class _ActionButton extends StatelessWidget {
             backgroundColor: colorScheme.tertiary.withValues(alpha: 0.15),
             foregroundColor: colorScheme.tertiary,
           ),
-          child: const Text('Update'),
+          child: Text(l.update),
         );
       }
 
@@ -458,7 +462,7 @@ class _ActionButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           minimumSize: const Size(0, 36),
         ),
-        child: const Text('Connect'),
+        child: Text(l.connect),
       );
     }
 
@@ -488,7 +492,7 @@ class _ActionButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           minimumSize: const Size(0, 36),
         ),
-        child: const Text('Start'),
+        child: Text(l.start),
       );
     }
 
@@ -500,7 +504,7 @@ class _ActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
-        _statusText,
+        _statusText(l),
         style: TextStyle(
           color: colorScheme.outline,
           fontSize: 12,
@@ -510,11 +514,11 @@ class _ActionButton extends StatelessWidget {
     );
   }
 
-  String get _statusText {
+  String _statusText(AppLocalizations l) {
     return switch (status) {
-      MachineStatus.offline => 'Offline',
-      MachineStatus.unreachable => 'Unreachable',
-      MachineStatus.unknown => 'Checking...',
+      MachineStatus.offline => l.offline,
+      MachineStatus.unreachable => l.unreachable,
+      MachineStatus.unknown => l.checking,
       MachineStatus.online => '',
     };
   }

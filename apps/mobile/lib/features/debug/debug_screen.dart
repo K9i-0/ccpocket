@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../core/logger.dart';
+import '../../l10n/app_localizations.dart';
 import '../../router/app_router.dart';
 
 @RoutePage()
@@ -11,14 +12,15 @@ class DebugScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Debug')),
+      appBar: AppBar(title: Text(l.debug)),
       body: ListView(
         children: [
           ListTile(
             leading: const Icon(Icons.article_outlined),
-            title: const Text('Logs'),
-            subtitle: const Text('View application logs'),
+            title: Text(l.logs),
+            subtitle: Text(l.viewApplicationLogs),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
@@ -28,8 +30,8 @@ class DebugScreen extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.science),
-            title: const Text('Mock Preview'),
-            subtitle: const Text('View mock chat scenarios'),
+            title: Text(l.mockPreview),
+            subtitle: Text(l.viewMockChatScenarios),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.router.push(MockPreviewRoute()),
           ),

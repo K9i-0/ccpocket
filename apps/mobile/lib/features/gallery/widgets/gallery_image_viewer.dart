@@ -8,6 +8,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 
 const _kCacheMaxAge = Duration(days: 7);
@@ -48,10 +49,13 @@ class GalleryImageViewer extends HookWidget {
     }, [chromeVisible.value]);
 
     if (imageList.value.isEmpty) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
-          child: Text('No images', style: TextStyle(color: Colors.white)),
+          child: Text(
+            AppLocalizations.of(context).noImages,
+            style: const TextStyle(color: Colors.white),
+          ),
         ),
       );
     }
@@ -83,9 +87,11 @@ class GalleryImageViewer extends HookWidget {
           currentPage.value = newList.length - 1;
         }
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to delete image')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context).failedToDeleteImage),
+          ),
+        );
       }
     }
 
@@ -99,7 +105,11 @@ class GalleryImageViewer extends HookWidget {
         if (response.statusCode != 200) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Failed to download image')),
+              SnackBar(
+                content: Text(
+                  AppLocalizations.of(context).failedToDownloadImage,
+                ),
+              ),
             );
           }
           return;
@@ -114,7 +124,9 @@ class GalleryImageViewer extends HookWidget {
       } catch (_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to share image')),
+            SnackBar(
+              content: Text(AppLocalizations.of(context).failedToShareImage),
+            ),
           );
         }
       } finally {
@@ -139,7 +151,7 @@ class GalleryImageViewer extends HookWidget {
                 IconButton(
                   icon: const Icon(Icons.share),
                   onPressed: handleShare,
-                  tooltip: 'Share',
+                  tooltip: AppLocalizations.of(context).share,
                 ),
                 if (onDelete != null)
                   IconButton(
@@ -154,7 +166,7 @@ class GalleryImageViewer extends HookWidget {
                           )
                         : const Icon(Icons.delete_outline),
                     onPressed: isDeleting.value ? null : handleDelete,
-                    tooltip: 'Delete',
+                    tooltip: AppLocalizations.of(context).delete,
                   ),
               ],
             )
@@ -416,23 +428,26 @@ String _extensionFromMime(String mimeType) {
 Future<bool> showDeleteConfirmDialog(BuildContext context) async {
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Delete screenshot?'),
-      content: const Text('This action cannot be undone.'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(ctx).colorScheme.error,
+    builder: (ctx) {
+      final l = AppLocalizations.of(ctx);
+      return AlertDialog(
+        title: Text(l.deleteScreenshot),
+        content: Text(l.cannotBeUndone),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l.cancel),
           ),
-          child: const Text('Delete'),
-        ),
-      ],
-    ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: Text(l.delete),
+          ),
+        ],
+      );
+    },
   );
   return confirmed == true;
 }

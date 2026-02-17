@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/widgets/bubbles/tool_use_summary_bubble.dart';
 import 'package:ccpocket/theme/app_theme.dart';
@@ -8,6 +9,9 @@ import 'package:ccpocket/theme/app_theme.dart';
 void main() {
   Widget wrap(Widget child) {
     return MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('en'),
       theme: AppTheme.darkTheme,
       home: Scaffold(body: SingleChildScrollView(child: child)),
     );

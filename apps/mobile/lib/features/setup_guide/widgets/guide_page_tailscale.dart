@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../l10n/app_localizations.dart';
 import 'guide_page.dart';
 
 /// Page 4: 外出先からの接続 (Tailscale)
@@ -10,32 +11,34 @@ class GuidePageTailscale extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     final bodyStyle = Theme.of(context).textTheme.bodyLarge;
 
     return GuidePage(
       icon: Icons.vpn_lock,
-      title: '外出先からの接続',
+      title: l.guideTailscaleTitle,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '自宅の外からも使いたい場合は、Tailscale（VPN の一種）を使えば安全にリモート接続できます。',
-            style: bodyStyle,
-          ),
+          Text(l.guideTailscaleDescription, style: bodyStyle),
           const SizedBox(height: 20),
           // Steps
           _TailscaleStep(
             colorScheme: cs,
             number: '1',
-            text: 'Mac と iPhone の両方に Tailscale をインストール',
+            text: l.guideTailscaleStep1,
           ),
           const SizedBox(height: 12),
-          _TailscaleStep(colorScheme: cs, number: '2', text: '同じアカウントでログイン'),
+          _TailscaleStep(
+            colorScheme: cs,
+            number: '2',
+            text: l.guideTailscaleStep2,
+          ),
           const SizedBox(height: 12),
           _TailscaleStep(
             colorScheme: cs,
             number: '3',
-            text: 'Bridge URL に Tailscale IP を使用\n(例: ws://100.x.x.x:8765)',
+            text: l.guideTailscaleStep3,
           ),
           const SizedBox(height: 24),
           // Link to Tailscale
@@ -47,12 +50,12 @@ class GuidePageTailscale extends StatelessWidget {
                 mode: LaunchMode.externalApplication,
               ),
               icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text('Tailscale 公式サイト'),
+              label: Text(l.guideTailscaleWebsite),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            '詳しいセットアップ方法は公式サイトをご覧ください。',
+            l.guideTailscaleWebsiteHint,
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),

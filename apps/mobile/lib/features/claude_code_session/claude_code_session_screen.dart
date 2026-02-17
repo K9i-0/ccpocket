@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../hooks/use_scroll_tracking.dart';
 import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
@@ -182,15 +183,16 @@ class _ClaudeCodeSessionScreenState extends State<ClaudeCodeSessionScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isPending) {
+      final l = AppLocalizations.of(context);
       return Scaffold(
         appBar: AppBar(),
-        body: const Center(
+        body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator.adaptive(),
-              SizedBox(height: 16),
-              Text('Creating session...', style: TextStyle(fontSize: 16)),
+              const CircularProgressIndicator.adaptive(),
+              const SizedBox(height: 16),
+              Text(l.creatingSession, style: const TextStyle(fontSize: 16)),
             ],
           ),
         ),
@@ -263,6 +265,7 @@ class _ChatScreenBody extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final appColors = Theme.of(context).extension<AppColors>()!;
 
     // Custom hooks
@@ -480,7 +483,7 @@ class _ChatScreenBody extends HookWidget {
                 IconButton(
                   key: const ValueKey('share_debug_bundle_button'),
                   icon: const Icon(Icons.bug_report, size: 18),
-                  tooltip: 'Copy for Agent',
+                  tooltip: l.copyForAgent,
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
@@ -493,7 +496,7 @@ class _ChatScreenBody extends HookWidget {
                 IconButton(
                   key: const ValueKey('message_history_button'),
                   icon: const Icon(Icons.history, size: 18),
-                  tooltip: 'Message History',
+                  tooltip: l.messageHistory,
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
@@ -507,7 +510,7 @@ class _ChatScreenBody extends HookWidget {
                 if (projectPath != null)
                   IconButton(
                     icon: const Icon(Icons.difference, size: 18),
-                    tooltip: 'View Changes',
+                    tooltip: l.viewChanges,
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
@@ -525,7 +528,7 @@ class _ChatScreenBody extends HookWidget {
                 if (projectPath != null)
                   IconButton(
                     icon: const Icon(Icons.screenshot_monitor, size: 18),
-                    tooltip: 'Screenshot',
+                    tooltip: l.screenshot,
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
@@ -545,7 +548,7 @@ class _ChatScreenBody extends HookWidget {
                 IconButton(
                   key: const ValueKey('gallery_button'),
                   icon: const Icon(Icons.collections, size: 18),
-                  tooltip: 'Gallery',
+                  tooltip: l.gallery,
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(

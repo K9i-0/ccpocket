@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import 'package:auto_route/auto_route.dart';
 
@@ -90,7 +91,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     };
   }
 
-  String _buildSummary(String content, String? toolName) {
+  String _buildSummary(String content, String? toolName, AppLocalizations l) {
     final lines = content.split('\n');
     final lineCount = lines.length;
 
@@ -102,7 +103,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
         if (line.startsWith('-') && !line.startsWith('---')) removed++;
       }
       if (added > 0 || removed > 0) {
-        return '+$added/-$removed lines';
+        return l.diffSummaryAddedRemoved(added, removed);
       }
     }
 
@@ -110,7 +111,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
       return content;
     }
 
-    return '$lineCount lines';
+    return l.lineCountSummary(lineCount);
   }
 
   /// Whether this tool result contains a viewable diff.
@@ -159,17 +160,17 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     if (content.isEmpty) return;
     Clipboard.setData(ClipboardData(text: content));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Copied to clipboard'),
-        duration: Duration(seconds: 1),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).copiedToClipboard),
+        duration: const Duration(seconds: 1),
       ),
     );
   }
 
   /// Collapsed: inline log row — no card background.
-  Widget _buildCollapsed(AppColors appColors) {
+  Widget _buildCollapsed(AppColors appColors, AppLocalizations l) {
     final toolName = widget.message.toolName;
-    final summary = _buildSummary(widget.message.content, toolName);
+    final summary = _buildSummary(widget.message.content, toolName, l);
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -195,7 +196,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
               const SizedBox(width: 8),
               // Tool name
               Text(
-                toolName ?? 'Tool Result',
+                toolName ?? l.toolResult,
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -220,7 +221,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
   }
 
   /// Preview / Expanded: card with background + content.
-  Widget _buildCard(AppColors appColors) {
+  Widget _buildCard(AppColors appColors, AppLocalizations l) {
     final content = widget.message.content;
     final toolName = widget.message.toolName;
     final lines = content.split('\n');
@@ -228,7 +229,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     final previewText = hasMore
         ? lines.take(_previewLines).join('\n')
         : content;
-    final summary = _buildSummary(content, toolName);
+    final summary = _buildSummary(content, toolName, l);
 
     final chevronIcon = _expansion == ToolResultExpansion.preview
         ? Icons.expand_more
@@ -270,7 +271,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    toolName ?? 'Tool Result',
+                    toolName ?? l.toolResult,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -333,10 +334,11 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final l = AppLocalizations.of(context);
 
     if (_expansion == ToolResultExpansion.collapsed) {
-      return _buildCollapsed(appColors);
+      return _buildCollapsed(appColors, l);
     }
-    return _buildCard(appColors);
+    return _buildCard(appColors, l);
   }
 }

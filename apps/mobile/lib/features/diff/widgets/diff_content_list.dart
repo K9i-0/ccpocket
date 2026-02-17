@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 import '../../../utils/diff_parser.dart';
 import 'diff_binary_notice.dart';
@@ -63,6 +64,7 @@ class DiffContentList extends StatelessWidget {
     }
 
     if (visibleFiles.isEmpty) {
+      final l = AppLocalizations.of(context);
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -70,11 +72,11 @@ class DiffContentList extends StatelessWidget {
             Icon(Icons.filter_list_off, size: 48, color: appColors.subtleText),
             const SizedBox(height: 12),
             Text(
-              'All files filtered out',
+              l.allFilesFilteredOut,
               style: TextStyle(fontSize: 16, color: appColors.subtleText),
             ),
             const SizedBox(height: 8),
-            TextButton(onPressed: onClearHidden, child: const Text('Show all')),
+            TextButton(onPressed: onClearHidden, child: Text(l.showAll)),
           ],
         ),
       );

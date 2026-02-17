@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 
 class GalleryFilterChips extends StatelessWidget {
@@ -42,7 +43,9 @@ class GalleryFilterChips extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: ChoiceChip(
-                label: Text('All ($totalCount)'),
+                label: Text(
+                  AppLocalizations.of(context).allWithCount(totalCount),
+                ),
                 selected: selectedProject == null,
                 onSelected: (_) => onSelected(null),
                 labelStyle: TextStyle(

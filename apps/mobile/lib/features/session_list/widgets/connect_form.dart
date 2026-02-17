@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
 import '../../../services/server_discovery_service.dart';
 import 'discovered_servers_list.dart';
@@ -62,6 +63,7 @@ class ConnectForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -82,9 +84,9 @@ class ConnectForm extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Connect to Bridge Server',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          Text(
+            l.connectToBridgeServer,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 24),
 
@@ -106,7 +108,7 @@ class ConnectForm extends StatelessWidget {
             ),
             if (machines.isNotEmpty || discoveredServers.isNotEmpty) ...[
               const SizedBox(height: 16),
-              _buildDivider(context, 'or connect manually'),
+              _buildDivider(context, l.orConnectManually),
               const SizedBox(height: 16),
             ],
           ],
@@ -124,11 +126,11 @@ class ConnectForm extends StatelessWidget {
           TextField(
             key: const ValueKey('server_url_field'),
             controller: urlController,
-            decoration: const InputDecoration(
-              labelText: 'Server URL',
-              hintText: 'ws://<host-ip>:8765',
-              prefixIcon: Icon(Icons.dns),
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l.serverUrl,
+              hintText: l.serverUrlHint,
+              prefixIcon: const Icon(Icons.dns),
+              border: const OutlineInputBorder(),
             ),
             onSubmitted: (_) => onConnect(),
           ),
@@ -136,11 +138,11 @@ class ConnectForm extends StatelessWidget {
           TextField(
             key: const ValueKey('api_key_field'),
             controller: apiKeyController,
-            decoration: const InputDecoration(
-              labelText: 'API Key (optional)',
-              hintText: 'Leave empty if no auth',
-              prefixIcon: Icon(Icons.key),
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l.apiKeyOptional,
+              hintText: l.apiKeyHint,
+              prefixIcon: const Icon(Icons.key),
+              border: const OutlineInputBorder(),
             ),
             obscureText: true,
             onSubmitted: (_) => onConnect(),
@@ -153,7 +155,7 @@ class ConnectForm extends StatelessWidget {
               key: const ValueKey('connect_button'),
               onPressed: onConnect,
               icon: const Icon(Icons.link),
-              label: const Text('Connect'),
+              label: Text(l.connect),
             ),
           ),
           if (!kIsWeb) ...[
@@ -165,7 +167,7 @@ class ConnectForm extends StatelessWidget {
                 key: const ValueKey('scan_qr_button'),
                 onPressed: onScanQrCode,
                 icon: const Icon(Icons.qr_code_scanner),
-                label: const Text('Scan QR Code'),
+                label: Text(l.scanQrCode),
               ),
             ),
           ],
@@ -175,7 +177,7 @@ class ConnectForm extends StatelessWidget {
               key: const ValueKey('setup_guide_button'),
               onPressed: onViewSetupGuide,
               icon: const Icon(Icons.lightbulb_outline, size: 18),
-              label: const Text('Setup Guide'),
+              label: Text(l.setupGuide),
             ),
           ],
         ],
