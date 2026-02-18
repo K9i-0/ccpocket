@@ -452,12 +452,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _bridge.send(ClientMessage.rewind(sessionId, targetUuid, mode));
   }
 
-  /// Get all user messages that have a UUID (eligible for rewind).
+  /// All user messages with a UUID (rewindable via the SDK).
   List<UserChatEntry> get rewindableUserMessages {
     return state.entries
         .whereType<UserChatEntry>()
         .where((e) => e.messageUuid != null)
         .toList();
+  }
+
+  /// All user messages in the session (for display in message history).
+  List<UserChatEntry> get allUserMessages {
+    return state.entries.whereType<UserChatEntry>().toList();
   }
 
   /// Re-fetch session history from the bridge server.

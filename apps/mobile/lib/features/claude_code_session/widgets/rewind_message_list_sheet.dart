@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 
-/// Bottom sheet that lists all rewindable user messages as a message history.
+/// Bottom sheet that lists all user messages as a message history.
 ///
 /// Provides two actions per message:
 /// - Tap message → [onScrollToMessage] (scroll chat to that position)
-/// - Tap rewind icon → [onRewindMessage] (open rewind action sheet)
+/// - Tap rewind icon → [onRewindMessage] (only for messages with UUID)
 class UserMessageHistorySheet extends StatelessWidget {
   final List<UserChatEntry> messages;
   final void Function(UserChatEntry message) onScrollToMessage;
@@ -116,17 +116,21 @@ class UserMessageHistorySheet extends StatelessWidget {
                   itemBuilder: (context, index) {
                     // Show newest first
                     final msg = messages[messages.length - 1 - index];
+                    final canRewind = msg.messageUuid != null;
                     return _MessageTile(
                       message: msg,
                       index: messages.length - index,
+                      canRewind: canRewind,
                       onTap: () {
                         Navigator.of(context).pop();
                         onScrollToMessage(msg);
                       },
-                      onRewind: () {
-                        Navigator.of(context).pop();
-                        onRewindMessage(msg);
-                      },
+                      onRewind: canRewind
+                          ? () {
+                              Navigator.of(context).pop();
+                              onRewindMessage(msg);
+                            }
+                          : null,
                     );
                   },
                 ),
@@ -141,14 +145,16 @@ class UserMessageHistorySheet extends StatelessWidget {
 class _MessageTile extends StatelessWidget {
   final UserChatEntry message;
   final int index;
+  final bool canRewind;
   final VoidCallback onTap;
-  final VoidCallback onRewind;
+  final VoidCallback? onRewind;
 
   const _MessageTile({
     required this.message,
     required this.index,
+    this.canRewind = true,
     required this.onTap,
-    required this.onRewind,
+    this.onRewind,
   });
 
   @override
@@ -184,14 +190,16 @@ class _MessageTile extends StatelessWidget {
           context,
         ).textTheme.labelSmall?.copyWith(color: appColors.subtleText),
       ),
-      trailing: IconButton(
-        icon: Icon(Icons.history, size: 18, color: colorScheme.primary),
-        tooltip: 'Rewind to here',
-        visualDensity: VisualDensity.compact,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-        onPressed: onRewind,
-      ),
+      trailing: canRewind
+          ? IconButton(
+              icon: Icon(Icons.history, size: 18, color: colorScheme.primary),
+              tooltip: 'Rewind to here',
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onPressed: onRewind,
+            )
+          : null,
       onTap: onTap,
     );
   }

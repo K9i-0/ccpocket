@@ -837,7 +837,7 @@ void _showUserMessageHistory(
   ValueNotifier<UserChatEntry?> scrollToUserEntry,
 ) {
   final cubit = context.read<ChatSessionCubit>();
-  final messages = cubit.rewindableUserMessages;
+  final messages = cubit.allUserMessages;
 
   showModalBottomSheet<void>(
     context: context,
