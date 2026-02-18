@@ -264,7 +264,7 @@ class ChatMessageHandler {
             .whereType<TextContent>()
             .map((c) => c.text)
             .toList();
-        if (texts.isNotEmpty) {
+        if (texts.isNotEmpty || m.imageCount > 0) {
           final joined = texts.join('\n');
           entries.add(
             UserChatEntry(
@@ -272,6 +272,7 @@ class ChatMessageHandler {
               timestamp: ts,
               status: MessageStatus.sent,
               messageUuid: m.uuid,
+              imageCount: m.imageCount,
             ),
           );
         }
@@ -318,6 +319,7 @@ class ChatMessageHandler {
             m.text,
             status: MessageStatus.sent,
             messageUuid: m.userMessageUuid,
+            imageCount: m.imageCount,
           ),
         );
       } else {

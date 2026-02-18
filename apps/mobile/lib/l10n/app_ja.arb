@@ -372,5 +372,7 @@
   "fcmDisabled": "通知を無効化しました",
   "fcmDisabledPending": "Bridge 再接続後に通知解除します",
 
-  "defaultNotRecommended": "Default（非推奨）"
+  "defaultNotRecommended": "Default（非推奨）",
+
+  "imageAttached": "画像添付"
 }

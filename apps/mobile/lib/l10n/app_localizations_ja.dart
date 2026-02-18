@@ -827,4 +827,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get defaultNotRecommended => 'Default（非推奨）';
+
+  @override
+  String get imageAttached => '画像添付';
 }

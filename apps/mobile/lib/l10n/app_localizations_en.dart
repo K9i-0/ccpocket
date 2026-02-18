@@ -839,4 +839,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get defaultNotRecommended => 'Default (not recommended)';
+
+  @override
+  String get imageAttached => 'Image attached';
 }

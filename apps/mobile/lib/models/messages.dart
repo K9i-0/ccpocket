@@ -485,6 +485,7 @@ sealed class ServerMessage {
         userMessageUuid: json['userMessageUuid'] as String?,
         isSynthetic: json['isSynthetic'] as bool? ?? false,
         isMeta: json['isMeta'] as bool? ?? false,
+        imageCount: json['imageCount'] as int? ?? 0,
       ),
       'rewind_preview' => RewindPreviewMessage(
         canRewind: json['canRewind'] as bool? ?? false,
@@ -904,11 +905,15 @@ class UserInputMessage implements ServerMessage {
 
   /// Whether this is a meta message (e.g. skill loading prompt).
   final bool isMeta;
+
+  /// Number of images attached to this user message.
+  final int imageCount;
   const UserInputMessage({
     required this.text,
     this.userMessageUuid,
     this.isSynthetic = false,
     this.isMeta = false,
+    this.imageCount = 0,
   });
 }
 
@@ -1032,12 +1037,16 @@ class PastMessage {
 
   /// Whether this is a meta message (e.g. skill loading prompt).
   final bool isMeta;
+
+  /// Number of images attached to this user message.
+  final int imageCount;
   final List<AssistantContent> content;
   const PastMessage({
     required this.role,
     this.uuid,
     this.timestamp,
     this.isMeta = false,
+    this.imageCount = 0,
     required this.content,
   });
 
@@ -1059,6 +1068,7 @@ class PastMessage {
       uuid: json['uuid'] as String?,
       timestamp: json['timestamp'] as String?,
       isMeta: json['isMeta'] as bool? ?? false,
+      imageCount: json['imageCount'] as int? ?? 0,
       content: contentList,
     );
   }
@@ -1599,6 +1609,9 @@ class UserChatEntry implements ChatEntry {
   final Uint8List? imageBytes;
   MessageStatus status;
 
+  /// Number of images attached to this user message (from history restoration).
+  final int imageCount;
+
   /// UUID assigned by the SDK for this user message (set when tool_result arrives).
   String? messageUuid;
   @override
@@ -1610,6 +1623,7 @@ class UserChatEntry implements ChatEntry {
     this.imageId,
     this.imageUrl,
     this.imageBytes,
+    this.imageCount = 0,
     this.status = MessageStatus.sending,
     this.messageUuid,
   }) : timestamp = timestamp ?? DateTime.now();

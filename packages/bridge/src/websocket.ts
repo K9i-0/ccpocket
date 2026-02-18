@@ -256,7 +256,12 @@ export class BridgeWebSocketServer {
         // otherwise lack them.  This ensures get_history responses include user
         // messages and replaceEntries on the client side preserves them.
         // We do NOT broadcast this back — Flutter already shows it via sendMessage().
-        session.history.push({ type: "user_input", text } as ServerMessage);
+        const hasImage = !!(msg.imageBase64 || msg.imageId);
+        session.history.push({
+          type: "user_input",
+          text,
+          ...(hasImage ? { imageCount: 1 } : {}),
+        } as ServerMessage);
 
         // Codex input path (text + optional image)
         if (session.provider === "codex") {

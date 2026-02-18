@@ -290,5 +290,7 @@
   "fcmDisabled": "Notifications disabled",
   "fcmDisabledPending": "Will unregister after Bridge reconnects",
 
-  "defaultNotRecommended": "Default (not recommended)"
+  "defaultNotRecommended": "Default (not recommended)",
+
+  "imageAttached": "Image attached"
 }

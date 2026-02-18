@@ -1645,6 +1645,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'Default（非推奨）'**
   String get defaultNotRecommended;
+
+  /// No description provided for @imageAttached.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像添付'**
+  String get imageAttached;
 }
 
 class _AppLocalizationsDelegate

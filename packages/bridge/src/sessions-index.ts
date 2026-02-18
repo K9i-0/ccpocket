@@ -534,6 +534,8 @@ export interface SessionHistoryMessage {
   timestamp?: string;
   /** Skill loading prompt or other meta message (rendered as a chip). */
   isMeta?: boolean;
+  /** Number of images attached to this user message (for display indicator). */
+  imageCount?: number;
   content: Array<{
     type: string;
     text?: string;
@@ -814,6 +816,7 @@ export async function getSessionHistory(
 
     // Filter content to only text and tool_use (skip tool_result for cleaner display)
     const content: SessionHistoryMessage["content"] = [];
+    let imageCount = 0;
     for (const c of message.content) {
       if (typeof c !== "object" || c === null) continue;
       const item = c as Record<string, unknown>;
@@ -828,18 +831,28 @@ export async function getSessionHistory(
           name: item.name as string,
           input: (item.input as Record<string, unknown>) ?? {},
         });
+      } else if (contentType === "image") {
+        imageCount++;
       }
     }
 
-    if (content.length > 0) {
+    if (content.length > 0 || imageCount > 0) {
       const uuid = entry.uuid as string | undefined;
       const ts = entry.timestamp as string | undefined;
+      // If there are only images and no text, add a placeholder
+      if (content.length === 0 && imageCount > 0) {
+        content.push({
+          type: "text",
+          text: `[Image attached${imageCount > 1 ? ` x${imageCount}` : ""}]`,
+        });
+      }
       messages.push({
         role,
         content,
         ...(uuid ? { uuid } : {}),
         ...(ts ? { timestamp: ts } : {}),
         ...(isMeta ? { isMeta } : {}),
+        ...(imageCount > 0 ? { imageCount } : {}),
       });
     }
   }
@@ -891,7 +904,20 @@ export async function getCodexSessionHistory(
           : imageCount > 0
             ? `[Image attached${imageCount > 1 ? ` x${imageCount}` : ""}]`
             : "";
-        appendTextMessage(messages, "user", text, entryTimestamp);
+        if (imageCount > 0) {
+          // Push directly to include imageCount metadata
+          const normalized = text.trim();
+          if (normalized) {
+            messages.push({
+              role: "user",
+              content: [{ type: "text", text }],
+              imageCount,
+              ...(entryTimestamp ? { timestamp: entryTimestamp } : {}),
+            });
+          }
+        } else {
+          appendTextMessage(messages, "user", text, entryTimestamp);
+        }
         continue;
       }
 

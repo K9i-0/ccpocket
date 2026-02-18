@@ -605,6 +605,7 @@ describe("codex sessions integration", () => {
       {
         role: "user",
         content: [{ type: "text", text: "[Image attached x2]" }],
+        imageCount: 2,
       },
     ]);
   });
