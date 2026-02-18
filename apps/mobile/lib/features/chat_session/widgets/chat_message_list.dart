@@ -55,6 +55,7 @@ class ChatMessageList extends StatefulWidget {
 class _ChatMessageListState extends State<ChatMessageList> {
   final List<ChatEntry> _entries = [];
   final _listKey = GlobalKey<AnimatedListState>();
+
   /// Disables animation during initial history load.
   bool _bulkLoading = true;
 
@@ -165,6 +166,17 @@ class _ChatMessageListState extends State<ChatMessageList> {
       // In-place update (same length or shrink)
       for (var i = 0; i < newLen && i < _entries.length; i++) {
         _entries[i] = newEntries[i];
+      }
+      // Remove excess entries when the list shrinks (e.g. replaceEntries
+      // produced fewer entries than currently displayed).
+      while (_entries.length > newLen) {
+        final idx = _entries.length - 1;
+        _entries.removeAt(idx);
+        _listKey.currentState?.removeItem(
+          idx,
+          (context, animation) => const SizedBox.shrink(),
+          duration: Duration.zero,
+        );
       }
     }
 
@@ -312,8 +324,10 @@ class _ChatMessageListState extends State<ChatMessageList> {
               pendingPlanToolUseId: widget.pendingPlanToolUseId,
               hiddenToolUseIds: hiddenToolUseIds,
               onImageTap: (user) {
-                final claudeSessionId =
-                    context.read<ChatSessionCubit>().state.claudeSessionId;
+                final claudeSessionId = context
+                    .read<ChatSessionCubit>()
+                    .state
+                    .claudeSessionId;
                 final httpBaseUrl = widget.httpBaseUrl;
                 if (claudeSessionId == null ||
                     claudeSessionId.isEmpty ||

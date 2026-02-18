@@ -194,7 +194,41 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       // History is a full snapshot — replace all non-past-history entries
       // to prevent duplicates when get_history is received multiple times.
       final pastEntries = entries.take(_pastEntryCount).toList();
-      entries = [...pastEntries, ...nonStreamingEntries];
+      final existingNonPast = entries.skip(_pastEntryCount).toList();
+      final historyCount = nonStreamingEntries.length;
+
+      // Preserve live entries that the history snapshot may not contain.
+      //
+      // The server builds the snapshot from session.history at the time of
+      // the get_history request. Live-broadcast messages that arrived at the
+      // client AFTER that snapshot was taken would be lost by a blind
+      // replace. If the client already has MORE non-past entries than the
+      // history provides, the tail entries are live-only and must survive.
+      //
+      // Also preserve locally-added UserChatEntry (status: sending) that
+      // the server history won't contain until the SDK echoes them back.
+      final extraLiveEntries = <ChatEntry>[];
+      if (existingNonPast.length > historyCount) {
+        extraLiveEntries.addAll(existingNonPast.skip(historyCount));
+      }
+      // Preserve any "sending" user entries that aren't already in history
+      // or extras (they were added by sendMessage() before the server
+      // confirmed receipt).
+      for (final e in existingNonPast) {
+        if (e is UserChatEntry &&
+            e.status == MessageStatus.sending &&
+            !extraLiveEntries.contains(e)) {
+          // Check whether this user entry is already covered by history
+          final coveredByHistory = nonStreamingEntries.any(
+            (h) => h is UserChatEntry && h.text == e.text,
+          );
+          if (!coveredByHistory) {
+            extraLiveEntries.add(e);
+          }
+        }
+      }
+
+      entries = [...pastEntries, ...nonStreamingEntries, ...extraLiveEntries];
       didModifyEntries = true;
     } else if (nonStreamingEntries.isNotEmpty) {
       entries = [...entries, ...nonStreamingEntries];

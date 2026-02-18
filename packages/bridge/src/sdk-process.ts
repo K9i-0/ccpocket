@@ -330,7 +330,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private userMessageResolve: ((msg: SDKUserMsg) => void) | null = null;
   private stopped = false;
 
-  private pendingInput: string | null = null;
+  private pendingInput: { text: string; image?: { base64: string; mimeType: string } } | null = null;
   private _projectPath: string | null = null;
   private toolCallsSinceLastResult = 0;
   private fileEditsSinceLastResult = 0;
@@ -370,7 +370,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
     if (options?.initialInput) {
-      this.pendingInput = options.initialInput;
+      this.pendingInput = { text: options.initialInput };
     }
 
     this.setStatus("starting");
@@ -468,7 +468,13 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   sendInput(text: string): void {
     if (!this.userMessageResolve) {
-      console.error("[sdk-process] No pending message resolver for sendInput");
+      // Queue the message instead of dropping it. The async generator
+      // (createUserMessageStream) checks pendingInput on each iteration,
+      // so the message will be delivered once the SDK is ready.
+      // NOTE: This is a single-slot queue — if called multiple times before
+      // the resolver is set, only the last message is preserved.
+      this.pendingInput = { text };
+      console.log("[sdk-process] Queued input (waiting for resolver)");
       return;
     }
     const resolve = this.userMessageResolve;
@@ -491,7 +497,9 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
    */
   sendInputWithImage(text: string, image: { base64: string; mimeType: string }): void {
     if (!this.userMessageResolve) {
-      console.error("[sdk-process] No pending message resolver for sendInputWithImage");
+      // Queue the message with image instead of dropping it.
+      this.pendingInput = { text, image };
+      console.log("[sdk-process] Queued input with image (waiting for resolver)");
       return;
     }
     const resolve = this.userMessageResolve;
@@ -707,15 +715,27 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private async *createUserMessageStream(): AsyncGenerator<SDKUserMsg> {
     while (!this.stopped) {
       if (this.pendingInput) {
-        const text = this.pendingInput;
+        const { text, image } = this.pendingInput;
         this.pendingInput = null;
-        console.log("[sdk-process] Sending pending input after restart");
+        console.log(`[sdk-process] Sending pending input${image ? " with image" : ""}`);
+        const content: SDKUserMsg["message"]["content"] = [];
+        if (image) {
+          content.push({
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: image.mimeType,
+              data: image.base64,
+            },
+          });
+        }
+        content.push({ type: "text", text });
         yield {
           type: "user",
           session_id: this._sessionId ?? "",
           message: {
             role: "user",
-            content: [{ type: "text", text }],
+            content,
           },
           parent_tool_use_id: null,
         };
