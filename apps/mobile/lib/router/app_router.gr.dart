@@ -11,9 +11,9 @@
 part of 'app_router.dart';
 
 /// generated route for
-/// [ClaudeCodeSessionScreen]
-class ClaudeCodeSessionRoute extends PageRouteInfo<ClaudeCodeSessionRouteArgs> {
-  ClaudeCodeSessionRoute({
+/// [ClaudeSessionScreen]
+class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
+  ClaudeSessionRoute({
     Key? key,
     required String sessionId,
     String? projectPath,
@@ -23,8 +23,8 @@ class ClaudeCodeSessionRoute extends PageRouteInfo<ClaudeCodeSessionRouteArgs> {
     ValueNotifier<SystemMessage?>? pendingSessionCreated,
     List<PageRouteInfo>? children,
   }) : super(
-         ClaudeCodeSessionRoute.name,
-         args: ClaudeCodeSessionRouteArgs(
+         ClaudeSessionRoute.name,
+         args: ClaudeSessionRouteArgs(
            key: key,
            sessionId: sessionId,
            projectPath: projectPath,
@@ -36,13 +36,13 @@ class ClaudeCodeSessionRoute extends PageRouteInfo<ClaudeCodeSessionRouteArgs> {
          initialChildren: children,
        );
 
-  static const String name = 'ClaudeCodeSessionRoute';
+  static const String name = 'ClaudeSessionRoute';
 
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      final args = data.argsAs<ClaudeCodeSessionRouteArgs>();
-      return ClaudeCodeSessionScreen(
+      final args = data.argsAs<ClaudeSessionRouteArgs>();
+      return ClaudeSessionScreen(
         key: args.key,
         sessionId: args.sessionId,
         projectPath: args.projectPath,
@@ -55,8 +55,8 @@ class ClaudeCodeSessionRoute extends PageRouteInfo<ClaudeCodeSessionRouteArgs> {
   );
 }
 
-class ClaudeCodeSessionRouteArgs {
-  const ClaudeCodeSessionRouteArgs({
+class ClaudeSessionRouteArgs {
+  const ClaudeSessionRouteArgs({
     this.key,
     required this.sessionId,
     this.projectPath,
@@ -82,13 +82,13 @@ class ClaudeCodeSessionRouteArgs {
 
   @override
   String toString() {
-    return 'ClaudeCodeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, pendingSessionCreated: $pendingSessionCreated}';
+    return 'ClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, pendingSessionCreated: $pendingSessionCreated}';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    if (other is! ClaudeCodeSessionRouteArgs) return false;
+    if (other is! ClaudeSessionRouteArgs) return false;
     return key == other.key &&
         sessionId == other.sessionId &&
         projectPath == other.projectPath &&

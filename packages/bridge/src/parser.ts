@@ -73,6 +73,7 @@ export type ClientMessage =
   | { type: "push_register"; token: string; platform: "ios" | "android" | "web" }
   | { type: "push_unregister"; token: string }
   | { type: "set_permission_mode"; mode: PermissionMode; sessionId?: string }
+  | { type: "set_sandbox_mode"; sandboxMode: string; sessionId?: string }
   | { type: "approve"; id: string; updatedInput?: Record<string, unknown>; clearContext?: boolean; sessionId?: string }
   | { type: "approve_always"; id: string; sessionId?: string }
   | { type: "reject"; id: string; message?: string; sessionId?: string }
@@ -127,7 +128,7 @@ export interface DebugTraceEvent {
 }
 
 export type ServerMessage =
-  | { type: "system"; subtype: string; sessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string; permissionMode?: PermissionMode; clearContext?: boolean }
+  | { type: "system"; subtype: string; sessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string; permissionMode?: PermissionMode; sandboxMode?: string; clearContext?: boolean }
   | { type: "assistant"; message: AssistantMessage; messageUuid?: string }
   | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[]; userMessageUuid?: string }
   | {
@@ -273,6 +274,9 @@ export function parseClientMessage(data: string): ClientMessage | null {
           typeof msg.mode !== "string"
           || !["default", "acceptEdits", "bypassPermissions", "plan"].includes(msg.mode)
         ) return null;
+        break;
+      case "set_sandbox_mode":
+        if (typeof msg.sandboxMode !== "string") return null;
         break;
       case "approve":
         if (typeof msg.id !== "string") return null;

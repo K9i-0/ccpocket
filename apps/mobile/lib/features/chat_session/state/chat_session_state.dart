@@ -3,7 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../../models/messages.dart';
 import '../../../widgets/slash_command_sheet.dart' show SlashCommand;
 
-part 'claude_code_session_state.freezed.dart';
+part 'chat_session_state.freezed.dart';
 
 /// Core state for a single chat session, managed by [ChatSessionNotifier].
 @freezed
@@ -31,6 +31,9 @@ abstract class ChatSessionState with _$ChatSessionState {
 
     // Permission mode selected by the user
     @Default(PermissionMode.defaultMode) PermissionMode permissionMode,
+
+    // Sandbox mode for Codex sessions
+    @Default(SandboxMode.workspaceWrite) SandboxMode sandboxMode,
 
     // Tool use IDs hidden by tool_use_summary (subagent compression)
     @Default({}) Set<String> hiddenToolUseIds,

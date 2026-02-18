@@ -334,6 +334,7 @@ sealed class ServerMessage {
         provider: json['provider'] as String?,
         projectPath: json['projectPath'] as String?,
         permissionMode: json['permissionMode'] as String?,
+        sandboxMode: json['sandboxMode'] as String?,
         slashCommands:
             (json['slashCommands'] as List?)
                 ?.map((e) => e as String)
@@ -528,6 +529,7 @@ class SystemMessage implements ServerMessage {
   final String? provider;
   final String? projectPath;
   final String? permissionMode;
+  final String? sandboxMode;
   final List<String> slashCommands;
   final List<String> skills;
   final String? worktreePath;
@@ -540,6 +542,7 @@ class SystemMessage implements ServerMessage {
     this.provider,
     this.projectPath,
     this.permissionMode,
+    this.sandboxMode,
     this.slashCommands = const [],
     this.skills = const [],
     this.worktreePath,
@@ -1352,6 +1355,17 @@ class ClientMessage {
     return ClientMessage._(<String, dynamic>{
       'type': 'set_permission_mode',
       'mode': mode,
+      'sessionId': ?sessionId,
+    });
+  }
+
+  factory ClientMessage.setSandboxMode(
+    String sandboxMode, {
+    String? sessionId,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'set_sandbox_mode',
+      'sandboxMode': sandboxMode,
       'sessionId': ?sessionId,
     });
   }

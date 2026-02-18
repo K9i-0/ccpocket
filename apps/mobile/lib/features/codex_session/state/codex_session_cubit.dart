@@ -1,5 +1,5 @@
 import '../../../models/messages.dart';
-import '../../claude_code_session/state/claude_code_session_cubit.dart';
+import '../../chat_session/state/chat_session_cubit.dart';
 
 /// Codex-specific session cubit.
 ///
@@ -13,6 +13,7 @@ class CodexSessionCubit extends ChatSessionCubit {
     required super.sessionId,
     required super.bridge,
     required super.streamingCubit,
+    super.initialSandboxMode,
   }) : super(provider: Provider.codex);
 
   /// Rewind is not supported for Codex sessions.

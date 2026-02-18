@@ -22,6 +22,7 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onShowSlashCommands;
   final VoidCallback onShowModeMenu;
   final PermissionMode permissionMode;
+  final SandboxMode? sandboxMode;
   final VoidCallback? onShowPromptHistory;
   final VoidCallback? onAttachImage;
   final Uint8List? attachedImageBytes;
@@ -45,6 +46,7 @@ class ChatInputBar extends StatelessWidget {
     required this.onShowSlashCommands,
     required this.onShowModeMenu,
     this.permissionMode = PermissionMode.defaultMode,
+    this.sandboxMode,
     this.onShowPromptHistory,
     this.onAttachImage,
     this.attachedImageBytes,
@@ -132,6 +134,12 @@ class ChatInputBar extends StatelessWidget {
   }
 
   Widget _buildModeButton(ColorScheme cs) {
+    // Codex: show sandbox mode badge
+    if (sandboxMode != null) {
+      return _buildSandboxModeButton(cs);
+    }
+
+    // Claude: show permission mode badge
     final isDefault = permissionMode == PermissionMode.defaultMode;
 
     final (
@@ -161,6 +169,69 @@ class ChatInputBar extends StatelessWidget {
       PermissionMode.bypassPermissions => (
         Icons.flash_on,
         'Bypass',
+        cs.errorContainer,
+        cs.onErrorContainer,
+      ),
+    };
+
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        key: const ValueKey('mode_button'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: onShowModeMenu,
+        child: Container(
+          height: 36,
+          constraints: isDefault
+              ? const BoxConstraints(minWidth: 36, maxWidth: 36)
+              : const BoxConstraints(minWidth: 36),
+          padding: isDefault
+              ? EdgeInsets.zero
+              : const EdgeInsets.symmetric(horizontal: 10),
+          alignment: Alignment.center,
+          child: isDefault
+              ? Icon(icon, size: 18, color: fg)
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 16, color: fg),
+                    const SizedBox(width: 4),
+                    Text(
+                      label!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: fg,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSandboxModeButton(ColorScheme cs) {
+    final mode = sandboxMode!;
+    final isDefault = mode == SandboxMode.workspaceWrite;
+
+    final (IconData icon, String? label, Color bg, Color fg) = switch (mode) {
+      SandboxMode.workspaceWrite => (
+        Icons.tune,
+        null,
+        cs.surfaceContainerHigh,
+        cs.primary,
+      ),
+      SandboxMode.readOnly => (
+        Icons.visibility,
+        'Read',
+        cs.tertiaryContainer,
+        cs.onTertiaryContainer,
+      ),
+      SandboxMode.dangerFullAccess => (
+        Icons.warning_amber,
+        'Full',
         cs.errorContainer,
         cs.onErrorContainer,
       ),

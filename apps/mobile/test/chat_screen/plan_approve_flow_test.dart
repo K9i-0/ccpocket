@@ -1,4 +1,4 @@
-import 'package:ccpocket/features/claude_code_session/widgets/status_indicator.dart';
+import 'package:ccpocket/features/chat_session/widgets/status_indicator.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/widgets/approval_bar.dart';
 import 'package:ccpocket/widgets/bubbles/ask_user_question_widget.dart';

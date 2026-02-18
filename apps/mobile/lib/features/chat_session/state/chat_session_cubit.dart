@@ -7,7 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/chat_message_handler.dart';
-import 'claude_code_session_state.dart';
+import 'chat_session_state.dart';
 import 'streaming_state_cubit.dart';
 
 /// Manages the state of a single chat session.
@@ -43,9 +43,16 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     this.provider,
     required BridgeService bridge,
     required StreamingStateCubit streamingCubit,
+    PermissionMode? initialPermissionMode,
+    SandboxMode? initialSandboxMode,
   }) : _bridge = bridge,
        _streamingCubit = streamingCubit,
-       super(const ChatSessionState()) {
+       super(
+         ChatSessionState(
+           permissionMode: initialPermissionMode ?? PermissionMode.defaultMode,
+           sandboxMode: initialSandboxMode ?? SandboxMode.workspaceWrite,
+         ),
+       ) {
     // Subscribe to messages for this session
     _subscription = _bridge.messagesForSession(sessionId).listen(_onMessage);
 
@@ -433,6 +440,16 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     emit(state.copyWith(permissionMode: mode));
     _bridge.send(
       ClientMessage.setPermissionMode(mode.value, sessionId: sessionId),
+    );
+  }
+
+  /// Change sandbox mode for Codex sessions.
+  /// This triggers a thread restart on the Bridge side.
+  void setSandboxMode(SandboxMode mode) {
+    if (!isCodex) return;
+    emit(state.copyWith(sandboxMode: mode));
+    _bridge.send(
+      ClientMessage.setSandboxMode(mode.value, sessionId: sessionId),
     );
   }
 

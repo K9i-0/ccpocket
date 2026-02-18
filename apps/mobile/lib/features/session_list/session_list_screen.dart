@@ -623,7 +623,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
     } else {
       context.router
           .push(
-            ClaudeCodeSessionRoute(
+            ClaudeSessionRoute(
               sessionId: sessionId,
               projectPath: projectPath,
               gitBranch: gitBranch,

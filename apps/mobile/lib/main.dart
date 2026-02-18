@@ -164,7 +164,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
     // Navigate to session screen when user taps a notification
     NotificationService.instance.onNotificationTap = (payload) {
       if (payload != null && payload.isNotEmpty) {
-        _appRouter.push(ClaudeCodeSessionRoute(sessionId: payload));
+        _appRouter.push(ClaudeSessionRoute(sessionId: payload));
       }
     };
   }
@@ -202,7 +202,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
       case ConnectionParams():
         _deepLinkNotifier.value = params;
       case SessionLinkParams(:final sessionId):
-        _appRouter.push(ClaudeCodeSessionRoute(sessionId: sessionId));
+        _appRouter.push(ClaudeSessionRoute(sessionId: sessionId));
     }
   }
 

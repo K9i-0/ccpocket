@@ -1,6 +1,6 @@
 import '../models/messages.dart';
 
-/// Abstract interface that [ClaudeCodeSessionScreen] depends on.
+/// Abstract interface that [ClaudeSessionScreen] depends on.
 /// Both [BridgeService] (real WebSocket) and [MockBridgeService] implement this.
 abstract class BridgeServiceBase {
   Stream<ServerMessage> get messages;

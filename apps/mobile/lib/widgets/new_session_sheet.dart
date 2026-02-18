@@ -79,9 +79,11 @@ WebSearchMode? webSearchModeFromRaw(String? raw) =>
 Provider _providerFromRaw(String? raw) =>
     enumByValue(Provider.values, raw, (v) => v.value) ?? Provider.claude;
 
-PermissionMode _permissionModeFromRaw(String? raw) =>
-    enumByValue(PermissionMode.values, raw, (v) => v.value) ??
-    PermissionMode.acceptEdits;
+PermissionMode? permissionModeFromRaw(String? raw) =>
+    enumByValue(PermissionMode.values, raw, (v) => v.value);
+
+PermissionMode _permissionModeFromRawWithDefault(String? raw) =>
+    permissionModeFromRaw(raw) ?? PermissionMode.acceptEdits;
 
 ClaudeEffort? _claudeEffortFromRaw(String? raw) =>
     enumByValue(ClaudeEffort.values, raw, (v) => v.value);
@@ -121,7 +123,9 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
   return NewSessionParams(
     projectPath: projectPath,
     provider: _providerFromRaw(json['provider'] as String?),
-    permissionMode: _permissionModeFromRaw(json['permissionMode'] as String?),
+    permissionMode: _permissionModeFromRawWithDefault(
+      json['permissionMode'] as String?,
+    ),
     // useWorktree, worktreeBranch, existingWorktreePath default to off/null
     model: json['model'] as String?,
     sandboxMode: sandboxModeFromRaw(json['sandboxMode'] as String?),
@@ -328,7 +332,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _branchController.text = p.worktreeBranch ?? "";
     _selectedModel = p.model;
     _sandboxMode = p.sandboxMode ?? _sandboxMode;
-    _approvalPolicy = p.approvalPolicy ?? _approvalPolicy;
+    final restoredPolicy = p.approvalPolicy;
+    // on-request is not supported via SDK; fall back to default.
+    _approvalPolicy = restoredPolicy != null &&
+            restoredPolicy != ApprovalPolicy.onRequest
+        ? restoredPolicy
+        : _approvalPolicy;
     _modelReasoningEffort = p.modelReasoningEffort;
     _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
     _webSearchMode = p.webSearchMode;
@@ -692,9 +701,17 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   .map(
                     (m) => DropdownMenuItem(
                       value: m,
-                      child: Text(
-                        m.label,
-                        style: const TextStyle(fontSize: 13),
+                      child: Row(
+                        children: [
+                          Icon(switch (m) {
+                            PermissionMode.defaultMode => Icons.tune,
+                            PermissionMode.plan => Icons.assignment,
+                            PermissionMode.acceptEdits => Icons.edit_note,
+                            PermissionMode.bypassPermissions => Icons.flash_on,
+                          }, size: 16),
+                          const SizedBox(width: 8),
+                          Text(m.label, style: const TextStyle(fontSize: 13)),
+                        ],
                       ),
                     ),
                   )
@@ -719,12 +736,22 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               items: ApprovalPolicy.values
+                  .where((p) =>
+                      p != ApprovalPolicy.onRequest)
                   .map(
                     (p) => DropdownMenuItem(
                       value: p,
-                      child: Text(
-                        p.label,
-                        style: const TextStyle(fontSize: 13),
+                      child: Row(
+                        children: [
+                          Icon(switch (p) {
+                            ApprovalPolicy.never => Icons.flash_auto,
+                            ApprovalPolicy.onRequest => Icons.front_hand,
+                            ApprovalPolicy.onFailure => Icons.error_outline,
+                            ApprovalPolicy.untrusted => Icons.shield_outlined,
+                          }, size: 16),
+                          const SizedBox(width: 8),
+                          Text(p.label, style: const TextStyle(fontSize: 13)),
+                        ],
                       ),
                     ),
                   )
@@ -970,7 +997,17 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             .map(
               (m) => DropdownMenuItem(
                 value: m,
-                child: Text(m.label, style: const TextStyle(fontSize: 13)),
+                child: Row(
+                  children: [
+                    Icon(switch (m) {
+                      SandboxMode.workspaceWrite => Icons.edit,
+                      SandboxMode.readOnly => Icons.visibility,
+                      SandboxMode.dangerFullAccess => Icons.warning_amber,
+                    }, size: 16),
+                    const SizedBox(width: 8),
+                    Text(m.label, style: const TextStyle(fontSize: 13)),
+                  ],
+                ),
               ),
             )
             .toList(),

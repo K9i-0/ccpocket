@@ -2,7 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 
-import '../features/claude_code_session/claude_code_session_screen.dart';
+import '../features/claude_session/claude_session_screen.dart';
 import '../features/debug/debug_screen.dart';
 import '../features/codex_session/codex_session_screen.dart';
 import '../features/diff/diff_screen.dart';
@@ -24,7 +24,7 @@ class AppRouter extends RootStackRouter {
   @override
   List<AutoRoute> get routes => [
     AutoRoute(page: SessionListRoute.page, path: '/', initial: true),
-    AutoRoute(page: ClaudeCodeSessionRoute.page, path: '/session/:sessionId'),
+    AutoRoute(page: ClaudeSessionRoute.page, path: '/session/:sessionId'),
     AutoRoute(page: CodexSessionRoute.page, path: '/codex-session/:sessionId'),
     AutoRoute(page: GalleryRoute.page, path: '/gallery'),
     AutoRoute(page: DiffRoute.page, path: '/diff'),

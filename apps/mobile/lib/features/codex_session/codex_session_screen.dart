@@ -14,21 +14,22 @@ import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
 import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
+import '../../widgets/new_session_sheet.dart' show sandboxModeFromRaw;
 import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
-import '../claude_code_session/state/claude_code_session_cubit.dart';
-import '../claude_code_session/state/streaming_state_cubit.dart';
-import '../claude_code_session/widgets/branch_chip.dart';
-import '../claude_code_session/widgets/chat_input_with_overlays.dart';
-import '../claude_code_session/widgets/chat_message_list.dart';
-import '../claude_code_session/widgets/reconnect_banner.dart';
-import '../claude_code_session/widgets/status_indicator.dart';
+import '../chat_session/state/chat_session_cubit.dart';
+import '../chat_session/state/streaming_state_cubit.dart';
+import '../chat_session/widgets/branch_chip.dart';
+import '../chat_session/widgets/chat_input_with_overlays.dart';
+import '../chat_session/widgets/chat_message_list.dart';
+import '../chat_session/widgets/reconnect_banner.dart';
+import '../chat_session/widgets/status_indicator.dart';
 import '../../router/app_router.dart';
 import 'state/codex_session_cubit.dart';
 
 /// Codex-specific chat screen.
 ///
-/// Simpler than [ClaudeCodeSessionScreen] — no approval flow, no rewind, no plan mode.
+/// Simpler than [ClaudeSessionScreen] — no approval flow, no rewind, no plan mode.
 /// Shares UI components (`ChatMessageList`, `ChatInputWithOverlays`, etc.)
 /// via [CodexSessionCubit] which extends [ChatSessionCubit].
 @RoutePage()
@@ -63,6 +64,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   late String? _gitBranch;
   late String? _worktreePath;
   late bool _isPending;
+  SandboxMode? _sandboxMode;
   StreamSubscription<ServerMessage>? _pendingSub;
 
   @override
@@ -118,6 +120,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       _projectPath = msg.projectPath ?? _projectPath;
       _gitBranch = msg.worktreeBranch ?? _gitBranch;
       _worktreePath = msg.worktreePath ?? _worktreePath;
+      _sandboxMode = sandboxModeFromRaw(msg.sandboxMode) ?? _sandboxMode;
       _isPending = false;
     });
     _pendingSub?.cancel();
@@ -155,6 +158,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       projectPath: _projectPath,
       gitBranch: _gitBranch,
       worktreePath: _worktreePath,
+      sandboxMode: _sandboxMode,
     );
   }
 }
@@ -168,6 +172,7 @@ class _CodexProviders extends StatelessWidget {
   final String? projectPath;
   final String? gitBranch;
   final String? worktreePath;
+  final SandboxMode? sandboxMode;
 
   const _CodexProviders({
     super.key,
@@ -175,6 +180,7 @@ class _CodexProviders extends StatelessWidget {
     this.projectPath,
     this.gitBranch,
     this.worktreePath,
+    this.sandboxMode,
   });
 
   @override
@@ -189,6 +195,7 @@ class _CodexProviders extends StatelessWidget {
             sessionId: sessionId,
             bridge: bridge,
             streamingCubit: streamingCubit,
+            initialSandboxMode: sandboxMode,
           ),
         ),
         BlocProvider.value(value: streamingCubit),

@@ -3,7 +3,7 @@ import { execFile, execFileSync } from "node:child_process";
 import { unlink } from "node:fs/promises";
 import { WebSocketServer, WebSocket } from "ws";
 import { SessionManager, type SessionInfo } from "./session.js";
-import type { SdkProcess } from "./sdk-process.js";
+import { SdkProcess } from "./sdk-process.js";
 import type { CodexProcess } from "./codex-process.js";
 import { parseClientMessage, type ClientMessage, type DebugTraceEvent, type ServerMessage } from "./parser.js";
 import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory, findSessionsByClaudeIds } from "./sessions-index.js";
@@ -209,6 +209,8 @@ export class BridgeWebSocketServer {
           sessionId,
           provider,
           projectPath: msg.projectPath,
+          ...(provider === "claude" && msg.permissionMode ? { permissionMode: msg.permissionMode } : {}),
+          ...(provider === "codex" && msg.sandboxMode ? { sandboxMode: msg.sandboxMode } : {}),
           ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
           ...(createdSession?.worktreePath ? {
             worktreePath: createdSession.worktreePath,
@@ -379,6 +381,45 @@ export class BridgeWebSocketServer {
         break;
       }
 
+      case "set_sandbox_mode": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session) {
+          this.send(ws, { type: "error", message: "No active session." });
+          return;
+        }
+        if (session.provider !== "codex") {
+          this.send(ws, { type: "error", message: "Only Codex sessions support sandbox mode changes" });
+          return;
+        }
+        const validModes = ["read-only", "workspace-write", "danger-full-access"] as const;
+        if (!validModes.includes(msg.sandboxMode as typeof validModes[number])) {
+          this.send(ws, { type: "error", message: `Invalid sandbox mode: ${msg.sandboxMode}` });
+          return;
+        }
+        const newSandboxMode = msg.sandboxMode as typeof validModes[number];
+        // Update stored settings
+        if (!session.codexSettings) {
+          session.codexSettings = {};
+        }
+        session.codexSettings.sandboxMode = newSandboxMode;
+        // Restart Codex process with new sandboxMode (required: sandboxMode is set at thread start)
+        const codexProc = session.process as CodexProcess;
+        const threadId = session.claudeSessionId ?? undefined;
+        const effectiveCwd = session.worktreePath ?? session.projectPath;
+        codexProc.stop();
+        codexProc.start(effectiveCwd, {
+          approvalPolicy: (session.codexSettings.approvalPolicy as "never" | "on-request" | "on-failure" | "untrusted") ?? undefined,
+          sandboxMode: newSandboxMode,
+          model: session.codexSettings.model,
+          modelReasoningEffort: (session.codexSettings.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
+          networkAccessEnabled: session.codexSettings.networkAccessEnabled,
+          webSearchMode: (session.codexSettings.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
+          threadId,
+        });
+        console.log(`[ws] Sandbox mode changed to ${newSandboxMode} for session ${session.id} (thread restart)`);
+        break;
+      }
+
       case "approve": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
@@ -440,6 +481,7 @@ export class BridgeWebSocketServer {
             sessionId: newId,
             provider: newSession?.provider ?? "claude",
             projectPath,
+            ...(permissionMode ? { permissionMode } : {}),
             clearContext: true,
           });
           this.broadcastSessionList();
@@ -674,6 +716,7 @@ export class BridgeWebSocketServer {
               sessionId,
               provider: "codex",
               projectPath: effectiveProjectPath,
+              ...(createdSession?.codexSettings?.sandboxMode ? { sandboxMode: createdSession.codexSettings.sandboxMode } : {}),
               ...(createdSession?.worktreePath ? {
                 worktreePath: createdSession.worktreePath,
                 worktreeBranch: createdSession.worktreeBranch,
@@ -736,6 +779,7 @@ export class BridgeWebSocketServer {
             sessionId,
             provider: "claude",
             projectPath: msg.projectPath,
+            ...(msg.permissionMode ? { permissionMode: msg.permissionMode } : {}),
             ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
             ...(createdSession?.worktreePath ? {
               worktreePath: createdSession.worktreePath,
@@ -947,12 +991,14 @@ export class BridgeWebSocketServer {
               this.send(ws, { type: "rewind_result", success: true, mode: "conversation" });
               // Notify the new session ID
               const newSession = this.sessionManager.get(newSessionId);
+              const rewindPermMode = newSession?.process instanceof SdkProcess ? newSession.process.permissionMode : undefined;
               this.send(ws, {
                 type: "system",
                 subtype: "session_created",
                 sessionId: newSessionId,
                 provider: newSession?.provider ?? "claude",
                 projectPath: newSession?.projectPath ?? "",
+                ...(rewindPermMode ? { permissionMode: rewindPermMode } : {}),
               });
               this.sendSessionList(ws);
             });
@@ -970,12 +1016,14 @@ export class BridgeWebSocketServer {
               this.sessionManager.rewindConversation(msg.sessionId, msg.targetUuid, (newSessionId) => {
                 this.send(ws, { type: "rewind_result", success: true, mode: "both" });
                 const newSession = this.sessionManager.get(newSessionId);
+                const rewindPermMode2 = newSession?.process instanceof SdkProcess ? newSession.process.permissionMode : undefined;
                 this.send(ws, {
                   type: "system",
                   subtype: "session_created",
                   sessionId: newSessionId,
                   provider: newSession?.provider ?? "claude",
                   projectPath: newSession?.projectPath ?? "",
+                  ...(rewindPermMode2 ? { permissionMode: rewindPermMode2 } : {}),
                 });
                 this.sendSessionList(ws);
               });

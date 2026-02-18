@@ -15,6 +15,7 @@ import '../../services/draft_service.dart';
 import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/new_session_sheet.dart' show permissionModeFromRaw;
 import '../../widgets/approval_bar.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/plan_detail_sheet.dart';
@@ -23,16 +24,16 @@ import '../../widgets/worktree_list_sheet.dart';
 import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
 import '../../router/app_router.dart';
-import 'state/claude_code_session_cubit.dart';
+import '../chat_session/state/chat_session_cubit.dart';
+import '../chat_session/state/chat_session_state.dart';
+import '../chat_session/state/streaming_state_cubit.dart';
+import '../chat_session/widgets/branch_chip.dart';
+import '../chat_session/widgets/chat_input_with_overlays.dart';
+import '../chat_session/widgets/chat_message_list.dart';
+import '../chat_session/widgets/reconnect_banner.dart';
+import '../chat_session/widgets/status_indicator.dart';
 import 'widgets/rewind_action_sheet.dart';
 import 'widgets/rewind_message_list_sheet.dart' show UserMessageHistorySheet;
-import 'state/claude_code_session_state.dart';
-import 'state/streaming_state_cubit.dart';
-import 'widgets/branch_chip.dart';
-import 'widgets/chat_input_with_overlays.dart';
-import 'widgets/chat_message_list.dart';
-import 'widgets/reconnect_banner.dart';
-import 'widgets/status_indicator.dart';
 import 'widgets/usage_summary_bar.dart';
 
 /// Outer widget that creates screen-scoped [ChatSessionCubit] and
@@ -42,7 +43,7 @@ import 'widgets/usage_summary_bar.dart';
 /// When [isPending] is true, shows a loading overlay until [session_created]
 /// is received from the bridge, then swaps to the real session.
 @RoutePage()
-class ClaudeCodeSessionScreen extends StatefulWidget {
+class ClaudeSessionScreen extends StatefulWidget {
   final String sessionId;
   final String? projectPath;
   final String? gitBranch;
@@ -53,7 +54,7 @@ class ClaudeCodeSessionScreen extends StatefulWidget {
   /// with subtype `session_created` (race condition fix).
   final ValueNotifier<SystemMessage?>? pendingSessionCreated;
 
-  const ClaudeCodeSessionScreen({
+  const ClaudeSessionScreen({
     super.key,
     required this.sessionId,
     this.projectPath,
@@ -64,15 +65,15 @@ class ClaudeCodeSessionScreen extends StatefulWidget {
   });
 
   @override
-  State<ClaudeCodeSessionScreen> createState() =>
-      _ClaudeCodeSessionScreenState();
+  State<ClaudeSessionScreen> createState() => _ClaudeSessionScreenState();
 }
 
-class _ClaudeCodeSessionScreenState extends State<ClaudeCodeSessionScreen> {
+class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
   late String _sessionId;
   late String? _worktreePath;
   late String? _gitBranch;
   late bool _isPending;
+  PermissionMode? _permissionMode;
   StreamSubscription<ServerMessage>? _pendingSub;
   StreamSubscription<ServerMessage>? _clearContextSub;
 
@@ -157,6 +158,8 @@ class _ClaudeCodeSessionScreenState extends State<ClaudeCodeSessionScreen> {
       _sessionId = newId;
       _worktreePath = msg.worktreePath ?? _worktreePath;
       _gitBranch = msg.worktreeBranch ?? _gitBranch;
+      _permissionMode =
+          permissionModeFromRaw(msg.permissionMode) ?? _permissionMode;
       _isPending = false;
     });
     _pendingSub?.cancel();
@@ -169,6 +172,8 @@ class _ClaudeCodeSessionScreenState extends State<ClaudeCodeSessionScreen> {
       _sessionId = msg.sessionId!;
       _worktreePath = msg.worktreePath ?? _worktreePath;
       _gitBranch = msg.worktreeBranch ?? _gitBranch;
+      _permissionMode =
+          permissionModeFromRaw(msg.permissionMode) ?? _permissionMode;
     });
   }
 
@@ -205,6 +210,7 @@ class _ClaudeCodeSessionScreenState extends State<ClaudeCodeSessionScreen> {
       projectPath: widget.projectPath,
       gitBranch: _gitBranch,
       worktreePath: _worktreePath,
+      permissionMode: _permissionMode,
     );
   }
 }
@@ -215,6 +221,7 @@ class _ChatScreenProviders extends StatelessWidget {
   final String? projectPath;
   final String? gitBranch;
   final String? worktreePath;
+  final PermissionMode? permissionMode;
 
   const _ChatScreenProviders({
     super.key,
@@ -222,6 +229,7 @@ class _ChatScreenProviders extends StatelessWidget {
     this.projectPath,
     this.gitBranch,
     this.worktreePath,
+    this.permissionMode,
   });
 
   @override
@@ -236,6 +244,7 @@ class _ChatScreenProviders extends StatelessWidget {
             provider: Provider.claude,
             bridge: bridge,
             streamingCubit: streamingCubit,
+            initialPermissionMode: permissionMode,
           ),
         ),
         BlocProvider.value(value: streamingCubit),

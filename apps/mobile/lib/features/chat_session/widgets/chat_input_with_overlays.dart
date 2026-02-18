@@ -22,7 +22,7 @@ import '../../../widgets/slash_command_sheet.dart'
         SlashCommandSheet,
         fallbackCodexSlashCommands,
         fallbackSlashCommands;
-import '../state/claude_code_session_cubit.dart';
+import '../state/chat_session_cubit.dart';
 
 /// Manages the chat input bar together with slash-command and @-mention
 /// overlays using [OverlayPortal].
@@ -454,47 +454,73 @@ class ChatInputWithOverlays extends HookWidget {
 
     void showModeMenu() {
       if (isCodex) {
-        final items = <({String command, String title, String subtitle})>[
-          (
-            command: '/plan',
-            title: 'Plan Prompt',
-            subtitle: 'Switch to planning-oriented responses',
-          ),
-          (
-            command: '/skills',
-            title: 'List Skills',
-            subtitle: 'Show skills available in this environment',
-          ),
-          (
-            command: '/permissions',
-            title: 'Show Permissions',
-            subtitle: 'Display current sandbox and approval state',
-          ),
-        ];
+        final currentSandbox = chatCubit.state.sandboxMode;
+
+        const sandboxDetails =
+            <SandboxMode, ({IconData icon, String description})>{
+              SandboxMode.workspaceWrite: (
+                icon: Icons.edit,
+                description: 'Read & write within workspace',
+              ),
+              SandboxMode.readOnly: (
+                icon: Icons.visibility,
+                description: 'Read-only access to files',
+              ),
+              SandboxMode.dangerFullAccess: (
+                icon: Icons.warning_amber,
+                description: 'Full system access (dangerous)',
+              ),
+            };
 
         showModalBottomSheet(
           context: context,
-          builder: (sheetContext) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final item in items)
-                  ListTile(
-                    title: Text(item.title),
-                    subtitle: Text(item.subtitle),
-                    trailing: Text(
-                      item.command,
-                      style: const TextStyle(fontFamily: 'monospace'),
+          builder: (sheetContext) {
+            final sheetCs = Theme.of(sheetContext).colorScheme;
+            return SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Sandbox Mode',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: sheetCs.onSurface,
+                        ),
+                      ),
                     ),
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      chatCubit.sendMessage(item.command);
-                      onScrollToBottom();
-                    },
                   ),
-              ],
-            ),
-          ),
+                  for (final mode in SandboxMode.values)
+                    ListTile(
+                      leading: Icon(
+                        sandboxDetails[mode]!.icon,
+                        color: mode == currentSandbox
+                            ? sheetCs.primary
+                            : sheetCs.onSurfaceVariant,
+                      ),
+                      title: Text(mode.label),
+                      subtitle: Text(
+                        sandboxDetails[mode]!.description,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      trailing: mode == currentSandbox
+                          ? Icon(Icons.check, color: sheetCs.primary, size: 20)
+                          : null,
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        HapticFeedback.lightImpact();
+                        chatCubit.setSandboxMode(mode);
+                      },
+                    ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
         );
         return;
       }
@@ -629,6 +655,9 @@ class ChatInputWithOverlays extends HookWidget {
                 .watch<ChatSessionCubit>()
                 .state
                 .permissionMode,
+            sandboxMode: isCodex
+                ? context.watch<ChatSessionCubit>().state.sandboxMode
+                : null,
             onShowPromptHistory: showPromptHistory,
             onAttachImage: showAttachOptions,
             attachedImageBytes: attachedImage.value,

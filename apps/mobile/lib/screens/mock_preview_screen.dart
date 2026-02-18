@@ -11,7 +11,7 @@ import '../services/bridge_service.dart';
 import '../services/mock_bridge_service.dart';
 import '../services/replay_bridge_service.dart';
 import '../theme/app_theme.dart';
-import '../features/claude_code_session/claude_code_session_screen.dart';
+import '../features/claude_session/claude_session_screen.dart';
 
 @RoutePage()
 class MockPreviewScreen extends StatelessWidget {
@@ -349,7 +349,7 @@ class _ReplayTabState extends State<_ReplayTab> {
   }
 }
 
-/// Wrapper that starts scenario playback after ClaudeCodeSessionScreen's initState completes.
+/// Wrapper that starts scenario playback after ClaudeSessionScreen's initState completes.
 class _MockChatWrapper extends StatefulWidget {
   final MockBridgeService mockService;
   final MockScenario scenario;
@@ -364,7 +364,7 @@ class _MockChatWrapperState extends State<_MockChatWrapper> {
   @override
   void initState() {
     super.initState();
-    // Start playback after the frame so ClaudeCodeSessionScreen's listener is ready
+    // Start playback after the frame so ClaudeSessionScreen's listener is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.mockService.playScenario(widget.scenario);
     });
@@ -399,7 +399,7 @@ class _MockChatWrapperState extends State<_MockChatWrapper> {
             create: (_) => FileListCubit(const [], mockService.fileList),
           ),
         ],
-        child: ClaudeCodeSessionScreen(
+        child: ClaudeSessionScreen(
           sessionId: sessionId,
           projectPath: '/mock/preview',
         ),
@@ -408,7 +408,7 @@ class _MockChatWrapperState extends State<_MockChatWrapper> {
   }
 }
 
-/// Wrapper that starts replay playback after ClaudeCodeSessionScreen's initState completes.
+/// Wrapper that starts replay playback after ClaudeSessionScreen's initState completes.
 class _ReplayChatWrapper extends StatefulWidget {
   final ReplayBridgeService replayService;
   final String recordingName;
@@ -460,7 +460,7 @@ class _ReplayChatWrapperState extends State<_ReplayChatWrapper> {
             create: (_) => FileListCubit(const [], replayService.fileList),
           ),
         ],
-        child: ClaudeCodeSessionScreen(
+        child: ClaudeSessionScreen(
           sessionId: sessionId,
           projectPath: '/replay/${widget.recordingName}',
         ),

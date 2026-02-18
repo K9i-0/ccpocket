@@ -1,6 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
-import 'package:ccpocket/features/claude_code_session/state/streaming_state.dart';
-import 'package:ccpocket/features/claude_code_session/state/streaming_state_cubit.dart';
+import 'package:ccpocket/features/chat_session/state/streaming_state.dart';
+import 'package:ccpocket/features/chat_session/state/streaming_state_cubit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
