@@ -261,12 +261,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         totalDuration: usage.totalDuration,
         inPlanMode: update.inPlanMode ?? current.inPlanMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
-        claudeSessionId: update.resultSessionId ?? current.claudeSessionId,
+        claudeSessionId: update.claudeSessionId ?? current.claudeSessionId,
         hiddenToolUseIds: hiddenToolUseIds,
       ),
     );
-
-
 
     // --- Fire side effects ---
     if (update.sideEffects.isNotEmpty) {

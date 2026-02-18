@@ -865,7 +865,6 @@ export async function getSessionHistory(
 export interface ExtractedImage {
   base64: string;
   mimeType: string;
-  index: number;
 }
 
 /**
@@ -914,7 +913,6 @@ async function extractClaudeMessageImages(
     if (!message?.content || !Array.isArray(message.content)) continue;
 
     const images: ExtractedImage[] = [];
-    let index = 0;
     for (const c of message.content) {
       if (typeof c !== "object" || c === null) continue;
       const item = c as Record<string, unknown>;
@@ -926,7 +924,7 @@ async function extractClaudeMessageImages(
       const data = source.data as string | undefined;
       const mediaType = source.media_type as string | undefined;
       if (data && mediaType) {
-        images.push({ base64: data, mimeType: mediaType, index: index++ });
+        images.push({ base64: data, mimeType: mediaType });
       }
     }
     return images;
@@ -975,7 +973,6 @@ async function extractCodexMessageImages(
   if (!payload || payload.type !== "user_message") return [];
 
   const images: ExtractedImage[] = [];
-  let index = 0;
 
   // Parse payload.images (Data URI format: "data:image/png;base64,...")
   if (Array.isArray(payload.images)) {
@@ -983,7 +980,7 @@ async function extractCodexMessageImages(
       if (typeof img !== "string") continue;
       const match = (img as string).match(/^data:(image\/[^;]+);base64,(.+)$/);
       if (match) {
-        images.push({ base64: match[2], mimeType: match[1], index: index++ });
+        images.push({ base64: match[2], mimeType: match[1] });
       }
     }
   }

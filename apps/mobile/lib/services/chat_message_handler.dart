@@ -1,4 +1,3 @@
-
 import '../models/messages.dart';
 import '../widgets/slash_command_sheet.dart'
     show SlashCommand, SlashCommandCategory, buildSlashCommand, knownCommands;
@@ -34,7 +33,7 @@ class ChatStateUpdate {
   final bool markUserMessagesSent;
   final bool markUserMessagesFailed;
   final Set<ChatSideEffect> sideEffects;
-  final String? resultSessionId;
+  final String? claudeSessionId;
 
   /// Tool use IDs that should be hidden from display (replaced by a summary).
   final Set<String> toolUseIdsToHide;
@@ -66,7 +65,7 @@ class ChatStateUpdate {
     this.markUserMessagesSent = false,
     this.markUserMessagesFailed = false,
     this.sideEffects = const {},
-    this.resultSessionId,
+    this.claudeSessionId,
     this.toolUseIdsToHide = const {},
     this.replaceEntries = false,
     this.userUuidUpdate,
@@ -299,7 +298,7 @@ class ChatMessageHandler {
     }
     return ChatStateUpdate(
       entriesToPrepend: entries,
-      resultSessionId: claudeSessionId,
+      claudeSessionId: claudeSessionId,
     );
   }
 
@@ -401,7 +400,7 @@ class ChatMessageHandler {
       pendingPermission: isWaiting ? lastPermission : null,
       askToolUseId: isWaiting ? lastAskToolUseId : null,
       askInput: isWaiting ? lastAskInput : null,
-      resultSessionId: claudeSessionId,
+      claudeSessionId: claudeSessionId,
     );
   }
 
@@ -430,7 +429,7 @@ class ChatMessageHandler {
     return ChatStateUpdate(
       entriesToAdd: addEntry ? [ServerChatEntry(msg)] : [],
       slashCommands: commands,
-      resultSessionId: sessionId,
+      claudeSessionId: sessionId,
     );
   }
 

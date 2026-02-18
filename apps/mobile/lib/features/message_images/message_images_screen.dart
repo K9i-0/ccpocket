@@ -32,10 +32,12 @@ class MessageImagesScreen extends StatefulWidget {
 }
 
 class _MessageImagesScreenState extends State<MessageImagesScreen> {
+  static const _timeout = Duration(seconds: 15);
+
   List<ImageRef>? _images;
   String? _error;
   bool _loading = true;
-  StreamSubscription<ServerMessage>? _sub;
+  StreamSubscription<MessageImagesResultMessage>? _sub;
 
   @override
   void initState() {
@@ -44,18 +46,19 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
   }
 
   void _requestImages() {
+    _sub?.cancel();
     setState(() {
       _loading = true;
       _error = null;
       _images = null;
     });
 
-    // Listen for the response.
     _sub = widget.bridge.messages
         .where((msg) =>
             msg is MessageImagesResultMessage &&
             msg.messageUuid == widget.messageUuid)
         .cast<MessageImagesResultMessage>()
+        .timeout(_timeout)
         .first
         .asStream()
         .listen(
@@ -75,14 +78,16 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
       },
       onError: (Object err) {
         if (!mounted) return;
+        final message = err is TimeoutException
+            ? '応答がタイムアウトしました'
+            : '画像の取得に失敗しました: $err';
         setState(() {
           _loading = false;
-          _error = '画像の取得に失敗しました: $err';
+          _error = message;
         });
       },
     );
 
-    // Fire the request.
     widget.bridge.requestMessageImages(
       claudeSessionId: widget.claudeSessionId,
       messageUuid: widget.messageUuid,
@@ -97,7 +102,6 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -111,51 +115,16 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
           style: const TextStyle(fontSize: 16),
         ),
       ),
-      body: _buildBody(theme),
+      body: _content(),
     );
   }
 
-  Widget _buildBody(ThemeData theme) {
-    if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      );
-    }
+  Widget _content() {
+    if (_loading) return const _LoadingView();
 
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.error_outline,
-                color: Colors.white54,
-                size: 48,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _error!,
-                style: const TextStyle(color: Colors.white70, fontSize: 14),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: _requestImages,
-                icon: const Icon(Icons.refresh, color: Colors.white70),
-                label: const Text(
-                  'リトライ',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.white38),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+    final error = _error;
+    if (error != null) {
+      return _ErrorView(message: error, onRetry: _requestImages);
     }
 
     final images = _images!;
@@ -164,67 +133,65 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
         url: '${widget.httpBaseUrl}${images.first.url}',
       );
     }
+    return _MultiImageList(images: images, httpBaseUrl: widget.httpBaseUrl);
+  }
+}
 
-    // Multiple images: vertical list with tap-to-fullscreen.
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: images.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final url = '${widget.httpBaseUrl}${images[index].url}';
-        return GestureDetector(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => FullScreenImageViewer(url: url),
-            ),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: ExtendedImage.network(
-              url,
-              fit: BoxFit.contain,
-              cache: true,
-              cacheMaxAge: const Duration(days: 7),
-              loadStateChanged: (state) {
-                switch (state.extendedImageLoadState) {
-                  case LoadState.loading:
-                    return const SizedBox(
-                      height: 200,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                    );
-                  case LoadState.completed:
-                    return state.completedWidget;
-                  case LoadState.failed:
-                    return Container(
-                      height: 200,
-                      decoration: BoxDecoration(
-                        color: Colors.white10,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          color: Colors.white54,
-                          size: 32,
-                        ),
-                      ),
-                    );
-                }
-              },
-            ),
-          ),
-        );
-      },
+// ---------------------------------------------------------------------------
+// Sub-widgets
+// ---------------------------------------------------------------------------
+
+class _LoadingView extends StatelessWidget {
+  const _LoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: CircularProgressIndicator(color: Colors.white),
     );
   }
 }
 
-/// Single image with interactive zoom.
+class _ErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorView({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white54, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, color: Colors.white70),
+              label: const Text(
+                'リトライ',
+                style: TextStyle(color: Colors.white70),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.white38),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SingleImageView extends StatelessWidget {
   final String url;
   const _SingleImageView({required this.url});
@@ -235,31 +202,88 @@ class _SingleImageView extends StatelessWidget {
       child: InteractiveViewer(
         minScale: 0.5,
         maxScale: 4.0,
-        child: ExtendedImage.network(
-          url,
-          fit: BoxFit.contain,
-          cache: true,
-          cacheMaxAge: const Duration(days: 7),
-          loadStateChanged: (state) {
-            switch (state.extendedImageLoadState) {
-              case LoadState.loading:
-                return const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                );
-              case LoadState.completed:
-                return state.completedWidget;
-              case LoadState.failed:
-                return const Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    color: Colors.white54,
-                    size: 48,
-                  ),
-                );
-            }
-          },
-        ),
+        child: _NetworkImage(url: url, failedIconSize: 48),
       ),
+    );
+  }
+}
+
+class _MultiImageList extends StatelessWidget {
+  final List<ImageRef> images;
+  final String httpBaseUrl;
+
+  const _MultiImageList({required this.images, required this.httpBaseUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: images.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final url = '$httpBaseUrl${images[index].url}';
+        return GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => FullScreenImageViewer(url: url),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: _NetworkImage(url: url, placeholderHeight: 200),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Shared network image widget with loading / error states.
+class _NetworkImage extends StatelessWidget {
+  final String url;
+  final double? placeholderHeight;
+  final double failedIconSize;
+
+  const _NetworkImage({
+    required this.url,
+    this.placeholderHeight,
+    this.failedIconSize = 32,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ExtendedImage.network(
+      url,
+      fit: BoxFit.contain,
+      cache: true,
+      cacheMaxAge: const Duration(days: 7),
+      loadStateChanged: (state) {
+        switch (state.extendedImageLoadState) {
+          case LoadState.loading:
+            return SizedBox(
+              height: placeholderHeight,
+              child: const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            );
+          case LoadState.completed:
+            return state.completedWidget;
+          case LoadState.failed:
+            return SizedBox(
+              height: placeholderHeight,
+              child: Center(
+                child: Icon(
+                  Icons.broken_image,
+                  color: Colors.white54,
+                  size: failedIconSize,
+                ),
+              ),
+            );
+        }
+      },
     );
   }
 }
