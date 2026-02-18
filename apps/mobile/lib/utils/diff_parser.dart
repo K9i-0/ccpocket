@@ -426,6 +426,124 @@ DiffSelection reconstructDiff(
   );
 }
 
+// ─── Synthesize DiffFile from Edit/Write/MultiEdit tool input ────────────
+
+/// Build a [DiffFile] from an Edit-family tool's `input` map.
+///
+/// Returns `null` for tools that are not edit-related or when input is
+/// malformed.
+DiffFile? synthesizeEditToolDiff(String toolName, Map<String, dynamic> input) {
+  final filePath = (input['file_path'] ?? input['path'] ?? '') as String;
+
+  return switch (toolName) {
+    'Edit' => _synthesizeSingleEdit(filePath, input),
+    'MultiEdit' => _synthesizeMultiEdit(filePath, input),
+    'Write' => _synthesizeWrite(filePath, input),
+    _ => null,
+  };
+}
+
+DiffFile _synthesizeSingleEdit(String filePath, Map<String, dynamic> input) {
+  final oldString = (input['old_string'] ?? '') as String;
+  final newString = (input['new_string'] ?? '') as String;
+  return DiffFile(
+    filePath: filePath,
+    hunks: [_buildHunkFromStrings(oldString, newString)],
+  );
+}
+
+DiffFile _synthesizeMultiEdit(String filePath, Map<String, dynamic> input) {
+  final edits = input['edits'];
+  if (edits is! List) {
+    return DiffFile(filePath: filePath, hunks: const []);
+  }
+
+  final hunks = <DiffHunk>[];
+  for (final edit in edits) {
+    if (edit is Map<String, dynamic>) {
+      final oldString = (edit['old_string'] ?? '') as String;
+      final newString = (edit['new_string'] ?? '') as String;
+      hunks.add(_buildHunkFromStrings(oldString, newString));
+    }
+  }
+  return DiffFile(filePath: filePath, hunks: hunks);
+}
+
+DiffFile _synthesizeWrite(String filePath, Map<String, dynamic> input) {
+  final content = (input['content'] ?? '') as String;
+  final lines = content.split('\n');
+  final diffLines = <DiffLine>[];
+  for (var i = 0; i < lines.length; i++) {
+    diffLines.add(
+      DiffLine(
+        type: DiffLineType.addition,
+        content: lines[i],
+        newLineNumber: i + 1,
+      ),
+    );
+  }
+  return DiffFile(
+    filePath: filePath,
+    hunks: [DiffHunk(header: '', oldStart: 0, newStart: 1, lines: diffLines)],
+    isNewFile: true,
+  );
+}
+
+/// Build a single hunk from old/new strings.
+DiffHunk _buildHunkFromStrings(String oldString, String newString) {
+  final oldLines = oldString.isEmpty ? <String>[] : oldString.split('\n');
+  final newLines = newString.isEmpty ? <String>[] : newString.split('\n');
+  final diffLines = <DiffLine>[];
+
+  var oldLineNum = 1;
+  for (final line in oldLines) {
+    diffLines.add(
+      DiffLine(
+        type: DiffLineType.deletion,
+        content: line,
+        oldLineNumber: oldLineNum++,
+      ),
+    );
+  }
+  var newLineNum = 1;
+  for (final line in newLines) {
+    diffLines.add(
+      DiffLine(
+        type: DiffLineType.addition,
+        content: line,
+        newLineNumber: newLineNum++,
+      ),
+    );
+  }
+
+  return DiffHunk(header: '', oldStart: 1, newStart: 1, lines: diffLines);
+}
+
+/// Reconstruct unified diff text from a [DiffFile].
+///
+/// Used to pass synthesized diff data to [DiffScreen].
+String reconstructUnifiedDiff(DiffFile file) {
+  final buffer = StringBuffer();
+  if (file.isNewFile) {
+    buffer.writeln('--- /dev/null');
+  } else {
+    buffer.writeln('--- a/${file.filePath}');
+  }
+  buffer.writeln('+++ b/${file.filePath}');
+  for (final hunk in file.hunks) {
+    if (hunk.header.isNotEmpty) buffer.writeln(hunk.header);
+    for (final line in hunk.lines) {
+      final prefix = switch (line.type) {
+        DiffLineType.addition => '+',
+        DiffLineType.deletion => '-',
+        DiffLineType.context => ' ',
+      };
+      buffer.writeln('$prefix${line.content}');
+    }
+  }
+  return buffer.toString().trimRight();
+}
+
 /// Extract file path from `diff --git a/path b/path`.
 String _extractFilePath(String diffGitLine) {
   // Format: diff --git a/some/path b/some/path

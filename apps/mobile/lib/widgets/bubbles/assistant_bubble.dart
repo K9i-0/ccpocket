@@ -1,16 +1,20 @@
 import 'dart:convert';
 
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
+import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/markdown_style.dart';
+import '../../utils/diff_parser.dart';
 import '../../utils/tool_categories.dart';
 import '../plan_detail_sheet.dart';
+import 'inline_edit_diff.dart';
 import 'message_action_bar.dart';
 import 'plan_card.dart';
 import 'thinking_bubble.dart';
@@ -218,6 +222,10 @@ class _ToolUseTileState extends State<ToolUseTile> {
   bool _expanded = false;
 
   late final ToolCategory _category = categorizeToolName(widget.name);
+  late final DiffFile? _editDiff = synthesizeEditToolDiff(
+    widget.name,
+    widget.input,
+  );
 
   String _inputSummary() {
     return getToolSummary(_category, widget.input);
@@ -289,11 +297,16 @@ class _ToolUseTileState extends State<ToolUseTile> {
     );
   }
 
+  void _openDiffScreen() {
+    final diff = _editDiff;
+    if (diff == null) return;
+    final diffText = reconstructUnifiedDiff(diff);
+    final filePath = diff.filePath.split('/').lastOrNull ?? diff.filePath;
+    context.router.push(DiffRoute(initialDiff: diffText, title: filePath));
+  }
+
   Widget _buildCard(AppColors appColors) {
-    final inputStr = const JsonEncoder.withIndent('  ').convert(widget.input);
-    final preview = inputStr.length > 200
-        ? '${inputStr.substring(0, 200)}...'
-        : inputStr;
+    final diffFile = _editDiff;
 
     return Container(
       margin: const EdgeInsets.symmetric(
@@ -343,6 +356,10 @@ class _ToolUseTileState extends State<ToolUseTile> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (diffFile != null) ...[
+                    _DiffStatsMini(diffFile: diffFile, appColors: appColors),
+                    const SizedBox(width: 4),
+                  ],
                   Icon(
                     Icons.expand_less,
                     size: 16,
@@ -351,17 +368,77 @@ class _ToolUseTileState extends State<ToolUseTile> {
                 ],
               ),
               const SizedBox(height: 6),
-              Text(
-                preview,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  color: appColors.subtleText,
-                ),
-              ),
+              if (diffFile != null)
+                InlineEditDiff(
+                  diffFile: diffFile,
+                  onTapFullDiff: _openDiffScreen,
+                )
+              else
+                _JsonPreview(input: widget.input, appColors: appColors),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Inline +N -M stats shown in the card header for edit tools.
+class _DiffStatsMini extends StatelessWidget {
+  final DiffFile diffFile;
+  final AppColors appColors;
+
+  const _DiffStatsMini({required this.diffFile, required this.appColors});
+
+  @override
+  Widget build(BuildContext context) {
+    final stats = diffFile.stats;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (stats.added > 0)
+          Text(
+            '+${stats.added}',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: appColors.diffAdditionText,
+            ),
+          ),
+        if (stats.added > 0 && stats.removed > 0) const SizedBox(width: 3),
+        if (stats.removed > 0)
+          Text(
+            '-${stats.removed}',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: appColors.diffDeletionText,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Fallback JSON preview for non-edit tools.
+class _JsonPreview extends StatelessWidget {
+  final Map<String, dynamic> input;
+  final AppColors appColors;
+
+  const _JsonPreview({required this.input, required this.appColors});
+
+  @override
+  Widget build(BuildContext context) {
+    final inputStr = const JsonEncoder.withIndent('  ').convert(input);
+    final preview = inputStr.length > 200
+        ? '${inputStr.substring(0, 200)}...'
+        : inputStr;
+    return Text(
+      preview,
+      style: TextStyle(
+        fontSize: 11,
+        fontFamily: 'monospace',
+        color: appColors.subtleText,
       ),
     );
   }
