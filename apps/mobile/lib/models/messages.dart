@@ -330,6 +330,7 @@ sealed class ServerMessage {
       'system' => SystemMessage(
         subtype: json['subtype'] as String? ?? '',
         sessionId: json['sessionId'] as String?,
+        claudeSessionId: json['claudeSessionId'] as String?,
         model: json['model'] as String?,
         provider: json['provider'] as String?,
         projectPath: json['projectPath'] as String?,
@@ -518,6 +519,14 @@ sealed class ServerMessage {
         sessionId: json['sessionId'] as String? ?? '',
         content: json['content'] as String? ?? '',
       ),
+      'message_images_result' => MessageImagesResultMessage(
+        messageUuid: json['messageUuid'] as String? ?? '',
+        images:
+            (json['images'] as List?)
+                ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))
+                .toList() ??
+            const [],
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -526,6 +535,10 @@ sealed class ServerMessage {
 class SystemMessage implements ServerMessage {
   final String subtype;
   final String? sessionId;
+
+  /// The full Claude CLI session UUID (for JSONL lookups).
+  /// Falls back to [sessionId] when not provided.
+  final String? claudeSessionId;
   final String? model;
   final String? provider;
   final String? projectPath;
@@ -539,6 +552,7 @@ class SystemMessage implements ServerMessage {
   const SystemMessage({
     required this.subtype,
     this.sessionId,
+    this.claudeSessionId,
     this.model,
     this.provider,
     this.projectPath,
@@ -970,6 +984,15 @@ class RecordingContentMessage implements ServerMessage {
   const RecordingContentMessage({
     required this.sessionId,
     required this.content,
+  });
+}
+
+class MessageImagesResultMessage implements ServerMessage {
+  final String messageUuid;
+  final List<ImageRef> images;
+  const MessageImagesResultMessage({
+    required this.messageUuid,
+    required this.images,
   });
 }
 
@@ -1570,6 +1593,15 @@ class ClientMessage {
 
   factory ClientMessage.getRecording(String sessionId) =>
       ClientMessage._({'type': 'get_recording', 'sessionId': sessionId});
+
+  factory ClientMessage.getMessageImages({
+    required String claudeSessionId,
+    required String messageUuid,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'get_message_images',
+    'claudeSessionId': claudeSessionId,
+    'messageUuid': messageUuid,
+  });
 
   factory ClientMessage.takeScreenshot({
     required String mode,

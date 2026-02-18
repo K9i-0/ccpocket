@@ -161,6 +161,9 @@ export class SessionManager {
       gitBranch,
       worktreePath: wtPath,
       worktreeBranch: wtBranch,
+      // Pre-populate claudeSessionId for resumed sessions so that get_history
+      // can return it immediately (before the SDK sends a system/result event).
+      claudeSessionId: options?.sessionId,
     };
 
     // Cache tool_use id → name for enriching tool_result messages

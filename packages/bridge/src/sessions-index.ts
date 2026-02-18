@@ -860,6 +860,137 @@ export async function getSessionHistory(
   return messages;
 }
 
+// ---- Extract full image data from JSONL for a specific message ----
+
+export interface ExtractedImage {
+  base64: string;
+  mimeType: string;
+  index: number;
+}
+
+/**
+ * Extract image base64 data from a Claude Code session JSONL for a specific message UUID.
+ */
+export async function extractMessageImages(
+  sessionId: string,
+  messageUuid: string,
+): Promise<ExtractedImage[]> {
+  // Try Claude Code first, then Codex
+  const claudeImages = await extractClaudeMessageImages(sessionId, messageUuid);
+  if (claudeImages.length > 0) return claudeImages;
+
+  return extractCodexMessageImages(sessionId, messageUuid);
+}
+
+async function extractClaudeMessageImages(
+  sessionId: string,
+  messageUuid: string,
+): Promise<ExtractedImage[]> {
+  const jsonlPath = await findSessionJsonlPath(sessionId);
+  if (!jsonlPath) return [];
+
+  let raw: string;
+  try {
+    raw = await readFile(jsonlPath, "utf-8");
+  } catch {
+    return [];
+  }
+
+  const lines = raw.split("\n");
+  for (const line of lines) {
+    if (!line.trim()) continue;
+
+    let entry: Record<string, unknown>;
+    try {
+      entry = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+
+    if (entry.type !== "user") continue;
+    if (entry.uuid !== messageUuid) continue;
+
+    const message = entry.message as { content: unknown[] | string } | undefined;
+    if (!message?.content || !Array.isArray(message.content)) continue;
+
+    const images: ExtractedImage[] = [];
+    let index = 0;
+    for (const c of message.content) {
+      if (typeof c !== "object" || c === null) continue;
+      const item = c as Record<string, unknown>;
+      if (item.type !== "image") continue;
+
+      const source = item.source as Record<string, unknown> | undefined;
+      if (!source || source.type !== "base64") continue;
+
+      const data = source.data as string | undefined;
+      const mediaType = source.media_type as string | undefined;
+      if (data && mediaType) {
+        images.push({ base64: data, mimeType: mediaType, index: index++ });
+      }
+    }
+    return images;
+  }
+
+  return [];
+}
+
+async function extractCodexMessageImages(
+  sessionId: string,
+  messageUuid: string,
+): Promise<ExtractedImage[]> {
+  const jsonlPath = await findCodexSessionJsonlPath(sessionId);
+  if (!jsonlPath) return [];
+
+  let raw: string;
+  try {
+    raw = await readFile(jsonlPath, "utf-8");
+  } catch {
+    return [];
+  }
+
+  // Codex doesn't have per-message UUIDs in the same way.
+  // We scan for event_msg with user_message that has images and match by line index
+  // encoded in the UUID (format: "codex-line-{index}").
+  const lineIndex = messageUuid.startsWith("codex-line-")
+    ? parseInt(messageUuid.slice("codex-line-".length), 10)
+    : -1;
+  if (lineIndex < 0) return [];
+
+  const lines = raw.split("\n");
+  if (lineIndex >= lines.length) return [];
+
+  const line = lines[lineIndex];
+  if (!line?.trim()) return [];
+
+  let entry: Record<string, unknown>;
+  try {
+    entry = JSON.parse(line) as Record<string, unknown>;
+  } catch {
+    return [];
+  }
+
+  if (entry.type !== "event_msg") return [];
+  const payload = asObject(entry.payload);
+  if (!payload || payload.type !== "user_message") return [];
+
+  const images: ExtractedImage[] = [];
+  let index = 0;
+
+  // Parse payload.images (Data URI format: "data:image/png;base64,...")
+  if (Array.isArray(payload.images)) {
+    for (const img of payload.images) {
+      if (typeof img !== "string") continue;
+      const match = (img as string).match(/^data:(image\/[^;]+);base64,(.+)$/);
+      if (match) {
+        images.push({ base64: match[2], mimeType: match[1], index: index++ });
+      }
+    }
+  }
+
+  return images;
+}
+
 export async function getCodexSessionHistory(
   threadId: string,
 ): Promise<SessionHistoryMessage[]> {

@@ -34,6 +34,21 @@ const IMAGE_PATH_RE =
 export class ImageStore {
   private store = new Map<string, StoredImage>();
 
+  /** Evict least-recently-used entries if store exceeds MAX_ENTRIES. */
+  private evictLRU(): void {
+    while (this.store.size > MAX_ENTRIES) {
+      let oldestId: string | null = null;
+      let oldestTime = Infinity;
+      for (const [key, val] of this.store) {
+        if (val.accessedAt < oldestTime) {
+          oldestTime = val.accessedAt;
+          oldestId = key;
+        }
+      }
+      if (oldestId) this.store.delete(oldestId);
+    }
+  }
+
   /** Extract local image file paths from text (ignores URLs). */
   extractImagePaths(text: unknown): string[] {
     const str = typeof text === "string" ? text : JSON.stringify(text ?? "");
@@ -42,6 +57,26 @@ export class ImageStore {
     // Filter out URLs (paths starting with //) and deduplicate
     const localPaths = matches.filter((p) => !p.startsWith("//"));
     return [...new Set(localPaths)];
+  }
+
+  /** Register an image from raw base64 data. Returns an ImageRef with a URL for HTTP access. */
+  registerFromBase64(base64Data: string, mimeType: string): ImageRef | null {
+    try {
+      const buffer = Buffer.from(base64Data, "base64");
+      if (buffer.length > MAX_FILE_SIZE) {
+        console.warn(`[image-store] Skipping base64 image (>10MB)`);
+        return null;
+      }
+
+      const id = randomUUID();
+      this.store.set(id, { id, mimeType, buffer, accessedAt: Date.now() });
+      this.evictLRU();
+
+      return { id, url: `/images/${id}`, mimeType };
+    } catch (err) {
+      console.warn(`[image-store] Failed to register base64 image:`, err);
+      return null;
+    }
   }
 
   /** Read files from disk, assign UUIDs, store in memory. */
@@ -63,19 +98,7 @@ export class ImageStore {
         this.store.set(id, { id, mimeType, buffer, accessedAt: Date.now() });
         const ref: ImageRef = { id, url: `/images/${id}`, mimeType };
         refs.push(ref);
-
-        // Evict LRU if over limit
-        while (this.store.size > MAX_ENTRIES) {
-          let oldestId: string | null = null;
-          let oldestTime = Infinity;
-          for (const [key, val] of this.store) {
-            if (val.accessedAt < oldestTime) {
-              oldestTime = val.accessedAt;
-              oldestId = key;
-            }
-          }
-          if (oldestId) this.store.delete(oldestId);
-        }
+        this.evictLRU();
       } catch (err) {
         console.warn(`[image-store] Failed to read ${filePath}:`, err);
       }

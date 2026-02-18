@@ -116,7 +116,8 @@ export type ClientMessage =
   | { type: "get_debug_bundle"; sessionId: string; traceLimit?: number; includeDiff?: boolean }
   | { type: "get_usage" }
   | { type: "list_recordings" }
-  | { type: "get_recording"; sessionId: string };
+  | { type: "get_recording"; sessionId: string }
+  | { type: "get_message_images"; claudeSessionId: string; messageUuid: string };
 
 export interface DebugTraceEvent {
   ts: string;
@@ -128,7 +129,7 @@ export interface DebugTraceEvent {
 }
 
 export type ServerMessage =
-  | { type: "system"; subtype: string; sessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string; permissionMode?: PermissionMode; sandboxMode?: string; clearContext?: boolean }
+  | { type: "system"; subtype: string; sessionId?: string; claudeSessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string; permissionMode?: PermissionMode; sandboxMode?: string; clearContext?: boolean }
   | { type: "assistant"; message: AssistantMessage; messageUuid?: string }
   | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[]; userMessageUuid?: string }
   | {
@@ -195,7 +196,8 @@ export type ServerMessage =
       diffError?: string;
       savedBundlePath?: string;
     }
-  | { type: "usage_result"; providers: UsageInfoPayload[] };
+  | { type: "usage_result"; providers: UsageInfoPayload[] }
+  | { type: "message_images_result"; messageUuid: string; images: ImageRef[] };
 
 export interface UsageWindowPayload {
   utilization: number;
@@ -372,6 +374,9 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "get_recording":
         if (typeof msg.sessionId !== "string") return null;
+        break;
+      case "get_message_images":
+        if (typeof msg.claudeSessionId !== "string" || typeof msg.messageUuid !== "string") return null;
         break;
       default:
         return null;

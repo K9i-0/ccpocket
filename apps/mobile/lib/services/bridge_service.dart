@@ -310,6 +310,18 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.getHistory(sessionId));
   }
 
+  void requestMessageImages({
+    required String claudeSessionId,
+    required String messageUuid,
+  }) {
+    send(
+      ClientMessage.getMessageImages(
+        claudeSessionId: claudeSessionId,
+        messageUuid: messageUuid,
+      ),
+    );
+  }
+
   void resumeSession(
     String sessionId,
     String projectPath, {

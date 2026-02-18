@@ -266,6 +266,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       ),
     );
 
+
+
     // --- Fire side effects ---
     if (update.sideEffects.isNotEmpty) {
       _sideEffectsController.add(update.sideEffects);

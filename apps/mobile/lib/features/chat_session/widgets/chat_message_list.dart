@@ -4,7 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../../../models/messages.dart';
+import '../../../services/bridge_service.dart';
 import '../../../widgets/message_bubble.dart';
+import '../../message_images/message_images_screen.dart';
 import '../state/chat_session_cubit.dart';
 import '../state/chat_session_state.dart';
 import '../state/streaming_state.dart';
@@ -53,7 +55,6 @@ class ChatMessageList extends StatefulWidget {
 class _ChatMessageListState extends State<ChatMessageList> {
   final List<ChatEntry> _entries = [];
   final _listKey = GlobalKey<AnimatedListState>();
-
   /// Disables animation during initial history load.
   bool _bulkLoading = true;
 
@@ -253,11 +254,9 @@ class _ChatMessageListState extends State<ChatMessageList> {
 
   @override
   Widget build(BuildContext context) {
+    final chatState = context.watch<ChatSessionCubit>().state;
     // Get hidden tool use IDs for subagent compression
-    final hiddenToolUseIds = context
-        .watch<ChatSessionCubit>()
-        .state
-        .hiddenToolUseIds;
+    final hiddenToolUseIds = chatState.hiddenToolUseIds;
 
     return MultiBlocListener(
       listeners: [
@@ -312,6 +311,27 @@ class _ChatMessageListState extends State<ChatMessageList> {
               allowPlanEditing: widget.allowPlanEditing,
               pendingPlanToolUseId: widget.pendingPlanToolUseId,
               hiddenToolUseIds: hiddenToolUseIds,
+              onImageTap: (user) {
+                final claudeSessionId =
+                    context.read<ChatSessionCubit>().state.claudeSessionId;
+                final httpBaseUrl = widget.httpBaseUrl;
+                if (claudeSessionId == null ||
+                    claudeSessionId.isEmpty ||
+                    httpBaseUrl == null) {
+                  return;
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => MessageImagesScreen(
+                      bridge: context.read<BridgeService>(),
+                      httpBaseUrl: httpBaseUrl,
+                      claudeSessionId: claudeSessionId,
+                      messageUuid: user.messageUuid!,
+                      imageCount: user.imageCount,
+                    ),
+                  ),
+                );
+              },
             );
             // Wrap with AutoScrollTag for scroll-to-index support
             child = AutoScrollTag(

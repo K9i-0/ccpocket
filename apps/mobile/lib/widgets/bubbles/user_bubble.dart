@@ -18,6 +18,7 @@ class UserBubble extends StatelessWidget {
 
   /// Number of images attached (from history restoration when actual data is unavailable).
   final int imageCount;
+
   const UserBubble({
     super.key,
     required this.text,
@@ -110,34 +111,6 @@ class UserBubble extends StatelessWidget {
                                       child: const Icon(Icons.broken_image),
                                     ),
                               ),
-                      ),
-                    )
-                  else if (imageCount > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.image_outlined,
-                            size: 14,
-                            color: appColors.userBubbleText.withValues(
-                              alpha: 0.7,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            imageCount > 1
-                                ? '${AppLocalizations.of(context).imageAttached} x$imageCount'
-                                : AppLocalizations.of(context).imageAttached,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: appColors.userBubbleText.withValues(
-                                alpha: 0.7,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   if (displayText.isNotEmpty)

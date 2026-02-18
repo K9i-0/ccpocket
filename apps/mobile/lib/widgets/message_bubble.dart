@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
+import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import 'bubbles/assistant_bubble.dart';
 import 'bubbles/error_bubble.dart';
@@ -30,6 +32,9 @@ class ChatEntryWidget extends StatelessWidget {
   /// Tool use IDs that should be hidden (replaced by a tool_use_summary).
   final Set<String> hiddenToolUseIds;
 
+  /// Called when the user taps the image attachment indicator.
+  final void Function(UserChatEntry)? onImageTap;
+
   const ChatEntryWidget({
     super.key,
     required this.entry,
@@ -43,6 +48,7 @@ class ChatEntryWidget extends StatelessWidget {
     this.allowPlanEditing = true,
     this.pendingPlanToolUseId,
     this.hiddenToolUseIds = const {},
+    this.onImageTap,
   });
 
   @override
@@ -78,6 +84,18 @@ class ChatEntryWidget extends StatelessWidget {
           ),
           StreamingChatEntry(:final text) => StreamingBubble(text: text),
         },
+        // Image attachment tap button — placed below the bubble to avoid
+        // gesture conflicts with the bubble's GestureDetector.
+        if (entry case final UserChatEntry user
+            when user.imageCount > 0 &&
+                user.imageUrl == null &&
+                user.imageBytes == null &&
+                onImageTap != null &&
+                user.messageUuid != null)
+          _ImageAttachmentButton(
+            imageCount: user.imageCount,
+            onTap: () => onImageTap!(user),
+          ),
       ],
     );
   }
@@ -196,6 +214,70 @@ class ServerMessageWidget extends StatelessWidget {
       UsageResultMessage() => const SizedBox.shrink(),
       RecordingListMessage() => const SizedBox.shrink(),
       RecordingContentMessage() => const SizedBox.shrink(),
+      MessageImagesResultMessage() => const SizedBox.shrink(),
     };
+  }
+}
+
+/// Standalone tappable button shown below a user bubble when the message
+/// has image attachments that can be loaded from JSONL.
+class _ImageAttachmentButton extends StatelessWidget {
+  final int imageCount;
+  final VoidCallback onTap;
+
+  const _ImageAttachmentButton({
+    required this.imageCount,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.only(
+          right: AppSpacing.bubbleMarginH,
+          bottom: 4,
+        ),
+        child: Material(
+          color: appColors.subtleText.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.image_outlined,
+                    size: 14,
+                    color: appColors.subtleText,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    imageCount > 1
+                        ? '${AppLocalizations.of(context).imageAttached} x$imageCount'
+                        : AppLocalizations.of(context).imageAttached,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: appColors.subtleText,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 16,
+                    color: appColors.subtleText,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

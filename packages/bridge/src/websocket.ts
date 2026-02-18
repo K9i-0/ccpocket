@@ -6,7 +6,7 @@ import { SessionManager, type SessionInfo } from "./session.js";
 import { SdkProcess } from "./sdk-process.js";
 import type { CodexProcess } from "./codex-process.js";
 import { parseClientMessage, type ClientMessage, type DebugTraceEvent, type ServerMessage } from "./parser.js";
-import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory, findSessionsByClaudeIds } from "./sessions-index.js";
+import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory, findSessionsByClaudeIds, extractMessageImages } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
@@ -35,6 +35,7 @@ export class BridgeWebSocketServer {
   private wss: WebSocketServer;
   private sessionManager: SessionManager;
   private apiKey: string | null;
+  private imageStore: ImageStore | null;
   private galleryStore: GalleryStore | null;
   private projectHistory: ProjectHistory | null;
   private debugTraceStore: DebugTraceStore;
@@ -48,6 +49,7 @@ export class BridgeWebSocketServer {
   constructor(options: BridgeServerOptions) {
     const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore, recordingStore } = options;
     this.apiKey = apiKey ?? null;
+    this.imageStore = imageStore ?? null;
     this.galleryStore = galleryStore ?? null;
     this.projectHistory = projectHistory ?? null;
     this.debugTraceStore = debugTraceStore ?? new DebugTraceStore();
@@ -782,6 +784,7 @@ export class BridgeWebSocketServer {
             type: "system",
             subtype: "session_created",
             sessionId,
+            claudeSessionId,
             provider: "claude",
             projectPath: msg.projectPath,
             ...(msg.permissionMode ? { permissionMode: msg.permissionMode } : {}),
@@ -815,6 +818,23 @@ export class BridgeWebSocketServer {
         } else {
           this.send(ws, { type: "gallery_list", images: [] } as Record<string, unknown>);
         }
+        break;
+      }
+
+      case "get_message_images": {
+        void extractMessageImages(msg.claudeSessionId, msg.messageUuid).then((images) => {
+          const refs: Array<{ id: string; url: string; mimeType: string }> = [];
+          if (this.imageStore) {
+            for (const img of images) {
+              const ref = this.imageStore.registerFromBase64(img.base64, img.mimeType);
+              if (ref) refs.push(ref);
+            }
+          }
+          this.send(ws, { type: "message_images_result", messageUuid: msg.messageUuid, images: refs });
+        }).catch((err) => {
+          console.error("[ws] Failed to extract message images:", err);
+          this.send(ws, { type: "message_images_result", messageUuid: msg.messageUuid, images: [] });
+        });
         break;
       }
 

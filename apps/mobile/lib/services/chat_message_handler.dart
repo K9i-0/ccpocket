@@ -1,3 +1,4 @@
+
 import '../models/messages.dart';
 import '../widgets/slash_command_sheet.dart'
     show SlashCommand, SlashCommandCategory, buildSlashCommand, knownCommands;
@@ -91,8 +92,8 @@ class ChatMessageHandler {
         return _handleStreamDelta(text);
       case AssistantServerMessage(:final message):
         return _handleAssistant(msg, message, isBackground: isBackground);
-      case PastHistoryMessage(:final messages):
-        return _handlePastHistory(messages);
+      case PastHistoryMessage(:final claudeSessionId, :final messages):
+        return _handlePastHistory(messages, claudeSessionId: claudeSessionId);
       case HistoryMessage(:final messages):
         return _handleHistory(messages);
       case SystemMessage(:final subtype, :final slashCommands, :final skills):
@@ -251,7 +252,10 @@ class ChatMessageHandler {
     );
   }
 
-  ChatStateUpdate _handlePastHistory(List<PastMessage> messages) {
+  ChatStateUpdate _handlePastHistory(
+    List<PastMessage> messages, {
+    String? claudeSessionId,
+  }) {
     final entries = <ChatEntry>[];
     for (final m in messages) {
       final ts = m.timestamp != null
@@ -293,7 +297,10 @@ class ChatMessageHandler {
         );
       }
     }
-    return ChatStateUpdate(entriesToPrepend: entries);
+    return ChatStateUpdate(
+      entriesToPrepend: entries,
+      resultSessionId: claudeSessionId,
+    );
   }
 
   ChatStateUpdate _handleHistory(List<ServerMessage> messages) {
@@ -306,6 +313,7 @@ class ChatMessageHandler {
     final pendingPermissions = <String, PermissionRequestMessage>{};
     String? lastAskToolUseId;
     Map<String, dynamic>? lastAskInput;
+    String? claudeSessionId;
 
     for (final m in messages) {
       if (m is StatusMessage) {
@@ -334,9 +342,17 @@ class ChatMessageHandler {
         if (m is SystemMessage &&
             (m.subtype == 'init' ||
                 m.subtype == 'supported_commands' ||
-                m.subtype == 'session_created') &&
-            m.slashCommands.isNotEmpty) {
-          commands = _buildCommandList(m.slashCommands, m.skills);
+                m.subtype == 'session_created')) {
+          if (m.slashCommands.isNotEmpty) {
+            commands = _buildCommandList(m.slashCommands, m.skills);
+          }
+          // Extract claudeSessionId for image loading etc.
+          // Prefer full Claude CLI UUID over Bridge's 8-char ID.
+          if (m.claudeSessionId != null) {
+            claudeSessionId = m.claudeSessionId;
+          } else if (m.sessionId != null) {
+            claudeSessionId = m.sessionId;
+          }
         }
         // Track pending permission request
         if (m is PermissionRequestMessage) {
@@ -385,6 +401,7 @@ class ChatMessageHandler {
       pendingPermission: isWaiting ? lastPermission : null,
       askToolUseId: isWaiting ? lastAskToolUseId : null,
       askInput: isWaiting ? lastAskInput : null,
+      resultSessionId: claudeSessionId,
     );
   }
 
@@ -401,12 +418,19 @@ class ChatMessageHandler {
         slashCommands.isNotEmpty) {
       commands = _buildCommandList(slashCommands, skills);
     }
+    // Extract claudeSessionId from session_created or init messages.
+    // Prefer the full Claude CLI UUID (claudeSessionId) over the Bridge's
+    // internal 8-char ID (sessionId) for JSONL file lookups.
+    final sessionId = msg is SystemMessage
+        ? (msg.claudeSessionId ?? msg.sessionId)
+        : null;
     // Only add init as a visible chat entry; session_created and
     // supported_commands are internal metadata messages.
     final addEntry = subtype == 'init';
     return ChatStateUpdate(
       entriesToAdd: addEntry ? [ServerChatEntry(msg)] : [],
       slashCommands: commands,
+      resultSessionId: sessionId,
     );
   }
 
