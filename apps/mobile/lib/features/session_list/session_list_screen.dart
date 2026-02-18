@@ -97,7 +97,8 @@ class SessionListScreen extends StatefulWidget {
   State<SessionListScreen> createState() => _SessionListScreenState();
 }
 
-class _SessionListScreenState extends State<SessionListScreen> {
+class _SessionListScreenState extends State<SessionListScreen>
+    with WidgetsBindingObserver {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
 
@@ -129,6 +130,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // session_created navigation (the only manual subscription)
     final bridge = context.read<BridgeService>();
     _messageSub = bridge.messages.listen((msg) {
@@ -384,7 +386,23 @@ class _SessionListScreenState extends State<SessionListScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      final bridge = context.read<BridgeService>();
+      bridge.ensureConnected();
+      if (bridge.isConnected) {
+        bridge.requestSessionList();
+        bridge.requestRecentSessions(
+          projectPath: bridge.currentProjectFilter,
+        );
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.deepLinkNotifier?.removeListener(_onDeepLink);
     _messageSub?.cancel();
     _urlController.dispose();

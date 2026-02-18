@@ -1239,6 +1239,7 @@ class SessionInfo {
 
   SessionInfo copyWith({
     String? status,
+    String? lastMessage,
     PermissionRequestMessage? pendingPermission,
     bool clearPermission = false,
   }) {
@@ -1251,7 +1252,7 @@ class SessionInfo {
       createdAt: createdAt,
       lastActivityAt: lastActivityAt,
       gitBranch: gitBranch,
-      lastMessage: lastMessage,
+      lastMessage: lastMessage ?? this.lastMessage,
       messageCount: messageCount,
       worktreePath: worktreePath,
       worktreeBranch: worktreeBranch,

@@ -182,6 +182,12 @@ class BridgeService implements BridgeServiceBase {
                 _recordingContentController.add(msg);
               case WorktreeRemovedMessage():
                 _messageController.add(msg);
+              case AssistantServerMessage(:final message):
+                if (sessionId != null) {
+                  _patchSessionLastMessage(sessionId, message);
+                }
+                _taggedMessageController.add((msg, sessionId));
+                _messageController.add(msg);
               case PermissionRequestMessage():
                 if (sessionId != null) {
                   _patchSessionPermission(sessionId, msg);
@@ -480,6 +486,27 @@ class BridgeService implements BridgeServiceBase {
     if (idx < 0) return;
     _sessions = List.of(_sessions)
       ..[idx] = _sessions[idx].copyWith(pendingPermission: permission);
+    _sessionListController.add(_sessions);
+  }
+
+  /// Update the cached lastMessage when an [AssistantMessage] arrives so the
+  /// session list card shows the latest response in real-time.
+  void _patchSessionLastMessage(
+    String sessionId,
+    AssistantMessage message,
+  ) {
+    final idx = _sessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) return;
+    final text = message.content
+        .whereType<TextContent>()
+        .map((c) => c.text)
+        .join(' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (text.isEmpty) return;
+    final preview = text.length > 100 ? text.substring(0, 100) : text;
+    _sessions = List.of(_sessions)
+      ..[idx] = _sessions[idx].copyWith(lastMessage: preview);
     _sessionListController.add(_sessions);
   }
 
