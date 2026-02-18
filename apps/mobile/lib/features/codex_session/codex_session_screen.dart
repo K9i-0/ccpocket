@@ -25,6 +25,8 @@ import '../chat_session/widgets/chat_message_list.dart';
 import '../chat_session/widgets/reconnect_banner.dart';
 import '../chat_session/widgets/status_indicator.dart';
 import '../../router/app_router.dart';
+import '../claude_session/widgets/rewind_message_list_sheet.dart'
+    show UserMessageHistorySheet;
 import 'state/codex_session_cubit.dart';
 
 /// Codex-specific chat screen.
@@ -245,6 +247,12 @@ class _CodexChatBody extends HookWidget {
     final collapseToolResults = useMemoized(() => ValueNotifier<int>(0));
     useEffect(() => collapseToolResults.dispose, const []);
 
+    // Scroll-to-user-entry notifier (for message history jump)
+    final scrollToUserEntry = useMemoized(
+      () => ValueNotifier<UserChatEntry?>(null),
+    );
+    useEffect(() => scrollToUserEntry.dispose, const []);
+
     // Diff selection from DiffScreen navigation
     final diffSelectionFromNav = useState<DiffSelection?>(null);
 
@@ -311,24 +319,17 @@ class _CodexChatBody extends HookWidget {
             appBar: AppBar(
               actions: [
                 IconButton(
-                  key: const ValueKey('codex_rewind_info_button'),
+                  key: const ValueKey('codex_message_history_button'),
                   icon: const Icon(Icons.history, size: 18),
-                  tooltip: 'Rewind (unsupported in Codex)',
+                  tooltip: 'Message History',
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 36,
                     minHeight: 36,
                   ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Codex sessions currently do not support rewind.',
-                        ),
-                      ),
-                    );
-                  },
+                  onPressed: () =>
+                      _showUserMessageHistory(context, scrollToUserEntry),
                 ),
                 IconButton(
                   key: const ValueKey('codex_share_debug_bundle_button'),
@@ -429,6 +430,7 @@ class _CodexChatBody extends HookWidget {
                         },
                         // No rewind for Codex
                         onRewindMessage: null,
+                        scrollToUserEntry: scrollToUserEntry,
                         collapseToolResults: collapseToolResults,
                         onScrollToBottom: scroll.scrollToBottom,
                       ),
@@ -543,6 +545,27 @@ void _executeSideEffects(
         scrollToBottom();
     }
   }
+}
+
+void _showUserMessageHistory(
+  BuildContext context,
+  ValueNotifier<UserChatEntry?> scrollToUserEntry,
+) {
+  final cubit = context.read<ChatSessionCubit>();
+  final messages = cubit.allUserMessages;
+
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (_) => UserMessageHistorySheet(
+      messages: messages,
+      onScrollToMessage: (msg) {
+        scrollToUserEntry.value = msg;
+      },
+      // No rewind for Codex sessions
+    ),
+  );
 }
 
 void _retryFailedMessages(BuildContext context) {

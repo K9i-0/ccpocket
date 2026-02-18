@@ -11,13 +11,13 @@ import '../../../theme/app_theme.dart';
 class UserMessageHistorySheet extends StatelessWidget {
   final List<UserChatEntry> messages;
   final void Function(UserChatEntry message) onScrollToMessage;
-  final void Function(UserChatEntry message) onRewindMessage;
+  final void Function(UserChatEntry message)? onRewindMessage;
 
   const UserMessageHistorySheet({
     super.key,
     required this.messages,
     required this.onScrollToMessage,
-    required this.onRewindMessage,
+    this.onRewindMessage,
   });
 
   @override
@@ -116,7 +116,8 @@ class UserMessageHistorySheet extends StatelessWidget {
                   itemBuilder: (context, index) {
                     // Show newest first
                     final msg = messages[messages.length - 1 - index];
-                    final canRewind = msg.messageUuid != null;
+                    final canRewind =
+                        onRewindMessage != null && msg.messageUuid != null;
                     return _MessageTile(
                       message: msg,
                       index: messages.length - index,
@@ -128,7 +129,7 @@ class UserMessageHistorySheet extends StatelessWidget {
                       onRewind: canRewind
                           ? () {
                               Navigator.of(context).pop();
-                              onRewindMessage(msg);
+                              onRewindMessage!(msg);
                             }
                           : null,
                     );

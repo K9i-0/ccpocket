@@ -67,15 +67,18 @@ class DiffFileHeader extends StatelessWidget {
               ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                file.filePath,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w600,
-                  color: appColors.toolResultTextExpanded,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: Text(
+                  file.filePath,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                    color: appColors.toolResultTextExpanded,
+                  ),
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 8),

@@ -334,8 +334,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _sandboxMode = p.sandboxMode ?? _sandboxMode;
     final restoredPolicy = p.approvalPolicy;
     // on-request is not supported via SDK; fall back to default.
-    _approvalPolicy = restoredPolicy != null &&
-            restoredPolicy != ApprovalPolicy.onRequest
+    _approvalPolicy =
+        restoredPolicy != null && restoredPolicy != ApprovalPolicy.onRequest
         ? restoredPolicy
         : _approvalPolicy;
     _modelReasoningEffort = p.modelReasoningEffort;
@@ -736,8 +736,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               items: ApprovalPolicy.values
-                  .where((p) =>
-                      p != ApprovalPolicy.onRequest)
+                  .where((p) => p != ApprovalPolicy.onRequest)
                   .map(
                     (p) => DropdownMenuItem(
                       value: p,
