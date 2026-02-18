@@ -594,6 +594,8 @@ class _SessionListScreenState extends State<SessionListScreen> {
     String? worktreePath,
     bool isPending = false,
     Provider? provider,
+    String? permissionMode,
+    String? sandboxMode,
   }) {
     // Reset the notifier for this navigation.
     if (isPending) {
@@ -608,6 +610,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
               gitBranch: gitBranch,
               worktreePath: worktreePath,
               isPending: isPending,
+              initialSandboxMode: sandboxMode,
               pendingSessionCreated: isPending ? _pendingSessionCreated : null,
             ),
           )
@@ -629,6 +632,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
               gitBranch: gitBranch,
               worktreePath: worktreePath,
               isPending: isPending,
+              initialPermissionMode: permissionMode,
               pendingSessionCreated: isPending ? _pendingSessionCreated : null,
             ),
           )
@@ -785,12 +789,16 @@ class _SessionListScreenState extends State<SessionListScreen> {
                         String? gitBranch,
                         String? worktreePath,
                         String? provider,
+                        String? permissionMode,
+                        String? sandboxMode,
                       }) => _navigateToChat(
                         sessionId,
                         projectPath: projectPath,
                         gitBranch: gitBranch,
                         worktreePath: worktreePath,
                         provider: provider == 'codex' ? Provider.codex : null,
+                        permissionMode: permissionMode,
+                        sandboxMode: sandboxMode,
                       ),
                   onStopSession: _stopSession,
                   onApprovePermission: (sessionId, toolUseId) {

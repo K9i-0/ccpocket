@@ -31,6 +31,8 @@ class HomeContent extends StatefulWidget {
     String? gitBranch,
     String? worktreePath,
     String? provider,
+    String? permissionMode,
+    String? sandboxMode,
   })
   onTapRunning;
   final ValueChanged<String> onStopSession;
@@ -180,6 +182,8 @@ class _HomeContentState extends State<HomeContent> {
                     : session.gitBranch,
                 worktreePath: session.worktreePath,
                 provider: session.provider,
+                permissionMode: session.permissionMode,
+                sandboxMode: session.codexSandboxMode,
               ),
               onStop: () => widget.onStopSession(session.id),
               onApprove: (toolUseId) =>

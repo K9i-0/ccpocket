@@ -60,6 +60,7 @@ export interface SessionSummary {
   messageCount: number;
   worktreePath?: string;
   worktreeBranch?: string;
+  permissionMode?: string;
   codexSettings?: {
     approvalPolicy?: string;
     sandboxMode?: string;
@@ -357,6 +358,10 @@ export class SessionManager {
         messageCount: (s.pastMessages?.length ?? 0) + s.history.length,
         worktreePath: s.worktreePath,
         worktreeBranch: s.worktreeBranch,
+        permissionMode:
+          s.process instanceof SdkProcess
+            ? s.process.permissionMode
+            : undefined,
         codexSettings: s.codexSettings,
         pendingPermission,
       };

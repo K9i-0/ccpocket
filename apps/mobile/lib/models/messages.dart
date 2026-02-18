@@ -1172,6 +1172,7 @@ class SessionInfo {
   final int messageCount;
   final String? worktreePath;
   final String? worktreeBranch;
+  final String? permissionMode;
   final String? codexApprovalPolicy;
   final String? codexSandboxMode;
   final String? codexModel;
@@ -1193,6 +1194,7 @@ class SessionInfo {
     this.messageCount = 0,
     this.worktreePath,
     this.worktreeBranch,
+    this.permissionMode,
     this.codexApprovalPolicy,
     this.codexSandboxMode,
     this.codexModel,
@@ -1220,6 +1222,7 @@ class SessionInfo {
       messageCount: messageCount,
       worktreePath: worktreePath,
       worktreeBranch: worktreeBranch,
+      permissionMode: permissionMode,
       codexApprovalPolicy: codexApprovalPolicy,
       codexSandboxMode: codexSandboxMode,
       codexModel: codexModel,
@@ -1248,6 +1251,7 @@ class SessionInfo {
       messageCount: json['messageCount'] as int? ?? 0,
       worktreePath: json['worktreePath'] as String?,
       worktreeBranch: json['worktreeBranch'] as String?,
+      permissionMode: json['permissionMode'] as String?,
       codexApprovalPolicy: codexSettings?['approvalPolicy'] as String?,
       codexSandboxMode: codexSettings?['sandboxMode'] as String?,
       codexModel: codexSettings?['model'] as String?,

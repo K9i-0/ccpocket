@@ -20,6 +20,7 @@ class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
     String? gitBranch,
     String? worktreePath,
     bool isPending = false,
+    String? initialPermissionMode,
     ValueNotifier<SystemMessage?>? pendingSessionCreated,
     List<PageRouteInfo>? children,
   }) : super(
@@ -31,6 +32,7 @@ class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
            gitBranch: gitBranch,
            worktreePath: worktreePath,
            isPending: isPending,
+           initialPermissionMode: initialPermissionMode,
            pendingSessionCreated: pendingSessionCreated,
          ),
          initialChildren: children,
@@ -49,6 +51,7 @@ class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
         gitBranch: args.gitBranch,
         worktreePath: args.worktreePath,
         isPending: args.isPending,
+        initialPermissionMode: args.initialPermissionMode,
         pendingSessionCreated: args.pendingSessionCreated,
       );
     },
@@ -63,6 +66,7 @@ class ClaudeSessionRouteArgs {
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
+    this.initialPermissionMode,
     this.pendingSessionCreated,
   });
 
@@ -78,11 +82,13 @@ class ClaudeSessionRouteArgs {
 
   final bool isPending;
 
+  final String? initialPermissionMode;
+
   final ValueNotifier<SystemMessage?>? pendingSessionCreated;
 
   @override
   String toString() {
-    return 'ClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, pendingSessionCreated: $pendingSessionCreated}';
+    return 'ClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialPermissionMode: $initialPermissionMode, pendingSessionCreated: $pendingSessionCreated}';
   }
 
   @override
@@ -95,6 +101,7 @@ class ClaudeSessionRouteArgs {
         gitBranch == other.gitBranch &&
         worktreePath == other.worktreePath &&
         isPending == other.isPending &&
+        initialPermissionMode == other.initialPermissionMode &&
         pendingSessionCreated == other.pendingSessionCreated;
   }
 
@@ -106,6 +113,7 @@ class ClaudeSessionRouteArgs {
       gitBranch.hashCode ^
       worktreePath.hashCode ^
       isPending.hashCode ^
+      initialPermissionMode.hashCode ^
       pendingSessionCreated.hashCode;
 }
 
@@ -119,6 +127,7 @@ class CodexSessionRoute extends PageRouteInfo<CodexSessionRouteArgs> {
     String? gitBranch,
     String? worktreePath,
     bool isPending = false,
+    String? initialSandboxMode,
     ValueNotifier<SystemMessage?>? pendingSessionCreated,
     List<PageRouteInfo>? children,
   }) : super(
@@ -130,6 +139,7 @@ class CodexSessionRoute extends PageRouteInfo<CodexSessionRouteArgs> {
            gitBranch: gitBranch,
            worktreePath: worktreePath,
            isPending: isPending,
+           initialSandboxMode: initialSandboxMode,
            pendingSessionCreated: pendingSessionCreated,
          ),
          initialChildren: children,
@@ -148,6 +158,7 @@ class CodexSessionRoute extends PageRouteInfo<CodexSessionRouteArgs> {
         gitBranch: args.gitBranch,
         worktreePath: args.worktreePath,
         isPending: args.isPending,
+        initialSandboxMode: args.initialSandboxMode,
         pendingSessionCreated: args.pendingSessionCreated,
       );
     },
@@ -162,6 +173,7 @@ class CodexSessionRouteArgs {
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
+    this.initialSandboxMode,
     this.pendingSessionCreated,
   });
 
@@ -177,11 +189,13 @@ class CodexSessionRouteArgs {
 
   final bool isPending;
 
+  final String? initialSandboxMode;
+
   final ValueNotifier<SystemMessage?>? pendingSessionCreated;
 
   @override
   String toString() {
-    return 'CodexSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, pendingSessionCreated: $pendingSessionCreated}';
+    return 'CodexSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialSandboxMode: $initialSandboxMode, pendingSessionCreated: $pendingSessionCreated}';
   }
 
   @override
@@ -194,6 +208,7 @@ class CodexSessionRouteArgs {
         gitBranch == other.gitBranch &&
         worktreePath == other.worktreePath &&
         isPending == other.isPending &&
+        initialSandboxMode == other.initialSandboxMode &&
         pendingSessionCreated == other.pendingSessionCreated;
   }
 
@@ -205,6 +220,7 @@ class CodexSessionRouteArgs {
       gitBranch.hashCode ^
       worktreePath.hashCode ^
       isPending.hashCode ^
+      initialSandboxMode.hashCode ^
       pendingSessionCreated.hashCode;
 }
 

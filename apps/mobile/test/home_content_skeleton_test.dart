@@ -114,7 +114,7 @@ Widget _buildHomeContent({
             currentProjectFilter: null,
             onNewSession: () {},
             onTapRunning:
-                (id, {projectPath, gitBranch, worktreePath, provider}) {},
+                (id, {projectPath, gitBranch, worktreePath, provider, permissionMode, sandboxMode}) {},
             onStopSession: (_) {},
             onResumeSession: (_) {},
             onLongPressRecentSession: (_) {},

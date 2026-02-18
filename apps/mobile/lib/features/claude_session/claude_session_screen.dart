@@ -49,6 +49,7 @@ class ClaudeSessionScreen extends StatefulWidget {
   final String? gitBranch;
   final String? worktreePath;
   final bool isPending;
+  final String? initialPermissionMode;
 
   /// Notifier from the parent that may already hold a [SystemMessage]
   /// with subtype `session_created` (race condition fix).
@@ -61,6 +62,7 @@ class ClaudeSessionScreen extends StatefulWidget {
     this.gitBranch,
     this.worktreePath,
     this.isPending = false,
+    this.initialPermissionMode,
     this.pendingSessionCreated,
   });
 
@@ -84,6 +86,7 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     _worktreePath = widget.worktreePath;
     _gitBranch = widget.gitBranch;
     _isPending = widget.isPending;
+    _permissionMode = permissionModeFromRaw(widget.initialPermissionMode);
 
     if (_isPending) {
       _listenForSessionCreated();
