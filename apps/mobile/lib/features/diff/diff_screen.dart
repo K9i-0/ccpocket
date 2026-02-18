@@ -69,9 +69,7 @@ class _DiffScreenBody extends StatelessWidget {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final l = AppLocalizations.of(context);
 
-    final screenTitle =
-        title ??
-        (state.files.length == 1 ? state.files.first.filePath : l.changes);
+    final screenTitle = title ?? l.changes;
 
     return Scaffold(
       appBar: AppBar(

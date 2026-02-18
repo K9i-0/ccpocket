@@ -39,21 +39,39 @@ class DiffContentList extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
 
-    // Single-file mode: no file header, but still support selection on hunks
+    // Single-file mode: show file header + hunks (no filter/divider)
     if (files.length == 1) {
       final file = files.first;
       if (file.isBinary) return const DiffBinaryNotice();
+      final collapsed = collapsedFileIndices.contains(0);
+      final hunkCount = collapsed ? 0 : file.hunks.length;
       return ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: file.hunks.length,
-        itemBuilder: (context, index) => DiffHunkWidget(
-          hunk: file.hunks[index],
-          selectionMode: selectionMode,
-          selected: selectedHunkKeys.contains('0:$index'),
-          onToggleSelection: onToggleHunkSelection != null
-              ? () => onToggleHunkSelection!(0, index)
-              : null,
-        ),
+        itemCount: 1 + hunkCount,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return DiffFileHeader(
+              file: file,
+              collapsed: collapsed,
+              onToggleCollapse: () => onToggleCollapse(0),
+              selectionMode: selectionMode,
+              selected: isFileFullySelected?.call(0) ?? false,
+              partiallySelected: isFilePartiallySelected?.call(0) ?? false,
+              onToggleSelection: onToggleFileSelection != null
+                  ? () => onToggleFileSelection!(0)
+                  : null,
+            );
+          }
+          final hunkIdx = index - 1;
+          return DiffHunkWidget(
+            hunk: file.hunks[hunkIdx],
+            selectionMode: selectionMode,
+            selected: selectedHunkKeys.contains('0:$hunkIdx'),
+            onToggleSelection: onToggleHunkSelection != null
+                ? () => onToggleHunkSelection!(0, hunkIdx)
+                : null,
+          );
+        },
       );
     }
 

@@ -58,8 +58,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // File name should appear
-      expect(find.text('lib/main.dart'), findsOneWidget);
+      // AppBar title should show "Changes" (not file path)
+      expect(find.text('Changes'), findsOneWidget);
 
       // Addition lines
       expect(find.text("  print('hello');"), findsOneWidget);
