@@ -793,6 +793,16 @@ class _SessionListScreenState extends State<SessionListScreen> {
                         provider: provider == 'codex' ? Provider.codex : null,
                       ),
                   onStopSession: _stopSession,
+                  onApprovePermission: (sessionId, toolUseId) {
+                    context.read<BridgeService>().send(
+                      ClientMessage.approve(toolUseId, sessionId: sessionId),
+                    );
+                  },
+                  onRejectPermission: (sessionId, toolUseId) {
+                    context.read<BridgeService>().send(
+                      ClientMessage.reject(toolUseId, sessionId: sessionId),
+                    );
+                  },
                   onResumeSession: _resumeSession,
                   onLongPressRecentSession: _showRecentSessionActions,
                   onSelectProject: (path) =>

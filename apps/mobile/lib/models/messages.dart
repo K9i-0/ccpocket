@@ -1177,6 +1177,7 @@ class SessionInfo {
   final String? codexModelReasoningEffort;
   final bool? codexNetworkAccessEnabled;
   final String? codexWebSearchMode;
+  final PermissionRequestMessage? pendingPermission;
 
   const SessionInfo({
     required this.id,
@@ -1197,9 +1198,14 @@ class SessionInfo {
     this.codexModelReasoningEffort,
     this.codexNetworkAccessEnabled,
     this.codexWebSearchMode,
+    this.pendingPermission,
   });
 
-  SessionInfo copyWith({String? status}) {
+  SessionInfo copyWith({
+    String? status,
+    PermissionRequestMessage? pendingPermission,
+    bool clearPermission = false,
+  }) {
     return SessionInfo(
       id: id,
       provider: provider,
@@ -1219,6 +1225,9 @@ class SessionInfo {
       codexModelReasoningEffort: codexModelReasoningEffort,
       codexNetworkAccessEnabled: codexNetworkAccessEnabled,
       codexWebSearchMode: codexWebSearchMode,
+      pendingPermission: clearPermission
+          ? null
+          : (pendingPermission ?? this.pendingPermission),
     );
   }
 

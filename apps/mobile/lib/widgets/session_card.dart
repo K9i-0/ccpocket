@@ -10,12 +10,16 @@ class RunningSessionCard extends StatelessWidget {
   final SessionInfo session;
   final VoidCallback onTap;
   final VoidCallback onStop;
+  final ValueChanged<String>? onApprove;
+  final ValueChanged<String>? onReject;
 
   const RunningSessionCard({
     super.key,
     required this.session,
     required this.onTap,
     required this.onStop,
+    this.onApprove,
+    this.onReject,
   });
 
   @override
@@ -28,9 +32,14 @@ class RunningSessionCard extends StatelessWidget {
       _ => appColors.statusIdle,
     };
 
+    final permission = session.pendingPermission;
+    final hasPermission =
+        session.status == 'waiting_approval' && permission != null;
     final statusLabel = switch (session.status) {
       'starting' => 'Starting',
       'running' => 'Running',
+      'waiting_approval' when hasPermission =>
+        'Approval · ${permission.toolName}',
       'waiting_approval' => 'Approval',
       _ => 'Idle',
     };
@@ -68,9 +77,7 @@ class RunningSessionCard extends StatelessWidget {
                 children: [
                   _StatusDot(
                     color: statusColor,
-                    animate:
-                        session.status == 'running' ||
-                        session.status == 'starting',
+                    animate: session.status != 'idle',
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -96,6 +103,14 @@ class RunningSessionCard extends StatelessWidget {
                 ],
               ),
             ),
+            // Approval area (shown when waiting for permission)
+            if (hasPermission)
+              _ApprovalArea(
+                permission: permission,
+                statusColor: statusColor,
+                onApprove: () => onApprove?.call(permission.toolUseId),
+                onReject: () => onReject?.call(permission.toolUseId),
+              ),
             // Content (same structure as RecentSessionCard)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -249,6 +264,85 @@ class RunningSessionCard extends StatelessWidget {
     } catch (_) {
       return '';
     }
+  }
+}
+
+class _ApprovalArea extends StatelessWidget {
+  final PermissionRequestMessage permission;
+  final Color statusColor;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  const _ApprovalArea({
+    required this.permission,
+    required this.statusColor,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      color: statusColor.withValues(alpha: 0.06),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            permission.summary,
+            style: TextStyle(
+              fontSize: 12,
+              fontFamily: 'monospace',
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.8),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              SizedBox(
+                height: 28,
+                child: OutlinedButton.icon(
+                  onPressed: onReject,
+                  icon: const Icon(Icons.close, size: 14),
+                  label: const Text('Reject'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    textStyle: const TextStyle(fontSize: 12),
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                    side: BorderSide(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.error.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 28,
+                child: FilledButton.tonalIcon(
+                  onPressed: onApprove,
+                  icon: const Icon(Icons.check, size: 14),
+                  label: const Text('Approve'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    textStyle: const TextStyle(fontSize: 12),
+                    backgroundColor: statusColor.withValues(alpha: 0.15),
+                    foregroundColor: statusColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 

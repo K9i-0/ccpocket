@@ -139,8 +139,8 @@ class BridgeService implements BridgeServiceBase {
             final msg = ServerMessage.fromJson(json);
             switch (msg) {
               case SessionListMessage(:final sessions):
-                _sessions = sessions;
-                _sessionListController.add(sessions);
+                _sessions = _mergePermissions(sessions);
+                _sessionListController.add(_sessions);
               case RecentSessionsMessage(:final sessions, :final hasMore):
                 _recentSessionsHasMore = hasMore;
                 if (_appendMode) {
@@ -181,6 +181,12 @@ class BridgeService implements BridgeServiceBase {
               case RecordingContentMessage():
                 _recordingContentController.add(msg);
               case WorktreeRemovedMessage():
+                _messageController.add(msg);
+              case PermissionRequestMessage():
+                if (sessionId != null) {
+                  _patchSessionPermission(sessionId, msg);
+                }
+                _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
               case StatusMessage(:final status):
                 // Patch cached session list so the session list screen
@@ -436,10 +442,53 @@ class BridgeService implements BridgeServiceBase {
     };
     final idx = _sessions.indexWhere((s) => s.id == sessionId);
     if (idx < 0) return;
-    if (_sessions[idx].status == statusStr) return;
+    final current = _sessions[idx];
+    if (current.status == statusStr && current.pendingPermission == null)
+      return;
+    // Clear pendingPermission when status moves away from waiting_approval
+    final shouldClear =
+        statusStr != 'waiting_approval' && current.pendingPermission != null;
     _sessions = List.of(_sessions)
-      ..[idx] = _sessions[idx].copyWith(status: statusStr);
+      ..[idx] = current.copyWith(
+        status: statusStr,
+        clearPermission: shouldClear,
+      );
     _sessionListController.add(_sessions);
+  }
+
+  /// Attach a [PermissionRequestMessage] to the cached session so the
+  /// session list card can display approval info and quick-approve buttons.
+  void _patchSessionPermission(
+    String sessionId,
+    PermissionRequestMessage permission,
+  ) {
+    final idx = _sessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) return;
+    _sessions = List.of(_sessions)
+      ..[idx] = _sessions[idx].copyWith(pendingPermission: permission);
+    _sessionListController.add(_sessions);
+  }
+
+  /// Merge [pendingPermission] from the current cached sessions into a fresh
+  /// list received from the server. The server does not include permission
+  /// request data in the session list, so we preserve locally-patched values
+  /// for sessions that are still in `waiting_approval` status.
+  List<SessionInfo> _mergePermissions(List<SessionInfo> incoming) {
+    if (_sessions.isEmpty) return incoming;
+    final permissionMap = <String, PermissionRequestMessage>{};
+    for (final s in _sessions) {
+      if (s.pendingPermission != null) {
+        permissionMap[s.id] = s.pendingPermission!;
+      }
+    }
+    if (permissionMap.isEmpty) return incoming;
+    return [
+      for (final s in incoming)
+        if (s.status == 'waiting_approval' && permissionMap.containsKey(s.id))
+          s.copyWith(pendingPermission: permissionMap[s.id])
+        else
+          s,
+    ];
   }
 
   @override
