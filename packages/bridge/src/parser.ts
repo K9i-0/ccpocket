@@ -131,7 +131,7 @@ export interface DebugTraceEvent {
 export type ServerMessage =
   | { type: "system"; subtype: string; sessionId?: string; claudeSessionId?: string; model?: string; provider?: Provider; projectPath?: string; slashCommands?: string[]; skills?: string[]; worktreePath?: string; worktreeBranch?: string; permissionMode?: PermissionMode; sandboxMode?: string; clearContext?: boolean }
   | { type: "assistant"; message: AssistantMessage; messageUuid?: string }
-  | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[]; userMessageUuid?: string }
+  | { type: "tool_result"; toolUseId: string; content: string; toolName?: string; images?: ImageRef[]; userMessageUuid?: string; rawContentBlocks?: unknown[] }
   | {
       type: "result";
       subtype: string;

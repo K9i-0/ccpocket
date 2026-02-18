@@ -7,7 +7,7 @@ import { pathToSlug } from "./sessions-index.js";
 import { SdkProcess, type StartOptions, type RewindFilesResult } from "./sdk-process.js";
 import { CodexProcess, type CodexStartOptions } from "./codex-process.js";
 import type { ServerMessage, ProcessStatus, AssistantToolUseContent, Provider } from "./parser.js";
-import type { ImageStore } from "./image-store.js";
+import type { ImageRef, ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
 import { createWorktree, worktreeExists } from "./worktree.js";
 import type { WorktreeStore } from "./worktree-store.js";
@@ -236,6 +236,49 @@ export class SessionManager {
                   }
                 }
               }
+            }
+
+            // Extract base64 images from content blocks (e.g., MCP screenshots)
+            if (msg.rawContentBlocks) {
+              const imageBlocks = (msg.rawContentBlocks as Array<Record<string, unknown>>)
+                .filter((c) => c.type === "image" && (c.source as Record<string, unknown>)?.type === "base64");
+
+              if (imageBlocks.length > 0) {
+                const existingImages = msg.images ?? [];
+                const newImages: ImageRef[] = [];
+
+                for (const block of imageBlocks) {
+                  const source = block.source as Record<string, unknown>;
+                  if (typeof source?.data !== "string" || typeof source?.media_type !== "string") continue;
+                  const b64Data = source.data as string;
+                  const mimeType = source.media_type as string;
+                  const ref = this.imageStore.registerFromBase64(b64Data, mimeType);
+                  if (ref) {
+                    newImages.push(ref);
+
+                    // Also persist to GalleryStore
+                    if (this.galleryStore) {
+                      const meta = await this.galleryStore.addImageFromBase64(
+                        b64Data,
+                        mimeType,
+                        session.projectPath,
+                        session.id,
+                      );
+                      if (meta && this.onGalleryImage) {
+                        this.onGalleryImage(meta);
+                      }
+                    }
+                  }
+                }
+
+                if (newImages.length > 0) {
+                  msg = { ...msg, images: [...existingImages, ...newImages] };
+                }
+              }
+
+              // Strip transient rawContentBlocks before sending to client
+              const { rawContentBlocks: _, ...cleanMsg } = msg;
+              msg = cleanMsg as typeof msg;
             }
           }
         } else {

@@ -186,10 +186,12 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
 
       if (results.length > 0) {
         const first = results[0] as Record<string, unknown>;
+        const rawContent = first.content as string | unknown[];
         return {
           type: "tool_result",
           toolUseId: first.tool_use_id as string,
-          content: normalizeToolResultContent(first.content as string | unknown[]),
+          content: normalizeToolResultContent(rawContent),
+          ...(Array.isArray(rawContent) ? { rawContentBlocks: rawContent } : {}),
           ...(usr.uuid ? { userMessageUuid: usr.uuid } : {}),
         };
       }
