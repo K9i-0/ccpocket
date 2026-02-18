@@ -68,6 +68,11 @@ export interface SessionSummary {
     networkAccessEnabled?: boolean;
     webSearchMode?: string;
   };
+  pendingPermission?: {
+    toolUseId: string;
+    toolName: string;
+    input: Record<string, unknown>;
+  };
 }
 
 const MAX_HISTORY_PER_SESSION = 100;
@@ -334,21 +339,28 @@ export class SessionManager {
   }
 
   list(): SessionSummary[] {
-    return Array.from(this.sessions.values()).map((s) => ({
-      id: s.id,
-      provider: s.provider,
-      projectPath: s.projectPath,
-      claudeSessionId: s.claudeSessionId,
-      status: s.status,
-      createdAt: s.createdAt.toISOString(),
-      lastActivityAt: s.lastActivityAt.toISOString(),
-      gitBranch: s.gitBranch,
-      lastMessage: this.extractLastMessage(s),
-      messageCount: (s.pastMessages?.length ?? 0) + s.history.length,
-      worktreePath: s.worktreePath,
-      worktreeBranch: s.worktreeBranch,
-      codexSettings: s.codexSettings,
-    }));
+    return Array.from(this.sessions.values()).map((s) => {
+      const pendingPermission =
+        s.status === "waiting_approval" && s.process instanceof SdkProcess
+          ? s.process.getPendingPermission()
+          : undefined;
+      return {
+        id: s.id,
+        provider: s.provider,
+        projectPath: s.projectPath,
+        claudeSessionId: s.claudeSessionId,
+        status: s.status,
+        createdAt: s.createdAt.toISOString(),
+        lastActivityAt: s.lastActivityAt.toISOString(),
+        gitBranch: s.gitBranch,
+        lastMessage: this.extractLastMessage(s),
+        messageCount: (s.pastMessages?.length ?? 0) + s.history.length,
+        worktreePath: s.worktreePath,
+        worktreeBranch: s.worktreeBranch,
+        codexSettings: s.codexSettings,
+        pendingPermission,
+      };
+    });
   }
 
   private extractLastMessage(s: SessionInfo): string {

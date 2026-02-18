@@ -794,14 +794,39 @@ class _SessionListScreenState extends State<SessionListScreen> {
                       ),
                   onStopSession: _stopSession,
                   onApprovePermission: (sessionId, toolUseId) {
-                    context.read<BridgeService>().send(
+                    final bridge = context.read<BridgeService>();
+                    bridge.send(
                       ClientMessage.approve(toolUseId, sessionId: sessionId),
                     );
+                    bridge.clearSessionPermission(sessionId);
+                  },
+                  onApproveAlways: (sessionId, toolUseId) {
+                    final bridge = context.read<BridgeService>();
+                    bridge.send(
+                      ClientMessage.approveAlways(
+                        toolUseId,
+                        sessionId: sessionId,
+                      ),
+                    );
+                    bridge.clearSessionPermission(sessionId);
                   },
                   onRejectPermission: (sessionId, toolUseId) {
-                    context.read<BridgeService>().send(
+                    final bridge = context.read<BridgeService>();
+                    bridge.send(
                       ClientMessage.reject(toolUseId, sessionId: sessionId),
                     );
+                    bridge.clearSessionPermission(sessionId);
+                  },
+                  onAnswerQuestion: (sessionId, toolUseId, result) {
+                    final bridge = context.read<BridgeService>();
+                    bridge.send(
+                      ClientMessage.answer(
+                        toolUseId,
+                        result,
+                        sessionId: sessionId,
+                      ),
+                    );
+                    bridge.clearSessionPermission(sessionId);
                   },
                   onResumeSession: _resumeSession,
                   onLongPressRecentSession: _showRecentSessionActions,

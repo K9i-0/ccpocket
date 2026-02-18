@@ -1233,6 +1233,7 @@ class SessionInfo {
 
   factory SessionInfo.fromJson(Map<String, dynamic> json) {
     final codexSettings = json['codexSettings'] as Map<String, dynamic>?;
+    final permJson = json['pendingPermission'] as Map<String, dynamic>?;
     return SessionInfo(
       id: json['id'] as String,
       provider: json['provider'] as String?,
@@ -1254,6 +1255,13 @@ class SessionInfo {
       codexNetworkAccessEnabled:
           codexSettings?['networkAccessEnabled'] as bool?,
       codexWebSearchMode: codexSettings?['webSearchMode'] as String?,
+      pendingPermission: permJson != null
+          ? PermissionRequestMessage(
+              toolUseId: permJson['toolUseId'] as String,
+              toolName: permJson['toolName'] as String,
+              input: Map<String, dynamic>.from(permJson['input'] as Map),
+            )
+          : null,
     );
   }
 }

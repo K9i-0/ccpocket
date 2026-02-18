@@ -11,7 +11,9 @@ class RunningSessionCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onStop;
   final ValueChanged<String>? onApprove;
+  final ValueChanged<String>? onApproveAlways;
   final ValueChanged<String>? onReject;
+  final void Function(String toolUseId, String result)? onAnswer;
 
   const RunningSessionCard({
     super.key,
@@ -19,7 +21,9 @@ class RunningSessionCard extends StatelessWidget {
     required this.onTap,
     required this.onStop,
     this.onApprove,
+    this.onApproveAlways,
     this.onReject,
+    this.onAnswer,
   });
 
   @override
@@ -38,8 +42,11 @@ class RunningSessionCard extends StatelessWidget {
     final statusLabel = switch (session.status) {
       'starting' => 'Starting',
       'running' => 'Running',
-      'waiting_approval' when hasPermission =>
-        'Approval · ${permission.toolName}',
+      'waiting_approval' when hasPermission => switch (permission.toolName) {
+        'ExitPlanMode' => 'Plan Ready',
+        'AskUserQuestion' => 'Question',
+        _ => 'Approval · ${permission.toolName}',
+      },
       'waiting_approval' => 'Approval',
       _ => 'Idle',
     };
@@ -105,12 +112,28 @@ class RunningSessionCard extends StatelessWidget {
             ),
             // Approval area (shown when waiting for permission)
             if (hasPermission)
-              _ApprovalArea(
-                permission: permission,
-                statusColor: statusColor,
-                onApprove: () => onApprove?.call(permission.toolUseId),
-                onReject: () => onReject?.call(permission.toolUseId),
-              ),
+              switch (permission.toolName) {
+                'AskUserQuestion' => _AskUserArea(
+                  permission: permission,
+                  statusColor: statusColor,
+                  onAnswer: (result) =>
+                      onAnswer?.call(permission.toolUseId, result),
+                  onTap: onTap,
+                ),
+                'ExitPlanMode' => _PlanApprovalArea(
+                  statusColor: statusColor,
+                  onApprove: () => onApprove?.call(permission.toolUseId),
+                  onTap: onTap,
+                ),
+                _ => _ToolApprovalArea(
+                  permission: permission,
+                  statusColor: statusColor,
+                  onApprove: () => onApprove?.call(permission.toolUseId),
+                  onApproveAlways: () =>
+                      onApproveAlways?.call(permission.toolUseId),
+                  onReject: () => onReject?.call(permission.toolUseId),
+                ),
+              },
             // Content (same structure as RecentSessionCard)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -267,16 +290,19 @@ class RunningSessionCard extends StatelessWidget {
   }
 }
 
-class _ApprovalArea extends StatelessWidget {
+/// Approval area for normal tool execution (Bash, Edit, etc.)
+class _ToolApprovalArea extends StatelessWidget {
   final PermissionRequestMessage permission;
   final Color statusColor;
   final VoidCallback onApprove;
+  final VoidCallback? onApproveAlways;
   final VoidCallback onReject;
 
-  const _ApprovalArea({
+  const _ToolApprovalArea({
     required this.permission,
     required this.statusColor,
     required this.onApprove,
+    this.onApproveAlways,
     required this.onReject,
   });
 
@@ -326,6 +352,21 @@ class _ApprovalArea extends StatelessWidget {
               const SizedBox(width: 8),
               SizedBox(
                 height: 28,
+                child: OutlinedButton.icon(
+                  onPressed: onApproveAlways,
+                  icon: const Icon(Icons.done_all, size: 14),
+                  label: const Text('Always'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    textStyle: const TextStyle(fontSize: 12),
+                    foregroundColor: statusColor,
+                    side: BorderSide(color: statusColor.withValues(alpha: 0.5)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 28,
                 child: FilledButton.tonalIcon(
                   onPressed: onApprove,
                   icon: const Icon(Icons.check, size: 14),
@@ -340,6 +381,172 @@ class _ApprovalArea extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Approval area for ExitPlanMode (plan review).
+class _PlanApprovalArea extends StatelessWidget {
+  final Color statusColor;
+  final VoidCallback onApprove;
+  final VoidCallback onTap;
+
+  const _PlanApprovalArea({
+    required this.statusColor,
+    required this.onApprove,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      color: statusColor.withValues(alpha: 0.06),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Plan is ready for review',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.8),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              SizedBox(
+                height: 28,
+                child: OutlinedButton.icon(
+                  onPressed: onTap,
+                  icon: const Icon(Icons.open_in_new, size: 14),
+                  label: const Text('Open'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 28,
+                child: FilledButton.tonalIcon(
+                  onPressed: onApprove,
+                  icon: const Icon(Icons.check, size: 14),
+                  label: const Text('Accept Plan'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    textStyle: const TextStyle(fontSize: 12),
+                    backgroundColor: statusColor.withValues(alpha: 0.15),
+                    foregroundColor: statusColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Approval area for AskUserQuestion.
+class _AskUserArea extends StatelessWidget {
+  final PermissionRequestMessage permission;
+  final Color statusColor;
+  final ValueChanged<String> onAnswer;
+  final VoidCallback onTap;
+
+  const _AskUserArea({
+    required this.permission,
+    required this.statusColor,
+    required this.onAnswer,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final questions = permission.input['questions'] as List<dynamic>? ?? [];
+    final firstQuestion =
+        questions.isNotEmpty && questions[0] is Map<String, dynamic>
+        ? questions[0] as Map<String, dynamic>
+        : null;
+    final questionText = firstQuestion?['question'] as String? ?? '';
+    final options = firstQuestion?['options'] as List<dynamic>? ?? [];
+    final multiSelect = firstQuestion?['multiSelect'] as bool? ?? false;
+    final isSingleSimple =
+        questions.length == 1 && !multiSelect && options.isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      color: statusColor.withValues(alpha: 0.06),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (questionText.isNotEmpty)
+            Text(
+              questionText,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.8),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          const SizedBox(height: 6),
+          if (isSingleSimple)
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final opt in options)
+                  if (opt is Map<String, dynamic>)
+                    Builder(
+                      builder: (context) {
+                        final label = opt['label'] as String? ?? '';
+                        return ActionChip(
+                          label: Text(
+                            label,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          onPressed: () => onAnswer(label),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: statusColor.withValues(alpha: 0.08),
+                          side: BorderSide(
+                            color: statusColor.withValues(alpha: 0.3),
+                          ),
+                        );
+                      },
+                    ),
+              ],
+            )
+          else
+            Align(
+              alignment: Alignment.centerRight,
+              child: SizedBox(
+                height: 28,
+                child: OutlinedButton.icon(
+                  onPressed: onTap,
+                  icon: const Icon(Icons.open_in_new, size: 14),
+                  label: const Text('Open'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

@@ -35,7 +35,10 @@ class HomeContent extends StatefulWidget {
   onTapRunning;
   final ValueChanged<String> onStopSession;
   final void Function(String sessionId, String toolUseId)? onApprovePermission;
+  final void Function(String sessionId, String toolUseId)? onApproveAlways;
   final void Function(String sessionId, String toolUseId)? onRejectPermission;
+  final void Function(String sessionId, String toolUseId, String result)?
+  onAnswerQuestion;
   final ValueChanged<RecentSession> onResumeSession;
   final ValueChanged<RecentSession> onLongPressRecentSession;
   final ValueChanged<String?> onSelectProject;
@@ -57,7 +60,9 @@ class HomeContent extends StatefulWidget {
     required this.onTapRunning,
     required this.onStopSession,
     this.onApprovePermission,
+    this.onApproveAlways,
     this.onRejectPermission,
+    this.onAnswerQuestion,
     required this.onResumeSession,
     required this.onLongPressRecentSession,
     required this.onSelectProject,
@@ -179,8 +184,12 @@ class _HomeContentState extends State<HomeContent> {
               onStop: () => widget.onStopSession(session.id),
               onApprove: (toolUseId) =>
                   widget.onApprovePermission?.call(session.id, toolUseId),
+              onApproveAlways: (toolUseId) =>
+                  widget.onApproveAlways?.call(session.id, toolUseId),
               onReject: (toolUseId) =>
                   widget.onRejectPermission?.call(session.id, toolUseId),
+              onAnswer: (toolUseId, result) =>
+                  widget.onAnswerQuestion?.call(session.id, toolUseId, result),
             ),
           const SizedBox(height: 16),
         ],

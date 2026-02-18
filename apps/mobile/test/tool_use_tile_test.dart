@@ -74,9 +74,7 @@ void main() {
 
     testWidgets('summary truncates long commands', (tester) async {
       await tester.pumpWidget(
-        _wrap(
-          ToolUseTile(name: 'Bash', input: {'command': 'a' * 100}),
-        ),
+        _wrap(ToolUseTile(name: 'Bash', input: {'command': 'a' * 100})),
       );
 
       // Bash category: truncated to 57 chars + '...'

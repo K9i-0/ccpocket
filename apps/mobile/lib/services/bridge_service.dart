@@ -139,7 +139,7 @@ class BridgeService implements BridgeServiceBase {
             final msg = ServerMessage.fromJson(json);
             switch (msg) {
               case SessionListMessage(:final sessions):
-                _sessions = _mergePermissions(sessions);
+                _sessions = sessions;
                 _sessionListController.add(_sessions);
               case RecentSessionsMessage(:final sessions, :final hasMore):
                 _recentSessionsHasMore = hasMore;
@@ -456,8 +456,10 @@ class BridgeService implements BridgeServiceBase {
     _sessionListController.add(_sessions);
   }
 
-  /// Attach a [PermissionRequestMessage] to the cached session so the
-  /// session list card can display approval info and quick-approve buttons.
+  /// Attach a [PermissionRequestMessage] to the cached session for real-time
+  /// display. The server also includes this in session_list responses, but
+  /// this method provides instant UI feedback without waiting for the next
+  /// session_list refresh.
   void _patchSessionPermission(
     String sessionId,
     PermissionRequestMessage permission,
@@ -469,26 +471,15 @@ class BridgeService implements BridgeServiceBase {
     _sessionListController.add(_sessions);
   }
 
-  /// Merge [pendingPermission] from the current cached sessions into a fresh
-  /// list received from the server. The server does not include permission
-  /// request data in the session list, so we preserve locally-patched values
-  /// for sessions that are still in `waiting_approval` status.
-  List<SessionInfo> _mergePermissions(List<SessionInfo> incoming) {
-    if (_sessions.isEmpty) return incoming;
-    final permissionMap = <String, PermissionRequestMessage>{};
-    for (final s in _sessions) {
-      if (s.pendingPermission != null) {
-        permissionMap[s.id] = s.pendingPermission!;
-      }
-    }
-    if (permissionMap.isEmpty) return incoming;
-    return [
-      for (final s in incoming)
-        if (s.status == 'waiting_approval' && permissionMap.containsKey(s.id))
-          s.copyWith(pendingPermission: permissionMap[s.id])
-        else
-          s,
-    ];
+  /// Clear pending permission from a cached session after the user has
+  /// acted on it (approve/reject/answer). Provides instant UI feedback
+  /// without waiting for the server status change.
+  void clearSessionPermission(String sessionId) {
+    final idx = _sessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) return;
+    _sessions = List.of(_sessions)
+      ..[idx] = _sessions[idx].copyWith(clearPermission: true);
+    _sessionListController.add(_sessions);
   }
 
   @override
