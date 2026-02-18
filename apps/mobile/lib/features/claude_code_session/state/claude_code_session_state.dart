@@ -29,6 +29,9 @@ abstract class ChatSessionState with _$ChatSessionState {
     @Default(false) bool inPlanMode,
     @Default(false) bool collapseToolResults,
 
+    // Permission mode selected by the user
+    @Default(PermissionMode.defaultMode) PermissionMode permissionMode,
+
     // Tool use IDs hidden by tool_use_summary (subagent compression)
     @Default({}) Set<String> hiddenToolUseIds,
 

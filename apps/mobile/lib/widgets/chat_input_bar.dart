@@ -21,6 +21,7 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onToggleVoice;
   final VoidCallback onShowSlashCommands;
   final VoidCallback onShowModeMenu;
+  final PermissionMode permissionMode;
   final VoidCallback? onShowPromptHistory;
   final VoidCallback? onAttachImage;
   final Uint8List? attachedImageBytes;
@@ -43,6 +44,7 @@ class ChatInputBar extends StatelessWidget {
     required this.onToggleVoice,
     required this.onShowSlashCommands,
     required this.onShowModeMenu,
+    this.permissionMode = PermissionMode.defaultMode,
     this.onShowPromptHistory,
     this.onAttachImage,
     this.attachedImageBytes,
@@ -130,18 +132,73 @@ class ChatInputBar extends StatelessWidget {
   }
 
   Widget _buildModeButton(ColorScheme cs) {
+    final isDefault = permissionMode == PermissionMode.defaultMode;
+
+    final (
+      IconData icon,
+      String? label,
+      Color bg,
+      Color fg,
+    ) = switch (permissionMode) {
+      PermissionMode.defaultMode => (
+        Icons.tune,
+        null,
+        cs.surfaceContainerHigh,
+        cs.primary,
+      ),
+      PermissionMode.plan => (
+        Icons.assignment,
+        'Plan',
+        cs.tertiaryContainer,
+        cs.onTertiaryContainer,
+      ),
+      PermissionMode.acceptEdits => (
+        Icons.edit_note,
+        'Edits',
+        cs.primaryContainer,
+        cs.onPrimaryContainer,
+      ),
+      PermissionMode.bypassPermissions => (
+        Icons.flash_on,
+        'Bypass',
+        cs.errorContainer,
+        cs.onErrorContainer,
+      ),
+    };
+
     return Material(
-      color: cs.surfaceContainerHigh,
+      color: bg,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         key: const ValueKey('mode_button'),
         borderRadius: BorderRadius.circular(20),
         onTap: onShowModeMenu,
         child: Container(
-          width: 36,
           height: 36,
+          constraints: isDefault
+              ? const BoxConstraints(minWidth: 36, maxWidth: 36)
+              : const BoxConstraints(minWidth: 36),
+          padding: isDefault
+              ? EdgeInsets.zero
+              : const EdgeInsets.symmetric(horizontal: 10),
           alignment: Alignment.center,
-          child: Icon(Icons.tune, size: 18, color: cs.primary),
+          child: isDefault
+              ? Icon(icon, size: 18, color: fg)
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 16, color: fg),
+                    const SizedBox(width: 4),
+                    Text(
+                      label!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: fg,
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );

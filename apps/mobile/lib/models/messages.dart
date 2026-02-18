@@ -110,12 +110,10 @@ enum Provider {
 // ---- Permission mode ----
 
 enum PermissionMode {
-  acceptEdits('acceptEdits', 'Accept Edits'),
-  bypassPermissions('bypassPermissions', 'Bypass All'),
-  plan('plan', 'Plan Only'),
   defaultMode('default', 'Default'),
-  delegate('delegate', 'Delegate'),
-  dontAsk('dontAsk', "Don't Ask");
+  plan('plan', 'Plan'),
+  acceptEdits('acceptEdits', 'Accept Edits'),
+  bypassPermissions('bypassPermissions', 'Bypass All');
 
   final String value;
   final String label;

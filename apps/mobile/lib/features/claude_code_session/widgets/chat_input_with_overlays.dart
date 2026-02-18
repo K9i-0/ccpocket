@@ -499,40 +499,77 @@ class ChatInputWithOverlays extends HookWidget {
         return;
       }
 
-      final modes = <PermissionMode>[
-        PermissionMode.plan,
-        PermissionMode.acceptEdits,
-        PermissionMode.dontAsk,
-        PermissionMode.delegate,
-        PermissionMode.defaultMode,
-        PermissionMode.bypassPermissions,
-      ];
+      final currentMode = chatCubit.state.permissionMode;
+
+      const modeDetails =
+          <PermissionMode, ({IconData icon, String description})>{
+            PermissionMode.defaultMode: (
+              icon: Icons.tune,
+              description: 'Standard permission prompts',
+            ),
+            PermissionMode.plan: (
+              icon: Icons.assignment,
+              description: 'Analyze & plan without executing',
+            ),
+            PermissionMode.acceptEdits: (
+              icon: Icons.edit_note,
+              description: 'Auto-approve file edits',
+            ),
+            PermissionMode.bypassPermissions: (
+              icon: Icons.flash_on,
+              description: 'Skip all permission prompts',
+            ),
+          };
 
       showModalBottomSheet(
         context: context,
-        builder: (sheetContext) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final mode in modes)
-                ListTile(
-                  title: Text(mode.label),
-                  subtitle: Text(mode.value),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    chatCubit.setPermissionMode(mode);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Permission mode: ${mode.label}'),
-                        ),
-                      );
-                    }
-                  },
+        builder: (sheetContext) {
+          final sheetCs = Theme.of(sheetContext).colorScheme;
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Permission Mode',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: sheetCs.onSurface,
+                      ),
+                    ),
+                  ),
                 ),
-            ],
-          ),
-        ),
+                for (final mode in PermissionMode.values)
+                  ListTile(
+                    leading: Icon(
+                      modeDetails[mode]!.icon,
+                      color: mode == currentMode
+                          ? sheetCs.primary
+                          : sheetCs.onSurfaceVariant,
+                    ),
+                    title: Text(mode.label),
+                    subtitle: Text(
+                      modeDetails[mode]!.description,
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    trailing: mode == currentMode
+                        ? Icon(Icons.check, color: sheetCs.primary, size: 20)
+                        : null,
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      HapticFeedback.lightImpact();
+                      chatCubit.setPermissionMode(mode);
+                    },
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
       );
     }
 
@@ -588,6 +625,10 @@ class ChatInputWithOverlays extends HookWidget {
             onToggleVoice: voice.toggle,
             onShowSlashCommands: showSlashCommandSheet,
             onShowModeMenu: showModeMenu,
+            permissionMode: context
+                .watch<ChatSessionCubit>()
+                .state
+                .permissionMode,
             onShowPromptHistory: showPromptHistory,
             onAttachImage: showAttachOptions,
             attachedImageBytes: attachedImage.value,
