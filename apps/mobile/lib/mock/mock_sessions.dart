@@ -124,6 +124,8 @@ final List<RecentSession> mockRecentSessions = [
 // ---------------------------------------------------------------------------
 
 /// Session with a multi-question AskUserQuestion pending.
+/// Based on real patterns: project setup decisions (architecture, deployment,
+/// package scope).
 SessionInfo mockSessionMultiQuestion() => SessionInfo(
   id: 'mock-running-mq',
   provider: 'claude',
@@ -135,8 +137,8 @@ SessionInfo mockSessionMultiQuestion() => SessionInfo(
   lastActivityAt: DateTime.now()
       .subtract(const Duration(seconds: 30))
       .toIso8601String(),
-  gitBranch: 'feat/user-mgmt',
-  lastMessage: 'I need a few decisions before proceeding.',
+  gitBranch: 'feat/ci-setup',
+  lastMessage: 'I have a few questions about how to set up the CI/CD pipeline.',
   messageCount: 12,
   pendingPermission: const PermissionRequestMessage(
     toolUseId: 'tool-ask-mq-1',
@@ -144,46 +146,59 @@ SessionInfo mockSessionMultiQuestion() => SessionInfo(
     input: {
       'questions': [
         {
-          'question': 'Which database should we use?',
-          'header': 'Database',
+          'question':
+              'Which architecture pattern should we use for the new module?',
+          'header': 'Architecture',
           'options': [
             {
-              'label': 'SQLite (Recommended)',
-              'description': 'Lightweight, embedded, no server needed.',
+              'label': 'Feature-first (Recommended)',
+              'description':
+                  'Group by feature with co-located state, widgets, and models.',
             },
             {
-              'label': 'PostgreSQL',
-              'description': 'Full-featured relational database.',
+              'label': 'Layer-first',
+              'description':
+                  'Group by layer (screens/, models/, services/) across features.',
             },
             {
-              'label': 'MongoDB',
-              'description': 'Document-oriented NoSQL database.',
+              'label': 'Hybrid',
+              'description':
+                  'Feature-first for complex features, shared layer for common code.',
             },
           ],
           'multiSelect': false,
         },
         {
-          'question': 'Which authentication method?',
-          'header': 'Auth',
+          'question': 'How should we handle the deployment?',
+          'header': 'Deploy',
           'options': [
             {
-              'label': 'JWT (Recommended)',
-              'description': 'Stateless token-based auth.',
+              'label': 'GitHub Actions (Recommended)',
+              'description':
+                  'CI/CD with GitHub Actions workflow. Free for public repos.',
             },
             {
-              'label': 'Session Cookie',
-              'description': 'Traditional server-side sessions.',
+              'label': 'Codemagic',
+              'description':
+                  'Flutter-focused CI/CD with built-in code signing.',
             },
           ],
           'multiSelect': false,
         },
         {
-          'question': 'Target platforms?',
+          'question':
+              'Which platforms should we target for the initial release?',
           'header': 'Platforms',
           'options': [
-            {'label': 'iOS', 'description': 'Apple iOS devices.'},
-            {'label': 'Android', 'description': 'Android devices.'},
-            {'label': 'Web', 'description': 'Web browsers.'},
+            {'label': 'iOS', 'description': 'iOS with App Store distribution.'},
+            {
+              'label': 'Android',
+              'description': 'Android with Play Store distribution.',
+            },
+            {
+              'label': 'Web',
+              'description': 'Web deployment via Firebase Hosting.',
+            },
           ],
           'multiSelect': true,
         },
@@ -193,6 +208,7 @@ SessionInfo mockSessionMultiQuestion() => SessionInfo(
 );
 
 /// Session with a single multiSelect AskUserQuestion pending.
+/// Based on real patterns: selecting target areas for a refactor or fix.
 SessionInfo mockSessionMultiSelect() => SessionInfo(
   id: 'mock-running-ms',
   provider: 'claude',
@@ -204,8 +220,8 @@ SessionInfo mockSessionMultiSelect() => SessionInfo(
   lastActivityAt: DateTime.now()
       .subtract(const Duration(seconds: 15))
       .toIso8601String(),
-  gitBranch: 'feat/settings',
-  lastMessage: 'Which features do you want to enable?',
+  gitBranch: 'refactor/ui-cleanup',
+  lastMessage: 'Which areas should I update to use the new design tokens?',
   messageCount: 8,
   pendingPermission: const PermissionRequestMessage(
     toolUseId: 'tool-ask-ms-1',
@@ -213,22 +229,26 @@ SessionInfo mockSessionMultiSelect() => SessionInfo(
     input: {
       'questions': [
         {
-          'question': 'Which features do you want to enable?',
-          'header': 'Features',
+          'question':
+              'Which areas should I update to use the new design tokens?',
+          'header': 'Scope',
           'options': [
             {
-              'label': 'Authentication',
-              'description': 'User login and registration.',
+              'label': 'AppBar & Navigation',
+              'description': 'Top bar, bottom nav, drawer headers.',
             },
             {
-              'label': 'Push Notifications',
-              'description': 'Firebase Cloud Messaging.',
+              'label': 'Card Components',
+              'description': 'Session cards, detail cards, list tiles.',
             },
             {
-              'label': 'Analytics',
-              'description': 'Usage tracking and reporting.',
+              'label': 'Form Inputs',
+              'description': 'Text fields, dropdowns, toggle switches.',
             },
-            {'label': 'Dark Mode', 'description': 'Dark theme support.'},
+            {
+              'label': 'All of the above',
+              'description': 'Apply design tokens across the entire app.',
+            },
           ],
           'multiSelect': true,
         },
@@ -238,6 +258,7 @@ SessionInfo mockSessionMultiSelect() => SessionInfo(
 );
 
 /// Sessions waiting for tool approval (for batch approval demo).
+/// Based on real patterns: test execution, file editing, git operations.
 List<SessionInfo> mockSessionsBatchApproval() => [
   SessionInfo(
     id: 'mock-running-ba-1',
@@ -251,12 +272,12 @@ List<SessionInfo> mockSessionsBatchApproval() => [
         .subtract(const Duration(seconds: 20))
         .toIso8601String(),
     gitBranch: 'feat/api',
-    lastMessage: 'Running npm test to verify changes.',
+    lastMessage: 'Running tests to verify the API changes.',
     messageCount: 15,
     pendingPermission: const PermissionRequestMessage(
       toolUseId: 'tool-bash-ba-1',
       toolName: 'Bash',
-      input: {'command': 'npm test'},
+      input: {'command': 'cd apps/mobile && flutter test test/services/'},
     ),
   ),
   SessionInfo(
@@ -271,12 +292,16 @@ List<SessionInfo> mockSessionsBatchApproval() => [
         .subtract(const Duration(seconds: 10))
         .toIso8601String(),
     gitBranch: 'fix/build',
-    lastMessage: 'Need to edit the config file.',
+    lastMessage: 'Need to update the pubspec.yaml dependencies.',
     messageCount: 22,
     pendingPermission: const PermissionRequestMessage(
       toolUseId: 'tool-edit-ba-2',
       toolName: 'Edit',
-      input: {'file_path': 'lib/config.dart'},
+      input: {
+        'file_path': 'apps/mobile/pubspec.yaml',
+        'old_string': "  http: ^1.1.0",
+        'new_string': "  http: ^1.2.1",
+      },
     ),
   ),
   SessionInfo(
@@ -296,7 +321,85 @@ List<SessionInfo> mockSessionsBatchApproval() => [
     pendingPermission: const PermissionRequestMessage(
       toolUseId: 'tool-bash-ba-3',
       toolName: 'Bash',
-      input: {'command': 'git status && git diff --stat'},
+      input: {'command': 'git diff --stat HEAD'},
     ),
   ),
 ];
+
+// ---------------------------------------------------------------------------
+// Mock single-question AskUserQuestion session
+// ---------------------------------------------------------------------------
+
+/// Session with a single-question single-select AskUserQuestion pending.
+/// The most common real-world pattern: a simple choice with (Recommended).
+SessionInfo mockSessionSingleQuestion() => SessionInfo(
+  id: 'mock-running-sq',
+  provider: 'claude',
+  projectPath: '/Users/demo/Workspace/my-app',
+  status: 'waiting_approval',
+  createdAt: DateTime.now()
+      .subtract(const Duration(minutes: 7))
+      .toIso8601String(),
+  lastActivityAt: DateTime.now()
+      .subtract(const Duration(seconds: 12))
+      .toIso8601String(),
+  gitBranch: 'feat/config',
+  lastMessage: 'How should we structure the configuration?',
+  messageCount: 5,
+  pendingPermission: const PermissionRequestMessage(
+    toolUseId: 'tool-ask-sq-1',
+    toolName: 'AskUserQuestion',
+    input: {
+      'questions': [
+        {
+          'question':
+              'How should we structure the configuration for this project?',
+          'header': 'Config',
+          'options': [
+            {
+              'label': 'YAML file (Recommended)',
+              'description':
+                  'Human-readable config in config.yaml with environment overrides.',
+            },
+            {
+              'label': 'Environment variables',
+              'description':
+                  'Twelve-factor style config via .env file and process.env.',
+            },
+            {
+              'label': 'JSON with schema',
+              'description': 'Typed JSON config with JSON Schema validation.',
+            },
+          ],
+          'multiSelect': false,
+        },
+      ],
+    },
+  ),
+);
+
+// ---------------------------------------------------------------------------
+// Mock ExitPlanMode session
+// ---------------------------------------------------------------------------
+
+/// Session with an ExitPlanMode pending (plan review approval).
+SessionInfo mockSessionPlanApproval() => SessionInfo(
+  id: 'mock-running-plan',
+  provider: 'claude',
+  projectPath: '/Users/demo/Workspace/my-app',
+  status: 'waiting_approval',
+  createdAt: DateTime.now()
+      .subtract(const Duration(minutes: 15))
+      .toIso8601String(),
+  lastActivityAt: DateTime.now()
+      .subtract(const Duration(seconds: 45))
+      .toIso8601String(),
+  gitBranch: 'feat/notifications',
+  lastMessage: 'I\'ve designed the implementation plan for push notifications.',
+  messageCount: 18,
+  pendingPermission: const PermissionRequestMessage(
+    toolUseId: 'tool-plan-exit-1',
+    toolName: 'ExitPlanMode',
+    input: {'plan': 'Push Notification Implementation Plan'},
+  ),
+);

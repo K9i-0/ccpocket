@@ -54,9 +54,11 @@ final List<MockScenario> mockScenarios = [
   _errorScenario,
   _fullConversation,
   // Session list scenarios
+  _sessionListSingleQuestion,
   _sessionListMultiQuestion,
   _sessionListMultiSelect,
   _sessionListBatchApproval,
+  _sessionListPlanApproval,
 ];
 
 // ---------------------------------------------------------------------------
@@ -207,7 +209,11 @@ final _askUserQuestion = MockScenario(
           id: 'mock-ask-1',
           role: 'assistant',
           content: [
-            const TextContent(text: 'I have a question about how to proceed.'),
+            const TextContent(
+              text:
+                  'I found multiple approaches for implementing this. '
+                  'Let me ask which one you prefer.',
+            ),
             const ToolUseContent(
               id: 'tool-ask-1',
               name: 'AskUserQuestion',
@@ -215,23 +221,23 @@ final _askUserQuestion = MockScenario(
                 'questions': [
                   {
                     'question':
-                        'Which state management solution should we use?',
-                    'header': 'State Mgmt',
+                        'How should we handle the error recovery logic?',
+                    'header': 'Approach',
                     'options': [
                       {
-                        'label': 'Riverpod (Recommended)',
+                        'label': 'Retry with backoff (Recommended)',
                         'description':
-                            'Modern, compile-safe state management with code generation support.',
+                            'Exponential backoff with max 3 retries. Handles transient failures gracefully.',
                       },
                       {
-                        'label': 'BLoC',
+                        'label': 'Fail fast',
                         'description':
-                            'Pattern-based approach with streams, great for complex apps.',
+                            'Immediately surface the error to the user. Simpler but less resilient.',
                       },
                       {
-                        'label': 'Provider',
+                        'label': 'Circuit breaker',
                         'description':
-                            'Simple and widely used, good for smaller projects.',
+                            'Track failure rate and temporarily disable requests when threshold is reached.',
                       },
                     ],
                     'multiSelect': false,
@@ -267,7 +273,8 @@ final _askUserMultiQuestion = MockScenario(
           role: 'assistant',
           content: [
             const TextContent(
-              text: 'I need a few decisions before proceeding.',
+              text:
+                  'Before I set up the project, I need to clarify a few things.',
             ),
             const ToolUseContent(
               id: 'tool-ask-multi-1',
@@ -275,36 +282,41 @@ final _askUserMultiQuestion = MockScenario(
               input: {
                 'questions': [
                   {
-                    'question': 'Which database should we use?',
-                    'header': 'Database',
+                    'question': 'What npm scope should we use for the package?',
+                    'header': 'Scope',
                     'options': [
                       {
-                        'label': 'SQLite (Recommended)',
+                        'label': '@myorg (Recommended)',
                         'description':
-                            'Lightweight, embedded, no server needed.',
+                            'Scoped under your organization namespace.',
                       },
                       {
-                        'label': 'PostgreSQL',
-                        'description': 'Full-featured relational database.',
+                        'label': 'No scope',
+                        'description':
+                            'Publish as a top-level unscoped package.',
                       },
                     ],
                     'multiSelect': false,
                   },
                   {
-                    'question': 'Which features do you want to enable?',
-                    'header': 'Features',
+                    'question':
+                        'Which components should be included in the initial scaffold?',
+                    'header': 'Components',
                     'options': [
                       {
-                        'label': 'Authentication',
-                        'description': 'User login and registration.',
+                        'label': 'REST API',
+                        'description':
+                            'Express server with typed routes and middleware.',
                       },
                       {
-                        'label': 'Push Notifications',
-                        'description': 'Firebase Cloud Messaging.',
+                        'label': 'WebSocket',
+                        'description':
+                            'Real-time bidirectional communication layer.',
                       },
                       {
-                        'label': 'Analytics',
-                        'description': 'Usage tracking and reporting.',
+                        'label': 'CLI',
+                        'description':
+                            'Command-line interface with argument parsing.',
                       },
                     ],
                     'multiSelect': true,
@@ -1039,7 +1051,18 @@ final _fullConversation = MockScenario(
 // ===========================================================================
 
 // ---------------------------------------------------------------------------
-// SL-1. PageView Multi-Question
+// SL-1. Single Question (most common pattern)
+// ---------------------------------------------------------------------------
+const _sessionListSingleQuestion = MockScenario(
+  name: 'Single Question',
+  icon: Icons.help_outline,
+  description: 'Single-select question with (Recommended) option',
+  section: MockScenarioSection.sessionList,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// SL-2. PageView Multi-Question
 // ---------------------------------------------------------------------------
 const _sessionListMultiQuestion = MockScenario(
   name: 'PageView Multi-Question',
@@ -1050,7 +1073,7 @@ const _sessionListMultiQuestion = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// SL-2. MultiSelect Question
+// SL-3. MultiSelect Question
 // ---------------------------------------------------------------------------
 const _sessionListMultiSelect = MockScenario(
   name: 'MultiSelect Question',
@@ -1061,12 +1084,23 @@ const _sessionListMultiSelect = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// SL-3. Batch Approval
+// SL-4. Batch Approval
 // ---------------------------------------------------------------------------
 const _sessionListBatchApproval = MockScenario(
   name: 'Batch Approval',
   icon: Icons.done_all,
   description: '3 sessions waiting for approval simultaneously',
+  section: MockScenarioSection.sessionList,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// SL-5. Plan Approval (ExitPlanMode)
+// ---------------------------------------------------------------------------
+const _sessionListPlanApproval = MockScenario(
+  name: 'Plan Approval',
+  icon: Icons.assignment_outlined,
+  description: 'ExitPlanMode approval with Approve/Open actions',
   section: MockScenarioSection.sessionList,
   steps: [],
 );
