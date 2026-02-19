@@ -101,6 +101,7 @@ void main() async {
       providers: [
         RepositoryProvider.value(value: logger),
         RepositoryProvider<BridgeService>.value(value: bridge),
+        RepositoryProvider<DatabaseService>.value(value: dbService),
         RepositoryProvider<DraftService>.value(value: draftService),
         RepositoryProvider<PromptHistoryService>.value(
           value: promptHistoryService,

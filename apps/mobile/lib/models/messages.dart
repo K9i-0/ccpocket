@@ -527,6 +527,26 @@ sealed class ServerMessage {
                 .toList() ??
             const [],
       ),
+      'prompt_history_backup_result' => PromptHistoryBackupResultMessage(
+        success: json['success'] as bool? ?? false,
+        backedUpAt: json['backedUpAt'] as String?,
+        error: json['error'] as String?,
+      ),
+      'prompt_history_restore_result' => PromptHistoryRestoreResultMessage(
+        success: json['success'] as bool? ?? false,
+        data: json['data'] as String?,
+        appVersion: json['appVersion'] as String?,
+        dbVersion: json['dbVersion'] as int?,
+        backedUpAt: json['backedUpAt'] as String?,
+        error: json['error'] as String?,
+      ),
+      'prompt_history_backup_info' => PromptHistoryBackupInfoMessage(
+        exists: json['exists'] as bool? ?? false,
+        appVersion: json['appVersion'] as String?,
+        dbVersion: json['dbVersion'] as int?,
+        backedUpAt: json['backedUpAt'] as String?,
+        sizeBytes: json['sizeBytes'] as int?,
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -984,6 +1004,49 @@ class RecordingContentMessage implements ServerMessage {
   const RecordingContentMessage({
     required this.sessionId,
     required this.content,
+  });
+}
+
+class PromptHistoryBackupResultMessage implements ServerMessage {
+  final bool success;
+  final String? backedUpAt;
+  final String? error;
+  const PromptHistoryBackupResultMessage({
+    required this.success,
+    this.backedUpAt,
+    this.error,
+  });
+}
+
+class PromptHistoryRestoreResultMessage implements ServerMessage {
+  final bool success;
+  final String? data;
+  final String? appVersion;
+  final int? dbVersion;
+  final String? backedUpAt;
+  final String? error;
+  const PromptHistoryRestoreResultMessage({
+    required this.success,
+    this.data,
+    this.appVersion,
+    this.dbVersion,
+    this.backedUpAt,
+    this.error,
+  });
+}
+
+class PromptHistoryBackupInfoMessage implements ServerMessage {
+  final bool exists;
+  final String? appVersion;
+  final int? dbVersion;
+  final String? backedUpAt;
+  final int? sizeBytes;
+  const PromptHistoryBackupInfoMessage({
+    required this.exists,
+    this.appVersion,
+    this.dbVersion,
+    this.backedUpAt,
+    this.sizeBytes,
   });
 }
 
@@ -1616,6 +1679,23 @@ class ClientMessage {
     'windowId': ?windowId,
     'sessionId': ?sessionId,
   });
+
+  factory ClientMessage.backupPromptHistory({
+    required String data,
+    required String appVersion,
+    required int dbVersion,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'backup_prompt_history',
+    'data': data,
+    'appVersion': appVersion,
+    'dbVersion': dbVersion,
+  });
+
+  factory ClientMessage.restorePromptHistory() =>
+      ClientMessage._({'type': 'restore_prompt_history'});
+
+  factory ClientMessage.getPromptHistoryBackupInfo() =>
+      ClientMessage._({'type': 'get_prompt_history_backup_info'});
 
   String toJson() => jsonEncode(_json);
 }

@@ -830,4 +830,55 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get imageAttached => '画像添付';
+
+  @override
+  String get sectionBackup => 'バックアップ';
+
+  @override
+  String get backupPromptHistory => 'プロンプト履歴をバックアップ';
+
+  @override
+  String get restorePromptHistory => 'プロンプト履歴をリストア';
+
+  @override
+  String get backupSuccess => 'バックアップが完了しました';
+
+  @override
+  String backupFailed(String error) {
+    return 'バックアップに失敗しました: $error';
+  }
+
+  @override
+  String get restoreSuccess => 'リストアが完了しました';
+
+  @override
+  String restoreFailed(String error) {
+    return 'リストアに失敗しました: $error';
+  }
+
+  @override
+  String get restoreConfirmTitle => 'プロンプト履歴のリストア';
+
+  @override
+  String get restoreConfirmMessage =>
+      'ローカルのプロンプト履歴がバックアップの内容で上書きされます。この操作は元に戻せません。';
+
+  @override
+  String get restoreConfirmButton => 'リストア';
+
+  @override
+  String get noBackupFound => 'バックアップがありません';
+
+  @override
+  String backupInfo(String date) {
+    return '最終バックアップ: $date';
+  }
+
+  @override
+  String backupVersionInfo(String version, String size) {
+    return 'v$version · $size';
+  }
+
+  @override
+  String get connectToBackup => 'Bridge に接続するとバックアップが利用できます';
 }

@@ -374,5 +374,41 @@
 
   "defaultNotRecommended": "Default（非推奨）",
 
-  "imageAttached": "画像添付"
+  "imageAttached": "画像添付",
+
+  "sectionBackup": "バックアップ",
+  "backupPromptHistory": "プロンプト履歴をバックアップ",
+  "restorePromptHistory": "プロンプト履歴をリストア",
+  "backupSuccess": "バックアップが完了しました",
+  "backupFailed": "バックアップに失敗しました: {error}",
+  "@backupFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "restoreSuccess": "リストアが完了しました",
+  "restoreFailed": "リストアに失敗しました: {error}",
+  "@restoreFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "restoreConfirmTitle": "プロンプト履歴のリストア",
+  "restoreConfirmMessage": "ローカルのプロンプト履歴がバックアップの内容で上書きされます。この操作は元に戻せません。",
+  "restoreConfirmButton": "リストア",
+  "noBackupFound": "バックアップがありません",
+  "backupInfo": "最終バックアップ: {date}",
+  "@backupInfo": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "backupVersionInfo": "v{version} · {size}",
+  "@backupVersionInfo": {
+    "placeholders": {
+      "version": {"type": "String"},
+      "size": {"type": "String"}
+    }
+  },
+  "connectToBackup": "Bridge に接続するとバックアップが利用できます"
 }

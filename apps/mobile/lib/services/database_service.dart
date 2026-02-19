@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -75,6 +77,62 @@ class DatabaseService {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     // Future migrations go here
+  }
+
+  /// The current database schema version.
+  int get dbVersion => _dbVersion;
+
+  /// Get the absolute path to the database file.
+  Future<String> getDbPath() async {
+    final path = await getDatabasesPath();
+    return '$path/$_dbName';
+  }
+
+  /// Export the database file as bytes for backup.
+  ///
+  /// Closes the database connection before reading to ensure consistency.
+  /// The database will be re-initialized on next access.
+  Future<Uint8List?> exportDb() async {
+    if (kIsWeb) return null;
+    try {
+      await _database?.close();
+      _database = null;
+      _initialized = false;
+      final dbPath = await getDbPath();
+      final file = File(dbPath);
+      if (!await file.exists()) return null;
+      return file.readAsBytes();
+    } catch (e) {
+      logger.warning('[DatabaseService] exportDb failed', e);
+      return null;
+    }
+  }
+
+  /// Import a database file from bytes, replacing the current database.
+  ///
+  /// Closes the current database, writes to a temp file first for safety,
+  /// then renames to the actual DB path and re-initializes.
+  Future<bool> importDb(Uint8List data) async {
+    if (kIsWeb) return false;
+    try {
+      await _database?.close();
+      _database = null;
+      _initialized = false;
+      final dbPath = await getDbPath();
+      // Write to temp file first, then rename for atomicity
+      final tempPath = '$dbPath.importing';
+      final tempFile = File(tempPath);
+      await tempFile.writeAsBytes(data, flush: true);
+      await tempFile.rename(dbPath);
+      // Re-initialize to validate and run any needed migrations
+      _database = await _initDatabase();
+      _initialized = true;
+      return true;
+    } catch (e) {
+      logger.warning('[DatabaseService] importDb failed', e);
+      _initialized = false;
+      return false;
+    }
   }
 
   /// Close the database connection.

@@ -18,6 +18,7 @@ import { RecordingStore } from "./recording-store.js";
 import { PushRelayClient } from "./push-relay.js";
 import type { FirebaseAuthClient } from "./firebase-auth.js";
 import { fetchAllUsage } from "./usage.js";
+import type { PromptHistoryBackupStore } from "./prompt-history-backup.js";
 
 export interface BridgeServerOptions {
   server: HttpServer;
@@ -28,6 +29,7 @@ export interface BridgeServerOptions {
   debugTraceStore?: DebugTraceStore;
   recordingStore?: RecordingStore;
   firebaseAuth?: FirebaseAuthClient;
+  promptHistoryBackup?: PromptHistoryBackupStore;
 }
 
 export class BridgeWebSocketServer {
@@ -44,12 +46,13 @@ export class BridgeWebSocketServer {
   private recordingStore: RecordingStore;
   private worktreeStore: WorktreeStore;
   private pushRelay: PushRelayClient;
+  private promptHistoryBackup: PromptHistoryBackupStore | null;
   private recentSessionsRequestId = 0;
   private debugEvents = new Map<string, DebugTraceEvent[]>();
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
 
   constructor(options: BridgeServerOptions) {
-    const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore, recordingStore, firebaseAuth } = options;
+    const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore, recordingStore, firebaseAuth, promptHistoryBackup } = options;
     this.apiKey = apiKey ?? null;
     this.imageStore = imageStore ?? null;
     this.galleryStore = galleryStore ?? null;
@@ -58,6 +61,7 @@ export class BridgeWebSocketServer {
     this.recordingStore = recordingStore ?? new RecordingStore();
     this.worktreeStore = new WorktreeStore();
     this.pushRelay = new PushRelayClient({ firebaseAuth });
+    this.promptHistoryBackup = promptHistoryBackup ?? null;
     void this.debugTraceStore.init().catch((err) => {
       console.error("[ws] Failed to initialize debug trace store:", err);
     });
@@ -1136,6 +1140,61 @@ export class BridgeWebSocketServer {
               error: err instanceof Error ? err.message : String(err),
             });
           });
+        break;
+      }
+
+      case "backup_prompt_history": {
+        if (!this.promptHistoryBackup) {
+          this.send(ws, { type: "prompt_history_backup_result", success: false, error: "Backup store not available" });
+          break;
+        }
+        const buf = Buffer.from(msg.data, "base64");
+        this.promptHistoryBackup.save(buf, msg.appVersion, msg.dbVersion).then((meta) => {
+          this.send(ws, { type: "prompt_history_backup_result", success: true, backedUpAt: meta.backedUpAt });
+        }).catch((err) => {
+          this.send(ws, { type: "prompt_history_backup_result", success: false, error: err instanceof Error ? err.message : String(err) });
+        });
+        break;
+      }
+
+      case "restore_prompt_history": {
+        if (!this.promptHistoryBackup) {
+          this.send(ws, { type: "prompt_history_restore_result", success: false, error: "Backup store not available" });
+          break;
+        }
+        this.promptHistoryBackup.load().then((result) => {
+          if (result) {
+            this.send(ws, {
+              type: "prompt_history_restore_result",
+              success: true,
+              data: result.data.toString("base64"),
+              appVersion: result.meta.appVersion,
+              dbVersion: result.meta.dbVersion,
+              backedUpAt: result.meta.backedUpAt,
+            });
+          } else {
+            this.send(ws, { type: "prompt_history_restore_result", success: false, error: "No backup found" });
+          }
+        }).catch((err) => {
+          this.send(ws, { type: "prompt_history_restore_result", success: false, error: err instanceof Error ? err.message : String(err) });
+        });
+        break;
+      }
+
+      case "get_prompt_history_backup_info": {
+        if (!this.promptHistoryBackup) {
+          this.send(ws, { type: "prompt_history_backup_info", exists: false });
+          break;
+        }
+        this.promptHistoryBackup.getMeta().then((meta) => {
+          if (meta) {
+            this.send(ws, { type: "prompt_history_backup_info", exists: true, ...meta });
+          } else {
+            this.send(ws, { type: "prompt_history_backup_info", exists: false });
+          }
+        }).catch(() => {
+          this.send(ws, { type: "prompt_history_backup_info", exists: false });
+        });
         break;
       }
     }

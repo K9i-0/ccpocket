@@ -1651,6 +1651,90 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'画像添付'**
   String get imageAttached;
+
+  /// No description provided for @sectionBackup.
+  ///
+  /// In ja, this message translates to:
+  /// **'バックアップ'**
+  String get sectionBackup;
+
+  /// No description provided for @backupPromptHistory.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロンプト履歴をバックアップ'**
+  String get backupPromptHistory;
+
+  /// No description provided for @restorePromptHistory.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロンプト履歴をリストア'**
+  String get restorePromptHistory;
+
+  /// No description provided for @backupSuccess.
+  ///
+  /// In ja, this message translates to:
+  /// **'バックアップが完了しました'**
+  String get backupSuccess;
+
+  /// No description provided for @backupFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'バックアップに失敗しました: {error}'**
+  String backupFailed(String error);
+
+  /// No description provided for @restoreSuccess.
+  ///
+  /// In ja, this message translates to:
+  /// **'リストアが完了しました'**
+  String get restoreSuccess;
+
+  /// No description provided for @restoreFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'リストアに失敗しました: {error}'**
+  String restoreFailed(String error);
+
+  /// No description provided for @restoreConfirmTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロンプト履歴のリストア'**
+  String get restoreConfirmTitle;
+
+  /// No description provided for @restoreConfirmMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'ローカルのプロンプト履歴がバックアップの内容で上書きされます。この操作は元に戻せません。'**
+  String get restoreConfirmMessage;
+
+  /// No description provided for @restoreConfirmButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'リストア'**
+  String get restoreConfirmButton;
+
+  /// No description provided for @noBackupFound.
+  ///
+  /// In ja, this message translates to:
+  /// **'バックアップがありません'**
+  String get noBackupFound;
+
+  /// No description provided for @backupInfo.
+  ///
+  /// In ja, this message translates to:
+  /// **'最終バックアップ: {date}'**
+  String backupInfo(String date);
+
+  /// No description provided for @backupVersionInfo.
+  ///
+  /// In ja, this message translates to:
+  /// **'v{version} · {size}'**
+  String backupVersionInfo(String version, String size);
+
+  /// No description provided for @connectToBackup.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge に接続するとバックアップが利用できます'**
+  String get connectToBackup;
 }
 
 class _AppLocalizationsDelegate

@@ -37,6 +37,12 @@ class BridgeService implements BridgeServiceBase {
       StreamController<RecordingListMessage>.broadcast();
   final _recordingContentController =
       StreamController<RecordingContentMessage>.broadcast();
+  final _backupResultController =
+      StreamController<PromptHistoryBackupResultMessage>.broadcast();
+  final _restoreResultController =
+      StreamController<PromptHistoryRestoreResultMessage>.broadcast();
+  final _backupInfoController =
+      StreamController<PromptHistoryBackupInfoMessage>.broadcast();
 
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
@@ -83,6 +89,12 @@ class BridgeService implements BridgeServiceBase {
       _recordingListController.stream;
   Stream<RecordingContentMessage> get recordingContent =>
       _recordingContentController.stream;
+  Stream<PromptHistoryBackupResultMessage> get backupResults =>
+      _backupResultController.stream;
+  Stream<PromptHistoryRestoreResultMessage> get restoreResults =>
+      _restoreResultController.stream;
+  Stream<PromptHistoryBackupInfoMessage> get backupInfo =>
+      _backupInfoController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
@@ -183,6 +195,12 @@ class BridgeService implements BridgeServiceBase {
                 _recordingListController.add(msg);
               case RecordingContentMessage():
                 _recordingContentController.add(msg);
+              case PromptHistoryBackupResultMessage():
+                _backupResultController.add(msg);
+              case PromptHistoryRestoreResultMessage():
+                _restoreResultController.add(msg);
+              case PromptHistoryBackupInfoMessage():
+                _backupInfoController.add(msg);
               case WorktreeRemovedMessage():
                 _messageController.add(msg);
               case AssistantServerMessage(:final message):
@@ -682,5 +700,8 @@ class BridgeService implements BridgeServiceBase {
     _screenshotResultController.close();
     _debugBundleController.close();
     _usageController.close();
+    _backupResultController.close();
+    _restoreResultController.close();
+    _backupInfoController.close();
   }
 }

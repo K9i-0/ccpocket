@@ -292,5 +292,41 @@
 
   "defaultNotRecommended": "Default (not recommended)",
 
-  "imageAttached": "Image attached"
+  "imageAttached": "Image attached",
+
+  "sectionBackup": "BACKUP",
+  "backupPromptHistory": "Backup Prompt History",
+  "restorePromptHistory": "Restore Prompt History",
+  "backupSuccess": "Backup completed",
+  "backupFailed": "Backup failed: {error}",
+  "@backupFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "restoreSuccess": "Restore completed",
+  "restoreFailed": "Restore failed: {error}",
+  "@restoreFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "restoreConfirmTitle": "Restore Prompt History",
+  "restoreConfirmMessage": "This will replace all local prompt history with the backup. This cannot be undone.",
+  "restoreConfirmButton": "Restore",
+  "noBackupFound": "No backup found",
+  "backupInfo": "Last backup: {date}",
+  "@backupInfo": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "backupVersionInfo": "v{version} · {size}",
+  "@backupVersionInfo": {
+    "placeholders": {
+      "version": {"type": "String"},
+      "size": {"type": "String"}
+    }
+  },
+  "connectToBackup": "Connect to Bridge to use backup"
 }

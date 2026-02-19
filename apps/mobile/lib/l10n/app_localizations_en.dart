@@ -842,4 +842,55 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageAttached => 'Image attached';
+
+  @override
+  String get sectionBackup => 'BACKUP';
+
+  @override
+  String get backupPromptHistory => 'Backup Prompt History';
+
+  @override
+  String get restorePromptHistory => 'Restore Prompt History';
+
+  @override
+  String get backupSuccess => 'Backup completed';
+
+  @override
+  String backupFailed(String error) {
+    return 'Backup failed: $error';
+  }
+
+  @override
+  String get restoreSuccess => 'Restore completed';
+
+  @override
+  String restoreFailed(String error) {
+    return 'Restore failed: $error';
+  }
+
+  @override
+  String get restoreConfirmTitle => 'Restore Prompt History';
+
+  @override
+  String get restoreConfirmMessage =>
+      'This will replace all local prompt history with the backup. This cannot be undone.';
+
+  @override
+  String get restoreConfirmButton => 'Restore';
+
+  @override
+  String get noBackupFound => 'No backup found';
+
+  @override
+  String backupInfo(String date) {
+    return 'Last backup: $date';
+  }
+
+  @override
+  String backupVersionInfo(String version, String size) {
+    return 'v$version · $size';
+  }
+
+  @override
+  String get connectToBackup => 'Connect to Bridge to use backup';
 }

@@ -117,7 +117,10 @@ export type ClientMessage =
   | { type: "get_usage" }
   | { type: "list_recordings" }
   | { type: "get_recording"; sessionId: string }
-  | { type: "get_message_images"; claudeSessionId: string; messageUuid: string };
+  | { type: "get_message_images"; claudeSessionId: string; messageUuid: string }
+  | { type: "backup_prompt_history"; data: string; appVersion: string; dbVersion: number }
+  | { type: "restore_prompt_history" }
+  | { type: "get_prompt_history_backup_info" };
 
 export interface DebugTraceEvent {
   ts: string;
@@ -197,7 +200,10 @@ export type ServerMessage =
       savedBundlePath?: string;
     }
   | { type: "usage_result"; providers: UsageInfoPayload[] }
-  | { type: "message_images_result"; messageUuid: string; images: ImageRef[] };
+  | { type: "message_images_result"; messageUuid: string; images: ImageRef[] }
+  | { type: "prompt_history_backup_result"; success: boolean; backedUpAt?: string; error?: string }
+  | { type: "prompt_history_restore_result"; success: boolean; data?: string; appVersion?: string; dbVersion?: number; backedUpAt?: string; error?: string }
+  | { type: "prompt_history_backup_info"; exists: boolean; appVersion?: string; dbVersion?: number; backedUpAt?: string; sizeBytes?: number };
 
 export interface UsageWindowPayload {
   utilization: number;
@@ -377,6 +383,15 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "get_message_images":
         if (typeof msg.claudeSessionId !== "string" || typeof msg.messageUuid !== "string") return null;
+        break;
+      case "backup_prompt_history":
+        if (typeof msg.data !== "string") return null;
+        if (typeof msg.appVersion !== "string") return null;
+        if (typeof msg.dbVersion !== "number" || !Number.isInteger(msg.dbVersion)) return null;
+        break;
+      case "restore_prompt_history":
+        break;
+      case "get_prompt_history_backup_info":
         break;
       default:
         return null;

@@ -215,6 +215,9 @@ class ServerMessageWidget extends StatelessWidget {
       RecordingListMessage() => const SizedBox.shrink(),
       RecordingContentMessage() => const SizedBox.shrink(),
       MessageImagesResultMessage() => const SizedBox.shrink(),
+      PromptHistoryBackupResultMessage() => const SizedBox.shrink(),
+      PromptHistoryRestoreResultMessage() => const SizedBox.shrink(),
+      PromptHistoryBackupInfoMessage() => const SizedBox.shrink(),
     };
   }
 }
@@ -225,10 +228,7 @@ class _ImageAttachmentButton extends StatelessWidget {
   final int imageCount;
   final VoidCallback onTap;
 
-  const _ImageAttachmentButton({
-    required this.imageCount,
-    required this.onTap,
-  });
+  const _ImageAttachmentButton({required this.imageCount, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -261,10 +261,7 @@ class _ImageAttachmentButton extends StatelessWidget {
                     imageCount > 1
                         ? '${AppLocalizations.of(context).imageAttached} x$imageCount'
                         : AppLocalizations.of(context).imageAttached,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: appColors.subtleText,
-                    ),
+                    style: TextStyle(fontSize: 12, color: appColors.subtleText),
                   ),
                   const SizedBox(width: 4),
                   Icon(

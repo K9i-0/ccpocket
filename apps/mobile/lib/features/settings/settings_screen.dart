@@ -7,11 +7,13 @@ import 'package:shorebird_code_push/shorebird_code_push.dart';
 import '../../l10n/app_localizations.dart';
 import '../../router/app_router.dart';
 import '../../services/bridge_service.dart';
+import '../../services/database_service.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
 import 'widgets/app_locale_bottom_sheet.dart';
 import 'widgets/speech_locale_bottom_sheet.dart';
 import 'widgets/theme_bottom_sheet.dart';
+import 'widgets/backup_section.dart';
 import 'widgets/usage_section.dart';
 
 @RoutePage()
@@ -111,6 +113,13 @@ class SettingsScreen extends StatelessWidget {
 
               // ── Usage ──
               UsageSection(bridgeService: context.read<BridgeService>()),
+              const SizedBox(height: 8),
+
+              // ── Backup ──
+              BackupSection(
+                bridgeService: context.read<BridgeService>(),
+                databaseService: context.read<DatabaseService>(),
+              ),
               const SizedBox(height: 8),
 
               // ── About ──
