@@ -84,11 +84,10 @@ export class PushRelayClient {
         signal: controller.signal,
       });
 
+      const responseText = (await response.text()).trim().slice(0, 200);
       if (!response.ok) {
-        const text = (await response.text()).trim().slice(0, 200);
-        throw new Error(`Push relay returned ${response.status}${text ? `: ${text}` : ""}`);
+        throw new Error(`Push relay returned ${response.status}${responseText ? `: ${responseText}` : ""}`);
       }
-      const responseText = (await response.text()).slice(0, 200);
       console.log(`[push-relay] ${payload.op} OK: ${responseText}`);
     } finally {
       clearTimeout(timer);

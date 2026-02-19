@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { initializeApp } from "firebase-admin/app";
+import { getAppCheck } from "firebase-admin/app-check";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
@@ -37,6 +38,71 @@ type RelayBody = RegisterBody | UnregisterBody | NotifyBody;
 const db = getFirestore();
 const messaging = getMessaging();
 const auth = getAuth();
+const appCheck = getAppCheck();
+
+/**
+ * Verify Firebase App Check token from the X-Firebase-AppCheck header.
+ * Returns true if valid or if App Check enforcement is not yet enabled
+ * (controlled by the ENFORCE_APP_CHECK env var).
+ */
+async function verifyAppCheck(req: { header: (name: string) => string | undefined }): Promise<boolean> {
+  const appCheckToken = req.header("x-firebase-appcheck");
+  if (!appCheckToken) {
+    return false;
+  }
+  try {
+    await appCheck.verifyToken(appCheckToken);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether to enforce App Check. Set to "true" after all clients are updated. */
+const ENFORCE_APP_CHECK = process.env.ENFORCE_APP_CHECK === "true";
+
+// ---------- Rate limiting ----------
+
+/** Max notify calls per bridge per window. */
+const RATE_LIMIT_NOTIFY_MAX = 30;
+/** Rate limit window in milliseconds (1 minute). */
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+/** Max register/unregister calls per bridge per window. */
+const RATE_LIMIT_TOKEN_MAX = 20;
+
+/**
+ * Firestore-backed sliding-window rate limiter.
+ * Uses a single document per bridge+op to track request timestamps.
+ * Returns true if the request is allowed, false if rate-limited.
+ */
+async function checkRateLimit(
+  bridgeId: string,
+  op: "notify" | "token",
+  limit: number,
+): Promise<boolean> {
+  const ref = db.doc(`rate_limits/${bridgeId}_${op}`);
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT_WINDOW_MS;
+
+  return db.runTransaction(async (tx) => {
+    const doc = await tx.get(ref);
+    const data = doc.data() as { timestamps?: number[] } | undefined;
+    const timestamps = (data?.timestamps ?? []).filter((t) => t > windowStart);
+
+    if (timestamps.length >= limit) {
+      return false;
+    }
+
+    timestamps.push(now);
+    // expireAt enables Firestore TTL policy to auto-delete stale rate limit docs
+    const expireAt = new Date(now + RATE_LIMIT_WINDOW_MS * 2);
+    tx.set(ref, { timestamps, updatedAt: FieldValue.serverTimestamp(), expireAt });
+    return true;
+  });
+}
+
+// ---------- Helpers ----------
 
 function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex");
@@ -118,7 +184,27 @@ function parseRelayBody(payload: unknown): RelayBody | null {
   return null;
 }
 
+/**
+ * Validate FCM token format.
+ * Real FCM tokens are 100-300+ characters, alphanumeric with colons and hyphens.
+ */
+function isValidFcmToken(token: string): boolean {
+  if (token.length < 32 || token.length > 4096) return false;
+  // FCM tokens consist of base64-like chars, colons, hyphens, and underscores
+  return /^[A-Za-z0-9_:+/=-]+$/.test(token);
+}
+
 async function handleRegister(body: RegisterBody): Promise<void> {
+  if (!isValidFcmToken(body.token)) {
+    throw new Error("Invalid FCM token format");
+  }
+
+  // Limit number of tokens per bridge to prevent abuse
+  const existingTokens = await db.collection(`bridges/${body.bridgeId}/tokens`).count().get();
+  if (existingTokens.data().count >= 20) {
+    throw new Error("Too many registered tokens for this bridge");
+  }
+
   const ref = db.doc(tokenDocPath(body.bridgeId, body.token));
   const snapshot = await ref.get();
   if (snapshot.exists) {
@@ -216,7 +302,7 @@ async function handleNotify(body: NotifyBody): Promise<{
   };
 }
 
-export const relay = onRequest({ cors: true }, async (req, res) => {
+export const relay = onRequest({ cors: true, maxInstances: 10 }, async (req, res) => {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method Not Allowed" });
     return;
@@ -227,6 +313,16 @@ export const relay = onRequest({ cors: true }, async (req, res) => {
   if (!uid) {
     res.status(401).json({ error: "Unauthorized" });
     return;
+  }
+
+  // Verify App Check token (soft-enforce until ENFORCE_APP_CHECK=true)
+  const appCheckValid = await verifyAppCheck(req);
+  if (!appCheckValid) {
+    if (ENFORCE_APP_CHECK) {
+      res.status(401).json({ error: "App Check verification failed" });
+      return;
+    }
+    logger.warn("App Check token missing or invalid (not enforced yet)", { bridgeId: uid });
   }
 
   const parsed = parseRelayBody(req.body);
@@ -240,6 +336,16 @@ export const relay = onRequest({ cors: true }, async (req, res) => {
   parsed.bridgeId = uid;
 
   try {
+    // Rate limit check
+    const rateLimitOp = parsed.op === "notify" ? "notify" as const : "token" as const;
+    const rateLimitMax = parsed.op === "notify" ? RATE_LIMIT_NOTIFY_MAX : RATE_LIMIT_TOKEN_MAX;
+    const allowed = await checkRateLimit(uid, rateLimitOp, rateLimitMax);
+    if (!allowed) {
+      logger.warn("Rate limit exceeded", { bridgeId: uid, op: parsed.op });
+      res.status(429).json({ error: "Rate limit exceeded. Try again later." });
+      return;
+    }
+
     switch (parsed.op) {
       case "register":
         await handleRegister(parsed);
