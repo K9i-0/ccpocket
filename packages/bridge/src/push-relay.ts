@@ -21,7 +21,7 @@ type PushRelayOpPayload =
   | { op: "unregister"; token: string; bridgeId: string }
   | { op: "notify"; eventType: string; title: string; body: string; data?: Record<string, string>; bridgeId: string };
 
-const DEFAULT_RELAY_URL = "https://relay-g34e3teu6a-uc.a.run.app";
+const DEFAULT_RELAY_URL = "https://us-central1-ccpocket-ca33b.cloudfunctions.net/relay";
 
 export class PushRelayClient {
   private readonly relayUrl: string;

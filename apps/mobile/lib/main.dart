@@ -15,6 +15,7 @@ library;
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -43,6 +44,15 @@ import 'services/prompt_history_service.dart';
 import 'services/ssh_startup_service.dart';
 import 'theme/app_theme.dart';
 
+/// Top-level handler for FCM background messages.
+/// Required by firebase_messaging to process messages when app is in background.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // No-op: FCM notification messages are automatically displayed by the OS.
+  // This handler is registered to prevent the "no onBackgroundMessage handler"
+  // warning on Android.
+}
+
 void main() async {
   if (kDebugMode && !kIsWeb) {
     MarionetteBinding.ensureInitialized();
@@ -58,6 +68,11 @@ void main() async {
       details.stack,
     );
   };
+  // Register FCM background message handler (must be before any FCM usage)
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  }
+
   // Initialize notifications in background to avoid blocking app startup
   NotificationService.instance.init().catchError((e) {
     logger.error('[main] NotificationService init failed', e);

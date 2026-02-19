@@ -38,6 +38,13 @@
                 <data android:scheme="ccpocket" android:host="session"/>
             </intent-filter>
         </activity>
+        <!-- FCM: Use our high-importance notification channel instead of the default -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="ccpocket_channel" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/launcher_icon" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -19,7 +19,7 @@ class NotificationService {
     if (_initialized) return;
 
     const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
+      '@mipmap/launcher_icon',
     );
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -35,6 +35,23 @@ class NotificationService {
       settings: settings,
       onDidReceiveNotificationResponse: _onNotificationResponse,
     );
+
+    // Create the notification channel eagerly so FCM uses it instead of
+    // the low-priority fcm_fallback_notification_channel.
+    final androidPlugin =
+        _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin != null) {
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'ccpocket_channel',
+          'ccpocket',
+          description: 'Claude Code session notifications',
+          importance: Importance.high,
+        ),
+      );
+    }
+
     _initialized = true;
   }
 

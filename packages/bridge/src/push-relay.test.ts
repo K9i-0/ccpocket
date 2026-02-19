@@ -79,7 +79,7 @@ describe("PushRelayClient", () => {
     await client.registerToken("token-1", "android");
 
     const [url] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://relay-g34e3teu6a-uc.a.run.app");
+    expect(url).toBe("https://us-central1-ccpocket-ca33b.cloudfunctions.net/relay");
   });
 
   it("fetches fresh ID token on each request", async () => {
