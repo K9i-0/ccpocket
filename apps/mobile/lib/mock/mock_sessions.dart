@@ -118,3 +118,185 @@ final List<RecentSession> mockRecentSessions = [
     isSidechain: false,
   ),
 ];
+
+// ---------------------------------------------------------------------------
+// Mock running sessions for session-list approval UI prototyping
+// ---------------------------------------------------------------------------
+
+/// Session with a multi-question AskUserQuestion pending.
+SessionInfo mockSessionMultiQuestion() => SessionInfo(
+  id: 'mock-running-mq',
+  provider: 'claude',
+  projectPath: '/Users/demo/Workspace/my-app',
+  status: 'waiting_approval',
+  createdAt: DateTime.now()
+      .subtract(const Duration(minutes: 10))
+      .toIso8601String(),
+  lastActivityAt: DateTime.now()
+      .subtract(const Duration(seconds: 30))
+      .toIso8601String(),
+  gitBranch: 'feat/user-mgmt',
+  lastMessage: 'I need a few decisions before proceeding.',
+  messageCount: 12,
+  pendingPermission: const PermissionRequestMessage(
+    toolUseId: 'tool-ask-mq-1',
+    toolName: 'AskUserQuestion',
+    input: {
+      'questions': [
+        {
+          'question': 'Which database should we use?',
+          'header': 'Database',
+          'options': [
+            {
+              'label': 'SQLite (Recommended)',
+              'description': 'Lightweight, embedded, no server needed.',
+            },
+            {
+              'label': 'PostgreSQL',
+              'description': 'Full-featured relational database.',
+            },
+            {
+              'label': 'MongoDB',
+              'description': 'Document-oriented NoSQL database.',
+            },
+          ],
+          'multiSelect': false,
+        },
+        {
+          'question': 'Which authentication method?',
+          'header': 'Auth',
+          'options': [
+            {
+              'label': 'JWT (Recommended)',
+              'description': 'Stateless token-based auth.',
+            },
+            {
+              'label': 'Session Cookie',
+              'description': 'Traditional server-side sessions.',
+            },
+          ],
+          'multiSelect': false,
+        },
+        {
+          'question': 'Target platforms?',
+          'header': 'Platforms',
+          'options': [
+            {'label': 'iOS', 'description': 'Apple iOS devices.'},
+            {'label': 'Android', 'description': 'Android devices.'},
+            {'label': 'Web', 'description': 'Web browsers.'},
+          ],
+          'multiSelect': true,
+        },
+      ],
+    },
+  ),
+);
+
+/// Session with a single multiSelect AskUserQuestion pending.
+SessionInfo mockSessionMultiSelect() => SessionInfo(
+  id: 'mock-running-ms',
+  provider: 'claude',
+  projectPath: '/Users/demo/Workspace/ccpocket',
+  status: 'waiting_approval',
+  createdAt: DateTime.now()
+      .subtract(const Duration(minutes: 5))
+      .toIso8601String(),
+  lastActivityAt: DateTime.now()
+      .subtract(const Duration(seconds: 15))
+      .toIso8601String(),
+  gitBranch: 'feat/settings',
+  lastMessage: 'Which features do you want to enable?',
+  messageCount: 8,
+  pendingPermission: const PermissionRequestMessage(
+    toolUseId: 'tool-ask-ms-1',
+    toolName: 'AskUserQuestion',
+    input: {
+      'questions': [
+        {
+          'question': 'Which features do you want to enable?',
+          'header': 'Features',
+          'options': [
+            {
+              'label': 'Authentication',
+              'description': 'User login and registration.',
+            },
+            {
+              'label': 'Push Notifications',
+              'description': 'Firebase Cloud Messaging.',
+            },
+            {
+              'label': 'Analytics',
+              'description': 'Usage tracking and reporting.',
+            },
+            {'label': 'Dark Mode', 'description': 'Dark theme support.'},
+          ],
+          'multiSelect': true,
+        },
+      ],
+    },
+  ),
+);
+
+/// Sessions waiting for tool approval (for batch approval demo).
+List<SessionInfo> mockSessionsBatchApproval() => [
+  SessionInfo(
+    id: 'mock-running-ba-1',
+    provider: 'claude',
+    projectPath: '/Users/demo/Workspace/my-app',
+    status: 'waiting_approval',
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 8))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 20))
+        .toIso8601String(),
+    gitBranch: 'feat/api',
+    lastMessage: 'Running npm test to verify changes.',
+    messageCount: 15,
+    pendingPermission: const PermissionRequestMessage(
+      toolUseId: 'tool-bash-ba-1',
+      toolName: 'Bash',
+      input: {'command': 'npm test'},
+    ),
+  ),
+  SessionInfo(
+    id: 'mock-running-ba-2',
+    provider: 'claude',
+    projectPath: '/Users/demo/Workspace/ccpocket',
+    status: 'waiting_approval',
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 12))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 10))
+        .toIso8601String(),
+    gitBranch: 'fix/build',
+    lastMessage: 'Need to edit the config file.',
+    messageCount: 22,
+    pendingPermission: const PermissionRequestMessage(
+      toolUseId: 'tool-edit-ba-2',
+      toolName: 'Edit',
+      input: {'file_path': 'lib/config.dart'},
+    ),
+  ),
+  SessionInfo(
+    id: 'mock-running-ba-3',
+    provider: 'codex',
+    projectPath: '/Users/demo/Workspace/cli-tool',
+    status: 'waiting_approval',
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 3))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 5))
+        .toIso8601String(),
+    gitBranch: 'feat/parser',
+    lastMessage: 'Checking git status before commit.',
+    messageCount: 7,
+    pendingPermission: const PermissionRequestMessage(
+      toolUseId: 'tool-bash-ba-3',
+      toolName: 'Bash',
+      input: {'command': 'git status && git diff --stat'},
+    ),
+  ),
+];

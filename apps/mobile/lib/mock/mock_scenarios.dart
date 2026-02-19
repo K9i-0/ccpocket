@@ -9,11 +9,22 @@ class MockStep {
   const MockStep({required this.delay, required this.message});
 }
 
+/// Section category for grouping scenarios in the preview screen.
+enum MockScenarioSection {
+  chat('Chat Session', Icons.chat_bubble_outline),
+  sessionList('Session List', Icons.list_alt);
+
+  final String label;
+  final IconData icon;
+  const MockScenarioSection(this.label, this.icon);
+}
+
 class MockScenario {
   final String name;
   final IconData icon;
   final String description;
   final List<MockStep> steps;
+  final MockScenarioSection section;
 
   /// If non-null, a streaming scenario is played after the steps.
   final String? streamingText;
@@ -23,11 +34,13 @@ class MockScenario {
     required this.icon,
     required this.description,
     required this.steps,
+    this.section = MockScenarioSection.chat,
     this.streamingText,
   });
 }
 
 final List<MockScenario> mockScenarios = [
+  // Chat session scenarios
   _approvalFlow,
   _multipleApprovalFlow,
   _askUserQuestion,
@@ -40,6 +53,10 @@ final List<MockScenario> mockScenarios = [
   _subagentSummary,
   _errorScenario,
   _fullConversation,
+  // Session list scenarios
+  _sessionListMultiQuestion,
+  _sessionListMultiSelect,
+  _sessionListBatchApproval,
 ];
 
 // ---------------------------------------------------------------------------
@@ -1015,4 +1032,41 @@ final _fullConversation = MockScenario(
       message: const StatusMessage(status: ProcessStatus.idle),
     ),
   ],
+);
+
+// ===========================================================================
+// Session List Scenarios
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// SL-1. PageView Multi-Question
+// ---------------------------------------------------------------------------
+const _sessionListMultiQuestion = MockScenario(
+  name: 'PageView Multi-Question',
+  icon: Icons.view_carousel_outlined,
+  description: 'Multiple questions in a compact PageView within the card',
+  section: MockScenarioSection.sessionList,
+  steps: [], // Session list scenarios use mock SessionInfo, not steps
+);
+
+// ---------------------------------------------------------------------------
+// SL-2. MultiSelect Question
+// ---------------------------------------------------------------------------
+const _sessionListMultiSelect = MockScenario(
+  name: 'MultiSelect Question',
+  icon: Icons.checklist_rtl,
+  description: 'Toggle chips with Confirm button for multi-select',
+  section: MockScenarioSection.sessionList,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// SL-3. Batch Approval
+// ---------------------------------------------------------------------------
+const _sessionListBatchApproval = MockScenario(
+  name: 'Batch Approval',
+  icon: Icons.done_all,
+  description: '3 sessions waiting for approval simultaneously',
+  section: MockScenarioSection.sessionList,
+  steps: [],
 );

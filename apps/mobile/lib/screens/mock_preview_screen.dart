@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../mock/mock_scenarios.dart';
+import '../mock/mock_sessions.dart';
 import '../models/messages.dart';
 import '../providers/bridge_cubits.dart';
 import '../services/bridge_service.dart';
 import '../services/mock_bridge_service.dart';
 import '../services/replay_bridge_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/session_card.dart';
 import '../features/claude_session/claude_session_screen.dart';
 
 @RoutePage()
@@ -43,74 +45,37 @@ class _ScenariosTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final cs = Theme.of(context).colorScheme;
+
+    // Group scenarios by section
+    final grouped = <MockScenarioSection, List<MockScenario>>{};
+    for (final s in mockScenarios) {
+      grouped.putIfAbsent(s.section, () => []).add(s);
+    }
+
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: Text(
-            'Select a scenario to preview the chat UI behavior.',
+            'Select a scenario to preview UI behavior.',
             style: TextStyle(fontSize: 13, color: appColors.subtleText),
           ),
         ),
         Expanded(
-          child: ListView.builder(
+          child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: mockScenarios.length,
-            itemBuilder: (context, index) {
-              final scenario = mockScenarios[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => _launchScenario(context, scenario),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: cs.primary.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            scenario.icon,
-                            color: cs.primary,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                scenario.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                scenario.description,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(Icons.chevron_right, color: cs.outline, size: 20),
-                      ],
+            children: [
+              for (final section in MockScenarioSection.values)
+                if (grouped.containsKey(section)) ...[
+                  _SectionHeader(section: section),
+                  for (final scenario in grouped[section]!)
+                    _ScenarioCard(
+                      scenario: scenario,
+                      onTap: () => _launchScenario(context, scenario),
                     ),
-                  ),
-                ),
-              );
-            },
+                  const SizedBox(height: 8),
+                ],
+            ],
           ),
         ),
       ],
@@ -118,13 +83,106 @@ class _ScenariosTab extends StatelessWidget {
   }
 
   void _launchScenario(BuildContext context, MockScenario scenario) {
-    final mockService = MockBridgeService();
+    if (scenario.section == MockScenarioSection.sessionList) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _MockSessionListWrapper(scenario: scenario),
+        ),
+      );
+    } else {
+      final mockService = MockBridgeService();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              _MockChatWrapper(mockService: mockService, scenario: scenario),
+        ),
+      );
+    }
+  }
+}
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            _MockChatWrapper(mockService: mockService, scenario: scenario),
+class _SectionHeader extends StatelessWidget {
+  final MockScenarioSection section;
+  const _SectionHeader({required this.section});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 8, left: 4),
+      child: Row(
+        children: [
+          Icon(section.icon, size: 16, color: cs.primary),
+          const SizedBox(width: 6),
+          Text(
+            section.label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: cs.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScenarioCard extends StatelessWidget {
+  final MockScenario scenario;
+  final VoidCallback onTap;
+  const _ScenarioCard({required this.scenario, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(scenario.icon, color: cs.primary, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      scenario.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      scenario.description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: cs.outline, size: 20),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -464,6 +522,201 @@ class _ReplayChatWrapperState extends State<_ReplayChatWrapper> {
           sessionId: sessionId,
           projectPath: '/replay/${widget.recordingName}',
         ),
+      ),
+    );
+  }
+}
+
+/// Wrapper that shows mock RunningSessionCards for session-list approval UI
+/// prototyping. No Bridge connection needed.
+class _MockSessionListWrapper extends StatefulWidget {
+  final MockScenario scenario;
+  const _MockSessionListWrapper({required this.scenario});
+
+  @override
+  State<_MockSessionListWrapper> createState() =>
+      _MockSessionListWrapperState();
+}
+
+class _MockSessionListWrapperState extends State<_MockSessionListWrapper> {
+  late List<SessionInfo> _sessions;
+  final List<String> _log = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _sessions = _buildSessions();
+  }
+
+  List<SessionInfo> _buildSessions() {
+    switch (widget.scenario.name) {
+      case 'PageView Multi-Question':
+        return [mockSessionMultiQuestion()];
+      case 'MultiSelect Question':
+        return [mockSessionMultiSelect()];
+      case 'Batch Approval':
+        return mockSessionsBatchApproval();
+      default:
+        return [];
+    }
+  }
+
+  void _addLog(String msg) {
+    setState(() {
+      _log.insert(0, msg);
+      if (_log.length > 20) _log.removeLast();
+    });
+  }
+
+  void _approve(String sessionId, String toolUseId) {
+    _addLog('Approve: $sessionId ($toolUseId)');
+    setState(() {
+      _sessions = _sessions.map((s) {
+        if (s.id == sessionId) {
+          return s.copyWith(status: 'running', clearPermission: true);
+        }
+        return s;
+      }).toList();
+    });
+  }
+
+  void _approveAlways(String sessionId, String toolUseId) {
+    _addLog('Always: $sessionId ($toolUseId)');
+    setState(() {
+      _sessions = _sessions.map((s) {
+        if (s.id == sessionId) {
+          return s.copyWith(status: 'running', clearPermission: true);
+        }
+        return s;
+      }).toList();
+    });
+  }
+
+  void _reject(String sessionId, String toolUseId) {
+    _addLog('Reject: $sessionId ($toolUseId)');
+    setState(() {
+      _sessions = _sessions.map((s) {
+        if (s.id == sessionId) {
+          return s.copyWith(status: 'running', clearPermission: true);
+        }
+        return s;
+      }).toList();
+    });
+  }
+
+  void _answer(String sessionId, String toolUseId, String result) {
+    _addLog('Answer: $sessionId → $result');
+    setState(() {
+      _sessions = _sessions.map((s) {
+        if (s.id == sessionId) {
+          return s.copyWith(status: 'running', clearPermission: true);
+        }
+        return s;
+      }).toList();
+    });
+  }
+
+  void _reset() {
+    setState(() {
+      _sessions = _buildSessions();
+      _log.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.scenario.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _reset,
+            tooltip: 'Reset',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Running session cards
+          Expanded(
+            flex: 3,
+            child: ListView(
+              padding: const EdgeInsets.all(12),
+              children: [
+                for (final session in _sessions)
+                  RunningSessionCard(
+                    session: session,
+                    onTap: () => _addLog('Tap: ${session.id}'),
+                    onStop: () => _addLog('Stop: ${session.id}'),
+                    onApprove: (toolUseId) => _approve(session.id, toolUseId),
+                    onApproveAlways: (toolUseId) =>
+                        _approveAlways(session.id, toolUseId),
+                    onReject: (toolUseId) => _reject(session.id, toolUseId),
+                    onAnswer: (toolUseId, result) =>
+                        _answer(session.id, toolUseId, result),
+                  ),
+              ],
+            ),
+          ),
+          // Action log
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            flex: 2,
+            child: Container(
+              color: cs.surfaceContainerLowest,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                    child: Text(
+                      'Action Log',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: appColors.subtleText,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: _log.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Interact with the cards above',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: appColors.subtleText,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            itemCount: _log.length,
+                            itemBuilder: (context, index) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
+                                child: Text(
+                                  _log[index],
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                    color: cs.onSurface.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

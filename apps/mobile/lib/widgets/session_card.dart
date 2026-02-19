@@ -457,7 +457,11 @@ class _PlanApprovalArea extends StatelessWidget {
 }
 
 /// Approval area for AskUserQuestion.
-class _AskUserArea extends StatelessWidget {
+/// Supports three modes:
+/// - Single question, single select → ActionChip buttons
+/// - Single question, multi select → FilterChip toggles + Confirm
+/// - Multiple questions → PageView with one question per page
+class _AskUserArea extends StatefulWidget {
   final PermissionRequestMessage permission;
   final Color statusColor;
   final ValueChanged<String> onAnswer;
@@ -471,83 +475,336 @@ class _AskUserArea extends StatelessWidget {
   });
 
   @override
+  State<_AskUserArea> createState() => _AskUserAreaState();
+}
+
+class _AskUserAreaState extends State<_AskUserArea> {
+  late final PageController _pageController;
+  final Map<int, String> _singleAnswers = {};
+  final Map<int, Set<String>> _multiAnswers = {};
+  int _currentPage = 0;
+
+  List<dynamic> get _questions =>
+      widget.permission.input['questions'] as List<dynamic>? ?? [];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _answerSingle(int questionIndex, String label) {
+    _singleAnswers[questionIndex] = label;
+    if (_questions.length == 1) {
+      // Single question → send immediately
+      widget.onAnswer(label);
+    } else {
+      // Multi-question → advance to next page or submit
+      _advanceOrSubmit();
+    }
+  }
+
+  void _confirmMultiSelect(int questionIndex) {
+    final selected = _multiAnswers[questionIndex];
+    if (selected == null || selected.isEmpty) return;
+    if (_questions.length == 1) {
+      widget.onAnswer(selected.join(', '));
+    } else {
+      _singleAnswers[questionIndex] = selected.join(', ');
+      _advanceOrSubmit();
+    }
+  }
+
+  void _advanceOrSubmit() {
+    if (_currentPage < _questions.length - 1) {
+      setState(() => _currentPage++);
+      _pageController.animateToPage(
+        _currentPage,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      // All answered → submit combined result
+      final parts = <String>[];
+      for (var i = 0; i < _questions.length; i++) {
+        final q = _questions[i] as Map<String, dynamic>;
+        final header = q['header'] as String? ?? 'Q${i + 1}';
+        final answer = _singleAnswers[i] ?? '(skipped)';
+        parts.add('$header: $answer');
+      }
+      widget.onAnswer(parts.join('\n'));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final questions = permission.input['questions'] as List<dynamic>? ?? [];
-    final firstQuestion =
-        questions.isNotEmpty && questions[0] is Map<String, dynamic>
-        ? questions[0] as Map<String, dynamic>
-        : null;
-    final questionText = firstQuestion?['question'] as String? ?? '';
-    final options = firstQuestion?['options'] as List<dynamic>? ?? [];
-    final multiSelect = firstQuestion?['multiSelect'] as bool? ?? false;
+    final questions = _questions;
+    if (questions.isEmpty) return const SizedBox.shrink();
+
+    final firstQ = questions[0] as Map<String, dynamic>;
+    final options = firstQ['options'] as List<dynamic>? ?? [];
+    final multiSelect = firstQ['multiSelect'] as bool? ?? false;
     final isSingleSimple =
         questions.length == 1 && !multiSelect && options.isNotEmpty;
+    final isSingleMultiSelect =
+        questions.length == 1 && multiSelect && options.isNotEmpty;
+    final isMultiQuestion = questions.length > 1;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      color: statusColor.withValues(alpha: 0.06),
+      color: widget.statusColor.withValues(alpha: 0.06),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (questionText.isNotEmpty)
-            Text(
-              questionText,
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.8),
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          const SizedBox(height: 6),
-          if (isSingleSimple)
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                for (final opt in options)
-                  if (opt is Map<String, dynamic>)
-                    Builder(
-                      builder: (context) {
-                        final label = opt['label'] as String? ?? '';
-                        return ActionChip(
-                          label: Text(
-                            label,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                          onPressed: () => onAnswer(label),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: statusColor.withValues(alpha: 0.08),
-                          side: BorderSide(
-                            color: statusColor.withValues(alpha: 0.3),
-                          ),
-                        );
-                      },
+          if (isSingleSimple) ...[
+            _buildQuestionText(firstQ),
+            const SizedBox(height: 6),
+            _buildSingleSelectChips(0, options),
+          ] else if (isSingleMultiSelect) ...[
+            _buildQuestionText(firstQ),
+            const SizedBox(height: 6),
+            _buildMultiSelectChips(0, options),
+          ] else if (isMultiQuestion) ...[
+            _buildPageView(questions),
+          ] else ...[
+            _buildQuestionText(firstQ),
+            const SizedBox(height: 6),
+            _buildOpenButton(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionText(Map<String, dynamic> question) {
+    final text = question['question'] as String? ?? '';
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 12,
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _buildSingleSelectChips(int questionIndex, List<dynamic> options) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final opt in options)
+          if (opt is Map<String, dynamic>)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Builder(
+                builder: (context) {
+                  final label = opt['label'] as String? ?? '';
+                  return OutlinedButton(
+                    onPressed: () => _answerSingle(questionIndex, label),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      minimumSize: const Size(0, 32),
+                      backgroundColor: widget.statusColor.withValues(
+                        alpha: 0.08,
+                      ),
+                      side: BorderSide(
+                        color: widget.statusColor.withValues(alpha: 0.3),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-              ],
-            )
-          else
-            Align(
-              alignment: Alignment.centerRight,
-              child: SizedBox(
-                height: 28,
-                child: OutlinedButton.icon(
-                  onPressed: onTap,
-                  icon: const Icon(Icons.open_in_new, size: 14),
-                  label: const Text('Open'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    textStyle: const TextStyle(fontSize: 12),
-                  ),
+                    child: Text(label, style: const TextStyle(fontSize: 12)),
+                  );
+                },
+              ),
+            ),
+      ],
+    );
+  }
+
+  Widget _buildMultiSelectChips(int questionIndex, List<dynamic> options) {
+    final selected = _multiAnswers.putIfAbsent(questionIndex, () => {});
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final opt in options)
+          if (opt is Map<String, dynamic>)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Builder(
+                builder: (context) {
+                  final label = opt['label'] as String? ?? '';
+                  final isSelected = selected.contains(label);
+                  return OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        if (isSelected) {
+                          selected.remove(label);
+                        } else {
+                          selected.add(label);
+                        }
+                      });
+                    },
+                    icon: Icon(
+                      isSelected
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                      size: 16,
+                      color: isSelected
+                          ? widget.statusColor
+                          : widget.statusColor.withValues(alpha: 0.5),
+                    ),
+                    label: Text(label, style: const TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      minimumSize: const Size(0, 32),
+                      alignment: Alignment.centerLeft,
+                      backgroundColor: isSelected
+                          ? widget.statusColor.withValues(alpha: 0.15)
+                          : widget.statusColor.withValues(alpha: 0.08),
+                      side: BorderSide(
+                        color: widget.statusColor.withValues(
+                          alpha: isSelected ? 0.6 : 0.3,
+                        ),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        const SizedBox(height: 2),
+        SizedBox(
+          width: double.infinity,
+          height: 32,
+          child: FilledButton.icon(
+            onPressed: selected.isNotEmpty
+                ? () => _confirmMultiSelect(questionIndex)
+                : null,
+            icon: const Icon(Icons.check, size: 14),
+            label: Text('Confirm (${selected.length})'),
+            style: FilledButton.styleFrom(
+              textStyle: const TextStyle(fontSize: 12),
+              backgroundColor: widget.statusColor.withValues(alpha: 0.15),
+              foregroundColor: widget.statusColor,
+              disabledBackgroundColor: widget.statusColor.withValues(
+                alpha: 0.05,
+              ),
+              disabledForegroundColor: widget.statusColor.withValues(
+                alpha: 0.3,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPageView(List<dynamic> questions) {
+    // Calculate height based on max option count across questions
+    var maxRows = 0;
+    for (final q in questions) {
+      final qMap = q as Map<String, dynamic>;
+      final opts = qMap['options'] as List<dynamic>? ?? [];
+      final isMulti = qMap['multiSelect'] as bool? ?? false;
+      // multiSelect adds a Confirm button row
+      final rows = opts.length + (isMulti ? 1 : 0);
+      if (rows > maxRows) maxRows = rows;
+    }
+    // Each button ~48px (incl. padding/margin) + question text ~20px + gap 6px
+    final pageHeight = (20.0 + 6 + (maxRows * 48)).clamp(100.0, 360.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: pageHeight,
+          child: PageView.builder(
+            controller: _pageController,
+            physics: const ClampingScrollPhysics(),
+            onPageChanged: (i) => setState(() => _currentPage = i),
+            itemCount: questions.length,
+            itemBuilder: (context, index) {
+              final q = questions[index] as Map<String, dynamic>;
+              final opts = q['options'] as List<dynamic>? ?? [];
+              final multi = q['multiSelect'] as bool? ?? false;
+              return Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildQuestionText(q),
+                    const SizedBox(height: 6),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: multi
+                            ? _buildMultiSelectChips(index, opts)
+                            : _buildSingleSelectChips(index, opts),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Dot indicators
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < questions.length; i++)
+              Container(
+                width: 6,
+                height: 6,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i == _currentPage
+                      ? widget.statusColor
+                      : widget.statusColor.withValues(alpha: 0.25),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOpenButton() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: SizedBox(
+        height: 28,
+        child: OutlinedButton.icon(
+          onPressed: widget.onTap,
+          icon: const Icon(Icons.open_in_new, size: 14),
+          label: const Text('Open'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            textStyle: const TextStyle(fontSize: 12),
+          ),
+        ),
       ),
     );
   }
