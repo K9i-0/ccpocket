@@ -59,6 +59,12 @@ class NotificationService {
     onNotificationTap?.call(response.payload);
   }
 
+  /// Dismiss all previously shown notifications from the notification center.
+  Future<void> cancelAll() async {
+    if (!_initialized) return;
+    await _plugin.cancelAll();
+  }
+
   Future<void> show({
     required String title,
     required String body,

@@ -166,10 +166,22 @@ class _CcpocketAppState extends State<CcpocketApp> {
 
   late final AppRouter _appRouter;
   bool _routerInitialized = false;
+  late final AppLifecycleListener _lifecycleListener;
 
   @override
   void initState() {
     super.initState();
+
+    // Clear stale notifications on launch and whenever the app is resumed.
+    _lifecycleListener = AppLifecycleListener(
+      onStateChange: (state) {
+        if (state == AppLifecycleState.resumed) {
+          NotificationService.instance.cancelAll();
+        }
+      },
+    );
+    NotificationService.instance.cancelAll();
+
     if (!kIsWeb) {
       _appLinks = AppLinks();
       _initDeepLinks();
@@ -227,6 +239,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
 
   @override
   void dispose() {
+    _lifecycleListener.dispose();
     _linkSub?.cancel();
     _deepLinkNotifier.dispose();
     super.dispose();
