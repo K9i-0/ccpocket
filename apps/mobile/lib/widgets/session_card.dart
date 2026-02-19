@@ -458,9 +458,9 @@ class _PlanApprovalArea extends StatelessWidget {
 
 /// Approval area for AskUserQuestion.
 /// Supports three modes:
-/// - Single question, single select → ActionChip buttons
-/// - Single question, multi select → FilterChip toggles + Confirm
-/// - Multiple questions → PageView with one question per page
+/// - Single question, single select → full-width buttons + Other
+/// - Single question, multi select → toggle buttons + Confirm + Other
+/// - Multiple questions → PageView with one question per page + Other
 class _AskUserArea extends StatefulWidget {
   final PermissionRequestMessage permission;
   final Color statusColor;
@@ -479,13 +479,36 @@ class _AskUserArea extends StatefulWidget {
 }
 
 class _AskUserAreaState extends State<_AskUserArea> {
+  // Layout constants
+  static const _buttonHeight = 44.0;
+  static const _buttonSpacing = 6.0;
+  static const _buttonRowHeight = _buttonHeight + _buttonSpacing;
+  static const _questionTextHeight = 20.0;
+  static const _questionGap = 6.0;
+
   late final PageController _pageController;
+  final TextEditingController _textController = TextEditingController();
   final Map<int, String> _singleAnswers = {};
   final Map<int, Set<String>> _multiAnswers = {};
   int _currentPage = 0;
+  bool _showCustomInput = false;
 
   List<dynamic> get _questions =>
       widget.permission.input['questions'] as List<dynamic>? ?? [];
+
+  bool get _isMultiQuestion => _questions.length > 1;
+
+  /// Total page count: questions + summary page (for multi-question only).
+  int get _totalPages =>
+      _isMultiQuestion ? _questions.length + 1 : _questions.length;
+
+  /// Whether all questions have been answered.
+  bool get _allAnswered {
+    for (var i = 0; i < _questions.length; i++) {
+      if (!_singleAnswers.containsKey(i)) return false;
+    }
+    return true;
+  }
 
   @override
   void initState() {
@@ -496,50 +519,71 @@ class _AskUserAreaState extends State<_AskUserArea> {
   @override
   void dispose() {
     _pageController.dispose();
+    _textController.dispose();
     super.dispose();
   }
 
+  void _goToPage(int page) {
+    _pageController.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
   void _answerSingle(int questionIndex, String label) {
-    _singleAnswers[questionIndex] = label;
-    if (_questions.length == 1) {
+    setState(() => _singleAnswers[questionIndex] = label);
+    if (!_isMultiQuestion) {
       // Single question → send immediately
       widget.onAnswer(label);
-    } else {
-      // Multi-question → advance to next page or submit
-      _advanceOrSubmit();
     }
+    // Multi-question: just store, no auto-advance
   }
 
   void _confirmMultiSelect(int questionIndex) {
     final selected = _multiAnswers[questionIndex];
     if (selected == null || selected.isEmpty) return;
-    if (_questions.length == 1) {
-      widget.onAnswer(selected.join(', '));
+    final answer = selected.join(', ');
+    if (!_isMultiQuestion) {
+      widget.onAnswer(answer);
     } else {
-      _singleAnswers[questionIndex] = selected.join(', ');
-      _advanceOrSubmit();
+      setState(() => _singleAnswers[questionIndex] = answer);
     }
   }
 
-  void _advanceOrSubmit() {
-    if (_currentPage < _questions.length - 1) {
-      setState(() => _currentPage++);
-      _pageController.animateToPage(
-        _currentPage,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+  void _submitCustomText() {
+    final text = _textController.text.trim();
+    if (text.isEmpty) return;
+    if (!_isMultiQuestion) {
+      widget.onAnswer(text);
     } else {
-      // All answered → submit combined result
-      final parts = <String>[];
-      for (var i = 0; i < _questions.length; i++) {
-        final q = _questions[i] as Map<String, dynamic>;
-        final header = q['header'] as String? ?? 'Q${i + 1}';
-        final answer = _singleAnswers[i] ?? '(skipped)';
-        parts.add('$header: $answer');
-      }
-      widget.onAnswer(parts.join('\n'));
+      setState(() {
+        _singleAnswers[_currentPage] = text;
+        _showCustomInput = false;
+      });
+      _textController.clear();
     }
+  }
+
+  void _submitAll() {
+    final parts = <String>[];
+    for (var i = 0; i < _questions.length; i++) {
+      final q = _questions[i] as Map<String, dynamic>;
+      final header = q['header'] as String? ?? 'Q${i + 1}';
+      final answer = _singleAnswers[i] ?? '(skipped)';
+      parts.add('$header: $answer');
+    }
+    widget.onAnswer(parts.join('\n'));
+  }
+
+  void _resetAll() {
+    setState(() {
+      _singleAnswers.clear();
+      _multiAnswers.clear();
+      _showCustomInput = false;
+      _textController.clear();
+    });
+    _goToPage(0);
   }
 
   @override
@@ -554,11 +598,10 @@ class _AskUserAreaState extends State<_AskUserArea> {
         questions.length == 1 && !multiSelect && options.isNotEmpty;
     final isSingleMultiSelect =
         questions.length == 1 && multiSelect && options.isNotEmpty;
-    final isMultiQuestion = questions.length > 1;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       color: widget.statusColor.withValues(alpha: 0.06),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -567,11 +610,13 @@ class _AskUserAreaState extends State<_AskUserArea> {
             _buildQuestionText(firstQ),
             const SizedBox(height: 6),
             _buildSingleSelectChips(0, options),
+            _buildOtherAnswerSection(),
           ] else if (isSingleMultiSelect) ...[
             _buildQuestionText(firstQ),
             const SizedBox(height: 6),
             _buildMultiSelectChips(0, options),
-          ] else if (isMultiQuestion) ...[
+            _buildOtherAnswerSection(),
+          ] else if (_isMultiQuestion) ...[
             _buildPageView(questions),
           ] else ...[
             _buildQuestionText(firstQ),
@@ -589,7 +634,8 @@ class _AskUserAreaState extends State<_AskUserArea> {
     return Text(
       text,
       style: TextStyle(
-        fontSize: 12,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
       ),
       maxLines: 2,
@@ -598,35 +644,46 @@ class _AskUserAreaState extends State<_AskUserArea> {
   }
 
   Widget _buildSingleSelectChips(int questionIndex, List<dynamic> options) {
+    final selectedLabel = _singleAnswers[questionIndex];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final opt in options)
           if (opt is Map<String, dynamic>)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.only(bottom: _buttonSpacing),
               child: Builder(
                 builder: (context) {
                   final label = opt['label'] as String? ?? '';
-                  return OutlinedButton(
+                  final isChosen = selectedLabel == label;
+                  return OutlinedButton.icon(
                     onPressed: () => _answerSingle(questionIndex, label),
+                    icon: isChosen
+                        ? Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: widget.statusColor,
+                          )
+                        : const SizedBox.shrink(),
+                    label: Text(label, style: const TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 6,
+                        vertical: 10,
                       ),
-                      minimumSize: const Size(0, 32),
+                      minimumSize: const Size(0, _buttonHeight),
                       backgroundColor: widget.statusColor.withValues(
-                        alpha: 0.08,
+                        alpha: isChosen ? 0.20 : 0.08,
                       ),
                       side: BorderSide(
-                        color: widget.statusColor.withValues(alpha: 0.3),
+                        color: widget.statusColor.withValues(
+                          alpha: isChosen ? 0.6 : 0.3,
+                        ),
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: Text(label, style: const TextStyle(fontSize: 12)),
                   );
                 },
               ),
@@ -643,7 +700,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
         for (final opt in options)
           if (opt is Map<String, dynamic>)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.only(bottom: _buttonSpacing),
               child: Builder(
                 builder: (context) {
                   final label = opt['label'] as String? ?? '';
@@ -662,18 +719,18 @@ class _AskUserAreaState extends State<_AskUserArea> {
                       isSelected
                           ? Icons.check_box
                           : Icons.check_box_outline_blank,
-                      size: 16,
+                      size: 18,
                       color: isSelected
                           ? widget.statusColor
                           : widget.statusColor.withValues(alpha: 0.5),
                     ),
-                    label: Text(label, style: const TextStyle(fontSize: 12)),
+                    label: Text(label, style: const TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 6,
+                        vertical: 10,
                       ),
-                      minimumSize: const Size(0, 32),
+                      minimumSize: const Size(0, _buttonHeight),
                       alignment: Alignment.centerLeft,
                       backgroundColor: isSelected
                           ? widget.statusColor.withValues(alpha: 0.15)
@@ -694,15 +751,15 @@ class _AskUserAreaState extends State<_AskUserArea> {
         const SizedBox(height: 2),
         SizedBox(
           width: double.infinity,
-          height: 32,
+          height: _buttonHeight,
           child: FilledButton.icon(
             onPressed: selected.isNotEmpty
                 ? () => _confirmMultiSelect(questionIndex)
                 : null,
-            icon: const Icon(Icons.check, size: 14),
+            icon: const Icon(Icons.check, size: 16),
             label: Text('Confirm (${selected.length})'),
             style: FilledButton.styleFrom(
-              textStyle: const TextStyle(fontSize: 12),
+              textStyle: const TextStyle(fontSize: 13),
               backgroundColor: widget.statusColor.withValues(alpha: 0.15),
               foregroundColor: widget.statusColor,
               disabledBackgroundColor: widget.statusColor.withValues(
@@ -721,30 +778,129 @@ class _AskUserAreaState extends State<_AskUserArea> {
     );
   }
 
+  /// "Other answer..." toggle button + inline text field.
+  Widget _buildOtherAnswerSection() {
+    if (_showCustomInput) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: _buttonHeight,
+                child: TextField(
+                  controller: _textController,
+                  autofocus: true,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Type your answer...',
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      color: widget.statusColor.withValues(alpha: 0.4),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: widget.statusColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: widget.statusColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: widget.statusColor),
+                    ),
+                    isDense: true,
+                  ),
+                  onSubmitted: (_) => _submitCustomText(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: _buttonHeight,
+              child: FilledButton(
+                onPressed: _submitCustomText,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  backgroundColor: widget.statusColor.withValues(alpha: 0.15),
+                  foregroundColor: widget.statusColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Send', style: TextStyle(fontSize: 13)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: TextButton(
+          onPressed: () => setState(() => _showCustomInput = true),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            minimumSize: const Size(0, 36),
+            textStyle: const TextStyle(fontSize: 12),
+            foregroundColor: widget.statusColor.withValues(alpha: 0.7),
+          ),
+          child: const Text('Other answer...'),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPageView(List<dynamic> questions) {
-    // Calculate height based on max option count across questions
+    // Calculate height: max of question pages vs summary page
     var maxRows = 0;
     for (final q in questions) {
       final qMap = q as Map<String, dynamic>;
       final opts = qMap['options'] as List<dynamic>? ?? [];
       final isMulti = qMap['multiSelect'] as bool? ?? false;
-      // multiSelect adds a Confirm button row
-      final rows = opts.length + (isMulti ? 1 : 0);
+      final rows = opts.length + (isMulti ? 1 : 0) + 1; // +1 for Other
       if (rows > maxRows) maxRows = rows;
     }
-    // Each button ~48px (incl. padding/margin) + question text ~20px + gap 6px
-    final pageHeight = (20.0 + 6 + (maxRows * 48)).clamp(100.0, 360.0);
+    // Summary page: 1 header + questions.length answer rows + 1 button row
+    final summaryRows = 1 + questions.length + 1;
+    if (summaryRows > maxRows) maxRows = summaryRows;
+
+    final pageHeight =
+        (_questionTextHeight + _questionGap + (maxRows * _buttonRowHeight))
+            .clamp(120.0, 400.0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Step indicators
+        _buildStepIndicators(questions),
+        const SizedBox(height: 6),
         SizedBox(
           height: pageHeight,
           child: PageView.builder(
             controller: _pageController,
             physics: const ClampingScrollPhysics(),
-            onPageChanged: (i) => setState(() => _currentPage = i),
-            itemCount: questions.length,
+            onPageChanged: (i) => setState(() {
+              _currentPage = i;
+              _showCustomInput = false;
+              _textController.clear();
+            }),
+            itemCount: _totalPages,
             itemBuilder: (context, index) {
+              // Last page = summary
+              if (index == questions.length) {
+                return _buildSummaryPage(questions);
+              }
               final q = questions[index] as Map<String, dynamic>;
               final opts = q['options'] as List<dynamic>? ?? [];
               final multi = q['multiSelect'] as bool? ?? false;
@@ -757,9 +913,15 @@ class _AskUserAreaState extends State<_AskUserArea> {
                     const SizedBox(height: 6),
                     Expanded(
                       child: SingleChildScrollView(
-                        child: multi
-                            ? _buildMultiSelectChips(index, opts)
-                            : _buildSingleSelectChips(index, opts),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            multi
+                                ? _buildMultiSelectChips(index, opts)
+                                : _buildSingleSelectChips(index, opts),
+                            _buildOtherAnswerSection(),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -768,26 +930,241 @@ class _AskUserAreaState extends State<_AskUserArea> {
             },
           ),
         ),
-        const SizedBox(height: 4),
-        // Dot indicators
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var i = 0; i < questions.length; i++)
-              Container(
-                width: 6,
-                height: 6,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: i == _currentPage
-                      ? widget.statusColor
-                      : widget.statusColor.withValues(alpha: 0.25),
+      ],
+    );
+  }
+
+  /// Step indicators: [☑ DB] [☑ Auth] [○ Platform] [Submit]
+  Widget _buildStepIndicators(List<dynamic> questions) {
+    final cs = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (var i = 0; i < questions.length; i++) ...[
+            _buildStepChip(
+              index: i,
+              label:
+                  (questions[i] as Map<String, dynamic>)['header'] as String? ??
+                  'Q${i + 1}',
+              isAnswered: _singleAnswers.containsKey(i),
+              isCurrent: _currentPage == i,
+              onTap: () => _goToPage(i),
+            ),
+            if (i < questions.length)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Icon(
+                  Icons.chevron_right,
+                  size: 14,
+                  color: cs.outline.withValues(alpha: 0.4),
                 ),
               ),
           ],
+          _buildStepChip(
+            index: questions.length,
+            label: 'Submit',
+            isAnswered: false,
+            isCurrent: _currentPage == questions.length,
+            isSubmit: true,
+            onTap: _allAnswered ? () => _goToPage(questions.length) : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepChip({
+    required int index,
+    required String label,
+    required bool isAnswered,
+    required bool isCurrent,
+    bool isSubmit = false,
+    VoidCallback? onTap,
+  }) {
+    final color = isCurrent
+        ? widget.statusColor
+        : isAnswered
+        ? widget.statusColor.withValues(alpha: 0.7)
+        : widget.statusColor.withValues(alpha: 0.3);
+    final icon = isSubmit
+        ? (isCurrent ? Icons.send : Icons.send_outlined)
+        : isAnswered
+        ? Icons.check_box
+        : isCurrent
+        ? Icons.radio_button_checked
+        : Icons.radio_button_unchecked;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: isCurrent
+              ? widget.statusColor.withValues(alpha: 0.12)
+              : Colors.transparent,
         ),
-      ],
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Summary page showing all answers with Submit/Cancel buttons.
+  Widget _buildSummaryPage(List<dynamic> questions) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Review your answers',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface.withValues(alpha: 0.8),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < questions.length; i++) ...[
+                    _buildSummaryRow(i, questions[i] as Map<String, dynamic>),
+                    if (i < questions.length - 1) const SizedBox(height: 6),
+                  ],
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: _buttonHeight,
+                          child: FilledButton.icon(
+                            onPressed: _allAnswered ? _submitAll : null,
+                            icon: const Icon(Icons.send, size: 16),
+                            label: const Text('Submit answers'),
+                            style: FilledButton.styleFrom(
+                              textStyle: const TextStyle(fontSize: 13),
+                              backgroundColor: widget.statusColor.withValues(
+                                alpha: 0.15,
+                              ),
+                              foregroundColor: widget.statusColor,
+                              disabledBackgroundColor: widget.statusColor
+                                  .withValues(alpha: 0.05),
+                              disabledForegroundColor: widget.statusColor
+                                  .withValues(alpha: 0.3),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        height: _buttonHeight,
+                        child: OutlinedButton(
+                          onPressed: _resetAll,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            side: BorderSide(
+                              color: widget.statusColor.withValues(alpha: 0.3),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(int index, Map<String, dynamic> question) {
+    final header = question['header'] as String? ?? 'Q${index + 1}';
+    final answer = _singleAnswers[index];
+    final hasAnswer = answer != null && answer.isNotEmpty;
+    return InkWell(
+      onTap: () => _goToPage(index),
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              hasAnswer ? Icons.check_circle : Icons.circle_outlined,
+              size: 16,
+              color: hasAnswer
+                  ? widget.statusColor
+                  : widget.statusColor.withValues(alpha: 0.3),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    header,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  Text(
+                    hasAnswer ? answer : '(not answered)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontStyle: hasAnswer
+                          ? FontStyle.normal
+                          : FontStyle.italic,
+                      color: hasAnswer
+                          ? widget.statusColor
+                          : widget.statusColor.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.edit,
+              size: 14,
+              color: widget.statusColor.withValues(alpha: 0.3),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -795,14 +1172,14 @@ class _AskUserAreaState extends State<_AskUserArea> {
     return Align(
       alignment: Alignment.centerRight,
       child: SizedBox(
-        height: 28,
+        height: _buttonHeight,
         child: OutlinedButton.icon(
           onPressed: widget.onTap,
           icon: const Icon(Icons.open_in_new, size: 14),
           label: const Text('Open'),
           style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            textStyle: const TextStyle(fontSize: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            textStyle: const TextStyle(fontSize: 13),
           ),
         ),
       ),
