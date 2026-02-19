@@ -1,7 +1,7 @@
 {
   "name": "@ccpocket/bridge",
   "version": "0.1.0",
-  "description": "Bridge server that connects Claude Code CLI to mobile devices via WebSocket",
+  "description": "Bridge server that connects Claude Code and Codex CLI to mobile devices via WebSocket",
   "private": false,
   "type": "module",
   "license": "MIT",
@@ -17,11 +17,13 @@
   },
   "keywords": [
     "claude-code",
+    "codex",
     "bridge",
     "websocket",
     "mobile",
     "cli",
-    "remote"
+    "remote",
+    "coding-agent"
   ],
   "bin": {
     "ccpocket-bridge": "./dist/cli.js"

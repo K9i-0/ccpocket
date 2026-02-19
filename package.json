@@ -1,6 +1,6 @@
 {
   "name": "ccpocket",
-  "description": "Mobile client for Claude Code with WebSocket bridge server",
+  "description": "Mobile client for Claude Code and Codex with WebSocket bridge server",
   "private": true,
   "license": "MIT",
   "author": "K9i",

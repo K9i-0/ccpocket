@@ -1,6 +1,6 @@
 # ccpocket
 
-Claude Code専用モバイルクライアント。Bridge Server経由でClaude Code CLIをiPhone/Androidから操作できます。
+Claude Code / Codex対応モバイルクライアント。Bridge Server経由でコーディングエージェントをiPhone/Androidから操作できます。
 
 [English README](README.md)
 
@@ -8,7 +8,7 @@ Claude Code専用モバイルクライアント。Bridge Server経由でClaude C
 
 ## 主な機能
 
-- **チャット** — Claude Codeとリアルタイムでやりとり (ストリーミング対応)
+- **チャット** — Claude Code / Codexとリアルタイムでやりとり (ストリーミング対応)
 - **セッション管理** — 複数セッションの作成・切替・履歴閲覧・Resume
 - **ツール承認** — ファイル編集やコマンド実行の承認/拒否をモバイルから
 - **マシン管理** — 複数マシンの登録・ステータス監視・SSH経由のリモート起動/停止
@@ -20,7 +20,7 @@ Claude Code専用モバイルクライアント。Bridge Server経由でClaude C
 ## 前提条件
 
 - [Node.js](https://nodejs.org/) v18以上
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude` コマンドが使える状態)
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) および/または [Codex CLI](https://github.com/openai/codex)
 
 ## クイックスタート
 

@@ -1,6 +1,6 @@
 # ccpocket
 
-Mobile client for Claude Code. Control Claude Code CLI from your iPhone or Android via a WebSocket bridge server.
+Mobile client for Claude Code and Codex. Control coding agents from your iPhone or Android via a WebSocket bridge server.
 
 [日本語版 README](README.ja.md)
 
@@ -8,7 +8,7 @@ Mobile client for Claude Code. Control Claude Code CLI from your iPhone or Andro
 
 ## Features
 
-- **Chat** — Real-time conversation with Claude Code (streaming support)
+- **Chat** — Real-time conversation with Claude Code and Codex (streaming support)
 - **Session Management** — Create, switch, browse history, and resume multiple sessions
 - **Tool Approval** — Approve or reject file edits and command execution from your phone
 - **Machine Management** — Register multiple machines, monitor status, remote start/stop via SSH
@@ -20,7 +20,7 @@ Mobile client for Claude Code. Control Claude Code CLI from your iPhone or Andro
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) v18+
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude` command available)
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) and/or [Codex CLI](https://github.com/openai/codex)
 
 ## Quick Start
 

@@ -1,5 +1,5 @@
 name: ccpocket
-description: "Mobile client for Claude Code — chat, approve tools, and manage sessions from your phone."
+description: "Mobile client for Claude Code and Codex — chat, approve tools, and manage sessions from your phone."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

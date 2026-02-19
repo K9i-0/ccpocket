@@ -1,8 +1,8 @@
 # @ccpocket/bridge
 
-Bridge server that connects [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) to mobile devices via WebSocket.
+Bridge server that connects [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) and [Codex CLI](https://github.com/openai/codex) to mobile devices via WebSocket.
 
-This is the server component of [ccpocket](https://github.com/K9i-0/ccpocket) — a mobile client for Claude Code.
+This is the server component of [ccpocket](https://github.com/K9i-0/ccpocket) — a mobile client for Claude Code and Codex.
 
 ## Quick Start
 
@@ -39,7 +39,7 @@ BRIDGE_PORT=9000 BRIDGE_API_KEY=my-secret npx @ccpocket/bridge
 ## Requirements
 
 - Node.js v18+
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and configured (`claude` command available)
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) and/or [Codex CLI](https://github.com/openai/codex)
 
 ## Architecture
 
