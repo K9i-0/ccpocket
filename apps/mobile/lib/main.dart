@@ -73,10 +73,15 @@ void main() async {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   }
 
-  // Initialize notifications in background to avoid blocking app startup
-  NotificationService.instance.init().catchError((e) {
+  // Initialize notifications eagerly so the Android notification channel is
+  // created before any FCM message arrives. Without this, FCM falls back to
+  // the low-importance fcm_fallback_notification_channel and notifications
+  // appear only in the history drawer instead of as heads-up popups.
+  try {
+    await NotificationService.instance.init();
+  } catch (e) {
     logger.error('[main] NotificationService init failed', e);
-  });
+  }
 
   // Initialize SharedPreferences and services
   final prefs = await SharedPreferences.getInstance();

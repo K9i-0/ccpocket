@@ -176,6 +176,18 @@ async function handleNotify(body: NotifyBody): Promise<{
       tokens: chunk,
       notification: { title: body.title, body: body.body },
       data: body.data,
+      android: {
+        priority: "high",
+        notification: {
+          channelId: "ccpocket_channel",
+          priority: "high",
+          sound: "default",
+          defaultVibrateTimings: true,
+        },
+      },
+      apns: {
+        payload: { aps: { sound: "default" } },
+      },
     });
 
     successCount += response.successCount;
