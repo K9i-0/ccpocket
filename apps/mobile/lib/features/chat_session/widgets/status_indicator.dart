@@ -11,10 +11,12 @@ import '../../../theme/app_theme.dart';
 class StatusIndicator extends HookWidget {
   final ProcessStatus status;
   final bool inPlanMode;
+  final VoidCallback? onLongPress;
   const StatusIndicator({
     super.key,
     required this.status,
     this.inPlanMode = false,
+    this.onLongPress,
   });
 
   @override
@@ -68,13 +70,15 @@ class StatusIndicator extends HookWidget {
     // Format elapsed time
     final elapsedStr = _formatDuration(elapsed.value);
 
-    return Tooltip(
-      message: isActive ? '$label ($elapsedStr)' : label,
-      preferBelow: true,
-      triggerMode: TooltipTriggerMode.tap,
-      child: Padding(
-        key: const ValueKey('status_indicator'),
-        padding: const EdgeInsets.only(left: 4, right: 8),
+    return GestureDetector(
+      onLongPress: onLongPress,
+      child: Tooltip(
+        message: isActive ? '$label ($elapsedStr)' : label,
+        preferBelow: true,
+        triggerMode: TooltipTriggerMode.tap,
+        child: Padding(
+          key: const ValueKey('status_indicator'),
+          padding: const EdgeInsets.only(left: 4, right: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -96,6 +100,7 @@ class StatusIndicator extends HookWidget {
             _AnimatedStatusDot(color: color, isAnimating: isActive),
           ],
         ),
+      ),
       ),
     );
   }

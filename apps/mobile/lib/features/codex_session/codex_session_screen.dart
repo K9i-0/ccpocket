@@ -331,18 +331,6 @@ class _CodexChatBody extends HookWidget {
                   onPressed: () =>
                       _showUserMessageHistory(context, scrollToUserEntry),
                 ),
-                IconButton(
-                  key: const ValueKey('codex_share_debug_bundle_button'),
-                  icon: const Icon(Icons.bug_report, size: 18),
-                  tooltip: 'Copy for Agent',
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  onPressed: () => copyDebugBundleForAgent(context, sessionId),
-                ),
                 // View Changes
                 if (projectPath != null)
                   IconButton(
@@ -410,7 +398,12 @@ class _CodexChatBody extends HookWidget {
                     },
                   ),
                 // Status indicator
-                StatusIndicator(status: status),
+                // Long press to copy debug bundle for agent
+                StatusIndicator(
+                  status: status,
+                  onLongPress: () =>
+                      copyDebugBundleForAgent(context, sessionId),
+                ),
               ],
             ),
             body: Column(

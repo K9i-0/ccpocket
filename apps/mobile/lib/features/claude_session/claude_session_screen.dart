@@ -491,20 +491,7 @@ class _ChatScreenBody extends HookWidget {
           child: Scaffold(
             appBar: AppBar(
               actions: [
-                // 1. Copy agent investigation prompt (debug)
-                IconButton(
-                  key: const ValueKey('share_debug_bundle_button'),
-                  icon: const Icon(Icons.bug_report, size: 18),
-                  tooltip: l.copyForAgent,
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  onPressed: () => copyDebugBundleForAgent(context, sessionId),
-                ),
-                // 2. Message History (rewind + scroll)
+                // 1. Message History (rewind + scroll)
                 IconButton(
                   key: const ValueKey('message_history_button'),
                   icon: const Icon(Icons.history, size: 18),
@@ -586,7 +573,13 @@ class _ChatScreenBody extends HookWidget {
                     },
                   ),
                 // 7. Status indicator (plan mode shown via color)
-                StatusIndicator(status: status, inPlanMode: inPlanMode),
+                // Long press to copy debug bundle for agent
+                StatusIndicator(
+                  status: status,
+                  inPlanMode: inPlanMode,
+                  onLongPress: () =>
+                      copyDebugBundleForAgent(context, sessionId),
+                ),
               ],
             ),
             body: Column(
