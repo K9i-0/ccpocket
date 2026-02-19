@@ -16,6 +16,7 @@ import { listWindows, takeScreenshot } from "./screenshot.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
 import { RecordingStore } from "./recording-store.js";
 import { PushRelayClient } from "./push-relay.js";
+import type { FirebaseAuthClient } from "./firebase-auth.js";
 import { fetchAllUsage } from "./usage.js";
 
 export interface BridgeServerOptions {
@@ -26,6 +27,7 @@ export interface BridgeServerOptions {
   projectHistory?: ProjectHistory;
   debugTraceStore?: DebugTraceStore;
   recordingStore?: RecordingStore;
+  firebaseAuth?: FirebaseAuthClient;
 }
 
 export class BridgeWebSocketServer {
@@ -47,7 +49,7 @@ export class BridgeWebSocketServer {
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
 
   constructor(options: BridgeServerOptions) {
-    const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore, recordingStore } = options;
+    const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore, recordingStore, firebaseAuth } = options;
     this.apiKey = apiKey ?? null;
     this.imageStore = imageStore ?? null;
     this.galleryStore = galleryStore ?? null;
@@ -55,7 +57,7 @@ export class BridgeWebSocketServer {
     this.debugTraceStore = debugTraceStore ?? new DebugTraceStore();
     this.recordingStore = recordingStore ?? new RecordingStore();
     this.worktreeStore = new WorktreeStore();
-    this.pushRelay = new PushRelayClient();
+    this.pushRelay = new PushRelayClient({ firebaseAuth });
     void this.debugTraceStore.init().catch((err) => {
       console.error("[ws] Failed to initialize debug trace store:", err);
     });
@@ -63,9 +65,9 @@ export class BridgeWebSocketServer {
       console.error("[ws] Failed to initialize recording store:", err);
     });
     if (!this.pushRelay.isConfigured) {
-      console.log("[ws] Push relay disabled (set PUSH_RELAY_URL and PUSH_RELAY_SECRET to enable)");
+      console.log("[ws] Push relay disabled (Firebase auth not available)");
     } else {
-      console.log("[ws] Push relay enabled");
+      console.log("[ws] Push relay enabled (Firebase Anonymous Auth)");
     }
 
     this.wss = new WebSocketServer({ server });
@@ -343,24 +345,32 @@ export class BridgeWebSocketServer {
       }
 
       case "push_register": {
+        console.log(`[ws] push_register received (platform: ${msg.platform}, configured: ${this.pushRelay.isConfigured})`);
         if (!this.pushRelay.isConfigured) {
           this.send(ws, { type: "error", message: "Push relay is not configured on bridge" });
           return;
         }
-        this.pushRelay.registerToken(msg.token, msg.platform).catch((err) => {
+        this.pushRelay.registerToken(msg.token, msg.platform).then(() => {
+          console.log("[ws] push_register: token registered successfully");
+        }).catch((err) => {
           const detail = err instanceof Error ? err.message : String(err);
+          console.error(`[ws] push_register failed: ${detail}`);
           this.send(ws, { type: "error", message: `Failed to register push token: ${detail}` });
         });
         break;
       }
 
       case "push_unregister": {
+        console.log("[ws] push_unregister received");
         if (!this.pushRelay.isConfigured) {
           this.send(ws, { type: "error", message: "Push relay is not configured on bridge" });
           return;
         }
-        this.pushRelay.unregisterToken(msg.token).catch((err) => {
+        this.pushRelay.unregisterToken(msg.token).then(() => {
+          console.log("[ws] push_unregister: token unregistered successfully");
+        }).catch((err) => {
           const detail = err instanceof Error ? err.message : String(err);
+          console.error(`[ws] push_unregister failed: ${detail}`);
           this.send(ws, { type: "error", message: `Failed to unregister push token: ${detail}` });
         });
         break;

@@ -1,5 +1,6 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash } from "node:crypto";
 import { initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import * as logger from "firebase-functions/logger";
@@ -35,6 +36,7 @@ type RelayBody = RegisterBody | UnregisterBody | NotifyBody;
 
 const db = getFirestore();
 const messaging = getMessaging();
+const auth = getAuth();
 
 function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex");
@@ -51,11 +53,19 @@ function readBearerToken(authHeader: string | undefined): string | null {
   return token.trim();
 }
 
-function secureEquals(a: string, b: string): boolean {
-  const left = Buffer.from(a);
-  const right = Buffer.from(b);
-  if (left.length !== right.length) return false;
-  return timingSafeEqual(left, right);
+/**
+ * Verify Firebase ID token and return the UID.
+ * Returns null if the token is invalid or expired.
+ */
+async function verifyFirebaseToken(authHeader: string | undefined): Promise<string | null> {
+  const bearer = readBearerToken(authHeader);
+  if (!bearer) return null;
+  try {
+    const decoded = await auth.verifyIdToken(bearer);
+    return decoded.uid;
+  } catch {
+    return null;
+  }
 }
 
 function asNonEmptyString(value: unknown): string | null {
@@ -68,8 +78,10 @@ function parseRelayBody(payload: unknown): RelayBody | null {
   if (typeof payload !== "object" || payload == null) return null;
   const body = payload as Record<string, unknown>;
   const op = asNonEmptyString(body.op);
-  const bridgeId = asNonEmptyString(body.bridgeId);
-  if (!op || !bridgeId) return null;
+  if (!op) return null;
+
+  // bridgeId from request body is ignored; the authenticated UID is used instead.
+  // We still parse it for backward compatibility but it will be overridden.
 
   if (op === "register") {
     const token = asNonEmptyString(body.token);
@@ -78,13 +90,13 @@ function parseRelayBody(payload: unknown): RelayBody | null {
     if (platform !== "ios" && platform !== "android" && platform !== "web") {
       return null;
     }
-    return { op, bridgeId, token, platform };
+    return { op, bridgeId: "", token, platform };
   }
 
   if (op === "unregister") {
     const token = asNonEmptyString(body.token);
     if (!token) return null;
-    return { op, bridgeId, token };
+    return { op, bridgeId: "", token };
   }
 
   if (op === "notify") {
@@ -100,7 +112,7 @@ function parseRelayBody(payload: unknown): RelayBody | null {
               .map(([k, v]) => [k, String(v)]),
           )
         : undefined;
-    return { op, bridgeId, eventType, title, body: bodyText, data };
+    return { op, bridgeId: "", eventType, title, body: bodyText, data };
   }
 
   return null;
@@ -198,15 +210,9 @@ export const relay = onRequest({ cors: true }, async (req, res) => {
     return;
   }
 
-  const configuredSecret = process.env.PUSH_RELAY_SECRET;
-  if (!configuredSecret) {
-    logger.error("PUSH_RELAY_SECRET is not configured");
-    res.status(500).json({ error: "Relay is not configured" });
-    return;
-  }
-
-  const bearer = readBearerToken(req.header("authorization"));
-  if (!bearer || !secureEquals(bearer, configuredSecret)) {
+  // Verify Firebase ID token
+  const uid = await verifyFirebaseToken(req.header("authorization"));
+  if (!uid) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
@@ -216,6 +222,10 @@ export const relay = onRequest({ cors: true }, async (req, res) => {
     res.status(400).json({ error: "Invalid request body" });
     return;
   }
+
+  // Override bridgeId with authenticated UID for security.
+  // This prevents a client from accessing another bridge's tokens.
+  parsed.bridgeId = uid;
 
   try {
     switch (parsed.op) {
@@ -230,7 +240,7 @@ export const relay = onRequest({ cors: true }, async (req, res) => {
       case "notify": {
         const result = await handleNotify(parsed);
         logger.info("Push notification relay sent", {
-          bridgeId: parsed.bridgeId,
+          bridgeId: uid,
           eventType: parsed.eventType,
           ...result,
         });

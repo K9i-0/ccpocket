@@ -182,13 +182,15 @@ Bridge は単一の Relay URL に `op` を付けて POST する。
 - Firestore 書き込みと FCM 送信
 - invalid token cleanup
 
-## 環境変数（Bridge）
+## 認証方式（Bridge → Cloud Functions）
 
-| 変数 | 必須 | 説明 |
-|---|---|---|
-| `PUSH_RELAY_URL` | yes | Cloud Relay HTTP endpoint |
-| `PUSH_RELAY_SECRET` | yes | Relay認証用シークレット |
-| `PUSH_BRIDGE_ID` | no | Bridge識別子（未指定時は自動生成） |
+**Firebase Anonymous Authentication** を使用。Bridge起動時に自動で匿名認証を行い、
+Firebase IDトークンをBearer tokenとしてCloud Functionsに送信する。
+
+- 環境変数の設定は**不要**
+- bridgeId = Firebase UID（自動で一意）
+- Cloud Functions側で `verifyIdToken()` によりIDトークンを検証
+- リクエストbodyの `bridgeId` はUIDで上書きされるため、他Bridgeのデータにアクセス不可
 
 ## 検証
 

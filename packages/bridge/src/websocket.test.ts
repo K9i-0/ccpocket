@@ -121,18 +121,9 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
   const OPEN_STATE = 1;
   let httpServer: ReturnType<typeof createServer>;
   let originalFetch: typeof globalThis.fetch;
-  let originalRelayUrl: string | undefined;
-  let originalRelaySecret: string | undefined;
-  let originalBridgeId: string | undefined;
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
-    originalRelayUrl = process.env.PUSH_RELAY_URL;
-    originalRelaySecret = process.env.PUSH_RELAY_SECRET;
-    originalBridgeId = process.env.PUSH_BRIDGE_ID;
-    delete process.env.PUSH_RELAY_URL;
-    delete process.env.PUSH_RELAY_SECRET;
-    delete process.env.PUSH_BRIDGE_ID;
     httpServer = createServer();
     getSessionHistoryMock.mockReset();
     getCodexSessionHistoryMock.mockReset();
@@ -142,21 +133,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    if (originalRelayUrl === undefined) {
-      delete process.env.PUSH_RELAY_URL;
-    } else {
-      process.env.PUSH_RELAY_URL = originalRelayUrl;
-    }
-    if (originalRelaySecret === undefined) {
-      delete process.env.PUSH_RELAY_SECRET;
-    } else {
-      process.env.PUSH_RELAY_SECRET = originalRelaySecret;
-    }
-    if (originalBridgeId === undefined) {
-      delete process.env.PUSH_BRIDGE_ID;
-    } else {
-      process.env.PUSH_BRIDGE_ID = originalBridgeId;
-    }
     httpServer.close();
   });
 
@@ -557,13 +533,15 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
   });
 
   it("sends push notification once per permission toolUseId", async () => {
-    process.env.PUSH_RELAY_URL = "https://relay.example.com/push";
-    process.env.PUSH_RELAY_SECRET = "dummy";
-    process.env.PUSH_BRIDGE_ID = "bridge-test";
     const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+    const mockAuth = {
+      uid: "bridge-test",
+      getIdToken: vi.fn(async () => "mock-token"),
+      initialize: vi.fn(async () => {}),
+    };
 
-    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const bridge = new BridgeWebSocketServer({ server: httpServer, firebaseAuth: mockAuth as any });
     (bridge as any).broadcastSessionMessage("s-1", {
       type: "permission_request",
       toolUseId: "tool-1",
@@ -593,13 +571,15 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
   });
 
   it("sends push notification for successful result and skips stopped result", async () => {
-    process.env.PUSH_RELAY_URL = "https://relay.example.com/push";
-    process.env.PUSH_RELAY_SECRET = "dummy";
-    process.env.PUSH_BRIDGE_ID = "bridge-test";
     const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+    const mockAuth = {
+      uid: "bridge-test",
+      getIdToken: vi.fn(async () => "mock-token"),
+      initialize: vi.fn(async () => {}),
+    };
 
-    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const bridge = new BridgeWebSocketServer({ server: httpServer, firebaseAuth: mockAuth as any });
     (bridge as any).broadcastSessionMessage("s-1", {
       type: "result",
       subtype: "success",

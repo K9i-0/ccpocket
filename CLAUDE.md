@@ -92,6 +92,11 @@ Flutter App ←WebSocket→ websocket.ts ←→ session.ts ←→ claude-process
 | `BRIDGE_HOST` | `0.0.0.0` | バインドアドレス |
 | `BRIDGE_API_KEY` | (なし) | APIキー認証 (設定時に有効化) |
 
+### プッシュ通知 (FCM)
+
+Bridge起動時にFirebase Anonymous Authで自動認証される。環境変数の設定は不要。
+Cloud Functions (relay) がFCMトークンの管理とプッシュ送信を担当する。
+
 ## WebSocket プロトコル
 
 ### Client → Server メッセージ

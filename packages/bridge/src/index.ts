@@ -9,13 +9,12 @@ import { ProjectHistory } from "./project-history.js";
 import { getVersionInfo } from "./version.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
 import { RecordingStore } from "./recording-store.js";
+import { FirebaseAuthClient } from "./firebase-auth.js";
 
-export function startServer() {
+export async function startServer() {
   const PORT = parseInt(process.env.BRIDGE_PORT ?? "8765", 10);
   const HOST = process.env.BRIDGE_HOST ?? "0.0.0.0";
   const API_KEY = process.env.BRIDGE_API_KEY;
-  const PUSH_RELAY_URL = process.env.PUSH_RELAY_URL;
-  const PUSH_RELAY_SECRET = process.env.PUSH_RELAY_SECRET;
 
   console.log("[bridge] Starting ccpocket bridge server...");
 
@@ -24,10 +23,16 @@ export function startServer() {
   } else {
     console.log("[bridge] WARNING: No BRIDGE_API_KEY set - authentication disabled");
   }
-  if (PUSH_RELAY_URL && PUSH_RELAY_SECRET) {
-    console.log("[bridge] Push relay configured");
-  } else {
-    console.log("[bridge] Push relay disabled");
+
+  // Initialize Firebase Anonymous Auth for push notifications
+  let firebaseAuth: FirebaseAuthClient | undefined;
+  try {
+    firebaseAuth = new FirebaseAuthClient();
+    await firebaseAuth.initialize();
+    console.log("[bridge] Push relay enabled (Firebase Anonymous Auth)");
+  } catch (err) {
+    console.warn("[bridge] Push relay disabled: Firebase auth failed:", err);
+    firebaseAuth = undefined;
   }
 
   const imageStore = new ImageStore();
@@ -125,6 +130,7 @@ export function startServer() {
     projectHistory,
     debugTraceStore,
     recordingStore,
+    firebaseAuth,
   });
 
   httpServer.listen(PORT, HOST, () => {
@@ -151,5 +157,8 @@ const isDirectExecution =
   fileURLToPath(import.meta.url) === process.argv[1];
 
 if (isDirectExecution) {
-  startServer();
+  startServer().catch((err) => {
+    console.error("[bridge] Failed to start:", err);
+    process.exit(1);
+  });
 }

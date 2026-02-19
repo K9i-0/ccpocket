@@ -1,4 +1,4 @@
-import { hostname } from "node:os";
+import type { FirebaseAuthClient } from "./firebase-auth.js";
 
 export type PushPlatform = "ios" | "android" | "web";
 
@@ -9,10 +9,9 @@ export interface PushNotifyPayload {
   data?: Record<string, string>;
 }
 
-interface PushRelayClientOptions {
+export interface PushRelayClientOptions {
   relayUrl?: string;
-  relaySecret?: string;
-  bridgeId?: string;
+  firebaseAuth?: FirebaseAuthClient | null;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
 }
@@ -22,37 +21,41 @@ type PushRelayOpPayload =
   | { op: "unregister"; token: string; bridgeId: string }
   | { op: "notify"; eventType: string; title: string; body: string; data?: Record<string, string>; bridgeId: string };
 
+const DEFAULT_RELAY_URL = "https://relay-g34e3teu6a-uc.a.run.app";
+
 export class PushRelayClient {
-  private readonly relayUrl: string | null;
-  private readonly relaySecret: string | null;
-  private readonly bridgeId: string;
+  private readonly relayUrl: string;
+  private readonly firebaseAuth: FirebaseAuthClient | null;
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: PushRelayClientOptions = {}) {
-    const relayUrl = (options.relayUrl ?? process.env.PUSH_RELAY_URL ?? "").trim();
-    const relaySecret = (options.relaySecret ?? process.env.PUSH_RELAY_SECRET ?? "").trim();
-    const bridgeId = (options.bridgeId ?? process.env.PUSH_BRIDGE_ID ?? "").trim();
-    this.relayUrl = relayUrl.length > 0 ? relayUrl : null;
-    this.relaySecret = relaySecret.length > 0 ? relaySecret : null;
-    this.bridgeId = bridgeId.length > 0 ? bridgeId : hostname();
+    this.relayUrl = options.relayUrl ?? DEFAULT_RELAY_URL;
+    this.firebaseAuth = options.firebaseAuth ?? null;
     this.timeoutMs = options.timeoutMs ?? 10_000;
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
   get isConfigured(): boolean {
-    return this.relayUrl != null && this.relaySecret != null;
+    return this.firebaseAuth != null;
+  }
+
+  private get bridgeId(): string {
+    return this.firebaseAuth!.uid;
   }
 
   async registerToken(token: string, platform: PushPlatform): Promise<void> {
+    if (!this.isConfigured) return;
     await this.post({ op: "register", token, platform, bridgeId: this.bridgeId });
   }
 
   async unregisterToken(token: string): Promise<void> {
+    if (!this.isConfigured) return;
     await this.post({ op: "unregister", token, bridgeId: this.bridgeId });
   }
 
   async notify(payload: PushNotifyPayload): Promise<void> {
+    if (!this.isConfigured) return;
     await this.post({
       op: "notify",
       bridgeId: this.bridgeId,
@@ -64,8 +67,10 @@ export class PushRelayClient {
   }
 
   private async post(payload: PushRelayOpPayload): Promise<void> {
-    if (!this.isConfigured || this.relayUrl == null || this.relaySecret == null) return;
+    if (!this.isConfigured || !this.firebaseAuth) return;
 
+    console.log(`[push-relay] ${payload.op} → ${this.relayUrl} (bridgeId: ${payload.bridgeId})`);
+    const idToken = await this.firebaseAuth.getIdToken();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -73,7 +78,7 @@ export class PushRelayClient {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${this.relaySecret}`,
+          "Authorization": `Bearer ${idToken}`,
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
@@ -83,6 +88,8 @@ export class PushRelayClient {
         const text = (await response.text()).trim().slice(0, 200);
         throw new Error(`Push relay returned ${response.status}${text ? `: ${text}` : ""}`);
       }
+      const responseText = (await response.text()).slice(0, 200);
+      console.log(`[push-relay] ${payload.op} OK: ${responseText}`);
     } finally {
       clearTimeout(timer);
     }

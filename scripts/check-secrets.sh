@@ -65,6 +65,8 @@ ALLOWLIST=(
   'dummy'
   'xxxx'
   'check-secrets\.sh'     # This script itself
+  'FIREBASE_API_KEY'      # Firebase Web API key (public, not a secret)
+  'mock-id-token'         # Test fixture mock token
 )
 
 # Build grep -v pattern from allowlist
