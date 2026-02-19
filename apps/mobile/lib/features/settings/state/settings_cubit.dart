@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,12 +8,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/fcm_service.dart';
+import '../../../services/machine_manager_service.dart';
 import 'settings_state.dart';
 
 /// Manages user settings with SharedPreferences persistence.
 class SettingsCubit extends Cubit<SettingsState> {
   final SharedPreferences _prefs;
   final BridgeService? _bridge;
+  final MachineManagerService? _machineManager;
   final FcmService _fcmService;
   StreamSubscription<BridgeConnectionState>? _bridgeSub;
   StreamSubscription<String>? _tokenRefreshSub;
@@ -21,31 +24,96 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyThemeMode = 'settings_theme_mode';
   static const _keyAppLocale = 'settings_app_locale';
   static const _keySpeechLocale = 'settings_speech_locale';
+  static const _keyFcmMachines = 'settings_fcm_machines';
+  // Legacy key for migration
   static const _keyFcmEnabled = 'settings_fcm_enabled';
 
   SettingsCubit(
     this._prefs, {
     BridgeService? bridgeService,
+    MachineManagerService? machineManager,
     FcmService? fcmService,
   }) : _bridge = bridgeService,
+       _machineManager = machineManager,
        _fcmService = fcmService ?? FcmService(),
        super(_load(_prefs)) {
     final bridge = _bridge;
     if (bridge != null) {
       _bridgeSub = bridge.connectionStatus.listen((status) {
-        if (status == BridgeConnectionState.connected && state.fcmEnabled) {
-          unawaited(_syncPushRegistration());
+        if (status == BridgeConnectionState.connected) {
+          _updateActiveMachine();
+          if (state.fcmEnabled) {
+            unawaited(_syncPushRegistration());
+          }
+        } else if (status == BridgeConnectionState.disconnected) {
+          emit(state.copyWith(activeMachineId: null, fcmStatusKey: null));
         }
       });
+      // Resolve active machine if already connected at init time
+      if (bridge.isConnected) {
+        _updateActiveMachine();
+      }
     }
     unawaited(_initializePush());
+  }
+
+  /// Resolve the currently connected Machine ID from the bridge URL.
+  void _updateActiveMachine() {
+    final bridge = _bridge;
+    final manager = _machineManager;
+    if (bridge == null || manager == null) return;
+
+    final url = bridge.lastUrl;
+    if (url == null) return;
+
+    final uri = Uri.tryParse(
+      url.replaceFirst('ws://', 'http://').replaceFirst('wss://', 'https://'),
+    );
+    if (uri == null) return;
+
+    final machine = manager.findByHostPort(
+      uri.host,
+      uri.hasPort ? uri.port : 8765,
+    );
+    if (machine != null) {
+      emit(state.copyWith(activeMachineId: machine.id));
+    }
   }
 
   static SettingsState _load(SharedPreferences prefs) {
     final themeModeIndex = prefs.getInt(_keyThemeMode);
     final appLocale = prefs.getString(_keyAppLocale) ?? '';
     final speechLocale = prefs.getString(_keySpeechLocale);
-    final fcmEnabled = prefs.getBool(_keyFcmEnabled) ?? false;
+
+    // Load per-machine FCM set
+    var fcmMachines = <String>{};
+    final machinesJson = prefs.getString(_keyFcmMachines);
+    if (machinesJson != null) {
+      final list = jsonDecode(machinesJson) as List;
+      fcmMachines = list.cast<String>().toSet();
+    } else {
+      // Migrate from legacy global fcmEnabled: read machine IDs directly
+      // from SharedPreferences (MachineManagerService may not be initialized yet)
+      final legacyEnabled = prefs.getBool(_keyFcmEnabled) ?? false;
+      if (legacyEnabled) {
+        final machinesRaw = prefs.getString('machines_v2');
+        if (machinesRaw != null) {
+          try {
+            final list = jsonDecode(machinesRaw) as List;
+            fcmMachines = list
+                .cast<Map<String, dynamic>>()
+                .map((m) => m['id'] as String)
+                .toSet();
+          } catch (_) {
+            // Ignore parse errors during migration
+          }
+        }
+        // Persist migrated data and remove legacy key
+        prefs.setString(_keyFcmMachines, jsonEncode(fcmMachines.toList()));
+        prefs.remove(_keyFcmEnabled);
+      }
+    }
+
     return SettingsState(
       themeMode:
           (themeModeIndex != null &&
@@ -55,7 +123,7 @@ class SettingsCubit extends Cubit<SettingsState> {
           : ThemeMode.system,
       appLocaleId: appLocale,
       speechLocaleId: speechLocale ?? 'ja-JP',
-      fcmEnabled: fcmEnabled,
+      fcmEnabledMachines: fcmMachines,
     );
   }
 
@@ -104,10 +172,19 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   Future<void> toggleFcm(bool enabled) async {
-    await _prefs.setBool(_keyFcmEnabled, enabled);
+    final machineId = state.activeMachineId;
+    if (machineId == null) return;
+
+    final updated = Set<String>.from(state.fcmEnabledMachines);
+    if (enabled) {
+      updated.add(machineId);
+    } else {
+      updated.remove(machineId);
+    }
+    await _prefs.setString(_keyFcmMachines, jsonEncode(updated.toList()));
     emit(
       state.copyWith(
-        fcmEnabled: enabled,
+        fcmEnabledMachines: updated,
         fcmSyncInProgress: true,
         fcmStatusKey: null,
       ),

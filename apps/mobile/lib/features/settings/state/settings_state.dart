@@ -17,6 +17,8 @@ enum FcmStatusKey {
 /// Application-wide user settings.
 @freezed
 abstract class SettingsState with _$SettingsState {
+  const SettingsState._();
+
   const factory SettingsState({
     /// Theme mode: system, light, or dark.
     @Default(ThemeMode.system) ThemeMode themeMode,
@@ -29,8 +31,11 @@ abstract class SettingsState with _$SettingsState {
     /// Empty string means use device default.
     @Default('ja-JP') String speechLocaleId,
 
-    /// Whether remote push notifications are enabled by the user.
-    @Default(false) bool fcmEnabled,
+    /// Set of Machine IDs that have push notifications enabled.
+    @Default({}) Set<String> fcmEnabledMachines,
+
+    /// Currently connected Machine ID (null when disconnected).
+    String? activeMachineId,
 
     /// Whether Firebase Messaging is available in this runtime.
     @Default(false) bool fcmAvailable,
@@ -41,4 +46,8 @@ abstract class SettingsState with _$SettingsState {
     /// Last push sync status key (resolved to localized string in UI).
     FcmStatusKey? fcmStatusKey,
   }) = _SettingsState;
+
+  /// Whether push notifications are enabled for the currently connected machine.
+  bool get fcmEnabled =>
+      activeMachineId != null && fcmEnabledMachines.contains(activeMachineId);
 }

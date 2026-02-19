@@ -90,18 +90,20 @@ class SettingsScreen extends StatelessWidget {
                             context.read<SettingsCubit>().setSpeechLocaleId(id),
                       ),
                     ),
-                    Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: cs.outlineVariant,
-                    ),
-                    // Push Notifications
-                    _PushNotificationTile(
-                      state: state,
-                      onChanged: (enabled) =>
-                          context.read<SettingsCubit>().toggleFcm(enabled),
-                    ),
+                    // Push Notifications (only when connected to a server)
+                    if (state.activeMachineId != null) ...[
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: cs.outlineVariant,
+                      ),
+                      _PushNotificationTile(
+                        state: state,
+                        onChanged: (enabled) =>
+                            context.read<SettingsCubit>().toggleFcm(enabled),
+                      ),
+                    ],
                   ],
                 ),
               ),

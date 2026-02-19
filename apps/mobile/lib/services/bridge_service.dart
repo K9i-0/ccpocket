@@ -93,6 +93,9 @@ class BridgeService implements BridgeServiceBase {
   List<GalleryImage> get galleryImages => _galleryImages;
   List<String> get projectHistory => _projectHistory;
 
+  /// The last WebSocket URL used for connection (or reconnection).
+  String? get lastUrl => _lastUrl;
+
   /// Derive HTTP base URL from the WebSocket URL.
   /// Example: ws://host:8765/path?query=1 -> http://host:8765
   @override
@@ -491,10 +494,7 @@ class BridgeService implements BridgeServiceBase {
 
   /// Update the cached lastMessage when an [AssistantMessage] arrives so the
   /// session list card shows the latest response in real-time.
-  void _patchSessionLastMessage(
-    String sessionId,
-    AssistantMessage message,
-  ) {
+  void _patchSessionLastMessage(String sessionId, AssistantMessage message) {
     final idx = _sessions.indexWhere((s) => s.id == sessionId);
     if (idx < 0) return;
     final text = message.content
