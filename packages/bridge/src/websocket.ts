@@ -1196,8 +1196,18 @@ export class BridgeWebSocketServer {
     }
   }
 
+  /** Extract a short project label from the full projectPath (last directory name). */
+  private projectLabel(sessionId: string): string {
+    const session = this.sessionManager.get(sessionId);
+    if (!session?.projectPath) return "";
+    const parts = session.projectPath.replace(/\/+$/, "").split("/");
+    return parts[parts.length - 1] || "";
+  }
+
   private maybeSendPushNotification(sessionId: string, msg: ServerMessage): void {
     if (!this.pushRelay.isConfigured) return;
+
+    const project = this.projectLabel(sessionId);
 
     if (msg.type === "permission_request") {
       const seen = this.notifiedPermissionToolUses.get(sessionId) ?? new Set<string>();
@@ -1207,10 +1217,24 @@ export class BridgeWebSocketServer {
 
       const isAskUserQuestion = msg.toolName === "AskUserQuestion";
       const eventType = isAskUserQuestion ? "ask_user_question" : "approval_required";
-      const title = isAskUserQuestion ? "回答待ち" : "承認待ち";
-      const body = isAskUserQuestion
-        ? "Claude が質問しています"
-        : "ツール実行の承認が必要です";
+      const title = project
+        ? (isAskUserQuestion ? `回答待ち - ${project}` : `承認待ち - ${project}`)
+        : (isAskUserQuestion ? "回答待ち" : "承認待ち");
+
+      let body: string;
+      if (isAskUserQuestion) {
+        // Extract question text from input.questions[0].question
+        const questions = msg.input?.questions;
+        const firstQuestion = Array.isArray(questions) && questions.length > 0
+          ? (questions[0] as Record<string, unknown>)?.question
+          : undefined;
+        body = typeof firstQuestion === "string" && firstQuestion.length > 0
+          ? firstQuestion.slice(0, 120)
+          : "Claude が質問しています";
+      } else {
+        body = `${msg.toolName} の実行を承認してください`;
+      }
+
       void this.pushRelay.notify({
         eventType,
         title,
@@ -1233,15 +1257,21 @@ export class BridgeWebSocketServer {
 
     const isSuccess = msg.subtype === "success";
     const eventType = isSuccess ? "session_completed" : "session_failed";
-    const title = isSuccess ? "タスク完了" : "エラー発生";
-    let body = isSuccess ? "セッションが完了しました" : "セッションが失敗しました";
-    if (isSuccess && (msg.duration != null || msg.cost != null)) {
+    const title = project
+      ? (isSuccess ? `✅ ${project}` : `❌ ${project}`)
+      : (isSuccess ? "タスク完了" : "エラー発生");
+
+    let body: string;
+    if (isSuccess) {
       const pieces: string[] = [];
       if (msg.duration != null) pieces.push(`${msg.duration.toFixed(1)}s`);
       if (msg.cost != null) pieces.push(`$${msg.cost.toFixed(4)}`);
-      if (pieces.length > 0) body = `セッション完了 (${pieces.join(", ")})`;
-    } else if (!isSuccess && msg.error) {
-      body = msg.error.slice(0, 120);
+      const stats = pieces.length > 0 ? ` (${pieces.join(", ")})` : "";
+      body = msg.result
+        ? `${msg.result.slice(0, 120)}${stats}`
+        : `セッション完了${stats}`;
+    } else {
+      body = msg.error ? msg.error.slice(0, 120) : "セッションが失敗しました";
     }
 
     const data: Record<string, string> = {
