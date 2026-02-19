@@ -23,8 +23,10 @@ Claude Code専用モバイルクライアント。Bridge Server経由でClaude C
 
 ## セットアップ
 
+Bridge Serverだけ使う場合は `npx @ccpocket/bridge` で起動できます。ソースからビルドする場合:
+
 ```bash
-git clone https://github.com/K9i/ccpocket.git
+git clone https://github.com/K9i-0/ccpocket.git
 cd ccpocket
 npm install
 cd apps/mobile && flutter pub get && cd ../..
@@ -35,6 +37,14 @@ cd apps/mobile && flutter pub get && cd ../..
 ### 1. Bridge Serverを起動
 
 ```bash
+# npxで即実行 (インストール不要)
+npx @ccpocket/bridge
+
+# またはグローバルインストール
+npm install -g @ccpocket/bridge
+ccpocket-bridge
+
+# ソースから起動 (開発者向け)
 npm run bridge
 ```
 

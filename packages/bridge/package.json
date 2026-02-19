@@ -1,8 +1,28 @@
 {
   "name": "@ccpocket/bridge",
   "version": "0.1.0",
+  "description": "Bridge server that connects Claude Code CLI to mobile devices via WebSocket",
   "private": false,
   "type": "module",
+  "license": "MIT",
+  "author": "K9i",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/K9i-0/ccpocket.git",
+    "directory": "packages/bridge"
+  },
+  "homepage": "https://github.com/K9i-0/ccpocket/tree/main/packages/bridge#readme",
+  "bugs": {
+    "url": "https://github.com/K9i-0/ccpocket/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "bridge",
+    "websocket",
+    "mobile",
+    "cli",
+    "remote"
+  ],
   "bin": {
     "ccpocket-bridge": "./dist/cli.js"
   },
