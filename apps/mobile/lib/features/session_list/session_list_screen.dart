@@ -393,9 +393,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       bridge.ensureConnected();
       if (bridge.isConnected) {
         bridge.requestSessionList();
-        bridge.requestRecentSessions(
-          projectPath: bridge.currentProjectFilter,
-        );
+        bridge.requestRecentSessions(projectPath: bridge.currentProjectFilter);
       }
     }
   }

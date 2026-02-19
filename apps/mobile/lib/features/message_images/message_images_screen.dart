@@ -54,39 +54,41 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
     });
 
     _sub = widget.bridge.messages
-        .where((msg) =>
-            msg is MessageImagesResultMessage &&
-            msg.messageUuid == widget.messageUuid)
+        .where(
+          (msg) =>
+              msg is MessageImagesResultMessage &&
+              msg.messageUuid == widget.messageUuid,
+        )
         .cast<MessageImagesResultMessage>()
         .timeout(_timeout)
         .first
         .asStream()
         .listen(
-      (msg) {
-        if (!mounted) return;
-        if (msg.images.isEmpty) {
-          setState(() {
-            _loading = false;
-            _error = '画像を取得できませんでした';
-          });
-        } else {
-          setState(() {
-            _loading = false;
-            _images = msg.images;
-          });
-        }
-      },
-      onError: (Object err) {
-        if (!mounted) return;
-        final message = err is TimeoutException
-            ? '応答がタイムアウトしました'
-            : '画像の取得に失敗しました: $err';
-        setState(() {
-          _loading = false;
-          _error = message;
-        });
-      },
-    );
+          (msg) {
+            if (!mounted) return;
+            if (msg.images.isEmpty) {
+              setState(() {
+                _loading = false;
+                _error = '画像を取得できませんでした';
+              });
+            } else {
+              setState(() {
+                _loading = false;
+                _images = msg.images;
+              });
+            }
+          },
+          onError: (Object err) {
+            if (!mounted) return;
+            final message = err is TimeoutException
+                ? '応答がタイムアウトしました'
+                : '画像の取得に失敗しました: $err';
+            setState(() {
+              _loading = false;
+              _error = message;
+            });
+          },
+        );
 
     widget.bridge.requestMessageImages(
       claudeSessionId: widget.claudeSessionId,
@@ -109,9 +111,7 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
-          widget.imageCount > 1
-              ? '添付画像 (${widget.imageCount})'
-              : '添付画像',
+          widget.imageCount > 1 ? '添付画像 (${widget.imageCount})' : '添付画像',
           style: const TextStyle(fontSize: 16),
         ),
       ),
@@ -129,9 +129,7 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
 
     final images = _images!;
     if (images.length == 1) {
-      return _SingleImageView(
-        url: '${widget.httpBaseUrl}${images.first.url}',
-      );
+      return _SingleImageView(url: '${widget.httpBaseUrl}${images.first.url}');
     }
     return _MultiImageList(images: images, httpBaseUrl: widget.httpBaseUrl);
   }
@@ -146,9 +144,7 @@ class _LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: CircularProgressIndicator(color: Colors.white),
-    );
+    return const Center(child: CircularProgressIndicator(color: Colors.white));
   }
 }
 
