@@ -1,6 +1,6 @@
 # ccpocket
 
-Claude Code専用モバイルクライアント
+Claude Code / Codex 対応モバイルクライアント
 
 ## プロジェクト構成
 
@@ -11,27 +11,26 @@ ccpocket/
 │       ├── index.ts           # エントリーポイント
 │       ├── websocket.ts       # WebSocket接続管理・マルチセッション
 │       ├── session.ts         # セッション管理 (SessionManager)
-│       ├── claude-process.ts  # Claude CLIプロセス管理
+│       ├── claude-process.ts  # Claude CLIプロセス管理 (SDK経由)
+│       ├── codex-process.ts   # Codex CLIプロセス管理 (SDK経由)
 │       └── parser.ts          # stream-json パース・型定義
 ├── apps/mobile/        # Flutter Mobile App
 │   └── lib/
 │       ├── main.dart
 │       ├── features/                      # Feature-first ディレクトリ
-│       │   ├── chat/                      # チャット画面
-│       │   │   ├── chat_screen.dart
-│       │   │   ├── state/                 # Freezed state + Cubit
-│       │   │   └── widgets/               # 抽出Widget
+│       │   ├── chat_session/              # 共通チャットセッション (state/widgets)
+│       │   ├── claude_session/            # Claude Code セッション画面
+│       │   ├── codex_session/             # Codex セッション画面
 │       │   ├── session_list/              # セッション一覧 (ホーム)
-│       │   │   ├── session_list_screen.dart
-│       │   │   ├── state/
-│       │   │   └── widgets/
+│       │   ├── connection/                # 接続・マシン管理
 │       │   ├── diff/                      # Diff表示画面
-│       │   │   ├── diff_screen.dart
-│       │   │   ├── state/
-│       │   │   └── widgets/
-│       │   └── gallery/                   # ギャラリー画面
-│       │       ├── gallery_screen.dart
-│       │       └── widgets/
+│       │   ├── gallery/                   # ギャラリー画面
+│       │   ├── message_images/            # メッセージ画像ビューア
+│       │   ├── prompt_history/            # プロンプト履歴
+│       │   ├── settings/                  # 設定画面
+│       │   ├── setup_guide/               # 初回セットアップガイド
+│       │   ├── swipe_queue/               # スワイプ承認キュー
+│       │   └── debug/                     # デバッグ画面
 │       ├── models/messages.dart           # メッセージ型定義
 │       ├── providers/                     # グローバルprovider
 │       ├── services/bridge_service.dart   # WebSocketクライアント
@@ -73,13 +72,15 @@ Flutterアプリ終了時にBridge Serverも自動停止する。
 ## Bridge Server アーキテクチャ
 
 ```
-Flutter App ←WebSocket→ websocket.ts ←→ session.ts ←→ claude-process.ts ←stdio→ Claude CLI
-                                              ↕
+                                         ┌→ claude-process.ts ←SDK→ Claude Code CLI
+Flutter App ←WebSocket→ websocket.ts ←→ session.ts ─┤
+                                              ↕      └→ codex-process.ts ←SDK→ Codex CLI
                                           parser.ts
 ```
 
 - `parser.ts` - Claude CLI stream-json出力のパースと型定義 (stream_event含む)
-- `claude-process.ts` - Claude CLIプロセスのライフサイクル管理 (approve/reject/sendToolResult)
+- `claude-process.ts` - Claude Code CLIプロセス管理 (Claude Agent SDK経由)
+- `codex-process.ts` - Codex CLIプロセス管理 (Codex SDK経由)
 - `session.ts` - マルチセッション管理 (SessionManager)
 - `websocket.ts` - WebSocket接続管理・認証・メッセージルーティング
 - `index.ts` - エントリーポイント
@@ -112,7 +113,7 @@ Cloud Functions (relay) がFCMトークンの管理とプッシュ送信を担�
 
 ### Server → Client メッセージ
 - `system` - システムイベント (init, session_created)
-- `assistant` - Claudeの応答メッセージ
+- `assistant` - エージェントの応答メッセージ (Claude Code / Codex)
 - `tool_result` - ツール実行結果
 - `result` - 最終結果 (コスト・所要時間含む)
 - `error` - エラー通知
@@ -212,7 +213,7 @@ cd apps/mobile && flutter test                        # ユニットテスト
 
 #### E2E確認 (Bridge Server接続)
 - Bridge Serverを起動 (`npm run bridge`)
-- シミュレーターでアプリ起動し、実際のClaude CLIセッションで動作確認
+- シミュレーターでアプリ起動し、実際のClaude Code / Codexセッションで動作確認
 - 承認フロー、AskUserQuestion、ストリーミング等の実際の挙動を検証
 
 **本番Bridgeが稼働中の場合**: ポートを分けてテスト用Bridgeを起動する
