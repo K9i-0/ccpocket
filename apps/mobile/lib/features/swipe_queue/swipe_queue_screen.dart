@@ -870,8 +870,9 @@ class _SwipeQueueScreenState extends State<SwipeQueueScreen>
       return '';
     }
     if (mode == SwipeMode.deferOnly) return l.swipeSkip;
-    if (mode == SwipeMode.promptInput)
+    if (mode == SwipeMode.promptInput) {
       return _dragX > 0 ? l.swipeSend : l.swipeDismiss;
+    }
     return _dragX > 0 ? l.swipeApprove : l.swipeReject;
   }
 

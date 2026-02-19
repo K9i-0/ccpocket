@@ -410,5 +410,43 @@
       "size": {"type": "String"}
     }
   },
-  "connectToBackup": "Bridge に接続するとバックアップが利用できます"
+  "connectToBackup": "Bridge に接続するとバックアップが利用できます",
+
+  "usageConnectToView": "Bridge に接続すると利用量を表示できます",
+  "usageFetchFailed": "取得に失敗しました",
+  "usageFiveHour": "5時間",
+  "usageSevenDay": "7日間",
+  "usageResetAt": "リセット: {time}",
+  "@usageResetAt": {
+    "placeholders": {
+      "time": {"type": "String"}
+    }
+  },
+  "usageAlreadyReset": "リセット済み",
+
+  "attachedImages": "添付画像 ({count})",
+  "@attachedImages": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "attachedImagesNoCount": "添付画像",
+  "failedToFetchImages": "画像を取得できませんでした",
+  "responseTimedOut": "応答がタイムアウトしました",
+  "failedToFetchImagesWithError": "画像の取得に失敗しました: {error}",
+  "@failedToFetchImagesWithError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "retry": "リトライ",
+
+  "clipboardNotAvailable": "クリップボードにアクセスできません",
+  "failedToLoadImage": "画像の読み込みに失敗しました",
+  "noImageInClipboard": "クリップボードに画像がありません",
+  "failedToReadClipboard": "クリップボードの読み取りに失敗しました",
+  "selectFromGallery": "ギャラリーから選択",
+  "pasteFromClipboard": "クリップボードから貼付",
+
+  "voiceInputLanguage": "音声入力の言語"
 }

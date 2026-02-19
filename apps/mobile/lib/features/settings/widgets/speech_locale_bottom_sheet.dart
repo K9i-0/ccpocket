@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 
 /// Available speech recognition locales.
@@ -76,7 +77,7 @@ class _SpeechLocaleBottomSheetContent extends StatelessWidget {
               Icon(Icons.record_voice_over, color: cs.primary, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Voice Input Language',
+                AppLocalizations.of(context).voiceInputLanguage,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ],

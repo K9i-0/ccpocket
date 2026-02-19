@@ -1735,6 +1735,120 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'Bridge に接続するとバックアップが利用できます'**
   String get connectToBackup;
+
+  /// No description provided for @usageConnectToView.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge に接続すると利用量を表示できます'**
+  String get usageConnectToView;
+
+  /// No description provided for @usageFetchFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'取得に失敗しました'**
+  String get usageFetchFailed;
+
+  /// No description provided for @usageFiveHour.
+  ///
+  /// In ja, this message translates to:
+  /// **'5時間'**
+  String get usageFiveHour;
+
+  /// No description provided for @usageSevenDay.
+  ///
+  /// In ja, this message translates to:
+  /// **'7日間'**
+  String get usageSevenDay;
+
+  /// No description provided for @usageResetAt.
+  ///
+  /// In ja, this message translates to:
+  /// **'リセット: {time}'**
+  String usageResetAt(String time);
+
+  /// No description provided for @usageAlreadyReset.
+  ///
+  /// In ja, this message translates to:
+  /// **'リセット済み'**
+  String get usageAlreadyReset;
+
+  /// No description provided for @attachedImages.
+  ///
+  /// In ja, this message translates to:
+  /// **'添付画像 ({count})'**
+  String attachedImages(int count);
+
+  /// No description provided for @attachedImagesNoCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'添付画像'**
+  String get attachedImagesNoCount;
+
+  /// No description provided for @failedToFetchImages.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像を取得できませんでした'**
+  String get failedToFetchImages;
+
+  /// No description provided for @responseTimedOut.
+  ///
+  /// In ja, this message translates to:
+  /// **'応答がタイムアウトしました'**
+  String get responseTimedOut;
+
+  /// No description provided for @failedToFetchImagesWithError.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像の取得に失敗しました: {error}'**
+  String failedToFetchImagesWithError(String error);
+
+  /// No description provided for @retry.
+  ///
+  /// In ja, this message translates to:
+  /// **'リトライ'**
+  String get retry;
+
+  /// No description provided for @clipboardNotAvailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'クリップボードにアクセスできません'**
+  String get clipboardNotAvailable;
+
+  /// No description provided for @failedToLoadImage.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像の読み込みに失敗しました'**
+  String get failedToLoadImage;
+
+  /// No description provided for @noImageInClipboard.
+  ///
+  /// In ja, this message translates to:
+  /// **'クリップボードに画像がありません'**
+  String get noImageInClipboard;
+
+  /// No description provided for @failedToReadClipboard.
+  ///
+  /// In ja, this message translates to:
+  /// **'クリップボードの読み取りに失敗しました'**
+  String get failedToReadClipboard;
+
+  /// No description provided for @selectFromGallery.
+  ///
+  /// In ja, this message translates to:
+  /// **'ギャラリーから選択'**
+  String get selectFromGallery;
+
+  /// No description provided for @pasteFromClipboard.
+  ///
+  /// In ja, this message translates to:
+  /// **'クリップボードから貼付'**
+  String get pasteFromClipboard;
+
+  /// No description provided for @voiceInputLanguage.
+  ///
+  /// In ja, this message translates to:
+  /// **'音声入力の言語'**
+  String get voiceInputLanguage;
 }
 
 class _AppLocalizationsDelegate

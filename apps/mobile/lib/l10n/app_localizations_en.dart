@@ -893,4 +893,67 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get connectToBackup => 'Connect to Bridge to use backup';
+
+  @override
+  String get usageConnectToView => 'Connect to Bridge to view usage';
+
+  @override
+  String get usageFetchFailed => 'Failed to fetch';
+
+  @override
+  String get usageFiveHour => '5 hours';
+
+  @override
+  String get usageSevenDay => '7 days';
+
+  @override
+  String usageResetAt(String time) {
+    return 'Reset: $time';
+  }
+
+  @override
+  String get usageAlreadyReset => 'Already reset';
+
+  @override
+  String attachedImages(int count) {
+    return 'Attached Images ($count)';
+  }
+
+  @override
+  String get attachedImagesNoCount => 'Attached Images';
+
+  @override
+  String get failedToFetchImages => 'Could not fetch images';
+
+  @override
+  String get responseTimedOut => 'Response timed out';
+
+  @override
+  String failedToFetchImagesWithError(String error) {
+    return 'Failed to fetch images: $error';
+  }
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get clipboardNotAvailable => 'Cannot access clipboard';
+
+  @override
+  String get failedToLoadImage => 'Failed to load image';
+
+  @override
+  String get noImageInClipboard => 'No image in clipboard';
+
+  @override
+  String get failedToReadClipboard => 'Failed to read clipboard';
+
+  @override
+  String get selectFromGallery => 'Select from Gallery';
+
+  @override
+  String get pasteFromClipboard => 'Paste from Clipboard';
+
+  @override
+  String get voiceInputLanguage => 'Voice Input Language';
 }

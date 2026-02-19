@@ -881,4 +881,67 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get connectToBackup => 'Bridge に接続するとバックアップが利用できます';
+
+  @override
+  String get usageConnectToView => 'Bridge に接続すると利用量を表示できます';
+
+  @override
+  String get usageFetchFailed => '取得に失敗しました';
+
+  @override
+  String get usageFiveHour => '5時間';
+
+  @override
+  String get usageSevenDay => '7日間';
+
+  @override
+  String usageResetAt(String time) {
+    return 'リセット: $time';
+  }
+
+  @override
+  String get usageAlreadyReset => 'リセット済み';
+
+  @override
+  String attachedImages(int count) {
+    return '添付画像 ($count)';
+  }
+
+  @override
+  String get attachedImagesNoCount => '添付画像';
+
+  @override
+  String get failedToFetchImages => '画像を取得できませんでした';
+
+  @override
+  String get responseTimedOut => '応答がタイムアウトしました';
+
+  @override
+  String failedToFetchImagesWithError(String error) {
+    return '画像の取得に失敗しました: $error';
+  }
+
+  @override
+  String get retry => 'リトライ';
+
+  @override
+  String get clipboardNotAvailable => 'クリップボードにアクセスできません';
+
+  @override
+  String get failedToLoadImage => '画像の読み込みに失敗しました';
+
+  @override
+  String get noImageInClipboard => 'クリップボードに画像がありません';
+
+  @override
+  String get failedToReadClipboard => 'クリップボードの読み取りに失敗しました';
+
+  @override
+  String get selectFromGallery => 'ギャラリーから選択';
+
+  @override
+  String get pasteFromClipboard => 'クリップボードから貼付';
+
+  @override
+  String get voiceInputLanguage => '音声入力の言語';
 }

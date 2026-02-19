@@ -482,8 +482,9 @@ class BridgeService implements BridgeServiceBase {
     final idx = _sessions.indexWhere((s) => s.id == sessionId);
     if (idx < 0) return;
     final current = _sessions[idx];
-    if (current.status == statusStr && current.pendingPermission == null)
+    if (current.status == statusStr && current.pendingPermission == null) {
       return;
+    }
     // Clear pendingPermission when status moves away from waiting_approval
     final shouldClear =
         statusStr != 'waiting_approval' && current.pendingPermission != null;

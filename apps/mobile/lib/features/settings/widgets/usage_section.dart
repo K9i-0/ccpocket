@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 
@@ -106,7 +107,7 @@ class _UsageSectionState extends State<UsageSection> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Bridge に接続すると利用量を表示できます',
+                      AppLocalizations.of(context).usageConnectToView,
                       style: TextStyle(color: cs.onSurfaceVariant),
                     ),
                   ),
@@ -130,7 +131,7 @@ class _UsageSectionState extends State<UsageSection> {
                         ),
                       )
                     : Text(
-                        '取得に失敗しました',
+                        AppLocalizations.of(context).usageFetchFailed,
                         style: TextStyle(
                           fontSize: 13,
                           color: cs.onSurfaceVariant,
@@ -200,11 +201,17 @@ class _ProviderUsageTile extends StatelessWidget {
             )
           else ...[
             if (info.fiveHour != null)
-              _UsageBar(label: '5時間', window: info.fiveHour!),
+              _UsageBar(
+                label: AppLocalizations.of(context).usageFiveHour,
+                window: info.fiveHour!,
+              ),
             if (info.fiveHour != null && info.sevenDay != null)
               const SizedBox(height: 10),
             if (info.sevenDay != null)
-              _UsageBar(label: '7日間', window: info.sevenDay!),
+              _UsageBar(
+                label: AppLocalizations.of(context).usageSevenDay,
+                window: info.sevenDay!,
+              ),
           ],
         ],
       ),
@@ -221,8 +228,15 @@ class _UsageBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final pct = window.utilization.clamp(0, 100).toDouble();
+    final l = AppLocalizations.of(context);
     final resetDt = window.resetsAtDateTime;
-    final resetText = resetDt != null ? _formatResetTime(resetDt) : '';
+    final resetTimeStr = resetDt != null ? _formatResetTime(resetDt) : null;
+    // Show localized reset text: either "Reset: <time>" or "Already reset"
+    final resetDisplay = resetDt != null
+        ? (resetTimeStr != null
+              ? l.usageResetAt(resetTimeStr)
+              : l.usageAlreadyReset)
+        : null;
 
     // Color based on utilization level
     final barColor = pct >= 90
@@ -261,10 +275,10 @@ class _UsageBar extends StatelessWidget {
             valueColor: AlwaysStoppedAnimation(barColor),
           ),
         ),
-        if (resetText.isNotEmpty) ...[
+        if (resetDisplay != null) ...[
           const SizedBox(height: 2),
           Text(
-            'リセット: $resetText',
+            resetDisplay,
             style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
           ),
         ],
@@ -272,12 +286,12 @@ class _UsageBar extends StatelessWidget {
     );
   }
 
-  String _formatResetTime(DateTime dt) {
+  String? _formatResetTime(DateTime dt) {
     final now = DateTime.now();
     final local = dt.toLocal();
     final diff = local.difference(now);
 
-    if (diff.isNegative) return 'リセット済み';
+    if (diff.isNegative) return null;
 
     final hours = diff.inHours;
     final minutes = diff.inMinutes % 60;

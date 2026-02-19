@@ -79,28 +79,28 @@ class StatusIndicator extends HookWidget {
         child: Padding(
           key: const ValueKey('status_indicator'),
           padding: const EdgeInsets.only(left: 4, right: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Show elapsed time when active
-            if (isActive && elapsed.value.inSeconds > 0)
-              Padding(
-                padding: const EdgeInsets.only(right: 3),
-                child: Text(
-                  elapsedStr,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Show elapsed time when active
+              if (isActive && elapsed.value.inSeconds > 0)
+                Padding(
+                  padding: const EdgeInsets.only(right: 3),
+                  child: Text(
+                    elapsedStr,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
-              ),
-            // Animated status dot
-            _AnimatedStatusDot(color: color, isAnimating: isActive),
-          ],
+              // Animated status dot
+              _AnimatedStatusDot(color: color, isAnimating: isActive),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

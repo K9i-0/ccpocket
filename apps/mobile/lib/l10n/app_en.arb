@@ -328,5 +328,43 @@
       "size": {"type": "String"}
     }
   },
-  "connectToBackup": "Connect to Bridge to use backup"
+  "connectToBackup": "Connect to Bridge to use backup",
+
+  "usageConnectToView": "Connect to Bridge to view usage",
+  "usageFetchFailed": "Failed to fetch",
+  "usageFiveHour": "5 hours",
+  "usageSevenDay": "7 days",
+  "usageResetAt": "Reset: {time}",
+  "@usageResetAt": {
+    "placeholders": {
+      "time": {"type": "String"}
+    }
+  },
+  "usageAlreadyReset": "Already reset",
+
+  "attachedImages": "Attached Images ({count})",
+  "@attachedImages": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "attachedImagesNoCount": "Attached Images",
+  "failedToFetchImages": "Could not fetch images",
+  "responseTimedOut": "Response timed out",
+  "failedToFetchImagesWithError": "Failed to fetch images: {error}",
+  "@failedToFetchImagesWithError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "retry": "Retry",
+
+  "clipboardNotAvailable": "Cannot access clipboard",
+  "failedToLoadImage": "Failed to load image",
+  "noImageInClipboard": "No image in clipboard",
+  "failedToReadClipboard": "Failed to read clipboard",
+  "selectFromGallery": "Select from Gallery",
+  "pasteFromClipboard": "Paste from Clipboard",
+
+  "voiceInputLanguage": "Voice Input Language"
 }

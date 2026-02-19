@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../hooks/use_list_auto_complete.dart';
 import '../../../hooks/use_voice_input.dart';
 import '../../../models/messages.dart';
@@ -290,9 +291,11 @@ class ChatInputWithOverlays extends HookWidget {
       final clipboard = SystemClipboard.instance;
       if (clipboard == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('クリップボードにアクセスできません')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).clipboardNotAvailable),
+            ),
+          );
         }
         return;
       }
@@ -315,7 +318,11 @@ class ChatInputWithOverlays extends HookWidget {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('画像の読み込みに失敗しました')),
+                    SnackBar(
+                      content: Text(
+                        AppLocalizations.of(context).failedToLoadImage,
+                      ),
+                    ),
                   );
                 }
               }
@@ -326,15 +333,19 @@ class ChatInputWithOverlays extends HookWidget {
 
         // No image found in clipboard
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('クリップボードに画像がありません')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).noImageInClipboard),
+            ),
+          );
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('クリップボードの読み取りに失敗しました')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).failedToReadClipboard),
+            ),
+          );
         }
       }
     }
@@ -364,7 +375,7 @@ class ChatInputWithOverlays extends HookWidget {
               ListTile(
                 key: const ValueKey('attach_from_gallery'),
                 leading: const Icon(Icons.photo_library),
-                title: const Text('ギャラリーから選択'),
+                title: Text(AppLocalizations.of(context).selectFromGallery),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   pickImageFromGallery();
@@ -379,7 +390,7 @@ class ChatInputWithOverlays extends HookWidget {
                       : Theme.of(sheetContext).colorScheme.outline,
                 ),
                 title: Text(
-                  'クリップボードから貼付',
+                  AppLocalizations.of(context).pasteFromClipboard,
                   style: hasClipImage
                       ? null
                       : TextStyle(

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../services/bridge_service.dart';
 import '../../widgets/bubbles/image_preview.dart';
@@ -69,7 +70,7 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
             if (msg.images.isEmpty) {
               setState(() {
                 _loading = false;
-                _error = '画像を取得できませんでした';
+                _error = AppLocalizations.of(context).failedToFetchImages;
               });
             } else {
               setState(() {
@@ -80,9 +81,10 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
           },
           onError: (Object err) {
             if (!mounted) return;
+            final l = AppLocalizations.of(context);
             final message = err is TimeoutException
-                ? '応答がタイムアウトしました'
-                : '画像の取得に失敗しました: $err';
+                ? l.responseTimedOut
+                : l.failedToFetchImagesWithError('$err');
             setState(() {
               _loading = false;
               _error = message;
@@ -111,7 +113,9 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
-          widget.imageCount > 1 ? '添付画像 (${widget.imageCount})' : '添付画像',
+          widget.imageCount > 1
+              ? AppLocalizations.of(context).attachedImages(widget.imageCount)
+              : AppLocalizations.of(context).attachedImagesNoCount,
           style: const TextStyle(fontSize: 16),
         ),
       ),
@@ -173,9 +177,9 @@ class _ErrorView extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh, color: Colors.white70),
-              label: const Text(
-                'リトライ',
-                style: TextStyle(color: Colors.white70),
+              label: Text(
+                AppLocalizations.of(context).retry,
+                style: const TextStyle(color: Colors.white70),
               ),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.white38),
