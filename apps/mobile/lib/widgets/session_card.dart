@@ -502,14 +502,6 @@ class _AskUserAreaState extends State<_AskUserArea> {
   int get _totalPages =>
       _isMultiQuestion ? _questions.length + 1 : _questions.length;
 
-  /// Whether all questions have been answered.
-  bool get _allAnswered {
-    for (var i = 0; i < _questions.length; i++) {
-      if (!_singleAnswers.containsKey(i)) return false;
-    }
-    return true;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -536,8 +528,22 @@ class _AskUserAreaState extends State<_AskUserArea> {
     if (!_isMultiQuestion) {
       // Single question → send immediately
       widget.onAnswer(label);
+    } else {
+      // Multi-question: auto-advance to next page
+      _goToPage(_currentPage + 1);
     }
-    // Multi-question: just store, no auto-advance
+  }
+
+  /// Auto-commit multi-select answers when leaving a page.
+  void _autoCommitMultiSelect(int pageIndex) {
+    if (pageIndex >= _questions.length) return;
+    final q = _questions[pageIndex] as Map<String, dynamic>;
+    final isMulti = q['multiSelect'] as bool? ?? false;
+    if (!isMulti) return;
+    final selected = _multiAnswers[pageIndex];
+    if (selected != null && selected.isNotEmpty) {
+      _singleAnswers[pageIndex] = selected.join(', ');
+    }
   }
 
   void _confirmMultiSelect(int questionIndex) {
@@ -562,6 +568,8 @@ class _AskUserAreaState extends State<_AskUserArea> {
         _showCustomInput = false;
       });
       _textController.clear();
+      // Auto-advance to next page
+      _goToPage(_currentPage + 1);
     }
   }
 
@@ -748,32 +756,34 @@ class _AskUserAreaState extends State<_AskUserArea> {
                 },
               ),
             ),
-        const SizedBox(height: 2),
-        SizedBox(
-          width: double.infinity,
-          height: _buttonHeight,
-          child: FilledButton.icon(
-            onPressed: selected.isNotEmpty
-                ? () => _confirmMultiSelect(questionIndex)
-                : null,
-            icon: const Icon(Icons.check, size: 16),
-            label: Text('Confirm (${selected.length})'),
-            style: FilledButton.styleFrom(
-              textStyle: const TextStyle(fontSize: 13),
-              backgroundColor: widget.statusColor.withValues(alpha: 0.15),
-              foregroundColor: widget.statusColor,
-              disabledBackgroundColor: widget.statusColor.withValues(
-                alpha: 0.05,
-              ),
-              disabledForegroundColor: widget.statusColor.withValues(
-                alpha: 0.3,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+        if (!_isMultiQuestion) ...[
+          const SizedBox(height: 2),
+          SizedBox(
+            width: double.infinity,
+            height: _buttonHeight,
+            child: FilledButton.icon(
+              onPressed: selected.isNotEmpty
+                  ? () => _confirmMultiSelect(questionIndex)
+                  : null,
+              icon: const Icon(Icons.check, size: 16),
+              label: Text('Confirm (${selected.length})'),
+              style: FilledButton.styleFrom(
+                textStyle: const TextStyle(fontSize: 13),
+                backgroundColor: widget.statusColor.withValues(alpha: 0.15),
+                foregroundColor: widget.statusColor,
+                disabledBackgroundColor: widget.statusColor.withValues(
+                  alpha: 0.05,
+                ),
+                disabledForegroundColor: widget.statusColor.withValues(
+                  alpha: 0.3,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -837,7 +847,10 @@ class _AskUserAreaState extends State<_AskUserArea> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text('Send', style: TextStyle(fontSize: 13)),
+                child: Text(
+                  _isMultiQuestion ? 'Next' : 'Send',
+                  style: const TextStyle(fontSize: 13),
+                ),
               ),
             ),
           ],
@@ -868,8 +881,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
     for (final q in questions) {
       final qMap = q as Map<String, dynamic>;
       final opts = qMap['options'] as List<dynamic>? ?? [];
-      final isMulti = qMap['multiSelect'] as bool? ?? false;
-      final rows = opts.length + (isMulti ? 1 : 0) + 1; // +1 for Other
+      final rows = opts.length + 1; // +1 for Other
       if (rows > maxRows) maxRows = rows;
     }
     // Summary page: 1 header + questions.length answer rows + 1 button row
@@ -890,11 +902,14 @@ class _AskUserAreaState extends State<_AskUserArea> {
           child: PageView.builder(
             controller: _pageController,
             physics: const ClampingScrollPhysics(),
-            onPageChanged: (i) => setState(() {
-              _currentPage = i;
-              _showCustomInput = false;
-              _textController.clear();
-            }),
+            onPageChanged: (i) {
+              _autoCommitMultiSelect(_currentPage);
+              setState(() {
+                _currentPage = i;
+                _showCustomInput = false;
+                _textController.clear();
+              });
+            },
             itemCount: _totalPages,
             itemBuilder: (context, index) {
               // Last page = summary
@@ -967,7 +982,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
             isAnswered: false,
             isCurrent: _currentPage == questions.length,
             isSubmit: true,
-            onTap: _allAnswered ? () => _goToPage(questions.length) : null,
+            onTap: () => _goToPage(questions.length),
           ),
         ],
       ),
@@ -1057,7 +1072,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
                         child: SizedBox(
                           height: _buttonHeight,
                           child: FilledButton.icon(
-                            onPressed: _allAnswered ? _submitAll : null,
+                            onPressed: _submitAll,
                             icon: const Icon(Icons.send, size: 16),
                             label: const Text('Submit answers'),
                             style: FilledButton.styleFrom(
@@ -1143,7 +1158,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
                     ),
                   ),
                   Text(
-                    hasAnswer ? answer : '(not answered)',
+                    hasAnswer ? answer : '(skip)',
                     style: TextStyle(
                       fontSize: 12,
                       fontStyle: hasAnswer
