@@ -13,22 +13,22 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   static ThemeData get lightTheme {
     final colorScheme = ColorScheme.light(
-      surface: const Color(0xFFFAFAF7), // warm ivory
+      surface: const Color(0xFFF4F4F5), // Zinc 100 (light grey bg)
       surfaceContainerLowest: Colors.white,
-      surfaceContainerLow: const Color(0xFFF7F6F3), // warm paper
-      surfaceContainer: const Color(0xFFF0EEEB), // warm light grey (brighter)
-      surfaceContainerHigh: const Color(0xFFF5F2EF), // card bg (bright)
-      surfaceContainerHighest: const Color(0xFFEAE7E4), // warm mid
-      primary: const Color(0xFFD4450A), // Ember (brighter)
+      surfaceContainerLow: const Color(0xFFFAFAFA), // Zinc 50
+      surfaceContainer: const Color(0xFFF4F4F5), // Zinc 100
+      surfaceContainerHigh: Colors.white, // crisp white cards
+      surfaceContainerHighest: const Color(0xFFE4E4E7), // Zinc 200
+      primary: const Color(0xFF18181B), // Zinc 900 (near black primary)
       onPrimary: Colors.white,
-      primaryContainer: const Color(0xFFFFF0E0), // warm Orange 100
-      secondary: const Color(0xFF0D9488), // Teal 600 (brighter accent)
+      primaryContainer: const Color(0xFFE4E4E7), // Zinc 200
+      secondary: const Color(0xFF52525B), // Zinc 600
       onSecondary: Colors.white,
-      tertiary: const Color(0xFF92400E), // Amber 800 (subtle warm variant)
-      error: const Color(0xFFB91C1C), // Red 700
+      tertiary: const Color(0xFF71717A), // Zinc 500
+      error: const Color(0xFFDC2626), // Red 600
       onError: Colors.white,
-      outline: const Color(0xFF787068), // warm grey (WCAG AA)
-      outlineVariant: const Color(0xFFC7C2BC), // warm light border (refined)
+      outline: const Color(0xFFA1A1AA), // Zinc 400
+      outlineVariant: const Color(0xFFE4E4E7), // Zinc 200
     );
 
     return _buildTheme(colorScheme, Brightness.light, AppColors.light());
@@ -36,24 +36,26 @@ class AppTheme {
 
   static ThemeData get darkTheme {
     final colorScheme = ColorScheme.dark(
-      surface: const Color(0xFF171717), // neutral near-black
-      surfaceContainerLowest: const Color(0xFF141414),
-      surfaceContainerLow: const Color(0xFF1E1E1E), // neutral dark (lifted)
-      surfaceContainer: const Color(0xFF242424), // neutral dark grey (lifted)
-      surfaceContainerHigh: const Color(0xFF2A2A2A), // card bg (ChatGPT-like)
-      surfaceContainerHighest: const Color(0xFF333333), // lifted
-      primary: const Color(0xFFF97316), // Orange 500 (brighter for dark)
-      onPrimary: Colors.white,
-      primaryContainer: const Color(0xFFC2410C),
-      secondary: const Color(0xFF2DD4BF), // Teal 300 (bright for dark)
-      onSecondary: Colors.black,
-      tertiary: const Color(0xFFFBBF24), // Amber 400
-      error: const Color(0xFFF87171), // Red 400
-      onError: Colors.black,
-      onSurface: const Color(0xFFE8E5E1), // slightly warm white
-      onSurfaceVariant: const Color(0xFFB8B5B1), // neutral-warm grey
-      outline: const Color(0xFF6E6E6E), // neutral grey
-      outlineVariant: const Color(0xFF3D3D3D), // card border (clean)
+      surface: const Color(0xFF09090B), // Zinc 950 (deep black bg)
+      surfaceContainerLowest: const Color(0xFF000000), // Pure black
+      surfaceContainerLow: const Color(0xFF18181B), // Zinc 900
+      surfaceContainer: const Color(0xFF18181B), // Zinc 900
+      surfaceContainerHigh: const Color(
+        0xFF27272A,
+      ), // Zinc 800 (clean grey cards)
+      surfaceContainerHighest: const Color(0xFF3F3F46), // Zinc 700
+      primary: const Color(0xFFFAFAFA), // Zinc 50 (white primary)
+      onPrimary: const Color(0xFF18181B), // Zinc 900
+      primaryContainer: const Color(0xFF3F3F46), // Zinc 700
+      secondary: const Color(0xFFA1A1AA), // Zinc 400
+      onSecondary: const Color(0xFF18181B), // Zinc 900
+      tertiary: const Color(0xFF71717A), // Zinc 500
+      error: const Color(0xFFEF4444), // Red 500
+      onError: Colors.white,
+      onSurface: const Color(0xFFF4F4F5), // Zinc 100
+      onSurfaceVariant: const Color(0xFFA1A1AA), // Zinc 400
+      outline: const Color(0xFF71717A), // Zinc 500
+      outlineVariant: const Color(0xFF3F3F46), // Zinc 700
     );
 
     return _buildTheme(colorScheme, Brightness.dark, AppColors.dark());
@@ -427,79 +429,79 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.diffDeletionText,
   });
 
-  // ---- Light (Graphite & Ember palette) ----
+  // ---- Light (Monochrome palette) ----
   factory AppColors.light() => const AppColors(
-    userBubble: Color(0xFFD4450A), // Ember (brighter)
+    userBubble: Color(0xFF18181B), // Zinc 900 (near black)
     userBubbleText: Color(0xFFFFFFFF),
-    assistantBubble: Color(0xFFF3F0EE), // warm cream (refined)
-    toolBubble: Color(0xFFF0FDFA), // Teal 50
-    toolBubbleBorder: Color(0xFF5EEAD4), // Teal 300
-    toolIcon: Color(0xFF0F766E), // Teal 700
+    assistantBubble: Color(0xFFF4F4F5), // Zinc 100
+    toolBubble: Color(0xFFFAFAFA), // Zinc 50
+    toolBubbleBorder: Color(0xFFE4E4E7), // Zinc 200
+    toolIcon: Color(0xFF52525B), // Zinc 600
     errorBubble: Color(0xFFFEF2F2), // Red 50
     errorBubbleBorder: Color(0xFFEF4444), // Red 500
     errorText: Color(0xFFB91C1C), // Red 700
-    permissionBubble: Color(0xFFFFF7ED), // Orange 50
-    permissionBubbleBorder: Color(0xFFD97706), // Amber 600
-    permissionIcon: Color(0xFFD4450A), // Ember (match primary)
-    askBubble: Color(0xFFFFF7ED), // Orange 50
-    askBubbleBorder: Color(0xFFD97706), // Amber 600
-    askIcon: Color(0xFF9A3412), // Orange 800
-    systemChip: Color(0xFFF0FDFA), // Teal 50 (unified)
+    permissionBubble: Color(0xFFFAFAFA), // Zinc 50
+    permissionBubbleBorder: Color(0xFFE4E4E7), // Zinc 200
+    permissionIcon: Color(0xFF18181B), // Zinc 900
+    askBubble: Color(0xFFFAFAFA), // Zinc 50
+    askBubbleBorder: Color(0xFFE4E4E7), // Zinc 200
+    askIcon: Color(0xFF18181B), // Zinc 900
+    systemChip: Color(0xFFF4F4F5), // Zinc 100
     successChip: Color(0xFFF0FDF4), // Green 50
     errorChip: Color(0xFFFEE2E2), // Red 100
-    approvalBar: Color(0xFFFFF7ED), // Orange 50
-    approvalBarBorder: Color(0xFFD4450A), // Ember (unified)
-    statusStarting: Color(0xFF4F46E5), // Indigo 600
-    statusRunning: Color(0xFF0D9488), // Teal 600 (brighter)
-    statusApproval: Color(0xFFD4450A), // Ember (brighter)
-    statusIdle: Color(0xFF787068), // warm grey (WCAG AA)
-    subtleText: Color(0xFF6B5E54), // warm stone (WCAG AA)
-    codeBackground: Color(0xFFF5F0EB), // warm cream
-    codeBorder: Color(0xFF99D5CF), // Teal accent border
-    toolResultBackground: Color(0xFFF5F0EB),
-    toolResultText: Color(0xFF6B5E54), // warm stone (WCAG AA)
-    toolResultTextExpanded: Color(0xFF44403C), // Stone 700
+    approvalBar: Color(0xFFF4F4F5), // Zinc 100
+    approvalBarBorder: Color(0xFFE4E4E7), // Zinc 200
+    statusStarting: Color(0xFF52525B), // Zinc 600
+    statusRunning: Color(0xFF18181B), // Zinc 900
+    statusApproval: Color(0xFF18181B), // Zinc 900
+    statusIdle: Color(0xFFA1A1AA), // Zinc 400
+    subtleText: Color(0xFF71717A), // Zinc 500
+    codeBackground: Color(0xFFFAFAFA), // Zinc 50
+    codeBorder: Color(0xFFE4E4E7), // Zinc 200
+    toolResultBackground: Color(0xFFFAFAFA), // Zinc 50
+    toolResultText: Color(0xFF71717A), // Zinc 500
+    toolResultTextExpanded: Color(0xFF3F3F46), // Zinc 700
     diffAdditionBackground: Color(0xFFDCFCE7), // Green 100
     diffAdditionText: Color(0xFF166534), // Green 800
     diffDeletionBackground: Color(0xFFFEE2E2), // Red 100
     diffDeletionText: Color(0xFF991B1B), // Red 800
   );
 
-  // ---- Dark (Graphite & Ember palette) ----
+  // ---- Dark (Monochrome palette) ----
   factory AppColors.dark() => const AppColors(
-    userBubble: Color(0xFFF97316), // Orange 500
-    userBubbleText: Color(0xFFFFFFFF),
-    assistantBubble: Color(0xFF1E1E1E), // neutral dark
-    toolBubble: Color(0xFF0A1F12), // deep green
-    toolBubbleBorder: Color(0xFF1A5C35),
-    toolIcon: Color(0xFF86EFAC), // Green 300
-    errorBubble: Color(0xFF2A1215),
-    errorBubbleBorder: Color(0xFF5C2020),
+    userBubble: Color(0xFFFAFAFA), // Zinc 50 (white)
+    userBubbleText: Color(0xFF18181B), // Zinc 900
+    assistantBubble: Color(0xFF18181B), // Zinc 900
+    toolBubble: Color(0xFF09090B), // Zinc 950
+    toolBubbleBorder: Color(0xFF27272A), // Zinc 800
+    toolIcon: Color(0xFFA1A1AA), // Zinc 400
+    errorBubble: Color(0xFF450A0A), // Red 950
+    errorBubbleBorder: Color(0xFF7F1D1D), // Red 900
     errorText: Color(0xFFFCA5A5), // Red 300
-    permissionBubble: Color(0xFF241A0B), // deep warm
-    permissionBubbleBorder: Color(0xFF5C3D15),
-    permissionIcon: Color(0xFFFDBA74), // Orange 300
-    askBubble: Color(0xFF241A0B), // deep warm
-    askBubbleBorder: Color(0xFF5C3D15),
-    askIcon: Color(0xFFFDBA74), // Orange 300
-    systemChip: Color(0xFF0F1A16), // dark green
-    successChip: Color(0xFF0A1F12),
-    errorChip: Color(0xFF2A1215),
-    approvalBar: Color(0xFF241A0B),
-    approvalBarBorder: Color(0xFF5C3D15),
-    statusStarting: Color(0xFF60A5FA), // Blue 400
-    statusRunning: Color(0xFF4ADE80), // Green 400
-    statusApproval: Color(0xFFFDBA74), // Orange 300
-    statusIdle: Color(0xFF6E6E6E), // neutral grey
-    subtleText: Color(0xFFB8B5B0), // neutral-warm stone
-    codeBackground: Color(0xFF1E1E1E), // neutral lifted
-    codeBorder: Color(0xFF3D3D3D), // match outlineVariant
-    toolResultBackground: Color(0xFF1E1E1E),
-    toolResultText: Color(0xFFB8B5B0), // neutral-warm stone
-    toolResultTextExpanded: Color(0xFFD6D3D1), // Stone 300
-    diffAdditionBackground: Color(0xFF14532D), // Green 900
+    permissionBubble: Color(0xFF09090B), // Zinc 950
+    permissionBubbleBorder: Color(0xFF27272A), // Zinc 800
+    permissionIcon: Color(0xFFFAFAFA), // Zinc 50
+    askBubble: Color(0xFF09090B), // Zinc 950
+    askBubbleBorder: Color(0xFF27272A), // Zinc 800
+    askIcon: Color(0xFFFAFAFA), // Zinc 50
+    systemChip: Color(0xFF18181B), // Zinc 900
+    successChip: Color(0xFF052E16), // Green 950
+    errorChip: Color(0xFF450A0A), // Red 950
+    approvalBar: Color(0xFF18181B), // Zinc 900
+    approvalBarBorder: Color(0xFF27272A), // Zinc 800
+    statusStarting: Color(0xFFA1A1AA), // Zinc 400
+    statusRunning: Color(0xFFFAFAFA), // Zinc 50
+    statusApproval: Color(0xFFFAFAFA), // Zinc 50
+    statusIdle: Color(0xFF52525B), // Zinc 600
+    subtleText: Color(0xFFA1A1AA), // Zinc 400
+    codeBackground: Color(0xFF09090B), // Zinc 950
+    codeBorder: Color(0xFF27272A), // Zinc 800
+    toolResultBackground: Color(0xFF09090B), // Zinc 950
+    toolResultText: Color(0xFFA1A1AA), // Zinc 400
+    toolResultTextExpanded: Color(0xFFF4F4F5), // Zinc 100
+    diffAdditionBackground: Color(0xFF052E16), // Green 950
     diffAdditionText: Color(0xFF86EFAC), // Green 300
-    diffDeletionBackground: Color(0xFF7F1D1D), // Red 900
+    diffDeletionBackground: Color(0xFF450A0A), // Red 950
     diffDeletionText: Color(0xFFFCA5A5), // Red 300
   );
 
