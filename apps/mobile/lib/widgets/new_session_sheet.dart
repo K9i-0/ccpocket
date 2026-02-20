@@ -466,6 +466,37 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     Navigator.pop(context, _buildParams());
   }
 
+  InputDecoration _buildInputDecoration(
+    String label, {
+    String? hintText,
+    Widget? prefixIcon,
+    String? errorText,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return InputDecoration(
+      labelText: label,
+      hintText: hintText,
+      prefixIcon: prefixIcon,
+      errorText: errorText,
+      isDense: true,
+      filled: true,
+      fillColor: cs.surfaceContainerHigh,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: cs.primary),
+      ),
+      errorStyle: const TextStyle(fontSize: 11),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
@@ -516,14 +547,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   Widget _buildTitle() {
     final l = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
-    final claudeStyle = providerStyleFor(context, Provider.claude);
-    final codexStyle = providerStyleFor(context, Provider.codex);
-    final claudeLabelColor = _provider == Provider.claude
-        ? claudeStyle.foreground
-        : claudeStyle.foreground.withValues(alpha: 0.72);
-    final codexLabelColor = _provider == Provider.codex
-        ? codexStyle.foreground
-        : codexStyle.foreground.withValues(alpha: 0.72);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -535,45 +558,42 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<Provider>(
-              segments: [
-                ButtonSegment(
-                  value: Provider.claude,
-                  label: Text(
-                    Provider.claude.label,
-                    style: TextStyle(fontSize: 13, color: claudeLabelColor),
-                  ),
-                  icon: Icon(
-                    claudeStyle.icon,
-                    size: 16,
-                    color: claudeLabelColor,
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _ProviderToggleButton(
+                    provider: Provider.claude,
+                    isSelected: _provider == Provider.claude,
+                    isLocked: widget.lockProvider,
+                    onTap: () {
+                      if (!widget.lockProvider) {
+                        setState(() => _provider = Provider.claude);
+                      }
+                    },
                   ),
                 ),
-                ButtonSegment(
-                  value: Provider.codex,
-                  label: Text(
-                    Provider.codex.label,
-                    style: TextStyle(fontSize: 13, color: codexLabelColor),
+                Expanded(
+                  child: _ProviderToggleButton(
+                    provider: Provider.codex,
+                    isSelected: _provider == Provider.codex,
+                    isLocked: widget.lockProvider,
+                    onTap: () {
+                      if (!widget.lockProvider) {
+                        setState(() => _provider = Provider.codex);
+                      }
+                    },
                   ),
-                  icon: Icon(codexStyle.icon, size: 16, color: codexLabelColor),
                 ),
               ],
-              selected: {_provider},
-              onSelectionChanged: widget.lockProvider
-                  ? null
-                  : (selected) {
-                      setState(() {
-                        _provider = selected.first;
-                      });
-                    },
-              style: SegmentedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                backgroundColor: colorScheme.surfaceContainerLow,
-                selectedBackgroundColor: colorScheme.surfaceContainerHighest,
-                side: BorderSide(color: colorScheme.outlineVariant),
-              ),
             ),
           ),
         ],
@@ -611,30 +631,56 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   ) {
     final cs = Theme.of(context).colorScheme;
     final isSelected = _pathController.text == project.path;
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      leading: Icon(
-        Icons.folder_outlined,
-        size: 22,
-        color: isSelected ? cs.primary : appColors.subtleText,
-      ),
-      title: Text(
-        project.name,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-          color: isSelected ? cs.primary : null,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _onProjectSelected(project.path),
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? cs.primaryContainer.withValues(alpha: 0.3)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? cs.primary.withValues(alpha: 0.5)
+                    : Colors.transparent,
+              ),
+            ),
+            child: ListTile(
+              dense: true,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              leading: Icon(
+                Icons.folder_outlined,
+                size: 22,
+                color: isSelected ? cs.primary : appColors.subtleText,
+              ),
+              title: Text(
+                project.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: isSelected ? cs.primary : null,
+                ),
+              ),
+              subtitle: Text(
+                shortenPath(project.path),
+                style: TextStyle(fontSize: 11, color: appColors.subtleText),
+              ),
+              trailing: isSelected
+                  ? Icon(Icons.check_circle, size: 20, color: cs.primary)
+                  : null,
+            ),
+          ),
         ),
       ),
-      subtitle: Text(
-        shortenPath(project.path),
-        style: TextStyle(fontSize: 11, color: appColors.subtleText),
-      ),
-      trailing: isSelected
-          ? Icon(Icons.check_circle, size: 20, color: cs.primary)
-          : null,
-      onTap: () => _onProjectSelected(project.path),
     );
   }
 
@@ -669,11 +715,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       child: TextField(
         key: const ValueKey('dialog_project_path'),
         controller: _pathController,
-        decoration: InputDecoration(
-          labelText: l.projectPath,
+        decoration: _buildInputDecoration(
+          l.projectPath,
           hintText: l.projectPathHint,
-          border: const OutlineInputBorder(),
-          isDense: true,
         ),
         onChanged: (_) => setState(() {}),
       ),
@@ -692,11 +736,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             DropdownButtonFormField<PermissionMode>(
               key: const ValueKey('dialog_permission_mode'),
               initialValue: _permissionMode,
-              decoration: InputDecoration(
-                labelText: l.permission,
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
+              decoration: _buildInputDecoration(l.permission),
               items: PermissionMode.values
                   .map(
                     (m) => DropdownMenuItem(
@@ -726,11 +766,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             DropdownButtonFormField<ApprovalPolicy>(
               key: const ValueKey('dialog_codex_approval'),
               initialValue: _approvalPolicy,
-              decoration: InputDecoration(
-                labelText: l.approval,
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
+              decoration: _buildInputDecoration(l.approval),
               style: TextStyle(
                 fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -790,16 +826,22 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   /// Unified Advanced options section for both providers.
   Widget _buildAdvancedOptions(AppColors appColors) {
     final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: appColors.subtleText.withValues(alpha: 0.2)),
-        borderRadius: BorderRadius.circular(8),
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: ExpansionTile(
         key: ValueKey('dialog_advanced_${_provider.value}'),
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        title: Text(l.advanced, style: const TextStyle(fontSize: 13)),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        title: Text(
+          l.advanced,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
         children: _provider == Provider.claude
             ? _buildClaudeAdvancedChildren()
             : _buildCodexAdvancedChildren(),
@@ -813,11 +855,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       TextField(
         key: const ValueKey('dialog_claude_model'),
         controller: _claudeModelController,
-        decoration: InputDecoration(
-          labelText: l.modelOptional,
+        decoration: _buildInputDecoration(
+          l.modelOptional,
           hintText: 'claude-sonnet-4-5',
-          border: const OutlineInputBorder(),
-          isDense: true,
           prefixIcon: const Icon(Icons.psychology_outlined, size: 18),
         ),
         style: const TextStyle(fontSize: 13),
@@ -829,11 +869,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             child: DropdownButtonFormField<ClaudeEffort?>(
               key: const ValueKey('dialog_claude_effort'),
               initialValue: _claudeEffort,
-              decoration: InputDecoration(
-                labelText: l.effort,
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
+              decoration: _buildInputDecoration(l.effort),
               style: TextStyle(
                 fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -866,13 +902,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               key: const ValueKey('dialog_claude_max_turns'),
               controller: _claudeMaxTurnsController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: l.maxTurns,
+              decoration: _buildInputDecoration(
+                l.maxTurns,
                 hintText: l.maxTurnsHint,
-                border: const OutlineInputBorder(),
-                isDense: true,
                 errorText: _maxTurnsError,
-                errorStyle: const TextStyle(fontSize: 11),
               ),
               style: const TextStyle(fontSize: 13),
               onChanged: (_) {
@@ -892,13 +925,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: InputDecoration(
-                labelText: l.maxBudgetUsd,
+              decoration: _buildInputDecoration(
+                l.maxBudgetUsd,
                 hintText: l.maxBudgetHint,
-                border: const OutlineInputBorder(),
-                isDense: true,
                 errorText: _maxBudgetError,
-                errorStyle: const TextStyle(fontSize: 11),
               ),
               style: const TextStyle(fontSize: 13),
               onChanged: (_) {
@@ -911,11 +941,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             child: TextField(
               key: const ValueKey('dialog_claude_fallback_model'),
               controller: _claudeFallbackModelController,
-              decoration: InputDecoration(
-                labelText: l.fallbackModel,
+              decoration: _buildInputDecoration(
+                l.fallbackModel,
                 hintText: 'claude-haiku-4-5',
-                border: const OutlineInputBorder(),
-                isDense: true,
               ),
               style: const TextStyle(fontSize: 13),
             ),
@@ -956,10 +984,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       DropdownButtonFormField<String?>(
         key: const ValueKey('dialog_codex_model'),
         initialValue: _selectedModel,
-        decoration: InputDecoration(
-          labelText: l.model,
-          border: const OutlineInputBorder(),
-          isDense: true,
+        decoration: _buildInputDecoration(
+          l.model,
           prefixIcon: const Icon(Icons.psychology_outlined, size: 18),
         ),
         style: TextStyle(
@@ -983,11 +1009,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       DropdownButtonFormField<SandboxMode>(
         key: const ValueKey('dialog_codex_sandbox'),
         initialValue: _sandboxMode,
-        decoration: InputDecoration(
-          labelText: l.sandbox,
-          border: const OutlineInputBorder(),
-          isDense: true,
-        ),
+        decoration: _buildInputDecoration(l.sandbox),
         style: TextStyle(
           fontSize: 13,
           color: Theme.of(context).colorScheme.onSurface,
@@ -1021,11 +1043,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             child: DropdownButtonFormField<ReasoningEffort?>(
               key: const ValueKey('dialog_codex_reasoning_effort'),
               initialValue: _modelReasoningEffort,
-              decoration: InputDecoration(
-                labelText: l.reasoning,
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
+              decoration: _buildInputDecoration(l.reasoning),
               style: TextStyle(
                 fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -1057,11 +1075,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             child: DropdownButtonFormField<WebSearchMode?>(
               key: const ValueKey('dialog_codex_web_search_mode'),
               initialValue: _webSearchMode,
-              decoration: InputDecoration(
-                labelText: l.webSearch,
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
+              decoration: _buildInputDecoration(l.webSearch),
               style: TextStyle(
                 fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -1148,11 +1162,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           TextField(
             key: const ValueKey('dialog_worktree_branch'),
             controller: _branchController,
-            decoration: InputDecoration(
-              labelText: l.branchOptional,
+            decoration: _buildInputDecoration(
+              l.branchOptional,
               hintText: l.branchHint,
-              border: const OutlineInputBorder(),
-              isDense: true,
               prefixIcon: const Icon(Icons.account_tree_outlined, size: 18),
             ),
             style: const TextStyle(fontSize: 13),
@@ -1256,23 +1268,91 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             _selectedWorktree != null);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l.cancel),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+          SizedBox(
+            height: 48,
             child: FilledButton(
               key: const ValueKey('dialog_start_button'),
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                elevation: 0,
+              ),
               onPressed: canStart ? _start : null,
-              child: Text(l.start),
+              child: Text(
+                l.start,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            child: Text(l.cancel),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProviderToggleButton extends StatelessWidget {
+  final Provider provider;
+  final bool isSelected;
+  final bool isLocked;
+  final VoidCallback onTap;
+
+  const _ProviderToggleButton({
+    required this.provider,
+    required this.isSelected,
+    required this.isLocked,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final style = providerStyleFor(context, provider);
+    final cs = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: isLocked ? null : onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? style.background : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              style.icon,
+              size: 16,
+              color: isSelected ? style.foreground : cs.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              provider.label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? style.foreground : cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
