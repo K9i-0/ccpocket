@@ -832,8 +832,23 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   key: const ValueKey('dialog_worktree'),
                   avatar: _useWorktree
                       ? null
-                      : const Icon(Icons.account_tree_outlined, size: 16),
-                  label: Text(l.worktree, style: const TextStyle(fontSize: 13)),
+                      : Icon(
+                          Icons.account_tree_outlined,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                  label: Text(
+                    l.worktree,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _useWorktree
+                          ? Theme.of(context).colorScheme.onPrimaryContainer
+                          : Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  checkmarkColor: Theme.of(
+                    context,
+                  ).colorScheme.onPrimaryContainer,
                   selected: _useWorktree,
                   onSelected: _onWorktreeToggle,
                 ),
@@ -1171,8 +1186,14 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               ChoiceChip(
                 label: Text(
                   l.worktreeNew,
-                  style: const TextStyle(fontSize: 12),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _worktreeMode == _WorktreeMode.createNew
+                        ? cs.onPrimaryContainer
+                        : cs.onSurface,
+                  ),
                 ),
+                checkmarkColor: cs.onPrimaryContainer,
                 selected: _worktreeMode == _WorktreeMode.createNew,
                 onSelected: (_) => setState(() {
                   _worktreeMode = _WorktreeMode.createNew;
@@ -1184,8 +1205,14 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               ChoiceChip(
                 label: Text(
                   l.worktreeExisting(_worktrees!.length),
-                  style: const TextStyle(fontSize: 12),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _worktreeMode == _WorktreeMode.useExisting
+                        ? cs.onPrimaryContainer
+                        : cs.onSurface,
+                  ),
                 ),
+                checkmarkColor: cs.onPrimaryContainer,
                 selected: _worktreeMode == _WorktreeMode.useExisting,
                 onSelected: (_) => setState(() {
                   _worktreeMode = _WorktreeMode.useExisting;
