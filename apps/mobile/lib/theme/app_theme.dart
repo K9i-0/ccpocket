@@ -22,6 +22,7 @@ class AppTheme {
       primary: const Color(0xFFD4450A), // Ember (brighter)
       onPrimary: Colors.white,
       primaryContainer: const Color(0xFFFFF0E0), // warm Orange 100
+      onPrimaryContainer: const Color(0xFFD4450A), // Ember (vibrant contrast)
       secondary: const Color(0xFF0D9488), // Teal 600 (brighter accent)
       onSecondary: Colors.white,
       tertiary: const Color(0xFF92400E), // Amber 800 (subtle warm variant)
@@ -47,6 +48,7 @@ class AppTheme {
       primary: const Color(0xFFF97316), // Orange 500 (brighter for dark)
       onPrimary: Colors.white,
       primaryContainer: const Color(0xFFC2410C),
+      onPrimaryContainer: Colors.white,
       secondary: const Color(0xFF2DD4BF), // Teal 300 (bright for dark)
       onSecondary: Colors.black,
       tertiary: const Color(0xFFFBBF24), // Amber 400
