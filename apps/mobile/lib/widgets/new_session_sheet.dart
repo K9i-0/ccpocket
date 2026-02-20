@@ -1305,6 +1305,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         (!_useWorktree ||
             _worktreeMode == _WorktreeMode.createNew ||
             _selectedWorktree != null);
+
+    final providerStyle = providerStyleFor(context, _provider);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Row(
@@ -1324,18 +1327,25 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               child: FilledButton(
                 key: const ValueKey('dialog_start_button'),
                 style: FilledButton.styleFrom(
+                  backgroundColor: canStart ? providerStyle.background : null,
+                  foregroundColor: canStart ? providerStyle.foreground : null,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
                   elevation: 0,
                 ),
                 onPressed: canStart ? _start : null,
-                child: Text(
-                  l.start,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Start with ${_provider.label}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
