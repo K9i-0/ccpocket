@@ -197,6 +197,7 @@
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
 				26887DC6CF32CA025D547E7D /* [CP] Check Pods Manifest.lock */,
+				F1A2B3C4D5E6F7A800112233 /* Generate GoogleService-Info.plist */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
@@ -386,6 +387,21 @@
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
+		};
+		F1A2B3C4D5E6F7A800112233 /* Generate GoogleService-Info.plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Generate GoogleService-Info.plist";
+			outputPaths = (
+				"$(PROJECT_DIR)/Runner/GoogleService-Info.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "PLIST_PATH=\"${PROJECT_DIR}/Runner/GoogleService-Info.plist\"\nif [ ! -f \"$PLIST_PATH\" ]; then\ncat > \"$PLIST_PATH\" << PLISTEOF\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>API_KEY</key>\n  <string>AIzaSyDummy0000000000000000000000000000</string>\n  <key>GCM_SENDER_ID</key>\n  <string>000000000000</string>\n  <key>PLIST_VERSION</key>\n  <string>1</string>\n  <key>BUNDLE_ID</key>\n  <string>${PRODUCT_BUNDLE_IDENTIFIER}</string>\n  <key>PROJECT_ID</key>\n  <string>dummy-project</string>\n  <key>STORAGE_BUCKET</key>\n  <string>dummy-project.appspot.com</string>\n  <key>IS_GCM_ENABLED</key>\n  <true/>\n  <key>IS_ANALYTICS_ENABLED</key>\n  <false/>\n  <key>GOOGLE_APP_ID</key>\n  <string>1:000000000000:ios:0000000000000000</string>\n</dict>\n</plist>\nPLISTEOF\necho \"warning: GoogleService-Info.plist not found. A dummy was generated. Push notifications will not work.\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

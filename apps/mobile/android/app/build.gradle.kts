@@ -1,6 +1,38 @@
 import java.util.Properties
 import java.io.FileInputStream
 
+// Generate dummy google-services.json if not present (for OSS builds without Firebase config).
+// The app will build and run but push notifications will not work.
+val googleServicesFile = file("google-services.json")
+if (!googleServicesFile.exists()) {
+    googleServicesFile.writeText("""
+{
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "dummy-project",
+    "storage_bucket": "dummy-project.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+        "android_client_info": {
+          "package_name": "com.k9i.ccpocket"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "AIzaSyDummy0000000000000000000000000000"
+        }
+      ]
+    }
+  ],
+  "configuration_version": "1"
+}
+""".trimIndent())
+    logger.warn("google-services.json not found. A dummy was generated. Push notifications will not work.")
+}
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
