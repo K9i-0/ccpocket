@@ -13,12 +13,12 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   static ThemeData get lightTheme {
     final colorScheme = ColorScheme.light(
-      surface: const Color(0xFFFAFAF7), // warm ivory
+      surface: const Color(0xFFF7F7F8), // cleaner off-white bg (Zinc 50)
       surfaceContainerLowest: Colors.white,
-      surfaceContainerLow: const Color(0xFFF7F6F3), // warm paper
-      surfaceContainer: const Color(0xFFF0EEEB), // warm light grey (brighter)
-      surfaceContainerHigh: const Color(0xFFF5F2EF), // card bg (bright)
-      surfaceContainerHighest: const Color(0xFFEAE7E4), // warm mid
+      surfaceContainerLow: const Color(0xFFF4F4F5), // Zinc 100
+      surfaceContainer: const Color(0xFFE4E4E7), // Zinc 200
+      surfaceContainerHigh: Colors.white, // crisp white card bg
+      surfaceContainerHighest: const Color(0xFFD4D4D8), // Zinc 300
       primary: const Color(0xFFD4450A), // Ember (brighter)
       onPrimary: Colors.white,
       primaryContainer: const Color(0xFFFFF0E0), // warm Orange 100
@@ -27,8 +27,8 @@ class AppTheme {
       tertiary: const Color(0xFF92400E), // Amber 800 (subtle warm variant)
       error: const Color(0xFFB91C1C), // Red 700
       onError: Colors.white,
-      outline: const Color(0xFF787068), // warm grey (WCAG AA)
-      outlineVariant: const Color(0xFFC7C2BC), // warm light border (refined)
+      outline: const Color(0xFF71717A), // Zinc 500 (cleaner grey)
+      outlineVariant: const Color(0xFFE4E4E7), // Zinc 200 (clean border)
     );
 
     return _buildTheme(colorScheme, Brightness.light, AppColors.light());
@@ -36,12 +36,14 @@ class AppTheme {
 
   static ThemeData get darkTheme {
     final colorScheme = ColorScheme.dark(
-      surface: const Color(0xFF171717), // neutral near-black
-      surfaceContainerLowest: const Color(0xFF141414),
-      surfaceContainerLow: const Color(0xFF1E1E1E), // neutral dark (lifted)
-      surfaceContainer: const Color(0xFF242424), // neutral dark grey (lifted)
-      surfaceContainerHigh: const Color(0xFF2A2A2A), // card bg (ChatGPT-like)
-      surfaceContainerHighest: const Color(0xFF333333), // lifted
+      surface: const Color(0xFF0A0A0A), // Deep neat black bg (Neutral 950)
+      surfaceContainerLowest: const Color(0xFF000000), // Pure Black
+      surfaceContainerLow: const Color(0xFF171717), // Neutral 900
+      surfaceContainer: const Color(0xFF171717), // Neutral 900
+      surfaceContainerHigh: const Color(
+        0xFF262626,
+      ), // distinct card bg (Neutral 800)
+      surfaceContainerHighest: const Color(0xFF404040), // Neutral 700
       primary: const Color(0xFFF97316), // Orange 500 (brighter for dark)
       onPrimary: Colors.white,
       primaryContainer: const Color(0xFFC2410C),
@@ -50,10 +52,10 @@ class AppTheme {
       tertiary: const Color(0xFFFBBF24), // Amber 400
       error: const Color(0xFFF87171), // Red 400
       onError: Colors.black,
-      onSurface: const Color(0xFFE8E5E1), // slightly warm white
-      onSurfaceVariant: const Color(0xFFB8B5B1), // neutral-warm grey
-      outline: const Color(0xFF6E6E6E), // neutral grey
-      outlineVariant: const Color(0xFF3D3D3D), // card border (clean)
+      onSurface: const Color(0xFFF5F5F5), // Clean white (Neutral 100)
+      onSurfaceVariant: const Color(0xFFA3A3A3), // Neutral 400
+      outline: const Color(0xFF737373), // Neutral 500
+      outlineVariant: const Color(0xFF404040), // clean border (Neutral 700)
     );
 
     return _buildTheme(colorScheme, Brightness.dark, AppColors.dark());
