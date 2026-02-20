@@ -401,6 +401,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.8"
+  expandable_page_view:
+    dependency: "direct main"
+    description:
+      name: expandable_page_view
+      sha256: "0dc2f7d5ee2148df424a343daf6434353a5d56d0cd2e64282cb3ac782f769bba"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.1"
   extended_image:
     dependency: "direct main"
     description:

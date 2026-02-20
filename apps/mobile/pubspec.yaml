@@ -73,6 +73,7 @@ dependencies:
   talker_bloc_logger: ^5.1.13
   scroll_to_index: ^3.0.1
   skeletonizer: ^2.1.3
+  expandable_page_view: ^1.2.1
 
 dev_dependencies:
   flutter_test:
