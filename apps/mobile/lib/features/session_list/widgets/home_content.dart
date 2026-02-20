@@ -312,7 +312,6 @@ class _HomeContentState extends State<HomeContent> {
               ),
               onTap: () => widget.onResumeSession(session),
               onLongPress: () => widget.onLongPressRecentSession(session),
-              hideProjectBadge: widget.selectedProject != null,
             ),
           if (widget.hasMoreSessions) ...[
             const SizedBox(height: 8),
