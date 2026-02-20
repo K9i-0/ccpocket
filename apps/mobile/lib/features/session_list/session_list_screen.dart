@@ -99,9 +99,6 @@ class SessionListScreen extends StatefulWidget {
 
 class _SessionListScreenState extends State<SessionListScreen>
     with WidgetsBindingObserver {
-  final TextEditingController _urlController = TextEditingController();
-  final TextEditingController _apiKeyController = TextEditingController();
-
   bool _isAutoConnecting = false;
 
   // Debug screen: 5 consecutive taps on title
@@ -124,7 +121,6 @@ class _SessionListScreenState extends State<SessionListScreen>
   StreamSubscription<ServerMessage>? _messageSub;
 
   static const _prefKeyUrl = 'bridge_url';
-  static const _prefKeyApiKey = 'bridge_api_key';
   static const _prefKeySessionStartDefaults = 'session_start_defaults_v1';
 
   @override
@@ -164,24 +160,13 @@ class _SessionListScreenState extends State<SessionListScreen>
     if (params == null) return;
     // Reset notifier to avoid re-triggering
     widget.deepLinkNotifier?.value = null;
-    _urlController.text = params.serverUrl;
-    if (params.token != null) {
-      _apiKeyController.text = params.token!;
-    }
-    _connect();
+    _connectWithParams(params.serverUrl, params.token);
   }
 
   Future<void> _loadPreferencesAndAutoConnect() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     final url = prefs.getString(_prefKeyUrl);
-    final apiKey = prefs.getString(_prefKeyApiKey);
-    if (url != null && url.isNotEmpty) {
-      _urlController.text = url;
-    }
-    if (apiKey != null && apiKey.isNotEmpty) {
-      _apiKeyController.text = apiKey;
-    }
     if (url != null && url.isNotEmpty) {
       setState(() => _isAutoConnecting = true);
       final attempted = await context.read<BridgeService>().autoConnect();
@@ -191,13 +176,12 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
   }
 
-  Future<void> _connect() async {
-    var url = _urlController.text.trim();
+  Future<void> _connectWithParams(String rawUrl, String? apiKey) async {
+    var url = rawUrl.trim();
     if (url.isEmpty) return;
     // Allow shorthand: just IP or host:port without ws:// prefix
     if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
       url = 'ws://$url';
-      _urlController.text = url;
     }
 
     // Health check before connecting
@@ -209,7 +193,7 @@ class _SessionListScreenState extends State<SessionListScreen>
 
     if (!mounted) return;
     // Auto-save to Machines on successful health check (or user choosing to connect)
-    final apiKey = _apiKeyController.text.trim();
+    final trimmedApiKey = apiKey?.trim() ?? '';
     final machineManagerCubit = context.read<MachineManagerCubit?>();
     if (machineManagerCubit != null) {
       // Parse host and port from URL
@@ -220,23 +204,20 @@ class _SessionListScreenState extends State<SessionListScreen>
         await machineManagerCubit.recordConnection(
           host: uri.host,
           port: uri.port != 0 ? uri.port : 8765,
-          apiKey: apiKey.isNotEmpty ? apiKey : null,
+          apiKey: trimmedApiKey.isNotEmpty ? trimmedApiKey : null,
         );
       }
     }
 
     if (!mounted) return;
     var connectUrl = url;
-    if (apiKey.isNotEmpty) {
+    if (trimmedApiKey.isNotEmpty) {
       final sep = connectUrl.contains('?') ? '&' : '?';
-      connectUrl = '$connectUrl${sep}token=$apiKey';
+      connectUrl = '$connectUrl${sep}token=$trimmedApiKey';
     }
     final bridge = context.read<BridgeService>();
     bridge.connect(connectUrl);
-    bridge.savePreferences(
-      _urlController.text.trim(),
-      _apiKeyController.text.trim(),
-    );
+    bridge.savePreferences(url, trimmedApiKey);
   }
 
   /// Show setup guide when health check fails. Returns true if user wants
@@ -377,11 +358,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       const QrScanRoute(),
     );
     if (result != null && mounted) {
-      _urlController.text = result.serverUrl;
-      if (result.token != null) {
-        _apiKeyController.text = result.token!;
-      }
-      _connect();
+      _connectWithParams(result.serverUrl, result.token);
     }
   }
 
@@ -403,8 +380,6 @@ class _SessionListScreenState extends State<SessionListScreen>
     WidgetsBinding.instance.removeObserver(this);
     widget.deepLinkNotifier?.removeListener(_onDeepLink);
     _messageSub?.cancel();
-    _urlController.dispose();
-    _apiKeyController.dispose();
     super.dispose();
   }
 
@@ -874,17 +849,55 @@ class _SessionListScreenState extends State<SessionListScreen>
   }
 
   void _connectToDiscovered(DiscoveredServer server) {
-    _urlController.text = server.wsUrl;
-    _apiKeyController.clear();
     if (server.authRequired) {
-      // Let user fill in the API key manually
-      final l = AppLocalizations.of(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l.serverRequiresApiKey)));
+      // Open MachineEditSheet pre-filled with discovered server info
+      _addMachineFromDiscovered(server);
       return;
     }
-    _connect();
+    _connectWithParams(server.wsUrl, null);
+  }
+
+  void _addMachineFromDiscovered(DiscoveredServer server) {
+    final cubit = context.read<MachineManagerCubit>();
+    final uri = Uri.tryParse(
+      server.wsUrl
+          .replaceFirst('ws://', 'http://')
+          .replaceFirst('wss://', 'https://'),
+    );
+    final host = uri?.host ?? server.name;
+    final port = uri?.port ?? 8765;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => MachineEditSheet(
+        machine: Machine(id: '', host: host, port: port, name: server.name),
+        onSave: ({required machine, apiKey, sshPassword, sshPrivateKey}) async {
+          final newMachine = cubit.createNewMachine(
+            name: machine.name,
+            host: machine.host,
+            port: machine.port,
+          );
+          await cubit.addMachine(
+            newMachine.copyWith(
+              sshEnabled: machine.sshEnabled,
+              sshUsername: machine.sshUsername,
+              sshPort: machine.sshPort,
+              sshAuthType: machine.sshAuthType,
+              isFavorite: true,
+            ),
+            apiKey: apiKey,
+            sshPassword: sshPassword,
+            sshPrivateKey: sshPrivateKey,
+          );
+        },
+        onSaveAndConnect: (machine, apiKey) {
+          _connectWithParams('ws://${machine.host}:${machine.port}', apiKey);
+        },
+        onTestConnection: cubit.testConnectionWithCredentials,
+      ),
+    );
   }
 
   // ---- Machine Management ----
@@ -895,10 +908,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     final machineState = machineManagerCubit?.state;
 
     return ConnectForm(
-      urlController: _urlController,
-      apiKeyController: _apiKeyController,
       discoveredServers: discoveredServers,
-      onConnect: _connect,
       onScanQrCode: _scanQrCode,
       onViewSetupGuide: () => context.router.push(const SetupGuideRoute()),
       onConnectToDiscovered: _connectToDiscovered,
@@ -921,9 +931,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   void _connectToMachine(MachineWithStatus m) async {
     final cubit = context.read<MachineManagerCubit>();
     final wsUrl = await cubit.buildWsUrl(m.machine.id);
-    _urlController.text = m.machine.wsUrl;
     final apiKey = await cubit.getApiKey(m.machine.id);
-    _apiKeyController.text = apiKey ?? '';
 
     // Record connection to update lastConnected
     await cubit.recordConnection(
@@ -1146,6 +1154,9 @@ class _SessionListScreenState extends State<SessionListScreen>
             sshPassword: sshPassword,
             sshPrivateKey: sshPrivateKey,
           );
+        },
+        onSaveAndConnect: (machine, apiKey) {
+          _connectWithParams('ws://${machine.host}:${machine.port}', apiKey);
         },
         onTestConnection: cubit.testConnectionWithCredentials,
       ),

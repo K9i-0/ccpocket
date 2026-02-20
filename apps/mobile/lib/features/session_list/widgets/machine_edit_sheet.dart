@@ -24,6 +24,10 @@ class MachineEditSheet extends StatefulWidget {
   })
   onSave;
 
+  /// Optional callback to connect after saving (add mode only).
+  /// When provided, the save button label changes to "Add & Connect".
+  final void Function(Machine machine, String? apiKey)? onSaveAndConnect;
+
   /// Callback to test SSH connection
   final Future<SshResult> Function({
     required String host,
@@ -41,6 +45,7 @@ class MachineEditSheet extends StatefulWidget {
     this.existingApiKey,
     this.existingSshPassword,
     required this.onSave,
+    this.onSaveAndConnect,
     required this.onTestConnection,
   });
 
@@ -181,11 +186,13 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
         sshAuthType: _sshAuthType,
       );
 
+      final apiKey = _apiKeyController.text.isNotEmpty
+          ? _apiKeyController.text
+          : null;
+
       await widget.onSave(
         machine: machine,
-        apiKey: _apiKeyController.text.isNotEmpty
-            ? _apiKeyController.text
-            : null,
+        apiKey: apiKey,
         sshPassword: _sshEnabled && _sshAuthType == SshAuthType.password
             ? _sshPasswordController.text
             : null,
@@ -194,7 +201,12 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
             : null,
       );
 
+      // Capture callback before pop() dismisses the sheet
+      final connectCallback = widget.onSaveAndConnect;
       if (mounted) Navigator.of(context).pop();
+
+      // Trigger connect after sheet is dismissed
+      connectCallback?.call(machine, apiKey);
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -506,7 +518,13 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                                   color: colorScheme.onPrimary,
                                 ),
                               )
-                            : Text(isEditing ? 'Save' : 'Add'),
+                            : Text(
+                                isEditing
+                                    ? 'Save'
+                                    : widget.onSaveAndConnect != null
+                                    ? 'Add & Connect'
+                                    : 'Add',
+                              ),
                       ),
                     ),
                   ],

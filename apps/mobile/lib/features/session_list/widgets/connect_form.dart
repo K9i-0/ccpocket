@@ -8,10 +8,7 @@ import 'discovered_servers_list.dart';
 import 'machine_list.dart';
 
 class ConnectForm extends StatelessWidget {
-  final TextEditingController urlController;
-  final TextEditingController apiKeyController;
   final List<DiscoveredServer> discoveredServers;
-  final VoidCallback onConnect;
   final VoidCallback onScanQrCode;
   final VoidCallback? onViewSetupGuide;
   final ValueChanged<DiscoveredServer> onConnectToDiscovered;
@@ -32,10 +29,7 @@ class ConnectForm extends StatelessWidget {
 
   const ConnectForm({
     super.key,
-    required this.urlController,
-    required this.apiKeyController,
     required this.discoveredServers,
-    required this.onConnect,
     required this.onScanQrCode,
     this.onViewSetupGuide,
     required this.onConnectToDiscovered,
@@ -106,60 +100,21 @@ class ConnectForm extends StatelessWidget {
               onAddMachine: onAddMachine!,
               onRefresh: onRefreshMachines,
             ),
-            if (machines.isNotEmpty || discoveredServers.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _buildDivider(context, l.orConnectManually),
-              const SizedBox(height: 16),
-            ],
           ],
 
           // Discovered servers via mDNS
           if (discoveredServers.isNotEmpty) ...[
+            const SizedBox(height: 16),
             DiscoveredServersList(
               servers: discoveredServers,
               onConnect: onConnectToDiscovered,
             ),
-            const SizedBox(height: 16),
           ],
 
-          // Manual input
-          TextField(
-            key: const ValueKey('server_url_field'),
-            controller: urlController,
-            decoration: InputDecoration(
-              labelText: l.serverUrl,
-              hintText: l.serverUrlHint,
-              prefixIcon: const Icon(Icons.dns),
-              border: const OutlineInputBorder(),
-            ),
-            onSubmitted: (_) => onConnect(),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            key: const ValueKey('api_key_field'),
-            controller: apiKeyController,
-            decoration: InputDecoration(
-              labelText: l.apiKeyOptional,
-              hintText: l.apiKeyHint,
-              prefixIcon: const Icon(Icons.key),
-              border: const OutlineInputBorder(),
-            ),
-            obscureText: true,
-            onSubmitted: (_) => onConnect(),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton.icon(
-              key: const ValueKey('connect_button'),
-              onPressed: onConnect,
-              icon: const Icon(Icons.link),
-              label: Text(l.connect),
-            ),
-          ),
+          const SizedBox(height: 24),
+
+          // Action buttons
           if (!kIsWeb) ...[
-            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -170,9 +125,9 @@ class ConnectForm extends StatelessWidget {
                 label: Text(l.scanQrCode),
               ),
             ),
+            const SizedBox(height: 12),
           ],
           if (onViewSetupGuide != null) ...[
-            const SizedBox(height: 12),
             TextButton.icon(
               key: const ValueKey('setup_guide_button'),
               onPressed: onViewSetupGuide,
@@ -182,29 +137,6 @@ class ConnectForm extends StatelessWidget {
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildDivider(BuildContext context, String text) {
-    return Row(
-      children: [
-        Expanded(
-          child: Divider(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Divider(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-      ],
     );
   }
 }
