@@ -500,11 +500,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: SingleChildScrollView(
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,16 +512,28 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             _buildDragHandle(appColors),
             _buildTitle(),
             const SizedBox(height: 12),
-            if (_effectiveProjects.isNotEmpty) ...[
-              _buildRecentProjectsSection(appColors),
-              _buildDivider(appColors),
-            ],
-            _buildPathInput(),
-            const SizedBox(height: 12),
-            _buildOptions(appColors),
+            Flexible(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_effectiveProjects.isNotEmpty) ...[
+                      _buildRecentProjectsSection(appColors),
+                      _buildDivider(appColors),
+                    ],
+                    _buildPathInput(),
+                    const SizedBox(height: 12),
+                    _buildOptions(appColors),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             _buildActions(),
-            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -731,6 +743,18 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              'Environment',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: appColors.subtleText,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
           // Primary control: Permission (Claude) or Approval (Codex)
           if (_provider == Provider.claude)
             DropdownButtonFormField<PermissionMode>(
@@ -801,14 +825,29 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           // Worktree toggle (shared)
           Align(
             alignment: Alignment.centerLeft,
-            child: FilterChip(
-              key: const ValueKey('dialog_worktree'),
-              avatar: _useWorktree
-                  ? null
-                  : const Icon(Icons.account_tree_outlined, size: 16),
-              label: Text(l.worktree, style: const TextStyle(fontSize: 13)),
-              selected: _useWorktree,
-              onSelected: _onWorktreeToggle,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FilterChip(
+                  key: const ValueKey('dialog_worktree'),
+                  avatar: _useWorktree
+                      ? null
+                      : const Icon(Icons.account_tree_outlined, size: 16),
+                  label: Text(l.worktree, style: const TextStyle(fontSize: 13)),
+                  selected: _useWorktree,
+                  onSelected: _onWorktreeToggle,
+                ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message:
+                      'Creates an isolated git working tree for this session.',
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
           if (_useWorktree) ...[
@@ -1267,37 +1306,39 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             _worktreeMode == _WorktreeMode.createNew ||
             _selectedWorktree != null);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Row(
         children: [
-          SizedBox(
-            height: 48,
-            child: FilledButton(
-              key: const ValueKey('dialog_start_button'),
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
-              ),
-              onPressed: canStart ? _start : null,
-              child: Text(
-                l.start,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
           TextButton(
             onPressed: () => Navigator.pop(context),
             style: TextButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: Text(l.cancel),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SizedBox(
+              height: 48,
+              child: FilledButton(
+                key: const ValueKey('dialog_start_button'),
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: canStart ? _start : null,
+                child: Text(
+                  l.start,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
