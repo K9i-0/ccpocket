@@ -1265,7 +1265,6 @@ class _StatusDotState extends State<_StatusDot>
   }
 }
 
-/// Card for a recent (past) session from sessions-index.json
 class RecentSessionCard extends StatelessWidget {
   final RecentSession session;
   final VoidCallback onTap;
@@ -1286,7 +1285,9 @@ class RecentSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = theme.extension<AppColors>()!;
     final provider = providerFromRaw(session.provider);
     final providerLabel = provider.label;
     final providerStyle = providerStyleFor(context, provider);
@@ -1300,114 +1301,155 @@ class RecentSessionCard extends StatelessWidget {
     final dateStr = _formatDateRange(session.created, session.modified);
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 0),
-      child: ListTile(
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      elevation: 0,
+      color: colorScheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        title: Row(
-          children: [
-            if (!hideProjectBadge) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  session.projectName,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: Theme.of(context).colorScheme.primary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title Row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (!hideProjectBadge) ...[
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            session.projectName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: colorScheme.primary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else
+                    const Spacer(),
+                  const SizedBox(width: 8),
+                  _ProviderBadge(label: providerLabel, style: providerStyle),
+                  const SizedBox(width: 8),
+                  Text(
+                    dateStr,
+                    style: TextStyle(fontSize: 11, color: appColors.subtleText),
                   ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Body Content
+              if (draftText != null && draftText!.isNotEmpty) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, right: 6),
+                      child: Icon(
+                        Icons.edit_note,
+                        size: 16,
+                        color: appColors.subtleText,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        draftText!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
+                          color: appColors.subtleText,
+                          height: 1.4,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else
+                Text(
+                  _displayTextForMode(session, displayMode),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    height: 1.4,
+                  ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const Spacer(),
-            ] else
-              const Spacer(),
-            _ProviderBadge(label: providerLabel, style: providerStyle),
-            const SizedBox(width: 8),
-            Text(
-              dateStr,
-              style: TextStyle(fontSize: 11, color: appColors.subtleText),
-            ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            if (draftText != null && draftText!.isNotEmpty) ...[
+
+              if (codexSummary != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  codexSummary,
+                  style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+
+              const SizedBox(height: 8),
+
+              // Meta Row
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2, right: 4),
-                    child: Icon(
-                      Icons.edit_note,
+                  if (session.gitBranch.isNotEmpty) ...[
+                    Icon(
+                      Icons.fork_right,
                       size: 14,
                       color: appColors.subtleText,
                     ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      draftText!,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontStyle: FontStyle.italic,
-                        color: appColors.subtleText,
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        session.gitBranch,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: appColors.subtleText,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(width: 16),
+                  ],
+                  Icon(
+                    Icons.chat_bubble_outline,
+                    size: 13,
+                    color: appColors.subtleText,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${session.messageCount}',
+                    style: TextStyle(fontSize: 12, color: appColors.subtleText),
                   ),
                 ],
-              ),
-            ] else
-              Text(
-                _displayTextForMode(session, displayMode),
-                style: const TextStyle(fontSize: 13),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            if (codexSummary != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                codexSummary,
-                style: TextStyle(fontSize: 11, color: appColors.subtleText),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                if (session.gitBranch.isNotEmpty) ...[
-                  Icon(Icons.fork_right, size: 13, color: appColors.subtleText),
-                  const SizedBox(width: 2),
-                  Text(
-                    session.gitBranch,
-                    style: TextStyle(fontSize: 11, color: appColors.subtleText),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                Icon(
-                  Icons.chat_bubble_outline,
-                  size: 12,
-                  color: appColors.subtleText,
-                ),
-                const SizedBox(width: 3),
-                Text(
-                  '${session.messageCount}',
-                  style: TextStyle(fontSize: 11, color: appColors.subtleText),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );

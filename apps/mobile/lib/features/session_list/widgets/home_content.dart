@@ -409,22 +409,47 @@ class _SessionDisplayModeToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return SegmentedButton<SessionDisplayMode>(
-      segments: const [
-        ButtonSegment(value: SessionDisplayMode.first, label: Text('First')),
-        ButtonSegment(value: SessionDisplayMode.last, label: Text('Last')),
-        ButtonSegment(value: SessionDisplayMode.summary, label: Text('Sum.')),
-      ],
-      selected: {mode},
-      onSelectionChanged: (s) => onChanged(s.first),
-      showSelectedIcon: false,
-      style: SegmentedButton.styleFrom(
-        visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        backgroundColor: colorScheme.surfaceContainerLow,
-        selectedBackgroundColor: colorScheme.primaryContainer,
-        side: BorderSide(color: colorScheme.outlineVariant),
-        textStyle: const TextStyle(fontSize: 10),
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      padding: const EdgeInsets.all(2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildSegment('First', SessionDisplayMode.first, colorScheme),
+          _buildSegment('Last', SessionDisplayMode.last, colorScheme),
+          _buildSegment('Sum', SessionDisplayMode.summary, colorScheme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSegment(String label, SessionDisplayMode value, ColorScheme cs) {
+    final isSelected = mode == value;
+
+    return GestureDetector(
+      onTap: () => onChanged(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? cs.primaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+          ),
+        ),
       ),
     );
   }

@@ -47,21 +47,11 @@ class HorizontalChipBar extends StatelessWidget {
           for (final item in items)
             Padding(
               padding: const EdgeInsets.only(right: 6),
-              child: ChoiceChip(
-                avatar: item.avatar,
-                label: Text(item.label),
-                selected: item.isSelected,
-                onSelected: (_) => item.onSelected(),
-                labelStyle: TextStyle(
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w500,
-                  color: item.isSelected
-                      ? selectedTextColor
-                      : unselectedTextColor,
-                ),
-                selectedColor: selectedColor,
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              child: _buildChip(
+                context,
+                item,
+                fontSize: fontSize,
+                isSelected: item.isSelected,
               ),
             ),
         ],
@@ -84,6 +74,51 @@ class HorizontalChipBar extends StatelessWidget {
       ).createShader(bounds),
       blendMode: BlendMode.dstIn,
       child: list,
+    );
+  }
+
+  Widget _buildChip(
+    BuildContext context,
+    ChipItem item, {
+    required double fontSize,
+    required bool isSelected,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final color = isSelected ? selectedColor : unselectedTextColor;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: item.onSelected,
+        borderRadius: BorderRadius.circular(999),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? selectedColor.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: isSelected
+                  ? selectedColor.withValues(alpha: 0.5)
+                  : cs.outlineVariant.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            item.label,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: color,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
