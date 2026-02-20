@@ -62,11 +62,18 @@ class MachineList extends StatelessWidget {
                 tooltip: 'Refresh status',
                 visualDensity: VisualDensity.compact,
               ),
-            IconButton(
+            TextButton.icon(
               onPressed: onAddMachine,
-              icon: const Icon(Icons.add, size: 20),
-              tooltip: 'Add machine',
-              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
           ],
         ),
@@ -74,21 +81,54 @@ class MachineList extends StatelessWidget {
         if (machines.isEmpty) ...[
           const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
+              color: colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: colorScheme.outlineVariant, width: 1),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, color: colorScheme.outline, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'No saved machines. Add one to quickly connect or remotely start Bridge Server.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.bubble_chart_outlined,
+                        color: colorScheme.outline,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'No saved machines.\nAdd one to quickly connect or remotely start the Bridge Server.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: onAddMachine,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Machine'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),

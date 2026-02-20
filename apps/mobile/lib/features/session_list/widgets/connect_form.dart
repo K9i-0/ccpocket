@@ -64,12 +64,26 @@ class ConnectForm extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.08),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+                ],
+              ),
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
             ),
             child: Icon(
               Icons.terminal,
@@ -77,10 +91,10 @@ class ConnectForm extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Text(
             l.connectToBridgeServer,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 24),
 
@@ -117,22 +131,57 @@ class ConnectForm extends StatelessWidget {
           if (!kIsWeb) ...[
             SizedBox(
               width: double.infinity,
-              height: 48,
-              child: OutlinedButton.icon(
+              height: 52,
+              child: FilledButton.icon(
                 key: const ValueKey('scan_qr_button'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHigh,
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  elevation: 0,
+                ),
                 onPressed: onScanQrCode,
-                icon: const Icon(Icons.qr_code_scanner),
-                label: Text(l.scanQrCode),
+                icon: Icon(
+                  Icons.qr_code_scanner,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                label: Text(
+                  l.scanQrCode,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
           ],
           if (onViewSetupGuide != null) ...[
             TextButton.icon(
               key: const ValueKey('setup_guide_button'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: onViewSetupGuide,
-              icon: const Icon(Icons.lightbulb_outline, size: 18),
-              label: Text(l.setupGuide),
+              icon: Icon(
+                Icons.lightbulb_outline,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              label: Text(
+                l.setupGuide,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ],

@@ -232,13 +232,15 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
           child: Column(
             children: [
               // Handle
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colorScheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 48,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
                 ),
               ),
 
@@ -328,20 +330,40 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
 
                     // SSH Configuration
                     _SectionHeader(title: 'SSH Configuration'),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Enable SSH to remotely start Bridge Server when offline',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                    ),
                     const SizedBox(height: 12),
 
-                    SwitchListTile(
-                      title: const Text('Enable SSH remote startup'),
-                      value: _sshEnabled,
-                      onChanged: (v) => setState(() => _sshEnabled = v),
-                      contentPadding: EdgeInsets.zero,
+                    Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SwitchListTile(
+                            title: const Text(
+                              'Enable SSH remote startup',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            subtitle: Text(
+                              'Remotely start Bridge Server when offline',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            value: _sshEnabled,
+                            onChanged: (v) => setState(() => _sshEnabled = v),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
 
                     if (_sshEnabled) ...[
@@ -486,28 +508,37 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
               // Footer
               Container(
                 padding: EdgeInsets.fromLTRB(
+                  24,
                   16,
-                  12,
-                  16,
-                  12 + MediaQuery.of(context).padding.bottom,
+                  24,
+                  16 + MediaQuery.of(context).padding.bottom,
                 ),
                 decoration: BoxDecoration(
                   color: colorScheme.surface,
-                  border: Border(
-                    top: BorderSide(color: colorScheme.outlineVariant),
-                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.shadow.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
+                      child: TextButton(
                         onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          foregroundColor: colorScheme.onSurfaceVariant,
+                        ),
                         child: const Text('Cancel'),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
                     Expanded(
+                      flex: 2,
                       child: FilledButton(
+                        style: FilledButton.styleFrom(elevation: 0),
                         onPressed: _isValid && !_isSaving ? _save : null,
                         child: _isSaving
                             ? SizedBox(
@@ -545,11 +576,25 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: Theme.of(
-        context,
-      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 18,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      ],
     );
   }
 }
