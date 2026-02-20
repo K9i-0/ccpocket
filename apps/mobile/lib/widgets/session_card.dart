@@ -53,7 +53,6 @@ class RunningSessionCard extends StatelessWidget {
 
     final projectName = session.projectPath.split('/').last;
     final provider = providerFromRaw(session.provider);
-    final providerLabel = provider.label;
     final providerStyle = providerStyleFor(context, provider);
     final elapsed = _formatElapsed(session.lastActivityAt);
     final displayMessage = formatCommandText(
@@ -153,27 +152,21 @@ class RunningSessionCard extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: 0.10),
+                              color: providerStyle.background,
                               borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: providerStyle.border),
                             ),
                             child: Text(
                               projectName,
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
-                                color: Theme.of(context).colorScheme.primary,
+                                color: providerStyle.foreground,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      _ProviderBadge(
-                        label: providerLabel,
-                        style: providerStyle,
                       ),
                       const Spacer(),
                       Text(
@@ -1289,7 +1282,6 @@ class RecentSessionCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final appColors = theme.extension<AppColors>()!;
     final provider = providerFromRaw(session.provider);
-    final providerLabel = provider.label;
     final providerStyle = providerStyleFor(context, provider);
     final codexSummary = session.provider == 'codex'
         ? _buildCodexSettingsSummary(
@@ -1333,15 +1325,16 @@ class RecentSessionCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.10),
+                            color: providerStyle.background,
                             borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: providerStyle.border),
                           ),
                           child: Text(
                             session.projectName,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
-                              color: colorScheme.primary,
+                              color: providerStyle.foreground,
                             ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
@@ -1351,8 +1344,6 @@ class RecentSessionCard extends StatelessWidget {
                     ),
                   ] else
                     const Spacer(),
-                  const SizedBox(width: 8),
-                  _ProviderBadge(label: providerLabel, style: providerStyle),
                   const SizedBox(width: 8),
                   Text(
                     dateStr,
@@ -1531,33 +1522,6 @@ class RecentSessionCard extends StatelessWidget {
     } catch (_) {
       return '';
     }
-  }
-}
-
-class _ProviderBadge extends StatelessWidget {
-  final String label;
-  final ProviderStyle style;
-
-  const _ProviderBadge({required this.label, required this.style});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: style.background,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: style.border),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: style.foreground,
-        ),
-      ),
-    );
   }
 }
 

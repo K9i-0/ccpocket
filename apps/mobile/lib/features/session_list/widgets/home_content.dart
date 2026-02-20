@@ -117,15 +117,29 @@ class _HomeContentState extends State<HomeContent> {
     // Compute derived state
     // Exclude running sessions from recent list to avoid duplicates
     final runningSessionIds = widget.sessions
-        .map((s) => s.claudeSessionId ?? s.id)
+        .expand(
+          (s) => [s.id, if (s.claudeSessionId != null) s.claudeSessionId!],
+        )
         .toSet();
+
+    // Fallback for Codex sessions which use a short proxy ID instead of UUID
+    bool isDuplicate(RecentSession rs) {
+      if (runningSessionIds.contains(rs.sessionId)) return true;
+      for (final s in widget.sessions) {
+        if (s.provider == rs.provider &&
+            s.projectPath == rs.projectPath &&
+            s.createdAt == rs.created) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     var filteredSessions = widget.currentProjectFilter != null
         ? widget.recentSessions
         : filterByProject(widget.recentSessions, widget.selectedProject);
     filteredSessions = filterByQuery(filteredSessions, widget.searchQuery);
-    filteredSessions = filteredSessions
-        .where((s) => !runningSessionIds.contains(s.sessionId))
-        .toList();
+    filteredSessions = filteredSessions.where((s) => !isDuplicate(s)).toList();
 
     final hasActiveFilter = widget.currentProjectFilter != null;
 
@@ -137,6 +151,10 @@ class _HomeContentState extends State<HomeContent> {
           padding: const EdgeInsets.all(12),
           children: [
             if (isReconnecting) const SessionReconnectBanner(),
+            Text(
+              'DEBUG: running: ${runningSessionIds.take(1).toList()} | recent: ${widget.recentSessions.take(1).map((s) => s.sessionId)}',
+              style: TextStyle(color: Colors.red),
+            ),
             SectionHeader(
               icon: Icons.history,
               label: 'Recent Sessions',
