@@ -18,24 +18,16 @@ class ProviderStyle {
 }
 
 ProviderStyle providerStyleFor(BuildContext context, Provider provider) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-
-  // Vibrant brand colors decoupled from the monochrome base theme.
-  final brandColor = switch (provider) {
-    Provider.claude =>
-      isDark
-          ? const Color(0xFFA78BFA)
-          : const Color(0xFF7C3AED), // Violet 400 / Violet 600
-    Provider.codex =>
-      isDark
-          ? const Color(0xFFFB923C)
-          : const Color(0xFFEA580C), // Orange 400 / Orange 600
+  final colorScheme = Theme.of(context).colorScheme;
+  final accent = switch (provider) {
+    Provider.claude => colorScheme.primary,
+    Provider.codex => colorScheme.secondary,
   };
 
   return ProviderStyle(
-    foreground: brandColor,
-    background: brandColor.withValues(alpha: 0.12),
-    border: brandColor.withValues(alpha: 0.34),
+    foreground: accent,
+    background: accent.withValues(alpha: 0.12),
+    border: accent.withValues(alpha: 0.34),
     icon: switch (provider) {
       Provider.claude => Icons.smart_toy_outlined,
       Provider.codex => Icons.code,
