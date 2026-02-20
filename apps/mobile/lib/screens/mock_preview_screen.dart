@@ -646,7 +646,7 @@ class _MockSessionListWrapperState extends State<_MockSessionListWrapper> {
         children: [
           // Running session cards
           Expanded(
-            flex: 3,
+            flex: 4,
             child: ListView(
               padding: const EdgeInsets.all(12),
               children: [
@@ -668,7 +668,7 @@ class _MockSessionListWrapperState extends State<_MockSessionListWrapper> {
           // Action log
           Divider(height: 1, color: cs.outlineVariant),
           Expanded(
-            flex: 2,
+            flex: 1,
             child: Container(
               color: cs.surfaceContainerLowest,
               child: Column(
