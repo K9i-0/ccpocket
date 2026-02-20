@@ -77,7 +77,8 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
     final m = widget.machine;
 
     _nameController = TextEditingController(text: m?.name ?? '');
-    _hostController = TextEditingController(text: m?.host ?? '');
+    _hostController = TextEditingController(text: m?.host ?? '')
+      ..addListener(() => setState(() {}));
     _portController = TextEditingController(text: (m?.port ?? 8765).toString());
     _apiKeyController = TextEditingController(
       text: widget.existingApiKey ?? '',
