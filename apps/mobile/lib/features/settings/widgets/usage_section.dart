@@ -24,6 +24,11 @@ class _UsageSectionState extends State<UsageSection> {
   @override
   void initState() {
     super.initState();
+    // Show cached data immediately if available
+    final cached = widget.bridgeService.lastUsageResult;
+    if (cached != null) {
+      _providers = cached.providers;
+    }
     _sub = widget.bridgeService.usageResults.listen((msg) {
       if (mounted) {
         setState(() {
@@ -219,70 +224,120 @@ class _ProviderUsageTile extends StatelessWidget {
   }
 }
 
-class _UsageBar extends StatelessWidget {
+class _UsageBar extends StatefulWidget {
   final String label;
   final UsageWindow window;
   const _UsageBar({required this.label, required this.window});
 
   @override
+  State<_UsageBar> createState() => _UsageBarState();
+}
+
+class _UsageBarState extends State<_UsageBar>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late double _oldPct;
+  late double _newPct;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _oldPct = widget.window.utilization.clamp(0, 100).toDouble();
+    _newPct = _oldPct;
+    // Show initial value immediately without animation
+    _controller.value = 1.0;
+  }
+
+  @override
+  void didUpdateWidget(covariant _UsageBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final incoming = widget.window.utilization.clamp(0, 100).toDouble();
+    if (incoming != _newPct) {
+      _oldPct = _currentPct;
+      _newPct = incoming;
+      _controller
+        ..reset()
+        ..forward();
+    }
+  }
+
+  double get _currentPct {
+    final curved = Curves.easeInOut.transform(_controller.value);
+    return _oldPct + (_newPct - _oldPct) * curved;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final pct = window.utilization.clamp(0, 100).toDouble();
     final l = AppLocalizations.of(context);
-    final resetDt = window.resetsAtDateTime;
+    final resetDt = widget.window.resetsAtDateTime;
     final resetTimeStr = resetDt != null ? _formatResetTime(resetDt) : null;
-    // Show localized reset text: either "Reset: <time>" or "Already reset"
     final resetDisplay = resetDt != null
         ? (resetTimeStr != null
               ? l.usageResetAt(resetTimeStr)
               : l.usageAlreadyReset)
         : null;
 
-    // Color based on utilization level
-    final barColor = pct >= 90
-        ? cs.error
-        : pct >= 70
-        ? Colors.orange
-        : cs.primary;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final pct = _currentPct;
+        final barColor = pct >= 90
+            ? cs.error
+            : pct >= 70
+            ? Colors.orange
+            : cs.primary;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            Row(
+              children: [
+                Text(
+                  widget.label,
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                ),
+                const Spacer(),
+                Text(
+                  '${pct.toStringAsFixed(0)}%',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: barColor,
+                  ),
+                ),
+              ],
             ),
-            const Spacer(),
-            Text(
-              '${pct.toStringAsFixed(0)}%',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: barColor,
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: pct / 100,
+                minHeight: 6,
+                backgroundColor: cs.surfaceContainerHighest,
+                valueColor: AlwaysStoppedAnimation(barColor),
               ),
             ),
+            if (resetDisplay != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                resetDisplay,
+                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+              ),
+            ],
           ],
-        ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: pct / 100,
-            minHeight: 6,
-            backgroundColor: cs.surfaceContainerHighest,
-            valueColor: AlwaysStoppedAnimation(barColor),
-          ),
-        ),
-        if (resetDisplay != null) ...[
-          const SizedBox(height: 2),
-          Text(
-            resetDisplay,
-            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-          ),
-        ],
-      ],
+        );
+      },
     );
   }
 

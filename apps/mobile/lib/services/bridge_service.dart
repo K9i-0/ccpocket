@@ -50,6 +50,7 @@ class BridgeService implements BridgeServiceBase {
   List<RecentSession> _recentSessions = [];
   List<GalleryImage> _galleryImages = [];
   List<String> _projectHistory = [];
+  UsageResultMessage? _lastUsageResult;
 
   // Pagination state
   bool _recentSessionsHasMore = false;
@@ -104,6 +105,7 @@ class BridgeService implements BridgeServiceBase {
   String? get currentProjectFilter => _currentProjectFilter;
   List<GalleryImage> get galleryImages => _galleryImages;
   List<String> get projectHistory => _projectHistory;
+  UsageResultMessage? get lastUsageResult => _lastUsageResult;
 
   /// The last WebSocket URL used for connection (or reconnection).
   String? get lastUrl => _lastUrl;
@@ -190,6 +192,7 @@ class BridgeService implements BridgeServiceBase {
               case DebugBundleMessage():
                 _debugBundleController.add(msg);
               case UsageResultMessage():
+                _lastUsageResult = msg;
                 _usageController.add(msg);
               case RecordingListMessage():
                 _recordingListController.add(msg);
