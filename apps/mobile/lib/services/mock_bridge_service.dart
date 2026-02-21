@@ -159,6 +159,11 @@ class MockBridgeService extends BridgeService {
     );
   }
 
+  /// Load a list of messages as history (instant, no animation delay).
+  void loadHistory(List<ServerMessage> messages) {
+    _mockMessageController.add(HistoryMessage(messages: messages));
+  }
+
   /// Play a scenario: emit each step's message after its delay.
   void playScenario(MockScenario scenario) {
     if (scenario.streamingText != null) {

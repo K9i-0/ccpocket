@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/messages.dart';
+import 'store_screenshot_data.dart';
 
 class MockStep {
   final Duration delay;
@@ -12,7 +13,8 @@ class MockStep {
 /// Section category for grouping scenarios in the preview screen.
 enum MockScenarioSection {
   chat('Chat Session', Icons.chat_bubble_outline),
-  sessionList('Session List', Icons.list_alt);
+  sessionList('Session List', Icons.list_alt),
+  storeScreenshot('Store Screenshots', Icons.photo_camera);
 
   final String label;
   final IconData icon;
@@ -59,6 +61,8 @@ final List<MockScenario> mockScenarios = [
   _sessionListMultiSelect,
   _sessionListBatchApproval,
   _sessionListPlanApproval,
+  // Store screenshot scenarios
+  ...storeScreenshotScenarios,
 ];
 
 // ---------------------------------------------------------------------------
