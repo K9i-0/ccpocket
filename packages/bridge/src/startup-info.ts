@@ -64,10 +64,13 @@ export async function printStartupInfo(
     grouped.set(addr.label, list);
   }
 
+  const hideIp = !!process.env.BRIDGE_HIDE_IP;
+
   for (const [label, ips] of grouped) {
     for (const ip of ips) {
       const padded = `${label}:`.padEnd(12);
-      lines.push(`[bridge]   ${padded} ws://${ip}:${port}`);
+      const display = hideIp ? "xxx.xxx.xxx.xxx" : ip;
+      lines.push(`[bridge]   ${padded} ws://${display}:${port}`);
     }
   }
 
@@ -77,7 +80,7 @@ export async function printStartupInfo(
   const deepLink = buildConnectionUrl(primaryAddr, port, apiKey);
 
   lines.push("");
-  lines.push(`[bridge]   Deep Link: ${deepLink}`);
+  lines.push(`[bridge]   Deep Link: ${hideIp ? "(hidden)" : deepLink}`);
   lines.push("");
   lines.push("[bridge]   Scan QR code with ccpocket app:");
 
