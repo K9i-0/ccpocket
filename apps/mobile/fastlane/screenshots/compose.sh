@@ -169,20 +169,20 @@ compose_ipad_screenshot() {
   magick "$input" -resize "${screen_w}x${screen_h}!" "$tmp_screen"
 
   # 2. Mask the screen for inner curves
-  magick -size "${screen_w}x${screen_h}" xc:none \
+  magick -size "${screen_w}x${screen_h}" xc:black \
     -fill white -draw "roundrectangle 0,0 $((screen_w-1)),$((screen_h-1)) ${inner_radius},${inner_radius}" \
     /tmp/inner_mask_$$.png
-  magick "$tmp_screen" /tmp/inner_mask_$$.png -alpha off -compose CopyOpacity -composite /tmp/screen_masked_$$.png
+  magick "$tmp_screen" \( /tmp/inner_mask_$$.png -alpha off \) -compose CopyOpacity -composite /tmp/screen_masked_$$.png
 
-  # 3. Create the outer iPad hardware bezel shape
+  # 3. Create the outer iPad hardware bezel shape (ensure sRGB colorspace)
   local tmp_bezel=/tmp/bezel_$$.png
-  magick -size "${scaled_w}x${scaled_h}" xc:none \
+  magick -size "${scaled_w}x${scaled_h}" xc:none -colorspace sRGB \
     -fill "#111111" -draw "roundrectangle 0,0 $((scaled_w-1)),$((scaled_h-1)) ${outer_radius},${outer_radius}" \
     "$tmp_bezel"
 
-  # 4. Composite the screen onto the bezel
+  # 4. Composite the screen onto the bezel (preserve color)
   local tmp_device=/tmp/device_$$.png
-  magick "$tmp_bezel" /tmp/screen_masked_$$.png -geometry "+${bezel_thickness}+${bezel_thickness}" -composite "$tmp_device"
+  magick "$tmp_bezel" -colorspace sRGB /tmp/screen_masked_$$.png -geometry "+${bezel_thickness}+${bezel_thickness}" -composite "$tmp_device"
 
   # 5. Thin outline frame for realism
   magick -size "${scaled_w}x${scaled_h}" xc:none \
