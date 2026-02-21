@@ -32,10 +32,11 @@ platform :android do
   lane :metadata do
     upload_to_play_store(
       json_key_data: ENV["GCLOUD_SERVICE_ACCOUNT_CREDENTIALS"],
+      track: "internal",
       skip_upload_aab: true,
       skip_upload_apk: true,
       skip_upload_metadata: false,
-      skip_upload_changelogs: true,   # Skip until first release exists
+      skip_upload_changelogs: true,
       skip_upload_images: false,
       skip_upload_screenshots: false,
     )
