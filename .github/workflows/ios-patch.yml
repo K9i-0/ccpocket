@@ -27,6 +27,8 @@ jobs:
         run: |
           pipx install codemagic-cli-tools
           pipx ensurepath
+      - name: Setup Firebase config
+        run: echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}" | base64 -d > apps/mobile/ios/Runner/GoogleService-Info.plist
       - run: flutter pub get
         working-directory: apps/mobile
       - run: dart analyze .
@@ -49,4 +51,4 @@ jobs:
           shorebird patch ios \
             --release-version=${{ inputs.release_version }} \
             --track=staging \
-            --export-options-plist=/Users/runner/export_options.plist
+            --export-options-plist=$HOME/export_options.plist
