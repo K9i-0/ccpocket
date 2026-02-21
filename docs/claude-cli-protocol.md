@@ -1,7 +1,8 @@
 # Claude CLI Stream-JSON Protocol Specification
 
-> Reverse-engineered from Claude CLI v2.1.29 (Mach-O ARM64, Node.js SEA)
-> Binary location: `~/.local/share/claude/versions/2.1.29`
+> Reverse-engineered from Claude CLI v2.1.29+ (Mach-O ARM64, Node.js SEA)
+> SDK version: `@anthropic-ai/claude-agent-sdk@0.2.50`
+> Last updated: 2026-02-21
 
 ---
 
@@ -404,7 +405,7 @@ Internal function `SQ8` / `D5` (deobfuscated as `checkPermission`):
 ### 6.1 Input Schema
 
 ```typescript
-{
+interface AskUserQuestionInput {
   questions: Array<{           // 1-4 questions
     question: string;          // The question text
     header: string;            // Short label (max 12 chars)
@@ -414,6 +415,12 @@ Internal function `SQ8` / `D5` (deobfuscated as `checkPermission`):
     }>;
     multiSelect: boolean;      // Allow multiple selections
   }>;
+  answers?: {                  // Optional: pre-populated or collected answers
+    [k: string]: string;       // Key = question text, Value = selected label(s)
+  };
+  metadata?: {                 // Optional: tracking/analytics metadata
+    source?: string;           // e.g. "remember" for /remember command
+  };
 }
 ```
 
@@ -433,6 +440,23 @@ The `answers` field maps question text to selected answer:
 ```
 
 For `multiSelect`, the answer contains comma-separated labels.
+
+### 6.3 CLI-only Features (SDK未公開)
+
+Claude Code CLIのターミナルUIでは、選択肢に `markdown` プレビューフィールドがサポートされている。
+選択肢にフォーカスすると右側にASCIIモックアップやコード例がサイドバイサイドで表示される。
+
+**しかし、このフィールドはSDK (`@anthropic-ai/claude-agent-sdk@0.2.50`) の公開スキーマには含まれていない。**
+CLIの内部レンダリング専用で、stream-json出力には現れない。
+
+| Feature | CLI Terminal UI | SDK stream-json |
+|---------|----------------|-----------------|
+| `label` | Yes | Yes |
+| `description` | Yes | Yes |
+| `markdown` preview | Yes (side-by-side) | **Not exposed** |
+| `annotations` | Yes (internal) | **Not exposed** |
+
+ccpocketで対応する場合、SDKへの追加を待つ必要がある。
 
 ---
 

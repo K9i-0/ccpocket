@@ -45,7 +45,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.29",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.50",
     "@openai/codex-sdk": "^0.101.0",
     "bonjour-service": "^1.3.0",
     "qrcode": "^1.5.4",
