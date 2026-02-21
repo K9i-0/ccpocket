@@ -177,7 +177,7 @@ class _ProviderUsageTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final providerLabel = info.provider == 'claude' ? 'Claude Code' : 'Codex';
     final providerIcon = info.provider == 'claude'
-        ? Icons.auto_awesome
+        ? Icons.smart_toy_outlined
         : Icons.code;
 
     return Padding(
