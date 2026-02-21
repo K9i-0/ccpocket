@@ -32,6 +32,8 @@ jobs:
           keyAlias=${{ secrets.KEY_ALIAS }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
+      - name: Setup Firebase config
+        run: echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 -d > apps/mobile/android/app/google-services.json
       - run: flutter pub get
         working-directory: apps/mobile
       - run: dart analyze .
