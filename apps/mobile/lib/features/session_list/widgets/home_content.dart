@@ -151,10 +151,6 @@ class _HomeContentState extends State<HomeContent> {
           padding: const EdgeInsets.all(12),
           children: [
             if (isReconnecting) const SessionReconnectBanner(),
-            Text(
-              'DEBUG: running: ${runningSessionIds.take(1).toList()} | recent: ${widget.recentSessions.take(1).map((s) => s.sessionId)}',
-              style: TextStyle(color: Colors.red),
-            ),
             SectionHeader(
               icon: Icons.history,
               label: 'Recent Sessions',

@@ -260,7 +260,7 @@ void main() {
         ),
       );
 
-      await tester.longPress(find.byType(ListTile));
+      await tester.longPress(find.byType(InkWell));
       await tester.pumpAndSettle();
       expect(longPressed, isTrue);
     });
