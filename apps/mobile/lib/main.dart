@@ -269,6 +269,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           routerConfig: _appRouter.config(),
+          debugShowCheckedModeBanner: false,
         );
       },
     );
