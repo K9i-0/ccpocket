@@ -40,7 +40,7 @@ jobs:
         working-directory: apps/mobile
       - name: Shorebird Release Android
         working-directory: apps/mobile
-        run: shorebird release android --flutter-version="3.41.1" -- --target-platform android-arm64
+        run: shorebird release android --flutter-version="3.41.1"
       - name: Upload to Google Play
         uses: r0adkll/upload-google-play@v1
         with:
