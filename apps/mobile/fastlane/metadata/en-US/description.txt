@@ -12,7 +12,7 @@ MULTI-SESSION MANAGEMENT
 Run and switch between multiple sessions. Resume previous conversations, search session history, and filter by project.
 
 ADVANCED DIFF VIEWER
-Review code changes with syntax-highlighted diffs. Select specific hunks, view file statistics, and send feedback to your agent.
+Review code changes with syntax-highlighted diffs. Select specific change blocks, view file statistics, and send feedback to your agent.
 
 FLEXIBLE CONNECTIONS
 Connect to your self-hosted Bridge Server via saved machines, QR code, mDNS auto-discovery, or manual URL. Optionally manage remote servers over SSH.
@@ -23,9 +23,15 @@ Get notified instantly when your agent needs approval or completes a task. Never
 PRIVACY FIRST
 Your code and conversations stay on your own server. No telemetry, no tracking. ccpocket collects no personal data.
 
+HOW IT WORKS
+1. Install the Bridge Server on your Mac: npm install -g ccpocket-bridge
+2. Start it: ccpocket-bridge
+3. Open ccpocket on your phone and connect via QR code, auto-discovery, or URL
+
+That's it — you're ready to go in under 5 minutes.
+
 REQUIREMENTS
-- A self-hosted ccpocket Bridge Server running on your development machine
-- Claude Code or Codex CLI installed on the server
+- A Mac or Linux machine with Claude Code or Codex CLI installed
 - Network connectivity between your phone and the server (local network or Tailscale recommended)
 
 OPEN SOURCE
