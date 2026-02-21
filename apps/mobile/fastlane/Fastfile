@@ -19,6 +19,9 @@ platform :ios do
       skip_screenshots: false,
       force: true,                  # Skip HTML preview
       precheck_include_in_app_purchases: false,
+      skip_app_version_update: false,
+      edit_live: false,
+      app_review_information: {},   # Don't update review info (phone number etc.)
     )
   end
 end
