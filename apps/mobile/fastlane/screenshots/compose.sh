@@ -48,7 +48,7 @@ compose_screenshot() {
   scaled_h=$(echo "$src_h * $scale_ratio / 1" | bc)
 
   # Text area at top
-  local text_area_h=500
+  local text_area_h=600
 
   # Cap screenshot height if it overflows
   local avail_h=$((CANVAS_H - text_area_h - 20))
@@ -61,11 +61,11 @@ compose_screenshot() {
   local ss_x=$(( (CANVAS_W - scaled_w) / 2 ))
   local ss_y=$text_area_h
 
-  local corner_radius=36
+  local corner_radius=150
 
   echo "Composing: $key ($lang_dir)"
 
-  # Create rounded-corner mask
+  # Create rounded-corner mask for screenshot
   magick -size "${scaled_w}x${scaled_h}" xc:none \
     -fill white -draw "roundrectangle 0,0 $((scaled_w-1)),$((scaled_h-1)) ${corner_radius},${corner_radius}" \
     /tmp/mask_$$.png
@@ -75,17 +75,26 @@ compose_screenshot() {
     /tmp/mask_$$.png -alpha off -compose CopyOpacity -composite \
     /tmp/ss_$$.png
 
-  # Compose final image
-  magick -size "${CANVAS_W}x${CANVAS_H}" "xc:${BG_COLOR}" \
-    /tmp/ss_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
+  # Create an iPhone-like bezel (stroke around the mask)
+  magick -size "${scaled_w}x${scaled_h}" xc:none \
+    -fill none -stroke "#333333" -strokewidth 12 \
+    -draw "roundrectangle 6,6 $((scaled_w-7)),$((scaled_h-7)) ${corner_radius},${corner_radius}" \
+    /tmp/bezel_$$.png
+    
+  # Combine screenshot and bezel
+  magick /tmp/ss_$$.png /tmp/bezel_$$.png -composite /tmp/framed_ss_$$.png
+
+  # Compose final image with gradient background
+  magick -size "${CANVAS_W}x${CANVAS_H}" gradient:"#1B1A3A-#0B0D17" \
+    /tmp/framed_ss_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
     -gravity North \
-    -font "$font_bold" -pointsize 82 -fill white \
-    -annotate +0+160 "$keyword" \
-    -font "$font_reg" -pointsize 54 -fill "rgba(255,255,255,0.75)" \
-    -annotate +0+270 "$title" \
+    -font "$font_bold" -pointsize 110 -fill white \
+    -annotate +0+180 "$keyword" \
+    -font "$font_reg" -pointsize 72 -fill "rgba(255,255,255,0.75)" \
+    -annotate +0+320 "$title" \
     "$output"
 
-  rm -f /tmp/mask_$$.png /tmp/ss_$$.png
+  rm -f /tmp/mask_$$.png /tmp/ss_$$.png /tmp/bezel_$$.png /tmp/framed_ss_$$.png
   echo "  -> $output"
 }
 
