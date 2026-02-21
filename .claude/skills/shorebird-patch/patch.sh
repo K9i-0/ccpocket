@@ -29,9 +29,9 @@ echo ""
 
 cd "$PROJECT_DIR"
 
-# 静的検証
-echo "--- Running dart analyze ---"
-dart analyze .
+# 静的検証 (CIやpre-stopフックで検証済みのためスキップ)
+# echo "--- Running dart analyze ---"
+# dart analyze .
 
 echo ""
 echo "--- Creating $PLATFORM patch (stable) ---"

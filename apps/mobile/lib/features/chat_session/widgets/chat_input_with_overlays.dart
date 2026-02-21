@@ -91,6 +91,17 @@ class ChatInputWithOverlays extends HookWidget {
     final attachedImage = useState<Uint8List?>(null);
     final attachedMimeType = useState<String?>(null);
 
+    // Restore image draft on mount
+    useEffect(() {
+      final draftService = context.read<DraftService>();
+      final imageDraft = draftService.getImageDraft(sessionId);
+      if (imageDraft != null) {
+        attachedImage.value = imageDraft.bytes;
+        attachedMimeType.value = imageDraft.mimeType;
+      }
+      return null;
+    }, [sessionId]);
+
     // Diff selection attachment state
     final attachedDiffSelection = useState<DiffSelection?>(null);
 
@@ -250,7 +261,9 @@ class ChatInputWithOverlays extends HookWidget {
         imageMimeType: mimeType,
       );
       inputController.clear();
-      context.read<DraftService>().deleteDraft(sessionId);
+      final draftService = context.read<DraftService>();
+      draftService.deleteDraft(sessionId);
+      draftService.deleteImageDraft(sessionId);
       onScrollToBottom();
 
       // Record prompt in history (skip auto-generated fallback text)
@@ -274,16 +287,21 @@ class ChatInputWithOverlays extends HookWidget {
 
       if (image != null) {
         final bytes = await image.readAsBytes();
+        if (!context.mounted) return;
         attachedImage.value = bytes;
 
         // Determine mime type from extension
         final ext = image.path.split('.').last.toLowerCase();
-        attachedMimeType.value = switch (ext) {
+        final mimeType = switch (ext) {
           'png' => 'image/png',
           'gif' => 'image/gif',
           'webp' => 'image/webp',
           _ => 'image/jpeg',
         };
+        attachedMimeType.value = mimeType;
+
+        // Persist image draft
+        context.read<DraftService>().saveImageDraft(sessionId, bytes, mimeType);
       }
     }
 
@@ -310,10 +328,16 @@ class ChatInputWithOverlays extends HookWidget {
               try {
                 final bytes = await file.readAll();
                 if (context.mounted) {
-                  attachedImage.value = bytes;
-                  attachedMimeType.value = format == Formats.png
+                  final mimeType = format == Formats.png
                       ? 'image/png'
                       : 'image/jpeg';
+                  attachedImage.value = bytes;
+                  attachedMimeType.value = mimeType;
+
+                  // Persist image draft
+                  context
+                      .read<DraftService>()
+                      .saveImageDraft(sessionId, bytes, mimeType);
                 }
               } catch (e) {
                 if (context.mounted) {
@@ -414,6 +438,7 @@ class ChatInputWithOverlays extends HookWidget {
     void clearAttachment() {
       attachedImage.value = null;
       attachedMimeType.value = null;
+      context.read<DraftService>().deleteImageDraft(sessionId);
     }
 
     void clearDiffSelection() {

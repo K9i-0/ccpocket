@@ -156,7 +156,9 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
     final oldId = _sessionId;
     final newId = msg.sessionId!;
     // Migrate draft from pending ID to real session ID
-    context.read<DraftService>().migrateDraft(oldId, newId);
+    final draftService = context.read<DraftService>();
+    draftService.migrateDraft(oldId, newId);
+    draftService.migrateImageDraft(oldId, newId);
     setState(() {
       _sessionId = newId;
       _worktreePath = msg.worktreePath ?? _worktreePath;
