@@ -1425,17 +1425,13 @@ class ClientMessage {
   factory ClientMessage.input(
     String text, {
     String? sessionId,
-    String? imageId,
-    String? imageBase64,
-    String? mimeType,
+    List<Map<String, String>>? images,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'input',
       'text': text,
       'sessionId': ?sessionId,
-      'imageId': ?imageId,
-      'imageBase64': ?imageBase64,
-      'mimeType': ?mimeType,
+      if (images != null && images.isNotEmpty) 'images': images,
     });
   }
 
@@ -1717,9 +1713,8 @@ class ServerChatEntry implements ChatEntry {
 class UserChatEntry implements ChatEntry {
   final String text;
   final String? sessionId;
-  final String? imageId;
-  final String? imageUrl;
-  final Uint8List? imageBytes;
+  final List<Uint8List> imageBytesList;
+  final List<String> imageUrls;
   MessageStatus status;
 
   /// Number of images attached to this user message (from history restoration).
@@ -1733,13 +1728,14 @@ class UserChatEntry implements ChatEntry {
     this.text, {
     DateTime? timestamp,
     this.sessionId,
-    this.imageId,
-    this.imageUrl,
-    this.imageBytes,
+    List<Uint8List>? imageBytesList,
+    List<String>? imageUrls,
     this.imageCount = 0,
     this.status = MessageStatus.sending,
     this.messageUuid,
-  }) : timestamp = timestamp ?? DateTime.now();
+  }) : imageBytesList = imageBytesList ?? const [],
+       imageUrls = imageUrls ?? const [],
+       timestamp = timestamp ?? DateTime.now();
 }
 
 class StreamingChatEntry implements ChatEntry {

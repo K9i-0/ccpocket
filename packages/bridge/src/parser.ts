@@ -69,7 +69,7 @@ export type ClientMessage =
       worktreeBranch?: string;
       existingWorktreePath?: string;
     }
-  | { type: "input"; text: string; sessionId?: string; imageId?: string; imageBase64?: string; mimeType?: string }
+  | { type: "input"; text: string; sessionId?: string; images?: Array<{base64: string; mimeType: string}>; imageId?: string; imageBase64?: string; mimeType?: string }
   | { type: "push_register"; token: string; platform: "ios" | "android" | "web" }
   | { type: "push_unregister"; token: string }
   | { type: "set_permission_mode"; mode: PermissionMode; sessionId?: string }
@@ -267,7 +267,14 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "input":
         if (typeof msg.text !== "string") return null;
-        // imageBase64 requires mimeType
+        // Validate images array if provided
+        if (msg.images !== undefined) {
+          if (!Array.isArray(msg.images)) return null;
+          for (const img of msg.images) {
+            if (typeof img?.base64 !== "string" || typeof img?.mimeType !== "string") return null;
+          }
+        }
+        // Legacy: imageBase64 requires mimeType
         if (msg.imageBase64 && typeof msg.mimeType !== "string") return null;
         break;
       case "push_register":

@@ -332,7 +332,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private userMessageResolve: ((msg: SDKUserMsg) => void) | null = null;
   private stopped = false;
 
-  private pendingInput: { text: string; image?: { base64: string; mimeType: string } } | null = null;
+  private pendingInput: { text: string; images?: Array<{ base64: string; mimeType: string }> } | null = null;
   private _projectPath: string | null = null;
   private toolCallsSinceLastResult = 0;
   private fileEditsSinceLastResult = 0;
@@ -493,15 +493,14 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   }
 
   /**
-   * Send a message with an image attachment.
+   * Send a message with one or more image attachments.
    * @param text - The text message
-   * @param image - Base64-encoded image data with mime type
+   * @param images - Array of base64-encoded image data with mime types
    */
-  sendInputWithImage(text: string, image: { base64: string; mimeType: string }): void {
+  sendInputWithImages(text: string, images: Array<{ base64: string; mimeType: string }>): void {
     if (!this.userMessageResolve) {
-      // Queue the message with image instead of dropping it.
-      this.pendingInput = { text, image };
-      console.log("[sdk-process] Queued input with image (waiting for resolver)");
+      this.pendingInput = { text, images };
+      console.log(`[sdk-process] Queued input with ${images.length} image(s) (waiting for resolver)`);
       return;
     }
     const resolve = this.userMessageResolve;
@@ -509,20 +508,23 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
     const content: SDKUserMsg["message"]["content"] = [];
 
-    // Add image block first (Claude processes images before text)
-    content.push({
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: image.mimeType,
-        data: image.base64,
-      },
-    });
+    // Add image blocks first (Claude processes images before text)
+    for (const image of images) {
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: image.mimeType,
+          data: image.base64,
+        },
+      });
+    }
 
     // Add text block
     content.push({ type: "text", text });
 
-    console.log(`[sdk-process] Sending message with image (${image.mimeType}, ${Math.round(image.base64.length / 1024)}KB base64)`);
+    const totalKB = images.reduce((sum, img) => sum + Math.round(img.base64.length / 1024), 0);
+    console.log(`[sdk-process] Sending message with ${images.length} image(s) (${totalKB}KB base64 total)`);
 
     resolve({
       type: "user",
@@ -717,19 +719,21 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private async *createUserMessageStream(): AsyncGenerator<SDKUserMsg> {
     while (!this.stopped) {
       if (this.pendingInput) {
-        const { text, image } = this.pendingInput;
+        const { text, images } = this.pendingInput;
         this.pendingInput = null;
-        console.log(`[sdk-process] Sending pending input${image ? " with image" : ""}`);
+        console.log(`[sdk-process] Sending pending input${images ? ` with ${images.length} image(s)` : ""}`);
         const content: SDKUserMsg["message"]["content"] = [];
-        if (image) {
-          content.push({
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: image.mimeType,
-              data: image.base64,
-            },
-          });
+        if (images) {
+          for (const image of images) {
+            content.push({
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: image.mimeType,
+                data: image.base64,
+              },
+            });
+          }
         }
         content.push({ type: "text", text });
         yield {

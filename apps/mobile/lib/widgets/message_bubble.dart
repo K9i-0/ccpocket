@@ -77,9 +77,9 @@ class ChatEntryWidget extends StatelessWidget {
             onRewind: onRewindMessage != null && user.messageUuid != null
                 ? () => onRewindMessage!(user)
                 : null,
-            imageUrl: user.imageUrl,
+            imageUrls: user.imageUrls,
             httpBaseUrl: httpBaseUrl,
-            imageBytes: user.imageBytes,
+            imageBytesList: user.imageBytesList,
             imageCount: user.imageCount,
           ),
           StreamingChatEntry(:final text) => StreamingBubble(text: text),
@@ -88,8 +88,8 @@ class ChatEntryWidget extends StatelessWidget {
         // gesture conflicts with the bubble's GestureDetector.
         if (entry case final UserChatEntry user
             when user.imageCount > 0 &&
-                user.imageUrl == null &&
-                user.imageBytes == null &&
+                user.imageUrls.isEmpty &&
+                user.imageBytesList.isEmpty &&
                 onImageTap != null &&
                 user.messageUuid != null)
           _ImageAttachmentButton(

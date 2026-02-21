@@ -132,16 +132,16 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     resolve({ text });
   }
 
-  sendInputWithImage(text: string, image: { base64: string; mimeType: string }): void {
+  sendInputWithImages(text: string, images: Array<{ base64: string; mimeType: string }>): void {
     if (!this.inputResolve) {
-      console.error("[codex-process] No pending input resolver for sendInputWithImage");
+      console.error("[codex-process] No pending input resolver for sendInputWithImages");
       return;
     }
     const resolve = this.inputResolve;
     this.inputResolve = null;
     resolve({
       text,
-      image,
+      images,
     });
   }
 
@@ -430,49 +430,59 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private async toSdkInput(
     pendingInput: PendingInput,
   ): Promise<{ input: Input | null; tempPaths: string[] }> {
-    if (!pendingInput.image) {
+    if (!pendingInput.images || pendingInput.images.length === 0) {
       return { input: pendingInput.text, tempPaths: [] };
     }
 
-    const ext = extensionFromMime(pendingInput.image.mimeType);
-    if (!ext) {
-      this.emitMessage({
-        type: "error",
-        message: `Unsupported image mime type for Codex: ${pendingInput.image.mimeType}`,
-      });
-      return { input: null, tempPaths: [] };
+    const inputParts: Array<{ type: "text"; text: string } | { type: "local_image"; path: string }> = [];
+    const tempPaths: string[] = [];
+
+    // Add text first
+    inputParts.push({ type: "text", text: pendingInput.text });
+
+    // Add each image
+    for (const image of pendingInput.images) {
+      const ext = extensionFromMime(image.mimeType);
+      if (!ext) {
+        this.emitMessage({
+          type: "error",
+          message: `Unsupported image mime type for Codex: ${image.mimeType}`,
+        });
+        continue;
+      }
+
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(image.base64, "base64");
+      } catch {
+        this.emitMessage({
+          type: "error",
+          message: "Invalid base64 image data for Codex input",
+        });
+        continue;
+      }
+
+      const tempPath = join(tmpdir(), `ccpocket-codex-image-${randomUUID()}.${ext}`);
+      await writeFile(tempPath, buffer);
+      inputParts.push({ type: "local_image", path: tempPath });
+      tempPaths.push(tempPath);
     }
 
-    let buffer: Buffer;
-    try {
-      buffer = Buffer.from(pendingInput.image.base64, "base64");
-    } catch {
-      this.emitMessage({
-        type: "error",
-        message: "Invalid base64 image data for Codex input",
-      });
-      return { input: null, tempPaths: [] };
+    if (tempPaths.length === 0) {
+      // All images failed, send text only
+      return { input: pendingInput.text, tempPaths: [] };
     }
 
-    const tempPath = join(tmpdir(), `ccpocket-codex-image-${randomUUID()}.${ext}`);
-    await writeFile(tempPath, buffer);
-
-    return {
-      input: [
-        { type: "text", text: pendingInput.text },
-        { type: "local_image", path: tempPath },
-      ],
-      tempPaths: [tempPath],
-    };
+    return { input: inputParts, tempPaths };
   }
 }
 
 interface PendingInput {
   text: string;
-  image?: {
+  images?: Array<{
     base64: string;
     mimeType: string;
-  };
+  }>;
 }
 
 function extensionFromMime(mimeType: string): string | null {

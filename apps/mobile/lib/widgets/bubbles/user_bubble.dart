@@ -12,9 +12,9 @@ class UserBubble extends StatelessWidget {
   final MessageStatus status;
   final VoidCallback? onRetry;
   final VoidCallback? onRewind;
-  final String? imageUrl;
+  final List<String> imageUrls;
   final String? httpBaseUrl;
-  final Uint8List? imageBytes;
+  final List<Uint8List> imageBytesList;
 
   /// Number of images attached (from history restoration when actual data is unavailable).
   final int imageCount;
@@ -25,9 +25,9 @@ class UserBubble extends StatelessWidget {
     this.status = MessageStatus.sent,
     this.onRetry,
     this.onRewind,
-    this.imageUrl,
+    this.imageUrls = const [],
     this.httpBaseUrl,
-    this.imageBytes,
+    this.imageBytesList = const [],
     this.imageCount = 0,
   });
 
@@ -80,37 +80,48 @@ class UserBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  if (imageBytes != null ||
-                      (imageUrl != null && httpBaseUrl != null))
+                  if (imageBytesList.isNotEmpty ||
+                      (imageUrls.isNotEmpty && httpBaseUrl != null))
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: imageBytes != null
-                            ? Image.memory(
-                                imageBytes!,
-                                width: 200,
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: [
+                          for (final bytes in imageBytesList)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.memory(
+                                bytes,
+                                width: imageBytesList.length == 1 ? 200 : 120,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) =>
                                     Container(
-                                      width: 200,
-                                      height: 100,
-                                      color: Colors.grey[300],
-                                      child: const Icon(Icons.broken_image),
-                                    ),
-                              )
-                            : Image.network(
-                                '$httpBaseUrl$imageUrl',
-                                width: 200,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Container(
-                                      width: 200,
-                                      height: 100,
+                                      width: imageBytesList.length == 1 ? 200 : 120,
+                                      height: 80,
                                       color: Colors.grey[300],
                                       child: const Icon(Icons.broken_image),
                                     ),
                               ),
+                            ),
+                          if (imageBytesList.isEmpty)
+                            for (final url in imageUrls)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  '$httpBaseUrl$url',
+                                  width: imageUrls.length == 1 ? 200 : 120,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                        width: imageUrls.length == 1 ? 200 : 120,
+                                        height: 80,
+                                        color: Colors.grey[300],
+                                        child: const Icon(Icons.broken_image),
+                                      ),
+                                ),
+                              ),
+                        ],
                       ),
                     ),
                   if (displayText.isNotEmpty)

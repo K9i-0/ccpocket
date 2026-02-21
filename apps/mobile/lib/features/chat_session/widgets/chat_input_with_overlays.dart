@@ -87,17 +87,16 @@ class ChatInputWithOverlays extends HookWidget {
     final filteredSlash = useState<List<SlashCommand>>(const []);
     final filteredFiles = useState<List<String>>(const []);
 
-    // Image attachment state
-    final attachedImage = useState<Uint8List?>(null);
-    final attachedMimeType = useState<String?>(null);
+    // Image attachment state (multiple images)
+    final attachedImages =
+        useState<List<({Uint8List bytes, String mimeType})>>([]);
 
     // Restore image draft on mount
     useEffect(() {
       final draftService = context.read<DraftService>();
-      final imageDraft = draftService.getImageDraft(sessionId);
-      if (imageDraft != null) {
-        attachedImage.value = imageDraft.bytes;
-        attachedMimeType.value = imageDraft.mimeType;
+      final imageDrafts = draftService.getImageDraft(sessionId);
+      if (imageDrafts != null && imageDrafts.isNotEmpty) {
+        attachedImages.value = imageDrafts;
       }
       return null;
     }, [sessionId]);
@@ -204,7 +203,7 @@ class ChatInputWithOverlays extends HookWidget {
     void sendMessage() {
       final text = inputController.text.trim();
       if (text.isEmpty &&
-          attachedImage.value == null &&
+          attachedImages.value.isEmpty &&
           attachedDiffSelection.value == null) {
         return;
       }
@@ -212,15 +211,11 @@ class ChatInputWithOverlays extends HookWidget {
 
       final cubit = context.read<ChatSessionCubit>();
 
-      Uint8List? imageBytes;
-      String? mimeType;
-
-      // Capture and clear attached image
-      if (attachedImage.value != null && attachedMimeType.value != null) {
-        imageBytes = attachedImage.value;
-        mimeType = attachedMimeType.value;
-        attachedImage.value = null;
-        attachedMimeType.value = null;
+      // Capture and clear attached images
+      List<({Uint8List bytes, String mimeType})>? images;
+      if (attachedImages.value.isNotEmpty) {
+        images = List.of(attachedImages.value);
+        attachedImages.value = [];
       }
 
       // Capture and clear diff selection
@@ -257,8 +252,7 @@ class ChatInputWithOverlays extends HookWidget {
           : finalText;
       cubit.sendMessage(
         messageToSend,
-        imageBytes: imageBytes,
-        imageMimeType: mimeType,
+        images: images,
       );
       inputController.clear();
       final draftService = context.read<DraftService>();
@@ -288,7 +282,6 @@ class ChatInputWithOverlays extends HookWidget {
       if (image != null) {
         final bytes = await image.readAsBytes();
         if (!context.mounted) return;
-        attachedImage.value = bytes;
 
         // Determine mime type from extension
         final ext = image.path.split('.').last.toLowerCase();
@@ -298,10 +291,16 @@ class ChatInputWithOverlays extends HookWidget {
           'webp' => 'image/webp',
           _ => 'image/jpeg',
         };
-        attachedMimeType.value = mimeType;
+
+        // Add to list (append, not replace)
+        final updated = [
+          ...attachedImages.value,
+          (bytes: bytes, mimeType: mimeType),
+        ];
+        attachedImages.value = updated;
 
         // Persist image draft
-        context.read<DraftService>().saveImageDraft(sessionId, bytes, mimeType);
+        context.read<DraftService>().saveImageDraft(sessionId, updated);
       }
     }
 
@@ -331,13 +330,18 @@ class ChatInputWithOverlays extends HookWidget {
                   final mimeType = format == Formats.png
                       ? 'image/png'
                       : 'image/jpeg';
-                  attachedImage.value = bytes;
-                  attachedMimeType.value = mimeType;
+
+                  // Add to list (append, not replace)
+                  final updated = [
+                    ...attachedImages.value,
+                    (bytes: bytes, mimeType: mimeType),
+                  ];
+                  attachedImages.value = updated;
 
                   // Persist image draft
                   context
                       .read<DraftService>()
-                      .saveImageDraft(sessionId, bytes, mimeType);
+                      .saveImageDraft(sessionId, updated);
                 }
               } catch (e) {
                 if (context.mounted) {
@@ -435,10 +439,19 @@ class ChatInputWithOverlays extends HookWidget {
       );
     }
 
-    void clearAttachment() {
-      attachedImage.value = null;
-      attachedMimeType.value = null;
-      context.read<DraftService>().deleteImageDraft(sessionId);
+    void clearAttachment([int? index]) {
+      if (index != null && index < attachedImages.value.length) {
+        final updated = [...attachedImages.value]..removeAt(index);
+        attachedImages.value = updated;
+        if (updated.isEmpty) {
+          context.read<DraftService>().deleteImageDraft(sessionId);
+        } else {
+          context.read<DraftService>().saveImageDraft(sessionId, updated);
+        }
+      } else {
+        attachedImages.value = [];
+        context.read<DraftService>().deleteImageDraft(sessionId);
+      }
     }
 
     void clearDiffSelection() {
@@ -677,7 +690,7 @@ class ChatInputWithOverlays extends HookWidget {
             status: status,
             hasInputText:
                 hasInputText.value ||
-                attachedImage.value != null ||
+                attachedImages.value.isNotEmpty ||
                 attachedDiffSelection.value != null,
             isVoiceAvailable: voice.isAvailable,
             isRecording: voice.isRecording,
@@ -696,8 +709,8 @@ class ChatInputWithOverlays extends HookWidget {
                 : null,
             onShowPromptHistory: showPromptHistory,
             onAttachImage: showAttachOptions,
-            attachedImageBytes: attachedImage.value,
-            onClearAttachment: clearAttachment,
+            attachedImages: attachedImages.value,
+            onClearImage: clearAttachment,
             attachedDiffSelection: attachedDiffSelection.value,
             onClearDiffSelection: clearDiffSelection,
             onTapDiffPreview: onOpenDiffScreen != null

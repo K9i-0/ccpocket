@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class DraftService {
   final SharedPreferences _prefs;
   final Map<String, String> _cache = {};
-  final Map<String, ({Uint8List bytes, String mimeType})> _imageCache = {};
+  final Map<String, List<({Uint8List bytes, String mimeType})>> _imageCache = {};
 
   static const _prefix = 'draft_v1_';
   static const _imagePrefix = 'draft_image_v1_';
@@ -26,8 +26,8 @@ class DraftService {
         final sessionId = key.substring(_imagePrefix.length);
         final value = _prefs.getString(key);
         if (value != null && value.isNotEmpty) {
-          final decoded = _decodeImageDraft(value);
-          if (decoded != null) {
+          final decoded = _decodeImageDraftList(value);
+          if (decoded.isNotEmpty) {
             _imageCache[sessionId] = decoded;
           }
         }
@@ -80,18 +80,29 @@ class DraftService {
   // Image draft persistence
   // ---------------------------------------------------------------------------
 
-  /// Save an image draft for the given session.
+  /// Save image drafts for the given session.
   ///
-  /// Stores the image bytes (Base64-encoded) and MIME type in
-  /// [SharedPreferences] so the attachment survives navigation.
-  void saveImageDraft(String sessionId, Uint8List bytes, String mimeType) {
-    _imageCache[sessionId] = (bytes: bytes, mimeType: mimeType);
-    final encoded = '${base64Encode(bytes)}|$mimeType';
-    _prefs.setString('$_imagePrefix$sessionId', encoded);
+  /// Stores each image's bytes (Base64-encoded) and MIME type as a JSON array
+  /// in [SharedPreferences] so attachments survive navigation.
+  void saveImageDraft(
+    String sessionId,
+    List<({Uint8List bytes, String mimeType})> images,
+  ) {
+    if (images.isEmpty) {
+      deleteImageDraft(sessionId);
+      return;
+    }
+    _imageCache[sessionId] = images;
+    final jsonList = images
+        .map(
+          (img) => {'b64': base64Encode(img.bytes), 'mime': img.mimeType},
+        )
+        .toList();
+    _prefs.setString('$_imagePrefix$sessionId', jsonEncode(jsonList));
   }
 
-  /// Retrieve the image draft for [sessionId], or `null` if none exists.
-  ({Uint8List bytes, String mimeType})? getImageDraft(String sessionId) =>
+  /// Retrieve the image drafts for [sessionId], or `null` if none exists.
+  List<({Uint8List bytes, String mimeType})>? getImageDraft(String sessionId) =>
       _imageCache[sessionId];
 
   /// Remove the image draft for [sessionId] (e.g. after sending or clearing).
@@ -105,23 +116,50 @@ class DraftService {
     final data = _imageCache[oldId];
     if (data == null) return;
     _imageCache[newId] = data;
-    final encoded = '${base64Encode(data.bytes)}|${data.mimeType}';
-    _prefs.setString('$_imagePrefix$newId', encoded);
+    // Re-encode for the new key.
+    final jsonList = data
+        .map(
+          (img) => {'b64': base64Encode(img.bytes), 'mime': img.mimeType},
+        )
+        .toList();
+    _prefs.setString('$_imagePrefix$newId', jsonEncode(jsonList));
     deleteImageDraft(oldId);
   }
 
-  /// Decode stored image draft string (`base64|mimeType`).
-  static ({Uint8List bytes, String mimeType})? _decodeImageDraft(
+  /// Decode stored image draft string.
+  ///
+  /// Supports two formats:
+  /// - **New** (JSON array): `[{"b64":"...","mime":"..."},...]`
+  /// - **Legacy** (single image): `base64|mimeType`
+  static List<({Uint8List bytes, String mimeType})> _decodeImageDraftList(
     String value,
   ) {
+    // Try JSON array format first.
+    if (value.startsWith('[')) {
+      try {
+        final list = jsonDecode(value) as List;
+        return list
+            .cast<Map<String, dynamic>>()
+            .map(
+              (m) => (
+                bytes: base64Decode(m['b64'] as String),
+                mimeType: m['mime'] as String,
+              ),
+            )
+            .toList();
+      } catch (_) {
+        return [];
+      }
+    }
+    // Legacy single-image format: `base64|mimeType`.
     final sep = value.lastIndexOf('|');
-    if (sep < 0) return null;
+    if (sep < 0) return [];
     try {
       final bytes = base64Decode(value.substring(0, sep));
       final mimeType = value.substring(sep + 1);
-      return (bytes: bytes, mimeType: mimeType);
+      return [(bytes: bytes, mimeType: mimeType)];
     } catch (_) {
-      return null;
+      return [];
     }
   }
 }

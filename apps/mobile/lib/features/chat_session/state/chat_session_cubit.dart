@@ -347,37 +347,32 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   // Commands (Path B: UI → Cubit → Bridge)
   // ---------------------------------------------------------------------------
 
-  /// Send a user message, optionally with an image attachment.
+  /// Send a user message, optionally with image attachments.
   void sendMessage(
     String text, {
-    String? imageId,
-    String? imageUrl,
-    Uint8List? imageBytes,
-    String? imageMimeType,
+    List<({Uint8List bytes, String mimeType})>? images,
   }) {
-    if (text.trim().isEmpty && imageId == null && imageBytes == null) return;
+    if (text.trim().isEmpty && (images == null || images.isEmpty)) return;
     final entry = UserChatEntry(
       text,
       sessionId: sessionId,
-      imageId: imageId,
-      imageUrl: imageUrl,
-      imageBytes: imageBytes,
+      imageBytesList: images?.map((i) => i.bytes).toList(),
     );
     emit(state.copyWith(entries: [...state.entries, entry]));
 
-    // Send Base64 directly via WebSocket if image bytes are provided
-    String? imageBase64;
-    if (imageBytes != null) {
-      imageBase64 = base64Encode(imageBytes);
+    // Encode images as Base64 for WebSocket transmission
+    List<Map<String, String>>? imagePayloads;
+    if (images != null && images.isNotEmpty) {
+      imagePayloads = images
+          .map((i) => {'base64': base64Encode(i.bytes), 'mimeType': i.mimeType})
+          .toList();
     }
 
     _bridge.send(
       ClientMessage.input(
         text,
         sessionId: sessionId,
-        imageId: imageId,
-        imageBase64: imageBase64,
-        mimeType: imageMimeType,
+        images: imagePayloads,
       ),
     );
   }

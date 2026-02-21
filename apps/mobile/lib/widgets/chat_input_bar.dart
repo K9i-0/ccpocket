@@ -25,8 +25,8 @@ class ChatInputBar extends StatelessWidget {
   final SandboxMode? sandboxMode;
   final VoidCallback? onShowPromptHistory;
   final VoidCallback? onAttachImage;
-  final Uint8List? attachedImageBytes;
-  final VoidCallback? onClearAttachment;
+  final List<({Uint8List bytes, String mimeType})> attachedImages;
+  final void Function([int? index])? onClearImage;
   final DiffSelection? attachedDiffSelection;
   final VoidCallback? onClearDiffSelection;
   final VoidCallback? onTapDiffPreview;
@@ -49,8 +49,8 @@ class ChatInputBar extends StatelessWidget {
     this.sandboxMode,
     this.onShowPromptHistory,
     this.onAttachImage,
-    this.attachedImageBytes,
-    this.onClearAttachment,
+    this.attachedImages = const [],
+    this.onClearImage,
     this.attachedDiffSelection,
     this.onClearDiffSelection,
     this.onTapDiffPreview,
@@ -81,7 +81,7 @@ class ChatInputBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (attachedDiffSelection != null) _buildDiffPreview(context, cs),
-          if (attachedImageBytes != null) _buildImagePreview(cs),
+          if (attachedImages.isNotEmpty) _buildImagePreview(cs),
           _buildTextField(context, cs),
           const SizedBox(height: 4),
           Row(
@@ -276,7 +276,7 @@ class ChatInputBar extends StatelessWidget {
   }
 
   Widget _buildAttachButton(ColorScheme cs) {
-    final hasAttachment = attachedImageBytes != null;
+    final hasAttachment = attachedImages.isNotEmpty;
     return Material(
       color: hasAttachment ? cs.primaryContainer : cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(20),
@@ -288,11 +288,37 @@ class ChatInputBar extends StatelessWidget {
           width: 36,
           height: 36,
           alignment: Alignment.center,
-          child: Icon(
-            hasAttachment ? Icons.image : Icons.attach_file,
-            size: 18,
-            color: hasAttachment ? cs.onPrimaryContainer : cs.primary,
-          ),
+          child: hasAttachment
+              ? Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(Icons.image, size: 18, color: cs.onPrimaryContainer),
+                    if (attachedImages.length > 1)
+                      Positioned(
+                        top: -6,
+                        right: -8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cs.primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${attachedImages.length}',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: cs.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                )
+              : Icon(Icons.attach_file, size: 18, color: cs.primary),
         ),
       ),
     );
@@ -319,32 +345,48 @@ class ChatInputBar extends StatelessWidget {
   Widget _buildImagePreview(ColorScheme cs) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      child: Stack(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.memory(
-              attachedImageBytes!,
-              height: 80,
-              fit: BoxFit.cover,
-            ),
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: GestureDetector(
-              onTap: onClearAttachment,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
+      child: SizedBox(
+        height: 80,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: attachedImages.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 6),
+          itemBuilder: (context, index) {
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    attachedImages[index].bytes,
+                    height: 80,
+                    width: attachedImages.length == 1 ? null : 80,
+                    fit: BoxFit.cover,
+                  ),
                 ),
-                padding: const EdgeInsets.all(4),
-                child: const Icon(Icons.close, size: 14, color: Colors.white),
-              ),
-            ),
-          ),
-        ],
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: () => onClearImage?.call(index),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      child: const Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

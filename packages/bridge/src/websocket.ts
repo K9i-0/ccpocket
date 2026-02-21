@@ -259,40 +259,49 @@ export class BridgeWebSocketServer {
         // Acknowledge receipt immediately so the client can mark the message as sent
         this.send(ws, { type: "input_ack", sessionId: session.id });
 
+        // Normalize images: support new `images` array and legacy single-image fields
+        let images: Array<{ base64: string; mimeType: string }> = [];
+        if (msg.images && msg.images.length > 0) {
+          images = msg.images;
+        } else if (msg.imageBase64 && msg.mimeType) {
+          // Legacy single-image fallback
+          images = [{ base64: msg.imageBase64, mimeType: msg.mimeType }];
+        }
+
         // Add user_input to in-memory history.
         // The SDK stream does NOT emit user messages, so session.history would
         // otherwise lack them.  This ensures get_history responses include user
         // messages and replaceEntries on the client side preserves them.
         // We do NOT broadcast this back — Flutter already shows it via sendMessage().
-        const hasImage = !!(msg.imageBase64 || msg.imageId);
         session.history.push({
           type: "user_input",
           text,
-          ...(hasImage ? { imageCount: 1 } : {}),
+          ...(images.length > 0 ? { imageCount: images.length } : {}),
         } as ServerMessage);
 
-        // Codex input path (text + optional image)
+        // Persist images to Gallery Store asynchronously (fire-and-forget)
+        if (images.length > 0 && this.galleryStore && session.projectPath) {
+          for (const img of images) {
+            this.galleryStore.addImageFromBase64(
+              img.base64,
+              img.mimeType,
+              session.projectPath,
+              msg.sessionId,
+            ).catch((err) => {
+              console.warn(`[ws] Failed to persist image to gallery: ${err}`);
+            });
+          }
+        }
+
+        // Codex input path
         if (session.provider === "codex") {
           const codexProc = session.process as CodexProcess;
-          if (msg.imageBase64 && msg.mimeType) {
-            codexProc.sendInputWithImage(text, {
-              base64: msg.imageBase64,
-              mimeType: msg.mimeType,
-            });
-            if (this.galleryStore && session.projectPath) {
-              this.galleryStore.addImageFromBase64(
-                msg.imageBase64,
-                msg.mimeType,
-                session.projectPath,
-                msg.sessionId,
-              ).catch((err) => {
-                console.warn(`[ws] Failed to persist image to gallery: ${err}`);
-              });
-            }
+          if (images.length > 0) {
+            codexProc.sendInputWithImages(text, images);
           } else if (msg.imageId && this.galleryStore) {
             this.galleryStore.getImageAsBase64(msg.imageId).then((imageData) => {
               if (imageData) {
-                codexProc.sendInputWithImage(text, imageData);
+                codexProc.sendInputWithImages(text, [imageData]);
               } else {
                 console.warn(`[ws] Image not found: ${msg.imageId}`);
                 codexProc.sendInput(text);
@@ -307,31 +316,17 @@ export class BridgeWebSocketServer {
           break;
         }
 
-        // Priority 1: Direct Base64 image (simplified flow)
+        // Claude Code input path
         const claudeProc = session.process as SdkProcess;
-        if (msg.imageBase64 && msg.mimeType) {
-          console.log(`[ws] Sending message with inline Base64 image (${msg.mimeType})`);
-          claudeProc.sendInputWithImage(text, {
-            base64: msg.imageBase64,
-            mimeType: msg.mimeType,
-          });
-          // Persist to Gallery Store asynchronously (fire-and-forget)
-          if (this.galleryStore && session.projectPath) {
-            this.galleryStore.addImageFromBase64(
-              msg.imageBase64,
-              msg.mimeType,
-              session.projectPath,
-              msg.sessionId,
-            ).catch((err) => {
-              console.warn(`[ws] Failed to persist image to gallery: ${err}`);
-            });
-          }
+        if (images.length > 0) {
+          console.log(`[ws] Sending message with ${images.length} inline Base64 image(s)`);
+          claudeProc.sendInputWithImages(text, images);
         }
-        // Priority 2: Legacy imageId mode (backward compatibility)
+        // Legacy imageId mode (backward compatibility)
         else if (msg.imageId && this.galleryStore) {
           this.galleryStore.getImageAsBase64(msg.imageId).then((imageData) => {
             if (imageData) {
-              claudeProc.sendInputWithImage(text, imageData);
+              claudeProc.sendInputWithImages(text, [imageData]);
             } else {
               console.warn(`[ws] Image not found: ${msg.imageId}`);
               session.process.sendInput(text);
@@ -341,7 +336,7 @@ export class BridgeWebSocketServer {
             session.process.sendInput(text);
           });
         }
-        // Priority 3: Text-only message
+        // Text-only message
         else {
           session.process.sendInput(text);
         }
