@@ -1,0 +1,39 @@
+{
+  "device_frame_version": "latest",
+  "default": {
+    "background": "./background.png",
+    "padding": 50,
+    "show_complete_frame": false,
+    "title_below_image": false,
+    "title_min_height": "25%",
+    "stack_title": false,
+    "keyword": {
+      "color": "#FFFFFF",
+      "font_size": 72
+    },
+    "title": {
+      "color": "#FFFFFFCC",
+      "font_size": 48
+    }
+  },
+  "data": [
+    {
+      "filter": "01_session_list"
+    },
+    {
+      "filter": "02_coding_session"
+    },
+    {
+      "filter": "03_task_planning"
+    },
+    {
+      "filter": "04_approval_flow"
+    },
+    {
+      "filter": "05_ask_question"
+    },
+    {
+      "filter": "06_recent_sessions"
+    }
+  ]
+}
