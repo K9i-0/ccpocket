@@ -118,5 +118,88 @@ for entry in "${SCREENSHOTS[@]}"; do
   compose_screenshot "$key" "$kw_ja" "$tt_ja" "ja" "$FONT_JA_BOLD" "$FONT_JA_REG"
 done
 
+# === iPad (2064x2752) ===
+IPAD_CANVAS_W=2064
+IPAD_CANVAS_H=2752
+
+compose_ipad_screenshot() {
+  local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6" src_dir="$7"
+  local input="${SCRIPT_DIR}/${src_dir}/ipad_${key}.png"
+  local output="${SCRIPT_DIR}/${lang_dir}/ipad_${key}_framed.png"
+
+  if [ ! -f "$input" ]; then
+    echo "SKIP: $input not found"
+    return
+  fi
+
+  local src_w src_h
+  read -r src_w src_h <<< "$(magick identify -format '%w %h' "$input")"
+
+  local pad=100
+  local max_w=$((IPAD_CANVAS_W - pad * 2))
+  local scale_ratio
+  scale_ratio=$(echo "scale=6; $max_w / $src_w" | bc)
+  local scaled_w=$max_w
+  local scaled_h
+  scaled_h=$(echo "$src_h * $scale_ratio / 1" | bc)
+
+  local text_area_h=500
+
+  local avail_h=$((IPAD_CANVAS_H - text_area_h - 20))
+  if [ "$scaled_h" -gt "$avail_h" ]; then
+    scale_ratio=$(echo "scale=6; $avail_h / $src_h" | bc)
+    scaled_h=$avail_h
+    scaled_w=$(echo "$src_w * $scale_ratio / 1" | bc)
+  fi
+
+  local ss_x=$(( (IPAD_CANVAS_W - scaled_w) / 2 ))
+  local ss_y=$text_area_h
+
+  local corner_radius=50
+
+  echo "Composing iPad: ipad_$key ($lang_dir)"
+
+  magick -size "${scaled_w}x${scaled_h}" xc:none \
+    -fill white -draw "roundrectangle 0,0 $((scaled_w-1)),$((scaled_h-1)) ${corner_radius},${corner_radius}" \
+    /tmp/mask_$$.png
+
+  magick "$input" -resize "${scaled_w}x${scaled_h}" \
+    /tmp/mask_$$.png -alpha off -compose CopyOpacity -composite \
+    /tmp/ss_$$.png
+
+  magick -size "${scaled_w}x${scaled_h}" xc:none \
+    -fill none -stroke "#222222" -strokewidth 20 \
+    -draw "roundrectangle 10,10 $((scaled_w-11)),$((scaled_h-11)) ${corner_radius},${corner_radius}" \
+    /tmp/bezel_$$.png
+
+  magick /tmp/ss_$$.png /tmp/bezel_$$.png -composite /tmp/framed_ss_$$.png
+
+  magick -size "${IPAD_CANVAS_W}x${IPAD_CANVAS_H}" gradient:"#FFFFFF-#F4F4F5" \
+    /tmp/framed_ss_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
+    -gravity North \
+    -font "$font_bold" -pointsize 100 -fill "#111111" \
+    -annotate +0+150 "$keyword" \
+    -font "$font_reg" -pointsize 64 -fill "rgba(17,17,17,0.75)" \
+    -annotate +0+280 "$title" \
+    -depth 8 "$output"
+
+  rm -f /tmp/mask_$$.png /tmp/ss_$$.png /tmp/bezel_$$.png /tmp/framed_ss_$$.png
+  echo "  -> $output"
+}
+
+echo ""
+echo "=== iPad English ==="
+for entry in "${SCREENSHOTS[@]}"; do
+  IFS='|' read -r key kw_en tt_en kw_ja tt_ja <<< "$entry"
+  compose_ipad_screenshot "$key" "$kw_en" "$tt_en" "en-US" "$FONT_EN_BOLD" "$FONT_EN_REG" "en-US"
+done
+
+echo ""
+echo "=== iPad Japanese ==="
+for entry in "${SCREENSHOTS[@]}"; do
+  IFS='|' read -r key kw_en tt_en kw_ja tt_ja <<< "$entry"
+  compose_ipad_screenshot "$key" "$kw_ja" "$tt_ja" "ja" "$FONT_JA_BOLD" "$FONT_JA_REG" "en-US"
+done
+
 echo ""
 echo "Done! Framed screenshots have '_framed' suffix."
