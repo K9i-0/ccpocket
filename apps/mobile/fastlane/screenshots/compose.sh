@@ -16,12 +16,12 @@ FONT_JA_REG="Hiragino-Sans-W3"
 
 # Screenshot definitions: key, keyword_en, title_en, keyword_ja, title_ja
 SCREENSHOTS=(
-  "01_session_list|Your AI agents|in your pocket|AIエージェントを|ポケットから操作"
-  "02_coding_session|Real-time streaming|Watch your agent code|リアルタイム表示|コーディングをライブで"
-  "03_task_planning|Structured planning|with thinking & tasks|構造化プランニング|思考とタスク管理"
-  "04_approval_flow|Approve tools|right from your phone|ツール承認を|スマホから即座に"
-  "05_ask_question|Interactive Q&A|Your agent asks, you decide|エージェントが質問|あなたが判断"
-  "06_recent_sessions|All your sessions|organized by project|セッション一覧|プロジェクト別に管理"
+  "01_session_list|Your AI agents|in your pocket|AIエージェントを|スマホから操作"
+  "02_coding_session|Never miss a line|Live output, wherever you are|リアルタイム出力|ツール実行をそのまま表示"
+  "03_task_planning|Know what's next|See your agent's plan unfold|思考とタスク|エージェントの計画を確認"
+  "04_approval_flow|Stay in control|Approve or reject, instantly|ツール承認|実行前に許可・拒否"
+  "05_ask_question|Agents need you|Answer questions on the go|質問に回答|エージェントからの質問に対応"
+  "06_recent_sessions|Multiple projects|One app for every codebase|プロジェクト別|セッションをまとめて管理"
 )
 
 compose_screenshot() {

@@ -1,7 +1,7 @@
 
-"01_session_list" = "ポケットから操作";
-"02_coding_session" = "コーディングをライブで";
-"03_task_planning" = "思考とタスク管理";
-"04_approval_flow" = "スマホから即座に";
-"05_ask_question" = "あなたが判断";
-"06_recent_sessions" = "プロジェクト別に管理";
+"01_session_list" = "スマホから操作";
+"02_coding_session" = "ツール実行をそのまま表示";
+"03_task_planning" = "エージェントの計画を確認";
+"04_approval_flow" = "実行前に許可・拒否";
+"05_ask_question" = "エージェントからの質問に対応";
+"06_recent_sessions" = "セッションをまとめて管理";
