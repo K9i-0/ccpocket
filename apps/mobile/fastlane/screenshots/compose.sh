@@ -84,13 +84,13 @@ compose_screenshot() {
   # Combine screenshot and bezel
   magick /tmp/ss_$$.png /tmp/bezel_$$.png -composite /tmp/framed_ss_$$.png
 
-  # Compose final image with gradient background (Tech Teal/Green style)
-  magick -size "${CANVAS_W}x${CANVAS_H}" gradient:"#0F766E-#34D399" \
+  # Compose final image with gradient background (Clean White style)
+  magick -size "${CANVAS_W}x${CANVAS_H}" gradient:"#FFFFFF-#F4F4F5" \
     /tmp/framed_ss_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
     -gravity North \
-    -font "$font_bold" -pointsize 110 -fill white \
+    -font "$font_bold" -pointsize 110 -fill "#111111" \
     -annotate +0+180 "$keyword" \
-    -font "$font_reg" -pointsize 72 -fill "rgba(255,255,255,0.75)" \
+    -font "$font_reg" -pointsize 72 -fill "rgba(17,17,17,0.75)" \
     -annotate +0+320 "$title" \
     "$output"
 
