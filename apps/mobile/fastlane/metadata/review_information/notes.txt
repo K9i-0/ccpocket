@@ -1,7 +1,0 @@
-This app is a mobile remote client for Claude Code and Codex CLI tools.
-
-To use the app, a self-hosted Bridge Server must be running on the user's development machine. The app connects to this server via WebSocket.
-
-The app does not directly access Anthropic or OpenAI APIs. It communicates only with the user's own Bridge Server.
-
-For review purposes: the app will show a connection screen on launch. Without a Bridge Server, the app's functionality is limited to the connection and settings screens.
