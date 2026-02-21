@@ -16,12 +16,15 @@ jobs:
       CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v4
+      - name: Read Flutter version from .mise.toml
+        id: mise
+        run: echo "flutter_version=$(grep 'flutter' .mise.toml | sed 's/.*= *\"//' | sed 's/\"//')" >> "$GITHUB_OUTPUT"
       - uses: shorebirdtech/setup-shorebird@v1
         with:
           cache: true
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.1'
+          flutter-version: ${{ steps.mise.outputs.flutter_version }}
           cache: true
       - name: Install Codemagic CLI Tools
         run: |
