@@ -29,7 +29,6 @@ ccpocket/
 │       │   ├── prompt_history/            # プロンプト履歴
 │       │   ├── settings/                  # 設定画面
 │       │   ├── setup_guide/               # 初回セットアップガイド
-│       │   ├── swipe_queue/               # スワイプ承認キュー
 │       │   └── debug/                     # デバッグ画面
 │       ├── models/messages.dart           # メッセージ型定義
 │       ├── providers/                     # グローバルprovider
