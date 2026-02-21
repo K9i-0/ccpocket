@@ -81,26 +81,31 @@ export async function printStartupInfo(
 
   lines.push("");
   lines.push(`[bridge]   Deep Link: ${hideIp ? "(hidden)" : deepLink}`);
-  lines.push("");
-  lines.push("[bridge]   Scan QR code with ccpocket app:");
+
+  if (!hideIp) {
+    lines.push("");
+    lines.push("[bridge]   Scan QR code with ccpocket app:");
+  }
 
   // Print all non-QR lines
   console.log(lines.join("\n"));
 
-  // Generate and print QR code
-  try {
-    const qrText = await QRCode.toString(deepLink, {
-      type: "terminal",
-      small: true,
-    });
-    // Indent QR code lines
-    const indented = qrText
-      .split("\n")
-      .map((line) => `           ${line}`)
-      .join("\n");
-    console.log(indented);
-  } catch {
-    console.log("[bridge]   (QR code generation failed)");
+  // Generate and print QR code (skip when hiding IP)
+  if (!hideIp) {
+    try {
+      const qrText = await QRCode.toString(deepLink, {
+        type: "terminal",
+        small: true,
+      });
+      // Indent QR code lines
+      const indented = qrText
+        .split("\n")
+        .map((line) => `           ${line}`)
+        .join("\n");
+      console.log(indented);
+    } catch {
+      console.log("[bridge]   (QR code generation failed)");
+    }
   }
 
   console.log(
