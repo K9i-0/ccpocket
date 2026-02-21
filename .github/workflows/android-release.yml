@@ -19,6 +19,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: gradle/gradle-build-action@v3
       # Android signing: decode keystore from base64 secret
       - name: Setup Android signing
         run: |
@@ -39,7 +40,7 @@ jobs:
         working-directory: apps/mobile
       - name: Shorebird Release Android
         working-directory: apps/mobile
-        run: shorebird release android --flutter-version="3.41.1"
+        run: shorebird release android --flutter-version="3.41.1" -- --target-platform android-arm64
       - name: Upload to Google Play
         uses: r0adkll/upload-google-play@v1
         with:
