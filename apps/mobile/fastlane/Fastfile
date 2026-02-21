@@ -1,0 +1,33 @@
+default_platform(:ios)
+
+# --------------------------------------------------------------------------
+# iOS
+# --------------------------------------------------------------------------
+platform :ios do
+  desc "Upload metadata and screenshots to App Store Connect"
+  lane :metadata do
+    deliver(
+      skip_binary_upload: true,
+      skip_screenshots: false,
+      force: true,                  # Skip HTML preview
+      precheck_include_in_app_purchases: false,
+    )
+  end
+end
+
+# --------------------------------------------------------------------------
+# Android
+# --------------------------------------------------------------------------
+platform :android do
+  desc "Upload metadata and screenshots to Google Play"
+  lane :metadata do
+    upload_to_play_store(
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: false,
+      skip_upload_changelogs: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false,
+    )
+  end
+end

@@ -1,0 +1,8 @@
+# iOS
+app_identifier("com.k9i.ccpocket")
+# apple_id("your@email.com")       # Apple ID (set in CI secrets)
+# team_id("XXXXXXXXXX")            # Apple Developer Team ID (set in CI secrets)
+
+# Android
+json_key_file("")                   # Path to Google Play service account JSON (set in CI secrets)
+package_name("com.k9i.ccpocket")
