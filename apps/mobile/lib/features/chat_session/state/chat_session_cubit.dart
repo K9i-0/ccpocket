@@ -369,11 +369,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
 
     _bridge.send(
-      ClientMessage.input(
-        text,
-        sessionId: sessionId,
-        images: imagePayloads,
-      ),
+      ClientMessage.input(text, sessionId: sessionId, images: imagePayloads),
     );
   }
 

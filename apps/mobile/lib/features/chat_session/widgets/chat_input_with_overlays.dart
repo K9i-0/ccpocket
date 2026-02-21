@@ -88,8 +88,9 @@ class ChatInputWithOverlays extends HookWidget {
     final filteredFiles = useState<List<String>>(const []);
 
     // Image attachment state (multiple images)
-    final attachedImages =
-        useState<List<({Uint8List bytes, String mimeType})>>([]);
+    final attachedImages = useState<List<({Uint8List bytes, String mimeType})>>(
+      [],
+    );
 
     // Restore image draft on mount
     useEffect(() {
@@ -250,10 +251,7 @@ class ChatInputWithOverlays extends HookWidget {
       final messageToSend = finalText.isEmpty
           ? 'What is in this image?'
           : finalText;
-      cubit.sendMessage(
-        messageToSend,
-        images: images,
-      );
+      cubit.sendMessage(messageToSend, images: images);
       inputController.clear();
       final draftService = context.read<DraftService>();
       draftService.deleteDraft(sessionId);
@@ -339,9 +337,10 @@ class ChatInputWithOverlays extends HookWidget {
                   attachedImages.value = updated;
 
                   // Persist image draft
-                  context
-                      .read<DraftService>()
-                      .saveImageDraft(sessionId, updated);
+                  context.read<DraftService>().saveImageDraft(
+                    sessionId,
+                    updated,
+                  );
                 }
               } catch (e) {
                 if (context.mounted) {

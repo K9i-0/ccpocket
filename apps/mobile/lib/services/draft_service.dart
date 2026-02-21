@@ -10,7 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class DraftService {
   final SharedPreferences _prefs;
   final Map<String, String> _cache = {};
-  final Map<String, List<({Uint8List bytes, String mimeType})>> _imageCache = {};
+  final Map<String, List<({Uint8List bytes, String mimeType})>> _imageCache =
+      {};
 
   static const _prefix = 'draft_v1_';
   static const _imagePrefix = 'draft_image_v1_';
@@ -94,9 +95,7 @@ class DraftService {
     }
     _imageCache[sessionId] = images;
     final jsonList = images
-        .map(
-          (img) => {'b64': base64Encode(img.bytes), 'mime': img.mimeType},
-        )
+        .map((img) => {'b64': base64Encode(img.bytes), 'mime': img.mimeType})
         .toList();
     _prefs.setString('$_imagePrefix$sessionId', jsonEncode(jsonList));
   }
@@ -118,9 +117,7 @@ class DraftService {
     _imageCache[newId] = data;
     // Re-encode for the new key.
     final jsonList = data
-        .map(
-          (img) => {'b64': base64Encode(img.bytes), 'mime': img.mimeType},
-        )
+        .map((img) => {'b64': base64Encode(img.bytes), 'mime': img.mimeType})
         .toList();
     _prefs.setString('$_imagePrefix$newId', jsonEncode(jsonList));
     deleteImageDraft(oldId);

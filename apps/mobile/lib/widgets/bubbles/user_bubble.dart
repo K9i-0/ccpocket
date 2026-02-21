@@ -97,7 +97,9 @@ class UserBubble extends StatelessWidget {
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) =>
                                     Container(
-                                      width: imageBytesList.length == 1 ? 200 : 120,
+                                      width: imageBytesList.length == 1
+                                          ? 200
+                                          : 120,
                                       height: 80,
                                       color: Colors.grey[300],
                                       child: const Icon(Icons.broken_image),
@@ -114,7 +116,9 @@ class UserBubble extends StatelessWidget {
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) =>
                                       Container(
-                                        width: imageUrls.length == 1 ? 200 : 120,
+                                        width: imageUrls.length == 1
+                                            ? 200
+                                            : 120,
                                         height: 80,
                                         color: Colors.grey[300],
                                         child: const Icon(Icons.broken_image),

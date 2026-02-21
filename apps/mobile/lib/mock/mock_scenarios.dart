@@ -569,7 +569,7 @@ final _streaming = MockScenario(
       '  print("Hello, ccpocket!");\n'
       '}\n'
       '```\n\n'
-  'Streaming complete!',
+      'Streaming complete!',
 );
 
 // ---------------------------------------------------------------------------
@@ -578,7 +578,8 @@ final _streaming = MockScenario(
 final _markdownCodeBlocks = MockScenario(
   name: 'Markdown Code Blocks',
   icon: Icons.code,
-  description: 'Multi-language fenced blocks, aliases, and long-line readability',
+  description:
+      'Multi-language fenced blocks, aliases, and long-line readability',
   steps: [
     MockStep(
       delay: const Duration(milliseconds: 200),

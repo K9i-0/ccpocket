@@ -813,18 +813,9 @@ class _StoreSessionListWrapperState extends State<_StoreSessionListWrapper> {
             automaticallyImplyLeading: false,
             title: const Text('CC Pocket'),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.settings),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.collections),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.link_off),
-                onPressed: () {},
-              ),
+              IconButton(icon: const Icon(Icons.settings), onPressed: () {}),
+              IconButton(icon: const Icon(Icons.collections), onPressed: () {}),
+              IconButton(icon: const Icon(Icons.link_off), onPressed: () {}),
             ],
           ),
           body: HomeContent(

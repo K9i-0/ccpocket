@@ -144,35 +144,36 @@ void main() {
       expect(find.text('Copied'), findsOneWidget);
     });
 
-    testWidgets('long press copies only tapped code block when multiple exist', (
-      tester,
-    ) async {
-      String? clipboardContent;
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (MethodCall methodCall) async {
-          if (methodCall.method == 'Clipboard.setData') {
-            final args = methodCall.arguments as Map;
-            clipboardContent = args['text'] as String?;
-          }
-          return null;
-        },
-      );
+    testWidgets(
+      'long press copies only tapped code block when multiple exist',
+      (tester) async {
+        String? clipboardContent;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (MethodCall methodCall) async {
+            if (methodCall.method == 'Clipboard.setData') {
+              final args = methodCall.arguments as Map;
+              clipboardContent = args['text'] as String?;
+            }
+            return null;
+          },
+        );
 
-      const markdown =
-          '```dart\nfinal one = 1;\n```\n\n```bash\necho target\n```';
-      await tester.pumpWidget(
-        _wrap(AssistantBubble(message: _messageWithText(markdown))),
-      );
+        const markdown =
+            '```dart\nfinal one = 1;\n```\n\n```bash\necho target\n```';
+        await tester.pumpWidget(
+          _wrap(AssistantBubble(message: _messageWithText(markdown))),
+        );
 
-      await tester.longPress(
-        find.byKey(const ValueKey('code_block_copy_target_bash')),
-      );
-      await tester.pumpAndSettle();
+        await tester.longPress(
+          find.byKey(const ValueKey('code_block_copy_target_bash')),
+        );
+        await tester.pumpAndSettle();
 
-      expect(clipboardContent, equals('echo target'));
-      expect(find.text('Copied'), findsOneWidget);
-    });
+        expect(clipboardContent, equals('echo target'));
+        expect(find.text('Copied'), findsOneWidget);
+      },
+    );
 
     testWidgets('copy button copies entire assistant text content', (
       tester,

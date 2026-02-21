@@ -141,10 +141,12 @@ List<SessionInfo> storeRunningSessionsMinimal() => [
     provider: 'claude',
     projectPath: '/Users/dev/projects/shopify-app',
     status: 'running',
-    createdAt:
-        DateTime.now().subtract(const Duration(minutes: 12)).toIso8601String(),
-    lastActivityAt:
-        DateTime.now().subtract(const Duration(minutes: 1)).toIso8601String(),
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 12))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(minutes: 1))
+        .toIso8601String(),
     gitBranch: 'feat/checkout-redesign',
     lastMessage:
         'Implementing the new checkout flow with Stripe integration...',
