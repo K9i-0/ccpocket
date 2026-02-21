@@ -1,0 +1,1 @@
+coding,agent,remote,approve,terminal,diff,session,developer,SSH,AI,CLI,mobile,code,review,push

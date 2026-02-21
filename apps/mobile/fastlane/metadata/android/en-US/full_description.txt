@@ -1,0 +1,32 @@
+ccpocket is a mobile remote for Claude Code and Codex — the AI coding agents that write, edit, and manage code for you.
+
+This app is not affiliated with, endorsed by, or associated with Anthropic or OpenAI.
+
+<b>CONTROL YOUR AGENTS FROM ANYWHERE</b>
+Approve file edits, command executions, and tool calls right from your phone. No need to stay at your desk — manage your coding sessions on the go.
+
+<b>REAL-TIME STREAMING CHAT</b>
+Watch your agent think and code in real-time with streaming responses. View inline diffs, thinking blocks, and structured plans as they happen.
+
+<b>MULTI-SESSION MANAGEMENT</b>
+Run and switch between multiple sessions. Resume previous conversations, search session history, and filter by project.
+
+<b>ADVANCED DIFF VIEWER</b>
+Review code changes with syntax-highlighted diffs. Select specific hunks, view file statistics, and send feedback to your agent.
+
+<b>FLEXIBLE CONNECTIONS</b>
+Connect to your self-hosted Bridge Server via saved machines, QR code, mDNS auto-discovery, or manual URL. Optionally manage remote servers over SSH.
+
+<b>PUSH NOTIFICATIONS</b>
+Get notified instantly when your agent needs approval or completes a task. Never miss a permission request again.
+
+<b>PRIVACY FIRST</b>
+Your code and conversations stay on your own server. No telemetry, no tracking. ccpocket collects no personal data.
+
+<b>REQUIREMENTS</b>
+• A self-hosted ccpocket Bridge Server running on your development machine
+• Claude Code or Codex CLI installed on the server
+• Network connectivity between your phone and the server (local network or Tailscale recommended)
+
+<b>OPEN SOURCE</b>
+https://github.com/K9i-0/ccpocket
