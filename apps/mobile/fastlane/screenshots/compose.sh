@@ -16,7 +16,7 @@ FONT_JA_REG="Hiragino-Sans-W3"
 
 # Screenshot definitions: key, keyword_en, title_en, keyword_ja, title_ja
 SCREENSHOTS=(
-  "01_session_list|Your AI agents|in your pocket|AIエージェントを|スマホから操作"
+  "01_session_list|Desktop coding AI|in your pocket|PCのコーディングAIを|スマホから操作"
   "02_coding_session|Never miss a line|Live output, wherever you are|リアルタイム出力|ツール実行をそのまま表示"
   "03_task_planning|Know what's next|See your agent's plan unfold|思考とタスク|エージェントの計画を確認"
   "04_approval_flow|Stay in control|Approve or reject, instantly|ツール承認|実行前に許可・拒否"
