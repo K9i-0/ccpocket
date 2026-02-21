@@ -39,7 +39,7 @@ class FcmService {
       }
       await _instance.requestPermission(alert: true, badge: true, sound: true);
       await _instance.setForegroundNotificationPresentationOptions(
-        alert: true,
+        alert: false,
         badge: true,
         sound: true,
       );

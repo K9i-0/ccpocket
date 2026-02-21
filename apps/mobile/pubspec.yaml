@@ -74,6 +74,7 @@ dependencies:
   scroll_to_index: ^3.0.1
   skeletonizer: ^2.1.3
   expandable_page_view: ^1.2.1
+  highlight: ^0.7.0
 
 dev_dependencies:
   flutter_test:

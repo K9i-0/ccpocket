@@ -96,16 +96,17 @@ class RunningSessionCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  SizedBox(
-                    width: 28,
-                    height: 20,
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: Icon(Icons.stop_circle_outlined, size: 16),
-                      onPressed: onStop,
-                      tooltip: 'Stop session',
-                      color: Theme.of(context).colorScheme.error,
+                  IconButton(
+                    iconSize: 20,
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
                     ),
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    onPressed: onStop,
+                    tooltip: 'Stop session',
+                    color: Theme.of(context).colorScheme.error,
                   ),
                 ],
               ),

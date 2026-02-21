@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:highlight/highlight.dart' as hl;
 import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 import '../core/logger.dart';
+import '../l10n/app_localizations.dart';
 import 'app_theme.dart';
 
 /// Handles tapping on markdown links by opening them in browser.
@@ -121,6 +124,280 @@ class ColorCodeBuilder extends MarkdownElementBuilder {
   }
 }
 
+/// Builds fenced code blocks with language-aware syntax highlighting.
+class FencedCodeBlockBuilder extends MarkdownElementBuilder {
+  @override
+  bool isBlockElement() => true;
+
+  @override
+  Widget? visitText(md.Text text, TextStyle? preferredStyle) {
+    // flutter_markdown keeps an internal inline stack for `pre > code > text`.
+    // Returning a placeholder here ensures that stack is drained correctly
+    // before the block-level widget is produced in visitElementAfterWithContext.
+    return const SizedBox.shrink();
+  }
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final codeElement = element.children
+        ?.whereType<md.Element>()
+        .cast<md.Element?>()
+        .firstWhere((child) => child?.tag == 'code', orElse: () => null);
+
+    final source = (codeElement?.textContent ?? element.textContent)
+        .trimRight();
+    if (source.isEmpty) return const SizedBox.shrink();
+
+    final className = codeElement?.attributes['class'] ?? '';
+    final language = _normalizeLanguage(_extractFenceLanguage(className));
+    final displayLanguage = language ?? 'text';
+
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final baseStyle = (preferredStyle ?? const TextStyle()).copyWith(
+      fontFamily: 'monospace',
+      fontSize: 13,
+      height: 1.45,
+      color: Theme.of(context).colorScheme.onSurface,
+    );
+
+    return Container(
+      key: ValueKey('code_block_container_${displayLanguage}_$source'),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: appColors.codeBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: appColors.codeBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: appColors.codeBorder.withValues(alpha: 0.35),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(8),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    displayLanguage,
+                    key: ValueKey('code_block_language_$displayLanguage'),
+                    style: baseStyle.copyWith(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  key: ValueKey('code_block_copy_button_$displayLanguage'),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 28,
+                  ),
+                  iconSize: 16,
+                  tooltip: AppLocalizations.of(context).copy,
+                  onPressed: () => _copyCodeBlock(context, source),
+                  icon: Icon(
+                    Icons.content_copy,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.all(12),
+            child: SelectableText.rich(
+              TextSpan(
+                style: baseStyle,
+                children: _highlightToTextSpans(
+                  context: context,
+                  source: source,
+                  baseStyle: baseStyle,
+                  language: language,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+void _copyCodeBlock(BuildContext context, String source) {
+  Clipboard.setData(ClipboardData(text: source));
+  HapticFeedback.lightImpact();
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(AppLocalizations.of(context).copied),
+      duration: const Duration(seconds: 1),
+    ),
+  );
+}
+
+String? _extractFenceLanguage(String className) {
+  if (className.isEmpty) return null;
+  for (final token in className.split(' ')) {
+    if (token.startsWith('language-') && token.length > 9) {
+      return token.substring(9);
+    }
+    if (token.startsWith('lang-') && token.length > 5) {
+      return token.substring(5);
+    }
+  }
+  return null;
+}
+
+String? _normalizeLanguage(String? language) {
+  if (language == null || language.isEmpty) return null;
+  switch (language.toLowerCase()) {
+    case 'ts':
+      return 'typescript';
+    case 'js':
+      return 'javascript';
+    case 'sh':
+    case 'zsh':
+      return 'bash';
+    case 'yml':
+      return 'yaml';
+    case 'objc':
+      return 'objectivec';
+    case 'plain':
+    case 'plaintext':
+    case 'text':
+      return null;
+    default:
+      return language.toLowerCase();
+  }
+}
+
+List<TextSpan> _highlightToTextSpans({
+  required BuildContext context,
+  required String source,
+  required TextStyle baseStyle,
+  required String? language,
+}) {
+  if (language == null) {
+    return [TextSpan(text: source, style: baseStyle)];
+  }
+
+  hl.Result? result;
+  try {
+    result = hl.highlight.parse(source, language: language);
+  } catch (_) {
+    result = null;
+  }
+
+  if (result == null || result.nodes == null || result.nodes!.isEmpty) {
+    return [TextSpan(text: source, style: baseStyle)];
+  }
+
+  return _nodesToTextSpans(
+    context: context,
+    nodes: result.nodes!,
+    baseStyle: baseStyle,
+  );
+}
+
+List<TextSpan> _nodesToTextSpans({
+  required BuildContext context,
+  required List<hl.Node> nodes,
+  required TextStyle baseStyle,
+}) {
+  final spans = <TextSpan>[];
+  for (final node in nodes) {
+    if (node.value != null) {
+      spans.add(
+        TextSpan(
+          text: node.value,
+          style: _styleForHighlightClass(context, baseStyle, node.className),
+        ),
+      );
+      continue;
+    }
+    if (node.children != null && node.children!.isNotEmpty) {
+      spans.add(
+        TextSpan(
+          style: _styleForHighlightClass(context, baseStyle, node.className),
+          children: _nodesToTextSpans(
+            context: context,
+            nodes: node.children!,
+            baseStyle: baseStyle,
+          ),
+        ),
+      );
+    }
+  }
+  return spans;
+}
+
+TextStyle _styleForHighlightClass(
+  BuildContext context,
+  TextStyle baseStyle,
+  String? className,
+) {
+  if (className == null || className.isEmpty) return baseStyle;
+
+  final cs = Theme.of(context).colorScheme;
+  final appColors = Theme.of(context).extension<AppColors>()!;
+  final token = className.toLowerCase();
+
+  if (token.contains('comment') || token.contains('quote')) {
+    return baseStyle.copyWith(
+      color: appColors.subtleText,
+      fontStyle: FontStyle.italic,
+    );
+  }
+  if (token.contains('string') ||
+      token.contains('regexp') ||
+      token.contains('subst')) {
+    return baseStyle.copyWith(color: cs.tertiary);
+  }
+  if (token.contains('number') ||
+      token.contains('literal') ||
+      token.contains('symbol')) {
+    return baseStyle.copyWith(color: cs.secondary);
+  }
+  if (token.contains('keyword') ||
+      token.contains('selector-tag') ||
+      token.contains('doctag')) {
+    return baseStyle.copyWith(color: cs.primary, fontWeight: FontWeight.w600);
+  }
+  if (token.contains('title') ||
+      token.contains('function') ||
+      token.contains('class') ||
+      token.contains('type') ||
+      token.contains('built_in')) {
+    return baseStyle.copyWith(color: cs.primary, fontWeight: FontWeight.w600);
+  }
+  if (token.contains('attr') ||
+      token.contains('attribute') ||
+      token.contains('variable') ||
+      token.contains('name') ||
+      token.contains('params')) {
+    return baseStyle.copyWith(color: cs.onSurface);
+  }
+  if (token.contains('meta') || token.contains('bullet')) {
+    return baseStyle.copyWith(color: cs.secondary, fontWeight: FontWeight.w500);
+  }
+  return baseStyle;
+}
+
 /// Parses a HEX color string into a [Color].
 ///
 /// Supports 3-digit (#RGB), 4-digit (#RGBA), 6-digit (#RRGGBB),
@@ -150,6 +427,7 @@ Color? _parseHexColor(String hex) {
 List<md.InlineSyntax> get colorCodeInlineSyntaxes => [ColorCodeSyntax()];
 
 /// Custom element builders for color code preview.
-Map<String, MarkdownElementBuilder> get colorCodeBuilders => {
+Map<String, MarkdownElementBuilder> get markdownBuilders => {
   'colorCode': ColorCodeBuilder(),
+  'pre': FencedCodeBlockBuilder(),
 };

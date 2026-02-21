@@ -49,7 +49,7 @@ class _StreamingBubbleState extends State<StreamingBubble>
             styleSheet: buildMarkdownStyle(context),
             onTapLink: handleMarkdownLink,
             inlineSyntaxes: colorCodeInlineSyntaxes,
-            builders: colorCodeBuilders,
+            builders: markdownBuilders,
           ),
           AnimatedBuilder(
             animation: _cursorController,

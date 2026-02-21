@@ -13,6 +13,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:app_links/app_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -34,6 +35,7 @@ import 'providers/bridge_cubits.dart';
 import 'providers/machine_manager_cubit.dart';
 import 'providers/server_discovery_cubit.dart';
 import 'router/app_router.dart';
+import 'router/session_route_observer.dart';
 import 'services/bridge_service.dart';
 import 'services/connection_url_parser.dart';
 import 'services/database_service.dart';
@@ -169,9 +171,13 @@ class _CcpocketAppState extends State<CcpocketApp> {
   AppLinks? _appLinks;
   final _deepLinkNotifier = ValueNotifier<ConnectionParams?>(null);
   StreamSubscription<Uri>? _linkSub;
+  StreamSubscription<RemoteMessage>? _fcmOnMessageSub;
+  StreamSubscription<RemoteMessage>? _fcmOnMessageOpenedAppSub;
 
   late final AppRouter _appRouter;
+  final _sessionRouteObserver = SessionRouteObserver();
   bool _routerInitialized = false;
+  bool _fcmHandlersInitialized = false;
   late final AppLifecycleListener _lifecycleListener;
 
   @override
@@ -200,10 +206,109 @@ class _CcpocketAppState extends State<CcpocketApp> {
     _appRouter = AppRouter();
     // Navigate to session screen when user taps a notification
     NotificationService.instance.onNotificationTap = (payload) {
-      if (payload != null && payload.isNotEmpty) {
-        _appRouter.push(ClaudeSessionRoute(sessionId: payload));
-      }
+      _openSessionFromPayload(payload);
     };
+    _initFcmHandlers();
+  }
+
+  void _initFcmHandlers() {
+    if (kIsWeb || _fcmHandlersInitialized) return;
+    try {
+      // Firebase may be unavailable in widget tests or non-FCM setups.
+      FirebaseMessaging.instance;
+    } catch (e) {
+      logger.warning('[fcm] handlers skipped: Firebase not initialized ($e)');
+      return;
+    }
+    _fcmHandlersInitialized = true;
+
+    _fcmOnMessageSub = FirebaseMessaging.onMessage.listen((message) {
+      _handleForegroundFcmMessage(message);
+    });
+    _fcmOnMessageOpenedAppSub = FirebaseMessaging.onMessageOpenedApp.listen((
+      message,
+    ) {
+      _openSessionFromData(message.data);
+    });
+
+    FirebaseMessaging.instance
+        .getInitialMessage()
+        .then((message) {
+          if (message != null) {
+            _openSessionFromData(message.data);
+          }
+        })
+        .catchError((e) {
+          logger.error('[fcm] getInitialMessage failed', e);
+        });
+  }
+
+  Future<void> _handleForegroundFcmMessage(RemoteMessage message) async {
+    final data = Map<String, dynamic>.from(message.data);
+    final sessionId = data['sessionId']?.toString();
+    final provider = _normalizeProvider(data['provider']?.toString());
+    if (sessionId == null || sessionId.isEmpty) return;
+    if (NotificationService.instance.isActiveSession(
+      sessionId: sessionId,
+      provider: provider,
+    )) {
+      return;
+    }
+
+    final notification = message.notification;
+    final title =
+        notification?.title ?? data['title']?.toString() ?? 'CC Pocket';
+    final body =
+        notification?.body ??
+        data['body']?.toString() ??
+        'New update available';
+    final eventType = data['eventType']?.toString() ?? '';
+    final payload = jsonEncode({'sessionId': sessionId, 'provider': provider});
+
+    await NotificationService.instance.show(
+      title: title,
+      body: body,
+      payload: payload,
+      id: _notificationId(sessionId, provider, eventType),
+    );
+  }
+
+  void _openSessionFromPayload(String? payload) {
+    if (payload == null || payload.isEmpty) return;
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        _openSessionFromData(decoded);
+        return;
+      }
+    } catch (_) {
+      // Backward compatibility: payload may be plain sessionId text.
+    }
+    _openSessionFromData({'sessionId': payload, 'provider': 'claude'});
+  }
+
+  void _openSessionFromData(Map<String, dynamic> data) {
+    final sessionId = data['sessionId']?.toString();
+    if (sessionId == null || sessionId.isEmpty) return;
+    final provider = _normalizeProvider(data['provider']?.toString());
+    if (provider == 'codex') {
+      _appRouter.navigate(CodexSessionRoute(sessionId: sessionId));
+      return;
+    }
+    _appRouter.navigate(ClaudeSessionRoute(sessionId: sessionId));
+  }
+
+  String _normalizeProvider(String? provider) {
+    return provider == 'codex' ? 'codex' : 'claude';
+  }
+
+  int _notificationId(String sessionId, String provider, String eventType) {
+    final raw = '$provider:$sessionId:$eventType';
+    var hash = 0;
+    for (final code in raw.codeUnits) {
+      hash = ((hash * 31) + code) & 0x7fffffff;
+    }
+    return hash;
   }
 
   Future<void> _initDeepLinks() async {
@@ -247,6 +352,8 @@ class _CcpocketAppState extends State<CcpocketApp> {
   void dispose() {
     _lifecycleListener.dispose();
     _linkSub?.cancel();
+    _fcmOnMessageSub?.cancel();
+    _fcmOnMessageOpenedAppSub?.cancel();
     _deepLinkNotifier.dispose();
     super.dispose();
   }
@@ -268,7 +375,9 @@ class _CcpocketAppState extends State<CcpocketApp> {
               : Locale(settings.appLocaleId),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          routerConfig: _appRouter.config(),
+          routerConfig: _appRouter.config(
+            navigatorObservers: () => [_sessionRouteObserver],
+          ),
           debugShowCheckedModeBanner: false,
         );
       },

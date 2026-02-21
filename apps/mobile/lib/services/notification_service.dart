@@ -9,6 +9,8 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+  String? _activeSessionId;
+  String? _activeProvider;
 
   /// Called when the user taps a notification. The [payload] string
   /// (typically a sessionId) is forwarded.
@@ -58,6 +60,22 @@ class NotificationService {
 
   void _onNotificationResponse(NotificationResponse response) {
     onNotificationTap?.call(response.payload);
+  }
+
+  void setActiveSession({required String sessionId, required String provider}) {
+    _activeSessionId = sessionId;
+    _activeProvider = provider;
+  }
+
+  void clearActiveSession({String? sessionId, String? provider}) {
+    if (sessionId != null && _activeSessionId != sessionId) return;
+    if (provider != null && _activeProvider != provider) return;
+    _activeSessionId = null;
+    _activeProvider = null;
+  }
+
+  bool isActiveSession({required String sessionId, required String provider}) {
+    return _activeSessionId == sessionId && _activeProvider == provider;
   }
 
   /// Dismiss all previously shown notifications from the notification center.

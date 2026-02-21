@@ -186,28 +186,44 @@ class _HomeContentState extends State<HomeContent> {
           ),
           const SizedBox(height: 4),
           for (final session in widget.sessions)
-            RunningSessionCard(
-              session: session,
-              onTap: () => widget.onTapRunning(
-                session.id,
-                projectPath: session.projectPath,
-                gitBranch: session.worktreePath != null
-                    ? session.worktreeBranch
-                    : session.gitBranch,
-                worktreePath: session.worktreePath,
-                provider: session.provider,
-                permissionMode: session.permissionMode,
-                sandboxMode: session.codexSandboxMode,
+            Dismissible(
+              key: ValueKey('running_session_${session.id}'),
+              direction: DismissDirection.endToStart,
+              background: const SizedBox.shrink(),
+              secondaryBackground: _StopSessionSwipeBackground(
+                color: Theme.of(context).colorScheme.error,
               ),
-              onStop: () => widget.onStopSession(session.id),
-              onApprove: (toolUseId) =>
-                  widget.onApprovePermission?.call(session.id, toolUseId),
-              onApproveAlways: (toolUseId) =>
-                  widget.onApproveAlways?.call(session.id, toolUseId),
-              onReject: (toolUseId) =>
-                  widget.onRejectPermission?.call(session.id, toolUseId),
-              onAnswer: (toolUseId, result) =>
-                  widget.onAnswerQuestion?.call(session.id, toolUseId, result),
+              confirmDismiss: (_) async {
+                widget.onStopSession(session.id);
+                // Keep the card visible until the bridge status actually updates.
+                return false;
+              },
+              child: RunningSessionCard(
+                session: session,
+                onTap: () => widget.onTapRunning(
+                  session.id,
+                  projectPath: session.projectPath,
+                  gitBranch: session.worktreePath != null
+                      ? session.worktreeBranch
+                      : session.gitBranch,
+                  worktreePath: session.worktreePath,
+                  provider: session.provider,
+                  permissionMode: session.permissionMode,
+                  sandboxMode: session.codexSandboxMode,
+                ),
+                onStop: () => widget.onStopSession(session.id),
+                onApprove: (toolUseId) =>
+                    widget.onApprovePermission?.call(session.id, toolUseId),
+                onApproveAlways: (toolUseId) =>
+                    widget.onApproveAlways?.call(session.id, toolUseId),
+                onReject: (toolUseId) =>
+                    widget.onRejectPermission?.call(session.id, toolUseId),
+                onAnswer: (toolUseId, result) => widget.onAnswerQuestion?.call(
+                  session.id,
+                  toolUseId,
+                  result,
+                ),
+              ),
             ),
           const SizedBox(height: 16),
         ],
@@ -332,6 +348,27 @@ class _HomeContentState extends State<HomeContent> {
           ],
         ],
       ],
+    );
+  }
+}
+
+class _StopSessionSwipeBackground extends StatelessWidget {
+  final Color color;
+
+  const _StopSessionSwipeBackground({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.centerRight,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Icon(Icons.stop_circle_outlined, color: color),
     );
   }
 }

@@ -1300,6 +1300,7 @@ export class BridgeWebSocketServer {
         body,
         data: {
           sessionId,
+          provider: this.sessionManager.get(sessionId)?.provider ?? "claude",
           toolUseId: msg.toolUseId,
           toolName: msg.toolName,
         },
@@ -1335,6 +1336,7 @@ export class BridgeWebSocketServer {
 
     const data: Record<string, string> = {
       sessionId,
+      provider: this.sessionManager.get(sessionId)?.provider ?? "claude",
       subtype: msg.subtype,
     };
     if (msg.stopReason) data.stopReason = msg.stopReason;
