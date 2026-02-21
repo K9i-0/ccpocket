@@ -1,1 +1,1 @@
-coding,agent,remote,approval,terminal,diff,developer,SSH,AI,CLI,notifications,streaming,automation,self-hosted,mobile
+coding,agent,remote,approval,terminal,diff,developer,SSH,AI,CLI,notifications,streaming,mobile
