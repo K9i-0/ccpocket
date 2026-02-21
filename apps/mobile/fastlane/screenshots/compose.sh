@@ -92,7 +92,7 @@ compose_screenshot() {
     -annotate +0+180 "$keyword" \
     -font "$font_reg" -pointsize 72 -fill "rgba(17,17,17,0.75)" \
     -annotate +0+320 "$title" \
-    "$output"
+    -depth 8 "$output"
 
   rm -f /tmp/mask_$$.png /tmp/ss_$$.png /tmp/bezel_$$.png /tmp/framed_ss_$$.png
   echo "  -> $output"
