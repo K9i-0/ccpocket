@@ -109,12 +109,17 @@ class _ScenariosTab extends StatelessWidget {
   }
 
   void _launchStoreScenario(BuildContext context, MockScenario scenario) {
-    if (scenario.name == 'Session List') {
+    if (scenario.name == 'Session List' ||
+        scenario.name == 'Session List (Recent)') {
       final draftService = context.read<DraftService>();
+      final minimal = scenario.name == 'Session List (Recent)';
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => _StoreSessionListWrapper(draftService: draftService),
+          builder: (_) => _StoreSessionListWrapper(
+            draftService: draftService,
+            minimalRunning: minimal,
+          ),
         ),
       );
     } else {
@@ -759,7 +764,11 @@ class _MockSessionListWrapperState extends State<_MockSessionListWrapper> {
 
 class _StoreSessionListWrapper extends StatefulWidget {
   final DraftService draftService;
-  const _StoreSessionListWrapper({required this.draftService});
+  final bool minimalRunning;
+  const _StoreSessionListWrapper({
+    required this.draftService,
+    this.minimalRunning = false,
+  });
 
   @override
   State<_StoreSessionListWrapper> createState() =>
@@ -786,7 +795,9 @@ class _StoreSessionListWrapperState extends State<_StoreSessionListWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    final running = storeRunningSessions();
+    final running = widget.minimalRunning
+        ? storeRunningSessionsMinimal()
+        : storeRunningSessions();
     final recent = storeRecentSessions();
     final projectPaths = {
       ...running.map((s) => s.projectPath),

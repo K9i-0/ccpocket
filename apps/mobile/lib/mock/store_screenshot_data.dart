@@ -15,6 +15,14 @@ final storeSessionListScenario = MockScenario(
   section: MockScenarioSection.storeScreenshot,
 );
 
+final storeSessionListRecentScenario = MockScenario(
+  name: 'Session List (Recent)',
+  icon: Icons.history,
+  description: 'Minimal running, recent sessions prominent',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
 final storeChatCodingScenario = MockScenario(
   name: 'Coding Session',
   icon: Icons.code,
@@ -33,6 +41,7 @@ final storeChatTaskScenario = MockScenario(
 
 final List<MockScenario> storeScreenshotScenarios = [
   storeSessionListScenario,
+  storeSessionListRecentScenario,
   storeChatCodingScenario,
   storeChatTaskScenario,
 ];
@@ -122,6 +131,24 @@ List<SessionInfo> storeRunningSessions() => [
         ],
       },
     ),
+  ),
+];
+
+/// Minimal running sessions: 1 compact card so Recent section is visible.
+List<SessionInfo> storeRunningSessionsMinimal() => [
+  SessionInfo(
+    id: 'store-run-min-1',
+    provider: 'claude',
+    projectPath: '/Users/dev/projects/shopify-app',
+    status: 'running',
+    createdAt:
+        DateTime.now().subtract(const Duration(minutes: 12)).toIso8601String(),
+    lastActivityAt:
+        DateTime.now().subtract(const Duration(minutes: 1)).toIso8601String(),
+    gitBranch: 'feat/checkout-redesign',
+    lastMessage:
+        'Implementing the new checkout flow with Stripe integration...',
+    messageCount: 34,
   ),
 ];
 
