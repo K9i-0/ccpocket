@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:highlight/highlight.dart' as hl;
 import 'package:markdown/markdown.dart' as md;
+import 'package:syntax_highlight/syntax_highlight.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 
 import '../core/logger.dart';
 import '../l10n/app_localizations.dart';
 import 'app_theme.dart';
+
+final _syntaxHighlight = _SyntaxHighlightRegistry();
+
+Future<void> initializeMarkdownSyntaxHighlight() async {
+  await _syntaxHighlight.initialize();
+}
 
 /// Handles tapping on markdown links by opening them in browser.
 Future<void> handleMarkdownLink(String text, String? href, String title) async {
@@ -156,6 +163,7 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
     final className = codeElement?.attributes['class'] ?? '';
     final language = _normalizeLanguage(_extractFenceLanguage(className));
     final displayLanguage = language ?? 'text';
+    final hasExplicitLanguage = language != null;
 
     final appColors = Theme.of(context).extension<AppColors>()!;
     final baseStyle = (preferredStyle ?? const TextStyle()).copyWith(
@@ -173,67 +181,50 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: appColors.codeBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: appColors.codeBorder.withValues(alpha: 0.35),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(8),
+      child: GestureDetector(
+        key: ValueKey('code_block_copy_target_$displayLanguage'),
+        behavior: HitTestBehavior.opaque,
+        onLongPress: () => _copyCodeBlock(context, source),
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.fromLTRB(
+                12,
+                hasExplicitLanguage ? 20 : 12,
+                12,
+                12,
               ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    displayLanguage,
-                    key: ValueKey('code_block_language_$displayLanguage'),
-                    style: baseStyle.copyWith(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
+              child: SelectableText.rich(
+                TextSpan(
+                  style: baseStyle,
+                  children: _highlightToTextSpans(
+                    context: context,
+                    source: source,
+                    baseStyle: baseStyle,
+                    language: language,
                   ),
-                ),
-                IconButton(
-                  key: ValueKey('code_block_copy_button_$displayLanguage'),
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 28,
-                    minHeight: 28,
-                  ),
-                  iconSize: 16,
-                  tooltip: AppLocalizations.of(context).copy,
-                  onPressed: () => _copyCodeBlock(context, source),
-                  icon: Icon(
-                    Icons.content_copy,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.all(12),
-            child: SelectableText.rich(
-              TextSpan(
-                style: baseStyle,
-                children: _highlightToTextSpans(
-                  context: context,
-                  source: source,
-                  baseStyle: baseStyle,
-                  language: language,
                 ),
               ),
             ),
-          ),
-        ],
+            if (hasExplicitLanguage)
+              Positioned(
+                top: 6,
+                right: 8,
+                child: Text(
+                  displayLanguage,
+                  key: ValueKey('code_block_language_$displayLanguage'),
+                  style: baseStyle.copyWith(
+                    fontSize: 10,
+                    letterSpacing: 0.2,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.52),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -270,6 +261,12 @@ String? _normalizeLanguage(String? language) {
       return 'typescript';
     case 'js':
       return 'javascript';
+    case 'py':
+      return 'python';
+    case 'kt':
+      return 'kotlin';
+    case 'rs':
+      return 'rust';
     case 'sh':
     case 'zsh':
       return 'bash';
@@ -294,6 +291,15 @@ List<TextSpan> _highlightToTextSpans({
 }) {
   if (language == null) {
     return [TextSpan(text: source, style: baseStyle)];
+  }
+
+  final editorStyleSpan = _syntaxHighlight.highlight(
+    context: context,
+    source: source,
+    language: language,
+  );
+  if (editorStyleSpan != null) {
+    return [editorStyleSpan];
   }
 
   hl.Result? result;
@@ -396,6 +402,89 @@ TextStyle _styleForHighlightClass(
     return baseStyle.copyWith(color: cs.secondary, fontWeight: FontWeight.w500);
   }
   return baseStyle;
+}
+
+class _SyntaxHighlightRegistry {
+  static const _supportedLanguages = <String>[
+    'css',
+    'dart',
+    'go',
+    'html',
+    'java',
+    'javascript',
+    'json',
+    'kotlin',
+    'python',
+    'rust',
+    'sql',
+    'swift',
+    'typescript',
+    'yaml',
+  ];
+
+  final Map<String, Highlighter> _light = {};
+  final Map<String, Highlighter> _dark = {};
+  bool _initialized = false;
+
+  Future<void> initialize() async {
+    if (_initialized) return;
+    await Highlighter.initialize(_supportedLanguages);
+    final lightTheme = await HighlighterTheme.loadLightTheme();
+    final darkTheme = await HighlighterTheme.loadDarkTheme();
+    for (final language in _supportedLanguages) {
+      _light[language] = Highlighter(language: language, theme: lightTheme);
+      _dark[language] = Highlighter(language: language, theme: darkTheme);
+    }
+    _initialized = true;
+  }
+
+  TextSpan? highlight({
+    required BuildContext context,
+    required String source,
+    required String language,
+  }) {
+    if (!_initialized) return null;
+    final normalized = _syntaxLanguage(language);
+    if (normalized == null) return null;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final highlighter = isDark ? _dark[normalized] : _light[normalized];
+    return highlighter?.highlight(source);
+  }
+
+  String? _syntaxLanguage(String language) {
+    switch (language) {
+      case 'js':
+        return 'javascript';
+      case 'ts':
+        return 'typescript';
+      case 'py':
+        return 'python';
+      case 'kt':
+        return 'kotlin';
+      case 'rs':
+        return 'rust';
+      case 'yml':
+        return 'yaml';
+      case 'dart':
+      case 'go':
+      case 'html':
+      case 'java':
+      case 'javascript':
+      case 'json':
+      case 'kotlin':
+      case 'python':
+      case 'rust':
+      case 'sql':
+      case 'swift':
+      case 'typescript':
+      case 'yaml':
+      case 'css':
+        return language;
+      default:
+        return null;
+    }
+  }
 }
 
 /// Parses a HEX color string into a [Color].

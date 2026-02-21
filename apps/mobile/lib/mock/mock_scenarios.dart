@@ -50,6 +50,8 @@ final List<MockScenario> mockScenarios = [
   _todoWrite,
   _imageResult,
   _streaming,
+  _markdownCodeBlocks,
+  _markdownMixedContent,
   _thinkingBlock,
   _planMode,
   _subagentSummary,
@@ -567,7 +569,150 @@ final _streaming = MockScenario(
       '  print("Hello, ccpocket!");\n'
       '}\n'
       '```\n\n'
-      'Streaming complete!',
+  'Streaming complete!',
+);
+
+// ---------------------------------------------------------------------------
+// 4b. Markdown Code Blocks
+// ---------------------------------------------------------------------------
+final _markdownCodeBlocks = MockScenario(
+  name: 'Markdown Code Blocks',
+  icon: Icons.code,
+  description: 'Multi-language fenced blocks, aliases, and long-line readability',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 200),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 700),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-markdown-code-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  'Use this scenario to verify code block readability and copy behavior.\n\n'
+                  '### Dart\n'
+                  '```dart\n'
+                  'Future<void> bootstrapApp() async {\n'
+                  '  WidgetsFlutterBinding.ensureInitialized();\n'
+                  '  await Firebase.initializeApp();\n'
+                  '  runApp(const CcpocketApp());\n'
+                  '}\n'
+                  '```\n\n'
+                  '### Bash\n'
+                  '```bash\n'
+                  'cd /Users/k9i-mini/Workspace/ccpocket && flutter test test/markdown_code_block_test.dart\n'
+                  '```\n\n'
+                  '### TypeScript (long line)\n'
+                  '```ts\n'
+                  'const result = await websocketClient.send({ type: "start", sessionId: "mock-session-markdown", projectPath: "/Users/k9i-mini/Workspace/ccpocket/apps/mobile", permissionMode: "default" });\n'
+                  '```\n\n'
+                  '### JavaScript alias (`js`)\n'
+                  '```js\n'
+                  'const started = events.filter((e) => e.type === "start");\n'
+                  '```\n\n'
+                  '### Python alias (`py`)\n'
+                  '```py\n'
+                  'def normalize_session(value: str) -> str:\n'
+                  '    return value.strip().lower()\n'
+                  '```\n\n'
+                  '### YAML alias (`yml`)\n'
+                  '```yml\n'
+                  'release:\n'
+                  '  platform: ios\n'
+                  '  version: 1.2.3+45\n'
+                  '```\n\n'
+                  '### JSON\n'
+                  '```json\n'
+                  '{\n'
+                  '  "sessionId": "mock-session-markdown",\n'
+                  '  "status": "running"\n'
+                  '}\n'
+                  '```\n\n'
+                  '### SQL\n'
+                  '```sql\n'
+                  'select id, title from sessions where archived = false order by updated_at desc;\n'
+                  '```\n\n'
+                  '### No language\n'
+                  '```\n'
+                  'plain text fenced block\n'
+                  '- keeps spacing\n'
+                  '- uses text header\n'
+                  '```\n',
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1200),
+      message: const ResultMessage(
+        subtype: 'success',
+        result: 'Markdown code block preview complete.',
+        cost: 0.0042,
+        duration: 1.8,
+        sessionId: 'mock-session-markdown',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1400),
+      message: const StatusMessage(status: ProcessStatus.idle),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 4c. Markdown Mixed Content
+// ---------------------------------------------------------------------------
+final _markdownMixedContent = MockScenario(
+  name: 'Markdown Mixed Content',
+  icon: Icons.article_outlined,
+  description: 'Headings, lists, table, quote, and mixed code fences',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 250),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 750),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-markdown-mixed-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  '# Markdown Render Checklist\n\n'
+                  '> Validate spacing, typography, and block boundaries.\n\n'
+                  '## Items\n'
+                  '- [x] Heading hierarchy\n'
+                  '- [x] Quote styling\n'
+                  '- [x] Table and inline code (`sessionId`)\n\n'
+                  '| Language | Purpose |\n'
+                  '|---|---|\n'
+                  '| `dart` | app startup |\n'
+                  '| `bash` | commands |\n\n'
+                  '```dart\n'
+                  'final sessionId = "mock-markdown-mixed";\n'
+                  '```\n\n'
+                  '```sh\n'
+                  'echo "sh should display as bash"\n'
+                  '```\n',
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1300),
+      message: const StatusMessage(status: ProcessStatus.idle),
+    ),
+  ],
 );
 
 // ---------------------------------------------------------------------------

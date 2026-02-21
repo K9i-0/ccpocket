@@ -1620,6 +1620,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.0"
+  syntax_highlight:
+    dependency: "direct main"
+    description:
+      name: syntax_highlight
+      sha256: "4d3ba40658cadba6ba55d697f29f00b43538ebb6eb4a0ca0e895c568eaced138"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.5.0"
   talker:
     dependency: "direct main"
     description:

@@ -45,6 +45,7 @@ import 'services/notification_service.dart';
 import 'services/prompt_history_service.dart';
 import 'services/ssh_startup_service.dart';
 import 'theme/app_theme.dart';
+import 'theme/markdown_style.dart';
 
 /// Top-level handler for FCM background messages.
 /// Required by firebase_messaging to process messages when app is in background.
@@ -83,6 +84,11 @@ void main() async {
     await NotificationService.instance.init();
   } catch (e) {
     logger.error('[main] NotificationService init failed', e);
+  }
+  try {
+    await initializeMarkdownSyntaxHighlight();
+  } catch (e) {
+    logger.error('[main] syntax_highlight init failed', e);
   }
 
   // Initialize SharedPreferences and services

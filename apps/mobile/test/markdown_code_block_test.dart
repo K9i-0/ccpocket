@@ -38,7 +38,10 @@ void main() {
         _wrap(AssistantBubble(message: _messageWithText(markdown))),
       );
 
-      expect(find.text('dart'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('code_block_language_dart')),
+        findsOneWidget,
+      );
       expect(find.textContaining('final value = 42;'), findsOneWidget);
       expect(find.byType(SelectableText), findsWidgets);
     });
@@ -49,23 +52,70 @@ void main() {
         _wrap(AssistantBubble(message: _messageWithText(markdown))),
       );
 
-      expect(find.text('bash'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('code_block_language_bash')),
+        findsOneWidget,
+      );
       expect(find.textContaining('echo hello'), findsOneWidget);
     });
 
-    testWidgets('shows text label when fence has no language', (tester) async {
+    testWidgets('normalizes js language label to javascript', (tester) async {
+      const markdown = '```js\nconst value = 1;\n```';
+      await tester.pumpWidget(
+        _wrap(AssistantBubble(message: _messageWithText(markdown))),
+      );
+
+      expect(
+        find.byKey(const ValueKey('code_block_language_javascript')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('const value = 1;'), findsOneWidget);
+    });
+
+    testWidgets('normalizes py language label to python', (tester) async {
+      const markdown = '```py\nprint("hello")\n```';
+      await tester.pumpWidget(
+        _wrap(AssistantBubble(message: _messageWithText(markdown))),
+      );
+
+      expect(
+        find.byKey(const ValueKey('code_block_language_python')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('print("hello")'), findsOneWidget);
+    });
+
+    testWidgets('normalizes yml language label to yaml', (tester) async {
+      const markdown = '```yml\nname: ccpocket\n```';
+      await tester.pumpWidget(
+        _wrap(AssistantBubble(message: _messageWithText(markdown))),
+      );
+
+      expect(
+        find.byKey(const ValueKey('code_block_language_yaml')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('name: ccpocket'), findsOneWidget);
+    });
+
+    testWidgets('hides language label when fence has no language', (
+      tester,
+    ) async {
       const markdown = '```\njust plain block\n```';
       await tester.pumpWidget(
         _wrap(AssistantBubble(message: _messageWithText(markdown))),
       );
 
-      expect(find.text('text'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('code_block_language_text')),
+        findsNothing,
+      );
       expect(find.textContaining('just plain block'), findsOneWidget);
     });
   });
 
   group('AssistantBubble copy behavior with code blocks', () {
-    testWidgets('code block copy button copies only fenced code content', (
+    testWidgets('long press on code block copies only fenced code content', (
       tester,
     ) async {
       String? clipboardContent;
@@ -85,12 +135,42 @@ void main() {
         _wrap(AssistantBubble(message: _messageWithText(markdown))),
       );
 
-      await tester.tap(
-        find.byKey(const ValueKey('code_block_copy_button_bash')),
+      await tester.longPress(
+        find.byKey(const ValueKey('code_block_copy_target_bash')),
       );
       await tester.pumpAndSettle();
 
       expect(clipboardContent, equals('echo hello'));
+      expect(find.text('Copied'), findsOneWidget);
+    });
+
+    testWidgets('long press copies only tapped code block when multiple exist', (
+      tester,
+    ) async {
+      String? clipboardContent;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (MethodCall methodCall) async {
+          if (methodCall.method == 'Clipboard.setData') {
+            final args = methodCall.arguments as Map;
+            clipboardContent = args['text'] as String?;
+          }
+          return null;
+        },
+      );
+
+      const markdown =
+          '```dart\nfinal one = 1;\n```\n\n```bash\necho target\n```';
+      await tester.pumpWidget(
+        _wrap(AssistantBubble(message: _messageWithText(markdown))),
+      );
+
+      await tester.longPress(
+        find.byKey(const ValueKey('code_block_copy_target_bash')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(clipboardContent, equals('echo target'));
       expect(find.text('Copied'), findsOneWidget);
     });
 
