@@ -619,11 +619,6 @@ class _AskUserAreaState extends State<_AskUserArea> {
 
     final firstQ = questions[0] as Map<String, dynamic>;
     final options = firstQ['options'] as List<dynamic>? ?? [];
-    final multiSelect = firstQ['multiSelect'] as bool? ?? false;
-    final isSingleSimple =
-        questions.length == 1 && !multiSelect && options.isNotEmpty;
-    final isSingleMultiSelect =
-        questions.length == 1 && multiSelect && options.isNotEmpty;
 
     return Container(
       width: double.infinity,
@@ -632,18 +627,10 @@ class _AskUserAreaState extends State<_AskUserArea> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (isSingleSimple) ...[
-            _buildQuestionText(firstQ),
-            const SizedBox(height: 6),
-            _buildSingleSelectChips(0, options),
-            _buildOtherAnswerSection(0),
-          ] else if (isSingleMultiSelect) ...[
-            _buildQuestionText(firstQ),
-            const SizedBox(height: 6),
-            _buildMultiSelectChips(0, options),
-            _buildOtherAnswerSection(0),
-          ] else if (_isMultiQuestion) ...[
+          if (_isMultiQuestion) ...[
             _buildPageView(questions),
+          ] else if (options.isNotEmpty) ...[
+            _buildQuestionLayout(firstQ, 0),
           ] else ...[
             _buildQuestionText(firstQ),
             const SizedBox(height: 6),
@@ -651,6 +638,29 @@ class _AskUserAreaState extends State<_AskUserArea> {
           ],
         ],
       ),
+    );
+  }
+
+  /// Common layout for a single question page.
+  /// Used by both inline (single-question) and PageView (multi-question) modes
+  /// to ensure consistent ordering: question → options → other answer → confirm.
+  Widget _buildQuestionLayout(Map<String, dynamic> q, int questionIndex) {
+    final opts = q['options'] as List<dynamic>? ?? [];
+    final isMulti = q['multiSelect'] as bool? ?? false;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildQuestionText(q),
+        const SizedBox(height: 6),
+        if (isMulti && opts.isNotEmpty)
+          _buildMultiSelectChips(questionIndex, opts)
+        else if (opts.isNotEmpty)
+          _buildSingleSelectChips(questionIndex, opts),
+        _buildOtherAnswerSection(questionIndex),
+        if (isMulti && !_isMultiQuestion) _buildConfirmButton(questionIndex),
+      ],
     );
   }
 
@@ -784,35 +794,36 @@ class _AskUserAreaState extends State<_AskUserArea> {
                 },
               ),
             ),
-        if (!_isMultiQuestion) ...[
-          const SizedBox(height: 2),
-          SizedBox(
-            width: double.infinity,
-            height: _buttonHeight,
-            child: FilledButton.icon(
-              onPressed: selected.isNotEmpty
-                  ? () => _confirmMultiSelect(questionIndex)
-                  : null,
-              icon: const Icon(Icons.check, size: 16),
-              label: Text('Confirm (${selected.length})'),
-              style: FilledButton.styleFrom(
-                textStyle: const TextStyle(fontSize: 13),
-                backgroundColor: widget.statusColor.withValues(alpha: 0.15),
-                foregroundColor: widget.statusColor,
-                disabledBackgroundColor: widget.statusColor.withValues(
-                  alpha: 0.05,
-                ),
-                disabledForegroundColor: widget.statusColor.withValues(
-                  alpha: 0.3,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+      ],
+    );
+  }
+
+  /// Confirm button for multi-select (used in single-question mode).
+  Widget _buildConfirmButton(int questionIndex) {
+    final selected = _multiAnswers[questionIndex] ?? {};
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: SizedBox(
+        width: double.infinity,
+        height: _buttonHeight,
+        child: FilledButton.icon(
+          onPressed: selected.isNotEmpty
+              ? () => _confirmMultiSelect(questionIndex)
+              : null,
+          icon: const Icon(Icons.check, size: 16),
+          label: Text('Confirm (${selected.length})'),
+          style: FilledButton.styleFrom(
+            textStyle: const TextStyle(fontSize: 13),
+            backgroundColor: widget.statusColor.withValues(alpha: 0.15),
+            foregroundColor: widget.statusColor,
+            disabledBackgroundColor: widget.statusColor.withValues(alpha: 0.05),
+            disabledForegroundColor: widget.statusColor.withValues(alpha: 0.3),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
-        ],
-      ],
+        ),
+      ),
     );
   }
 
@@ -1005,20 +1016,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
     int index,
     int totalQuestions,
   ) {
-    final opts = q['options'] as List<dynamic>? ?? [];
-    final multi = q['multiSelect'] as bool? ?? false;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min, // Shrink to children
-      children: [
-        _buildQuestionText(q),
-        const SizedBox(height: 8),
-        multi
-            ? _buildMultiSelectChips(index, opts)
-            : _buildSingleSelectChips(index, opts),
-        _buildOtherAnswerSection(index),
-      ],
-    );
+    return _buildQuestionLayout(q, index);
   }
 
   /// Summary page showing all answers with Submit/Cancel buttons.
