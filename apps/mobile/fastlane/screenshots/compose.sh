@@ -155,27 +155,45 @@ compose_ipad_screenshot() {
   local ss_x=$(( (IPAD_CANVAS_W - scaled_w) / 2 ))
   local ss_y=$text_area_h
 
-  local corner_radius=50
-
   echo "Composing iPad: ipad_$key ($lang_dir)"
 
+  # iPad hardware bezel sizes
+  local bezel_thickness=36
+  local screen_w=$((scaled_w - bezel_thickness * 2))
+  local screen_h=$((scaled_h - bezel_thickness * 2))
+  local inner_radius=40
+  local outer_radius=76
+
+  # 1. Resize input to screen size
+  local tmp_screen=/tmp/screen_$$.png
+  magick "$input" -resize "${screen_w}x${screen_h}!" "$tmp_screen"
+
+  # 2. Mask the screen for inner curves
+  magick -size "${screen_w}x${screen_h}" xc:none \
+    -fill white -draw "roundrectangle 0,0 $((screen_w-1)),$((screen_h-1)) ${inner_radius},${inner_radius}" \
+    /tmp/inner_mask_$$.png
+  magick "$tmp_screen" /tmp/inner_mask_$$.png -alpha off -compose CopyOpacity -composite /tmp/screen_masked_$$.png
+
+  # 3. Create the outer iPad hardware bezel shape
+  local tmp_bezel=/tmp/bezel_$$.png
   magick -size "${scaled_w}x${scaled_h}" xc:none \
-    -fill white -draw "roundrectangle 0,0 $((scaled_w-1)),$((scaled_h-1)) ${corner_radius},${corner_radius}" \
-    /tmp/mask_$$.png
+    -fill "#111111" -draw "roundrectangle 0,0 $((scaled_w-1)),$((scaled_h-1)) ${outer_radius},${outer_radius}" \
+    "$tmp_bezel"
 
-  magick "$input" -resize "${scaled_w}x${scaled_h}" \
-    /tmp/mask_$$.png -alpha off -compose CopyOpacity -composite \
-    /tmp/ss_$$.png
+  # 4. Composite the screen onto the bezel
+  local tmp_device=/tmp/device_$$.png
+  magick "$tmp_bezel" /tmp/screen_masked_$$.png -geometry "+${bezel_thickness}+${bezel_thickness}" -composite "$tmp_device"
 
+  # 5. Thin outline frame for realism
   magick -size "${scaled_w}x${scaled_h}" xc:none \
-    -fill none -stroke "#222222" -strokewidth 20 \
-    -draw "roundrectangle 10,10 $((scaled_w-11)),$((scaled_h-11)) ${corner_radius},${corner_radius}" \
-    /tmp/bezel_$$.png
+    -fill none -stroke "#333333" -strokewidth 4 \
+    -draw "roundrectangle 2,2 $((scaled_w-3)),$((scaled_h-3)) ${outer_radius},${outer_radius}" \
+    /tmp/outline_$$.png
+  magick "$tmp_device" /tmp/outline_$$.png -composite "$tmp_device"
 
-  magick /tmp/ss_$$.png /tmp/bezel_$$.png -composite /tmp/framed_ss_$$.png
-
+  # Compose final image with gradient background (Clean White style)
   magick -size "${IPAD_CANVAS_W}x${IPAD_CANVAS_H}" gradient:"#FFFFFF-#F4F4F5" \
-    /tmp/framed_ss_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
+    "$tmp_device" -geometry "+${ss_x}+${ss_y}" -composite \
     -gravity North \
     -font "$font_bold" -pointsize 100 -fill "#111111" \
     -annotate +0+150 "$keyword" \
@@ -183,7 +201,7 @@ compose_ipad_screenshot() {
     -annotate +0+280 "$title" \
     -depth 8 "$output"
 
-  rm -f /tmp/mask_$$.png /tmp/ss_$$.png /tmp/bezel_$$.png /tmp/framed_ss_$$.png
+  rm -f /tmp/screen_$$.png /tmp/inner_mask_$$.png /tmp/screen_masked_$$.png /tmp/bezel_$$.png /tmp/device_$$.png /tmp/outline_$$.png
   echo "  -> $output"
 }
 
