@@ -783,8 +783,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
       }
 
       final parts = [...selected];
-      final customText =
-          _customControllers[questionIndex]?.text.trim() ?? '';
+      final customText = _customControllers[questionIndex]?.text.trim() ?? '';
       if (customText.isNotEmpty) parts.add(customText);
 
       _singleAnswers[questionIndex] = parts.join(', ');
@@ -980,11 +979,7 @@ class _SingleSelectChips extends StatelessWidget {
                   return OutlinedButton.icon(
                     onPressed: () => onAnswerSingle(questionIndex, label),
                     icon: isChosen
-                        ? Icon(
-                            Icons.check_circle,
-                            size: 16,
-                            color: statusColor,
-                          )
+                        ? Icon(Icons.check_circle, size: 16, color: statusColor)
                         : const SizedBox.shrink(),
                     label: Text(label, style: const TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
@@ -1190,8 +1185,7 @@ class _OtherAnswerSection extends StatelessWidget {
                     ),
                     isDense: true,
                   ),
-                  onChanged: (text) =>
-                      onCustomTextChanged(questionIndex, text),
+                  onChanged: (text) => onCustomTextChanged(questionIndex, text),
                   onSubmitted: (_) => onSubmitCustomText(questionIndex),
                 ),
               ),
@@ -1538,8 +1532,7 @@ class _SummaryPage extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       backgroundColor: statusColor,
-                      foregroundColor:
-                          statusColor.computeLuminance() > 0.5
+                      foregroundColor: statusColor.computeLuminance() > 0.5
                           ? Colors.black
                           : Colors.white,
                       shape: RoundedRectangleBorder(

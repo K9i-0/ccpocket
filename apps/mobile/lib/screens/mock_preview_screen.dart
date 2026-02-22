@@ -687,10 +687,16 @@ class _MockSessionListWrapperState extends State<_MockSessionListWrapper> {
                     session: session,
                     onTap: () => _addLog('Tap: ${session.id}'),
                     onStop: () => _addLog('Stop: ${session.id}'),
-                    onApprove: (toolUseId, {Map<String, dynamic>? updatedInput, bool clearContext = false}) => _approve(session.id, toolUseId),
+                    onApprove:
+                        (
+                          toolUseId, {
+                          Map<String, dynamic>? updatedInput,
+                          bool clearContext = false,
+                        }) => _approve(session.id, toolUseId),
                     onApproveAlways: (toolUseId) =>
                         _approveAlways(session.id, toolUseId),
-                    onReject: (toolUseId, {String? message}) => _reject(session.id, toolUseId),
+                    onReject: (toolUseId, {String? message}) =>
+                        _reject(session.id, toolUseId),
                     onAnswer: (toolUseId, result) =>
                         _answer(session.id, toolUseId, result),
                   ),

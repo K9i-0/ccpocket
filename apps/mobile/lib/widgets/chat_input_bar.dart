@@ -87,10 +87,7 @@ class ChatInputBar extends StatelessWidget {
               onClear: onClearDiffSelection,
             ),
           if (attachedImages.isNotEmpty)
-            _ImagePreview(
-              images: attachedImages,
-              onClearImage: onClearImage,
-            ),
+            _ImagePreview(images: attachedImages, onClearImage: onClearImage),
           _InputTextField(
             controller: inputController,
             status: status,
@@ -118,10 +115,7 @@ class ChatInputBar extends StatelessWidget {
               ],
               if (isVoiceAvailable) ...[
                 const SizedBox(width: 8),
-                _VoiceButton(
-                  isRecording: isRecording,
-                  onTap: onToggleVoice,
-                ),
+                _VoiceButton(isRecording: isRecording, onTap: onToggleVoice),
               ],
               const Spacer(),
               _ActionButton(
