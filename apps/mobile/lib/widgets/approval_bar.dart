@@ -208,6 +208,7 @@ class _KeepPlanningCard extends StatelessWidget {
                 child: TextField(
                   key: const ValueKey('plan_feedback_input'),
                   controller: planFeedbackController,
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
                   decoration: InputDecoration(
                     hintText: l.keepPlanningHint,
                     hintStyle: TextStyle(

@@ -549,6 +549,7 @@ class _PlanApprovalArea extends StatelessWidget {
                   key: const ValueKey('plan_feedback_input'),
                   controller: planFeedbackController,
                   style: const TextStyle(fontSize: 13),
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
                   decoration: InputDecoration(
                     hintText: l.keepPlanningHint,
                     isDense: true,
@@ -580,30 +581,32 @@ class _PlanApprovalArea extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: FilledButton.tonal(
-                  key: const ValueKey('approve_clear_context_button'),
-                  onPressed: onApproveClearContext,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                  ),
-                  child: Text(
-                    l.acceptAndClear,
-                    style: const TextStyle(fontSize: 12),
+                child: SizedBox(
+                  height: 36,
+                  child: FilledButton.tonal(
+                    key: const ValueKey('approve_clear_context_button'),
+                    onPressed: onApproveClearContext,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    child: Text(
+                      l.acceptAndClear,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              SizedBox(
-                height: 32,
-                child: FilledButton.tonalIcon(
-                  onPressed: onApprove,
-                  icon: const Icon(Icons.check, size: 14),
-                  label: Text(l.acceptPlan),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    textStyle: const TextStyle(fontSize: 12),
-                    backgroundColor: statusColor.withValues(alpha: 0.15),
-                    foregroundColor: statusColor,
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: FilledButton(
+                    key: const ValueKey('approve_button'),
+                    onPressed: onApprove,
+                    child: Text(
+                      l.acceptPlan,
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                 ),
               ),

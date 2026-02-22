@@ -154,6 +154,7 @@ class _HomeContentState extends State<HomeContent> {
       // Show skeleton while initial data is loading
       if (widget.isInitialLoading) {
         return ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(12),
           children: [
@@ -170,6 +171,7 @@ class _HomeContentState extends State<HomeContent> {
       }
 
       return ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           if (isReconnecting) const SessionReconnectBanner(),
@@ -181,6 +183,7 @@ class _HomeContentState extends State<HomeContent> {
 
     return ListView(
       key: const ValueKey('session_list'),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(12),
       children: [
@@ -292,6 +295,7 @@ class _HomeContentState extends State<HomeContent> {
               key: const ValueKey('search_field'),
               controller: _searchController,
               autofocus: true,
+              onTapOutside: (_) => FocusScope.of(context).unfocus(),
               decoration: InputDecoration(
                 hintText: 'Search sessions...',
                 prefixIcon: Icon(
