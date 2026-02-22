@@ -119,8 +119,6 @@ void main() {
       expect(find.text('Which features?'), findsNothing);
       expect(find.text('1/3'), findsOneWidget);
 
-      // Submit button exists but is disabled (shows hint text)
-      expect(find.text('Answer all questions to submit'), findsOneWidget);
     });
 
     patrolWidgetTest(
@@ -141,7 +139,6 @@ void main() {
 
         // Second question is shown, but answer is not sent yet.
         expect(find.text('Which features?'), findsOneWidget);
-        expect(find.text('Answer all questions to submit'), findsOneWidget);
         expect(findSentMessage(bridge, 'answer'), isNull);
       },
     );

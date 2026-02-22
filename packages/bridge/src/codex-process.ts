@@ -112,6 +112,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     toolUseId: string;
     planText: string;
   } | null = null;
+  /** Queued plan execution text when inputResolve wasn't ready at approval time. */
+  private _pendingPlanInput: string | null = null;
 
   get status(): ProcessStatus {
     return this._status;
@@ -172,6 +174,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this._collaborationMode = options?.collaborationMode ?? "default";
     this.lastPlanItemText = null;
     this.pendingPlanCompletion = null;
+    this._pendingPlanInput = null;
 
     console.log(
       `[codex-process] Starting app-server (cwd: ${projectPath}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, model: ${options?.model ?? "default"}, collaboration: ${this._collaborationMode})`,
@@ -438,6 +441,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       const resolve = this.inputResolve;
       this.inputResolve = null;
       resolve({ text: `Execute the following plan:\n\n${planText}` });
+    } else {
+      // inputResolve may not be ready yet if approval comes before the next
+      // input loop iteration.  Queue the text so sendInput() can pick it up.
+      console.warn("[codex-process] Plan approved but inputResolve not ready, queuing as pending input");
+      this._pendingPlanInput = `Execute the following plan:\n\n${planText}`;
     }
   }
 
@@ -455,10 +463,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.emitToolResult(resolvedToolUseId, "Plan rejected");
     }
 
-    if (feedback && this.inputResolve) {
-      const resolve = this.inputResolve;
-      this.inputResolve = null;
-      resolve({ text: feedback });
+    if (feedback) {
+      if (this.inputResolve) {
+        const resolve = this.inputResolve;
+        this.inputResolve = null;
+        resolve({ text: feedback });
+      } else {
+        console.warn("[codex-process] Plan rejected but inputResolve not ready, queuing feedback");
+        this._pendingPlanInput = feedback;
+      }
     } else {
       this.setStatus("idle");
     }
@@ -542,6 +555,13 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     while (!this.stopped) {
       const pendingInput = await new Promise<PendingInput>((resolve) => {
         this.inputResolve = resolve;
+        // If plan approval arrived before inputResolve was ready, drain it now.
+        if (this._pendingPlanInput) {
+          const text = this._pendingPlanInput;
+          this._pendingPlanInput = null;
+          this.inputResolve = null;
+          resolve({ text });
+        }
       });
       if (this.stopped || !pendingInput.text) break;
       if (!this._threadId) {
