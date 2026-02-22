@@ -51,6 +51,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
          ChatSessionState(
            permissionMode: initialPermissionMode ?? PermissionMode.defaultMode,
            sandboxMode: initialSandboxMode ?? SandboxMode.on,
+           inPlanMode: initialPermissionMode == PermissionMode.plan,
          ),
        ) {
     // Subscribe to messages for this session
