@@ -307,7 +307,7 @@ export class SessionManager {
                 m.type === "user_input" &&
                 !("userMessageUuid" in m && m.userMessageUuid)
               ) {
-                session.history[i] = msg;
+                session.history[i] = { ...m, ...msg };
                 merged = true;
                 break;
               }

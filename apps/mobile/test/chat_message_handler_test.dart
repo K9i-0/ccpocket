@@ -722,4 +722,234 @@ void main() {
       expect(perm.summary, 'CustomTool');
     });
   });
+
+  group('PastHistory restoration — text, image, and text+image', () {
+    test('restores text-only user message', () {
+      final update = handler.handle(
+        const PastHistoryMessage(
+          claudeSessionId: 'sess-1',
+          messages: [
+            PastMessage(
+              role: 'user',
+              uuid: 'uuid-1',
+              content: [TextContent(text: 'Hello world')],
+            ),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.entriesToPrepend, hasLength(1));
+      final entry = update.entriesToPrepend[0] as UserChatEntry;
+      expect(entry.text, 'Hello world');
+      expect(entry.imageCount, 0);
+      expect(entry.messageUuid, 'uuid-1');
+      expect(entry.status, MessageStatus.sent);
+    });
+
+    test('restores image-only user message', () {
+      final update = handler.handle(
+        const PastHistoryMessage(
+          claudeSessionId: 'sess-1',
+          messages: [
+            PastMessage(
+              role: 'user',
+              uuid: 'uuid-2',
+              imageCount: 1,
+              content: [TextContent(text: '[Image attached]')],
+            ),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.entriesToPrepend, hasLength(1));
+      final entry = update.entriesToPrepend[0] as UserChatEntry;
+      expect(entry.imageCount, 1);
+      expect(entry.messageUuid, 'uuid-2');
+      expect(entry.status, MessageStatus.sent);
+    });
+
+    test('restores text+image user message', () {
+      final update = handler.handle(
+        const PastHistoryMessage(
+          claudeSessionId: 'sess-1',
+          messages: [
+            PastMessage(
+              role: 'user',
+              uuid: 'uuid-3',
+              imageCount: 2,
+              content: [TextContent(text: 'Check this screenshot')],
+            ),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.entriesToPrepend, hasLength(1));
+      final entry = update.entriesToPrepend[0] as UserChatEntry;
+      expect(entry.text, 'Check this screenshot');
+      expect(entry.imageCount, 2);
+      expect(entry.messageUuid, 'uuid-3');
+      expect(entry.status, MessageStatus.sent);
+    });
+
+    test('skips meta user messages during restoration', () {
+      final update = handler.handle(
+        const PastHistoryMessage(
+          claudeSessionId: 'sess-1',
+          messages: [
+            PastMessage(
+              role: 'user',
+              isMeta: true,
+              content: [TextContent(text: 'skill loading prompt')],
+            ),
+          ],
+        ),
+        isBackground: false,
+      );
+      expect(update.entriesToPrepend, isEmpty);
+    });
+  });
+
+  group('History restoration — text, image, and text+image', () {
+    test('restores text-only user message from in-memory history', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            UserInputMessage(
+              text: 'Hello world',
+              userMessageUuid: 'uuid-1',
+            ),
+            StatusMessage(status: ProcessStatus.idle),
+          ],
+        ),
+        isBackground: false,
+      );
+      final userEntries = update.entriesToAdd
+          .whereType<UserChatEntry>()
+          .toList();
+      expect(userEntries, hasLength(1));
+      expect(userEntries[0].text, 'Hello world');
+      expect(userEntries[0].imageCount, 0);
+      expect(userEntries[0].messageUuid, 'uuid-1');
+      expect(userEntries[0].status, MessageStatus.sent);
+    });
+
+    test('restores image-only user message from in-memory history', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            UserInputMessage(
+              text: '[Image attached]',
+              imageCount: 1,
+            ),
+            StatusMessage(status: ProcessStatus.idle),
+          ],
+        ),
+        isBackground: false,
+      );
+      final userEntries = update.entriesToAdd
+          .whereType<UserChatEntry>()
+          .toList();
+      expect(userEntries, hasLength(1));
+      expect(userEntries[0].imageCount, 1);
+      expect(userEntries[0].status, MessageStatus.sent);
+    });
+
+    test('restores text+image user message from in-memory history', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            UserInputMessage(
+              text: 'Check this screenshot',
+              userMessageUuid: 'uuid-3',
+              imageCount: 2,
+            ),
+            StatusMessage(status: ProcessStatus.idle),
+          ],
+        ),
+        isBackground: false,
+      );
+      final userEntries = update.entriesToAdd
+          .whereType<UserChatEntry>()
+          .toList();
+      expect(userEntries, hasLength(1));
+      expect(userEntries[0].text, 'Check this screenshot');
+      expect(userEntries[0].imageCount, 2);
+      expect(userEntries[0].messageUuid, 'uuid-3');
+      expect(userEntries[0].status, MessageStatus.sent);
+    });
+
+    test('skips synthetic user messages during restoration', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            UserInputMessage(text: 'synthetic prompt', isSynthetic: true),
+            StatusMessage(status: ProcessStatus.idle),
+          ],
+        ),
+        isBackground: false,
+      );
+      final userEntries = update.entriesToAdd
+          .whereType<UserChatEntry>()
+          .toList();
+      expect(userEntries, isEmpty);
+    });
+
+    test('skips meta user messages during restoration', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            UserInputMessage(text: 'meta prompt', isMeta: true),
+            StatusMessage(status: ProcessStatus.idle),
+          ],
+        ),
+        isBackground: false,
+      );
+      final userEntries = update.entriesToAdd
+          .whereType<UserChatEntry>()
+          .toList();
+      expect(userEntries, isEmpty);
+    });
+  });
+
+  group('Live user_input handling — UUID echo', () {
+    test('user_input without UUID adds new entry', () {
+      final update = handler.handle(
+        const UserInputMessage(text: 'Hello'),
+        isBackground: false,
+      );
+      expect(update.entriesToAdd, hasLength(1));
+      final entry = update.entriesToAdd[0] as UserChatEntry;
+      expect(entry.text, 'Hello');
+      expect(entry.status, MessageStatus.sent);
+    });
+
+    test('user_input with UUID returns UUID update (no duplicate entry)', () {
+      final update = handler.handle(
+        const UserInputMessage(text: 'Hello', userMessageUuid: 'uuid-1'),
+        isBackground: false,
+      );
+      expect(update.entriesToAdd, isEmpty);
+      expect(update.userUuidUpdate, isNotNull);
+      expect(update.userUuidUpdate!.text, 'Hello');
+      expect(update.userUuidUpdate!.uuid, 'uuid-1');
+    });
+
+    test('synthetic user_input is skipped', () {
+      final update = handler.handle(
+        const UserInputMessage(text: 'synthetic', isSynthetic: true),
+        isBackground: false,
+      );
+      expect(update.entriesToAdd, isEmpty);
+      expect(update.userUuidUpdate, isNull);
+    });
+
+    test('meta user_input is skipped', () {
+      final update = handler.handle(
+        const UserInputMessage(text: 'meta', isMeta: true),
+        isBackground: false,
+      );
+      expect(update.entriesToAdd, isEmpty);
+      expect(update.userUuidUpdate, isNull);
+    });
+  });
 }

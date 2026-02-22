@@ -343,6 +343,70 @@ describe("SessionManager claude UUID backfill", () => {
     ).toBe(true);
   });
 
+  it("SDK echo merge preserves imageCount from original user_input", () => {
+    const forwarded: ServerMessage[] = [];
+    const manager = new SessionManager((_, msg) => {
+      forwarded.push(msg);
+    });
+    const sessionId = manager.create("/tmp/project-merge");
+
+    const session = manager.get(sessionId);
+    expect(session).toBeDefined();
+    if (!session) return;
+
+    // Simulate websocket.ts pushing user_input with imageCount
+    session.history.push({
+      type: "user_input",
+      text: "check this screenshot",
+      imageCount: 2,
+    } as ServerMessage);
+
+    // Simulate SDK echoing back user_input with UUID (no imageCount)
+    sdkInstances[0].emit("message", {
+      type: "user_input",
+      text: "check this screenshot",
+      userMessageUuid: "uuid-img",
+    } as ServerMessage);
+
+    // The merged entry should have BOTH userMessageUuid AND imageCount
+    const merged = session.history.find(
+      (msg) => msg.type === "user_input" && "userMessageUuid" in msg,
+    ) as Record<string, unknown> | undefined;
+    expect(merged).toBeDefined();
+    expect(merged?.userMessageUuid).toBe("uuid-img");
+    expect(merged?.imageCount).toBe(2);
+    expect(merged?.text).toBe("check this screenshot");
+  });
+
+  it("SDK echo merge works for text-only user_input (no imageCount)", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create("/tmp/project-merge-text");
+
+    const session = manager.get(sessionId);
+    expect(session).toBeDefined();
+    if (!session) return;
+
+    // Text-only user_input (no imageCount)
+    session.history.push({
+      type: "user_input",
+      text: "hello world",
+    } as ServerMessage);
+
+    // SDK echo with UUID
+    sdkInstances[0].emit("message", {
+      type: "user_input",
+      text: "hello world",
+      userMessageUuid: "uuid-text",
+    } as ServerMessage);
+
+    const merged = session.history.find(
+      (msg) => msg.type === "user_input" && "userMessageUuid" in msg,
+    ) as Record<string, unknown> | undefined;
+    expect(merged).toBeDefined();
+    expect(merged?.userMessageUuid).toBe("uuid-text");
+    expect(merged?.text).toBe("hello world");
+  });
+
   it("falls back to scanning all project dirs when primary slug lookup misses", () => {
     const testId = randomUUID();
     const projectPath = `/tmp/ccpocket-main-${testId}`;
