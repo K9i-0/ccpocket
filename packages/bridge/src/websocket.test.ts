@@ -60,6 +60,7 @@ vi.mock("./session.js", () => ({
       const process = {
         setPermissionMode: vi.fn(async () => {}),
         setApprovalPolicy: vi.fn(),
+        setCollaborationMode: vi.fn(),
         sendInput: vi.fn(),
         sendInputWithImage: vi.fn(),
         approve: vi.fn(),
@@ -305,6 +306,44 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(setPermissionModeMock).toHaveBeenCalledTimes(1);
     expect(setPermissionModeMock).toHaveBeenCalledWith("plan");
     expect(ws.send.mock.calls).toHaveLength(callCountBefore);
+
+    bridge.close();
+  });
+
+  it("maps set_permission_mode plan to collaborationMode for codex session", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(created).toBeDefined();
+    const sessionId = created.sessionId as string;
+
+    const session = (bridge as any).sessionManager.get(sessionId);
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_permission_mode",
+        sessionId,
+        mode: "plan",
+      },
+      ws,
+    );
+
+    expect(session.process.setApprovalPolicy).toHaveBeenCalledWith("on-request");
+    expect(session.process.setCollaborationMode).toHaveBeenCalledWith("plan");
 
     bridge.close();
   });

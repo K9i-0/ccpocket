@@ -227,6 +227,7 @@ export class BridgeWebSocketServer {
                 networkAccessEnabled: msg.networkAccessEnabled,
                 webSearchMode: (msg.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
                 threadId: msg.sessionId,
+                collaborationMode: msg.permissionMode === "plan" ? "plan" as const : "default" as const,
               }
             : undefined,
         );
@@ -405,10 +406,9 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          // Map PermissionMode to Codex approval_policy
-          (session.process as CodexProcess).setApprovalPolicy(
-            permissionModeToApprovalPolicy(msg.mode),
-          );
+          const codexProcess = session.process as CodexProcess;
+          codexProcess.setApprovalPolicy(permissionModeToApprovalPolicy(msg.mode));
+          codexProcess.setCollaborationMode(msg.mode === "plan" ? "plan" : "default");
           break;
         }
         (session.process as SdkProcess).setPermissionMode(msg.mode).catch((err) => {
@@ -738,6 +738,7 @@ export class BridgeWebSocketServer {
                 modelReasoningEffort: (msg.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
                 networkAccessEnabled: msg.networkAccessEnabled,
                 webSearchMode: (msg.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
+                collaborationMode: msg.permissionMode === "plan" ? "plan" as const : "default" as const,
               },
             );
             const createdSession = this.sessionManager.get(sessionId);

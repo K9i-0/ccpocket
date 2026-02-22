@@ -14,6 +14,7 @@ export interface CodexStartOptions {
   modelReasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
   networkAccessEnabled?: boolean;
   webSearchMode?: "disabled" | "cached" | "live";
+  collaborationMode?: "plan" | "default";
 }
 
 export interface CodexProcessEvents {
@@ -103,17 +104,14 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   private stdoutBuffer = "";
 
-  // Plan approval gate state
+  // Collaboration mode & plan completion state
   private _approvalPolicy: string = "never";
-  private pendingPlanApproval: {
+  private _collaborationMode: "plan" | "default" = "default";
+  private lastPlanItemText: string | null = null;
+  private pendingPlanCompletion: {
     toolUseId: string;
-    planData: Record<string, unknown>;
+    planText: string;
   } | null = null;
-  private queuedApprovals: Array<{
-    id: number | string;
-    method: string;
-    params: Record<string, unknown>;
-  }> = [];
 
   get status(): ProcessStatus {
     return this._status;
@@ -144,6 +142,19 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     console.log(`[codex-process] Approval policy changed to: ${policy}`);
   }
 
+  /**
+   * Set collaboration mode ("plan" or "default").
+   * Takes effect on the next `turn/start` RPC call.
+   */
+  setCollaborationMode(mode: "plan" | "default"): void {
+    this._collaborationMode = mode;
+    console.log(`[codex-process] Collaboration mode changed to: ${mode}`);
+  }
+
+  get collaborationMode(): "plan" | "default" {
+    return this._collaborationMode;
+  }
+
   start(projectPath: string, options?: CodexStartOptions): void {
     if (this.child) {
       this.stop();
@@ -158,8 +169,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.lastTokenUsage = null;
     this.startModel = options?.model;
     this._approvalPolicy = options?.approvalPolicy ?? "never";
-    this.pendingPlanApproval = null;
-    this.queuedApprovals = [];
+    this._collaborationMode = options?.collaborationMode ?? "default";
+    this.lastPlanItemText = null;
+    this.pendingPlanCompletion = null;
 
     console.log(
       `[codex-process] Starting app-server (cwd: ${projectPath}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, model: ${options?.model ?? "default"})`,
@@ -262,9 +274,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   approve(toolUseId?: string, _updatedInput?: Record<string, unknown>): void {
-    // Check if this is a plan approval
-    if (this.pendingPlanApproval && toolUseId === this.pendingPlanApproval.toolUseId) {
-      this.approvePlan();
+    // Check if this is a plan completion approval
+    if (this.pendingPlanCompletion && toolUseId === this.pendingPlanCompletion.toolUseId) {
+      this.handlePlanApproved(_updatedInput);
       return;
     }
 
@@ -305,9 +317,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   reject(toolUseId?: string, _message?: string): void {
-    // Check if this is a plan rejection
-    if (this.pendingPlanApproval && toolUseId === this.pendingPlanApproval.toolUseId) {
-      this.rejectPlan(_message);
+    // Check if this is a plan completion rejection
+    if (this.pendingPlanCompletion && toolUseId === this.pendingPlanCompletion.toolUseId) {
+      this.handlePlanRejected(_message);
       return;
     }
 
@@ -347,13 +359,13 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   getPendingPermission(
     toolUseId?: string,
   ): { toolUseId: string; toolName: string; input: Record<string, unknown> } | undefined {
-    // Check plan approval first
-    if (this.pendingPlanApproval) {
-      if (!toolUseId || toolUseId === this.pendingPlanApproval.toolUseId) {
+    // Check plan completion first
+    if (this.pendingPlanCompletion) {
+      if (!toolUseId || toolUseId === this.pendingPlanCompletion.toolUseId) {
         return {
-          toolUseId: this.pendingPlanApproval.toolUseId,
+          toolUseId: this.pendingPlanCompletion.toolUseId,
           toolName: "ExitPlanMode",
-          input: { ...this.pendingPlanApproval.planData },
+          input: { plan: this.pendingPlanCompletion.planText },
         };
       }
     }
@@ -389,100 +401,40 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   // ---------------------------------------------------------------------------
-  // Plan approval gate
+  // Plan completion handlers (native collaboration_mode)
   // ---------------------------------------------------------------------------
 
   /**
-   * Emit a synthetic plan approval request so the Flutter UI shows the plan
-   * approval bar (same as Claude's ExitPlanMode).
+   * Plan approved → switch to Default mode and auto-start execution.
    */
-  private emitPlanApproval(text: string, params: Record<string, unknown>): void {
-    // Auto-resolve previous plan approval if one is pending
-    this.clearPlanApproval();
+  private handlePlanApproved(updatedInput?: Record<string, unknown>): void {
+    const planText = (updatedInput?.plan as string) ?? this.pendingPlanCompletion?.planText ?? "";
+    this.pendingPlanCompletion = null;
+    this._collaborationMode = "default";
+    console.log("[codex-process] Plan approved, switching to Default mode");
 
-    const toolUseId = `plan_${randomUUID()}`;
-    const planData: Record<string, unknown> = { plan: text };
-    if (Array.isArray(params.plan)) {
-      planData.steps = params.plan;
-    }
-    if (typeof params.explanation === "string") {
-      planData.explanation = params.explanation;
-    }
-
-    this.pendingPlanApproval = { toolUseId, planData };
-    this.emitMessage({
-      type: "permission_request",
-      toolUseId,
-      toolName: "ExitPlanMode",
-      input: planData,
-    });
-    this.setStatus("waiting_approval");
-  }
-
-  /**
-   * Approve the pending plan and flush queued approval requests.
-   */
-  private approvePlan(): void {
-    if (!this.pendingPlanApproval) return;
-    console.log("[codex-process] Plan approved, flushing queued approvals");
-    this.pendingPlanApproval = null;
-
-    // Flush queued approvals
-    const queued = this.queuedApprovals.splice(0);
-    if (queued.length > 0) {
-      for (const { id, method, params } of queued) {
-        this.handleServerRequest(id, method, params);
-      }
-    } else {
-      this.setStatus("running");
+    // Resolve inputResolve to start the next turn (Default mode) automatically
+    if (this.inputResolve) {
+      const resolve = this.inputResolve;
+      this.inputResolve = null;
+      resolve({ text: `Execute the following plan:\n\n${planText}` });
     }
   }
 
   /**
-   * Reject the pending plan. Declines all queued approvals and interrupts the turn.
+   * Plan rejected → stay in Plan mode and re-plan with feedback.
    */
-  private rejectPlan(feedback?: string): void {
-    if (!this.pendingPlanApproval) return;
-    console.log("[codex-process] Plan rejected" + (feedback ? `: ${feedback}` : ""));
-    this.pendingPlanApproval = null;
+  private handlePlanRejected(feedback?: string): void {
+    this.pendingPlanCompletion = null;
+    console.log("[codex-process] Plan rejected, continuing in Plan mode");
+    // Stay in Plan mode
 
-    // Decline all queued approvals
-    for (const { id } of this.queuedApprovals.splice(0)) {
-      this.respondToServerRequest(id, { decision: "decline" });
-    }
-
-    // Stop the current turn to prevent further execution
-    this.interruptCurrentTurn();
-    this.setStatus("idle");
-
-    // Queue feedback as next user input if provided
     if (feedback && this.inputResolve) {
       const resolve = this.inputResolve;
       this.inputResolve = null;
       resolve({ text: feedback });
-    }
-  }
-
-  /**
-   * Clear pending plan approval without side effects (used on turn completion).
-   */
-  private clearPlanApproval(): void {
-    if (this.pendingPlanApproval) {
-      this.pendingPlanApproval = null;
-      // Flush any queued approvals since the plan gate is no longer active
-      const queued = this.queuedApprovals.splice(0);
-      for (const { id, method, params } of queued) {
-        this.handleServerRequest(id, method, params);
-      }
-    }
-  }
-
-  /**
-   * Interrupt the currently running turn via RPC cancel request.
-   */
-  private interruptCurrentTurn(): void {
-    if (this.pendingTurnId) {
-      this.notify("turn/cancel", { turnId: this.pendingTurnId });
+    } else {
+      this.setStatus("idle");
     }
   }
 
@@ -586,6 +538,19 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           params.effort = normalizeReasoningEffort(options.modelReasoningEffort);
         }
 
+        // Send collaborationMode on every turn
+        const modeSettings: Record<string, unknown> = {
+          model: options?.model ?? this.startModel ?? "",
+          developer_instructions: null,
+        };
+        if (this._collaborationMode === "plan") {
+          modeSettings.reasoning_effort = "medium";
+        }
+        params.collaborationMode = {
+          mode: this._collaborationMode,
+          settings: modeSettings,
+        };
+
         void this.request("turn/start", params)
           .then((result) => {
             const turn = (result as Record<string, unknown>).turn as Record<string, unknown> | undefined;
@@ -674,15 +639,6 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   private handleServerRequest(id: number | string, method: string, params: Record<string, unknown>): void {
-    // Queue approval requests while plan approval is pending
-    if (
-      this.pendingPlanApproval &&
-      (method === "item/commandExecution/requestApproval" || method === "item/fileChange/requestApproval")
-    ) {
-      this.queuedApprovals.push({ id, method, params });
-      return;
-    }
-
     switch (method) {
       case "item/commandExecution/requestApproval": {
         const toolUseId = this.extractToolUseId(params, id);
@@ -853,24 +809,18 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       }
 
       case "turn/plan/updated": {
+        // Default mode's update_plan tool output — always show as informational text
         const text = formatPlanUpdateText(params);
         if (!text) break;
-
-        if (this._approvalPolicy === "never") {
-          // No approval gate — show plan as informational text
-          this.emitMessage({
-            type: "assistant",
-            message: {
-              id: randomUUID(),
-              role: "assistant",
-              content: [{ type: "text", text }],
-              model: "codex",
-            },
-          });
-        } else {
-          // Emit synthetic plan approval request
-          this.emitPlanApproval(text, params);
-        }
+        this.emitMessage({
+          type: "assistant",
+          message: {
+            id: randomUUID(),
+            role: "assistant",
+            content: [{ type: "text", text }],
+            model: "codex",
+          },
+        });
         break;
       }
 
@@ -913,12 +863,30 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       });
     }
 
-    // Auto-resolve plan approval on turn completion
-    this.clearPlanApproval();
-
     this.pendingTurnId = null;
-    if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
-      this.setStatus("idle");
+
+    // Plan mode: emit synthetic plan approval and wait for user decision
+    if (this._collaborationMode === "plan" && this.lastPlanItemText) {
+      const toolUseId = `plan_${randomUUID()}`;
+      this.pendingPlanCompletion = {
+        toolUseId,
+        planText: this.lastPlanItemText,
+      };
+      this.lastPlanItemText = null;
+
+      this.emitMessage({
+        type: "permission_request",
+        toolUseId,
+        toolName: "ExitPlanMode",
+        input: { plan: this.pendingPlanCompletion.planText },
+      });
+      this.setStatus("waiting_approval");
+      // Do NOT set idle — waiting for plan approval
+    } else {
+      this.lastPlanItemText = null;
+      if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
+        this.setStatus("idle");
+      }
     }
 
     if (this.pendingTurnCompletion) {
@@ -1095,6 +1063,13 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           content: query ? `Web search: ${query}` : "Web search completed",
           toolName: "WebSearch",
         });
+        break;
+      }
+
+      case "plan": {
+        // Plan item completed — save text for plan approval emission in handleTurnCompleted()
+        const planText = typeof item.text === "string" ? item.text : "";
+        this.lastPlanItemText = planText;
         break;
       }
 
