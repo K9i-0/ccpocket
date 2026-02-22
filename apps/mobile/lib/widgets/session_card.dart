@@ -607,11 +607,17 @@ class _PlanApprovalArea extends StatelessWidget {
                     key: const ValueKey('approve_clear_context_button'),
                     onPressed: onApproveClearContext,
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
                     ),
-                    child: Text(
-                      l.acceptAndClear,
-                      style: const TextStyle(fontSize: 12),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        l.acceptAndClear,
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ),
                 ),
@@ -623,9 +629,18 @@ class _PlanApprovalArea extends StatelessWidget {
                   child: FilledButton(
                     key: const ValueKey('approve_button'),
                     onPressed: onApprove,
-                    child: Text(
-                      l.acceptPlan,
-                      style: const TextStyle(fontSize: 12),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        l.acceptPlan,
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ),
                 ),
