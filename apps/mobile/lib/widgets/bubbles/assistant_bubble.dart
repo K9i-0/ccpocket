@@ -63,17 +63,58 @@ class _AssistantBubbleState extends State<AssistantBubble> {
     );
 
     if (hasPlanExit) {
-      return _buildPlanLayout(context, contents, hasTextContent);
+      return _PlanLayout(
+        contents: contents,
+        hasTextContent: hasTextContent,
+        resolvedPlanText: widget.resolvedPlanText,
+        allowPlanEditing: widget.allowPlanEditing,
+        pendingPlanToolUseId: widget.pendingPlanToolUseId,
+        editedPlanText: widget.editedPlanText,
+        allText: _allText(),
+        plainTextMode: _plainTextMode,
+        onTogglePlainText: () {
+          setState(() => _plainTextMode = !_plainTextMode);
+        },
+      );
     }
 
-    return _buildDefaultLayout(context, contents, hasTextContent);
+    return _DefaultLayout(
+      contents: contents,
+      hasTextContent: hasTextContent,
+      plainTextMode: _plainTextMode,
+      allText: _allText(),
+      onTogglePlainText: () {
+        setState(() => _plainTextMode = !_plainTextMode);
+      },
+    );
   }
+}
 
-  Widget _buildPlanLayout(
-    BuildContext context,
-    List<AssistantContent> contents,
-    bool hasTextContent,
-  ) {
+class _PlanLayout extends StatelessWidget {
+  final List<AssistantContent> contents;
+  final bool hasTextContent;
+  final String? resolvedPlanText;
+  final bool allowPlanEditing;
+  final String? pendingPlanToolUseId;
+  final ValueNotifier<String?>? editedPlanText;
+  final String allText;
+  final bool plainTextMode;
+  final VoidCallback onTogglePlainText;
+
+  const _PlanLayout({
+    required this.contents,
+    required this.hasTextContent,
+    required this.resolvedPlanText,
+    required this.allowPlanEditing,
+    required this.pendingPlanToolUseId,
+    required this.editedPlanText,
+    required this.allText,
+    required this.plainTextMode,
+    required this.onTogglePlainText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     var originalPlanText = contents
         .whereType<TextContent>()
         .map((c) => c.text)
@@ -82,9 +123,8 @@ class _AssistantBubbleState extends State<AssistantBubble> {
     // Real SDK: plan is written to a file via Write tool in a *different*
     // AssistantMessage.  Use resolvedPlanText (pre-extracted from all entries)
     // when TextContent doesn't look like an actual plan (< 10 lines).
-    if (originalPlanText.split('\n').length < 10 &&
-        widget.resolvedPlanText != null) {
-      originalPlanText = widget.resolvedPlanText!;
+    if (originalPlanText.split('\n').length < 10 && resolvedPlanText != null) {
+      originalPlanText = resolvedPlanText!;
     }
 
     String? planToolUseId;
@@ -95,9 +135,8 @@ class _AssistantBubbleState extends State<AssistantBubble> {
       }
     }
     final canEditThisPlan =
-        widget.allowPlanEditing &&
-        (widget.pendingPlanToolUseId == null ||
-            widget.pendingPlanToolUseId == planToolUseId);
+        allowPlanEditing &&
+        (pendingPlanToolUseId == null || pendingPlanToolUseId == planToolUseId);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -115,9 +154,9 @@ class _AssistantBubbleState extends State<AssistantBubble> {
             TextContent() => const SizedBox.shrink(),
           },
         // Plan card – reflects edited text if available
-        if (widget.editedPlanText != null)
+        if (editedPlanText != null)
           ValueListenableBuilder<String?>(
-            valueListenable: widget.editedPlanText!,
+            valueListenable: editedPlanText!,
             builder: (context, edited, _) {
               final displayText = canEditThisPlan && edited != null
                   ? edited
@@ -132,7 +171,7 @@ class _AssistantBubbleState extends State<AssistantBubble> {
                     editable: canEditThisPlan,
                   );
                   if (edited != null && canEditThisPlan) {
-                    widget.editedPlanText!.value = edited;
+                    editedPlanText!.value = edited;
                   }
                 },
               );
@@ -149,21 +188,32 @@ class _AssistantBubbleState extends State<AssistantBubble> {
           ),
         if (hasTextContent)
           MessageActionBar(
-            textToCopy: _allText(),
-            isPlainTextMode: _plainTextMode,
-            onTogglePlainText: () {
-              setState(() => _plainTextMode = !_plainTextMode);
-            },
+            textToCopy: allText,
+            isPlainTextMode: plainTextMode,
+            onTogglePlainText: onTogglePlainText,
           ),
       ],
     );
   }
+}
 
-  Widget _buildDefaultLayout(
-    BuildContext context,
-    List<AssistantContent> contents,
-    bool hasTextContent,
-  ) {
+class _DefaultLayout extends StatelessWidget {
+  final List<AssistantContent> contents;
+  final bool hasTextContent;
+  final bool plainTextMode;
+  final String allText;
+  final VoidCallback onTogglePlainText;
+
+  const _DefaultLayout({
+    required this.contents,
+    required this.hasTextContent,
+    required this.plainTextMode,
+    required this.allText,
+    required this.onTogglePlainText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -174,7 +224,7 @@ class _AssistantBubbleState extends State<AssistantBubble> {
                 vertical: AppSpacing.bubbleMarginV,
                 horizontal: AppSpacing.bubbleMarginH,
               ),
-              child: _plainTextMode
+              child: plainTextMode
                   ? SelectableText(
                       text,
                       style: Theme.of(context).textTheme.bodyMedium,
@@ -198,11 +248,9 @@ class _AssistantBubbleState extends State<AssistantBubble> {
           },
         if (hasTextContent)
           MessageActionBar(
-            textToCopy: _allText(),
-            isPlainTextMode: _plainTextMode,
-            onTogglePlainText: () {
-              setState(() => _plainTextMode = !_plainTextMode);
-            },
+            textToCopy: allText,
+            isPlainTextMode: plainTextMode,
+            onTogglePlainText: onTogglePlainText,
           ),
       ],
     );
@@ -244,37 +292,83 @@ class _ToolUseTileState extends State<ToolUseTile> {
 
   @override
   Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    if (_expanded) return _buildCard(appColors);
-    return _buildCollapsed(appColors);
+    if (_expanded) {
+      return _ToolUseCard(
+        name: widget.name,
+        input: widget.input,
+        category: _category,
+        inputSummary: _inputSummary(),
+        editDiff: _editDiff,
+        onTap: () {
+          setState(() => _expanded = false);
+          HapticFeedback.selectionClick();
+        },
+        onLongPress: _copyContent,
+        onOpenDiffScreen: _openDiffScreen,
+      );
+    }
+    return _ToolUseCollapsed(
+      name: widget.name,
+      category: _category,
+      inputSummary: _inputSummary(),
+      onTap: () {
+        setState(() => _expanded = true);
+        HapticFeedback.selectionClick();
+      },
+      onLongPress: _copyContent,
+    );
   }
 
-  Widget _buildCollapsed(AppColors appColors) {
+  void _openDiffScreen() {
+    final diff = _editDiff;
+    if (diff == null) return;
+    final diffText = reconstructUnifiedDiff(diff);
+    final filePath = diff.filePath.split('/').lastOrNull ?? diff.filePath;
+    context.router.push(DiffRoute(initialDiff: diffText, title: filePath));
+  }
+}
+
+class _ToolUseCollapsed extends StatelessWidget {
+  final String name;
+  final ToolCategory category;
+  final String inputSummary;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _ToolUseCollapsed({
+    required this.name,
+    required this.category,
+    required this.inputSummary,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.bubbleMarginH,
         vertical: 1,
       ),
       child: InkWell(
-        onTap: () {
-          setState(() => _expanded = true);
-          HapticFeedback.selectionClick();
-        },
-        onLongPress: _copyContent,
+        onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
             children: [
               // Category icon
               Icon(
-                getToolCategoryIcon(_category),
+                getToolCategoryIcon(category),
                 size: 12,
-                color: getToolCategoryColor(_category, appColors),
+                color: getToolCategoryColor(category, appColors),
               ),
               const SizedBox(width: 6),
               // Tool name
               Text(
-                widget.name,
+                name,
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -284,7 +378,7 @@ class _ToolUseTileState extends State<ToolUseTile> {
               // Input summary
               Expanded(
                 child: Text(
-                  _inputSummary(),
+                  inputSummary,
                   style: TextStyle(fontSize: 11, color: appColors.subtleText),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -296,17 +390,33 @@ class _ToolUseTileState extends State<ToolUseTile> {
       ),
     );
   }
+}
 
-  void _openDiffScreen() {
-    final diff = _editDiff;
-    if (diff == null) return;
-    final diffText = reconstructUnifiedDiff(diff);
-    final filePath = diff.filePath.split('/').lastOrNull ?? diff.filePath;
-    context.router.push(DiffRoute(initialDiff: diffText, title: filePath));
-  }
+class _ToolUseCard extends StatelessWidget {
+  final String name;
+  final Map<String, dynamic> input;
+  final ToolCategory category;
+  final String inputSummary;
+  final DiffFile? editDiff;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final VoidCallback onOpenDiffScreen;
 
-  Widget _buildCard(AppColors appColors) {
-    final diffFile = _editDiff;
+  const _ToolUseCard({
+    required this.name,
+    required this.input,
+    required this.category,
+    required this.inputSummary,
+    required this.editDiff,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onOpenDiffScreen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final diffFile = editDiff;
 
     return Container(
       margin: const EdgeInsets.symmetric(
@@ -314,11 +424,8 @@ class _ToolUseTileState extends State<ToolUseTile> {
         horizontal: AppSpacing.bubbleMarginH,
       ),
       child: InkWell(
-        onTap: () {
-          setState(() => _expanded = false);
-          HapticFeedback.selectionClick();
-        },
-        onLongPress: _copyContent,
+        onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         child: Container(
           padding: const EdgeInsets.all(10),
@@ -333,13 +440,13 @@ class _ToolUseTileState extends State<ToolUseTile> {
               Row(
                 children: [
                   Icon(
-                    getToolCategoryIcon(_category),
+                    getToolCategoryIcon(category),
                     size: 14,
-                    color: getToolCategoryColor(_category, appColors),
+                    color: getToolCategoryColor(category, appColors),
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    widget.name,
+                    name,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -348,7 +455,7 @@ class _ToolUseTileState extends State<ToolUseTile> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      _inputSummary(),
+                      inputSummary,
                       style: TextStyle(
                         fontSize: 11,
                         color: appColors.subtleText,
@@ -371,10 +478,10 @@ class _ToolUseTileState extends State<ToolUseTile> {
               if (diffFile != null)
                 InlineEditDiff(
                   diffFile: diffFile,
-                  onTapFullDiff: _openDiffScreen,
+                  onTapFullDiff: onOpenDiffScreen,
                 )
               else
-                _JsonPreview(input: widget.input, appColors: appColors),
+                _JsonPreview(input: input, appColors: appColors),
             ],
           ),
         ),

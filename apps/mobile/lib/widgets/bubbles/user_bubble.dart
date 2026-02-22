@@ -36,25 +36,122 @@ class UserBubble extends StatelessWidget {
     // Detect command message with XML tags
     final parsed = parseCommandMessage(text);
     if (parsed != null) {
-      return _buildCommandBubble(context, parsed);
+      return _CommandBubble(
+        command: parsed,
+        status: status,
+        text: text,
+        onRetry: onRetry,
+        onRewind: onRewind,
+        onShowContextMenu: () => _showContextMenu(context),
+      );
     }
 
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    return _buildStandardBubble(context, appColors, text);
+    return _StandardBubble(
+      displayText: text,
+      status: status,
+      onRetry: onRetry,
+      onRewind: onRewind,
+      imageBytesList: imageBytesList,
+      imageUrls: imageUrls,
+      httpBaseUrl: httpBaseUrl,
+      onShowContextMenu: () => _showContextMenu(context),
+    );
   }
 
-  /// Standard user message bubble.
-  Widget _buildStandardBubble(
-    BuildContext context,
-    AppColors appColors,
-    String displayText,
-  ) {
+  void _showContextMenu(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.copy, size: 20),
+                title: Text(AppLocalizations.of(context).copy),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: text));
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(AppLocalizations.of(context).copied),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
+              if (onRewind != null)
+                ListTile(
+                  dense: true,
+                  leading: Icon(
+                    Icons.history,
+                    size: 20,
+                    color: Theme.of(ctx).colorScheme.primary,
+                  ),
+                  title: Text(AppLocalizations.of(context).rewindToHere),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    onRewind!();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Standard user message bubble.
+class _StandardBubble extends StatelessWidget {
+  final String displayText;
+  final MessageStatus status;
+  final VoidCallback? onRetry;
+  final VoidCallback? onRewind;
+  final List<Uint8List> imageBytesList;
+  final List<String> imageUrls;
+  final String? httpBaseUrl;
+  final VoidCallback onShowContextMenu;
+
+  const _StandardBubble({
+    required this.displayText,
+    required this.status,
+    required this.onRetry,
+    required this.onRewind,
+    required this.imageBytesList,
+    required this.imageUrls,
+    required this.httpBaseUrl,
+    required this.onShowContextMenu,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+
     return Align(
       alignment: Alignment.centerRight,
       child: GestureDetector(
-        onLongPress: () {
-          _showContextMenu(context);
-        },
+        onLongPress: onShowContextMenu,
         onTap: status == MessageStatus.failed ? onRetry : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -138,25 +235,42 @@ class UserBubble extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.only(right: AppSpacing.bubbleMarginH),
-              child: _buildStatusIndicator(context, appColors),
+              child: _StatusIndicator(status: status),
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  /// CLI-style command bubble: "/command-name args" in a single bubble.
-  Widget _buildCommandBubble(BuildContext context, ParsedCommand command) {
+/// CLI-style command bubble: "/command-name args" in a single bubble.
+class _CommandBubble extends StatelessWidget {
+  final ParsedCommand command;
+  final MessageStatus status;
+  final String text;
+  final VoidCallback? onRetry;
+  final VoidCallback? onRewind;
+  final VoidCallback onShowContextMenu;
+
+  const _CommandBubble({
+    required this.command,
+    required this.status,
+    required this.text,
+    required this.onRetry,
+    required this.onRewind,
+    required this.onShowContextMenu,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final hasArgs = command.args != null && command.args!.isNotEmpty;
 
     return Align(
       alignment: Alignment.centerRight,
       child: GestureDetector(
-        onLongPress: () {
-          _showContextMenu(context);
-        },
+        onLongPress: onShowContextMenu,
         onTap: status == MessageStatus.failed ? onRetry : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -202,78 +316,24 @@ class UserBubble extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.only(right: AppSpacing.bubbleMarginH),
-              child: _buildStatusIndicator(context, appColors),
+              child: _StatusIndicator(status: status),
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  void _showContextMenu(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 32,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(ctx).colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.copy, size: 20),
-                title: Text(AppLocalizations.of(context).copy),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: text));
-                  Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(AppLocalizations.of(context).copied),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                },
-              ),
-              if (onRewind != null)
-                ListTile(
-                  dense: true,
-                  leading: Icon(
-                    Icons.history,
-                    size: 20,
-                    color: Theme.of(ctx).colorScheme.primary,
-                  ),
-                  title: Text(AppLocalizations.of(context).rewindToHere),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    onRewind!();
-                  },
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+class _StatusIndicator extends StatelessWidget {
+  final MessageStatus status;
 
-  Widget _buildStatusIndicator(BuildContext context, AppColors appColors) {
+  const _StatusIndicator({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+
     return switch (status) {
       MessageStatus.sending => SizedBox(
         width: 12,
