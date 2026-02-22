@@ -485,6 +485,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         throw new Error(`${method} returned no thread id`);
       }
 
+      // Capture the resolved model name from thread response
+      if (typeof thread?.model === "string" && thread.model) {
+        this.startModel = thread.model;
+      }
+
       this._threadId = threadId;
       this.emitMessage({
         type: "system",
@@ -542,11 +547,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         }
 
         // Send collaborationMode on every turn
-        const modeSettings: Record<string, unknown> = {};
-        const modelName = options?.model ?? this.startModel;
-        if (modelName) {
-          modeSettings.model = modelName;
-        }
+        const modeSettings: Record<string, unknown> = {
+          model: options?.model || this.startModel || "codex-mini-latest",
+        };
         if (this._collaborationMode === "plan") {
           modeSettings.reasoning_effort = "medium";
         }
