@@ -449,8 +449,8 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          this.send(ws, { type: "error", message: "Codex sessions do not support approval" });
-          return;
+          (session.process as CodexProcess).approve(msg.id, msg.updatedInput);
+          break;
         }
         const sdkProc = session.process as SdkProcess;
         if (msg.clearContext) {
@@ -521,8 +521,8 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          this.send(ws, { type: "error", message: "Codex sessions do not support approval" });
-          return;
+          (session.process as CodexProcess).approveAlways(msg.id);
+          break;
         }
         (session.process as SdkProcess).approveAlways(msg.id);
         break;
@@ -535,8 +535,8 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          this.send(ws, { type: "error", message: "Codex sessions do not support rejection" });
-          return;
+          (session.process as CodexProcess).reject(msg.id, msg.message);
+          break;
         }
         (session.process as SdkProcess).reject(msg.id, msg.message);
         break;

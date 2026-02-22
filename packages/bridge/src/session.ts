@@ -387,9 +387,16 @@ export class SessionManager {
 
   list(): SessionSummary[] {
     return Array.from(this.sessions.values()).map((s) => {
+      const processWithPending = s.process as {
+        getPendingPermission?: () => {
+          toolUseId: string;
+          toolName: string;
+          input: Record<string, unknown>;
+        } | undefined;
+      };
       const pendingPermission =
-        s.status === "waiting_approval" && s.process instanceof SdkProcess
-          ? s.process.getPendingPermission()
+        s.status === "waiting_approval"
+          ? processWithPending.getPendingPermission?.()
           : undefined;
       return {
         id: s.id,

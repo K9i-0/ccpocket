@@ -333,11 +333,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _selectedModel = p.model;
     _sandboxMode = p.sandboxMode ?? _sandboxMode;
     final restoredPolicy = p.approvalPolicy;
-    // on-request is not supported via SDK; fall back to default.
-    _approvalPolicy =
-        restoredPolicy != null && restoredPolicy != ApprovalPolicy.onRequest
-        ? restoredPolicy
-        : _approvalPolicy;
+    _approvalPolicy = restoredPolicy ?? _approvalPolicy;
     _modelReasoningEffort = p.modelReasoningEffort;
     _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
     _webSearchMode = p.webSearchMode;
@@ -1062,7 +1058,6 @@ class _OptionsSection extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
               items: ApprovalPolicy.values
-                  .where((p) => p != ApprovalPolicy.onRequest)
                   .map(
                     (p) => DropdownMenuItem(
                       value: p,

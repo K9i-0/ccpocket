@@ -613,7 +613,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       op: "notify",
       bridgeId: "bridge-test",
       eventType: "session_completed",
-      title: "タスク完了",
     });
 
     bridge.close();
