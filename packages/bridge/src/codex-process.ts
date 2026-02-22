@@ -446,6 +446,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           version: "1.0.0",
           title: "ccpocket bridge",
         },
+        capabilities: {
+          experimentalApi: true,
+        },
       });
       this.notify("initialized", {});
 
