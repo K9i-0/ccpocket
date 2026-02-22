@@ -654,20 +654,18 @@ class _AskOptionButton extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                isMulti
-                    ? (isSelected
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank)
-                    : (isSelected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked),
-                size: 18,
-                color: isSelected
-                    ? appColors.askIcon
-                    : appColors.subtleText.withValues(alpha: 0.8),
-              ),
-              const SizedBox(width: 8),
+              if (isMulti) ...[
+                Icon(
+                  isSelected
+                      ? Icons.check_box
+                      : Icons.check_box_outline_blank,
+                  size: 18,
+                  color: isSelected
+                      ? appColors.askIcon
+                      : appColors.subtleText.withValues(alpha: 0.8),
+                ),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -693,6 +691,14 @@ class _AskOptionButton extends StatelessWidget {
                   ],
                 ),
               ),
+              if (!isMulti) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: appColors.subtleText.withValues(alpha: 0.8),
+                ),
+              ],
             ],
           ),
         ),
