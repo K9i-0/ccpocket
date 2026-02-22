@@ -559,6 +559,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               worktreePath: worktreePath,
               isPending: isPending,
               initialSandboxMode: sandboxMode,
+              initialPermissionMode: permissionMode,
               pendingSessionCreated: isPending ? _pendingSessionCreated : null,
             ),
           )

@@ -14,7 +14,8 @@ import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
 import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
-import '../../widgets/new_session_sheet.dart' show sandboxModeFromRaw;
+import '../../widgets/new_session_sheet.dart'
+    show permissionModeFromRaw, sandboxModeFromRaw;
 import '../../widgets/approval_bar.dart';
 import '../../widgets/bubbles/ask_user_question_widget.dart';
 import '../../widgets/screenshot_sheet.dart';
@@ -47,6 +48,7 @@ class CodexSessionScreen extends StatefulWidget {
   final String? worktreePath;
   final bool isPending;
   final String? initialSandboxMode;
+  final String? initialPermissionMode;
 
   /// Notifier from the parent that may already hold a [SystemMessage]
   /// with subtype `session_created` (race condition fix).
@@ -60,6 +62,7 @@ class CodexSessionScreen extends StatefulWidget {
     this.worktreePath,
     this.isPending = false,
     this.initialSandboxMode,
+    this.initialPermissionMode,
     this.pendingSessionCreated,
   });
 
@@ -169,6 +172,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       gitBranch: _gitBranch,
       worktreePath: _worktreePath,
       sandboxMode: _sandboxMode,
+      permissionMode: permissionModeFromRaw(widget.initialPermissionMode),
     );
   }
 }
@@ -183,6 +187,7 @@ class _CodexProviders extends StatelessWidget {
   final String? gitBranch;
   final String? worktreePath;
   final SandboxMode? sandboxMode;
+  final PermissionMode? permissionMode;
 
   const _CodexProviders({
     super.key,
@@ -191,6 +196,7 @@ class _CodexProviders extends StatelessWidget {
     this.gitBranch,
     this.worktreePath,
     this.sandboxMode,
+    this.permissionMode,
   });
 
   @override
@@ -206,6 +212,7 @@ class _CodexProviders extends StatelessWidget {
             bridge: bridge,
             streamingCubit: streamingCubit,
             initialSandboxMode: sandboxMode,
+            initialPermissionMode: permissionMode,
           ),
         ),
         BlocProvider.value(value: streamingCubit),
