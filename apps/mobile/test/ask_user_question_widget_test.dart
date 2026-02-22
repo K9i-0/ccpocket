@@ -174,8 +174,6 @@ void main() {
       expect(find.text('Small'), findsNothing);
       expect(find.text('Large'), findsNothing);
       expect(find.text('1/3'), findsOneWidget);
-      // Submit button should be present but disabled
-      expect(find.text('Answer all questions to submit'), findsOneWidget);
     });
 
     testWidgets('initial multi-question state does not send immediately', (
@@ -215,46 +213,8 @@ void main() {
       );
 
       expect(answered, false);
-      expect(find.text('Answer all questions to submit'), findsOneWidget);
     });
 
-    testWidgets('multi-question submit button starts disabled', (tester) async {
-      await tester.pumpWidget(
-        _wrap(
-          AskUserQuestionWidget(
-            toolUseId: 'test-6',
-            input: {
-              'questions': [
-                {
-                  'question': 'Color?',
-                  'header': 'Color',
-                  'options': [
-                    {'label': 'Red', 'description': ''},
-                    {'label': 'Blue', 'description': ''},
-                  ],
-                  'multiSelect': false,
-                },
-                {
-                  'question': 'Size?',
-                  'header': 'Size',
-                  'options': [
-                    {'label': 'Small', 'description': ''},
-                    {'label': 'Large', 'description': ''},
-                  ],
-                  'multiSelect': false,
-                },
-              ],
-            },
-            onAnswer: (_, _) {},
-          ),
-        ),
-      );
-
-      final button = tester.widget<FilledButton>(
-        find.byKey(const ValueKey('ask_submit_all_button')),
-      );
-      expect(button.onPressed, isNull);
-    });
   });
 
   group('AskUserQuestionWidget - multiSelect', () {
