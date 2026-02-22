@@ -99,8 +99,11 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     final permission = session.pendingPermission;
     final hasPermission =
         session.status == 'waiting_approval' && permission != null;
+    final isCodexSession = session.provider == Provider.codex.value;
     final isPlanApproval =
-        hasPermission && permission.toolName == 'ExitPlanMode';
+        !isCodexSession &&
+        hasPermission &&
+        permission.toolName == 'ExitPlanMode';
     if (isPlanApproval) {
       _syncPlanApprovalState(permission);
     } else {
@@ -109,11 +112,14 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     final statusLabel = switch (session.status) {
       'starting' => 'Starting',
       'running' => 'Running',
-      'waiting_approval' when hasPermission => switch (permission.toolName) {
-        'ExitPlanMode' => 'Plan Ready',
-        'AskUserQuestion' => 'Question',
-        _ => 'Approval · ${permission.toolName}',
-      },
+      'waiting_approval' when hasPermission =>
+        isCodexSession
+            ? 'Approval · ${permission.toolName}'
+            : switch (permission.toolName) {
+                'ExitPlanMode' => 'Plan Ready',
+                'AskUserQuestion' => 'Question',
+                _ => 'Approval · ${permission.toolName}',
+              },
       'waiting_approval' => 'Approval',
       _ => 'Idle',
     };
@@ -179,54 +185,68 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
             ),
             // Approval area (shown when waiting for permission)
             if (hasPermission)
-              switch (permission.toolName) {
-                'AskUserQuestion' => _AskUserArea(
-                  permission: permission,
-                  statusColor: statusColor,
-                  onAnswer: (result) =>
-                      widget.onAnswer?.call(permission.toolUseId, result),
-                  onTap: widget.onTap,
-                ),
-                'ExitPlanMode' => _PlanApprovalArea(
-                  statusColor: statusColor,
-                  planFeedbackController: _planFeedbackController,
-                  canOpenPlan: _extractPlanText(permission) != null,
-                  onOpenPlan: () => _openPlanSheet(permission),
-                  onApprove: () => widget.onApprove?.call(
-                    permission.toolUseId,
-                    updatedInput: _editedPlanText != null
-                        ? {'plan': _editedPlanText!}
-                        : null,
-                    clearContext: false,
-                  ),
-                  onApproveClearContext: () => widget.onApprove?.call(
-                    permission.toolUseId,
-                    updatedInput: _editedPlanText != null
-                        ? {'plan': _editedPlanText!}
-                        : null,
-                    clearContext: true,
-                  ),
-                  onKeepPlanning: () {
-                    final feedback = _planFeedbackController.text.trim();
-                    widget.onReject?.call(
-                      permission.toolUseId,
-                      message: feedback.isNotEmpty ? feedback : null,
-                    );
-                    _planFeedbackController.clear();
-                  },
-                ),
-                _ => _ToolApprovalArea(
-                  permission: permission,
-                  statusColor: statusColor,
-                  onApprove: () => widget.onApprove?.call(
-                    permission.toolUseId,
-                    clearContext: false,
-                  ),
-                  onApproveAlways: () =>
-                      widget.onApproveAlways?.call(permission.toolUseId),
-                  onReject: () => widget.onReject?.call(permission.toolUseId),
-                ),
-              },
+              isCodexSession
+                  ? _ToolApprovalArea(
+                      permission: permission,
+                      statusColor: statusColor,
+                      onApprove: () => widget.onApprove?.call(
+                        permission.toolUseId,
+                        clearContext: false,
+                      ),
+                      onApproveAlways: () =>
+                          widget.onApproveAlways?.call(permission.toolUseId),
+                      onReject: () =>
+                          widget.onReject?.call(permission.toolUseId),
+                    )
+                  : switch (permission.toolName) {
+                      'AskUserQuestion' => _AskUserArea(
+                        permission: permission,
+                        statusColor: statusColor,
+                        onAnswer: (result) =>
+                            widget.onAnswer?.call(permission.toolUseId, result),
+                        onTap: widget.onTap,
+                      ),
+                      'ExitPlanMode' => _PlanApprovalArea(
+                        statusColor: statusColor,
+                        planFeedbackController: _planFeedbackController,
+                        canOpenPlan: _extractPlanText(permission) != null,
+                        onOpenPlan: () => _openPlanSheet(permission),
+                        onApprove: () => widget.onApprove?.call(
+                          permission.toolUseId,
+                          updatedInput: _editedPlanText != null
+                              ? {'plan': _editedPlanText!}
+                              : null,
+                          clearContext: false,
+                        ),
+                        onApproveClearContext: () => widget.onApprove?.call(
+                          permission.toolUseId,
+                          updatedInput: _editedPlanText != null
+                              ? {'plan': _editedPlanText!}
+                              : null,
+                          clearContext: true,
+                        ),
+                        onKeepPlanning: () {
+                          final feedback = _planFeedbackController.text.trim();
+                          widget.onReject?.call(
+                            permission.toolUseId,
+                            message: feedback.isNotEmpty ? feedback : null,
+                          );
+                          _planFeedbackController.clear();
+                        },
+                      ),
+                      _ => _ToolApprovalArea(
+                        permission: permission,
+                        statusColor: statusColor,
+                        onApprove: () => widget.onApprove?.call(
+                          permission.toolUseId,
+                          clearContext: false,
+                        ),
+                        onApproveAlways: () =>
+                            widget.onApproveAlways?.call(permission.toolUseId),
+                        onReject: () =>
+                            widget.onReject?.call(permission.toolUseId),
+                      ),
+                    },
             // Content (same structure as RecentSessionCard)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

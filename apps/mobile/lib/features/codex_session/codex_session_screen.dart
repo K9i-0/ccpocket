@@ -15,9 +15,13 @@ import '../../services/notification_service.dart';
 import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
 import '../../widgets/new_session_sheet.dart' show sandboxModeFromRaw;
+import '../../widgets/approval_bar.dart';
+import '../../widgets/bubbles/ask_user_question_widget.dart';
 import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
 import '../chat_session/state/chat_session_cubit.dart';
+import '../chat_session/state/chat_session_state.dart';
+import '../../theme/app_theme.dart';
 import '../chat_session/state/streaming_state_cubit.dart';
 import '../chat_session/widgets/branch_chip.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
@@ -31,7 +35,7 @@ import 'state/codex_session_cubit.dart';
 
 /// Codex-specific chat screen.
 ///
-/// Simpler than [ClaudeSessionScreen] — no approval flow, no rewind, no plan mode.
+/// Simpler than [ClaudeSessionScreen] — no rewind, no plan mode.
 /// Shares UI components (`ChatMessageList`, `ChatInputWithOverlays`, etc.)
 /// via [CodexSessionCubit] which extends [ChatSessionCubit].
 @RoutePage()
@@ -234,6 +238,7 @@ class _CodexChatBody extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
     // Custom hooks
     final lifecycleState = useAppLifecycleState();
     final isBackground =
@@ -242,6 +247,7 @@ class _CodexChatBody extends HookWidget {
 
     // Chat input controller
     final chatInputController = useTextEditingController();
+    final planFeedbackController = useTextEditingController();
 
     // Collapse tool results notifier (shared widget needs it)
     final collapseToolResults = useMemoized(() => ValueNotifier<int>(0));
@@ -298,6 +304,51 @@ class _CodexChatBody extends HookWidget {
 
     // --- Destructure state ---
     final status = sessionState.status;
+    final approval = sessionState.approval;
+
+    // Approval state pattern matching (Codex: permission + ask-user only)
+    String? pendingToolUseId;
+    PermissionRequestMessage? pendingPermission;
+    String? askToolUseId;
+    Map<String, dynamic>? askInput;
+
+    switch (approval) {
+      case ApprovalPermission(:final toolUseId, :final request):
+        pendingToolUseId = toolUseId;
+        pendingPermission = request;
+        askToolUseId = null;
+        askInput = null;
+      case ApprovalAskUser(:final toolUseId, :final input):
+        pendingToolUseId = null;
+        pendingPermission = null;
+        askToolUseId = toolUseId;
+        askInput = input;
+      case ApprovalNone():
+        pendingToolUseId = null;
+        pendingPermission = null;
+        askToolUseId = null;
+        askInput = null;
+    }
+
+    void approveToolUse() {
+      if (pendingToolUseId == null) return;
+      context.read<ChatSessionCubit>().approve(pendingToolUseId);
+    }
+
+    void rejectToolUse() {
+      if (pendingToolUseId == null) return;
+      context.read<ChatSessionCubit>().reject(pendingToolUseId);
+    }
+
+    void approveAlwaysToolUse() {
+      if (pendingToolUseId == null) return;
+      HapticFeedback.mediumImpact();
+      context.read<ChatSessionCubit>().approveAlways(pendingToolUseId);
+    }
+
+    void answerQuestion(String toolUseId, String result) {
+      context.read<ChatSessionCubit>().answer(toolUseId, result);
+    }
 
     // --- Build ---
     return BlocListener<ConnectionCubit, BridgeConnectionState>(
@@ -447,26 +498,43 @@ class _CodexChatBody extends HookWidget {
                     ],
                   ),
                 ),
-                // No approval bar, no AskUserQuestion — Codex auto-executes.
-                ChatInputWithOverlays(
-                  sessionId: sessionId,
-                  status: status,
-                  onScrollToBottom: scroll.scrollToBottom,
-                  inputController: chatInputController,
-                  hintText: 'Message Codex...',
-                  initialDiffSelection: diffSelectionFromNav.value,
-                  onDiffSelectionConsumed: () {},
-                  onDiffSelectionCleared: () =>
-                      diffSelectionFromNav.value = null,
-                  onOpenDiffScreen: projectPath != null
-                      ? (currentSelection) => _openDiffScreen(
-                          context,
-                          worktreePath ?? projectPath!,
-                          diffSelectionFromNav,
-                          existingSelection: currentSelection,
-                        )
-                      : null,
-                ),
+                if (askToolUseId != null && askInput != null)
+                  AskUserQuestionWidget(
+                    toolUseId: askToolUseId,
+                    input: askInput,
+                    onAnswer: answerQuestion,
+                  ),
+                if (pendingToolUseId != null)
+                  ApprovalBar(
+                    key: ValueKey('approval_$pendingToolUseId'),
+                    appColors: appColors,
+                    pendingPermission: pendingPermission,
+                    isPlanApproval: false,
+                    planFeedbackController: planFeedbackController,
+                    onApprove: approveToolUse,
+                    onReject: rejectToolUse,
+                    onApproveAlways: approveAlwaysToolUse,
+                  ),
+                if (approval is ApprovalNone)
+                  ChatInputWithOverlays(
+                    sessionId: sessionId,
+                    status: status,
+                    onScrollToBottom: scroll.scrollToBottom,
+                    inputController: chatInputController,
+                    hintText: 'Message Codex...',
+                    initialDiffSelection: diffSelectionFromNav.value,
+                    onDiffSelectionConsumed: () {},
+                    onDiffSelectionCleared: () =>
+                        diffSelectionFromNav.value = null,
+                    onOpenDiffScreen: projectPath != null
+                        ? (currentSelection) => _openDiffScreen(
+                            context,
+                            worktreePath ?? projectPath!,
+                            diffSelectionFromNav,
+                            existingSelection: currentSelection,
+                          )
+                        : null,
+                  ),
               ],
             ),
           ),
@@ -520,11 +588,23 @@ void _executeSideEffects(
         // No plan feedback in Codex — ignore.
         break;
       case ChatSideEffect.notifyApprovalRequired:
-        // No approval in Codex — ignore.
-        break;
+        if (isBackground) {
+          NotificationService.instance.show(
+            title: 'Approval Required',
+            body: 'Codex tool approval needed',
+            id: 1,
+            payload: sessionId,
+          );
+        }
       case ChatSideEffect.notifyAskQuestion:
-        // No AskUserQuestion in Codex — ignore.
-        break;
+        if (isBackground) {
+          NotificationService.instance.show(
+            title: 'Codex is asking',
+            body: 'Question needs your answer',
+            id: 2,
+            payload: sessionId,
+          );
+        }
       case ChatSideEffect.notifySessionComplete:
         if (isBackground) {
           NotificationService.instance.show(
