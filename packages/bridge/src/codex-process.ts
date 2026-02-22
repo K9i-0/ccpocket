@@ -542,10 +542,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         }
 
         // Send collaborationMode on every turn
-        const modeSettings: Record<string, unknown> = {
-          model: options?.model ?? this.startModel ?? "",
-          developer_instructions: null,
-        };
+        const modeSettings: Record<string, unknown> = {};
+        const modelName = options?.model ?? this.startModel;
+        if (modelName) {
+          modeSettings.model = modelName;
+        }
         if (this._collaborationMode === "plan") {
           modeSettings.reasoning_effort = "medium";
         }
