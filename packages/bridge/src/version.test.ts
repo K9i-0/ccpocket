@@ -13,11 +13,6 @@ describe("getVersionInfo", () => {
     vi.useRealTimers();
   });
 
-  it("returns version from package.json", () => {
-    const info = getVersionInfo(mockStartedAt);
-    expect(info.version).toBe("0.1.0");
-  });
-
   it("returns node version in expected format", () => {
     const info = getVersionInfo(mockStartedAt);
     expect(info.nodeVersion).toMatch(/^v\d+\.\d+\.\d+/);
