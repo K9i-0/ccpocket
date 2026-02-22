@@ -414,7 +414,9 @@ export class SessionManager {
         permissionMode:
           s.process instanceof SdkProcess
             ? s.process.permissionMode
-            : undefined,
+            : s.process instanceof CodexProcess
+              ? (s.process.collaborationMode === "plan" ? "plan" : "acceptEdits")
+              : undefined,
         codexSettings: s.codexSettings,
         pendingPermission,
       };
