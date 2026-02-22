@@ -349,7 +349,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
             );
             // Wrap with AutoScrollTag for scroll-to-index support
             child = AutoScrollTag(
-              key: ValueKey(index),
+              key: ValueKey(_entryKey(entry, index)),
               controller: widget.scrollController,
               index: index,
               child: child,
@@ -372,4 +372,28 @@ class _ChatMessageListState extends State<ChatMessageList> {
   }
 
   StreamingState? _prevStreamingState;
+
+  String _entryKey(ChatEntry entry, int index) {
+    return switch (entry) {
+      ServerChatEntry(:final message) => switch (message) {
+        ToolResultMessage(:final toolUseId) => 'tool_result:$toolUseId',
+        AssistantServerMessage(:final messageUuid, :final message) =>
+          messageUuid != null && messageUuid.isNotEmpty
+              ? 'assistant_uuid:$messageUuid'
+              : message.id.isNotEmpty
+              ? 'assistant_id:${message.id}'
+              : 'assistant_ts:${entry.timestamp.microsecondsSinceEpoch}:$index',
+        PermissionRequestMessage(:final toolUseId) => 'permission:$toolUseId',
+        ToolUseSummaryMessage() =>
+          'tool_summary:${entry.timestamp.microsecondsSinceEpoch}:$index',
+        _ =>
+          '${message.runtimeType}:${entry.timestamp.microsecondsSinceEpoch}:$index',
+      },
+      UserChatEntry(:final messageUuid, :final text) =>
+        messageUuid != null && messageUuid.isNotEmpty
+            ? 'user_uuid:$messageUuid'
+            : 'user_ts:${entry.timestamp.microsecondsSinceEpoch}:${text.hashCode}:$index',
+      StreamingChatEntry() => 'streaming',
+    };
+  }
 }

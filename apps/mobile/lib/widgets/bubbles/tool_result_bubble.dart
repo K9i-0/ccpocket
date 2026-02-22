@@ -34,14 +34,36 @@ class ToolResultBubble extends StatefulWidget {
 }
 
 class ToolResultBubbleState extends State<ToolResultBubble> {
-  ToolResultExpansion _expansion = ToolResultExpansion.collapsed;
+  late ToolResultExpansion _expansion;
+  bool _restoredFromStorage = false;
 
   static const _previewLines = 5;
 
   @override
   void initState() {
     super.initState();
+    _expansion = _defaultExpansion;
     widget.collapseNotifier?.addListener(_onCollapseSignal);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_restoredFromStorage) return;
+    _restoredFromStorage = true;
+
+    final saved = PageStorage.maybeOf(
+      context,
+    )?.readState(context, identifier: _storageKey);
+    if (saved is String) {
+      for (final value in ToolResultExpansion.values) {
+        if (value.name == saved) {
+          _expansion = value;
+          return;
+        }
+      }
+    }
+    _expansion = _defaultExpansion;
   }
 
   @override
@@ -62,6 +84,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
   void _onCollapseSignal() {
     if (_expansion != ToolResultExpansion.collapsed) {
       setState(() => _expansion = ToolResultExpansion.collapsed);
+      _persistExpansion();
     }
   }
 
@@ -73,7 +96,35 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
         ToolResultExpansion.expanded => ToolResultExpansion.collapsed,
       };
     });
+    _persistExpansion();
     HapticFeedback.selectionClick();
+  }
+
+  String get _storageKey => 'tool_result:${widget.message.toolUseId}';
+
+  bool get _isCodeEditResult {
+    final toolName = widget.message.toolName;
+    return toolName == 'Edit' ||
+        toolName == 'FileEdit' ||
+        toolName == 'MultiEdit' ||
+        toolName == 'Write' ||
+        toolName == 'NotebookEdit';
+  }
+
+  bool get _isMcpImageResult {
+    final toolName = widget.message.toolName ?? '';
+    return widget.message.images.isNotEmpty && toolName.startsWith('mcp__');
+  }
+
+  ToolResultExpansion get _defaultExpansion =>
+      (_isCodeEditResult || _isMcpImageResult)
+      ? ToolResultExpansion.preview
+      : ToolResultExpansion.collapsed;
+
+  void _persistExpansion() {
+    PageStorage.maybeOf(
+      context,
+    )?.writeState(context, _expansion.name, identifier: _storageKey);
   }
 
   late final ToolCategory _category = categorizeToolName(

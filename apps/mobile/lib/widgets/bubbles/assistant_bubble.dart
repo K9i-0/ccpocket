@@ -147,10 +147,10 @@ class _PlanLayout extends StatelessWidget {
             ThinkingContent(:final thinking) => ThinkingBubble(
               thinking: thinking,
             ),
-            ToolUseContent(:final name, :final input) =>
+            ToolUseContent(:final id, :final name, :final input) =>
               name == 'ExitPlanMode'
                   ? const SizedBox.shrink()
-                  : ToolUseTile(name: name, input: input),
+                  : ToolUseTile(toolUseId: id, name: name, input: input),
             TextContent() => const SizedBox.shrink(),
           },
         // Plan card – reflects edited text if available
@@ -238,10 +238,10 @@ class _DefaultLayout extends StatelessWidget {
                       builders: markdownBuilders,
                     ),
             ),
-            ToolUseContent(:final name, :final input) =>
+            ToolUseContent(:final id, :final name, :final input) =>
               name == 'TodoWrite'
                   ? TodoWriteWidget(input: input)
-                  : ToolUseTile(name: name, input: input),
+                  : ToolUseTile(toolUseId: id, name: name, input: input),
             ThinkingContent(:final thinking) => ThinkingBubble(
               thinking: thinking,
             ),
@@ -258,22 +258,51 @@ class _DefaultLayout extends StatelessWidget {
 }
 
 class ToolUseTile extends StatefulWidget {
+  final String toolUseId;
   final String name;
   final Map<String, dynamic> input;
-  const ToolUseTile({super.key, required this.name, required this.input});
+  const ToolUseTile({
+    super.key,
+    this.toolUseId = '',
+    required this.name,
+    required this.input,
+  });
 
   @override
   State<ToolUseTile> createState() => _ToolUseTileState();
 }
 
 class _ToolUseTileState extends State<ToolUseTile> {
-  bool _expanded = false;
+  late bool _expanded;
+  bool _restoredFromStorage = false;
 
   late final ToolCategory _category = categorizeToolName(widget.name);
   late final DiffFile? _editDiff = synthesizeEditToolDiff(
     widget.name,
     widget.input,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = _defaultExpanded;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_restoredFromStorage) return;
+    _restoredFromStorage = true;
+
+    final saved = PageStorage.maybeOf(
+      context,
+    )?.readState(context, identifier: _storageKey);
+    if (saved is bool) {
+      _expanded = saved;
+      return;
+    }
+    _expanded = _defaultExpanded;
+  }
 
   String _inputSummary() {
     return getToolSummary(_category, widget.input);
@@ -301,6 +330,7 @@ class _ToolUseTileState extends State<ToolUseTile> {
         editDiff: _editDiff,
         onTap: () {
           setState(() => _expanded = false);
+          _persistExpandedState();
           HapticFeedback.selectionClick();
         },
         onLongPress: _copyContent,
@@ -313,6 +343,7 @@ class _ToolUseTileState extends State<ToolUseTile> {
       inputSummary: _inputSummary(),
       onTap: () {
         setState(() => _expanded = true);
+        _persistExpandedState();
         HapticFeedback.selectionClick();
       },
       onLongPress: _copyContent,
@@ -325,6 +356,25 @@ class _ToolUseTileState extends State<ToolUseTile> {
     final diffText = reconstructUnifiedDiff(diff);
     final filePath = diff.filePath.split('/').lastOrNull ?? diff.filePath;
     context.router.push(DiffRoute(initialDiff: diffText, title: filePath));
+  }
+
+  String get _storageKey {
+    if (widget.toolUseId.isNotEmpty) return 'tool_use:${widget.toolUseId}';
+    final encoded = const JsonEncoder().convert(widget.input);
+    return 'tool_use_fallback:${widget.name}:${encoded.hashCode}';
+  }
+
+  bool get _defaultExpanded =>
+      widget.name == 'Edit' ||
+      widget.name == 'FileEdit' ||
+      widget.name == 'MultiEdit' ||
+      widget.name == 'Write' ||
+      widget.name == 'NotebookEdit';
+
+  void _persistExpandedState() {
+    PageStorage.maybeOf(
+      context,
+    )?.writeState(context, _expanded, identifier: _storageKey);
   }
 }
 
