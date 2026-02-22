@@ -202,7 +202,6 @@
   "answered": "回答済み",
   "claudeIsAsking": "Claude が質問しています",
   "submitAllAnswers": "すべての回答を送信",
-  "answerAllQuestionsToSubmit": "すべての質問に回答してください",
   "submitWithCount": "送信 ({count} 件選択)",
   "@submitWithCount": {
     "placeholders": {

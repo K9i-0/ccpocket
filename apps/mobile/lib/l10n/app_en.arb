@@ -146,7 +146,6 @@
   "answered": "Answered",
   "claudeIsAsking": "Claude is asking",
   "submitAllAnswers": "Submit All Answers",
-  "answerAllQuestionsToSubmit": "Answer all questions to submit",
   "submitWithCount": "Submit ({count} selected)",
   "selectOptionsToSubmit": "Select options to submit",
   "typeYourAnswer": "Type your answer...",
