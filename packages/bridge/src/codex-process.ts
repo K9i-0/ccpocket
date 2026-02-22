@@ -546,19 +546,20 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           params.effort = normalizeReasoningEffort(options.modelReasoningEffort);
         }
 
-        // Send collaborationMode only for plan mode (default mode uses server defaults)
+        // Always send collaborationMode so the server switches modes correctly.
+        // Omitting it causes the server to persist the previous turn's mode.
+        const modeSettings: Record<string, unknown> = {
+          model: options?.model || this.startModel || "gpt-5.3-codex",
+        };
         if (this._collaborationMode === "plan") {
-          const modeSettings: Record<string, unknown> = {
-            model: options?.model || this.startModel || "gpt-5.3-codex",
-            reasoning_effort: "medium",
-          };
-          params.collaborationMode = {
-            mode: "plan",
-            settings: modeSettings,
-          };
+          modeSettings.reasoning_effort = "medium";
         }
+        params.collaborationMode = {
+          mode: this._collaborationMode,
+          settings: modeSettings,
+        };
 
-        console.log(`[codex-process] turn/start: approval=${params.approvalPolicy}, collaboration=${this._collaborationMode}${params.collaborationMode ? ` (sending collaborationMode)` : ""}`);
+        console.log(`[codex-process] turn/start: approval=${params.approvalPolicy}, collaboration=${this._collaborationMode}`);
         void this.request("turn/start", params)
           .then((result) => {
             const turn = (result as Record<string, unknown>).turn as Record<string, unknown> | undefined;
