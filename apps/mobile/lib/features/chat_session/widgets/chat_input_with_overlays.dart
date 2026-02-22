@@ -501,11 +501,6 @@ class ChatInputWithOverlays extends HookWidget {
     }
 
     void showModeMenu() {
-      if (isCodex) {
-        _showCodexApprovalMenu(context, chatCubit);
-        return;
-      }
-
       final currentMode = chatCubit.state.permissionMode;
 
       const modeDetails =
@@ -637,9 +632,6 @@ class ChatInputWithOverlays extends HookWidget {
                 .watch<ChatSessionCubit>()
                 .state
                 .permissionMode,
-            approvalPolicy: isCodex
-                ? context.watch<ChatSessionCubit>().state.approvalPolicy
-                : null,
             sandboxMode: isCodex
                 ? context.watch<ChatSessionCubit>().state.sandboxMode
                 : null,
@@ -658,81 +650,6 @@ class ChatInputWithOverlays extends HookWidget {
       ),
     );
   }
-}
-
-/// Show Codex approval policy selection menu.
-void _showCodexApprovalMenu(BuildContext context, ChatSessionCubit cubit) {
-  final currentPolicy = cubit.state.approvalPolicy;
-
-  const policyDetails = <ApprovalPolicy, ({IconData icon, String description})>{
-    ApprovalPolicy.onRequest: (
-      icon: Icons.tune,
-      description: 'Ask before running commands and writing files',
-    ),
-    ApprovalPolicy.never: (
-      icon: Icons.flash_on,
-      description: 'Auto-approve all actions',
-    ),
-    ApprovalPolicy.onFailure: (
-      icon: Icons.report_problem_outlined,
-      description: 'Only ask when a command fails',
-    ),
-    ApprovalPolicy.untrusted: (
-      icon: Icons.shield_outlined,
-      description: 'Ask for every action including reads',
-    ),
-  };
-
-  showModalBottomSheet(
-    context: context,
-    builder: (sheetContext) {
-      final sheetCs = Theme.of(sheetContext).colorScheme;
-      return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Approval Policy',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: sheetCs.onSurface,
-                  ),
-                ),
-              ),
-            ),
-            for (final policy in ApprovalPolicy.values)
-              ListTile(
-                leading: Icon(
-                  policyDetails[policy]!.icon,
-                  color: policy == currentPolicy
-                      ? sheetCs.primary
-                      : sheetCs.onSurfaceVariant,
-                ),
-                title: Text(policy.label),
-                subtitle: Text(
-                  policyDetails[policy]!.description,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                trailing: policy == currentPolicy
-                    ? Icon(Icons.check, color: sheetCs.primary, size: 20)
-                    : null,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  HapticFeedback.lightImpact();
-                  cubit.setApprovalPolicy(policy);
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      );
-    },
-  );
 }
 
 /// Extract the file query after the last '@' before cursor position.

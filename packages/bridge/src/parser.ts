@@ -53,7 +53,6 @@ export type ClientMessage =
       sessionId?: string;
       continue?: boolean;
       permissionMode?: PermissionMode;
-      approvalPolicy?: string;
       sandboxMode?: string;
       model?: string;
       effort?: "low" | "medium" | "high" | "max";
@@ -74,7 +73,6 @@ export type ClientMessage =
   | { type: "push_unregister"; token: string }
   | { type: "set_permission_mode"; mode: PermissionMode; sessionId?: string }
   | { type: "set_sandbox_mode"; sandboxMode: string; sessionId?: string }
-  | { type: "set_approval_policy"; policy: string; sessionId?: string }
   | { type: "approve"; id: string; updatedInput?: Record<string, unknown>; clearContext?: boolean; sessionId?: string }
   | { type: "approve_always"; id: string; sessionId?: string }
   | { type: "reject"; id: string; message?: string; sessionId?: string }
@@ -89,7 +87,6 @@ export type ClientMessage =
       projectPath: string;
       permissionMode?: PermissionMode;
       provider?: Provider;
-      approvalPolicy?: string;
       sandboxMode?: string;
       model?: string;
       effort?: "low" | "medium" | "high" | "max";
@@ -309,9 +306,6 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "set_sandbox_mode":
         if (typeof msg.sandboxMode !== "string") return null;
-        break;
-      case "set_approval_policy":
-        if (typeof msg.policy !== "string") return null;
         break;
       case "approve":
         if (typeof msg.id !== "string") return null;

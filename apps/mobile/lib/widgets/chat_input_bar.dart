@@ -23,7 +23,6 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onShowModeMenu;
   final bool showModeButton;
   final PermissionMode permissionMode;
-  final ApprovalPolicy? approvalPolicy;
   final SandboxMode? sandboxMode;
   final VoidCallback? onShowPromptHistory;
   final VoidCallback? onAttachImage;
@@ -49,7 +48,6 @@ class ChatInputBar extends StatelessWidget {
     required this.onShowModeMenu,
     this.showModeButton = true,
     this.permissionMode = PermissionMode.defaultMode,
-    this.approvalPolicy,
     this.sandboxMode,
     this.onShowPromptHistory,
     this.onAttachImage,
@@ -103,17 +101,10 @@ class ChatInputBar extends StatelessWidget {
               _SlashButton(onTap: onShowSlashCommands),
               if (showModeButton) ...[
                 const SizedBox(width: 8),
-                if (approvalPolicy != null)
-                  _ApprovalPolicyButton(
-                    policy: approvalPolicy!,
-                    onTap: onShowModeMenu,
-                  )
-                else
-                  _ModeButton(
-                    permissionMode: permissionMode,
-                    sandboxMode: null,
-                    onTap: onShowModeMenu,
-                  ),
+                _ModeButton(
+                  permissionMode: permissionMode,
+                  onTap: onShowModeMenu,
+                ),
               ],
               if (sandboxMode != null) ...[
                 const SizedBox(width: 6),
@@ -182,25 +173,14 @@ class _SlashButton extends StatelessWidget {
 }
 
 class _ModeButton extends StatelessWidget {
-  const _ModeButton({
-    required this.permissionMode,
-    required this.sandboxMode,
-    required this.onTap,
-  });
+  const _ModeButton({required this.permissionMode, required this.onTap});
   final PermissionMode permissionMode;
-  final SandboxMode? sandboxMode;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    // Codex: show sandbox mode badge
-    if (sandboxMode != null) {
-      return _SandboxModeButton(mode: sandboxMode!, onTap: onTap);
-    }
-
-    // Claude: show permission mode badge
     final isDefault = permissionMode == PermissionMode.defaultMode;
 
     final (
@@ -274,75 +254,7 @@ class _ModeButton extends StatelessWidget {
   }
 }
 
-class _SandboxModeButton extends StatelessWidget {
-  const _SandboxModeButton({required this.mode, required this.onTap});
-  final SandboxMode mode;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDefault = mode == SandboxMode.workspaceWrite;
-
-    final (IconData icon, String? label, Color bg, Color fg) = switch (mode) {
-      SandboxMode.workspaceWrite => (
-        Icons.tune,
-        null,
-        cs.surfaceContainerHigh,
-        cs.primary,
-      ),
-      SandboxMode.readOnly => (
-        Icons.visibility,
-        'Read',
-        cs.tertiaryContainer,
-        cs.onTertiaryContainer,
-      ),
-      SandboxMode.dangerFullAccess => (
-        Icons.warning_amber,
-        'Full',
-        cs.errorContainer,
-        cs.onErrorContainer,
-      ),
-    };
-
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        key: const ValueKey('mode_button'),
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          height: 36,
-          constraints: isDefault
-              ? const BoxConstraints(minWidth: 36, maxWidth: 36)
-              : const BoxConstraints(minWidth: 36),
-          padding: isDefault
-              ? EdgeInsets.zero
-              : const EdgeInsets.symmetric(horizontal: 10),
-          alignment: Alignment.center,
-          child: isDefault
-              ? Icon(icon, size: 18, color: fg)
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 16, color: fg),
-                    const SizedBox(width: 4),
-                    Text(
-                      label!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: fg,
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ),
-    );
-  }
-}
+// _SandboxModeButton removed — sandbox is now a simple On/Off badge
 
 /// Read-only sandbox mode badge displayed alongside the permission mode button
 /// for Codex sessions.
@@ -354,27 +266,16 @@ class _SandboxModeBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    // Only show a visible badge for non-default modes
-    if (mode == SandboxMode.workspaceWrite) {
-      return const SizedBox.shrink();
-    }
-
     final (IconData icon, String label, Color bg, Color fg) = switch (mode) {
-      SandboxMode.workspaceWrite => (
-        Icons.edit,
-        'WS',
-        cs.surfaceContainerHigh,
-        cs.primary,
-      ),
-      SandboxMode.readOnly => (
-        Icons.visibility,
-        'RO',
+      SandboxMode.on => (
+        Icons.shield_outlined,
+        'SB',
         cs.tertiaryContainer,
         cs.onTertiaryContainer,
       ),
-      SandboxMode.dangerFullAccess => (
+      SandboxMode.off => (
         Icons.warning_amber,
-        'Full',
+        'No SB',
         cs.errorContainer,
         cs.onErrorContainer,
       ),
@@ -401,82 +302,6 @@ class _SandboxModeBadge extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ApprovalPolicyButton extends StatelessWidget {
-  const _ApprovalPolicyButton({required this.policy, required this.onTap});
-  final ApprovalPolicy policy;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDefault = policy == ApprovalPolicy.onRequest;
-
-    final (IconData icon, String? label, Color bg, Color fg) = switch (policy) {
-      ApprovalPolicy.onRequest => (
-        Icons.tune,
-        null,
-        cs.surfaceContainerHigh,
-        cs.primary,
-      ),
-      ApprovalPolicy.never => (
-        Icons.flash_on,
-        'Auto',
-        cs.errorContainer,
-        cs.onErrorContainer,
-      ),
-      ApprovalPolicy.onFailure => (
-        Icons.report_problem_outlined,
-        'Failure',
-        cs.primaryContainer,
-        cs.onPrimaryContainer,
-      ),
-      ApprovalPolicy.untrusted => (
-        Icons.shield_outlined,
-        'Strict',
-        cs.tertiaryContainer,
-        cs.onTertiaryContainer,
-      ),
-    };
-
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        key: const ValueKey('approval_policy_button'),
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          height: 36,
-          constraints: isDefault
-              ? const BoxConstraints(minWidth: 36, maxWidth: 36)
-              : const BoxConstraints(minWidth: 36),
-          padding: isDefault
-              ? EdgeInsets.zero
-              : const EdgeInsets.symmetric(horizontal: 10),
-          alignment: Alignment.center,
-          child: isDefault
-              ? Icon(icon, size: 18, color: fg)
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 16, color: fg),
-                    const SizedBox(width: 4),
-                    Text(
-                      label!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: fg,
-                      ),
-                    ),
-                  ],
-                ),
-        ),
       ),
     );
   }

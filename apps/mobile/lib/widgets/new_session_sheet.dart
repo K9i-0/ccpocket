@@ -19,7 +19,6 @@ class NewSessionParams {
   final String? existingWorktreePath;
   final String? model;
   final SandboxMode? sandboxMode;
-  final ApprovalPolicy? approvalPolicy;
   final ReasoningEffort? modelReasoningEffort;
   final bool? networkAccessEnabled;
   final WebSearchMode? webSearchMode;
@@ -40,7 +39,6 @@ class NewSessionParams {
     this.existingWorktreePath,
     this.model,
     this.sandboxMode,
-    this.approvalPolicy,
     this.modelReasoningEffort,
     this.networkAccessEnabled,
     this.webSearchMode,
@@ -66,9 +64,6 @@ T? enumByValue<T>(List<T> values, String? raw, String Function(T) readValue) {
 
 SandboxMode? sandboxModeFromRaw(String? raw) =>
     enumByValue(SandboxMode.values, raw, (v) => v.value);
-
-ApprovalPolicy? approvalPolicyFromRaw(String? raw) =>
-    enumByValue(ApprovalPolicy.values, raw, (v) => v.value);
 
 ReasoningEffort? reasoningEffortFromRaw(String? raw) =>
     enumByValue(ReasoningEffort.values, raw, (v) => v.value);
@@ -102,7 +97,6 @@ Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
     // session-specific and intentionally NOT persisted.
     'model': params.model,
     'sandboxMode': params.sandboxMode?.value,
-    'approvalPolicy': params.approvalPolicy?.value,
     'modelReasoningEffort': params.modelReasoningEffort?.value,
     'networkAccessEnabled': params.networkAccessEnabled,
     'webSearchMode': params.webSearchMode?.value,
@@ -129,7 +123,6 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
     // useWorktree, worktreeBranch, existingWorktreePath default to off/null
     model: json['model'] as String?,
     sandboxMode: sandboxModeFromRaw(json['sandboxMode'] as String?),
-    approvalPolicy: approvalPolicyFromRaw(json['approvalPolicy'] as String?),
     modelReasoningEffort: reasoningEffortFromRaw(
       json['modelReasoningEffort'] as String?,
     ),
@@ -243,8 +236,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
   // Codex-specific options
   String? _selectedModel;
-  var _sandboxMode = SandboxMode.workspaceWrite;
-  var _approvalPolicy = ApprovalPolicy.never;
+  var _sandboxMode = SandboxMode.on;
   ReasoningEffort? _modelReasoningEffort;
   bool _networkAccessEnabled = true;
   WebSearchMode? _webSearchMode;
@@ -332,8 +324,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _branchController.text = p.worktreeBranch ?? "";
     _selectedModel = p.model;
     _sandboxMode = p.sandboxMode ?? _sandboxMode;
-    final restoredPolicy = p.approvalPolicy;
-    _approvalPolicy = restoredPolicy ?? _approvalPolicy;
     _modelReasoningEffort = p.modelReasoningEffort;
     _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
     _webSearchMode = p.webSearchMode;
@@ -434,7 +424,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           : null,
       model: isCodex ? _selectedModel : null,
       sandboxMode: isCodex ? _sandboxMode : null,
-      approvalPolicy: isCodex ? _approvalPolicy : null,
       modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
       networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
       webSearchMode: isCodex ? _webSearchMode : null,
@@ -544,10 +533,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                       permissionMode: _permissionMode,
                       onPermissionModeChanged: (value) {
                         setState(() => _permissionMode = value);
-                      },
-                      approvalPolicy: _approvalPolicy,
-                      onApprovalPolicyChanged: (value) {
-                        setState(() => _approvalPolicy = value);
                       },
                       useWorktree: _useWorktree,
                       onWorktreeToggle: _onWorktreeToggle,
@@ -909,8 +894,6 @@ class _OptionsSection extends StatelessWidget {
   final Provider provider;
   final PermissionMode permissionMode;
   final ValueChanged<PermissionMode> onPermissionModeChanged;
-  final ApprovalPolicy approvalPolicy;
-  final ValueChanged<ApprovalPolicy> onApprovalPolicyChanged;
   final bool useWorktree;
   final ValueChanged<bool> onWorktreeToggle;
   final _WorktreeMode worktreeMode;
@@ -960,8 +943,6 @@ class _OptionsSection extends StatelessWidget {
     required this.provider,
     required this.permissionMode,
     required this.onPermissionModeChanged,
-    required this.approvalPolicy,
-    required this.onApprovalPolicyChanged,
     required this.useWorktree,
     required this.onWorktreeToggle,
     required this.worktreeMode,
@@ -1051,30 +1032,26 @@ class _OptionsSection extends StatelessWidget {
           if (provider == Provider.codex)
             Column(
               children: [
-                DropdownButtonFormField<ApprovalPolicy>(
-                  key: const ValueKey('dialog_codex_approval'),
-                  initialValue: approvalPolicy,
-                  decoration: buildInputDecoration(l.approval),
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                  items: ApprovalPolicy.values
+                DropdownButtonFormField<PermissionMode>(
+                  key: const ValueKey('dialog_codex_permission_mode'),
+                  initialValue: permissionMode,
+                  decoration: buildInputDecoration(l.permission),
+                  items: PermissionMode.values
                       .map(
-                        (p) => DropdownMenuItem(
-                          value: p,
+                        (m) => DropdownMenuItem(
+                          value: m,
                           child: Row(
                             children: [
-                              Icon(switch (p) {
-                                ApprovalPolicy.never => Icons.flash_auto,
-                                ApprovalPolicy.onRequest => Icons.front_hand,
-                                ApprovalPolicy.onFailure => Icons.error_outline,
-                                ApprovalPolicy.untrusted =>
-                                  Icons.shield_outlined,
+                              Icon(switch (m) {
+                                PermissionMode.defaultMode => Icons.tune,
+                                PermissionMode.plan => Icons.assignment,
+                                PermissionMode.acceptEdits => Icons.edit_note,
+                                PermissionMode.bypassPermissions =>
+                                  Icons.flash_on,
                               }, size: 16),
                               const SizedBox(width: 8),
                               Text(
-                                p.label,
+                                m.label,
                                 style: const TextStyle(fontSize: 13),
                               ),
                             ],
@@ -1084,7 +1061,7 @@ class _OptionsSection extends StatelessWidget {
                       .toList(),
                   onChanged: (value) {
                     if (value != null) {
-                      onApprovalPolicyChanged(value);
+                      onPermissionModeChanged(value);
                     }
                   },
                 ),
@@ -1104,10 +1081,8 @@ class _OptionsSection extends StatelessWidget {
                           child: Row(
                             children: [
                               Icon(switch (m) {
-                                SandboxMode.workspaceWrite => Icons.edit,
-                                SandboxMode.readOnly => Icons.visibility,
-                                SandboxMode.dangerFullAccess =>
-                                  Icons.warning_amber,
+                                SandboxMode.on => Icons.shield_outlined,
+                                SandboxMode.off => Icons.warning_amber,
                               }, size: 16),
                               const SizedBox(width: 8),
                               Text(
