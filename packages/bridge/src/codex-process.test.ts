@@ -176,6 +176,159 @@ describe("CodexProcess (app-server)", () => {
 
     proc.stop();
   });
+
+  it("emits AskUserQuestion and responds on answer", async () => {
+    const proc = new CodexProcess();
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-c");
+    const child = fakeChildren[0];
+
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit("data", `${JSON.stringify({ id: initReq.id, result: {} })}\n`);
+    await tick();
+    nextOutgoingNotification(child); // initialized
+    const threadReq = nextOutgoingRequest(child);
+    child.stdout.emit("data", `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_3" } } })}\n`);
+
+    await tick();
+    proc.sendInput("ask me a question");
+    await tick();
+    const turnReq = nextOutgoingRequest(child);
+    expect(turnReq.method).toBe("turn/start");
+    child.stdout.emit("data", `${JSON.stringify({ id: turnReq.id, result: { turn: { id: "turn_2" } } })}\n`);
+    child.stdout.emit("data", `${JSON.stringify({ method: "turn/started", params: { turn: { id: "turn_2" } } })}\n`);
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: "req-user-input-1",
+        method: "item/tool/requestUserInput",
+        params: {
+          itemId: "item_user_input_1",
+          questions: [
+            {
+              id: "q1",
+              header: "Runtime",
+              question: "Pick one option",
+              options: [
+                { label: "A", description: "Option A" },
+                { label: "B", description: "Option B" },
+              ],
+            },
+          ],
+          threadId: "thr_3",
+          turnId: "turn_2",
+        },
+      })}\n`,
+    );
+
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "permission_request",
+        toolUseId: "item_user_input_1",
+        toolName: "AskUserQuestion",
+      }),
+    );
+
+    proc.answer("item_user_input_1", "A");
+    await tick();
+    const answerResponse = nextOutgoingResponse(child);
+    expect(answerResponse).toMatchObject({
+      id: "req-user-input-1",
+      result: {
+        answers: {
+          q1: { answers: ["A"] },
+        },
+      },
+    });
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "turn/completed",
+        params: { turn: { id: "turn_2", status: "completed" } },
+      })}\n`,
+    );
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({ type: "result", subtype: "success", sessionId: "thr_3" }),
+    );
+
+    proc.stop();
+  });
+
+  it("emits plan notifications as regular stream messages", async () => {
+    const proc = new CodexProcess();
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-d");
+    const child = fakeChildren[0];
+
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit("data", `${JSON.stringify({ id: initReq.id, result: {} })}\n`);
+    await tick();
+    nextOutgoingNotification(child); // initialized
+    const threadReq = nextOutgoingRequest(child);
+    child.stdout.emit("data", `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_4" } } })}\n`);
+
+    await tick();
+    proc.sendInput("make a plan");
+    await tick();
+    const turnReq = nextOutgoingRequest(child);
+    child.stdout.emit("data", `${JSON.stringify({ id: turnReq.id, result: { turn: { id: "turn_3" } } })}\n`);
+    child.stdout.emit("data", `${JSON.stringify({ method: "turn/started", params: { turn: { id: "turn_3" } } })}\n`);
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "item/plan/delta",
+        params: { delta: "1. gather requirements" },
+      })}\n`,
+    );
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "turn/plan/updated",
+        params: {
+          explanation: "Initial plan drafted",
+          plan: [{ step: "Gather requirements", status: "inProgress" }],
+        },
+      })}\n`,
+    );
+
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "thinking_delta",
+        text: "1. gather requirements",
+      }),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          role: "assistant",
+          content: expect.arrayContaining([
+            expect.objectContaining({
+              type: "text",
+              text: expect.stringContaining("Plan update: Initial plan drafted"),
+            }),
+          ]),
+        }),
+      }),
+    );
+
+    proc.stop();
+  });
 });
 
 function consumeOutgoing(

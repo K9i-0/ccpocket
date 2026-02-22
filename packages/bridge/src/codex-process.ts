@@ -37,6 +37,18 @@ interface PendingApproval {
   input: Record<string, unknown>;
 }
 
+interface PendingUserInputQuestion {
+  id: string;
+  question: string;
+}
+
+interface PendingUserInputRequest {
+  requestId: string | number;
+  toolUseId: string;
+  questions: PendingUserInputQuestion[];
+  input: Record<string, unknown>;
+}
+
 interface PendingTurnCompletion {
   resolve: () => void;
   reject: (error: Error) => void;
@@ -79,6 +91,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private pendingTurnId: string | null = null;
   private pendingTurnCompletion: PendingTurnCompletion | null = null;
   private pendingApprovals = new Map<string, PendingApproval>();
+  private pendingUserInputs = new Map<string, PendingUserInputRequest>();
   private lastTokenUsage: { input?: number; cachedInput?: number; output?: number } | null = null;
 
   private rpcSeq = 1;
@@ -116,6 +129,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.pendingTurnId = null;
     this.pendingTurnCompletion = null;
     this.pendingApprovals.clear();
+    this.pendingUserInputs.clear();
     this.lastTokenUsage = null;
     this.startModel = options?.model;
 
@@ -174,6 +188,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
 
     this.pendingApprovals.clear();
+    this.pendingUserInputs.clear();
     this.rejectAllPending(new Error("stopped"));
 
     if (this.child) {
@@ -272,25 +287,53 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
   }
 
-  answer(_toolUseId: string, _result: string): void {
-    console.log("[codex-process] answer() ignored for codex app-server session");
+  answer(toolUseId: string, result: string): void {
+    const pending = this.resolvePendingUserInput(toolUseId);
+    if (!pending) {
+      console.log("[codex-process] answer() called but no pending AskUserQuestion");
+      return;
+    }
+
+    this.pendingUserInputs.delete(pending.toolUseId);
+    this.respondToServerRequest(pending.requestId, {
+      answers: buildUserInputAnswers(pending.questions, result),
+    });
+
+    if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
+      this.setStatus("running");
+    }
   }
 
   getPendingPermission(
     toolUseId?: string,
   ): { toolUseId: string; toolName: string; input: Record<string, unknown> } | undefined {
     const pending = this.resolvePendingApproval(toolUseId);
-    if (!pending) return undefined;
+    if (pending) {
+      return {
+        toolUseId: pending.toolUseId,
+        toolName: pending.toolName,
+        input: { ...pending.input },
+      };
+    }
+
+    const pendingAsk = this.resolvePendingUserInput(toolUseId);
+    if (!pendingAsk) return undefined;
     return {
-      toolUseId: pending.toolUseId,
-      toolName: pending.toolName,
-      input: { ...pending.input },
+      toolUseId: pendingAsk.toolUseId,
+      toolName: "AskUserQuestion",
+      input: { ...pendingAsk.input },
     };
   }
 
   private resolvePendingApproval(toolUseId?: string): PendingApproval | undefined {
     if (toolUseId) return this.pendingApprovals.get(toolUseId);
     const first = this.pendingApprovals.values().next();
+    return first.done ? undefined : first.value;
+  }
+
+  private resolvePendingUserInput(toolUseId?: string): PendingUserInputRequest | undefined {
+    if (toolUseId) return this.pendingUserInputs.get(toolUseId);
+    const first = this.pendingUserInputs.values().next();
     return first.done ? undefined : first.value;
   }
 
@@ -529,6 +572,40 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         break;
       }
 
+      case "item/tool/requestUserInput": {
+        const toolUseId = this.extractToolUseId(params, id);
+        const questions = normalizeUserInputQuestions(params.questions);
+        const input: Record<string, unknown> = {
+          questions: questions.map((q) => ({
+            id: q.id,
+            question: q.question,
+            header: q.header,
+            options: q.options,
+            multiSelect: false,
+            isOther: q.isOther,
+            isSecret: q.isSecret,
+          })),
+        };
+
+        this.pendingUserInputs.set(toolUseId, {
+          requestId: id,
+          toolUseId,
+          questions: questions.map((q) => ({
+            id: q.id,
+            question: q.question,
+          })),
+          input,
+        });
+        this.emitMessage({
+          type: "permission_request",
+          toolUseId,
+          toolName: "AskUserQuestion",
+          input,
+        });
+        this.setStatus("waiting_approval");
+        break;
+      }
+
       default:
         this.respondToServerRequest(id, {});
         break;
@@ -606,6 +683,30 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         break;
       }
 
+      case "item/plan/delta": {
+        const delta = typeof params.delta === "string" ? params.delta : "";
+        if (delta) {
+          this.emitMessage({ type: "thinking_delta", text: delta });
+        }
+        break;
+      }
+
+      case "turn/plan/updated": {
+        const text = formatPlanUpdateText(params);
+        if (text) {
+          this.emitMessage({
+            type: "assistant",
+            message: {
+              id: randomUUID(),
+              role: "assistant",
+              content: [{ type: "text", text }],
+              model: "codex",
+            },
+          });
+        }
+        break;
+      }
+
       default:
         break;
     }
@@ -646,7 +747,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     }
 
     this.pendingTurnId = null;
-    if (this.pendingApprovals.size === 0) {
+    if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
       this.setStatus("idle");
     }
 
@@ -1046,6 +1147,146 @@ function extractReasoningText(item: Record<string, unknown>): string {
   }
 
   return "";
+}
+
+function normalizeUserInputQuestions(raw: unknown): Array<{
+  id: string;
+  question: string;
+  header: string;
+  options: Array<{ label: string; description: string }>;
+  isOther: boolean;
+  isSecret: boolean;
+}> {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object")
+    .map((entry, index) => {
+      const id = typeof entry.id === "string" ? entry.id : `question_${index + 1}`;
+      const question = typeof entry.question === "string" ? entry.question : "";
+      const header = typeof entry.header === "string" ? entry.header : `Question ${index + 1}`;
+      const optionsRaw = Array.isArray(entry.options) ? entry.options : [];
+      const options = optionsRaw
+        .filter((option): option is Record<string, unknown> => !!option && typeof option === "object")
+        .map((option) => ({
+          label: typeof option.label === "string" ? option.label : "",
+          description: typeof option.description === "string" ? option.description : "",
+        }))
+        .filter((option) => option.label.length > 0);
+      return {
+        id,
+        question,
+        header,
+        options,
+        isOther: Boolean(entry.isOther),
+        isSecret: Boolean(entry.isSecret),
+      };
+    })
+    .filter((question) => question.question.length > 0);
+}
+
+function buildUserInputAnswers(
+  questions: PendingUserInputQuestion[],
+  rawResult: string,
+): Record<string, { answers: string[] }> {
+  const parsed = parseResultObject(rawResult);
+  const answerMap: Record<string, { answers: string[] }> = {};
+
+  for (const question of questions) {
+    const candidate = parsed.byId[question.id] ?? parsed.byQuestion[question.question];
+    const answers = normalizeAnswerValues(candidate);
+    if (answers.length > 0) {
+      answerMap[question.id] = { answers };
+    }
+  }
+
+  if (Object.keys(answerMap).length === 0 && questions.length > 0) {
+    answerMap[questions[0].id] = { answers: normalizeAnswerValues(rawResult) };
+  }
+
+  return answerMap;
+}
+
+function parseResultObject(rawResult: string): {
+  byId: Record<string, unknown>;
+  byQuestion: Record<string, unknown>;
+} {
+  try {
+    const parsed = JSON.parse(rawResult) as Record<string, unknown>;
+    const byId: Record<string, unknown> = {};
+    const byQuestion: Record<string, unknown> = {};
+
+    if (parsed && typeof parsed === "object") {
+      const answers = parsed.answers;
+      if (answers && typeof answers === "object" && !Array.isArray(answers)) {
+        for (const [key, value] of Object.entries(answers as Record<string, unknown>)) {
+          byId[key] = value;
+          byQuestion[key] = value;
+        }
+      }
+    }
+
+    return { byId, byQuestion };
+  } catch {
+    return { byId: {}, byQuestion: {} };
+  }
+}
+
+function normalizeAnswerValues(value: unknown): string[] {
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => String(entry).trim())
+      .filter((entry) => entry.length > 0);
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (Array.isArray(record.answers)) {
+      return record.answers
+        .map((entry) => String(entry).trim())
+        .filter((entry) => entry.length > 0);
+    }
+  }
+
+  if (value == null) return [];
+  const normalized = String(value).trim();
+  return normalized ? [normalized] : [];
+}
+
+function formatPlanUpdateText(params: Record<string, unknown>): string {
+  const stepsRaw = params.plan;
+  if (!Array.isArray(stepsRaw) || stepsRaw.length === 0) return "";
+
+  const explanation = typeof params.explanation === "string" ? params.explanation.trim() : "";
+  const lines = stepsRaw
+    .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object")
+    .map((entry, index) => {
+      const step = typeof entry.step === "string" ? entry.step : `Step ${index + 1}`;
+      const status = normalizePlanStatus(entry.status);
+      return `${index + 1}. [${status}] ${step}`;
+    });
+
+  if (lines.length === 0) return "";
+  const header = explanation ? `Plan update: ${explanation}` : "Plan update:";
+  return `${header}\n${lines.join("\n")}`;
+}
+
+function normalizePlanStatus(raw: unknown): string {
+  switch (raw) {
+    case "inProgress":
+      return "in progress";
+    case "completed":
+      return "completed";
+    case "pending":
+    default:
+      return "pending";
+  }
 }
 
 function extensionFromMime(mimeType: string): string | null {
