@@ -45,12 +45,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     required StreamingStateCubit streamingCubit,
     PermissionMode? initialPermissionMode,
     SandboxMode? initialSandboxMode,
+    ApprovalPolicy? initialApprovalPolicy,
   }) : _bridge = bridge,
        _streamingCubit = streamingCubit,
        super(
          ChatSessionState(
            permissionMode: initialPermissionMode ?? PermissionMode.defaultMode,
            sandboxMode: initialSandboxMode ?? SandboxMode.workspaceWrite,
+           approvalPolicy: initialApprovalPolicy ?? ApprovalPolicy.onRequest,
          ),
        ) {
     // Subscribe to messages for this session
@@ -482,6 +484,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     emit(state.copyWith(sandboxMode: mode));
     _bridge.send(
       ClientMessage.setSandboxMode(mode.value, sessionId: sessionId),
+    );
+  }
+
+  /// Change approval policy for Codex sessions.
+  void setApprovalPolicy(ApprovalPolicy policy) {
+    if (!isCodex) return;
+    emit(state.copyWith(approvalPolicy: policy));
+    _bridge.send(
+      ClientMessage.setApprovalPolicy(policy.value, sessionId: sessionId),
     );
   }
 

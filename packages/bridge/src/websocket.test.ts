@@ -341,7 +341,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const last = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
     expect(last).toEqual({
       type: "error",
-      message: "Codex sessions do not support runtime permission mode changes",
+      message: "Use set_approval_policy for Codex sessions",
     });
 
     bridge.close();

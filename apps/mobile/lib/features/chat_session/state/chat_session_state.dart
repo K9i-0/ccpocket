@@ -35,6 +35,9 @@ abstract class ChatSessionState with _$ChatSessionState {
     // Sandbox mode for Codex sessions
     @Default(SandboxMode.workspaceWrite) SandboxMode sandboxMode,
 
+    // Approval policy for Codex sessions
+    @Default(ApprovalPolicy.onRequest) ApprovalPolicy approvalPolicy,
+
     // Tool use IDs hidden by tool_use_summary (subagent compression)
     @Default({}) Set<String> hiddenToolUseIds,
 

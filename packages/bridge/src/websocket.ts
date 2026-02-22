@@ -388,16 +388,8 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          // Map permission mode to Codex approval policy
-          const policyMap: Record<string, string> = {
-            default: "on-request",
-            plan: "on-request",
-            acceptEdits: "on-request",
-            bypassPermissions: "never",
-          };
-          const policy = policyMap[msg.mode] ?? "on-request";
-          (session.process as CodexProcess).setApprovalPolicy(policy);
-          break;
+          this.send(ws, { type: "error", message: "Use set_approval_policy for Codex sessions" });
+          return;
         }
         (session.process as SdkProcess).setPermissionMode(msg.mode).catch((err) => {
           this.send(ws, {
@@ -405,6 +397,25 @@ export class BridgeWebSocketServer {
             message: `Failed to set permission mode: ${err instanceof Error ? err.message : String(err)}`,
           });
         });
+        break;
+      }
+
+      case "set_approval_policy": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session) {
+          this.send(ws, { type: "error", message: "No active session." });
+          return;
+        }
+        if (session.provider !== "codex") {
+          this.send(ws, { type: "error", message: "Only Codex sessions support approval policy changes" });
+          return;
+        }
+        const validPolicies = ["never", "on-request", "on-failure", "untrusted"] as const;
+        if (!validPolicies.includes(msg.policy as typeof validPolicies[number])) {
+          this.send(ws, { type: "error", message: `Invalid approval policy: ${msg.policy}` });
+          return;
+        }
+        (session.process as CodexProcess).setApprovalPolicy(msg.policy as string);
         break;
       }
 

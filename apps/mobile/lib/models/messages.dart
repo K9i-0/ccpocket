@@ -1472,6 +1472,14 @@ class ClientMessage {
     });
   }
 
+  factory ClientMessage.setApprovalPolicy(String policy, {String? sessionId}) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'set_approval_policy',
+      'policy': policy,
+      'sessionId': ?sessionId,
+    });
+  }
+
   factory ClientMessage.approve(
     String id, {
     Map<String, dynamic>? updatedInput,
