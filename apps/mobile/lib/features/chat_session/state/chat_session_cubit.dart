@@ -102,8 +102,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       final update = _handler.handle(msg, isBackground: true, isCodex: isCodex);
       _applyUpdate(update, msg);
     } catch (e, st) {
-      logger.error('[session:$sessionId] Failed to handle message: '
-          '${msg.runtimeType}', e, st);
+      logger.error(
+        '[session:$sessionId] Failed to handle message: '
+        '${msg.runtimeType}',
+        e,
+        st,
+      );
     }
   }
 
@@ -399,8 +403,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     Map<String, dynamic>? updatedInput,
     bool clearContext = false,
   }) {
-    logger.info('[session:$sessionId] approve toolUseId=$toolUseId'
-        '${clearContext ? ' clearContext' : ''}');
+    logger.info(
+      '[session:$sessionId] approve toolUseId=$toolUseId'
+      '${clearContext ? ' clearContext' : ''}',
+    );
     _respondedToolUseIds.add(toolUseId);
     _bridge.send(
       ClientMessage.approve(
@@ -461,8 +467,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   /// Reject a pending tool execution.
   void reject(String toolUseId, {String? message}) {
-    logger.info('[session:$sessionId] reject toolUseId=$toolUseId'
-        '${message != null ? ' msg=$message' : ''}');
+    logger.info(
+      '[session:$sessionId] reject toolUseId=$toolUseId'
+      '${message != null ? ' msg=$message' : ''}',
+    );
     _respondedToolUseIds.add(toolUseId);
     _bridge.send(
       ClientMessage.reject(toolUseId, message: message, sessionId: sessionId),

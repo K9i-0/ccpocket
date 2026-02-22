@@ -112,8 +112,10 @@ class ChatMessageHandler {
         :final toolName,
         :final input,
       ):
-        logger.info('[handler] permission_request: '
-            'tool=$toolName id=$toolUseId');
+        logger.info(
+          '[handler] permission_request: '
+          'tool=$toolName id=$toolUseId',
+        );
         if (toolName == 'AskUserQuestion') {
           return ChatStateUpdate(
             entriesToAdd: [ServerChatEntry(msg)],
