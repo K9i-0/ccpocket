@@ -36,9 +36,16 @@ class HomeContent extends StatefulWidget {
   })
   onTapRunning;
   final ValueChanged<String> onStopSession;
-  final void Function(String sessionId, String toolUseId)? onApprovePermission;
+  final void Function(
+    String sessionId,
+    String toolUseId, {
+    Map<String, dynamic>? updatedInput,
+    bool clearContext,
+  })?
+  onApprovePermission;
   final void Function(String sessionId, String toolUseId)? onApproveAlways;
-  final void Function(String sessionId, String toolUseId)? onRejectPermission;
+  final void Function(String sessionId, String toolUseId, {String? message})?
+  onRejectPermission;
   final void Function(String sessionId, String toolUseId, String result)?
   onAnswerQuestion;
   final ValueChanged<RecentSession> onResumeSession;
@@ -212,12 +219,22 @@ class _HomeContentState extends State<HomeContent> {
                   sandboxMode: session.codexSandboxMode,
                 ),
                 onStop: () => widget.onStopSession(session.id),
-                onApprove: (toolUseId) =>
-                    widget.onApprovePermission?.call(session.id, toolUseId),
+                onApprove:
+                    (
+                      toolUseId, {
+                      Map<String, dynamic>? updatedInput,
+                      bool clearContext = false,
+                    }) => widget.onApprovePermission?.call(
+                      session.id,
+                      toolUseId,
+                      updatedInput: updatedInput,
+                      clearContext: clearContext,
+                    ),
                 onApproveAlways: (toolUseId) =>
                     widget.onApproveAlways?.call(session.id, toolUseId),
-                onReject: (toolUseId) =>
-                    widget.onRejectPermission?.call(session.id, toolUseId),
+                onReject: (toolUseId, {String? message}) => widget
+                    .onRejectPermission
+                    ?.call(session.id, toolUseId, message: message),
                 onAnswer: (toolUseId, result) => widget.onAnswerQuestion?.call(
                   session.id,
                   toolUseId,

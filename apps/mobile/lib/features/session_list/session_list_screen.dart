@@ -805,13 +805,24 @@ class _SessionListScreenState extends State<SessionListScreen>
                         sandboxMode: sandboxMode,
                       ),
                   onStopSession: _stopSession,
-                  onApprovePermission: (sessionId, toolUseId) {
-                    final bridge = context.read<BridgeService>();
-                    bridge.send(
-                      ClientMessage.approve(toolUseId, sessionId: sessionId),
-                    );
-                    bridge.clearSessionPermission(sessionId);
-                  },
+                  onApprovePermission:
+                      (
+                        sessionId,
+                        toolUseId, {
+                        Map<String, dynamic>? updatedInput,
+                        bool clearContext = false,
+                      }) {
+                        final bridge = context.read<BridgeService>();
+                        bridge.send(
+                          ClientMessage.approve(
+                            toolUseId,
+                            sessionId: sessionId,
+                            updatedInput: updatedInput,
+                            clearContext: clearContext,
+                          ),
+                        );
+                        bridge.clearSessionPermission(sessionId);
+                      },
                   onApproveAlways: (sessionId, toolUseId) {
                     final bridge = context.read<BridgeService>();
                     bridge.send(
@@ -822,10 +833,14 @@ class _SessionListScreenState extends State<SessionListScreen>
                     );
                     bridge.clearSessionPermission(sessionId);
                   },
-                  onRejectPermission: (sessionId, toolUseId) {
+                  onRejectPermission: (sessionId, toolUseId, {message}) {
                     final bridge = context.read<BridgeService>();
                     bridge.send(
-                      ClientMessage.reject(toolUseId, sessionId: sessionId),
+                      ClientMessage.reject(
+                        toolUseId,
+                        message: message,
+                        sessionId: sessionId,
+                      ),
                     );
                     bridge.clearSessionPermission(sessionId);
                   },

@@ -140,7 +140,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           return UserChatEntry(
             e.text,
             sessionId: e.sessionId,
+            imageBytesList: e.imageBytesList,
+            imageUrls: e.imageUrls,
+            imageCount: e.imageCount,
             status: MessageStatus.sent,
+            messageUuid: e.messageUuid,
             timestamp: e.timestamp,
           );
         }
@@ -161,7 +165,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           return UserChatEntry(
             e.text,
             sessionId: e.sessionId,
+            imageBytesList: e.imageBytesList,
+            imageUrls: e.imageUrls,
+            imageCount: e.imageCount,
             status: MessageStatus.failed,
+            messageUuid: e.messageUuid,
             timestamp: e.timestamp,
           );
         }

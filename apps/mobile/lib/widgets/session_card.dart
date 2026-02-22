@@ -1,19 +1,26 @@
 import 'package:expandable_page_view/expandable_page_view.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
 import '../utils/command_parser.dart';
+import 'plan_detail_sheet.dart';
 
 /// Card for a currently running session
-class RunningSessionCard extends StatelessWidget {
+class RunningSessionCard extends StatefulWidget {
   final SessionInfo session;
   final VoidCallback onTap;
   final VoidCallback onStop;
-  final ValueChanged<String>? onApprove;
+  final void Function(
+    String toolUseId, {
+    Map<String, dynamic>? updatedInput,
+    bool clearContext,
+  })?
+  onApprove;
   final ValueChanged<String>? onApproveAlways;
-  final ValueChanged<String>? onReject;
+  final void Function(String toolUseId, {String? message})? onReject;
   final void Function(String toolUseId, String result)? onAnswer;
 
   const RunningSessionCard({
@@ -28,7 +35,56 @@ class RunningSessionCard extends StatelessWidget {
   });
 
   @override
+  State<RunningSessionCard> createState() => _RunningSessionCardState();
+}
+
+class _RunningSessionCardState extends State<RunningSessionCard> {
+  late final TextEditingController _planFeedbackController;
+  String? _editedPlanText;
+  String? _activePlanToolUseId;
+
+  @override
+  void initState() {
+    super.initState();
+    _planFeedbackController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _planFeedbackController.dispose();
+    super.dispose();
+  }
+
+  void _syncPlanApprovalState(PermissionRequestMessage? permission) {
+    final toolUseId = permission?.toolUseId;
+    if (_activePlanToolUseId == toolUseId) return;
+    _activePlanToolUseId = toolUseId;
+    _editedPlanText = null;
+    _planFeedbackController.clear();
+  }
+
+  String? _extractPlanText(PermissionRequestMessage permission) {
+    final raw = permission.input['plan'];
+    if (raw is String && raw.trim().isNotEmpty) {
+      return raw;
+    }
+    return null;
+  }
+
+  Future<void> _openPlanSheet(PermissionRequestMessage permission) async {
+    final originalText = _extractPlanText(permission);
+    if (originalText == null || !mounted) return;
+    final current = _editedPlanText ?? originalText;
+    final edited = await showPlanDetailSheet(context, current, editable: true);
+    if (!mounted) return;
+    if (edited != null) {
+      setState(() => _editedPlanText = edited);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final session = widget.session;
     final appColors = Theme.of(context).extension<AppColors>()!;
     final statusColor = switch (session.status) {
       'starting' => appColors.statusStarting,
@@ -40,6 +96,13 @@ class RunningSessionCard extends StatelessWidget {
     final permission = session.pendingPermission;
     final hasPermission =
         session.status == 'waiting_approval' && permission != null;
+    final isPlanApproval =
+        hasPermission && permission!.toolName == 'ExitPlanMode';
+    if (isPlanApproval) {
+      _syncPlanApprovalState(permission);
+    } else {
+      _syncPlanApprovalState(null);
+    }
     final statusLabel = switch (session.status) {
       'starting' => 'Starting',
       'running' => 'Running',
@@ -71,7 +134,7 @@ class RunningSessionCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 0),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -104,7 +167,7 @@ class RunningSessionCard extends StatelessWidget {
                       minHeight: 40,
                     ),
                     icon: const Icon(Icons.stop_circle_outlined),
-                    onPressed: onStop,
+                    onPressed: widget.onStop,
                     tooltip: 'Stop session',
                     color: Theme.of(context).colorScheme.error,
                   ),
@@ -118,21 +181,47 @@ class RunningSessionCard extends StatelessWidget {
                   permission: permission,
                   statusColor: statusColor,
                   onAnswer: (result) =>
-                      onAnswer?.call(permission.toolUseId, result),
-                  onTap: onTap,
+                      widget.onAnswer?.call(permission.toolUseId, result),
+                  onTap: widget.onTap,
                 ),
                 'ExitPlanMode' => _PlanApprovalArea(
                   statusColor: statusColor,
-                  onApprove: () => onApprove?.call(permission.toolUseId),
-                  onTap: onTap,
+                  planFeedbackController: _planFeedbackController,
+                  canOpenPlan: _extractPlanText(permission) != null,
+                  onOpenPlan: () => _openPlanSheet(permission),
+                  onApprove: () => widget.onApprove?.call(
+                    permission.toolUseId,
+                    updatedInput: _editedPlanText != null
+                        ? {'plan': _editedPlanText!}
+                        : null,
+                    clearContext: false,
+                  ),
+                  onApproveClearContext: () => widget.onApprove?.call(
+                    permission.toolUseId,
+                    updatedInput: _editedPlanText != null
+                        ? {'plan': _editedPlanText!}
+                        : null,
+                    clearContext: true,
+                  ),
+                  onKeepPlanning: () {
+                    final feedback = _planFeedbackController.text.trim();
+                    widget.onReject?.call(
+                      permission.toolUseId,
+                      message: feedback.isNotEmpty ? feedback : null,
+                    );
+                    _planFeedbackController.clear();
+                  },
                 ),
                 _ => _ToolApprovalArea(
                   permission: permission,
                   statusColor: statusColor,
-                  onApprove: () => onApprove?.call(permission.toolUseId),
+                  onApprove: () => widget.onApprove?.call(
+                    permission.toolUseId,
+                    clearContext: false,
+                  ),
                   onApproveAlways: () =>
-                      onApproveAlways?.call(permission.toolUseId),
-                  onReject: () => onReject?.call(permission.toolUseId),
+                      widget.onApproveAlways?.call(permission.toolUseId),
+                  onReject: () => widget.onReject?.call(permission.toolUseId),
                 ),
               },
             // Content (same structure as RecentSessionCard)
@@ -385,56 +474,128 @@ class _ToolApprovalArea extends StatelessWidget {
 /// Approval area for ExitPlanMode (plan review).
 class _PlanApprovalArea extends StatelessWidget {
   final Color statusColor;
+  final TextEditingController planFeedbackController;
+  final bool canOpenPlan;
+  final VoidCallback onOpenPlan;
   final VoidCallback onApprove;
-  final VoidCallback onTap;
+  final VoidCallback onApproveClearContext;
+  final VoidCallback onKeepPlanning;
 
   const _PlanApprovalArea({
     required this.statusColor,
+    required this.planFeedbackController,
+    required this.canOpenPlan,
+    required this.onOpenPlan,
     required this.onApprove,
-    required this.onTap,
+    required this.onApproveClearContext,
+    required this.onKeepPlanning,
   });
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       color: statusColor.withValues(alpha: 0.06),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Plan is ready for review',
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.8),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: canOpenPlan ? onOpenPlan : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l.planApprovalSummary,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.8),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (canOpenPlan)
+                      Icon(Icons.open_in_full, size: 16, color: cs.primary),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+          Text(
+            l.keepPlanning,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              SizedBox(
-                height: 28,
-                child: OutlinedButton.icon(
-                  onPressed: onTap,
-                  icon: const Icon(Icons.open_in_new, size: 14),
-                  label: const Text('Open'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    textStyle: const TextStyle(fontSize: 12),
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('plan_feedback_input'),
+                  controller: planFeedbackController,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: l.keepPlanningHint,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  minLines: 1,
+                  maxLines: 2,
+                  onSubmitted: (_) => onKeepPlanning(),
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                key: const ValueKey('reject_button'),
+                onPressed: onKeepPlanning,
+                icon: Icon(Icons.send, size: 18, color: cs.primary),
+                tooltip: l.sendFeedbackKeepPlanning,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonal(
+                  key: const ValueKey('approve_clear_context_button'),
+                  onPressed: onApproveClearContext,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  child: Text(
+                    l.acceptAndClear,
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               SizedBox(
-                height: 28,
+                height: 32,
                 child: FilledButton.tonalIcon(
                   onPressed: onApprove,
                   icon: const Icon(Icons.check, size: 14),
-                  label: const Text('Accept Plan'),
+                  label: Text(l.acceptPlan),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     textStyle: const TextStyle(fontSize: 12),
