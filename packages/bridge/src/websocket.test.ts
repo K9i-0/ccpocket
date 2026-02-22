@@ -506,6 +506,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       toolName: "ExitPlanMode",
       input: { plan: "original plan text" },
     });
+    const broadcastSpy = vi.spyOn(bridge as any, "broadcast");
 
     (bridge as any).handleClientMessage(
       {
@@ -527,6 +528,17 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       sessionId: "claude-session-1",
       continueMode: true,
       initialInput: "original plan text",
+    });
+    const clearContextCreated = broadcastSpy.mock.calls
+      .map((call: unknown[]) => call[0] as Record<string, unknown>)
+      .find(
+        (m) =>
+          m.type === "system" &&
+          m.subtype === "session_created" &&
+          m.clearContext === true,
+      );
+    expect(clearContextCreated).toMatchObject({
+      sourceSessionId: sessionId,
     });
 
     bridge.close();

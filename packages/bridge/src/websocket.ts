@@ -499,6 +499,7 @@ export class BridgeWebSocketServer {
             projectPath,
             ...(permissionMode ? { permissionMode } : {}),
             clearContext: true,
+            sourceSessionId: sessionId,
           });
           this.broadcastSessionList();
         } else {

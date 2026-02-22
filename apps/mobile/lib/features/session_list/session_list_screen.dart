@@ -133,6 +133,11 @@ class _SessionListScreenState extends State<SessionListScreen>
     _messageSub = bridge.messages.listen((msg) {
       if (msg is SystemMessage && msg.subtype == 'session_created') {
         bridge.requestSessionList();
+        // Clear-context recreation is handled inside the active chat screen.
+        // Navigating from the hidden session list stacks a second chat route.
+        if (msg.clearContext) {
+          return;
+        }
         if (msg.sessionId != null) {
           if (_pendingNavigation) {
             // Chat screen may not have its listener yet — store for replay.

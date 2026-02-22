@@ -347,6 +347,7 @@ sealed class ServerMessage {
         worktreePath: json['worktreePath'] as String?,
         worktreeBranch: json['worktreeBranch'] as String?,
         clearContext: json['clearContext'] as bool? ?? false,
+        sourceSessionId: json['sourceSessionId'] as String?,
       ),
       'assistant' => AssistantServerMessage(
         message: AssistantMessage.fromJson(
@@ -569,6 +570,7 @@ class SystemMessage implements ServerMessage {
   final String? worktreePath;
   final String? worktreeBranch;
   final bool clearContext;
+  final String? sourceSessionId;
   const SystemMessage({
     required this.subtype,
     this.sessionId,
@@ -583,6 +585,7 @@ class SystemMessage implements ServerMessage {
     this.worktreePath,
     this.worktreeBranch,
     this.clearContext = false,
+    this.sourceSessionId,
   });
 }
 

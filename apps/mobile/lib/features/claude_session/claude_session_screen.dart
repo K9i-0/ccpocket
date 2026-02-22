@@ -140,6 +140,10 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
           msg.sessionId != _sessionId &&
           !_isPending &&
           mounted) {
+        // Ignore clear-context session recreation from other sessions.
+        if (msg.sourceSessionId != null && msg.sourceSessionId != _sessionId) {
+          return;
+        }
         // Filter by projectPath to avoid picking up another project's event
         if (widget.projectPath != null &&
             msg.projectPath != null &&
