@@ -22,6 +22,8 @@ export interface UsageInfo {
 interface ClaudeOAuthPayload {
   claudeAiOauth?: {
     accessToken?: string;
+    refreshToken?: string;
+    expiresAt?: number;
   };
 }
 
@@ -30,7 +32,31 @@ interface ClaudeUsageResponse {
   seven_day?: { utilization: number; resets_at: string };
 }
 
-function getClaudeOAuthToken(): Promise<string> {
+interface ClaudeOAuthCredentials {
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}
+
+interface ClaudeRefreshResponse {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  error?: string;
+  error_description?: string;
+}
+
+const CLAUDE_OAUTH_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
+const CLAUDE_OAUTH_TOKEN_URL = "https://platform.claude.com/v1/oauth/token";
+const TOKEN_EXPIRY_SKEW_MS = 60_000;
+
+interface RefreshedClaudeToken {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}
+
+function getClaudeOAuthCredentials(): Promise<ClaudeOAuthCredentials> {
   return new Promise((resolve, reject) => {
     execFile(
       "security",
@@ -43,12 +69,16 @@ function getClaudeOAuthToken(): Promise<string> {
         }
         try {
           const payload: ClaudeOAuthPayload = JSON.parse(stdout.trim());
-          const token = payload.claudeAiOauth?.accessToken;
-          if (!token) {
-            reject(new Error("No OAuth access token in Claude Code credentials"));
+          const oauth = payload.claudeAiOauth;
+          if (!oauth) {
+            reject(new Error("No OAuth payload in Claude Code credentials"));
             return;
           }
-          resolve(token);
+          resolve({
+            accessToken: oauth.accessToken,
+            refreshToken: oauth.refreshToken,
+            expiresAt: oauth.expiresAt,
+          });
         } catch {
           reject(new Error("Failed to parse Claude Code credentials"));
         }
@@ -57,16 +87,111 @@ function getClaudeOAuthToken(): Promise<string> {
   });
 }
 
+function isTokenExpired(expiresAt?: number): boolean {
+  if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt)) {
+    return false;
+  }
+  return Date.now() >= expiresAt - TOKEN_EXPIRY_SKEW_MS;
+}
+
+function saveClaudeOAuthCredentials(creds: ClaudeOAuthCredentials): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({ claudeAiOauth: creds });
+    execFile(
+      "security",
+      ["add-generic-password", "-U", "-s", "Claude Code-credentials", "-w", payload],
+      { timeout: 5000 },
+      (err) => {
+        if (err) {
+          reject(new Error("Failed to update Claude Code credentials in Keychain"));
+          return;
+        }
+        resolve();
+      },
+    );
+  });
+}
+
+async function refreshClaudeAccessToken(refreshToken: string): Promise<RefreshedClaudeToken> {
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: CLAUDE_OAUTH_CLIENT_ID,
+  });
+  const res = await fetch(CLAUDE_OAUTH_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+  const raw = await res.text();
+  let data: ClaudeRefreshResponse;
+  try {
+    data = JSON.parse(raw) as ClaudeRefreshResponse;
+  } catch {
+    throw new Error(`OAuth token refresh failed: ${res.status} ${res.statusText}`);
+  }
+  if (!res.ok) {
+    const detail = data.error_description ?? data.error ?? `${res.status} ${res.statusText}`;
+    throw new Error(`OAuth token refresh failed: ${detail}`);
+  }
+  if (!data.access_token) {
+    throw new Error(`OAuth token refresh failed: ${data.error ?? "missing access_token"}`);
+  }
+  const expiresAt = typeof data.expires_in === "number"
+    ? Date.now() + data.expires_in * 1000
+    : undefined;
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt,
+  };
+}
+
+async function getValidClaudeAccessToken(): Promise<{ accessToken: string; refreshToken?: string }> {
+  const creds = await getClaudeOAuthCredentials();
+  if (creds.accessToken && !isTokenExpired(creds.expiresAt)) {
+    return { accessToken: creds.accessToken, refreshToken: creds.refreshToken };
+  }
+  if (!creds.refreshToken) {
+    throw new Error("No OAuth refresh token in Claude Code credentials");
+  }
+  const refreshed = await refreshClaudeAccessToken(creds.refreshToken);
+  const updatedCreds: ClaudeOAuthCredentials = {
+    accessToken: refreshed.accessToken,
+    refreshToken: refreshed.refreshToken ?? creds.refreshToken,
+    expiresAt: refreshed.expiresAt ?? creds.expiresAt,
+  };
+  try {
+    await saveClaudeOAuthCredentials(updatedCreds);
+  } catch {
+    // If Keychain update fails, continue with in-memory token for this request.
+  }
+  return { accessToken: refreshed.accessToken, refreshToken: updatedCreds.refreshToken };
+}
+
 export async function fetchClaudeUsage(): Promise<UsageInfo> {
   try {
-    const token = await getClaudeOAuthToken();
-
-    const res = await fetch("https://api.anthropic.com/api/oauth/usage", {
+    const auth = await getValidClaudeAccessToken();
+    let token = auth.accessToken;
+    let res = await fetch("https://api.anthropic.com/api/oauth/usage", {
       headers: {
         Authorization: `Bearer ${token}`,
         "anthropic-beta": "oauth-2025-04-20",
       },
     });
+
+    if (res.status === 401 && auth.refreshToken) {
+      const refreshed = await refreshClaudeAccessToken(auth.refreshToken);
+      token = refreshed.accessToken;
+      res = await fetch("https://api.anthropic.com/api/oauth/usage", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "anthropic-beta": "oauth-2025-04-20",
+        },
+      });
+    }
 
     if (!res.ok) {
       return {
