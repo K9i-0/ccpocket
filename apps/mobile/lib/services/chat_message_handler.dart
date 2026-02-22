@@ -1,3 +1,4 @@
+import '../core/logger.dart';
 import '../models/messages.dart';
 import '../widgets/slash_command_sheet.dart'
     show SlashCommand, SlashCommandCategory, buildSlashCommand, knownCommands;
@@ -111,6 +112,8 @@ class ChatMessageHandler {
         :final toolName,
         :final input,
       ):
+        logger.info('[handler] permission_request: '
+            'tool=$toolName id=$toolUseId');
         if (toolName == 'AskUserQuestion') {
           return ChatStateUpdate(
             entriesToAdd: [ServerChatEntry(msg)],
@@ -160,7 +163,11 @@ class ChatMessageHandler {
       case InputAckMessage():
         return const ChatStateUpdate(markUserMessagesSent: true);
       case InputRejectedMessage():
+        logger.warning('[handler] input_rejected');
         return const ChatStateUpdate(markUserMessagesFailed: true);
+      case ErrorMessage(:final message):
+        logger.error('[handler] error message: $message');
+        return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
       default:
         return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
     }
@@ -460,6 +467,7 @@ class ChatMessageHandler {
     required bool isBackground,
     required bool isCodex,
   }) {
+    logger.info('[handler] result: subtype=$subtype cost=$cost');
     final effects = <ChatSideEffect>{ChatSideEffect.lightHaptic};
     final isStopped = subtype == 'stopped';
     if (isBackground && !isStopped) {
