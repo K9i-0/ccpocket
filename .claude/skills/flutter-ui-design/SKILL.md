@@ -154,6 +154,45 @@ TextField(
 | `_badge` | バッジ |
 | `_indicator` | インジケーター |
 
+## Flutter ベストプラクティス
+
+Flutter公式AIルール (flutter/flutter docs/rules) から、本プロジェクトに適用可能なものを抜粋。
+
+### パフォーマンス
+
+- **build()内で重い処理をしない**: ネットワーク呼び出し・複雑な計算はbuild()の外で行う
+- **ListView.builder / SliverList**: 長いリストは必ずbuilder系コンストラクタで遅延生成する
+- **constコンストラクタ**: Widget・build()内で可能な限り `const` を使いリビルドを削減する
+- **Isolate**: JSON解析等の重い処理は `compute()` で別Isolateに逃がす
+
+### Dartコーディング
+
+- **Null Safety**: `!` は値がnon-nullと保証できる場合のみ使用。安易に使わない
+- **exhaustive switch**: switch文/式は網羅的に書く。breakは不要
+- **パターンマッチング**: コードを簡潔にできる箇所ではパターンマッチングを活用する
+- **アロー関数**: 1行で済む関数はアロー構文 (`=>`) を使う
+- **関数の長さ**: 1関数20行未満を目指す。超える場合は分割を検討
+
+### レイアウト
+
+- **Expanded / Flexible**: 同一Row/Column内での混在禁止
+- **Wrap**: Row/Columnで溢れる要素はWrapで折り返す
+- **SingleChildScrollView**: 固定サイズでビューポートを超えるコンテンツに使用
+- **FittedBox**: 子Widgetを親のサイズに合わせてスケーリング
+- **LayoutBuilder**: レスポンシブレイアウトでの利用可能スペースに基づく分岐
+
+### テーマ・スタイリング
+
+- **ThemeExtension**: 標準ThemeDataに無いカスタムスタイルはThemeExtensionで定義する
+- **ColorScheme.fromSeed()**: シードカラーからLight/Dark両テーマを生成
+- **WidgetStateProperty**: ボタン等の状態別スタイルは `resolveWith` で定義
+
+### アクセシビリティ
+
+- **コントラスト比**: テキストは背景に対して4.5:1以上（大きいテキストは3:1以上）
+- **Semantics**: スクリーンリーダー向けに `Semantics` Widgetで説明ラベルを付与
+- **動的テキストスケーリング**: システムフォントサイズ変更時にUIが崩れないことを確認
+
 ## build_runner
 
 状態クラスの変更後は必ず実行:
@@ -174,3 +213,6 @@ cd apps/mobile && dart run build_runner build --delete-conflicting-outputs
 - [ ] `dart format apps/mobile` が適用済み
 - [ ] 既存テストがパス (`flutter test`)
 - [ ] 新規Cubitのユニットテストが追加されていること
+- [ ] build()内に重い処理（ネットワーク、複雑な計算）がないこと
+- [ ] 長いリストがListView.builder/SliverListで実装されていること
+- [ ] 可能な箇所でconstコンストラクタが使われていること
