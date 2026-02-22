@@ -444,6 +444,8 @@ class _SessionListScreenState extends State<SessionListScreen>
       worktreePath: result.existingWorktreePath,
       isPending: true,
       provider: result.provider,
+      permissionMode: result.permissionMode.value,
+      sandboxMode: result.sandboxMode?.value,
     );
   }
 
