@@ -477,7 +477,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   /// Change sandbox mode for Codex sessions.
-  /// This triggers a thread restart on the Bridge side.
+  /// Bridge applies this safely without forcing an in-place thread restart.
   void setSandboxMode(SandboxMode mode) {
     if (!isCodex) return;
     emit(state.copyWith(sandboxMode: mode));

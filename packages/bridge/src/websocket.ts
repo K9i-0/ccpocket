@@ -419,26 +419,17 @@ export class BridgeWebSocketServer {
           return;
         }
         const newSandboxMode = msg.sandboxMode as typeof validModes[number];
-        // Update stored settings
+        // Update stored settings.
+        // Note: Codex app-server does not reliably support resuming an existing
+        // thread with a different sandbox mode. Restarting here can terminate
+        // the process (`codex app-server exited`) and leave the session in a
+        // broken state. We therefore persist the preference and keep the
+        // current runtime alive.
         if (!session.codexSettings) {
           session.codexSettings = {};
         }
         session.codexSettings.sandboxMode = newSandboxMode;
-        // Restart Codex process with new sandboxMode (required: sandboxMode is set at thread start)
-        const codexProc = session.process as CodexProcess;
-        const threadId = session.claudeSessionId ?? undefined;
-        const effectiveCwd = session.worktreePath ?? session.projectPath;
-        codexProc.stop();
-        codexProc.start(effectiveCwd, {
-          approvalPolicy: (session.codexSettings.approvalPolicy as "never" | "on-request" | "on-failure" | "untrusted") ?? undefined,
-          sandboxMode: newSandboxMode,
-          model: session.codexSettings.model,
-          modelReasoningEffort: (session.codexSettings.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
-          networkAccessEnabled: session.codexSettings.networkAccessEnabled,
-          webSearchMode: (session.codexSettings.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
-          threadId,
-        });
-        console.log(`[ws] Sandbox mode changed to ${newSandboxMode} for session ${session.id} (thread restart)`);
+        console.log(`[ws] Sandbox mode changed to ${newSandboxMode} for session ${session.id} (deferred apply)`);
         break;
       }
 

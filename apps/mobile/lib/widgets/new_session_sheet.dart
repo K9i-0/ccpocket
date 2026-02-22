@@ -1017,7 +1017,7 @@ class _OptionsSection extends StatelessWidget {
               ),
             ),
           ),
-          // Primary control: Permission (Claude) or Approval (Codex)
+          // Primary controls: Permission (Claude) / Approval+Sandbox (Codex)
           if (provider == Provider.claude)
             DropdownButtonFormField<PermissionMode>(
               key: const ValueKey('dialog_permission_mode'),
@@ -1049,38 +1049,81 @@ class _OptionsSection extends StatelessWidget {
               },
             ),
           if (provider == Provider.codex)
-            DropdownButtonFormField<ApprovalPolicy>(
-              key: const ValueKey('dialog_codex_approval'),
-              initialValue: approvalPolicy,
-              decoration: buildInputDecoration(l.approval),
-              style: TextStyle(
-                fontSize: 13,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              items: ApprovalPolicy.values
-                  .map(
-                    (p) => DropdownMenuItem(
-                      value: p,
-                      child: Row(
-                        children: [
-                          Icon(switch (p) {
-                            ApprovalPolicy.never => Icons.flash_auto,
-                            ApprovalPolicy.onRequest => Icons.front_hand,
-                            ApprovalPolicy.onFailure => Icons.error_outline,
-                            ApprovalPolicy.untrusted => Icons.shield_outlined,
-                          }, size: 16),
-                          const SizedBox(width: 8),
-                          Text(p.label, style: const TextStyle(fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  onApprovalPolicyChanged(value);
-                }
-              },
+            Column(
+              children: [
+                DropdownButtonFormField<ApprovalPolicy>(
+                  key: const ValueKey('dialog_codex_approval'),
+                  initialValue: approvalPolicy,
+                  decoration: buildInputDecoration(l.approval),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  items: ApprovalPolicy.values
+                      .map(
+                        (p) => DropdownMenuItem(
+                          value: p,
+                          child: Row(
+                            children: [
+                              Icon(switch (p) {
+                                ApprovalPolicy.never => Icons.flash_auto,
+                                ApprovalPolicy.onRequest => Icons.front_hand,
+                                ApprovalPolicy.onFailure => Icons.error_outline,
+                                ApprovalPolicy.untrusted =>
+                                  Icons.shield_outlined,
+                              }, size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                p.label,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      onApprovalPolicyChanged(value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<SandboxMode>(
+                  key: const ValueKey('dialog_codex_sandbox'),
+                  initialValue: sandboxMode,
+                  decoration: buildInputDecoration(l.sandbox),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  items: SandboxMode.values
+                      .map(
+                        (m) => DropdownMenuItem(
+                          value: m,
+                          child: Row(
+                            children: [
+                              Icon(switch (m) {
+                                SandboxMode.workspaceWrite => Icons.edit,
+                                SandboxMode.readOnly => Icons.visibility,
+                                SandboxMode.dangerFullAccess =>
+                                  Icons.warning_amber,
+                              }, size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                m.label,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) onSandboxModeChanged(value);
+                  },
+                ),
+              ],
             ),
           const SizedBox(height: 8),
           // Worktree toggle (shared)
@@ -1163,8 +1206,6 @@ class _OptionsSection extends StatelessWidget {
             // Codex
             selectedModel: selectedModel,
             onSelectedModelChanged: onSelectedModelChanged,
-            sandboxMode: sandboxMode,
-            onSandboxModeChanged: onSandboxModeChanged,
             modelReasoningEffort: modelReasoningEffort,
             onModelReasoningEffortChanged: onModelReasoningEffortChanged,
             webSearchMode: webSearchMode,
@@ -1208,8 +1249,6 @@ class _AdvancedOptions extends StatelessWidget {
   // Codex
   final String? selectedModel;
   final ValueChanged<String?> onSelectedModelChanged;
-  final SandboxMode sandboxMode;
-  final ValueChanged<SandboxMode> onSandboxModeChanged;
   final ReasoningEffort? modelReasoningEffort;
   final ValueChanged<ReasoningEffort?> onModelReasoningEffortChanged;
   final WebSearchMode? webSearchMode;
@@ -1237,8 +1276,6 @@ class _AdvancedOptions extends StatelessWidget {
     required this.onClaudePersistSessionChanged,
     required this.selectedModel,
     required this.onSelectedModelChanged,
-    required this.sandboxMode,
-    required this.onSandboxModeChanged,
     required this.modelReasoningEffort,
     required this.onModelReasoningEffortChanged,
     required this.webSearchMode,
@@ -1288,8 +1325,6 @@ class _AdvancedOptions extends StatelessWidget {
                 buildInputDecoration: buildInputDecoration,
                 selectedModel: selectedModel,
                 onSelectedModelChanged: onSelectedModelChanged,
-                sandboxMode: sandboxMode,
-                onSandboxModeChanged: onSandboxModeChanged,
                 modelReasoningEffort: modelReasoningEffort,
                 onModelReasoningEffortChanged: onModelReasoningEffortChanged,
                 webSearchMode: webSearchMode,
@@ -1488,8 +1523,6 @@ class _CodexAdvancedOptions extends StatelessWidget {
   buildInputDecoration;
   final String? selectedModel;
   final ValueChanged<String?> onSelectedModelChanged;
-  final SandboxMode sandboxMode;
-  final ValueChanged<SandboxMode> onSandboxModeChanged;
   final ReasoningEffort? modelReasoningEffort;
   final ValueChanged<ReasoningEffort?> onModelReasoningEffortChanged;
   final WebSearchMode? webSearchMode;
@@ -1501,8 +1534,6 @@ class _CodexAdvancedOptions extends StatelessWidget {
     required this.buildInputDecoration,
     required this.selectedModel,
     required this.onSelectedModelChanged,
-    required this.sandboxMode,
-    required this.onSandboxModeChanged,
     required this.modelReasoningEffort,
     required this.onModelReasoningEffortChanged,
     required this.webSearchMode,
@@ -1537,37 +1568,6 @@ class _CodexAdvancedOptions extends StatelessWidget {
             ),
         ],
         onChanged: (value) => onSelectedModelChanged(value),
-      ),
-      const SizedBox(height: 8),
-      DropdownButtonFormField<SandboxMode>(
-        key: const ValueKey('dialog_codex_sandbox'),
-        initialValue: sandboxMode,
-        decoration: buildInputDecoration(l.sandbox),
-        style: TextStyle(
-          fontSize: 13,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-        items: SandboxMode.values
-            .map(
-              (m) => DropdownMenuItem(
-                value: m,
-                child: Row(
-                  children: [
-                    Icon(switch (m) {
-                      SandboxMode.workspaceWrite => Icons.edit,
-                      SandboxMode.readOnly => Icons.visibility,
-                      SandboxMode.dangerFullAccess => Icons.warning_amber,
-                    }, size: 16),
-                    const SizedBox(width: 8),
-                    Text(m.label, style: const TextStyle(fontSize: 13)),
-                  ],
-                ),
-              ),
-            )
-            .toList(),
-        onChanged: (value) {
-          if (value != null) onSandboxModeChanged(value);
-        },
       ),
       const SizedBox(height: 8),
       Row(

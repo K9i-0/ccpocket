@@ -21,6 +21,7 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onToggleVoice;
   final VoidCallback onShowSlashCommands;
   final VoidCallback onShowModeMenu;
+  final bool showModeButton;
   final PermissionMode permissionMode;
   final SandboxMode? sandboxMode;
   final VoidCallback? onShowPromptHistory;
@@ -45,6 +46,7 @@ class ChatInputBar extends StatelessWidget {
     required this.onToggleVoice,
     required this.onShowSlashCommands,
     required this.onShowModeMenu,
+    this.showModeButton = true,
     this.permissionMode = PermissionMode.defaultMode,
     this.sandboxMode,
     this.onShowPromptHistory,
@@ -97,12 +99,14 @@ class ChatInputBar extends StatelessWidget {
           Row(
             children: [
               _SlashButton(onTap: onShowSlashCommands),
-              const SizedBox(width: 8),
-              _ModeButton(
-                permissionMode: permissionMode,
-                sandboxMode: sandboxMode,
-                onTap: onShowModeMenu,
-              ),
+              if (showModeButton) ...[
+                const SizedBox(width: 8),
+                _ModeButton(
+                  permissionMode: permissionMode,
+                  sandboxMode: sandboxMode,
+                  onTap: onShowModeMenu,
+                ),
+              ],
               const SizedBox(width: 8),
               _AttachButton(
                 hasAttachment: attachedImages.isNotEmpty,
