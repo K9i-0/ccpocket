@@ -826,6 +826,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get fcmDisabledPending => 'Bridge 再接続後に通知解除します';
 
   @override
+  String get updateNotificationLanguage => '通知言語を更新';
+
+  @override
+  String get notificationLanguageUpdated => '通知言語を更新しました';
+
+  @override
   String get defaultNotRecommended => 'Default（非推奨）';
 
   @override

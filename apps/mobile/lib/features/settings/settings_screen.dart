@@ -105,6 +105,37 @@ class SettingsScreen extends StatelessWidget {
                         onChanged: (enabled) =>
                             context.read<SettingsCubit>().toggleFcm(enabled),
                       ),
+                      if (state.fcmEnabled) ...[
+                        Divider(
+                          height: 1,
+                          indent: 16,
+                          endIndent: 16,
+                          color: cs.outlineVariant,
+                        ),
+                        _UpdateNotificationLanguageTile(
+                          syncInProgress: state.fcmSyncInProgress,
+                          onTap: () async {
+                            final cubit = context.read<SettingsCubit>();
+                            await cubit.syncPushLocale();
+                            if (context.mounted) {
+                              final status = cubit.state.fcmStatusKey;
+                              final isSuccess =
+                                  status == FcmStatusKey.enabled ||
+                                  status == FcmStatusKey.enabledPending;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isSuccess
+                                        ? l.notificationLanguageUpdated
+                                        : l.fcmTokenFailed,
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -270,6 +301,33 @@ class _PushNotificationTile extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : const Icon(Icons.notifications_active_outlined),
+    );
+  }
+}
+
+class _UpdateNotificationLanguageTile extends StatelessWidget {
+  final bool syncInProgress;
+  final VoidCallback onTap;
+
+  const _UpdateNotificationLanguageTile({
+    required this.syncInProgress,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return ListTile(
+      leading: const Icon(Icons.translate_outlined),
+      title: Text(l.updateNotificationLanguage),
+      trailing: syncInProgress
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.chevron_right, size: 20),
+      onTap: syncInProgress ? null : onTap,
     );
   }
 }

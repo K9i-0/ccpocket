@@ -16,6 +16,7 @@ type RegisterBody = {
   bridgeId: string;
   token: string;
   platform: PushPlatform;
+  locale?: string;
 };
 
 type UnregisterBody = {
@@ -30,6 +31,8 @@ type NotifyBody = {
   eventType: string;
   title: string;
   body: string;
+  /** When set, only tokens with this locale receive the notification. */
+  locale?: string;
   data?: Record<string, string>;
 };
 
@@ -156,7 +159,8 @@ function parseRelayBody(payload: unknown): RelayBody | null {
     if (platform !== "ios" && platform !== "android" && platform !== "web") {
       return null;
     }
-    return { op, bridgeId: "", token, platform };
+    const locale = asNonEmptyString(body.locale) ?? undefined;
+    return { op, bridgeId: "", token, platform, locale };
   }
 
   if (op === "unregister") {
@@ -170,6 +174,7 @@ function parseRelayBody(payload: unknown): RelayBody | null {
     const title = asNonEmptyString(body.title);
     const bodyText = asNonEmptyString(body.body);
     if (!eventType || !title || !bodyText) return null;
+    const locale = asNonEmptyString(body.locale) ?? undefined;
     const data =
       typeof body.data === "object" && body.data != null
         ? Object.fromEntries(
@@ -178,7 +183,7 @@ function parseRelayBody(payload: unknown): RelayBody | null {
               .map(([k, v]) => [k, String(v)]),
           )
         : undefined;
-    return { op, bridgeId: "", eventType, title, body: bodyText, data };
+    return { op, bridgeId: "", eventType, title, body: bodyText, locale, data };
   }
 
   return null;
@@ -208,16 +213,19 @@ async function handleRegister(body: RegisterBody): Promise<void> {
   const ref = db.doc(tokenDocPath(body.bridgeId, body.token));
   const snapshot = await ref.get();
   if (snapshot.exists) {
-    await ref.update({
+    const updateData: Record<string, unknown> = {
       token: body.token,
       platform: body.platform,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    };
+    if (body.locale) updateData.locale = body.locale;
+    await ref.update(updateData);
     return;
   }
   await ref.set({
     token: body.token,
     platform: body.platform,
+    ...(body.locale ? { locale: body.locale } : {}),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
@@ -241,6 +249,13 @@ async function handleNotify(body: NotifyBody): Promise<{
 }> {
   const snapshot = await db.collection(`bridges/${body.bridgeId}/tokens`).get();
   const tokens = snapshot.docs
+    .filter((d) => {
+      // When locale is specified, only send to tokens with matching locale.
+      // Tokens without a locale field are included when no locale filter is set (backward compat).
+      if (!body.locale) return true;
+      const tokenLocale = asNonEmptyString(d.get("locale"));
+      return tokenLocale === body.locale || tokenLocale == null;
+    })
     .map((d) => asNonEmptyString(d.get("token")))
     .filter((token): token is string => token != null);
   if (tokens.length === 0) {

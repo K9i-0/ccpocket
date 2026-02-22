@@ -465,8 +465,18 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.interrupt(sessionId: sessionId));
   }
 
-  void registerPushToken({required String token, required String platform}) {
-    send(ClientMessage.pushRegister(token: token, platform: platform));
+  void registerPushToken({
+    required String token,
+    required String platform,
+    String? locale,
+  }) {
+    send(
+      ClientMessage.pushRegister(
+        token: token,
+        platform: platform,
+        locale: locale,
+      ),
+    );
   }
 
   void unregisterPushToken(String token) {

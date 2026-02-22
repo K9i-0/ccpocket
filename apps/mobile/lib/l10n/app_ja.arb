@@ -371,6 +371,8 @@
   "fcmEnabledPending": "Bridge 再接続後に通知登録します",
   "fcmDisabled": "通知を無効化しました",
   "fcmDisabledPending": "Bridge 再接続後に通知解除します",
+  "updateNotificationLanguage": "通知言語を更新",
+  "notificationLanguageUpdated": "通知言語を更新しました",
 
   "defaultNotRecommended": "Default（非推奨）",
 

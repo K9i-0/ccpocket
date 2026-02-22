@@ -17,6 +17,7 @@ import { DebugTraceStore } from "./debug-trace-store.js";
 import { RecordingStore } from "./recording-store.js";
 import { PushRelayClient } from "./push-relay.js";
 import type { FirebaseAuthClient } from "./firebase-auth.js";
+import { type PushLocale, normalizePushLocale, t } from "./push-i18n.js";
 import { fetchAllUsage } from "./usage.js";
 import type { PromptHistoryBackupStore } from "./prompt-history-backup.js";
 
@@ -50,6 +51,8 @@ export class BridgeWebSocketServer {
   private recentSessionsRequestId = 0;
   private debugEvents = new Map<string, DebugTraceEvent[]>();
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
+  /** FCM token → push notification locale */
+  private tokenLocales = new Map<string, PushLocale>();
 
   constructor(options: BridgeServerOptions) {
     const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore, recordingStore, firebaseAuth, promptHistoryBackup } = options;
@@ -344,12 +347,14 @@ export class BridgeWebSocketServer {
       }
 
       case "push_register": {
-        console.log(`[ws] push_register received (platform: ${msg.platform}, configured: ${this.pushRelay.isConfigured})`);
+        const locale = normalizePushLocale(msg.locale);
+        console.log(`[ws] push_register received (platform: ${msg.platform}, locale: ${locale}, configured: ${this.pushRelay.isConfigured})`);
         if (!this.pushRelay.isConfigured) {
           this.send(ws, { type: "error", message: "Push relay is not configured on bridge" });
           return;
         }
-        this.pushRelay.registerToken(msg.token, msg.platform).then(() => {
+        this.tokenLocales.set(msg.token, locale);
+        this.pushRelay.registerToken(msg.token, msg.platform, locale).then(() => {
           console.log("[ws] push_register: token registered successfully");
         }).catch((err) => {
           const detail = err instanceof Error ? err.message : String(err);
@@ -365,6 +370,7 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "Push relay is not configured on bridge" });
           return;
         }
+        this.tokenLocales.delete(msg.token);
         this.pushRelay.unregisterToken(msg.token).then(() => {
           console.log("[ws] push_unregister: token unregistered successfully");
         }).catch((err) => {
@@ -1259,6 +1265,12 @@ export class BridgeWebSocketServer {
     return parts[parts.length - 1] || "";
   }
 
+  /** Get unique locales from registered tokens. Falls back to ["en"] if none registered. */
+  private getRegisteredLocales(): PushLocale[] {
+    const locales = new Set(this.tokenLocales.values());
+    return locales.size > 0 ? [...locales] : ["en"];
+  }
+
   private maybeSendPushNotification(sessionId: string, msg: ServerMessage): void {
     if (!this.pushRelay.isConfigured) return;
 
@@ -1271,39 +1283,57 @@ export class BridgeWebSocketServer {
       this.notifiedPermissionToolUses.set(sessionId, seen);
 
       const isAskUserQuestion = msg.toolName === "AskUserQuestion";
+      const isExitPlanMode = msg.toolName === "ExitPlanMode";
       const eventType = isAskUserQuestion ? "ask_user_question" : "approval_required";
-      const title = project
-        ? (isAskUserQuestion ? `回答待ち - ${project}` : `承認待ち - ${project}`)
-        : (isAskUserQuestion ? "回答待ち" : "承認待ち");
 
-      let body: string;
+      // Extract question text for AskUserQuestion
+      let questionText: string | undefined;
       if (isAskUserQuestion) {
-        // Extract question text from input.questions[0].question
         const questions = msg.input?.questions;
         const firstQuestion = Array.isArray(questions) && questions.length > 0
           ? (questions[0] as Record<string, unknown>)?.question
           : undefined;
-        body = typeof firstQuestion === "string" && firstQuestion.length > 0
-          ? firstQuestion.slice(0, 120)
-          : "Claude が質問しています";
-      } else {
-        body = `${msg.toolName} の実行を承認してください`;
+        if (typeof firstQuestion === "string" && firstQuestion.length > 0) {
+          questionText = firstQuestion.slice(0, 120);
+        }
       }
 
-      void this.pushRelay.notify({
-        eventType,
-        title,
-        body,
-        data: {
-          sessionId,
-          provider: this.sessionManager.get(sessionId)?.provider ?? "claude",
-          toolUseId: msg.toolUseId,
-          toolName: msg.toolName,
-        },
-      }).catch((err) => {
-        const detail = err instanceof Error ? err.message : String(err);
-        console.warn(`[ws] Failed to send push notification (${eventType}): ${detail}`);
-      });
+      const data: Record<string, string> = {
+        sessionId,
+        provider: this.sessionManager.get(sessionId)?.provider ?? "claude",
+        toolUseId: msg.toolUseId,
+        toolName: msg.toolName,
+      };
+
+      for (const locale of this.getRegisteredLocales()) {
+        let title: string;
+        let body: string;
+
+        if (isExitPlanMode) {
+          const titleKey = "plan_ready_title";
+          title = project ? `${t(locale, titleKey)} - ${project}` : t(locale, titleKey);
+          body = t(locale, "plan_ready_body");
+        } else if (isAskUserQuestion) {
+          const titleKey = "ask_title";
+          title = project ? `${t(locale, titleKey)} - ${project}` : t(locale, titleKey);
+          body = questionText ?? t(locale, "ask_default_body");
+        } else {
+          const titleKey = "approval_title";
+          title = project ? `${t(locale, titleKey)} - ${project}` : t(locale, titleKey);
+          body = t(locale, "approval_body", { toolName: msg.toolName });
+        }
+
+        void this.pushRelay.notify({
+          eventType,
+          title,
+          body,
+          locale,
+          data,
+        }).catch((err) => {
+          const detail = err instanceof Error ? err.message : String(err);
+          console.warn(`[ws] Failed to send push notification (${eventType}, ${locale}): ${detail}`);
+        });
+      }
       return;
     }
 
@@ -1313,22 +1343,13 @@ export class BridgeWebSocketServer {
 
     const isSuccess = msg.subtype === "success";
     const eventType = isSuccess ? "session_completed" : "session_failed";
-    const title = project
-      ? (isSuccess ? `✅ ${project}` : `❌ ${project}`)
-      : (isSuccess ? "タスク完了" : "エラー発生");
 
-    let body: string;
+    const pieces: string[] = [];
     if (isSuccess) {
-      const pieces: string[] = [];
       if (msg.duration != null) pieces.push(`${msg.duration.toFixed(1)}s`);
       if (msg.cost != null) pieces.push(`$${msg.cost.toFixed(4)}`);
-      const stats = pieces.length > 0 ? ` (${pieces.join(", ")})` : "";
-      body = msg.result
-        ? `${msg.result.slice(0, 120)}${stats}`
-        : `セッション完了${stats}`;
-    } else {
-      body = msg.error ? msg.error.slice(0, 120) : "セッションが失敗しました";
     }
+    const stats = pieces.length > 0 ? ` (${pieces.join(", ")})` : "";
 
     const data: Record<string, string> = {
       sessionId,
@@ -1338,15 +1359,31 @@ export class BridgeWebSocketServer {
     if (msg.stopReason) data.stopReason = msg.stopReason;
     if (msg.sessionId) data.providerSessionId = msg.sessionId;
 
-    void this.pushRelay.notify({
-      eventType,
-      title,
-      body,
-      data,
-    }).catch((err) => {
-      const detail = err instanceof Error ? err.message : String(err);
-      console.warn(`[ws] Failed to send push notification (${eventType}): ${detail}`);
-    });
+    for (const locale of this.getRegisteredLocales()) {
+      const title = project
+        ? (isSuccess ? `✅ ${project}` : `❌ ${project}`)
+        : (isSuccess ? t(locale, "task_completed") : t(locale, "error_occurred"));
+
+      let body: string;
+      if (isSuccess) {
+        body = msg.result
+          ? `${msg.result.slice(0, 120)}${stats}`
+          : `${t(locale, "session_completed")}${stats}`;
+      } else {
+        body = msg.error ? msg.error.slice(0, 120) : t(locale, "session_failed");
+      }
+
+      void this.pushRelay.notify({
+        eventType,
+        title,
+        body,
+        locale,
+        data,
+      }).catch((err) => {
+        const detail = err instanceof Error ? err.message : String(err);
+        console.warn(`[ws] Failed to send push notification (${eventType}, ${locale}): ${detail}`);
+      });
+    }
   }
 
   private broadcast(msg: Record<string, unknown>): void {

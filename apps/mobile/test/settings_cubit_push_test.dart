@@ -13,7 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class FakeBridgeService extends BridgeService {
   final _connectionController =
       StreamController<BridgeConnectionState>.broadcast();
-  final registerCalls = <({String token, String platform})>[];
+  final registerCalls = <({String token, String platform, String? locale})>[];
   final unregisterCalls = <String>[];
   bool _connected = false;
   String? _fakeLastUrl;
@@ -35,8 +35,12 @@ class FakeBridgeService extends BridgeService {
   }
 
   @override
-  void registerPushToken({required String token, required String platform}) {
-    registerCalls.add((token: token, platform: platform));
+  void registerPushToken({
+    required String token,
+    required String platform,
+    String? locale,
+  }) {
+    registerCalls.add((token: token, platform: platform, locale: locale));
   }
 
   @override
@@ -162,7 +166,10 @@ void main() {
 
       await _flushAsync();
 
-      expect(bridge.registerCalls, [(token: 'token-1', platform: 'ios')]);
+      expect(bridge.registerCalls.length, 1);
+      expect(bridge.registerCalls.first.token, 'token-1');
+      expect(bridge.registerCalls.first.platform, 'ios');
+      expect(bridge.registerCalls.first.locale, isNotNull);
       expect(cubit.state.fcmAvailable, isTrue);
       expect(cubit.state.fcmStatusKey, FcmStatusKey.enabled);
 

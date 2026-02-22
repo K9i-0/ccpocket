@@ -6,6 +6,8 @@ export interface PushNotifyPayload {
   eventType: string;
   title: string;
   body: string;
+  /** When set, only tokens registered with this locale receive the notification. */
+  locale?: string;
   data?: Record<string, string>;
 }
 
@@ -17,9 +19,9 @@ export interface PushRelayClientOptions {
 }
 
 type PushRelayOpPayload =
-  | { op: "register"; token: string; platform: PushPlatform; bridgeId: string }
+  | { op: "register"; token: string; platform: PushPlatform; locale?: string; bridgeId: string }
   | { op: "unregister"; token: string; bridgeId: string }
-  | { op: "notify"; eventType: string; title: string; body: string; data?: Record<string, string>; bridgeId: string };
+  | { op: "notify"; eventType: string; title: string; body: string; locale?: string; data?: Record<string, string>; bridgeId: string };
 
 const DEFAULT_RELAY_URL = "https://us-central1-ccpocket-ca33b.cloudfunctions.net/relay";
 
@@ -44,9 +46,9 @@ export class PushRelayClient {
     return this.firebaseAuth!.uid;
   }
 
-  async registerToken(token: string, platform: PushPlatform): Promise<void> {
+  async registerToken(token: string, platform: PushPlatform, locale?: string): Promise<void> {
     if (!this.isConfigured) return;
-    await this.post({ op: "register", token, platform, bridgeId: this.bridgeId });
+    await this.post({ op: "register", token, platform, locale, bridgeId: this.bridgeId });
   }
 
   async unregisterToken(token: string): Promise<void> {
@@ -62,6 +64,7 @@ export class PushRelayClient {
       eventType: payload.eventType,
       title: payload.title,
       body: payload.body,
+      locale: payload.locale,
       data: payload.data,
     });
   }

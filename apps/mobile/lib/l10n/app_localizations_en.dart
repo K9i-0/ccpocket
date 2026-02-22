@@ -838,6 +838,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fcmDisabledPending => 'Will unregister after Bridge reconnects';
 
   @override
+  String get updateNotificationLanguage => 'Update notification language';
+
+  @override
+  String get notificationLanguageUpdated => 'Notification language updated';
+
+  @override
   String get defaultNotRecommended => 'Default (not recommended)';
 
   @override

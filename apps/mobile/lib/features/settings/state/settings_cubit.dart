@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -164,6 +166,18 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setAppLocaleId(String localeId) {
     _prefs.setString(_keyAppLocale, localeId);
     emit(state.copyWith(appLocaleId: localeId));
+    // Auto-sync push notification locale when app language changes
+    if (state.fcmEnabled) {
+      unawaited(_syncPushRegistration());
+    }
+  }
+
+  /// Re-register push token with the current locale.
+  /// Called from the "Update notification language" button in settings.
+  Future<void> syncPushLocale() async {
+    if (!state.fcmEnabled) return;
+    emit(state.copyWith(fcmSyncInProgress: true, fcmStatusKey: null));
+    await _syncPushRegistration();
   }
 
   void setSpeechLocaleId(String localeId) {
@@ -212,6 +226,28 @@ class SettingsCubit extends Cubit<SettingsState> {
     await _syncPushRegistration();
   }
 
+  /// Resolve the push notification locale from app settings or system locale.
+  /// Returns a BCP-47 language subtag (e.g. "en", "ja").
+  String _resolvePushLocale() {
+    // Use explicit app locale if set
+    final appLocale = state.appLocaleId;
+    if (appLocale.isNotEmpty) {
+      final lang = appLocale.split(RegExp(r'[-_]')).first.toLowerCase();
+      if (lang == 'ja') return 'ja';
+      return 'en';
+    }
+    // Fall back to system locale
+    if (!kIsWeb) {
+      try {
+        final systemLocale = Platform.localeName;
+        if (systemLocale.startsWith('ja')) return 'ja';
+      } catch (_) {
+        // Platform.localeName may throw on some platforms
+      }
+    }
+    return 'en';
+  }
+
   Future<void> _syncPushRegistration() async {
     final bridge = _bridge;
     if (bridge == null) {
@@ -236,7 +272,11 @@ class SettingsCubit extends Cubit<SettingsState> {
     }
 
     _activeToken = token;
-    bridge.registerPushToken(token: token, platform: _fcmService.platform);
+    bridge.registerPushToken(
+      token: token,
+      platform: _fcmService.platform,
+      locale: _resolvePushLocale(),
+    );
     final statusKey = bridge.isConnected
         ? FcmStatusKey.enabled
         : FcmStatusKey.enabledPending;

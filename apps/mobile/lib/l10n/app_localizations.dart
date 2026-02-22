@@ -1640,6 +1640,18 @@ abstract class AppLocalizations {
   /// **'Bridge 再接続後に通知解除します'**
   String get fcmDisabledPending;
 
+  /// No description provided for @updateNotificationLanguage.
+  ///
+  /// In ja, this message translates to:
+  /// **'通知言語を更新'**
+  String get updateNotificationLanguage;
+
+  /// No description provided for @notificationLanguageUpdated.
+  ///
+  /// In ja, this message translates to:
+  /// **'通知言語を更新しました'**
+  String get notificationLanguageUpdated;
+
   /// No description provided for @defaultNotRecommended.
   ///
   /// In ja, this message translates to:

@@ -1441,10 +1441,12 @@ class ClientMessage {
   factory ClientMessage.pushRegister({
     required String token,
     required String platform,
+    String? locale,
   }) => ClientMessage._(<String, dynamic>{
     'type': 'push_register',
     'token': token,
     'platform': platform,
+    'locale': ?locale,
   });
 
   factory ClientMessage.pushUnregister(String token) => ClientMessage._(
