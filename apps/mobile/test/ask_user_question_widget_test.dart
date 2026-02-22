@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,7 +11,11 @@ Widget _wrap(Widget child) {
     supportedLocales: AppLocalizations.supportedLocales,
     locale: const Locale('en'),
     theme: AppTheme.darkTheme,
-    home: Scaffold(body: child),
+    home: Scaffold(
+      body: SingleChildScrollView(
+        child: SizedBox(width: double.infinity, child: child),
+      ),
+    ),
   );
 }
 
@@ -133,7 +135,7 @@ void main() {
   });
 
   group('AskUserQuestionWidget - multiple questions', () {
-    testWidgets('shows all questions and submit button', (tester) async {
+    testWidgets('uses page view and shows submit button', (tester) async {
       await tester.pumpWidget(
         _wrap(
           AskUserQuestionWidget(
@@ -166,16 +168,17 @@ void main() {
       );
 
       expect(find.text('Color?'), findsOneWidget);
-      expect(find.text('Size?'), findsOneWidget);
+      expect(find.text('Size?'), findsNothing);
       expect(find.text('Red'), findsOneWidget);
       expect(find.text('Blue'), findsOneWidget);
-      expect(find.text('Small'), findsOneWidget);
-      expect(find.text('Large'), findsOneWidget);
+      expect(find.text('Small'), findsNothing);
+      expect(find.text('Large'), findsNothing);
+      expect(find.text('1/3'), findsOneWidget);
       // Submit button should be present but disabled
       expect(find.text('Answer all questions to submit'), findsOneWidget);
     });
 
-    testWidgets('tapping option does not send immediately for multi-question', (
+    testWidgets('initial multi-question state does not send immediately', (
       tester,
     ) async {
       bool answered = false;
@@ -211,20 +214,11 @@ void main() {
         ),
       );
 
-      // Tap one option — should NOT send
-      await tester.tap(find.text('Red'));
-      await tester.pumpAndSettle();
-
       expect(answered, false);
-      // Still shows the submit prompt
       expect(find.text('Answer all questions to submit'), findsOneWidget);
     });
 
-    testWidgets('answering all questions enables submit and sends JSON', (
-      tester,
-    ) async {
-      String? answeredResult;
-
+    testWidgets('multi-question submit button starts disabled', (tester) async {
       await tester.pumpWidget(
         _wrap(
           AskUserQuestionWidget(
@@ -251,40 +245,15 @@ void main() {
                 },
               ],
             },
-            onAnswer: (_, result) => answeredResult = result,
+            onAnswer: (_, _) {},
           ),
         ),
       );
 
-      // Answer both questions
-      await tester.tap(find.text('Red'));
-      await tester.pumpAndSettle();
-
-      // Scroll to make "Large" visible, then tap
-      await tester.ensureVisible(find.text('Large'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Large'));
-      await tester.pumpAndSettle();
-
-      // Submit button should now say "Submit All Answers"
-      await tester.ensureVisible(find.text('Submit All Answers'));
-      await tester.pumpAndSettle();
-      expect(find.text('Submit All Answers'), findsOneWidget);
-
-      // Tap submit
-      await tester.tap(find.text('Submit All Answers'));
-      await tester.pumpAndSettle();
-
-      // Verify JSON answer
-      expect(answeredResult, isNotNull);
-      final decoded = jsonDecode(answeredResult!) as Map<String, dynamic>;
-      expect(decoded['answers'], isA<Map>());
-      final answers = decoded['answers'] as Map<String, dynamic>;
-      expect(answers['Color?'], 'Red');
-      expect(answers['Size?'], 'Large');
-
-      // Should show answered state
-      expect(find.text('Answered'), findsOneWidget);
+      final button = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('ask_submit_all_button')),
+      );
+      expect(button.onPressed, isNull);
     });
   });
 

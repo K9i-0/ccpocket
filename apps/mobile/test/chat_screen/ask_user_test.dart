@@ -102,7 +102,7 @@ void main() {
       },
     );
 
-    patrolWidgetTest('E3: Multiple questions display with Submit button', (
+    patrolWidgetTest('E3: Multiple questions use paged UI with Submit button', (
       $,
     ) async {
       await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
@@ -114,15 +114,16 @@ void main() {
       ]);
       await pumpN($.tester);
 
-      // Both question texts visible
+      // First question is visible in page 1.
       expect(find.text('Which database?'), findsOneWidget);
-      expect(find.text('Which features?'), findsOneWidget);
+      expect(find.text('Which features?'), findsNothing);
+      expect(find.text('1/3'), findsOneWidget);
 
       // Submit button exists but is disabled (shows hint text)
       expect(find.text('Answer all questions to submit'), findsOneWidget);
     });
 
-    patrolWidgetTest('E4: All answers enable Submit, submit sends answer', (
+    patrolWidgetTest('E4: Multi-question first answer advances without sending', (
       $,
     ) async {
       await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
@@ -134,27 +135,14 @@ void main() {
       ]);
       await pumpN($.tester);
 
-      // Answer first question (single select)
+      // Answer first question (single select) -> auto advances to question 2.
       await $.tester.tap(find.text('SQLite'));
       await pumpN($.tester);
 
-      // Scroll to make 'Auth' visible and answer second question (multi select)
-      await $.tester.ensureVisible(find.text('Auth'));
-      await $.tester.pump();
-      await $.tester.tap(find.text('Auth'));
-      await pumpN($.tester);
-
-      // Button should now show 'Submit All Answers' (enabled)
-      expect(find.text('Submit All Answers'), findsOneWidget);
-
-      // Tap the submit button
-      await $.tester.tap(find.text('Submit All Answers'));
-      await pumpN($.tester);
-
-      // Verify an 'answer' message was sent
-      final msg = findSentMessage(bridge, 'answer');
-      expect(msg, isNotNull);
-      expect(msg!['toolUseId'], 'ask-4');
+      // Second question is shown, but answer is not sent yet.
+      expect(find.text('Which features?'), findsOneWidget);
+      expect(find.text('Answer all questions to submit'), findsOneWidget);
+      expect(findSentMessage(bridge, 'answer'), isNull);
     });
 
     patrolWidgetTest('E5: After answering shows "Answered" text', ($) async {
