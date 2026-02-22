@@ -103,6 +103,18 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
   private stdoutBuffer = "";
 
+  // Plan approval gate state
+  private _approvalPolicy: string = "never";
+  private pendingPlanApproval: {
+    toolUseId: string;
+    planData: Record<string, unknown>;
+  } | null = null;
+  private queuedApprovals: Array<{
+    id: number | string;
+    method: string;
+    params: Record<string, unknown>;
+  }> = [];
+
   get status(): ProcessStatus {
     return this._status;
   }
@@ -132,6 +144,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.pendingUserInputs.clear();
     this.lastTokenUsage = null;
     this.startModel = options?.model;
+    this._approvalPolicy = options?.approvalPolicy ?? "never";
+    this.pendingPlanApproval = null;
+    this.queuedApprovals = [];
 
     console.log(
       `[codex-process] Starting app-server (cwd: ${projectPath}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, model: ${options?.model ?? "default"})`,
@@ -234,6 +249,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   approve(toolUseId?: string, _updatedInput?: Record<string, unknown>): void {
+    // Check if this is a plan approval
+    if (this.pendingPlanApproval && toolUseId === this.pendingPlanApproval.toolUseId) {
+      this.approvePlan();
+      return;
+    }
+
     const pending = this.resolvePendingApproval(toolUseId);
     if (!pending) {
       console.log("[codex-process] approve() called but no pending permission requests");
@@ -271,6 +292,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   reject(toolUseId?: string, _message?: string): void {
+    // Check if this is a plan rejection
+    if (this.pendingPlanApproval && toolUseId === this.pendingPlanApproval.toolUseId) {
+      this.rejectPlan(_message);
+      return;
+    }
+
     const pending = this.resolvePendingApproval(toolUseId);
     if (!pending) {
       console.log("[codex-process] reject() called but no pending permission requests");
@@ -307,6 +334,17 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   getPendingPermission(
     toolUseId?: string,
   ): { toolUseId: string; toolName: string; input: Record<string, unknown> } | undefined {
+    // Check plan approval first
+    if (this.pendingPlanApproval) {
+      if (!toolUseId || toolUseId === this.pendingPlanApproval.toolUseId) {
+        return {
+          toolUseId: this.pendingPlanApproval.toolUseId,
+          toolName: "ExitPlanMode",
+          input: { ...this.pendingPlanApproval.planData },
+        };
+      }
+    }
+
     const pending = this.resolvePendingApproval(toolUseId);
     if (pending) {
       return {
@@ -335,6 +373,104 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     if (toolUseId) return this.pendingUserInputs.get(toolUseId);
     const first = this.pendingUserInputs.values().next();
     return first.done ? undefined : first.value;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Plan approval gate
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Emit a synthetic plan approval request so the Flutter UI shows the plan
+   * approval bar (same as Claude's ExitPlanMode).
+   */
+  private emitPlanApproval(text: string, params: Record<string, unknown>): void {
+    // Auto-resolve previous plan approval if one is pending
+    this.clearPlanApproval();
+
+    const toolUseId = `plan_${randomUUID()}`;
+    const planData: Record<string, unknown> = { plan: text };
+    if (Array.isArray(params.plan)) {
+      planData.steps = params.plan;
+    }
+    if (typeof params.explanation === "string") {
+      planData.explanation = params.explanation;
+    }
+
+    this.pendingPlanApproval = { toolUseId, planData };
+    this.emitMessage({
+      type: "permission_request",
+      toolUseId,
+      toolName: "ExitPlanMode",
+      input: planData,
+    });
+    this.setStatus("waiting_approval");
+  }
+
+  /**
+   * Approve the pending plan and flush queued approval requests.
+   */
+  private approvePlan(): void {
+    if (!this.pendingPlanApproval) return;
+    console.log("[codex-process] Plan approved, flushing queued approvals");
+    this.pendingPlanApproval = null;
+
+    // Flush queued approvals
+    const queued = this.queuedApprovals.splice(0);
+    if (queued.length > 0) {
+      for (const { id, method, params } of queued) {
+        this.handleServerRequest(id, method, params);
+      }
+    } else {
+      this.setStatus("running");
+    }
+  }
+
+  /**
+   * Reject the pending plan. Declines all queued approvals and interrupts the turn.
+   */
+  private rejectPlan(feedback?: string): void {
+    if (!this.pendingPlanApproval) return;
+    console.log("[codex-process] Plan rejected" + (feedback ? `: ${feedback}` : ""));
+    this.pendingPlanApproval = null;
+
+    // Decline all queued approvals
+    for (const { id } of this.queuedApprovals.splice(0)) {
+      this.respondToServerRequest(id, { decision: "decline" });
+    }
+
+    // Stop the current turn to prevent further execution
+    this.interruptCurrentTurn();
+    this.setStatus("idle");
+
+    // Queue feedback as next user input if provided
+    if (feedback && this.inputResolve) {
+      const resolve = this.inputResolve;
+      this.inputResolve = null;
+      resolve({ text: feedback });
+    }
+  }
+
+  /**
+   * Clear pending plan approval without side effects (used on turn completion).
+   */
+  private clearPlanApproval(): void {
+    if (this.pendingPlanApproval) {
+      this.pendingPlanApproval = null;
+      // Flush any queued approvals since the plan gate is no longer active
+      const queued = this.queuedApprovals.splice(0);
+      for (const { id, method, params } of queued) {
+        this.handleServerRequest(id, method, params);
+      }
+    }
+  }
+
+  /**
+   * Interrupt the currently running turn via RPC cancel request.
+   */
+  private interruptCurrentTurn(): void {
+    if (this.pendingTurnId) {
+      this.notify("turn/cancel", { turnId: this.pendingTurnId });
+    }
   }
 
   private async bootstrap(projectPath: string, options?: CodexStartOptions): Promise<void> {
@@ -522,6 +658,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   private handleServerRequest(id: number | string, method: string, params: Record<string, unknown>): void {
+    // Queue approval requests while plan approval is pending
+    if (
+      this.pendingPlanApproval &&
+      (method === "item/commandExecution/requestApproval" || method === "item/fileChange/requestApproval")
+    ) {
+      this.queuedApprovals.push({ id, method, params });
+      return;
+    }
+
     switch (method) {
       case "item/commandExecution/requestApproval": {
         const toolUseId = this.extractToolUseId(params, id);
@@ -693,7 +838,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
       case "turn/plan/updated": {
         const text = formatPlanUpdateText(params);
-        if (text) {
+        if (!text) break;
+
+        if (this._approvalPolicy === "never") {
+          // No approval gate — show plan as informational text
           this.emitMessage({
             type: "assistant",
             message: {
@@ -703,6 +851,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
               model: "codex",
             },
           });
+        } else {
+          // Emit synthetic plan approval request
+          this.emitPlanApproval(text, params);
         }
         break;
       }
@@ -745,6 +896,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         ...(usage?.output != null ? { outputTokens: usage.output } : {}),
       });
     }
+
+    // Auto-resolve plan approval on turn completion
+    this.clearPlanApproval();
 
     this.pendingTurnId = null;
     if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
@@ -861,11 +1015,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       }
 
       case "filechange": {
-        const summary = summarizeFileChanges(item.changes);
+        const content = formatFileChangesWithDiff(item.changes);
         this.emitMessage({
           type: "tool_result",
           toolUseId: itemId,
-          content: summary,
+          content,
           toolName: "FileChange",
         });
         break;
@@ -1106,6 +1260,35 @@ function summarizeFileChanges(changes: unknown): string {
       return `${kind}: ${path}`;
     })
     .join("\n");
+}
+
+/**
+ * Format file changes including unified diff content for display in chat.
+ * Falls back to `kind: path` summary when no diff is available.
+ */
+function formatFileChangesWithDiff(changes: unknown): string {
+  if (!Array.isArray(changes) || changes.length === 0) {
+    return "No file changes";
+  }
+
+  return changes
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return "changed";
+      const record = entry as Record<string, unknown>;
+      const kind = typeof record.kind === "string" ? record.kind : "changed";
+      const path = typeof record.path === "string" ? record.path : "(unknown)";
+      const diff = typeof record.diff === "string" ? record.diff.trim() : "";
+
+      if (diff) {
+        // If diff already has unified headers, use as-is; otherwise add them
+        if (diff.startsWith("---") || diff.startsWith("@@")) {
+          return `--- a/${path}\n+++ b/${path}\n${diff}`;
+        }
+        return diff;
+      }
+      return `${kind}: ${path}`;
+    })
+    .join("\n\n");
 }
 
 function extractAgentText(item: Record<string, unknown>): string {

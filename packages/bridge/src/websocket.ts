@@ -540,8 +540,8 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          this.send(ws, { type: "error", message: "Codex sessions do not support answer" });
-          return;
+          (session.process as CodexProcess).answer(msg.toolUseId, msg.result);
+          break;
         }
         (session.process as SdkProcess).answer(msg.toolUseId, msg.result);
         break;

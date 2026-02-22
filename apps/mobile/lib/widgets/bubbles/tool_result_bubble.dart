@@ -108,7 +108,8 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
         toolName == 'FileEdit' ||
         toolName == 'MultiEdit' ||
         toolName == 'Write' ||
-        toolName == 'NotebookEdit';
+        toolName == 'NotebookEdit' ||
+        toolName == 'FileChange';
   }
 
   bool get _isMcpImageResult {
@@ -135,7 +136,9 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     final lines = content.split('\n');
     final lineCount = lines.length;
 
-    if (toolName == 'Edit' || toolName == 'FileEdit') {
+    if (toolName == 'Edit' ||
+        toolName == 'FileEdit' ||
+        toolName == 'FileChange') {
       var added = 0;
       var removed = 0;
       for (final line in lines) {
@@ -157,7 +160,11 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
   /// Whether this tool result contains a viewable diff.
   bool get _isDiffContent {
     final toolName = widget.message.toolName;
-    if (toolName != 'Edit' && toolName != 'FileEdit') return false;
+    if (toolName != 'Edit' &&
+        toolName != 'FileEdit' &&
+        toolName != 'FileChange') {
+      return false;
+    }
     final content = widget.message.content;
     // Check for unified diff markers
     return content.contains('---') && content.contains('+++') ||
