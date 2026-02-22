@@ -546,17 +546,17 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           params.effort = normalizeReasoningEffort(options.modelReasoningEffort);
         }
 
-        // Send collaborationMode on every turn
-        const modeSettings: Record<string, unknown> = {
-          model: options?.model || this.startModel || "codex-mini-latest",
-        };
+        // Send collaborationMode only for plan mode (default mode uses server defaults)
         if (this._collaborationMode === "plan") {
-          modeSettings.reasoning_effort = "medium";
+          const modeSettings: Record<string, unknown> = {
+            model: options?.model || this.startModel || "gpt-5.3-codex",
+            reasoning_effort: "medium",
+          };
+          params.collaborationMode = {
+            mode: "plan",
+            settings: modeSettings,
+          };
         }
-        params.collaborationMode = {
-          mode: this._collaborationMode,
-          settings: modeSettings,
-        };
 
         void this.request("turn/start", params)
           .then((result) => {
