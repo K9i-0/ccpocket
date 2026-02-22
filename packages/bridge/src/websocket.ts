@@ -21,6 +21,23 @@ import { type PushLocale, normalizePushLocale, t } from "./push-i18n.js";
 import { fetchAllUsage } from "./usage.js";
 import type { PromptHistoryBackupStore } from "./prompt-history-backup.js";
 
+// ---- Codex mode mapping helpers ----
+
+/** Map unified PermissionMode to Codex approval_policy.
+ *  Only "bypassPermissions" maps to "never"; all others use "on-request". */
+function permissionModeToApprovalPolicy(
+  mode?: string,
+): "never" | "on-request" {
+  return mode === "bypassPermissions" ? "never" : "on-request";
+}
+
+/** Map simplified SandboxMode (on/off) to Codex internal sandbox mode. */
+function sandboxModeToInternal(
+  mode?: string,
+): "workspace-write" | "danger-full-access" {
+  return mode === "off" ? "danger-full-access" : "workspace-write";
+}
+
 export interface BridgeServerOptions {
   server: HttpServer;
   apiKey?: string;
@@ -203,8 +220,8 @@ export class BridgeWebSocketServer {
           provider,
           provider === "codex"
             ? {
-                approvalPolicy: msg.permissionMode === "bypassPermissions" ? "never" as const : "on-request" as const,
-                sandboxMode: (msg.sandboxMode === "off" ? "danger-full-access" : "workspace-write") as "read-only" | "workspace-write" | "danger-full-access",
+                approvalPolicy: permissionModeToApprovalPolicy(msg.permissionMode),
+                sandboxMode: sandboxModeToInternal(msg.sandboxMode),
                 model: msg.model,
                 modelReasoningEffort: (msg.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
                 networkAccessEnabled: msg.networkAccessEnabled,
@@ -389,18 +406,9 @@ export class BridgeWebSocketServer {
         }
         if (session.provider === "codex") {
           // Map PermissionMode to Codex approval_policy
-          const policyMap: Record<string, string> = {
-            default: "on-request",
-            plan: "on-request",
-            acceptEdits: "on-request",
-            bypassPermissions: "never",
-          };
-          const policy = policyMap[msg.mode];
-          if (!policy) {
-            this.send(ws, { type: "error", message: `Invalid permission mode: ${msg.mode}` });
-            return;
-          }
-          (session.process as CodexProcess).setApprovalPolicy(policy);
+          (session.process as CodexProcess).setApprovalPolicy(
+            permissionModeToApprovalPolicy(msg.mode),
+          );
           break;
         }
         (session.process as SdkProcess).setPermissionMode(msg.mode).catch((err) => {
@@ -423,15 +431,11 @@ export class BridgeWebSocketServer {
           return;
         }
         // Map on/off to internal Codex sandbox modes
-        const sandboxMap: Record<string, "workspace-write" | "danger-full-access"> = {
-          on: "workspace-write",
-          off: "danger-full-access",
-        };
-        const newSandboxMode = sandboxMap[msg.sandboxMode];
-        if (!newSandboxMode) {
+        if (msg.sandboxMode !== "on" && msg.sandboxMode !== "off") {
           this.send(ws, { type: "error", message: `Invalid sandbox mode: ${msg.sandboxMode}` });
           return;
         }
+        const newSandboxMode = sandboxModeToInternal(msg.sandboxMode);
         // Update stored settings.
         // Note: Codex app-server does not reliably support resuming an existing
         // thread with a different sandbox mode. Restarting here can terminate
@@ -728,8 +732,8 @@ export class BridgeWebSocketServer {
               "codex",
               {
                 threadId: sessionRefId,
-                approvalPolicy: msg.permissionMode === "bypassPermissions" ? "never" as const : "on-request" as const,
-                sandboxMode: (msg.sandboxMode === "off" ? "danger-full-access" : "workspace-write") as "read-only" | "workspace-write" | "danger-full-access",
+                approvalPolicy: permissionModeToApprovalPolicy(msg.permissionMode),
+                sandboxMode: sandboxModeToInternal(msg.sandboxMode),
                 model: msg.model,
                 modelReasoningEffort: (msg.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
                 networkAccessEnabled: msg.networkAccessEnabled,
