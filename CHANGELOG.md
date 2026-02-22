@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.18.0] - 2026-02-22
+
+### Added
+- Codex app-server native collaboration_mode API integration (Plan mode)
+- Codex plan approval flow: streaming plan text, approve/reject with feedback
+- Codex AskUserQuestion routing for multi-question and single-question flows
+- Talker logging for Bridge service errors and session state transitions
+- Collaboration mode logging in Codex startup and turn/start
+
+### Changed
+- Bridge Server 1.0.0: Codex process rewritten for app-server protocol
+- Unified permission/sandbox mode system across Claude and Codex sessions
+- Replaced custom plan gate with native collaboration_mode in turn/start
+
+### Fixed
+- Permission mode preserved when re-entering Codex sessions from session list
+- AskUserQuestion correctly routed in Codex history replay (no longer shows as generic approval)
+- Plan Accept now transitions server out of Plan mode (collaborationMode always sent)
+- Zombie approval dialogs no longer resurrect on history replay (synthetic tool_result)
+- Plan approval race condition: queued input when inputResolve not ready
+
 ## [1.16.1] - 2026-02-22
 
 ### Added
