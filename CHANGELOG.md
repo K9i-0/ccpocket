@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.16.1] - 2025-06-22
+
+### Added
+- Push notification i18n: per-device locale support (English/Japanese) with Bridge-side translation
+- ExitPlanMode push notification shows "Plan ready" / "プラン完成" instead of raw tool name
+- "Update notification language" button in settings
+- Plan approval enhancements: inline plan editing, feedback text field, approve-with-clear-context
+- Multiple image attachments per message with draft persistence
+- Multi-question AskUserQuestion: summary page, step indicators, improved PageView UX
+- Prompt history backup & restore via Bridge Server
+- Usage section: in-memory cache and animated gauge
+- Markdown code block highlight and copy UX improvements
+- `BRIDGE_HIDE_IP` option to mask IP addresses in Bridge Server
+
+### Changed
+- Redesigned Session List UI cards and filter chips
+- Redesigned running session cards and New Session sheet (Graphite & Ember aesthetic)
+- Refined theme: crisp monochrome base with vibrant provider accents
+- Connection screen: unified new connections via MachineEditSheet (removed text fields)
+- Debug bundle button moved to status indicator long press
+- Removed swipe queue prototype
+
+### Fixed
+- Clear-context session switch and routing stability
+- Hardcoded Japanese strings replaced with AppLocalizations
+- Splash screen background set to black for neon icon visibility
+- Segmented toggle and ChoiceChip contrast with onPrimaryContainer
+
 ## [1.14.0] - 2025-06-19
 
 ### Added
