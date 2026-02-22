@@ -656,9 +656,7 @@ class _AskOptionButton extends StatelessWidget {
             children: [
               if (isMulti) ...[
                 Icon(
-                  isSelected
-                      ? Icons.check_box
-                      : Icons.check_box_outline_blank,
+                  isSelected ? Icons.check_box : Icons.check_box_outline_blank,
                   size: 18,
                   color: isSelected
                       ? appColors.askIcon

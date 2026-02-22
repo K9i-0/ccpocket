@@ -4,7 +4,12 @@
   "appTitle": "CC Pocket",
 
   "cancel": "Cancel",
+  "save": "Save",
   "delete": "Delete",
+  "rename": "Rename",
+  "renameSession": "Rename Session",
+  "sessionNameHint": "Session name",
+  "clearName": "Clear name",
   "connect": "Connect",
   "copy": "Copy",
   "copied": "Copied",

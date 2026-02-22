@@ -4,7 +4,12 @@
   "appTitle": "CC Pocket",
 
   "cancel": "キャンセル",
+  "save": "保存",
   "delete": "削除",
+  "rename": "名前を変更",
+  "renameSession": "セッション名を変更",
+  "sessionNameHint": "セッション名",
+  "clearName": "名前をクリア",
   "connect": "接続",
   "copy": "コピー",
   "copied": "コピーしました",

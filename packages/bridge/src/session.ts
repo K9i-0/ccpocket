@@ -28,6 +28,8 @@ export interface SessionInfo {
   pastMessages?: unknown[];
   projectPath: string;
   claudeSessionId?: string;
+  /** User-assigned session name (via /rename or mobile rename). */
+  name?: string;
   status: ProcessStatus;
   createdAt: Date;
   lastActivityAt: Date;
@@ -52,6 +54,8 @@ export interface SessionSummary {
   provider: Provider;
   projectPath: string;
   claudeSessionId?: string;
+  /** User-assigned session name. */
+  name?: string;
   status: ProcessStatus;
   createdAt: string;
   lastActivityAt: string;
@@ -403,6 +407,7 @@ export class SessionManager {
         provider: s.provider,
         projectPath: s.projectPath,
         claudeSessionId: s.claudeSessionId,
+        name: s.name,
         status: s.status,
         createdAt: s.createdAt.toISOString(),
         lastActivityAt: s.lastActivityAt.toISOString(),
@@ -701,6 +706,17 @@ export class SessionManager {
     }
 
     return null;
+  }
+
+  /**
+   * Rename a running session (in-memory only).
+   * Persistent storage is handled by the caller (websocket.ts).
+   */
+  renameSession(id: string, name: string | null): boolean {
+    const session = this.sessions.get(id);
+    if (!session) return false;
+    session.name = name ?? undefined;
+    return true;
   }
 
   destroy(id: string): boolean {

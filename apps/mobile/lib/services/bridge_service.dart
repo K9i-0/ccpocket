@@ -403,6 +403,26 @@ class BridgeService implements BridgeServiceBase {
     send(ClientMessage.stopSession(sessionId));
   }
 
+  /// Rename a session. For running sessions, [sessionId] is the bridge id.
+  /// For recent sessions, include [provider], [providerSessionId], and [projectPath].
+  void renameSession({
+    required String sessionId,
+    String? name,
+    String? provider,
+    String? providerSessionId,
+    String? projectPath,
+  }) {
+    send(
+      ClientMessage.renameSession(
+        sessionId: sessionId,
+        name: name,
+        provider: provider,
+        providerSessionId: providerSessionId,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
   void requestProjectHistory() {
     send(ClientMessage.listProjectHistory());
   }

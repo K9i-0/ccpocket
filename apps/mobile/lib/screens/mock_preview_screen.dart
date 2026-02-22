@@ -849,6 +849,7 @@ class _StoreSessionListWrapperState extends State<_StoreSessionListWrapper> {
             onStopSession: (_) {},
             onResumeSession: (_) {},
             onLongPressRecentSession: (_) {},
+            onLongPressRunningSession: (_) {},
             onSelectProject: (_) {},
             onLoadMore: () {},
           ),

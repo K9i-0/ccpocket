@@ -16,6 +16,7 @@ class RunningSessionCard extends StatefulWidget {
   final SessionInfo session;
   final VoidCallback onTap;
   final VoidCallback onStop;
+  final VoidCallback? onLongPress;
   final void Function(
     String toolUseId, {
     Map<String, dynamic>? updatedInput,
@@ -31,6 +32,7 @@ class RunningSessionCard extends StatefulWidget {
     required this.session,
     required this.onTap,
     required this.onStop,
+    this.onLongPress,
     this.onApprove,
     this.onApproveAlways,
     this.onReject,
@@ -144,6 +146,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -253,6 +256,32 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Session name (if set)
+                  if (session.name != null && session.name!.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.label_outline,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            session.name!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                   // Title row: project badge + elapsed
                   Row(
                     children: [
@@ -1809,6 +1838,32 @@ class RecentSessionCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Session name (if set)
+              if (session.name != null && session.name!.isNotEmpty) ...[
+                Row(
+                  children: [
+                    Icon(
+                      Icons.label_outline,
+                      size: 14,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        session.name!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.primary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+              ],
               // Title Row
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,

@@ -1,10 +1,12 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, writeFile, appendFile, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { homedir } from "node:os";
 
 export interface SessionIndexEntry {
   sessionId: string;
   provider: "claude" | "codex";
+  /** User-assigned session name (customTitle for Claude, thread_name for Codex). */
+  name?: string;
   summary?: string;
   firstPrompt: string;
   lastPrompt?: string;
@@ -37,6 +39,7 @@ interface RawSessionEntry {
   fileMtime: number;
   firstPrompt: string;
   summary?: string;
+  customTitle?: string;
   messageCount: number;
   created: string;
   modified: string;
@@ -258,6 +261,7 @@ export async function getAllRecentSessions(
         const mapped: SessionIndexEntry = {
           sessionId: entry.sessionId,
           provider: "claude",
+          name: entry.customTitle || undefined,
           summary: entry.summary,
           firstPrompt: entry.firstPrompt ?? "",
           messageCount: entry.messageCount ?? 0,
@@ -500,12 +504,139 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   };
 }
 
+/**
+ * Look up the saved name (customTitle) for a Claude Code session.
+ * Returns the name if found, or undefined.
+ */
+export async function getClaudeSessionName(
+  projectPath: string,
+  claudeSessionId: string,
+): Promise<string | undefined> {
+  const slug = pathToSlug(projectPath);
+  const indexPath = join(homedir(), ".claude", "projects", slug, "sessions-index.json");
+
+  let raw: string;
+  try {
+    raw = await readFile(indexPath, "utf-8");
+  } catch {
+    return undefined;
+  }
+
+  let index: RawSessionIndexFile;
+  try {
+    index = JSON.parse(raw) as RawSessionIndexFile;
+  } catch {
+    return undefined;
+  }
+
+  if (!Array.isArray(index.entries)) return undefined;
+
+  const entry = index.entries.find((e) => e.sessionId === claudeSessionId);
+  return entry?.customTitle || undefined;
+}
+
+/**
+ * Rename a Claude Code session by writing customTitle to sessions-index.json.
+ * This is the same mechanism the CLI uses for /rename.
+ */
+export async function renameClaudeSession(
+  projectPath: string,
+  claudeSessionId: string,
+  name: string | null,
+): Promise<boolean> {
+  const slug = pathToSlug(projectPath);
+  const indexPath = join(homedir(), ".claude", "projects", slug, "sessions-index.json");
+
+  let raw: string;
+  try {
+    raw = await readFile(indexPath, "utf-8");
+  } catch {
+    return false;
+  }
+
+  let index: RawSessionIndexFile;
+  try {
+    index = JSON.parse(raw) as RawSessionIndexFile;
+  } catch {
+    return false;
+  }
+
+  if (!Array.isArray(index.entries)) return false;
+
+  const entry = index.entries.find((e) => e.sessionId === claudeSessionId);
+  if (!entry) return false;
+
+  if (name) {
+    entry.customTitle = name;
+  } else {
+    delete entry.customTitle;
+  }
+
+  await writeFile(indexPath, JSON.stringify(index, null, 2), "utf-8");
+  return true;
+}
+
+/**
+ * Read the Codex session_index.jsonl and build a threadId → name map.
+ */
+export async function loadCodexSessionNames(): Promise<Map<string, string>> {
+  const indexPath = join(homedir(), ".codex", "session_index.jsonl");
+  const names = new Map<string, string>();
+
+  let raw: string;
+  try {
+    raw = await readFile(indexPath, "utf-8");
+  } catch {
+    return names;
+  }
+
+  // Append-only: later entries override earlier ones for the same id
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const entry = JSON.parse(line) as { id?: string; thread_name?: string };
+      if (entry.id && entry.thread_name) {
+        names.set(entry.id, entry.thread_name);
+      }
+    } catch {
+      // skip malformed
+    }
+  }
+
+  return names;
+}
+
+/**
+ * Rename a Codex session by appending to ~/.codex/session_index.jsonl.
+ * Passing `null` or empty name writes an empty thread_name to effectively clear it.
+ */
+export async function renameCodexSession(
+  threadId: string,
+  name: string | null,
+): Promise<boolean> {
+  try {
+    const indexPath = join(homedir(), ".codex", "session_index.jsonl");
+    const entry = JSON.stringify({
+      id: threadId,
+      thread_name: name ?? "",
+      updated_at: new Date().toISOString(),
+    });
+    await appendFile(indexPath, entry + "\n");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Promise<SessionIndexEntry[]> {
   const files = await listCodexSessionFiles();
   const entries: SessionIndexEntry[] = [];
   const normalizedProjectPath = options.projectPath
     ? normalizeWorktreePath(options.projectPath)
     : null;
+
+  // Load thread names from session_index.jsonl
+  const threadNames = await loadCodexSessionNames();
 
   for (const filePath of files) {
     let raw: string;
@@ -519,6 +650,11 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
     if (!parsed) continue;
     if (normalizedProjectPath && parsed.entry.projectPath !== normalizedProjectPath) {
       continue;
+    }
+    // Attach thread name if available
+    const threadName = threadNames.get(parsed.threadId);
+    if (threadName) {
+      parsed.entry.name = threadName;
     }
     entries.push(parsed.entry);
   }

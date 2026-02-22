@@ -15,7 +15,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancel => 'Cancel';
 
   @override
+  String get save => 'Save';
+
+  @override
   String get delete => 'Delete';
+
+  @override
+  String get rename => 'Rename';
+
+  @override
+  String get renameSession => 'Rename Session';
+
+  @override
+  String get sessionNameHint => 'Session name';
+
+  @override
+  String get clearName => 'Clear name';
 
   @override
   String get connect => 'Connect';

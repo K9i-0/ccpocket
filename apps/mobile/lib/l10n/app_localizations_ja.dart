@@ -15,7 +15,22 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cancel => 'キャンセル';
 
   @override
+  String get save => '保存';
+
+  @override
   String get delete => '削除';
+
+  @override
+  String get rename => '名前を変更';
+
+  @override
+  String get renameSession => 'セッション名を変更';
+
+  @override
+  String get sessionNameHint => 'セッション名';
+
+  @override
+  String get clearName => '名前をクリア';
 
   @override
   String get connect => '接続';

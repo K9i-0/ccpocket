@@ -214,7 +214,6 @@ void main() {
 
       expect(answered, false);
     });
-
   });
 
   group('AskUserQuestionWidget - multiSelect', () {

@@ -157,6 +157,20 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     return this._collaborationMode;
   }
 
+  /**
+   * Rename a thread via the app-server RPC.
+   * Sends thread/name/set which persists to ~/.codex/session_index.jsonl.
+   */
+  async renameThread(name: string): Promise<void> {
+    if (!this._threadId) {
+      throw new Error("No thread ID available for rename");
+    }
+    await this.request("thread/name/set", {
+      threadId: this._threadId,
+      name,
+    });
+  }
+
   start(projectPath: string, options?: CodexStartOptions): void {
     if (this.child) {
       this.stop();
@@ -805,6 +819,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
       case "turn/completed": {
         this.handleTurnCompleted(params.turn as Record<string, unknown> | undefined);
+        break;
+      }
+
+      case "thread/name/updated": {
+        // Name change notification — handled by session manager
         break;
       }
 

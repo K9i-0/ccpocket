@@ -110,11 +110,41 @@ abstract class AppLocalizations {
   /// **'キャンセル'**
   String get cancel;
 
+  /// No description provided for @save.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存'**
+  String get save;
+
   /// No description provided for @delete.
   ///
   /// In ja, this message translates to:
   /// **'削除'**
   String get delete;
+
+  /// No description provided for @rename.
+  ///
+  /// In ja, this message translates to:
+  /// **'名前を変更'**
+  String get rename;
+
+  /// No description provided for @renameSession.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション名を変更'**
+  String get renameSession;
+
+  /// No description provided for @sessionNameHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション名'**
+  String get sessionNameHint;
+
+  /// No description provided for @clearName.
+  ///
+  /// In ja, this message translates to:
+  /// **'名前をクリア'**
+  String get clearName;
 
   /// No description provided for @connect.
   ///

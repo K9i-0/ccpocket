@@ -118,7 +118,6 @@ void main() {
       expect(find.text('Which database?'), findsOneWidget);
       expect(find.text('Which features?'), findsNothing);
       expect(find.text('1/3'), findsOneWidget);
-
     });
 
     patrolWidgetTest(

@@ -19,6 +19,7 @@ import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/server_discovery_service.dart';
 import '../../widgets/new_session_sheet.dart';
+import '../../widgets/rename_session_dialog.dart';
 import 'state/session_list_cubit.dart';
 import 'widgets/connect_form.dart';
 import 'widgets/home_content.dart';
@@ -491,6 +492,53 @@ class _SessionListScreenState extends State<SessionListScreen>
     );
   }
 
+  void _showRunningSessionActions(SessionInfo session) async {
+    final l = AppLocalizations.of(context);
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.label_outline),
+              title: Text(l.rename),
+              onTap: () => Navigator.pop(ctx, 'rename'),
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.stop_circle_outlined,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(l.stopSession),
+              onTap: () => Navigator.pop(ctx, 'stop'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    if (action == 'rename') {
+      final newName = await showRenameSessionDialog(
+        context,
+        currentName: session.name,
+      );
+      if (newName == null || !mounted) return;
+      context.read<BridgeService>().renameSession(
+        sessionId: session.id,
+        name: newName.isEmpty ? null : newName,
+      );
+      // Running session list will auto-update via broadcastSessionList
+      return;
+    }
+
+    if (action == 'stop') {
+      context.read<BridgeService>().stopSession(session.id);
+    }
+  }
+
   void _showRecentSessionActions(RecentSession session) async {
     final l = AppLocalizations.of(context);
     final action = await showModalBottomSheet<String>(
@@ -500,6 +548,11 @@ class _SessionListScreenState extends State<SessionListScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(
+              leading: const Icon(Icons.label_outline),
+              title: Text(l.rename),
+              onTap: () => Navigator.pop(ctx, 'rename'),
+            ),
             ListTile(
               leading: const Icon(Icons.play_arrow),
               title: Text(l.startNewWithSameSettings),
@@ -515,6 +568,24 @@ class _SessionListScreenState extends State<SessionListScreen>
       ),
     );
     if (action == null || !mounted) return;
+
+    if (action == 'rename') {
+      final newName = await showRenameSessionDialog(
+        context,
+        currentName: session.name,
+      );
+      if (newName == null || !mounted) return;
+      context.read<BridgeService>().renameSession(
+        sessionId: session.sessionId,
+        name: newName.isEmpty ? null : newName,
+        provider: session.provider,
+        providerSessionId: session.sessionId,
+        projectPath: session.projectPath,
+      );
+      // Refresh recent sessions to show updated name
+      context.read<BridgeService>().requestRecentSessions();
+      return;
+    }
 
     if (action == 'start_same') {
       final params = _newSessionFromRecentSession(session);
@@ -807,6 +878,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                   },
                   onResumeSession: _resumeSession,
                   onLongPressRecentSession: _showRecentSessionActions,
+                  onLongPressRunningSession: _showRunningSessionActions,
                   onSelectProject: (path) =>
                       context.read<SessionListCubit>().selectProject(path),
                   onLoadMore: () => context.read<SessionListCubit>().loadMore(),

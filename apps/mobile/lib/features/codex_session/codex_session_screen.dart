@@ -13,6 +13,7 @@ import '../../services/bridge_service.dart';
 import '../../services/chat_message_handler.dart';
 import '../../services/draft_service.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/session_name_title.dart';
 import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
 import '../../widgets/new_session_sheet.dart'
@@ -453,6 +454,11 @@ class _CodexChatBody extends HookWidget {
           autofocus: true,
           child: Scaffold(
             appBar: AppBar(
+              titleSpacing: 0,
+              title: SessionNameTitle(
+                sessionId: sessionId,
+                projectPath: projectPath,
+              ),
               actions: [
                 IconButton(
                   key: const ValueKey('codex_message_history_button'),

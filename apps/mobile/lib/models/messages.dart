@@ -1164,6 +1164,9 @@ enum SessionDisplayMode {
 class RecentSession {
   final String sessionId;
   final String? provider;
+
+  /// User-assigned session name (customTitle for Claude, thread_name for Codex).
+  final String? name;
   final String? summary;
   final String firstPrompt;
   final String? lastPrompt;
@@ -1184,6 +1187,7 @@ class RecentSession {
   const RecentSession({
     required this.sessionId,
     this.provider,
+    this.name,
     this.summary,
     required this.firstPrompt,
     this.lastPrompt,
@@ -1207,6 +1211,7 @@ class RecentSession {
     return RecentSession(
       sessionId: json['sessionId'] as String,
       provider: json['provider'] as String?,
+      name: json['name'] as String?,
       summary: json['summary'] as String?,
       firstPrompt: json['firstPrompt'] as String? ?? '',
       lastPrompt: json['lastPrompt'] as String?,
@@ -1249,6 +1254,9 @@ class SessionInfo {
   final String? provider;
   final String projectPath;
   final String? claudeSessionId;
+
+  /// User-assigned session name.
+  final String? name;
   final String status;
   final String createdAt;
   final String lastActivityAt;
@@ -1271,6 +1279,7 @@ class SessionInfo {
     this.provider,
     required this.projectPath,
     this.claudeSessionId,
+    this.name,
     required this.status,
     required this.createdAt,
     required this.lastActivityAt,
@@ -1291,6 +1300,8 @@ class SessionInfo {
 
   SessionInfo copyWith({
     String? status,
+    String? name,
+    bool clearName = false,
     String? lastMessage,
     PermissionRequestMessage? pendingPermission,
     bool clearPermission = false,
@@ -1300,6 +1311,7 @@ class SessionInfo {
       provider: provider,
       projectPath: projectPath,
       claudeSessionId: claudeSessionId,
+      name: clearName ? null : (name ?? this.name),
       status: status ?? this.status,
       createdAt: createdAt,
       lastActivityAt: lastActivityAt,
@@ -1329,6 +1341,7 @@ class SessionInfo {
       provider: json['provider'] as String?,
       projectPath: json['projectPath'] as String,
       claudeSessionId: json['claudeSessionId'] as String?,
+      name: json['name'] as String?,
       status: json['status'] as String? ?? 'idle',
       createdAt: json['createdAt'] as String? ?? '',
       lastActivityAt: json['lastActivityAt'] as String? ?? '',
@@ -1523,6 +1536,25 @@ class ClientMessage {
 
   factory ClientMessage.stopSession(String sessionId) =>
       ClientMessage._({'type': 'stop_session', 'sessionId': sessionId});
+
+  /// Rename a session. For running sessions, sessionId is the bridge session id.
+  /// For recent sessions, include provider, providerSessionId, and projectPath.
+  factory ClientMessage.renameSession({
+    required String sessionId,
+    String? name,
+    String? provider,
+    String? providerSessionId,
+    String? projectPath,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'rename_session',
+      'sessionId': sessionId,
+      'name': ?name,
+      'provider': ?provider,
+      'providerSessionId': ?providerSessionId,
+      'projectPath': ?projectPath,
+    });
+  }
 
   factory ClientMessage.listRecentSessions({
     int? limit,

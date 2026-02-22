@@ -14,6 +14,7 @@ import '../../services/bridge_service.dart';
 import '../../services/draft_service.dart';
 import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/session_name_title.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/new_session_sheet.dart' show permissionModeFromRaw;
 import '../../widgets/approval_bar.dart';
@@ -496,6 +497,11 @@ class _ChatScreenBody extends HookWidget {
           autofocus: true,
           child: Scaffold(
             appBar: AppBar(
+              titleSpacing: 0,
+              title: SessionNameTitle(
+                sessionId: sessionId,
+                projectPath: projectPath,
+              ),
               actions: [
                 // 1. Message History (rewind + scroll)
                 IconButton(

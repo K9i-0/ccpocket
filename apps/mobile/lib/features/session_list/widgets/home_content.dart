@@ -50,6 +50,7 @@ class HomeContent extends StatefulWidget {
   onAnswerQuestion;
   final ValueChanged<RecentSession> onResumeSession;
   final ValueChanged<RecentSession> onLongPressRecentSession;
+  final ValueChanged<SessionInfo> onLongPressRunningSession;
   final ValueChanged<String?> onSelectProject;
   final VoidCallback onLoadMore;
 
@@ -74,6 +75,7 @@ class HomeContent extends StatefulWidget {
     this.onAnswerQuestion,
     required this.onResumeSession,
     required this.onLongPressRecentSession,
+    required this.onLongPressRunningSession,
     required this.onSelectProject,
     required this.onLoadMore,
   });
@@ -210,6 +212,7 @@ class _HomeContentState extends State<HomeContent> {
               },
               child: RunningSessionCard(
                 session: session,
+                onLongPress: () => widget.onLongPressRunningSession(session),
                 onTap: () => widget.onTapRunning(
                   session.id,
                   projectPath: session.projectPath,

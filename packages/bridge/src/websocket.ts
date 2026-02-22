@@ -6,7 +6,7 @@ import { SessionManager, type SessionInfo } from "./session.js";
 import { SdkProcess } from "./sdk-process.js";
 import type { CodexProcess } from "./codex-process.js";
 import { parseClientMessage, type ClientMessage, type DebugTraceEvent, type ServerMessage } from "./parser.js";
-import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory, findSessionsByClaudeIds, extractMessageImages } from "./sessions-index.js";
+import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory, findSessionsByClaudeIds, extractMessageImages, getClaudeSessionName, loadCodexSessionNames, renameClaudeSession, renameCodexSession } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
@@ -235,19 +235,24 @@ export class BridgeWebSocketServer {
             : undefined,
         );
         const createdSession = this.sessionManager.get(sessionId);
-        this.send(ws, {
-          type: "system",
-          subtype: "session_created",
-          sessionId,
-          provider,
-          projectPath: msg.projectPath,
-          ...(provider === "claude" && msg.permissionMode ? { permissionMode: msg.permissionMode } : {}),
-          ...(provider === "codex" && msg.sandboxMode ? { sandboxMode: msg.sandboxMode } : {}),
-          ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
-          ...(createdSession?.worktreePath ? {
-            worktreePath: createdSession.worktreePath,
-            worktreeBranch: createdSession.worktreeBranch,
-          } : {}),
+
+        // Load saved session name from CLI storage (for resumed sessions)
+        void this.loadAndSetSessionName(createdSession, provider, msg.projectPath, msg.sessionId).then(() => {
+          this.send(ws, {
+            type: "system",
+            subtype: "session_created",
+            sessionId,
+            provider,
+            projectPath: msg.projectPath,
+            ...(provider === "claude" && msg.permissionMode ? { permissionMode: msg.permissionMode } : {}),
+            ...(provider === "codex" && msg.sandboxMode ? { sandboxMode: msg.sandboxMode } : {}),
+            ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
+            ...(createdSession?.worktreePath ? {
+              worktreePath: createdSession.worktreePath,
+              worktreeBranch: createdSession.worktreeBranch,
+            } : {}),
+          });
+          this.broadcastSessionList();
         });
         this.debugEvents.set(sessionId, []);
         this.recordDebugEvent(sessionId, {
@@ -748,17 +753,20 @@ export class BridgeWebSocketServer {
               },
             );
             const createdSession = this.sessionManager.get(sessionId);
-            this.send(ws, {
-              type: "system",
-              subtype: "session_created",
-              sessionId,
-              provider: "codex",
-              projectPath: effectiveProjectPath,
-              ...(createdSession?.codexSettings?.sandboxMode ? { sandboxMode: createdSession.codexSettings.sandboxMode } : {}),
-              ...(createdSession?.worktreePath ? {
-                worktreePath: createdSession.worktreePath,
-                worktreeBranch: createdSession.worktreeBranch,
-              } : {}),
+            void this.loadAndSetSessionName(createdSession, "codex", effectiveProjectPath, sessionRefId).then(() => {
+              this.send(ws, {
+                type: "system",
+                subtype: "session_created",
+                sessionId,
+                provider: "codex",
+                projectPath: effectiveProjectPath,
+                ...(createdSession?.codexSettings?.sandboxMode ? { sandboxMode: createdSession.codexSettings.sandboxMode } : {}),
+                ...(createdSession?.worktreePath ? {
+                  worktreePath: createdSession.worktreePath,
+                  worktreeBranch: createdSession.worktreeBranch,
+                } : {}),
+              });
+              this.broadcastSessionList();
             });
             this.debugEvents.set(sessionId, []);
             this.recordDebugEvent(sessionId, {
@@ -811,19 +819,22 @@ export class BridgeWebSocketServer {
             worktreeOpts,
           );
           const createdSession = this.sessionManager.get(sessionId);
-          this.send(ws, {
-            type: "system",
-            subtype: "session_created",
-            sessionId,
-            claudeSessionId,
-            provider: "claude",
-            projectPath: msg.projectPath,
-            ...(msg.permissionMode ? { permissionMode: msg.permissionMode } : {}),
-            ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
-            ...(createdSession?.worktreePath ? {
-              worktreePath: createdSession.worktreePath,
-              worktreeBranch: createdSession.worktreeBranch,
-            } : {}),
+          void this.loadAndSetSessionName(createdSession, "claude", msg.projectPath, claudeSessionId).then(() => {
+            this.send(ws, {
+              type: "system",
+              subtype: "session_created",
+              sessionId,
+              claudeSessionId,
+              provider: "claude",
+              projectPath: msg.projectPath,
+              ...(msg.permissionMode ? { permissionMode: msg.permissionMode } : {}),
+              ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
+              ...(createdSession?.worktreePath ? {
+                worktreePath: createdSession.worktreePath,
+                worktreeBranch: createdSession.worktreeBranch,
+              } : {}),
+            });
+            this.broadcastSessionList();
           });
           this.debugEvents.set(sessionId, []);
           this.recordDebugEvent(sessionId, {
@@ -1214,7 +1225,97 @@ export class BridgeWebSocketServer {
         });
         break;
       }
+
+      case "rename_session": {
+        const name = (msg.name as string | null) || null;
+        this.handleRenameSession(ws, msg.sessionId, name, msg);
+        break;
+      }
     }
+  }
+
+  /**
+   * Load the saved session name from CLI storage and set it on the SessionInfo.
+   * Called after SessionManager.create() so that session_created carries the name.
+   */
+  private async loadAndSetSessionName(
+    session: SessionInfo | undefined,
+    provider: string,
+    projectPath: string,
+    cliSessionId?: string,
+  ): Promise<void> {
+    if (!session || !cliSessionId) return;
+    try {
+      if (provider === "claude") {
+        const name = await getClaudeSessionName(projectPath, cliSessionId);
+        if (name) session.name = name;
+      } else if (provider === "codex") {
+        const names = await loadCodexSessionNames();
+        const name = names.get(cliSessionId);
+        if (name) session.name = name;
+      }
+    } catch {
+      // Non-critical: session works without name
+    }
+  }
+
+  /**
+   * Handle rename_session: update in-memory name and persist to CLI storage.
+   *
+   * Supports both running sessions (by bridge session id) and recent sessions
+   * (by provider session id, i.e. claudeSessionId or codex threadId).
+   */
+  private async handleRenameSession(
+    ws: WebSocket,
+    sessionId: string,
+    name: string | null,
+    msg: ClientMessage,
+  ): Promise<void> {
+    // 1. Try running session first
+    const runningSession = this.sessionManager.get(sessionId);
+    if (runningSession) {
+      this.sessionManager.renameSession(sessionId, name);
+
+      // Persist to provider storage
+      if (runningSession.provider === "claude" && runningSession.claudeSessionId) {
+        await renameClaudeSession(
+          runningSession.worktreePath ?? runningSession.projectPath,
+          runningSession.claudeSessionId,
+          name,
+        );
+      } else if (runningSession.provider === "codex" && runningSession.process) {
+        try {
+          await (runningSession.process as import("./codex-process.js").CodexProcess).renameThread(name ?? "");
+        } catch (err) {
+          console.warn(`[websocket] Failed to rename Codex thread:`, err);
+        }
+      }
+
+      this.broadcastSessionList();
+      this.send(ws, { type: "rename_result", sessionId, name, success: true });
+      return;
+    }
+
+    // 2. Recent session (not running) — use provider + providerSessionId + projectPath from message
+    const renameMsg = msg as Extract<ClientMessage, { type: "rename_session" }>;
+    const provider = renameMsg.provider;
+    const providerSessionId = renameMsg.providerSessionId;
+    const projectPath = renameMsg.projectPath;
+
+    if (provider === "claude" && providerSessionId && projectPath) {
+      const success = await renameClaudeSession(projectPath, providerSessionId, name);
+      this.send(ws, { type: "rename_result", sessionId, name, success });
+      return;
+    }
+
+    // For Codex recent sessions, write directly to session_index.jsonl.
+    if (provider === "codex" && providerSessionId) {
+      const success = await renameCodexSession(providerSessionId, name);
+      this.send(ws, { type: "rename_result", sessionId, name, success });
+      return;
+    }
+
+    this.send(ws, { type: "rename_result", sessionId, name, success: false });
   }
 
   private resolveSession(sessionId: string | undefined): SessionInfo | undefined {

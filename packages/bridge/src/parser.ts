@@ -79,6 +79,7 @@ export type ClientMessage =
   | { type: "answer"; toolUseId: string; result: string; sessionId?: string }
   | { type: "list_sessions" }
   | { type: "stop_session"; sessionId: string }
+  | { type: "rename_session"; sessionId: string; name?: string; provider?: string; providerSessionId?: string; projectPath?: string }
   | { type: "get_history"; sessionId: string }
   | { type: "list_recent_sessions"; limit?: number; offset?: number; projectPath?: string }
   | {
@@ -217,7 +218,8 @@ export type ServerMessage =
   | { type: "message_images_result"; messageUuid: string; images: ImageRef[] }
   | { type: "prompt_history_backup_result"; success: boolean; backedUpAt?: string; error?: string }
   | { type: "prompt_history_restore_result"; success: boolean; data?: string; appVersion?: string; dbVersion?: number; backedUpAt?: string; error?: string }
-  | { type: "prompt_history_backup_info"; exists: boolean; appVersion?: string; dbVersion?: number; backedUpAt?: string; sizeBytes?: number };
+  | { type: "prompt_history_backup_info"; exists: boolean; appVersion?: string; dbVersion?: number; backedUpAt?: string; sizeBytes?: number }
+  | { type: "rename_result"; sessionId: string; name: string | null; success: boolean; error?: string };
 
 export interface UsageWindowPayload {
   utilization: number;
@@ -322,6 +324,9 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "list_sessions":
         break;
       case "stop_session":
+        if (typeof msg.sessionId !== "string") return null;
+        break;
+      case "rename_session":
         if (typeof msg.sessionId !== "string") return null;
         break;
       case "get_history":
