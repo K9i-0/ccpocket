@@ -174,7 +174,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.pendingPlanCompletion = null;
 
     console.log(
-      `[codex-process] Starting app-server (cwd: ${projectPath}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, model: ${options?.model ?? "default"})`,
+      `[codex-process] Starting app-server (cwd: ${projectPath}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, model: ${options?.model ?? "default"}, collaboration: ${this._collaborationMode})`,
     );
 
     const child = spawn("codex", ["app-server", "--listen", "stdio://"], {
@@ -558,6 +558,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           };
         }
 
+        console.log(`[codex-process] turn/start: approval=${params.approvalPolicy}, collaboration=${this._collaborationMode}${params.collaborationMode ? ` (sending collaborationMode)` : ""}`);
         void this.request("turn/start", params)
           .then((result) => {
             const turn = (result as Record<string, unknown>).turn as Record<string, unknown> | undefined;

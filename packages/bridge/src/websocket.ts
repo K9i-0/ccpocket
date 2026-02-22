@@ -196,6 +196,9 @@ export class BridgeWebSocketServer {
     switch (msg.type) {
       case "start": {
         const provider = msg.provider ?? "claude";
+        if (provider === "codex") {
+          console.log(`[ws] start(codex): permissionMode=${msg.permissionMode} → collaboration=${msg.permissionMode === "plan" ? "plan" : "default"}`);
+        }
         const cached = provider === "claude" ? this.sessionManager.getCachedCommands(msg.projectPath) : undefined;
         const sessionId = this.sessionManager.create(
           msg.projectPath,
@@ -407,8 +410,11 @@ export class BridgeWebSocketServer {
         }
         if (session.provider === "codex") {
           const codexProcess = session.process as CodexProcess;
-          codexProcess.setApprovalPolicy(permissionModeToApprovalPolicy(msg.mode));
-          codexProcess.setCollaborationMode(msg.mode === "plan" ? "plan" : "default");
+          const approval = permissionModeToApprovalPolicy(msg.mode);
+          const collaboration = msg.mode === "plan" ? "plan" : "default";
+          console.log(`[ws] set_permission_mode(codex): mode=${msg.mode} → approval=${approval}, collaboration=${collaboration}`);
+          codexProcess.setApprovalPolicy(approval);
+          codexProcess.setCollaborationMode(collaboration);
           break;
         }
         (session.process as SdkProcess).setPermissionMode(msg.mode).catch((err) => {
