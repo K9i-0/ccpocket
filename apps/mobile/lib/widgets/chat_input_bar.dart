@@ -103,9 +103,13 @@ class ChatInputBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 _ModeButton(
                   permissionMode: permissionMode,
-                  sandboxMode: sandboxMode,
+                  sandboxMode: null,
                   onTap: onShowModeMenu,
                 ),
+              ],
+              if (sandboxMode != null) ...[
+                const SizedBox(width: 6),
+                _SandboxModeBadge(mode: sandboxMode!),
               ],
               const SizedBox(width: 8),
               _AttachButton(
@@ -327,6 +331,68 @@ class _SandboxModeButton extends StatelessWidget {
                   ],
                 ),
         ),
+      ),
+    );
+  }
+}
+
+/// Read-only sandbox mode badge displayed alongside the permission mode button
+/// for Codex sessions.
+class _SandboxModeBadge extends StatelessWidget {
+  const _SandboxModeBadge({required this.mode});
+  final SandboxMode mode;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    // Only show a visible badge for non-default modes
+    if (mode == SandboxMode.workspaceWrite) {
+      return const SizedBox.shrink();
+    }
+
+    final (IconData icon, String label, Color bg, Color fg) = switch (mode) {
+      SandboxMode.workspaceWrite => (
+        Icons.edit,
+        'WS',
+        cs.surfaceContainerHigh,
+        cs.primary,
+      ),
+      SandboxMode.readOnly => (
+        Icons.visibility,
+        'RO',
+        cs.tertiaryContainer,
+        cs.onTertiaryContainer,
+      ),
+      SandboxMode.dangerFullAccess => (
+        Icons.warning_amber,
+        'Full',
+        cs.errorContainer,
+        cs.onErrorContainer,
+      ),
+    };
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
       ),
     );
   }

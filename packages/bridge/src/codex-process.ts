@@ -131,6 +131,19 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     return this.child !== null;
   }
 
+  get approvalPolicy(): string {
+    return this._approvalPolicy;
+  }
+
+  /**
+   * Update approval policy at runtime.
+   * Takes effect on the next `turn/start` RPC call.
+   */
+  setApprovalPolicy(policy: string): void {
+    this._approvalPolicy = policy;
+    console.log(`[codex-process] Approval policy changed to: ${policy}`);
+  }
+
   start(projectPath: string, options?: CodexStartOptions): void {
     if (this.child) {
       this.stop();
@@ -564,6 +577,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         const params: Record<string, unknown> = {
           threadId: this._threadId,
           input,
+          approvalPolicy: normalizeApprovalPolicy(
+            this._approvalPolicy as CodexStartOptions["approvalPolicy"],
+          ),
         };
         if (options?.model) params.model = options.model;
         if (options?.modelReasoningEffort) {

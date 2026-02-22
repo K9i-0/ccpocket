@@ -501,14 +501,30 @@ class ChatInputWithOverlays extends HookWidget {
     }
 
     void showModeMenu() {
-      if (isCodex) {
-        return;
-      }
-
       final currentMode = chatCubit.state.permissionMode;
 
-      const modeDetails =
-          <PermissionMode, ({IconData icon, String description})>{
+      // Codex supports a subset of modes mapped to approval policies:
+      // - defaultMode → on-request (Codex decides when to ask)
+      // - plan         → on-request + plan approval gate enabled
+      // - bypassPermissions → never (auto-approve all)
+      final codexModes =
+          const <PermissionMode, ({IconData icon, String description})>{
+            PermissionMode.defaultMode: (
+              icon: Icons.tune,
+              description: 'Codex decides when to ask for approval',
+            ),
+            PermissionMode.plan: (
+              icon: Icons.assignment,
+              description: 'Require plan approval before execution',
+            ),
+            PermissionMode.bypassPermissions: (
+              icon: Icons.flash_on,
+              description: 'Auto-approve all actions',
+            ),
+          };
+
+      final claudeModes =
+          const <PermissionMode, ({IconData icon, String description})>{
             PermissionMode.defaultMode: (
               icon: Icons.tune,
               description: 'Standard permission prompts',
@@ -527,6 +543,8 @@ class ChatInputWithOverlays extends HookWidget {
             ),
           };
 
+      final modeDetails = isCodex ? codexModes : claudeModes;
+
       showModalBottomSheet(
         context: context,
         builder: (sheetContext) {
@@ -540,7 +558,7 @@ class ChatInputWithOverlays extends HookWidget {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Permission Mode',
+                      isCodex ? 'Approval Mode' : 'Permission Mode',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -549,7 +567,7 @@ class ChatInputWithOverlays extends HookWidget {
                     ),
                   ),
                 ),
-                for (final mode in PermissionMode.values)
+                for (final mode in modeDetails.keys)
                   ListTile(
                     leading: Icon(
                       modeDetails[mode]!.icon,
@@ -631,7 +649,7 @@ class ChatInputWithOverlays extends HookWidget {
             onToggleVoice: voice.toggle,
             onShowSlashCommands: showSlashCommandSheet,
             onShowModeMenu: showModeMenu,
-            showModeButton: !isCodex,
+            showModeButton: true,
             permissionMode: context
                 .watch<ChatSessionCubit>()
                 .state

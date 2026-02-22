@@ -388,11 +388,16 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          this.send(ws, {
-            type: "error",
-            message: "Codex sessions do not support runtime permission mode changes",
-          });
-          return;
+          // Map permission mode to Codex approval policy
+          const policyMap: Record<string, string> = {
+            default: "on-request",
+            plan: "on-request",
+            acceptEdits: "on-request",
+            bypassPermissions: "never",
+          };
+          const policy = policyMap[msg.mode] ?? "on-request";
+          (session.process as CodexProcess).setApprovalPolicy(policy);
+          break;
         }
         (session.process as SdkProcess).setPermissionMode(msg.mode).catch((err) => {
           this.send(ws, {

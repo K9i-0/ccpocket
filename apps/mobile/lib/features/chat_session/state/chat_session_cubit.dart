@@ -469,7 +469,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   /// Change permission mode for Claude sessions.
   void setPermissionMode(PermissionMode mode) {
-    if (isCodex) return;
     emit(state.copyWith(permissionMode: mode));
     _bridge.send(
       ClientMessage.setPermissionMode(mode.value, sessionId: sessionId),
