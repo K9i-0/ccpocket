@@ -187,7 +187,7 @@ class ServerMessageWidget extends StatelessWidget {
       final StatusMessage msg => StatusChip(message: msg),
       HistoryMessage() => const SizedBox.shrink(),
       final PermissionRequestMessage msg =>
-        msg.toolName == 'ExitPlanMode'
+        msg.toolName == 'ExitPlanMode' || msg.toolName == 'AskUserQuestion'
             ? const SizedBox.shrink()
             : PermissionRequestBubble(message: msg),
       StreamDeltaMessage() => const SizedBox.shrink(),
