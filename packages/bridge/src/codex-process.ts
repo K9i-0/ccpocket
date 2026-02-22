@@ -290,6 +290,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.respondToServerRequest(pending.requestId, {
       decision: "accept",
     });
+    this.emitToolResult(pending.toolUseId, "Approved");
 
     if (this.pendingApprovals.size === 0) {
       this.setStatus("running");
@@ -310,6 +311,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         forSession: true,
       },
     });
+    this.emitToolResult(pending.toolUseId, "Approved (always)");
 
     if (this.pendingApprovals.size === 0) {
       this.setStatus("running");
@@ -333,6 +335,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.respondToServerRequest(pending.requestId, {
       decision: "decline",
     });
+    this.emitToolResult(pending.toolUseId, "Rejected");
 
     if (this.pendingApprovals.size === 0) {
       this.setStatus("running");
@@ -350,6 +353,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.respondToServerRequest(pending.requestId, {
       answers: buildUserInputAnswers(pending.questions, result),
     });
+
+    this.emitToolResult(pending.toolUseId, "Answered");
 
     if (this.pendingApprovals.size === 0 && this.pendingUserInputs.size === 0) {
       this.setStatus("running");
@@ -388,6 +393,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     };
   }
 
+  /** Emit a synthetic tool_result so history replay can match it to a permission_request. */
+  private emitToolResult(toolUseId: string, content: string): void {
+    this.emitMessage({
+      type: "tool_result",
+      toolUseId,
+      content,
+    });
+  }
+
   private resolvePendingApproval(toolUseId?: string): PendingApproval | undefined {
     if (toolUseId) return this.pendingApprovals.get(toolUseId);
     const first = this.pendingApprovals.values().next();
@@ -409,9 +423,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
    */
   private handlePlanApproved(updatedInput?: Record<string, unknown>): void {
     const planText = (updatedInput?.plan as string) ?? this.pendingPlanCompletion?.planText ?? "";
+    const resolvedToolUseId = this.pendingPlanCompletion?.toolUseId;
     this.pendingPlanCompletion = null;
     this._collaborationMode = "default";
     console.log("[codex-process] Plan approved, switching to Default mode");
+
+    // Emit synthetic tool_result so history replay knows this approval is resolved
+    if (resolvedToolUseId) {
+      this.emitToolResult(resolvedToolUseId, "Plan approved");
+    }
 
     // Resolve inputResolve to start the next turn (Default mode) automatically
     if (this.inputResolve) {
@@ -425,9 +445,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
    * Plan rejected → stay in Plan mode and re-plan with feedback.
    */
   private handlePlanRejected(feedback?: string): void {
+    const resolvedToolUseId = this.pendingPlanCompletion?.toolUseId;
     this.pendingPlanCompletion = null;
     console.log("[codex-process] Plan rejected, continuing in Plan mode");
     // Stay in Plan mode
+
+    // Emit synthetic tool_result so history replay knows this approval is resolved
+    if (resolvedToolUseId) {
+      this.emitToolResult(resolvedToolUseId, "Plan rejected");
+    }
 
     if (feedback && this.inputResolve) {
       const resolve = this.inputResolve;
