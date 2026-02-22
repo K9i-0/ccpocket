@@ -489,16 +489,47 @@ class _SessionDisplayModeToggle extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildSegment('First', SessionDisplayMode.first, colorScheme),
-          _buildSegment('Last', SessionDisplayMode.last, colorScheme),
-          _buildSegment('Sum', SessionDisplayMode.summary, colorScheme),
+          _DisplayModeSegment(
+            label: 'First',
+            value: SessionDisplayMode.first,
+            currentMode: mode,
+            onChanged: onChanged,
+          ),
+          _DisplayModeSegment(
+            label: 'Last',
+            value: SessionDisplayMode.last,
+            currentMode: mode,
+            onChanged: onChanged,
+          ),
+          _DisplayModeSegment(
+            label: 'Sum',
+            value: SessionDisplayMode.summary,
+            currentMode: mode,
+            onChanged: onChanged,
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildSegment(String label, SessionDisplayMode value, ColorScheme cs) {
-    final isSelected = mode == value;
+class _DisplayModeSegment extends StatelessWidget {
+  final String label;
+  final SessionDisplayMode value;
+  final SessionDisplayMode currentMode;
+  final ValueChanged<SessionDisplayMode> onChanged;
+
+  const _DisplayModeSegment({
+    required this.label,
+    required this.value,
+    required this.currentMode,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isSelected = currentMode == value;
 
     return GestureDetector(
       onTap: () => onChanged(value),

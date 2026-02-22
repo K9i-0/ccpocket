@@ -64,22 +64,55 @@ class ApprovalBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildHeader(context, toolName, summary),
+            _ApprovalHeader(
+              appColors: appColors,
+              isPlanApproval: isPlanApproval,
+              toolName: toolName,
+              summary: summary,
+              onViewPlan: onViewPlan,
+            ),
             const SizedBox(height: 6),
             if (isPlanApproval) ...[
               const SizedBox(height: 6),
-              _buildKeepPlanningCard(context),
+              _KeepPlanningCard(
+                appColors: appColors,
+                planFeedbackController: planFeedbackController,
+                onReject: onReject,
+              ),
               const SizedBox(height: 10),
             ] else
               const SizedBox(height: 6),
-            _buildButtons(context),
+            _ApprovalButtons(
+              isPlanApproval: isPlanApproval,
+              onApprove: onApprove,
+              onReject: onReject,
+              onApproveAlways: onApproveAlways,
+              onApproveClearContext: onApproveClearContext,
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildHeader(BuildContext context, String? toolName, String summary) {
+class _ApprovalHeader extends StatelessWidget {
+  final AppColors appColors;
+  final bool isPlanApproval;
+  final String? toolName;
+  final String summary;
+  final VoidCallback? onViewPlan;
+
+  const _ApprovalHeader({
+    required this.appColors,
+    required this.isPlanApproval,
+    required this.toolName,
+    required this.summary,
+    this.onViewPlan,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     return Row(
@@ -131,9 +164,22 @@ class ApprovalBar extends StatelessWidget {
       ],
     );
   }
+}
 
-  /// "Keep Planning" card with feedback input + send button.
-  Widget _buildKeepPlanningCard(BuildContext context) {
+/// "Keep Planning" card with feedback input + send button.
+class _KeepPlanningCard extends StatelessWidget {
+  final AppColors appColors;
+  final TextEditingController planFeedbackController;
+  final VoidCallback onReject;
+
+  const _KeepPlanningCard({
+    required this.appColors,
+    required this.planFeedbackController,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     return Container(
@@ -200,8 +246,25 @@ class ApprovalBar extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildButtons(BuildContext context) {
+class _ApprovalButtons extends StatelessWidget {
+  final bool isPlanApproval;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+  final VoidCallback onApproveAlways;
+  final VoidCallback? onApproveClearContext;
+
+  const _ApprovalButtons({
+    required this.isPlanApproval,
+    required this.onApprove,
+    required this.onReject,
+    required this.onApproveAlways,
+    this.onApproveClearContext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     if (isPlanApproval) {
       return Row(

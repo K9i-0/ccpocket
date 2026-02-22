@@ -119,29 +119,52 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
           style: const TextStyle(fontSize: 16),
         ),
       ),
-      body: _content(),
+      body: _MessageImagesContent(
+        loading: _loading,
+        error: _error,
+        images: _images,
+        httpBaseUrl: widget.httpBaseUrl,
+        onRetry: _requestImages,
+      ),
     );
-  }
-
-  Widget _content() {
-    if (_loading) return const _LoadingView();
-
-    final error = _error;
-    if (error != null) {
-      return _ErrorView(message: error, onRetry: _requestImages);
-    }
-
-    final images = _images!;
-    if (images.length == 1) {
-      return _SingleImageView(url: '${widget.httpBaseUrl}${images.first.url}');
-    }
-    return _MultiImageList(images: images, httpBaseUrl: widget.httpBaseUrl);
   }
 }
 
 // ---------------------------------------------------------------------------
 // Sub-widgets
 // ---------------------------------------------------------------------------
+
+class _MessageImagesContent extends StatelessWidget {
+  final bool loading;
+  final String? error;
+  final List<ImageRef>? images;
+  final String httpBaseUrl;
+  final VoidCallback onRetry;
+
+  const _MessageImagesContent({
+    required this.loading,
+    this.error,
+    this.images,
+    required this.httpBaseUrl,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const _LoadingView();
+
+    final errorMessage = error;
+    if (errorMessage != null) {
+      return _ErrorView(message: errorMessage, onRetry: onRetry);
+    }
+
+    final imageList = images!;
+    if (imageList.length == 1) {
+      return _SingleImageView(url: '$httpBaseUrl${imageList.first.url}');
+    }
+    return _MultiImageList(images: imageList, httpBaseUrl: httpBaseUrl);
+  }
+}
 
 class _LoadingView extends StatelessWidget {
   const _LoadingView();

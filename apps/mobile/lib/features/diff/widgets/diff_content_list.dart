@@ -103,8 +103,19 @@ class DiffContentList extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _countListItems(visibleFiles),
-      itemBuilder: (context, index) =>
-          _buildListItem(index, visibleFiles, appColors),
+      itemBuilder: (context, index) => _DiffListItem(
+        index: index,
+        visibleFiles: visibleFiles,
+        files: files,
+        collapsedFileIndices: collapsedFileIndices,
+        selectionMode: selectionMode,
+        selectedHunkKeys: selectedHunkKeys,
+        onToggleCollapse: onToggleCollapse,
+        onToggleFileSelection: onToggleFileSelection,
+        onToggleHunkSelection: onToggleHunkSelection,
+        isFileFullySelected: isFileFullySelected,
+        isFilePartiallySelected: isFilePartiallySelected,
+      ),
     );
   }
 
@@ -122,12 +133,38 @@ class DiffContentList extends StatelessWidget {
     }
     return count;
   }
+}
 
-  Widget _buildListItem(
-    int index,
-    List<int> visibleFiles,
-    AppColors appColors,
-  ) {
+class _DiffListItem extends StatelessWidget {
+  final int index;
+  final List<int> visibleFiles;
+  final List<DiffFile> files;
+  final Set<int> collapsedFileIndices;
+  final bool selectionMode;
+  final Set<String> selectedHunkKeys;
+  final ValueChanged<int> onToggleCollapse;
+  final ValueChanged<int>? onToggleFileSelection;
+  final void Function(int fileIdx, int hunkIdx)? onToggleHunkSelection;
+  final bool Function(int fileIdx)? isFileFullySelected;
+  final bool Function(int fileIdx)? isFilePartiallySelected;
+
+  const _DiffListItem({
+    required this.index,
+    required this.visibleFiles,
+    required this.files,
+    required this.collapsedFileIndices,
+    required this.selectionMode,
+    required this.selectedHunkKeys,
+    required this.onToggleCollapse,
+    this.onToggleFileSelection,
+    this.onToggleHunkSelection,
+    this.isFileFullySelected,
+    this.isFilePartiallySelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
     var offset = 0;
     for (var i = 0; i < visibleFiles.length; i++) {
       final fileIdx = visibleFiles[i];

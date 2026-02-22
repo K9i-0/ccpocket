@@ -75,84 +75,6 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
   bool _isCurrentWorktree(WorktreeInfo wt) =>
       widget.currentWorktreePath == wt.worktreePath;
 
-  Widget _buildMainRepoTile(BuildContext context, AppColors appColors) {
-    final cs = Theme.of(context).colorScheme;
-    final isCurrent = _isOnMainRepo;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: isCurrent ? cs.primaryContainer.withValues(alpha: 0.3) : null,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: ListTile(
-        leading: Icon(
-          Icons.home_outlined,
-          size: 20,
-          color: isCurrent ? cs.primary : appColors.subtleText,
-        ),
-        title: Text(
-          'main repo',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: isCurrent ? cs.primary : null,
-          ),
-        ),
-        subtitle: Text(
-          widget.projectPath.split('/').last,
-          style: TextStyle(fontSize: 11, color: appColors.subtleText),
-        ),
-        trailing: isCurrent
-            ? Icon(Icons.check_circle, size: 20, color: cs.primary)
-            : null,
-      ),
-    );
-  }
-
-  Widget _buildWorktreeTile(
-    BuildContext context,
-    AppColors appColors,
-    WorktreeInfo wt,
-  ) {
-    final cs = Theme.of(context).colorScheme;
-    final isCurrent = _isCurrentWorktree(wt);
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: isCurrent ? cs.tertiaryContainer.withValues(alpha: 0.3) : null,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: ListTile(
-        leading: Icon(
-          Icons.fork_right,
-          size: 20,
-          color: isCurrent ? cs.tertiary : appColors.subtleText,
-        ),
-        title: Text(
-          wt.branch,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: isCurrent ? cs.tertiary : null,
-          ),
-        ),
-        subtitle: Text(
-          wt.worktreePath.split('/').last,
-          style: TextStyle(fontSize: 11, color: appColors.subtleText),
-        ),
-        trailing: isCurrent
-            ? Icon(Icons.check_circle, size: 20, color: cs.tertiary)
-            : IconButton(
-                icon: Icon(Icons.delete_outline, size: 20, color: cs.error),
-                onPressed: () => _confirmRemove(wt),
-                tooltip: 'Remove worktree',
-              ),
-      ),
-    );
-  }
-
   void _confirmRemove(WorktreeInfo wt) {
     showDialog(
       context: context,
@@ -239,13 +161,115 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
             )
           else ...[
             // Main repo entry (always first)
-            _buildMainRepoTile(context, appColors),
+            _MainRepoTile(
+              projectPath: widget.projectPath,
+              isCurrent: _isOnMainRepo,
+            ),
             // Worktree entries
             for (final wt in _worktrees!)
-              _buildWorktreeTile(context, appColors, wt),
+              _WorktreeTile(
+                worktree: wt,
+                isCurrent: _isCurrentWorktree(wt),
+                onRemove: () => _confirmRemove(wt),
+              ),
           ],
           const SizedBox(height: 16),
         ],
+      ),
+    );
+  }
+}
+
+class _MainRepoTile extends StatelessWidget {
+  final String projectPath;
+  final bool isCurrent;
+
+  const _MainRepoTile({required this.projectPath, required this.isCurrent});
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: isCurrent ? cs.primaryContainer.withValues(alpha: 0.3) : null,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ListTile(
+        leading: Icon(
+          Icons.home_outlined,
+          size: 20,
+          color: isCurrent ? cs.primary : appColors.subtleText,
+        ),
+        title: Text(
+          'main repo',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isCurrent ? cs.primary : null,
+          ),
+        ),
+        subtitle: Text(
+          projectPath.split('/').last,
+          style: TextStyle(fontSize: 11, color: appColors.subtleText),
+        ),
+        trailing: isCurrent
+            ? Icon(Icons.check_circle, size: 20, color: cs.primary)
+            : null,
+      ),
+    );
+  }
+}
+
+class _WorktreeTile extends StatelessWidget {
+  final WorktreeInfo worktree;
+  final bool isCurrent;
+  final VoidCallback onRemove;
+
+  const _WorktreeTile({
+    required this.worktree,
+    required this.isCurrent,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: isCurrent ? cs.tertiaryContainer.withValues(alpha: 0.3) : null,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ListTile(
+        leading: Icon(
+          Icons.fork_right,
+          size: 20,
+          color: isCurrent ? cs.tertiary : appColors.subtleText,
+        ),
+        title: Text(
+          worktree.branch,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isCurrent ? cs.tertiary : null,
+          ),
+        ),
+        subtitle: Text(
+          worktree.worktreePath.split('/').last,
+          style: TextStyle(fontSize: 11, color: appColors.subtleText),
+        ),
+        trailing: isCurrent
+            ? Icon(Icons.check_circle, size: 20, color: cs.tertiary)
+            : IconButton(
+                icon: Icon(Icons.delete_outline, size: 20, color: cs.error),
+                onPressed: onRemove,
+                tooltip: 'Remove worktree',
+              ),
       ),
     );
   }

@@ -31,7 +31,6 @@ class GuidePageBridgeSetup extends StatelessWidget {
           const SizedBox(height: 16),
           // Steps
           _StepCard(
-            colorScheme: cs,
             steps: [
               _Step(
                 number: '1',
@@ -154,10 +153,9 @@ class _Step {
 }
 
 class _StepCard extends StatelessWidget {
-  final ColorScheme colorScheme;
   final List<_Step> steps;
 
-  const _StepCard({required this.colorScheme, required this.steps});
+  const _StepCard({required this.steps});
 
   @override
   Widget build(BuildContext context) {
@@ -165,13 +163,21 @@ class _StepCard extends StatelessWidget {
       children: [
         for (int i = 0; i < steps.length; i++) ...[
           if (i > 0) const SizedBox(height: 12),
-          _buildStep(context, steps[i]),
+          _StepItem(step: steps[i]),
         ],
       ],
     );
   }
+}
 
-  Widget _buildStep(BuildContext context, _Step step) {
+class _StepItem extends StatelessWidget {
+  final _Step step;
+
+  const _StepItem({required this.step});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -179,15 +185,12 @@ class _StepCard extends StatelessWidget {
         Container(
           width: 28,
           height: 28,
-          decoration: BoxDecoration(
-            color: colorScheme.primary,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
           child: Center(
             child: Text(
               step.number,
               style: TextStyle(
-                color: colorScheme.onPrimary,
+                color: cs.onPrimary,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
@@ -208,7 +211,7 @@ class _StepCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
+                  color: cs.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -216,7 +219,7 @@ class _StepCard extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 12,
-                    color: colorScheme.onSurface,
+                    color: cs.onSurface,
                   ),
                 ),
               ),
