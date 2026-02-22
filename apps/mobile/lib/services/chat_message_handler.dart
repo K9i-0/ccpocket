@@ -382,7 +382,13 @@ class ChatMessageHandler {
         }
         // Track pending permission request
         if (m is PermissionRequestMessage) {
-          pendingPermissions[m.toolUseId] = m;
+          if (m.toolName == 'AskUserQuestion') {
+            // Codex sends AskUserQuestion as permission_request directly
+            lastAskToolUseId = m.toolUseId;
+            lastAskInput = m.input;
+          } else {
+            pendingPermissions[m.toolUseId] = m;
+          }
         }
         // Track pending AskUserQuestion (tool_use in assistant message)
         if (m is AssistantServerMessage) {
