@@ -7,13 +7,14 @@ import '../../chat_session/state/chat_session_cubit.dart';
 /// (`ChatMessageList`, `ChatInputWithOverlays`, etc.) that read
 /// `context.read<ChatSessionCubit>()` continue to work.
 ///
-/// Codex sessions do not support rewind, approval, or plan mode.
+/// Codex sessions do not support rewind.
 class CodexSessionCubit extends ChatSessionCubit {
   CodexSessionCubit({
     required super.sessionId,
     required super.bridge,
     required super.streamingCubit,
     super.initialSandboxMode,
+    super.initialPermissionMode,
   }) : super(provider: Provider.codex);
 
   /// Rewind is not supported for Codex sessions.

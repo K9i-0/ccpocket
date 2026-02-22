@@ -53,7 +53,6 @@ export type ClientMessage =
       sessionId?: string;
       continue?: boolean;
       permissionMode?: PermissionMode;
-      approvalPolicy?: string;
       sandboxMode?: string;
       model?: string;
       effort?: "low" | "medium" | "high" | "max";
@@ -88,7 +87,6 @@ export type ClientMessage =
       projectPath: string;
       permissionMode?: PermissionMode;
       provider?: Provider;
-      approvalPolicy?: string;
       sandboxMode?: string;
       model?: string;
       effort?: "low" | "medium" | "high" | "max";

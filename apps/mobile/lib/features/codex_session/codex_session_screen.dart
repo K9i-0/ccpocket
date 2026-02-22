@@ -14,10 +14,16 @@ import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
 import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
-import '../../widgets/new_session_sheet.dart' show sandboxModeFromRaw;
+import '../../widgets/new_session_sheet.dart'
+    show permissionModeFromRaw, sandboxModeFromRaw;
+import '../../widgets/approval_bar.dart';
+import '../../widgets/bubbles/ask_user_question_widget.dart';
 import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
+import '../../widgets/plan_detail_sheet.dart';
 import '../chat_session/state/chat_session_cubit.dart';
+import '../chat_session/state/chat_session_state.dart';
+import '../../theme/app_theme.dart';
 import '../chat_session/state/streaming_state_cubit.dart';
 import '../chat_session/widgets/branch_chip.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
@@ -31,7 +37,7 @@ import 'state/codex_session_cubit.dart';
 
 /// Codex-specific chat screen.
 ///
-/// Simpler than [ClaudeSessionScreen] — no approval flow, no rewind, no plan mode.
+/// Simpler than [ClaudeSessionScreen] — no rewind.
 /// Shares UI components (`ChatMessageList`, `ChatInputWithOverlays`, etc.)
 /// via [CodexSessionCubit] which extends [ChatSessionCubit].
 @RoutePage()
@@ -42,6 +48,7 @@ class CodexSessionScreen extends StatefulWidget {
   final String? worktreePath;
   final bool isPending;
   final String? initialSandboxMode;
+  final String? initialPermissionMode;
 
   /// Notifier from the parent that may already hold a [SystemMessage]
   /// with subtype `session_created` (race condition fix).
@@ -55,6 +62,7 @@ class CodexSessionScreen extends StatefulWidget {
     this.worktreePath,
     this.isPending = false,
     this.initialSandboxMode,
+    this.initialPermissionMode,
     this.pendingSessionCreated,
   });
 
@@ -164,6 +172,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       gitBranch: _gitBranch,
       worktreePath: _worktreePath,
       sandboxMode: _sandboxMode,
+      permissionMode: permissionModeFromRaw(widget.initialPermissionMode),
     );
   }
 }
@@ -178,6 +187,7 @@ class _CodexProviders extends StatelessWidget {
   final String? gitBranch;
   final String? worktreePath;
   final SandboxMode? sandboxMode;
+  final PermissionMode? permissionMode;
 
   const _CodexProviders({
     super.key,
@@ -186,6 +196,7 @@ class _CodexProviders extends StatelessWidget {
     this.gitBranch,
     this.worktreePath,
     this.sandboxMode,
+    this.permissionMode,
   });
 
   @override
@@ -201,6 +212,7 @@ class _CodexProviders extends StatelessWidget {
             bridge: bridge,
             streamingCubit: streamingCubit,
             initialSandboxMode: sandboxMode,
+            initialPermissionMode: permissionMode,
           ),
         ),
         BlocProvider.value(value: streamingCubit),
@@ -234,6 +246,7 @@ class _CodexChatBody extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
     // Custom hooks
     final lifecycleState = useAppLifecycleState();
     final isBackground =
@@ -242,6 +255,10 @@ class _CodexChatBody extends HookWidget {
 
     // Chat input controller
     final chatInputController = useTextEditingController();
+    final planFeedbackController = useTextEditingController();
+    final editedPlanText = useMemoized(() => ValueNotifier<String?>(null));
+    useEffect(() => editedPlanText.dispose, const []);
+    final activePlanApprovalToolUseId = useRef<String?>(null);
 
     // Collapse tool results notifier (shared widget needs it)
     final collapseToolResults = useMemoized(() => ValueNotifier<int>(0));
@@ -268,6 +285,7 @@ class _CodexChatBody extends HookWidget {
           sessionId: sessionId,
           isBackground: isBackground,
           collapseToolResults: collapseToolResults,
+          planFeedbackController: planFeedbackController,
           scrollToBottom: scroll.scrollToBottom,
         ),
       );
@@ -298,6 +316,89 @@ class _CodexChatBody extends HookWidget {
 
     // --- Destructure state ---
     final status = sessionState.status;
+    final approval = sessionState.approval;
+    final inPlanMode = sessionState.inPlanMode;
+
+    // Approval state pattern matching (Codex: permission + ask-user only)
+    String? pendingToolUseId;
+    PermissionRequestMessage? pendingPermission;
+    String? askToolUseId;
+    Map<String, dynamic>? askInput;
+
+    switch (approval) {
+      case ApprovalPermission(:final toolUseId, :final request):
+        pendingToolUseId = toolUseId;
+        pendingPermission = request;
+        askToolUseId = null;
+        askInput = null;
+      case ApprovalAskUser(:final toolUseId, :final input):
+        pendingToolUseId = null;
+        pendingPermission = null;
+        askToolUseId = toolUseId;
+        askInput = input;
+      case ApprovalNone():
+        pendingToolUseId = null;
+        pendingPermission = null;
+        askToolUseId = null;
+        askInput = null;
+    }
+
+    final isPlanApproval = pendingPermission?.toolName == 'ExitPlanMode';
+    final pendingPlanToolUseId = isPlanApproval ? pendingToolUseId : null;
+    if (activePlanApprovalToolUseId.value != pendingPlanToolUseId) {
+      activePlanApprovalToolUseId.value = pendingPlanToolUseId;
+      editedPlanText.value = null;
+    }
+
+    void approveToolUse() {
+      if (pendingToolUseId == null) return;
+      final updatedInput = isPlanApproval && editedPlanText.value != null
+          ? {'plan': editedPlanText.value!}
+          : null;
+      context.read<ChatSessionCubit>().approve(
+        pendingToolUseId,
+        updatedInput: updatedInput,
+      );
+      editedPlanText.value = null;
+      planFeedbackController.clear();
+    }
+
+    void rejectToolUse() {
+      if (pendingToolUseId == null) return;
+      final feedback = isPlanApproval
+          ? planFeedbackController.text.trim()
+          : null;
+      context.read<ChatSessionCubit>().reject(
+        pendingToolUseId,
+        message: feedback != null && feedback.isNotEmpty ? feedback : null,
+      );
+      editedPlanText.value = null;
+      planFeedbackController.clear();
+    }
+
+    void approveWithClearContext() {
+      if (pendingToolUseId == null) return;
+      final updatedInput = isPlanApproval && editedPlanText.value != null
+          ? {'plan': editedPlanText.value!}
+          : null;
+      context.read<ChatSessionCubit>().approve(
+        pendingToolUseId,
+        updatedInput: updatedInput,
+        clearContext: true,
+      );
+      editedPlanText.value = null;
+      planFeedbackController.clear();
+    }
+
+    void approveAlwaysToolUse() {
+      if (pendingToolUseId == null) return;
+      HapticFeedback.mediumImpact();
+      context.read<ChatSessionCubit>().approveAlways(pendingToolUseId);
+    }
+
+    void answerQuestion(String toolUseId, String result) {
+      context.read<ChatSessionCubit>().answer(toolUseId, result);
+    }
 
     // --- Build ---
     return BlocListener<ConnectionCubit, BridgeConnectionState>(
@@ -401,6 +502,7 @@ class _CodexChatBody extends HookWidget {
                 // Long press to copy debug bundle for agent
                 StatusIndicator(
                   status: status,
+                  inPlanMode: inPlanMode,
                   onLongPress: () =>
                       copyDebugBundleForAgent(context, sessionId),
                 ),
@@ -423,6 +525,9 @@ class _CodexChatBody extends HookWidget {
                         },
                         // No rewind for Codex
                         onRewindMessage: null,
+                        editedPlanText: editedPlanText,
+                        allowPlanEditing: pendingPlanToolUseId != null,
+                        pendingPlanToolUseId: pendingPlanToolUseId,
                         scrollToUserEntry: scrollToUserEntry,
                         collapseToolResults: collapseToolResults,
                         onScrollToBottom: scroll.scrollToBottom,
@@ -447,26 +552,65 @@ class _CodexChatBody extends HookWidget {
                     ],
                   ),
                 ),
-                // No approval bar, no AskUserQuestion — Codex auto-executes.
-                ChatInputWithOverlays(
-                  sessionId: sessionId,
-                  status: status,
-                  onScrollToBottom: scroll.scrollToBottom,
-                  inputController: chatInputController,
-                  hintText: 'Message Codex...',
-                  initialDiffSelection: diffSelectionFromNav.value,
-                  onDiffSelectionConsumed: () {},
-                  onDiffSelectionCleared: () =>
-                      diffSelectionFromNav.value = null,
-                  onOpenDiffScreen: projectPath != null
-                      ? (currentSelection) => _openDiffScreen(
-                          context,
-                          worktreePath ?? projectPath!,
-                          diffSelectionFromNav,
-                          existingSelection: currentSelection,
-                        )
-                      : null,
-                ),
+                if (askToolUseId != null && askInput != null)
+                  AskUserQuestionWidget(
+                    toolUseId: askToolUseId,
+                    input: askInput,
+                    onAnswer: answerQuestion,
+                  ),
+                if (pendingToolUseId != null)
+                  ApprovalBar(
+                    key: ValueKey('approval_$pendingToolUseId'),
+                    appColors: appColors,
+                    pendingPermission: pendingPermission,
+                    isPlanApproval: isPlanApproval,
+                    planFeedbackController: planFeedbackController,
+                    onApprove: approveToolUse,
+                    onReject: rejectToolUse,
+                    onApproveAlways: approveAlwaysToolUse,
+                    onApproveClearContext: isPlanApproval
+                        ? approveWithClearContext
+                        : null,
+                    onViewPlan: isPlanApproval
+                        ? () async {
+                            final originalText = _extractPlanText(
+                              pendingPermission,
+                              sessionState.entries,
+                            );
+                            if (originalText == null) return;
+                            final current =
+                                editedPlanText.value ?? originalText;
+                            final edited = await showPlanDetailSheet(
+                              context,
+                              current,
+                              editable: true,
+                            );
+                            if (edited != null) {
+                              editedPlanText.value = edited;
+                            }
+                          }
+                        : null,
+                  ),
+                if (approval is ApprovalNone)
+                  ChatInputWithOverlays(
+                    sessionId: sessionId,
+                    status: status,
+                    onScrollToBottom: scroll.scrollToBottom,
+                    inputController: chatInputController,
+                    hintText: 'Message Codex...',
+                    initialDiffSelection: diffSelectionFromNav.value,
+                    onDiffSelectionConsumed: () {},
+                    onDiffSelectionCleared: () =>
+                        diffSelectionFromNav.value = null,
+                    onOpenDiffScreen: projectPath != null
+                        ? (currentSelection) => _openDiffScreen(
+                            context,
+                            worktreePath ?? projectPath!,
+                            diffSelectionFromNav,
+                            existingSelection: currentSelection,
+                          )
+                        : null,
+                  ),
               ],
             ),
           ),
@@ -503,6 +647,7 @@ void _executeSideEffects(
   Set<ChatSideEffect> effects, {
   required String sessionId,
   required bool isBackground,
+  required TextEditingController planFeedbackController,
   required ValueNotifier<int> collapseToolResults,
   required VoidCallback scrollToBottom,
 }) {
@@ -517,14 +662,25 @@ void _executeSideEffects(
       case ChatSideEffect.collapseToolResults:
         collapseToolResults.value++;
       case ChatSideEffect.clearPlanFeedback:
-        // No plan feedback in Codex — ignore.
-        break;
+        planFeedbackController.clear();
       case ChatSideEffect.notifyApprovalRequired:
-        // No approval in Codex — ignore.
-        break;
+        if (isBackground) {
+          NotificationService.instance.show(
+            title: 'Approval Required',
+            body: 'Codex tool approval needed',
+            id: 1,
+            payload: sessionId,
+          );
+        }
       case ChatSideEffect.notifyAskQuestion:
-        // No AskUserQuestion in Codex — ignore.
-        break;
+        if (isBackground) {
+          NotificationService.instance.show(
+            title: 'Codex is asking',
+            body: 'Question needs your answer',
+            id: 2,
+            payload: sessionId,
+          );
+        }
       case ChatSideEffect.notifySessionComplete:
         if (isBackground) {
           NotificationService.instance.show(
@@ -568,4 +724,32 @@ void _retryFailedMessages(BuildContext context) {
       cubit.retryMessage(entry);
     }
   }
+}
+
+String? _extractPlanText(
+  PermissionRequestMessage? pendingPermission,
+  List<ChatEntry> entries,
+) {
+  final raw = pendingPermission?.input['plan'];
+  if (raw is String && raw.trim().isNotEmpty) {
+    return raw;
+  }
+
+  for (var i = entries.length - 1; i >= 0; i--) {
+    final entry = entries[i];
+    if (entry is! ServerChatEntry) continue;
+    final msg = entry.message;
+    if (msg is! AssistantServerMessage) continue;
+
+    final text = msg.message.content
+        .whereType<TextContent>()
+        .map((c) => c.text.trim())
+        .where((t) => t.isNotEmpty)
+        .join('\n\n');
+    if (text.startsWith('Plan update:')) {
+      return text;
+    }
+  }
+
+  return null;
 }

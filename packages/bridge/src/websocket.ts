@@ -21,6 +21,23 @@ import { type PushLocale, normalizePushLocale, t } from "./push-i18n.js";
 import { fetchAllUsage } from "./usage.js";
 import type { PromptHistoryBackupStore } from "./prompt-history-backup.js";
 
+// ---- Codex mode mapping helpers ----
+
+/** Map unified PermissionMode to Codex approval_policy.
+ *  Only "bypassPermissions" maps to "never"; all others use "on-request". */
+function permissionModeToApprovalPolicy(
+  mode?: string,
+): "never" | "on-request" {
+  return mode === "bypassPermissions" ? "never" : "on-request";
+}
+
+/** Map simplified SandboxMode (on/off) to Codex internal sandbox mode. */
+function sandboxModeToInternal(
+  mode?: string,
+): "workspace-write" | "danger-full-access" {
+  return mode === "off" ? "danger-full-access" : "workspace-write";
+}
+
 export interface BridgeServerOptions {
   server: HttpServer;
   apiKey?: string;
@@ -179,6 +196,9 @@ export class BridgeWebSocketServer {
     switch (msg.type) {
       case "start": {
         const provider = msg.provider ?? "claude";
+        if (provider === "codex") {
+          console.log(`[ws] start(codex): permissionMode=${msg.permissionMode} → collaboration=${msg.permissionMode === "plan" ? "plan" : "default"}`);
+        }
         const cached = provider === "claude" ? this.sessionManager.getCachedCommands(msg.projectPath) : undefined;
         const sessionId = this.sessionManager.create(
           msg.projectPath,
@@ -203,13 +223,14 @@ export class BridgeWebSocketServer {
           provider,
           provider === "codex"
             ? {
-                approvalPolicy: (msg.approvalPolicy as "never" | "on-request" | "on-failure" | "untrusted") ?? undefined,
-                sandboxMode: (msg.sandboxMode as "read-only" | "workspace-write" | "danger-full-access") ?? undefined,
+                approvalPolicy: permissionModeToApprovalPolicy(msg.permissionMode),
+                sandboxMode: sandboxModeToInternal(msg.sandboxMode),
                 model: msg.model,
                 modelReasoningEffort: (msg.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
                 networkAccessEnabled: msg.networkAccessEnabled,
                 webSearchMode: (msg.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
                 threadId: msg.sessionId,
+                collaborationMode: msg.permissionMode === "plan" ? "plan" as const : "default" as const,
               }
             : undefined,
         );
@@ -388,11 +409,13 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          this.send(ws, {
-            type: "error",
-            message: "Codex sessions do not support runtime permission mode changes",
-          });
-          return;
+          const codexProcess = session.process as CodexProcess;
+          const approval = permissionModeToApprovalPolicy(msg.mode);
+          const collaboration = msg.mode === "plan" ? "plan" : "default";
+          console.log(`[ws] set_permission_mode(codex): mode=${msg.mode} → approval=${approval}, collaboration=${collaboration}`);
+          codexProcess.setApprovalPolicy(approval);
+          codexProcess.setCollaborationMode(collaboration);
+          break;
         }
         (session.process as SdkProcess).setPermissionMode(msg.mode).catch((err) => {
           this.send(ws, {
@@ -413,32 +436,23 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "Only Codex sessions support sandbox mode changes" });
           return;
         }
-        const validModes = ["read-only", "workspace-write", "danger-full-access"] as const;
-        if (!validModes.includes(msg.sandboxMode as typeof validModes[number])) {
+        // Map on/off to internal Codex sandbox modes
+        if (msg.sandboxMode !== "on" && msg.sandboxMode !== "off") {
           this.send(ws, { type: "error", message: `Invalid sandbox mode: ${msg.sandboxMode}` });
           return;
         }
-        const newSandboxMode = msg.sandboxMode as typeof validModes[number];
-        // Update stored settings
+        const newSandboxMode = sandboxModeToInternal(msg.sandboxMode);
+        // Update stored settings.
+        // Note: Codex app-server does not reliably support resuming an existing
+        // thread with a different sandbox mode. Restarting here can terminate
+        // the process (`codex app-server exited`) and leave the session in a
+        // broken state. We therefore persist the preference and keep the
+        // current runtime alive.
         if (!session.codexSettings) {
           session.codexSettings = {};
         }
         session.codexSettings.sandboxMode = newSandboxMode;
-        // Restart Codex process with new sandboxMode (required: sandboxMode is set at thread start)
-        const codexProc = session.process as CodexProcess;
-        const threadId = session.claudeSessionId ?? undefined;
-        const effectiveCwd = session.worktreePath ?? session.projectPath;
-        codexProc.stop();
-        codexProc.start(effectiveCwd, {
-          approvalPolicy: (session.codexSettings.approvalPolicy as "never" | "on-request" | "on-failure" | "untrusted") ?? undefined,
-          sandboxMode: newSandboxMode,
-          model: session.codexSettings.model,
-          modelReasoningEffort: (session.codexSettings.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
-          networkAccessEnabled: session.codexSettings.networkAccessEnabled,
-          webSearchMode: (session.codexSettings.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
-          threadId,
-        });
-        console.log(`[ws] Sandbox mode changed to ${newSandboxMode} for session ${session.id} (thread restart)`);
+        console.log(`[ws] Sandbox mode changed to ${newSandboxMode} for session ${session.id} (deferred apply)`);
         break;
       }
 
@@ -449,8 +463,8 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          this.send(ws, { type: "error", message: "Codex sessions do not support approval" });
-          return;
+          (session.process as CodexProcess).approve(msg.id, msg.updatedInput);
+          break;
         }
         const sdkProc = session.process as SdkProcess;
         if (msg.clearContext) {
@@ -521,8 +535,8 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          this.send(ws, { type: "error", message: "Codex sessions do not support approval" });
-          return;
+          (session.process as CodexProcess).approveAlways(msg.id);
+          break;
         }
         (session.process as SdkProcess).approveAlways(msg.id);
         break;
@@ -535,8 +549,8 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          this.send(ws, { type: "error", message: "Codex sessions do not support rejection" });
-          return;
+          (session.process as CodexProcess).reject(msg.id, msg.message);
+          break;
         }
         (session.process as SdkProcess).reject(msg.id, msg.message);
         break;
@@ -549,8 +563,8 @@ export class BridgeWebSocketServer {
           return;
         }
         if (session.provider === "codex") {
-          this.send(ws, { type: "error", message: "Codex sessions do not support answer" });
-          return;
+          (session.process as CodexProcess).answer(msg.toolUseId, msg.result);
+          break;
         }
         (session.process as SdkProcess).answer(msg.toolUseId, msg.result);
         break;
@@ -724,12 +738,13 @@ export class BridgeWebSocketServer {
               "codex",
               {
                 threadId: sessionRefId,
-                approvalPolicy: (msg.approvalPolicy as "never" | "on-request" | "on-failure" | "untrusted") ?? undefined,
-                sandboxMode: (msg.sandboxMode as "read-only" | "workspace-write" | "danger-full-access") ?? undefined,
+                approvalPolicy: permissionModeToApprovalPolicy(msg.permissionMode),
+                sandboxMode: sandboxModeToInternal(msg.sandboxMode),
                 model: msg.model,
                 modelReasoningEffort: (msg.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
                 networkAccessEnabled: msg.networkAccessEnabled,
                 webSearchMode: (msg.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
+                collaborationMode: msg.permissionMode === "plan" ? "plan" as const : "default" as const,
               },
             );
             const createdSession = this.sessionManager.get(sessionId);

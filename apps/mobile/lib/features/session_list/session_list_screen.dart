@@ -403,9 +403,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     bridge.send(
       ClientMessage.start(
         result.projectPath,
-        permissionMode: result.provider == Provider.claude
-            ? result.permissionMode.value
-            : null,
+        permissionMode: result.permissionMode.value,
         effort: result.provider == Provider.claude
             ? result.claudeEffort?.value
             : null,
@@ -430,7 +428,6 @@ class _SessionListScreenState extends State<SessionListScreen>
         model: result.provider == Provider.claude
             ? result.claudeModel
             : result.model,
-        approvalPolicy: result.approvalPolicy?.value,
         sandboxMode: result.sandboxMode?.value,
         modelReasoningEffort: result.modelReasoningEffort?.value,
         networkAccessEnabled: result.networkAccessEnabled,
@@ -447,6 +444,8 @@ class _SessionListScreenState extends State<SessionListScreen>
       worktreePath: result.existingWorktreePath,
       isPending: true,
       provider: result.provider,
+      permissionMode: result.permissionMode.value,
+      sandboxMode: result.sandboxMode?.value,
     );
   }
 
@@ -484,7 +483,6 @@ class _SessionListScreenState extends State<SessionListScreen>
       existingWorktreePath: hasExistingWorktree ? existingWorktreePath : null,
       model: session.codexModel,
       sandboxMode: sandboxModeFromRaw(session.codexSandboxMode),
-      approvalPolicy: approvalPolicyFromRaw(session.codexApprovalPolicy),
       modelReasoningEffort: reasoningEffortFromRaw(
         session.codexModelReasoningEffort,
       ),
@@ -563,6 +561,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               worktreePath: worktreePath,
               isPending: isPending,
               initialSandboxMode: sandboxMode,
+              initialPermissionMode: permissionMode,
               pendingSessionCreated: isPending ? _pendingSessionCreated : null,
             ),
           )
@@ -626,7 +625,6 @@ class _SessionListScreenState extends State<SessionListScreen>
       forkSession: !isCodex ? claudeDefaults?.claudeForkSession : null,
       persistSession: !isCodex ? claudeDefaults?.claudePersistSession : null,
       provider: session.provider,
-      approvalPolicy: session.codexApprovalPolicy,
       sandboxMode: session.codexSandboxMode,
       model: isCodex ? session.codexModel : claudeDefaults?.claudeModel,
       modelReasoningEffort: session.codexModelReasoningEffort,

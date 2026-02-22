@@ -8,4 +8,7 @@ import 'package:talker/talker.dart';
 /// logger.info('message');
 /// logger.error('failed', exception, stackTrace);
 /// ```
-final logger = Talker();
+final logger = Talker(
+  settings: TalkerSettings(useConsoleLogs: true),
+  logger: TalkerLogger(settings: TalkerLoggerSettings(enableColors: false)),
+);

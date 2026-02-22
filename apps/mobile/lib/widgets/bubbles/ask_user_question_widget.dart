@@ -429,25 +429,7 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                 alwaysShowTextInput: !_singleQuestionIsMultiSelect,
               ),
             ],
-            if (_isMultiQuestion) ...[
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  key: const ValueKey('ask_submit_all_button'),
-                  onPressed: _allQuestionsAnswered ? _sendAllAnswers : null,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  child: Text(
-                    _allQuestionsAnswered
-                        ? l.submitAllAnswers
-                        : l.answerAllQuestionsToSubmit,
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-              ),
-            ] else if (_singleQuestionIsMultiSelect) ...[
+            if (_singleQuestionIsMultiSelect) ...[
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
@@ -672,20 +654,18 @@ class _AskOptionButton extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                isMulti
-                    ? (isSelected
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank)
-                    : (isSelected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked),
-                size: 18,
-                color: isSelected
-                    ? appColors.askIcon
-                    : appColors.subtleText.withValues(alpha: 0.8),
-              ),
-              const SizedBox(width: 8),
+              if (isMulti) ...[
+                Icon(
+                  isSelected
+                      ? Icons.check_box
+                      : Icons.check_box_outline_blank,
+                  size: 18,
+                  color: isSelected
+                      ? appColors.askIcon
+                      : appColors.subtleText.withValues(alpha: 0.8),
+                ),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,6 +691,14 @@ class _AskOptionButton extends StatelessWidget {
                   ],
                 ),
               ),
+              if (!isMulti) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: appColors.subtleText.withValues(alpha: 0.8),
+                ),
+              ],
             ],
           ),
         ),

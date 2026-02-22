@@ -134,26 +134,12 @@ enum ClaudeEffort {
 // ---- Codex sandbox mode ----
 
 enum SandboxMode {
-  readOnly('read-only', 'Read Only'),
-  workspaceWrite('workspace-write', 'Workspace Write'),
-  dangerFullAccess('danger-full-access', 'Full Access ⚠️');
+  on('on', 'Sandbox On'),
+  off('off', 'Sandbox Off');
 
   final String value;
   final String label;
   const SandboxMode(this.value, this.label);
-}
-
-// ---- Codex approval policy ----
-
-enum ApprovalPolicy {
-  never('never', 'Never (Auto)'),
-  onRequest('on-request', 'On Request'),
-  onFailure('on-failure', 'On Failure'),
-  untrusted('untrusted', 'Untrusted');
-
-  final String value;
-  final String label;
-  const ApprovalPolicy(this.value, this.label);
 }
 
 enum ReasoningEffort {
@@ -1393,7 +1379,6 @@ class ClientMessage {
     String? existingWorktreePath,
     String? provider,
     String? model,
-    String? approvalPolicy,
     String? sandboxMode,
     String? modelReasoningEffort,
     bool? networkAccessEnabled,
@@ -1417,7 +1402,6 @@ class ClientMessage {
       'existingWorktreePath': ?existingWorktreePath,
       'provider': ?provider,
       'model': ?model,
-      'approvalPolicy': ?approvalPolicy,
       'sandboxMode': ?sandboxMode,
       'modelReasoningEffort': ?modelReasoningEffort,
       'networkAccessEnabled': ?networkAccessEnabled,
@@ -1564,7 +1548,6 @@ class ClientMessage {
     bool? forkSession,
     bool? persistSession,
     String? provider,
-    String? approvalPolicy,
     String? sandboxMode,
     String? model,
     String? modelReasoningEffort,
@@ -1583,7 +1566,6 @@ class ClientMessage {
       'forkSession': ?forkSession,
       'persistSession': ?persistSession,
       'provider': ?provider,
-      'approvalPolicy': ?approvalPolicy,
       'sandboxMode': ?sandboxMode,
       'model': ?model,
       'modelReasoningEffort': ?modelReasoningEffort,

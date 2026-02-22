@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/logger.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/chat_message_handler.dart';
@@ -50,7 +51,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
        super(
          ChatSessionState(
            permissionMode: initialPermissionMode ?? PermissionMode.defaultMode,
-           sandboxMode: initialSandboxMode ?? SandboxMode.workspaceWrite,
+           sandboxMode: initialSandboxMode ?? SandboxMode.on,
+           inPlanMode: initialPermissionMode == PermissionMode.plan,
          ),
        ) {
     // Subscribe to messages for this session
@@ -79,6 +81,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   // ---------------------------------------------------------------------------
 
   void _onMessage(ServerMessage msg) {
+    // Log errors prominently
+    if (msg is ErrorMessage) {
+      logger.error('[session:$sessionId] Error from bridge: ${msg.message}');
+    }
+
     // Prevent duplicate past_history processing
     if (msg is PastHistoryMessage) {
       if (_pastHistoryLoaded) return;
@@ -91,8 +98,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       return;
     }
 
-    final update = _handler.handle(msg, isBackground: true);
-    _applyUpdate(update, msg);
+    try {
+      final update = _handler.handle(msg, isBackground: true, isCodex: isCodex);
+      _applyUpdate(update, msg);
+    } catch (e, st) {
+      logger.error(
+        '[session:$sessionId] Failed to handle message: '
+        '${msg.runtimeType}',
+        e,
+        st,
+      );
+    }
   }
 
   void _applyUpdate(ChatStateUpdate update, ServerMessage originalMsg) {
@@ -387,6 +403,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     Map<String, dynamic>? updatedInput,
     bool clearContext = false,
   }) {
+    logger.info(
+      '[session:$sessionId] approve toolUseId=$toolUseId'
+      '${clearContext ? ' clearContext' : ''}',
+    );
     _respondedToolUseIds.add(toolUseId);
     _bridge.send(
       ClientMessage.approve(
@@ -447,6 +467,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   /// Reject a pending tool execution.
   void reject(String toolUseId, {String? message}) {
+    logger.info(
+      '[session:$sessionId] reject toolUseId=$toolUseId'
+      '${message != null ? ' msg=$message' : ''}',
+    );
     _respondedToolUseIds.add(toolUseId);
     _bridge.send(
       ClientMessage.reject(toolUseId, message: message, sessionId: sessionId),
@@ -469,7 +493,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   /// Change permission mode for Claude sessions.
   void setPermissionMode(PermissionMode mode) {
-    if (isCodex) return;
+    logger.info('[session:$sessionId] setPermissionMode=${mode.value}');
     emit(state.copyWith(permissionMode: mode));
     _bridge.send(
       ClientMessage.setPermissionMode(mode.value, sessionId: sessionId),
@@ -477,7 +501,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   /// Change sandbox mode for Codex sessions.
-  /// This triggers a thread restart on the Bridge side.
+  /// Bridge applies this safely without forcing an in-place thread restart.
   void setSandboxMode(SandboxMode mode) {
     if (!isCodex) return;
     emit(state.copyWith(sandboxMode: mode));

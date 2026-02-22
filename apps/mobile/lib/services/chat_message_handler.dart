@@ -1,3 +1,4 @@
+import '../core/logger.dart';
 import '../models/messages.dart';
 import '../widgets/slash_command_sheet.dart'
     show SlashCommand, SlashCommandCategory, buildSlashCommand, knownCommands;
@@ -80,7 +81,11 @@ class ChatMessageHandler {
   String currentThinkingText = '';
   StreamingChatEntry? currentStreaming;
 
-  ChatStateUpdate handle(ServerMessage msg, {required bool isBackground}) {
+  ChatStateUpdate handle(
+    ServerMessage msg, {
+    required bool isBackground,
+    bool isCodex = false,
+  }) {
     switch (msg) {
       case StatusMessage(:final status):
         return _handleStatus(status, isBackground: isBackground);
@@ -90,7 +95,12 @@ class ChatMessageHandler {
       case StreamDeltaMessage(:final text):
         return _handleStreamDelta(text);
       case AssistantServerMessage(:final message):
-        return _handleAssistant(msg, message, isBackground: isBackground);
+        return _handleAssistant(
+          msg,
+          message,
+          isBackground: isBackground,
+          isCodex: isCodex,
+        );
       case PastHistoryMessage(:final claudeSessionId, :final messages):
         return _handlePastHistory(messages, claudeSessionId: claudeSessionId);
       case HistoryMessage(:final messages):
@@ -102,6 +112,10 @@ class ChatMessageHandler {
         :final toolName,
         :final input,
       ):
+        logger.info(
+          '[handler] permission_request: '
+          'tool=$toolName id=$toolUseId',
+        );
         if (toolName == 'AskUserQuestion') {
           return ChatStateUpdate(
             entriesToAdd: [ServerChatEntry(msg)],
@@ -113,9 +127,16 @@ class ChatMessageHandler {
           entriesToAdd: [ServerChatEntry(msg)],
           pendingToolUseId: toolUseId,
           pendingPermission: msg,
+          inPlanMode: toolName == 'ExitPlanMode' ? true : null,
         );
       case ResultMessage(:final subtype, :final cost):
-        return _handleResult(msg, subtype, cost, isBackground: isBackground);
+        return _handleResult(
+          msg,
+          subtype,
+          cost,
+          isBackground: isBackground,
+          isCodex: isCodex,
+        );
       case ToolUseSummaryMessage(:final precedingToolUseIds):
         return ChatStateUpdate(
           entriesToAdd: [ServerChatEntry(msg)],
@@ -144,7 +165,11 @@ class ChatMessageHandler {
       case InputAckMessage():
         return const ChatStateUpdate(markUserMessagesSent: true);
       case InputRejectedMessage():
+        logger.warning('[handler] input_rejected');
         return const ChatStateUpdate(markUserMessagesFailed: true);
+      case ErrorMessage(:final message):
+        logger.error('[handler] error message: $message');
+        return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
       default:
         return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
     }
@@ -190,6 +215,7 @@ class ChatMessageHandler {
     AssistantServerMessage msg,
     AssistantMessage message, {
     required bool isBackground,
+    required bool isCodex,
   }) {
     final effects = <ChatSideEffect>{ChatSideEffect.collapseToolResults};
 
@@ -237,6 +263,9 @@ class ChatMessageHandler {
           }
         }
       }
+    }
+    if (isCodex && inPlanMode == null && _isCodexPlanUpdateMessage(message)) {
+      inPlanMode = true;
     }
 
     return ChatStateUpdate(
@@ -355,7 +384,13 @@ class ChatMessageHandler {
         }
         // Track pending permission request
         if (m is PermissionRequestMessage) {
-          pendingPermissions[m.toolUseId] = m;
+          if (m.toolName == 'AskUserQuestion') {
+            // Codex sends AskUserQuestion as permission_request directly
+            lastAskToolUseId = m.toolUseId;
+            lastAskInput = m.input;
+          } else {
+            pendingPermissions[m.toolUseId] = m;
+          }
         }
         // Track pending AskUserQuestion (tool_use in assistant message)
         if (m is AssistantServerMessage) {
@@ -438,7 +473,9 @@ class ChatMessageHandler {
     String subtype,
     double? cost, {
     required bool isBackground,
+    required bool isCodex,
   }) {
+    logger.info('[handler] result: subtype=$subtype cost=$cost');
     final effects = <ChatSideEffect>{ChatSideEffect.lightHaptic};
     final isStopped = subtype == 'stopped';
     if (isBackground && !isStopped) {
@@ -455,10 +492,23 @@ class ChatMessageHandler {
       resetPending: isStopped,
       resetAsk: isStopped,
       resetStreaming: isStopped,
-      inPlanMode: isStopped ? false : null,
+      inPlanMode: isStopped
+          ? false
+          : (isCodex && subtype == 'success')
+          ? false
+          : null,
       markUserMessagesSent: true,
       sideEffects: effects,
     );
+  }
+
+  bool _isCodexPlanUpdateMessage(AssistantMessage message) {
+    for (final content in message.content) {
+      if (content is! TextContent) continue;
+      final text = content.text.trimLeft();
+      if (text.startsWith('Plan update:')) return true;
+    }
+    return false;
   }
 
   /// Build slash command list from server-provided names.

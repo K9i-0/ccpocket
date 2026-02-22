@@ -205,6 +205,27 @@ void main() {
       expect(update.inPlanMode, isTrue);
       expect(update.pendingToolUseId, 'tu-plan');
     });
+
+    test('detects Codex plan update text as plan mode', () {
+      final update = handler.handle(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'msg-codex-plan',
+            role: 'assistant',
+            content: [
+              const TextContent(
+                text:
+                    'Plan update: Initial draft\n1. [in progress] Gather requirements',
+              ),
+            ],
+            model: 'codex',
+          ),
+        ),
+        isBackground: false,
+        isCodex: true,
+      );
+      expect(update.inPlanMode, isTrue);
+    });
   });
 
   group('PastHistory handling', () {
@@ -269,6 +290,15 @@ void main() {
       );
       expect(update.costDelta, 0.05);
       expect(update.sideEffects, contains(ChatSideEffect.lightHaptic));
+    });
+
+    test('Codex success exits plan mode', () {
+      final update = handler.handle(
+        const ResultMessage(subtype: 'success'),
+        isBackground: false,
+        isCodex: true,
+      );
+      expect(update.inPlanMode, isFalse);
     });
 
     test('success in background sends notification', () {
@@ -814,10 +844,7 @@ void main() {
       final update = handler.handle(
         const HistoryMessage(
           messages: [
-            UserInputMessage(
-              text: 'Hello world',
-              userMessageUuid: 'uuid-1',
-            ),
+            UserInputMessage(text: 'Hello world', userMessageUuid: 'uuid-1'),
             StatusMessage(status: ProcessStatus.idle),
           ],
         ),
@@ -837,10 +864,7 @@ void main() {
       final update = handler.handle(
         const HistoryMessage(
           messages: [
-            UserInputMessage(
-              text: '[Image attached]',
-              imageCount: 1,
-            ),
+            UserInputMessage(text: '[Image attached]', imageCount: 1),
             StatusMessage(status: ProcessStatus.idle),
           ],
         ),

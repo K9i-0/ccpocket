@@ -219,8 +219,7 @@ void main() {
         worktreeBranch: 'feature/x',
         existingWorktreePath: '/tmp/project-a-worktrees/feature-x',
         model: 'gpt-5.3-codex',
-        sandboxMode: SandboxMode.workspaceWrite,
-        approvalPolicy: ApprovalPolicy.onRequest,
+        sandboxMode: SandboxMode.on,
         modelReasoningEffort: ReasoningEffort.high,
         networkAccessEnabled: true,
         webSearchMode: WebSearchMode.live,
@@ -237,7 +236,6 @@ void main() {
       expect(restored.existingWorktreePath, isNull);
       expect(restored.worktreeBranch, isNull);
       // Provider settings ARE persisted
-      expect(restored.approvalPolicy, ApprovalPolicy.onRequest);
       expect(restored.webSearchMode, WebSearchMode.live);
     });
 

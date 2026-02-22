@@ -501,78 +501,6 @@ class ChatInputWithOverlays extends HookWidget {
     }
 
     void showModeMenu() {
-      if (isCodex) {
-        final currentSandbox = chatCubit.state.sandboxMode;
-
-        const sandboxDetails =
-            <SandboxMode, ({IconData icon, String description})>{
-              SandboxMode.workspaceWrite: (
-                icon: Icons.edit,
-                description: 'Read & write within workspace',
-              ),
-              SandboxMode.readOnly: (
-                icon: Icons.visibility,
-                description: 'Read-only access to files',
-              ),
-              SandboxMode.dangerFullAccess: (
-                icon: Icons.warning_amber,
-                description: 'Full system access (dangerous)',
-              ),
-            };
-
-        showModalBottomSheet(
-          context: context,
-          builder: (sheetContext) {
-            final sheetCs = Theme.of(sheetContext).colorScheme;
-            return SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Sandbox Mode',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: sheetCs.onSurface,
-                        ),
-                      ),
-                    ),
-                  ),
-                  for (final mode in SandboxMode.values)
-                    ListTile(
-                      leading: Icon(
-                        sandboxDetails[mode]!.icon,
-                        color: mode == currentSandbox
-                            ? sheetCs.primary
-                            : sheetCs.onSurfaceVariant,
-                      ),
-                      title: Text(mode.label),
-                      subtitle: Text(
-                        sandboxDetails[mode]!.description,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      trailing: mode == currentSandbox
-                          ? Icon(Icons.check, color: sheetCs.primary, size: 20)
-                          : null,
-                      onTap: () {
-                        Navigator.pop(sheetContext);
-                        HapticFeedback.lightImpact();
-                        chatCubit.setSandboxMode(mode);
-                      },
-                    ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            );
-          },
-        );
-        return;
-      }
-
       final currentMode = chatCubit.state.permissionMode;
 
       const modeDetails =
@@ -699,6 +627,7 @@ class ChatInputWithOverlays extends HookWidget {
             onToggleVoice: voice.toggle,
             onShowSlashCommands: showSlashCommandSheet,
             onShowModeMenu: showModeMenu,
+            showModeButton: true,
             permissionMode: context
                 .watch<ChatSessionCubit>()
                 .state

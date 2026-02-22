@@ -119,31 +119,29 @@ void main() {
       expect(find.text('Which features?'), findsNothing);
       expect(find.text('1/3'), findsOneWidget);
 
-      // Submit button exists but is disabled (shows hint text)
-      expect(find.text('Answer all questions to submit'), findsOneWidget);
     });
 
-    patrolWidgetTest('E4: Multi-question first answer advances without sending', (
-      $,
-    ) async {
-      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
-      await pumpN($.tester);
+    patrolWidgetTest(
+      'E4: Multi-question first answer advances without sending',
+      ($) async {
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+        await pumpN($.tester);
 
-      await emitAndPump($.tester, bridge, [
-        makeAskQuestionMessage('ask-4', multiQuestions),
-        const StatusMessage(status: ProcessStatus.waitingApproval),
-      ]);
-      await pumpN($.tester);
+        await emitAndPump($.tester, bridge, [
+          makeAskQuestionMessage('ask-4', multiQuestions),
+          const StatusMessage(status: ProcessStatus.waitingApproval),
+        ]);
+        await pumpN($.tester);
 
-      // Answer first question (single select) -> auto advances to question 2.
-      await $.tester.tap(find.text('SQLite'));
-      await pumpN($.tester);
+        // Answer first question (single select) -> auto advances to question 2.
+        await $.tester.tap(find.text('SQLite'));
+        await pumpN($.tester);
 
-      // Second question is shown, but answer is not sent yet.
-      expect(find.text('Which features?'), findsOneWidget);
-      expect(find.text('Answer all questions to submit'), findsOneWidget);
-      expect(findSentMessage(bridge, 'answer'), isNull);
-    });
+        // Second question is shown, but answer is not sent yet.
+        expect(find.text('Which features?'), findsOneWidget);
+        expect(findSentMessage(bridge, 'answer'), isNull);
+      },
+    );
 
     patrolWidgetTest('E5: After answering shows "Answered" text', ($) async {
       await $.pumpWidget(await buildTestChatScreen(bridge: bridge));

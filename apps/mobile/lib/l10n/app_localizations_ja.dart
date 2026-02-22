@@ -421,9 +421,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get submitAllAnswers => 'すべての回答を送信';
 
   @override
-  String get answerAllQuestionsToSubmit => 'すべての質問に回答してください';
-
-  @override
   String submitWithCount(int count) {
     return '送信 ($count 件選択)';
   }

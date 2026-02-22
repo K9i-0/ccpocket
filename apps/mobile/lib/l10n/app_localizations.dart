@@ -872,12 +872,6 @@ abstract class AppLocalizations {
   /// **'すべての回答を送信'**
   String get submitAllAnswers;
 
-  /// No description provided for @answerAllQuestionsToSubmit.
-  ///
-  /// In ja, this message translates to:
-  /// **'すべての質問に回答してください'**
-  String get answerAllQuestionsToSubmit;
-
   /// No description provided for @submitWithCount.
   ///
   /// In ja, this message translates to:

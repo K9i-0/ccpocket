@@ -21,6 +21,7 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onToggleVoice;
   final VoidCallback onShowSlashCommands;
   final VoidCallback onShowModeMenu;
+  final bool showModeButton;
   final PermissionMode permissionMode;
   final SandboxMode? sandboxMode;
   final VoidCallback? onShowPromptHistory;
@@ -45,6 +46,7 @@ class ChatInputBar extends StatelessWidget {
     required this.onToggleVoice,
     required this.onShowSlashCommands,
     required this.onShowModeMenu,
+    this.showModeButton = true,
     this.permissionMode = PermissionMode.defaultMode,
     this.sandboxMode,
     this.onShowPromptHistory,
@@ -97,12 +99,17 @@ class ChatInputBar extends StatelessWidget {
           Row(
             children: [
               _SlashButton(onTap: onShowSlashCommands),
-              const SizedBox(width: 8),
-              _ModeButton(
-                permissionMode: permissionMode,
-                sandboxMode: sandboxMode,
-                onTap: onShowModeMenu,
-              ),
+              if (showModeButton) ...[
+                const SizedBox(width: 8),
+                _ModeButton(
+                  permissionMode: permissionMode,
+                  onTap: onShowModeMenu,
+                ),
+              ],
+              if (sandboxMode != null) ...[
+                const SizedBox(width: 6),
+                _SandboxModeBadge(mode: sandboxMode!),
+              ],
               const SizedBox(width: 8),
               _AttachButton(
                 hasAttachment: attachedImages.isNotEmpty,
@@ -166,25 +173,14 @@ class _SlashButton extends StatelessWidget {
 }
 
 class _ModeButton extends StatelessWidget {
-  const _ModeButton({
-    required this.permissionMode,
-    required this.sandboxMode,
-    required this.onTap,
-  });
+  const _ModeButton({required this.permissionMode, required this.onTap});
   final PermissionMode permissionMode;
-  final SandboxMode? sandboxMode;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    // Codex: show sandbox mode badge
-    if (sandboxMode != null) {
-      return _SandboxModeButton(mode: sandboxMode!, onTap: onTap);
-    }
-
-    // Claude: show permission mode badge
     final isDefault = permissionMode == PermissionMode.defaultMode;
 
     final (
@@ -258,71 +254,54 @@ class _ModeButton extends StatelessWidget {
   }
 }
 
-class _SandboxModeButton extends StatelessWidget {
-  const _SandboxModeButton({required this.mode, required this.onTap});
+// _SandboxModeButton removed — sandbox is now a simple On/Off badge
+
+/// Read-only sandbox mode badge displayed alongside the permission mode button
+/// for Codex sessions.
+class _SandboxModeBadge extends StatelessWidget {
+  const _SandboxModeBadge({required this.mode});
   final SandboxMode mode;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDefault = mode == SandboxMode.workspaceWrite;
 
-    final (IconData icon, String? label, Color bg, Color fg) = switch (mode) {
-      SandboxMode.workspaceWrite => (
-        Icons.tune,
-        null,
-        cs.surfaceContainerHigh,
-        cs.primary,
-      ),
-      SandboxMode.readOnly => (
-        Icons.visibility,
-        'Read',
+    final (IconData icon, String label, Color bg, Color fg) = switch (mode) {
+      SandboxMode.on => (
+        Icons.shield_outlined,
+        'SB',
         cs.tertiaryContainer,
         cs.onTertiaryContainer,
       ),
-      SandboxMode.dangerFullAccess => (
+      SandboxMode.off => (
         Icons.warning_amber,
-        'Full',
+        'No SB',
         cs.errorContainer,
         cs.onErrorContainer,
       ),
     };
 
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        key: const ValueKey('mode_button'),
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          height: 36,
-          constraints: isDefault
-              ? const BoxConstraints(minWidth: 36, maxWidth: 36)
-              : const BoxConstraints(minWidth: 36),
-          padding: isDefault
-              ? EdgeInsets.zero
-              : const EdgeInsets.symmetric(horizontal: 10),
-          alignment: Alignment.center,
-          child: isDefault
-              ? Icon(icon, size: 18, color: fg)
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 16, color: fg),
-                    const SizedBox(width: 4),
-                    Text(
-                      label!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: fg,
-                      ),
-                    ),
-                  ],
-                ),
-        ),
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
       ),
     );
   }

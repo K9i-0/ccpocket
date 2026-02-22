@@ -33,7 +33,7 @@ abstract class ChatSessionState with _$ChatSessionState {
     @Default(PermissionMode.defaultMode) PermissionMode permissionMode,
 
     // Sandbox mode for Codex sessions
-    @Default(SandboxMode.workspaceWrite) SandboxMode sandboxMode,
+    @Default(SandboxMode.on) SandboxMode sandboxMode,
 
     // Tool use IDs hidden by tool_use_summary (subagent compression)
     @Default({}) Set<String> hiddenToolUseIds,

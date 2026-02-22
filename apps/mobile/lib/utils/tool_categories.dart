@@ -15,7 +15,11 @@ ToolCategory categorizeToolName(String name) {
 
   return switch (name) {
     'Read' => ToolCategory.read,
-    'Write' || 'Edit' || 'NotebookEdit' || 'MultiEdit' => ToolCategory.write,
+    'Write' ||
+    'Edit' ||
+    'NotebookEdit' ||
+    'MultiEdit' ||
+    'FileChange' => ToolCategory.write,
     'Bash' => ToolCategory.bash,
     'Grep' || 'Glob' || 'WebSearch' || 'WebFetch' => ToolCategory.search,
     _ => ToolCategory.other,
@@ -66,11 +70,24 @@ Color getToolCategoryColor(ToolCategory category, AppColors appColors) {
 
 String _fileSummary(Map<String, dynamic> input) {
   final raw = input['file_path'] ?? input['path'] ?? input['notebook_path'];
-  if (raw == null) return _fallbackSummary(input);
-  final path = raw.toString();
-  // Extract file name only (after last '/')
-  final idx = path.lastIndexOf('/');
-  return idx >= 0 ? path.substring(idx + 1) : path;
+  if (raw != null) {
+    final path = raw.toString();
+    final idx = path.lastIndexOf('/');
+    return idx >= 0 ? path.substring(idx + 1) : path;
+  }
+  // FileChange: extract from changes array
+  final changes = input['changes'];
+  if (changes is List && changes.isNotEmpty) {
+    final first = changes[0];
+    if (first is Map) {
+      final path = first['path']?.toString() ?? '';
+      final name = path.contains('/')
+          ? path.substring(path.lastIndexOf('/') + 1)
+          : path;
+      return changes.length == 1 ? name : '$name +${changes.length - 1} files';
+    }
+  }
+  return _fallbackSummary(input);
 }
 
 String _bashSummary(Map<String, dynamic> input) {

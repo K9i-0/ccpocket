@@ -423,9 +423,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get submitAllAnswers => 'Submit All Answers';
 
   @override
-  String get answerAllQuestionsToSubmit => 'Answer all questions to submit';
-
-  @override
   String submitWithCount(int count) {
     return 'Submit ($count selected)';
   }

@@ -242,7 +242,7 @@ return $default(_that.status,_that.entries,_that.approval,_that.claudeSessionId,
 
 
 class _ChatSessionState implements ChatSessionState {
-  const _ChatSessionState({this.status = ProcessStatus.starting, final  List<ChatEntry> entries = const [], this.approval = const ApprovalState.none(), this.claudeSessionId, this.projectPath, this.gitBranch, this.pastHistoryLoaded = false, this.bulkLoading = false, this.inPlanMode = false, this.collapseToolResults = false, this.permissionMode = PermissionMode.defaultMode, this.sandboxMode = SandboxMode.workspaceWrite, final  Set<String> hiddenToolUseIds = const {}, this.rewindPreview, this.totalCost = 0.0, this.totalDuration, final  List<SlashCommand> slashCommands = const []}): _entries = entries,_hiddenToolUseIds = hiddenToolUseIds,_slashCommands = slashCommands;
+  const _ChatSessionState({this.status = ProcessStatus.starting, final  List<ChatEntry> entries = const [], this.approval = const ApprovalState.none(), this.claudeSessionId, this.projectPath, this.gitBranch, this.pastHistoryLoaded = false, this.bulkLoading = false, this.inPlanMode = false, this.collapseToolResults = false, this.permissionMode = PermissionMode.defaultMode, this.sandboxMode = SandboxMode.on, final  Set<String> hiddenToolUseIds = const {}, this.rewindPreview, this.totalCost = 0.0, this.totalDuration, final  List<SlashCommand> slashCommands = const []}): _entries = entries,_hiddenToolUseIds = hiddenToolUseIds,_slashCommands = slashCommands;
   
 
 // Process status

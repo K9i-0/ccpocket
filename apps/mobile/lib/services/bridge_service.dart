@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../core/logger.dart';
 import '../models/messages.dart';
 import 'bridge_service_base.dart';
 
@@ -226,17 +227,23 @@ class BridgeService implements BridgeServiceBase {
                 }
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
+              case ErrorMessage(:final message):
+                logger.error('Bridge error: $message');
+                _taggedMessageController.add((msg, sessionId));
+                _messageController.add(msg);
               default:
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
             }
-          } catch (e) {
+          } catch (e, st) {
+            logger.error('WS parse error', e, st);
             final errorMsg = ErrorMessage(message: 'Parse error: $e');
             _taggedMessageController.add((errorMsg, null));
             _messageController.add(errorMsg);
           }
         },
-        onError: (error) {
+        onError: (error, stackTrace) {
+          logger.error('WS stream error', error, stackTrace);
           _setBridgeConnectionState(BridgeConnectionState.disconnected);
           _messageController.add(
             ErrorMessage(message: 'WebSocket error: $error'),
@@ -253,7 +260,8 @@ class BridgeService implements BridgeServiceBase {
           }
         },
       );
-    } catch (e) {
+    } catch (e, st) {
+      logger.error('WS connect failed', e, st);
       _setBridgeConnectionState(BridgeConnectionState.disconnected);
       _messageController.add(ErrorMessage(message: 'Connection failed: $e'));
       _scheduleReconnect();
@@ -363,7 +371,6 @@ class BridgeService implements BridgeServiceBase {
     bool? forkSession,
     bool? persistSession,
     String? provider,
-    String? approvalPolicy,
     String? sandboxMode,
     String? model,
     String? modelReasoningEffort,
@@ -382,7 +389,6 @@ class BridgeService implements BridgeServiceBase {
         forkSession: forkSession,
         persistSession: persistSession,
         provider: provider,
-        approvalPolicy: approvalPolicy,
         sandboxMode: sandboxMode,
         model: model,
         modelReasoningEffort: modelReasoningEffort,

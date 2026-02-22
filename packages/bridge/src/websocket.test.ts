@@ -59,6 +59,8 @@ vi.mock("./session.js", () => ({
       const id = `s-${++this.seq}`;
       const process = {
         setPermissionMode: vi.fn(async () => {}),
+        setApprovalPolicy: vi.fn(),
+        setCollaborationMode: vi.fn(),
         sendInput: vi.fn(),
         sendInputWithImage: vi.fn(),
         approve: vi.fn(),
@@ -308,7 +310,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("returns error when set_permission_mode is sent to codex session", () => {
+  it("maps set_permission_mode plan to collaborationMode for codex session", () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -329,6 +331,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(created).toBeDefined();
     const sessionId = created.sessionId as string;
 
+    const session = (bridge as any).sessionManager.get(sessionId);
+
     (bridge as any).handleClientMessage(
       {
         type: "set_permission_mode",
@@ -338,11 +342,47 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ws,
     );
 
-    const last = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
-    expect(last).toEqual({
-      type: "error",
-      message: "Codex sessions do not support runtime permission mode changes",
-    });
+    expect(session.process.setApprovalPolicy).toHaveBeenCalledWith("on-request");
+    expect(session.process.setCollaborationMode).toHaveBeenCalledWith("plan");
+
+    bridge.close();
+  });
+
+  it("maps set_permission_mode to approval_policy for codex session", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(created).toBeDefined();
+    const sessionId = created.sessionId as string;
+
+    // Should not return an error — it maps to approval_policy internally
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_permission_mode",
+        sessionId,
+        mode: "bypassPermissions",
+      },
+      ws,
+    );
+
+    const lastMessages = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const errors = lastMessages.filter((m: any) => m.type === "error");
+    // No errors should be produced for valid permission mode on codex
+    expect(errors.length).toBe(0);
 
     bridge.close();
   });
@@ -613,7 +653,6 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       op: "notify",
       bridgeId: "bridge-test",
       eventType: "session_completed",
-      title: "タスク完了",
     });
 
     bridge.close();

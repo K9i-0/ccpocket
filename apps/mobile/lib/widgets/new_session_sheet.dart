@@ -19,7 +19,6 @@ class NewSessionParams {
   final String? existingWorktreePath;
   final String? model;
   final SandboxMode? sandboxMode;
-  final ApprovalPolicy? approvalPolicy;
   final ReasoningEffort? modelReasoningEffort;
   final bool? networkAccessEnabled;
   final WebSearchMode? webSearchMode;
@@ -40,7 +39,6 @@ class NewSessionParams {
     this.existingWorktreePath,
     this.model,
     this.sandboxMode,
-    this.approvalPolicy,
     this.modelReasoningEffort,
     this.networkAccessEnabled,
     this.webSearchMode,
@@ -66,9 +64,6 @@ T? enumByValue<T>(List<T> values, String? raw, String Function(T) readValue) {
 
 SandboxMode? sandboxModeFromRaw(String? raw) =>
     enumByValue(SandboxMode.values, raw, (v) => v.value);
-
-ApprovalPolicy? approvalPolicyFromRaw(String? raw) =>
-    enumByValue(ApprovalPolicy.values, raw, (v) => v.value);
 
 ReasoningEffort? reasoningEffortFromRaw(String? raw) =>
     enumByValue(ReasoningEffort.values, raw, (v) => v.value);
@@ -102,7 +97,6 @@ Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
     // session-specific and intentionally NOT persisted.
     'model': params.model,
     'sandboxMode': params.sandboxMode?.value,
-    'approvalPolicy': params.approvalPolicy?.value,
     'modelReasoningEffort': params.modelReasoningEffort?.value,
     'networkAccessEnabled': params.networkAccessEnabled,
     'webSearchMode': params.webSearchMode?.value,
@@ -129,7 +123,6 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
     // useWorktree, worktreeBranch, existingWorktreePath default to off/null
     model: json['model'] as String?,
     sandboxMode: sandboxModeFromRaw(json['sandboxMode'] as String?),
-    approvalPolicy: approvalPolicyFromRaw(json['approvalPolicy'] as String?),
     modelReasoningEffort: reasoningEffortFromRaw(
       json['modelReasoningEffort'] as String?,
     ),
@@ -243,8 +236,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
   // Codex-specific options
   String? _selectedModel;
-  var _sandboxMode = SandboxMode.workspaceWrite;
-  var _approvalPolicy = ApprovalPolicy.never;
+  var _sandboxMode = SandboxMode.on;
   ReasoningEffort? _modelReasoningEffort;
   bool _networkAccessEnabled = true;
   WebSearchMode? _webSearchMode;
@@ -332,12 +324,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _branchController.text = p.worktreeBranch ?? "";
     _selectedModel = p.model;
     _sandboxMode = p.sandboxMode ?? _sandboxMode;
-    final restoredPolicy = p.approvalPolicy;
-    // on-request is not supported via SDK; fall back to default.
-    _approvalPolicy =
-        restoredPolicy != null && restoredPolicy != ApprovalPolicy.onRequest
-        ? restoredPolicy
-        : _approvalPolicy;
     _modelReasoningEffort = p.modelReasoningEffort;
     _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
     _webSearchMode = p.webSearchMode;
@@ -438,7 +424,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           : null,
       model: isCodex ? _selectedModel : null,
       sandboxMode: isCodex ? _sandboxMode : null,
-      approvalPolicy: isCodex ? _approvalPolicy : null,
       modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
       networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
       webSearchMode: isCodex ? _webSearchMode : null,
@@ -548,10 +533,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                       permissionMode: _permissionMode,
                       onPermissionModeChanged: (value) {
                         setState(() => _permissionMode = value);
-                      },
-                      approvalPolicy: _approvalPolicy,
-                      onApprovalPolicyChanged: (value) {
-                        setState(() => _approvalPolicy = value);
                       },
                       useWorktree: _useWorktree,
                       onWorktreeToggle: _onWorktreeToggle,
@@ -913,8 +894,6 @@ class _OptionsSection extends StatelessWidget {
   final Provider provider;
   final PermissionMode permissionMode;
   final ValueChanged<PermissionMode> onPermissionModeChanged;
-  final ApprovalPolicy approvalPolicy;
-  final ValueChanged<ApprovalPolicy> onApprovalPolicyChanged;
   final bool useWorktree;
   final ValueChanged<bool> onWorktreeToggle;
   final _WorktreeMode worktreeMode;
@@ -964,8 +943,6 @@ class _OptionsSection extends StatelessWidget {
     required this.provider,
     required this.permissionMode,
     required this.onPermissionModeChanged,
-    required this.approvalPolicy,
-    required this.onApprovalPolicyChanged,
     required this.useWorktree,
     required this.onWorktreeToggle,
     required this.worktreeMode,
@@ -1021,7 +998,7 @@ class _OptionsSection extends StatelessWidget {
               ),
             ),
           ),
-          // Primary control: Permission (Claude) or Approval (Codex)
+          // Primary controls: Permission (Claude) / Approval+Sandbox (Codex)
           if (provider == Provider.claude)
             DropdownButtonFormField<PermissionMode>(
               key: const ValueKey('dialog_permission_mode'),
@@ -1053,39 +1030,75 @@ class _OptionsSection extends StatelessWidget {
               },
             ),
           if (provider == Provider.codex)
-            DropdownButtonFormField<ApprovalPolicy>(
-              key: const ValueKey('dialog_codex_approval'),
-              initialValue: approvalPolicy,
-              decoration: buildInputDecoration(l.approval),
-              style: TextStyle(
-                fontSize: 13,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              items: ApprovalPolicy.values
-                  .where((p) => p != ApprovalPolicy.onRequest)
-                  .map(
-                    (p) => DropdownMenuItem(
-                      value: p,
-                      child: Row(
-                        children: [
-                          Icon(switch (p) {
-                            ApprovalPolicy.never => Icons.flash_auto,
-                            ApprovalPolicy.onRequest => Icons.front_hand,
-                            ApprovalPolicy.onFailure => Icons.error_outline,
-                            ApprovalPolicy.untrusted => Icons.shield_outlined,
-                          }, size: 16),
-                          const SizedBox(width: 8),
-                          Text(p.label, style: const TextStyle(fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  onApprovalPolicyChanged(value);
-                }
-              },
+            Column(
+              children: [
+                DropdownButtonFormField<PermissionMode>(
+                  key: const ValueKey('dialog_codex_permission_mode'),
+                  initialValue: permissionMode,
+                  decoration: buildInputDecoration(l.permission),
+                  items: PermissionMode.values
+                      .map(
+                        (m) => DropdownMenuItem(
+                          value: m,
+                          child: Row(
+                            children: [
+                              Icon(switch (m) {
+                                PermissionMode.defaultMode => Icons.tune,
+                                PermissionMode.plan => Icons.assignment,
+                                PermissionMode.acceptEdits => Icons.edit_note,
+                                PermissionMode.bypassPermissions =>
+                                  Icons.flash_on,
+                              }, size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                m.label,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      onPermissionModeChanged(value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<SandboxMode>(
+                  key: const ValueKey('dialog_codex_sandbox'),
+                  initialValue: sandboxMode,
+                  decoration: buildInputDecoration(l.sandbox),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  items: SandboxMode.values
+                      .map(
+                        (m) => DropdownMenuItem(
+                          value: m,
+                          child: Row(
+                            children: [
+                              Icon(switch (m) {
+                                SandboxMode.on => Icons.shield_outlined,
+                                SandboxMode.off => Icons.warning_amber,
+                              }, size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                m.label,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) onSandboxModeChanged(value);
+                  },
+                ),
+              ],
             ),
           const SizedBox(height: 8),
           // Worktree toggle (shared)
@@ -1168,8 +1181,6 @@ class _OptionsSection extends StatelessWidget {
             // Codex
             selectedModel: selectedModel,
             onSelectedModelChanged: onSelectedModelChanged,
-            sandboxMode: sandboxMode,
-            onSandboxModeChanged: onSandboxModeChanged,
             modelReasoningEffort: modelReasoningEffort,
             onModelReasoningEffortChanged: onModelReasoningEffortChanged,
             webSearchMode: webSearchMode,
@@ -1213,8 +1224,6 @@ class _AdvancedOptions extends StatelessWidget {
   // Codex
   final String? selectedModel;
   final ValueChanged<String?> onSelectedModelChanged;
-  final SandboxMode sandboxMode;
-  final ValueChanged<SandboxMode> onSandboxModeChanged;
   final ReasoningEffort? modelReasoningEffort;
   final ValueChanged<ReasoningEffort?> onModelReasoningEffortChanged;
   final WebSearchMode? webSearchMode;
@@ -1242,8 +1251,6 @@ class _AdvancedOptions extends StatelessWidget {
     required this.onClaudePersistSessionChanged,
     required this.selectedModel,
     required this.onSelectedModelChanged,
-    required this.sandboxMode,
-    required this.onSandboxModeChanged,
     required this.modelReasoningEffort,
     required this.onModelReasoningEffortChanged,
     required this.webSearchMode,
@@ -1293,8 +1300,6 @@ class _AdvancedOptions extends StatelessWidget {
                 buildInputDecoration: buildInputDecoration,
                 selectedModel: selectedModel,
                 onSelectedModelChanged: onSelectedModelChanged,
-                sandboxMode: sandboxMode,
-                onSandboxModeChanged: onSandboxModeChanged,
                 modelReasoningEffort: modelReasoningEffort,
                 onModelReasoningEffortChanged: onModelReasoningEffortChanged,
                 webSearchMode: webSearchMode,
@@ -1493,8 +1498,6 @@ class _CodexAdvancedOptions extends StatelessWidget {
   buildInputDecoration;
   final String? selectedModel;
   final ValueChanged<String?> onSelectedModelChanged;
-  final SandboxMode sandboxMode;
-  final ValueChanged<SandboxMode> onSandboxModeChanged;
   final ReasoningEffort? modelReasoningEffort;
   final ValueChanged<ReasoningEffort?> onModelReasoningEffortChanged;
   final WebSearchMode? webSearchMode;
@@ -1506,8 +1509,6 @@ class _CodexAdvancedOptions extends StatelessWidget {
     required this.buildInputDecoration,
     required this.selectedModel,
     required this.onSelectedModelChanged,
-    required this.sandboxMode,
-    required this.onSandboxModeChanged,
     required this.modelReasoningEffort,
     required this.onModelReasoningEffortChanged,
     required this.webSearchMode,
@@ -1542,37 +1543,6 @@ class _CodexAdvancedOptions extends StatelessWidget {
             ),
         ],
         onChanged: (value) => onSelectedModelChanged(value),
-      ),
-      const SizedBox(height: 8),
-      DropdownButtonFormField<SandboxMode>(
-        key: const ValueKey('dialog_codex_sandbox'),
-        initialValue: sandboxMode,
-        decoration: buildInputDecoration(l.sandbox),
-        style: TextStyle(
-          fontSize: 13,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-        items: SandboxMode.values
-            .map(
-              (m) => DropdownMenuItem(
-                value: m,
-                child: Row(
-                  children: [
-                    Icon(switch (m) {
-                      SandboxMode.workspaceWrite => Icons.edit,
-                      SandboxMode.readOnly => Icons.visibility,
-                      SandboxMode.dangerFullAccess => Icons.warning_amber,
-                    }, size: 16),
-                    const SizedBox(width: 8),
-                    Text(m.label, style: const TextStyle(fontSize: 13)),
-                  ],
-                ),
-              ),
-            )
-            .toList(),
-        onChanged: (value) {
-          if (value != null) onSandboxModeChanged(value);
-        },
       ),
       const SizedBox(height: 8),
       Row(
