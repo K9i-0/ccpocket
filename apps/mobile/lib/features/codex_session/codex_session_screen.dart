@@ -11,6 +11,7 @@ import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../services/bridge_service.dart';
 import '../../services/chat_message_handler.dart';
+import '../../services/draft_service.dart';
 import '../../services/notification_service.dart';
 import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
@@ -128,8 +129,14 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
 
   void _resolveSession(SystemMessage msg) {
     widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
+    final oldId = _sessionId;
+    final newId = msg.sessionId!;
+    // Migrate draft from pending ID to real session ID
+    final draftService = context.read<DraftService>();
+    draftService.migrateDraft(oldId, newId);
+    draftService.migrateImageDraft(oldId, newId);
     setState(() {
-      _sessionId = msg.sessionId!;
+      _sessionId = newId;
       _projectPath = msg.projectPath ?? _projectPath;
       _gitBranch = msg.worktreeBranch ?? _gitBranch;
       _worktreePath = msg.worktreePath ?? _worktreePath;
@@ -256,6 +263,34 @@ class _CodexChatBody extends HookWidget {
     // Chat input controller
     final chatInputController = useTextEditingController();
     final planFeedbackController = useTextEditingController();
+
+    // --- Draft persistence: restore on mount, auto-save on change ---
+    useEffect(() {
+      final draftService = context.read<DraftService>();
+      final draft = draftService.getDraft(sessionId);
+      if (draft != null && draft.isNotEmpty) {
+        chatInputController.text = draft;
+        chatInputController.selection = TextSelection.collapsed(
+          offset: draft.length,
+        );
+      }
+
+      Timer? debounce;
+      void onChanged() {
+        debounce?.cancel();
+        debounce = Timer(const Duration(milliseconds: 500), () {
+          draftService.saveDraft(sessionId, chatInputController.text);
+        });
+      }
+
+      chatInputController.addListener(onChanged);
+      return () {
+        debounce?.cancel();
+        // Flush current text on dispose (navigating away)
+        draftService.saveDraft(sessionId, chatInputController.text);
+        chatInputController.removeListener(onChanged);
+      };
+    }, [sessionId]);
     final editedPlanText = useMemoized(() => ValueNotifier<String?>(null));
     useEffect(() => editedPlanText.dispose, const []);
     final activePlanApprovalToolUseId = useRef<String?>(null);
