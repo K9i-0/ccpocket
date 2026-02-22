@@ -97,7 +97,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     final hasPermission =
         session.status == 'waiting_approval' && permission != null;
     final isPlanApproval =
-        hasPermission && permission!.toolName == 'ExitPlanMode';
+        hasPermission && permission.toolName == 'ExitPlanMode';
     if (isPlanApproval) {
       _syncPlanApprovalState(permission);
     } else {
