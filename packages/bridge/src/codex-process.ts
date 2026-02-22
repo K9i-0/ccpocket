@@ -950,11 +950,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 function normalizeApprovalPolicy(value: CodexStartOptions["approvalPolicy"]): string {
   switch (value) {
     case "on-request":
-      return "onRequest";
+      return "on-request";
     case "on-failure":
-      return "onFailure";
+      return "on-failure";
     case "untrusted":
-      return "unlessTrusted";
+      return "untrusted";
     case "never":
     default:
       return "never";
@@ -964,12 +964,12 @@ function normalizeApprovalPolicy(value: CodexStartOptions["approvalPolicy"]): st
 function normalizeSandboxMode(value: CodexStartOptions["sandboxMode"]): string {
   switch (value) {
     case "read-only":
-      return "readOnly";
+      return "read-only";
     case "danger-full-access":
-      return "dangerFullAccess";
+      return "danger-full-access";
     case "workspace-write":
     default:
-      return "workspaceWrite";
+      return "workspace-write";
   }
 }
 

@@ -90,8 +90,8 @@ describe("CodexProcess (app-server)", () => {
     expect(startReq.method).toBe("thread/start");
     expect(startReq.params).toMatchObject({
       cwd: "/tmp/project-a",
-      approvalPolicy: "onRequest",
-      sandbox: "workspaceWrite",
+      approvalPolicy: "on-request",
+      sandbox: "workspace-write",
       model: "gpt-5.3-codex",
     });
 
