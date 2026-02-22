@@ -19,6 +19,7 @@ import '../../widgets/approval_bar.dart';
 import '../../widgets/bubbles/ask_user_question_widget.dart';
 import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
+import '../../widgets/plan_detail_sheet.dart';
 import '../chat_session/state/chat_session_cubit.dart';
 import '../chat_session/state/chat_session_state.dart';
 import '../../theme/app_theme.dart';
@@ -35,7 +36,7 @@ import 'state/codex_session_cubit.dart';
 
 /// Codex-specific chat screen.
 ///
-/// Simpler than [ClaudeSessionScreen] — no rewind, no plan mode.
+/// Simpler than [ClaudeSessionScreen] — no rewind.
 /// Shares UI components (`ChatMessageList`, `ChatInputWithOverlays`, etc.)
 /// via [CodexSessionCubit] which extends [ChatSessionCubit].
 @RoutePage()
@@ -248,6 +249,9 @@ class _CodexChatBody extends HookWidget {
     // Chat input controller
     final chatInputController = useTextEditingController();
     final planFeedbackController = useTextEditingController();
+    final editedPlanText = useMemoized(() => ValueNotifier<String?>(null));
+    useEffect(() => editedPlanText.dispose, const []);
+    final activePlanApprovalToolUseId = useRef<String?>(null);
 
     // Collapse tool results notifier (shared widget needs it)
     final collapseToolResults = useMemoized(() => ValueNotifier<int>(0));
@@ -274,6 +278,7 @@ class _CodexChatBody extends HookWidget {
           sessionId: sessionId,
           isBackground: isBackground,
           collapseToolResults: collapseToolResults,
+          planFeedbackController: planFeedbackController,
           scrollToBottom: scroll.scrollToBottom,
         ),
       );
@@ -305,6 +310,7 @@ class _CodexChatBody extends HookWidget {
     // --- Destructure state ---
     final status = sessionState.status;
     final approval = sessionState.approval;
+    final inPlanMode = sessionState.inPlanMode;
 
     // Approval state pattern matching (Codex: permission + ask-user only)
     String? pendingToolUseId;
@@ -330,14 +336,51 @@ class _CodexChatBody extends HookWidget {
         askInput = null;
     }
 
+    final isPlanApproval = pendingPermission?.toolName == 'ExitPlanMode';
+    final pendingPlanToolUseId = isPlanApproval ? pendingToolUseId : null;
+    if (activePlanApprovalToolUseId.value != pendingPlanToolUseId) {
+      activePlanApprovalToolUseId.value = pendingPlanToolUseId;
+      editedPlanText.value = null;
+    }
+
     void approveToolUse() {
       if (pendingToolUseId == null) return;
-      context.read<ChatSessionCubit>().approve(pendingToolUseId);
+      final updatedInput = isPlanApproval && editedPlanText.value != null
+          ? {'plan': editedPlanText.value!}
+          : null;
+      context.read<ChatSessionCubit>().approve(
+        pendingToolUseId,
+        updatedInput: updatedInput,
+      );
+      editedPlanText.value = null;
+      planFeedbackController.clear();
     }
 
     void rejectToolUse() {
       if (pendingToolUseId == null) return;
-      context.read<ChatSessionCubit>().reject(pendingToolUseId);
+      final feedback = isPlanApproval
+          ? planFeedbackController.text.trim()
+          : null;
+      context.read<ChatSessionCubit>().reject(
+        pendingToolUseId,
+        message: feedback != null && feedback.isNotEmpty ? feedback : null,
+      );
+      editedPlanText.value = null;
+      planFeedbackController.clear();
+    }
+
+    void approveWithClearContext() {
+      if (pendingToolUseId == null) return;
+      final updatedInput = isPlanApproval && editedPlanText.value != null
+          ? {'plan': editedPlanText.value!}
+          : null;
+      context.read<ChatSessionCubit>().approve(
+        pendingToolUseId,
+        updatedInput: updatedInput,
+        clearContext: true,
+      );
+      editedPlanText.value = null;
+      planFeedbackController.clear();
     }
 
     void approveAlwaysToolUse() {
@@ -452,6 +495,7 @@ class _CodexChatBody extends HookWidget {
                 // Long press to copy debug bundle for agent
                 StatusIndicator(
                   status: status,
+                  inPlanMode: inPlanMode,
                   onLongPress: () =>
                       copyDebugBundleForAgent(context, sessionId),
                 ),
@@ -474,6 +518,9 @@ class _CodexChatBody extends HookWidget {
                         },
                         // No rewind for Codex
                         onRewindMessage: null,
+                        editedPlanText: editedPlanText,
+                        allowPlanEditing: pendingPlanToolUseId != null,
+                        pendingPlanToolUseId: pendingPlanToolUseId,
                         scrollToUserEntry: scrollToUserEntry,
                         collapseToolResults: collapseToolResults,
                         onScrollToBottom: scroll.scrollToBottom,
@@ -509,11 +556,33 @@ class _CodexChatBody extends HookWidget {
                     key: ValueKey('approval_$pendingToolUseId'),
                     appColors: appColors,
                     pendingPermission: pendingPermission,
-                    isPlanApproval: false,
+                    isPlanApproval: isPlanApproval,
                     planFeedbackController: planFeedbackController,
                     onApprove: approveToolUse,
                     onReject: rejectToolUse,
                     onApproveAlways: approveAlwaysToolUse,
+                    onApproveClearContext: isPlanApproval
+                        ? approveWithClearContext
+                        : null,
+                    onViewPlan: isPlanApproval
+                        ? () async {
+                            final originalText = _extractPlanText(
+                              pendingPermission,
+                              sessionState.entries,
+                            );
+                            if (originalText == null) return;
+                            final current =
+                                editedPlanText.value ?? originalText;
+                            final edited = await showPlanDetailSheet(
+                              context,
+                              current,
+                              editable: true,
+                            );
+                            if (edited != null) {
+                              editedPlanText.value = edited;
+                            }
+                          }
+                        : null,
                   ),
                 if (approval is ApprovalNone)
                   ChatInputWithOverlays(
@@ -571,6 +640,7 @@ void _executeSideEffects(
   Set<ChatSideEffect> effects, {
   required String sessionId,
   required bool isBackground,
+  required TextEditingController planFeedbackController,
   required ValueNotifier<int> collapseToolResults,
   required VoidCallback scrollToBottom,
 }) {
@@ -585,8 +655,7 @@ void _executeSideEffects(
       case ChatSideEffect.collapseToolResults:
         collapseToolResults.value++;
       case ChatSideEffect.clearPlanFeedback:
-        // No plan feedback in Codex — ignore.
-        break;
+        planFeedbackController.clear();
       case ChatSideEffect.notifyApprovalRequired:
         if (isBackground) {
           NotificationService.instance.show(
@@ -648,4 +717,32 @@ void _retryFailedMessages(BuildContext context) {
       cubit.retryMessage(entry);
     }
   }
+}
+
+String? _extractPlanText(
+  PermissionRequestMessage? pendingPermission,
+  List<ChatEntry> entries,
+) {
+  final raw = pendingPermission?.input['plan'];
+  if (raw is String && raw.trim().isNotEmpty) {
+    return raw;
+  }
+
+  for (var i = entries.length - 1; i >= 0; i--) {
+    final entry = entries[i];
+    if (entry is! ServerChatEntry) continue;
+    final msg = entry.message;
+    if (msg is! AssistantServerMessage) continue;
+
+    final text = msg.message.content
+        .whereType<TextContent>()
+        .map((c) => c.text.trim())
+        .where((t) => t.isNotEmpty)
+        .join('\n\n');
+    if (text.startsWith('Plan update:')) {
+      return text;
+    }
+  }
+
+  return null;
 }

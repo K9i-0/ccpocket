@@ -91,7 +91,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       return;
     }
 
-    final update = _handler.handle(msg, isBackground: true);
+    final update = _handler.handle(msg, isBackground: true, isCodex: isCodex);
     _applyUpdate(update, msg);
   }
 
