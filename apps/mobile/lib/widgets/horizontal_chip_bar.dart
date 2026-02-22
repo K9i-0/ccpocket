@@ -47,11 +47,11 @@ class HorizontalChipBar extends StatelessWidget {
           for (final item in items)
             Padding(
               padding: const EdgeInsets.only(right: 6),
-              child: _buildChip(
-                context,
-                item,
+              child: _ChipBarItem(
+                item: item,
                 fontSize: fontSize,
-                isSelected: item.isSelected,
+                selectedColor: selectedColor,
+                unselectedTextColor: unselectedTextColor,
               ),
             ),
         ],
@@ -76,14 +76,25 @@ class HorizontalChipBar extends StatelessWidget {
       child: list,
     );
   }
+}
 
-  Widget _buildChip(
-    BuildContext context,
-    ChipItem item, {
-    required double fontSize,
-    required bool isSelected,
-  }) {
+class _ChipBarItem extends StatelessWidget {
+  final ChipItem item;
+  final double fontSize;
+  final Color selectedColor;
+  final Color unselectedTextColor;
+
+  const _ChipBarItem({
+    required this.item,
+    required this.fontSize,
+    required this.selectedColor,
+    required this.unselectedTextColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isSelected = item.isSelected;
     final color = isSelected ? selectedColor : unselectedTextColor;
 
     return Material(

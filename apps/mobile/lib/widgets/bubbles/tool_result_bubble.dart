@@ -156,10 +156,56 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     );
   }
 
-  /// Collapsed: inline log row — no card background.
-  Widget _buildCollapsed(AppColors appColors, AppLocalizations l) {
-    final toolName = widget.message.toolName;
-    final summary = _buildSummary(widget.message.content, toolName, l);
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final summary = _buildSummary(
+      widget.message.content,
+      widget.message.toolName,
+      l,
+    );
+
+    if (_expansion == ToolResultExpansion.collapsed) {
+      return _CollapsedToolResult(
+        toolName: widget.message.toolName,
+        category: _category,
+        summary: summary,
+        onTap: _onTap,
+        onLongPress: () => _copyContent(context),
+      );
+    }
+    return _ExpandedToolResult(
+      message: widget.message,
+      httpBaseUrl: widget.httpBaseUrl,
+      category: _category,
+      summary: summary,
+      expansion: _expansion,
+      onTap: _onTap,
+      onLongPress: () => _copyContent(context),
+    );
+  }
+}
+
+/// Collapsed: inline log row -- no card background.
+class _CollapsedToolResult extends StatelessWidget {
+  final String? toolName;
+  final ToolCategory category;
+  final String summary;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _CollapsedToolResult({
+    required this.toolName,
+    required this.category,
+    required this.summary,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final l = AppLocalizations.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -167,17 +213,17 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
         vertical: 1,
       ),
       child: InkWell(
-        onTap: _onTap,
-        onLongPress: () => _copyContent(context),
+        onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
             children: [
               // Category icon
               Icon(
-                getToolCategoryIcon(_category),
+                getToolCategoryIcon(category),
                 size: 12,
-                color: getToolCategoryColor(_category, appColors),
+                color: getToolCategoryColor(category, appColors),
               ),
               const SizedBox(width: 6),
               // Tool name
@@ -189,7 +235,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
                 ),
               ),
               const SizedBox(width: 8),
-              // Summary — plain text, no badge
+              // Summary -- plain text, no badge
               Expanded(
                 child: Text(
                   summary,
@@ -205,19 +251,43 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
       ),
     );
   }
+}
 
-  /// Preview / Expanded: card with background + content.
-  Widget _buildCard(AppColors appColors, AppLocalizations l) {
-    final content = widget.message.content;
-    final toolName = widget.message.toolName;
+/// Preview / Expanded: card with background + content.
+class _ExpandedToolResult extends StatelessWidget {
+  final ToolResultMessage message;
+  final String? httpBaseUrl;
+  final ToolCategory category;
+  final String summary;
+  final ToolResultExpansion expansion;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  static const _previewLines = ToolResultBubbleState._previewLines;
+
+  const _ExpandedToolResult({
+    required this.message,
+    required this.httpBaseUrl,
+    required this.category,
+    required this.summary,
+    required this.expansion,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final l = AppLocalizations.of(context);
+    final content = message.content;
+    final toolName = message.toolName;
     final lines = content.split('\n');
     final hasMore = lines.length > _previewLines;
     final previewText = hasMore
         ? lines.take(_previewLines).join('\n')
         : content;
-    final summary = _buildSummary(content, toolName, l);
 
-    final chevronIcon = _expansion == ToolResultExpansion.preview
+    final chevronIcon = expansion == ToolResultExpansion.preview
         ? Icons.expand_more
         : Icons.expand_less;
 
@@ -227,8 +297,8 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
         horizontal: AppSpacing.bubbleMarginH,
       ),
       child: InkWell(
-        onTap: _onTap,
-        onLongPress: () => _copyContent(context),
+        onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(AppSpacing.codeRadius),
         child: Container(
           padding: const EdgeInsets.all(10),
@@ -239,11 +309,10 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.message.images.isNotEmpty &&
-                  widget.httpBaseUrl != null) ...[
+              if (message.images.isNotEmpty && httpBaseUrl != null) ...[
                 ImagePreviewWidget(
-                  images: widget.message.images,
-                  httpBaseUrl: widget.httpBaseUrl!,
+                  images: message.images,
+                  httpBaseUrl: httpBaseUrl!,
                 ),
                 const SizedBox(height: 8),
               ],
@@ -251,9 +320,9 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
               Row(
                 children: [
                   Icon(
-                    getToolCategoryIcon(_category),
+                    getToolCategoryIcon(category),
                     size: 14,
-                    color: getToolCategoryColor(_category, appColors),
+                    color: getToolCategoryColor(category, appColors),
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -278,7 +347,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
                 ],
               ),
               // Content
-              if (_expansion == ToolResultExpansion.preview) ...[
+              if (expansion == ToolResultExpansion.preview) ...[
                 const SizedBox(height: 6),
                 Text(
                   previewText,
@@ -303,7 +372,7 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
                       ),
                     ),
                   ),
-              ] else if (_expansion == ToolResultExpansion.expanded) ...[
+              ] else if (expansion == ToolResultExpansion.expanded) ...[
                 const SizedBox(height: 6),
                 SelectableText(
                   content,
@@ -320,16 +389,5 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
         ),
       ),
     );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    final l = AppLocalizations.of(context);
-
-    if (_expansion == ToolResultExpansion.collapsed) {
-      return _buildCollapsed(appColors, l);
-    }
-    return _buildCard(appColors, l);
   }
 }

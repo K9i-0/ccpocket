@@ -509,8 +509,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildDragHandle(appColors),
-            _buildTitle(),
+            _DragHandle(appColors: appColors),
+            _SheetTitle(
+              provider: _provider,
+              lockProvider: widget.lockProvider,
+              onProviderChanged: (p) => setState(() => _provider = p),
+            ),
             const SizedBox(height: 12),
             Flexible(
               child: SingleChildScrollView(
@@ -521,26 +525,133 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (_effectiveProjects.isNotEmpty) ...[
-                      _buildRecentProjectsSection(appColors),
-                      _buildDivider(appColors),
+                      _RecentProjectsSection(
+                        appColors: appColors,
+                        projects: _effectiveProjects,
+                        selectedPath: _pathController.text,
+                        onProjectSelected: _onProjectSelected,
+                      ),
+                      _SheetDivider(appColors: appColors),
                     ],
-                    _buildPathInput(),
+                    _PathInput(
+                      controller: _pathController,
+                      decoration: _buildInputDecoration(
+                        AppLocalizations.of(context).projectPath,
+                        hintText: AppLocalizations.of(context).projectPathHint,
+                      ),
+                      onChanged: () => setState(() {}),
+                    ),
                     const SizedBox(height: 12),
-                    _buildOptions(appColors),
+                    _OptionsSection(
+                      appColors: appColors,
+                      provider: _provider,
+                      permissionMode: _permissionMode,
+                      onPermissionModeChanged: (value) {
+                        setState(() => _permissionMode = value);
+                      },
+                      approvalPolicy: _approvalPolicy,
+                      onApprovalPolicyChanged: (value) {
+                        setState(() => _approvalPolicy = value);
+                      },
+                      useWorktree: _useWorktree,
+                      onWorktreeToggle: _onWorktreeToggle,
+                      worktreeMode: _worktreeMode,
+                      onWorktreeModeChanged: (mode) {
+                        setState(() {
+                          _worktreeMode = mode;
+                          if (mode == _WorktreeMode.createNew) {
+                            _selectedWorktree = null;
+                          }
+                        });
+                      },
+                      worktrees: _worktrees,
+                      selectedWorktree: _selectedWorktree,
+                      onWorktreeSelected: (wt) {
+                        setState(() => _selectedWorktree = wt);
+                      },
+                      branchController: _branchController,
+                      buildInputDecoration: _buildInputDecoration,
+                      // Claude advanced
+                      claudeModelController: _claudeModelController,
+                      claudeEffort: _claudeEffort,
+                      onClaudeEffortChanged: (value) {
+                        setState(() => _claudeEffort = value);
+                      },
+                      claudeMaxTurnsController: _claudeMaxTurnsController,
+                      maxTurnsError: _maxTurnsError,
+                      onMaxTurnsChanged: () {
+                        setState(() => _validateMaxTurns());
+                      },
+                      claudeMaxBudgetController: _claudeMaxBudgetController,
+                      maxBudgetError: _maxBudgetError,
+                      onMaxBudgetChanged: () {
+                        setState(() => _validateMaxBudget());
+                      },
+                      claudeFallbackModelController:
+                          _claudeFallbackModelController,
+                      claudeForkSession: _claudeForkSession,
+                      onClaudeForkSessionChanged: (value) {
+                        setState(() => _claudeForkSession = value);
+                      },
+                      claudePersistSession: _claudePersistSession,
+                      onClaudePersistSessionChanged: (value) {
+                        setState(() => _claudePersistSession = value);
+                      },
+                      // Codex advanced
+                      selectedModel: _selectedModel,
+                      onSelectedModelChanged: (value) {
+                        setState(() => _selectedModel = value);
+                      },
+                      sandboxMode: _sandboxMode,
+                      onSandboxModeChanged: (value) {
+                        setState(() => _sandboxMode = value);
+                      },
+                      modelReasoningEffort: _modelReasoningEffort,
+                      onModelReasoningEffortChanged: (value) {
+                        setState(() => _modelReasoningEffort = value);
+                      },
+                      webSearchMode: _webSearchMode,
+                      onWebSearchModeChanged: (value) {
+                        setState(() => _webSearchMode = value);
+                      },
+                      networkAccessEnabled: _networkAccessEnabled,
+                      onNetworkAccessChanged: (value) {
+                        setState(() => _networkAccessEnabled = value);
+                      },
+                    ),
                     const SizedBox(height: 16),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            _buildActions(),
+            _SheetActions(
+              provider: _provider,
+              canStart:
+                  _hasPath &&
+                  (!_useWorktree ||
+                      _worktreeMode == _WorktreeMode.createNew ||
+                      _selectedWorktree != null),
+              onStart: _start,
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildDragHandle(AppColors appColors) {
+// ---------------------------------------------------------------------------
+// Extracted StatelessWidget classes
+// ---------------------------------------------------------------------------
+
+class _DragHandle extends StatelessWidget {
+  final AppColors appColors;
+
+  const _DragHandle({required this.appColors});
+
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -555,8 +666,21 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       ),
     );
   }
+}
 
-  Widget _buildTitle() {
+class _SheetTitle extends StatelessWidget {
+  final Provider provider;
+  final bool lockProvider;
+  final ValueChanged<Provider> onProviderChanged;
+
+  const _SheetTitle({
+    required this.provider,
+    required this.lockProvider,
+    required this.onProviderChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -584,11 +708,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 Expanded(
                   child: _ProviderToggleButton(
                     provider: Provider.claude,
-                    isSelected: _provider == Provider.claude,
-                    isLocked: widget.lockProvider,
+                    isSelected: provider == Provider.claude,
+                    isLocked: lockProvider,
                     onTap: () {
-                      if (!widget.lockProvider) {
-                        setState(() => _provider = Provider.claude);
+                      if (!lockProvider) {
+                        onProviderChanged(Provider.claude);
                       }
                     },
                   ),
@@ -596,11 +720,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 Expanded(
                   child: _ProviderToggleButton(
                     provider: Provider.codex,
-                    isSelected: _provider == Provider.codex,
-                    isLocked: widget.lockProvider,
+                    isSelected: provider == Provider.codex,
+                    isLocked: lockProvider,
                     onTap: () {
-                      if (!widget.lockProvider) {
-                        setState(() => _provider = Provider.codex);
+                      if (!lockProvider) {
+                        onProviderChanged(Provider.codex);
                       }
                     },
                   ),
@@ -612,8 +736,23 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       ),
     );
   }
+}
 
-  Widget _buildRecentProjectsSection(AppColors appColors) {
+class _RecentProjectsSection extends StatelessWidget {
+  final AppColors appColors;
+  final List<({String path, String name})> projects;
+  final String selectedPath;
+  final ValueChanged<String> onProjectSelected;
+
+  const _RecentProjectsSection({
+    required this.appColors,
+    required this.projects,
+    required this.selectedPath,
+    required this.onProjectSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,24 +770,40 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           ),
         ),
         const SizedBox(height: 4),
-        for (final project in _effectiveProjects)
-          _buildProjectTile(project, appColors),
+        for (final project in projects)
+          _ProjectTile(
+            project: project,
+            appColors: appColors,
+            isSelected: selectedPath == project.path,
+            onTap: () => onProjectSelected(project.path),
+          ),
       ],
     );
   }
+}
 
-  Widget _buildProjectTile(
-    ({String path, String name}) project,
-    AppColors appColors,
-  ) {
+class _ProjectTile extends StatelessWidget {
+  final ({String path, String name}) project;
+  final AppColors appColors;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ProjectTile({
+    required this.project,
+    required this.appColors,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isSelected = _pathController.text == project.path;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _onProjectSelected(project.path),
+          onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -695,8 +850,15 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       ),
     );
   }
+}
 
-  Widget _buildDivider(AppColors appColors) {
+class _SheetDivider extends StatelessWidget {
+  final AppColors appColors;
+
+  const _SheetDivider({required this.appColors});
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -719,24 +881,128 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       ),
     );
   }
+}
 
-  Widget _buildPathInput() {
-    final l = AppLocalizations.of(context);
+class _PathInput extends StatelessWidget {
+  final TextEditingController controller;
+  final InputDecoration decoration;
+  final VoidCallback onChanged;
+
+  const _PathInput({
+    required this.controller,
+    required this.decoration,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: TextField(
         key: const ValueKey('dialog_project_path'),
-        controller: _pathController,
-        decoration: _buildInputDecoration(
-          l.projectPath,
-          hintText: l.projectPathHint,
-        ),
-        onChanged: (_) => setState(() {}),
+        controller: controller,
+        decoration: decoration,
+        onChanged: (_) => onChanged(),
       ),
     );
   }
+}
 
-  Widget _buildOptions(AppColors appColors) {
+class _OptionsSection extends StatelessWidget {
+  final AppColors appColors;
+  final Provider provider;
+  final PermissionMode permissionMode;
+  final ValueChanged<PermissionMode> onPermissionModeChanged;
+  final ApprovalPolicy approvalPolicy;
+  final ValueChanged<ApprovalPolicy> onApprovalPolicyChanged;
+  final bool useWorktree;
+  final ValueChanged<bool> onWorktreeToggle;
+  final _WorktreeMode worktreeMode;
+  final ValueChanged<_WorktreeMode> onWorktreeModeChanged;
+  final List<WorktreeInfo>? worktrees;
+  final WorktreeInfo? selectedWorktree;
+  final ValueChanged<WorktreeInfo> onWorktreeSelected;
+  final TextEditingController branchController;
+  final InputDecoration Function(
+    String, {
+    String? hintText,
+    Widget? prefixIcon,
+    String? errorText,
+  })
+  buildInputDecoration;
+
+  // Claude advanced
+  final TextEditingController claudeModelController;
+  final ClaudeEffort? claudeEffort;
+  final ValueChanged<ClaudeEffort?> onClaudeEffortChanged;
+  final TextEditingController claudeMaxTurnsController;
+  final String? maxTurnsError;
+  final VoidCallback onMaxTurnsChanged;
+  final TextEditingController claudeMaxBudgetController;
+  final String? maxBudgetError;
+  final VoidCallback onMaxBudgetChanged;
+  final TextEditingController claudeFallbackModelController;
+  final bool claudeForkSession;
+  final ValueChanged<bool> onClaudeForkSessionChanged;
+  final bool claudePersistSession;
+  final ValueChanged<bool> onClaudePersistSessionChanged;
+
+  // Codex advanced
+  final String? selectedModel;
+  final ValueChanged<String?> onSelectedModelChanged;
+  final SandboxMode sandboxMode;
+  final ValueChanged<SandboxMode> onSandboxModeChanged;
+  final ReasoningEffort? modelReasoningEffort;
+  final ValueChanged<ReasoningEffort?> onModelReasoningEffortChanged;
+  final WebSearchMode? webSearchMode;
+  final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
+  final bool networkAccessEnabled;
+  final ValueChanged<bool> onNetworkAccessChanged;
+
+  const _OptionsSection({
+    required this.appColors,
+    required this.provider,
+    required this.permissionMode,
+    required this.onPermissionModeChanged,
+    required this.approvalPolicy,
+    required this.onApprovalPolicyChanged,
+    required this.useWorktree,
+    required this.onWorktreeToggle,
+    required this.worktreeMode,
+    required this.onWorktreeModeChanged,
+    required this.worktrees,
+    required this.selectedWorktree,
+    required this.onWorktreeSelected,
+    required this.branchController,
+    required this.buildInputDecoration,
+    required this.claudeModelController,
+    required this.claudeEffort,
+    required this.onClaudeEffortChanged,
+    required this.claudeMaxTurnsController,
+    required this.maxTurnsError,
+    required this.onMaxTurnsChanged,
+    required this.claudeMaxBudgetController,
+    required this.maxBudgetError,
+    required this.onMaxBudgetChanged,
+    required this.claudeFallbackModelController,
+    required this.claudeForkSession,
+    required this.onClaudeForkSessionChanged,
+    required this.claudePersistSession,
+    required this.onClaudePersistSessionChanged,
+    required this.selectedModel,
+    required this.onSelectedModelChanged,
+    required this.sandboxMode,
+    required this.onSandboxModeChanged,
+    required this.modelReasoningEffort,
+    required this.onModelReasoningEffortChanged,
+    required this.webSearchMode,
+    required this.onWebSearchModeChanged,
+    required this.networkAccessEnabled,
+    required this.onNetworkAccessChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -756,11 +1022,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             ),
           ),
           // Primary control: Permission (Claude) or Approval (Codex)
-          if (_provider == Provider.claude)
+          if (provider == Provider.claude)
             DropdownButtonFormField<PermissionMode>(
               key: const ValueKey('dialog_permission_mode'),
-              initialValue: _permissionMode,
-              decoration: _buildInputDecoration(l.permission),
+              initialValue: permissionMode,
+              decoration: buildInputDecoration(l.permission),
               items: PermissionMode.values
                   .map(
                     (m) => DropdownMenuItem(
@@ -782,15 +1048,15 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   .toList(),
               onChanged: (value) {
                 if (value != null) {
-                  setState(() => _permissionMode = value);
+                  onPermissionModeChanged(value);
                 }
               },
             ),
-          if (_provider == Provider.codex)
+          if (provider == Provider.codex)
             DropdownButtonFormField<ApprovalPolicy>(
               key: const ValueKey('dialog_codex_approval'),
-              initialValue: _approvalPolicy,
-              decoration: _buildInputDecoration(l.approval),
+              initialValue: approvalPolicy,
+              decoration: buildInputDecoration(l.approval),
               style: TextStyle(
                 fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -817,7 +1083,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   .toList(),
               onChanged: (value) {
                 if (value != null) {
-                  setState(() => _approvalPolicy = value);
+                  onApprovalPolicyChanged(value);
                 }
               },
             ),
@@ -830,7 +1096,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               children: [
                 FilterChip(
                   key: const ValueKey('dialog_worktree'),
-                  avatar: _useWorktree
+                  avatar: useWorktree
                       ? null
                       : Icon(
                           Icons.account_tree_outlined,
@@ -841,7 +1107,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                     l.worktree,
                     style: TextStyle(
                       fontSize: 13,
-                      color: _useWorktree
+                      color: useWorktree
                           ? Theme.of(context).colorScheme.onPrimaryContainer
                           : Theme.of(context).colorScheme.onSurface,
                     ),
@@ -849,8 +1115,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   checkmarkColor: Theme.of(
                     context,
                   ).colorScheme.onPrimaryContainer,
-                  selected: _useWorktree,
-                  onSelected: _onWorktreeToggle,
+                  selected: useWorktree,
+                  onSelected: onWorktreeToggle,
                 ),
                 const SizedBox(width: 8),
                 Tooltip(
@@ -865,20 +1131,129 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               ],
             ),
           ),
-          if (_useWorktree) ...[
+          if (useWorktree) ...[
             const SizedBox(height: 8),
-            _buildWorktreeOptions(appColors),
+            _WorktreeOptions(
+              appColors: appColors,
+              worktreeMode: worktreeMode,
+              onWorktreeModeChanged: onWorktreeModeChanged,
+              worktrees: worktrees,
+              selectedWorktree: selectedWorktree,
+              onWorktreeSelected: onWorktreeSelected,
+              branchController: branchController,
+              buildInputDecoration: buildInputDecoration,
+            ),
           ],
           // Advanced section (unified for both providers)
           const SizedBox(height: 8),
-          _buildAdvancedOptions(appColors),
+          _AdvancedOptions(
+            appColors: appColors,
+            provider: provider,
+            buildInputDecoration: buildInputDecoration,
+            // Claude
+            claudeModelController: claudeModelController,
+            claudeEffort: claudeEffort,
+            onClaudeEffortChanged: onClaudeEffortChanged,
+            claudeMaxTurnsController: claudeMaxTurnsController,
+            maxTurnsError: maxTurnsError,
+            onMaxTurnsChanged: onMaxTurnsChanged,
+            claudeMaxBudgetController: claudeMaxBudgetController,
+            maxBudgetError: maxBudgetError,
+            onMaxBudgetChanged: onMaxBudgetChanged,
+            claudeFallbackModelController: claudeFallbackModelController,
+            claudeForkSession: claudeForkSession,
+            onClaudeForkSessionChanged: onClaudeForkSessionChanged,
+            claudePersistSession: claudePersistSession,
+            onClaudePersistSessionChanged: onClaudePersistSessionChanged,
+            // Codex
+            selectedModel: selectedModel,
+            onSelectedModelChanged: onSelectedModelChanged,
+            sandboxMode: sandboxMode,
+            onSandboxModeChanged: onSandboxModeChanged,
+            modelReasoningEffort: modelReasoningEffort,
+            onModelReasoningEffortChanged: onModelReasoningEffortChanged,
+            webSearchMode: webSearchMode,
+            onWebSearchModeChanged: onWebSearchModeChanged,
+            networkAccessEnabled: networkAccessEnabled,
+            onNetworkAccessChanged: onNetworkAccessChanged,
+          ),
         ],
       ),
     );
   }
+}
 
-  /// Unified Advanced options section for both providers.
-  Widget _buildAdvancedOptions(AppColors appColors) {
+class _AdvancedOptions extends StatelessWidget {
+  final AppColors appColors;
+  final Provider provider;
+  final InputDecoration Function(
+    String, {
+    String? hintText,
+    Widget? prefixIcon,
+    String? errorText,
+  })
+  buildInputDecoration;
+
+  // Claude
+  final TextEditingController claudeModelController;
+  final ClaudeEffort? claudeEffort;
+  final ValueChanged<ClaudeEffort?> onClaudeEffortChanged;
+  final TextEditingController claudeMaxTurnsController;
+  final String? maxTurnsError;
+  final VoidCallback onMaxTurnsChanged;
+  final TextEditingController claudeMaxBudgetController;
+  final String? maxBudgetError;
+  final VoidCallback onMaxBudgetChanged;
+  final TextEditingController claudeFallbackModelController;
+  final bool claudeForkSession;
+  final ValueChanged<bool> onClaudeForkSessionChanged;
+  final bool claudePersistSession;
+  final ValueChanged<bool> onClaudePersistSessionChanged;
+
+  // Codex
+  final String? selectedModel;
+  final ValueChanged<String?> onSelectedModelChanged;
+  final SandboxMode sandboxMode;
+  final ValueChanged<SandboxMode> onSandboxModeChanged;
+  final ReasoningEffort? modelReasoningEffort;
+  final ValueChanged<ReasoningEffort?> onModelReasoningEffortChanged;
+  final WebSearchMode? webSearchMode;
+  final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
+  final bool networkAccessEnabled;
+  final ValueChanged<bool> onNetworkAccessChanged;
+
+  const _AdvancedOptions({
+    required this.appColors,
+    required this.provider,
+    required this.buildInputDecoration,
+    required this.claudeModelController,
+    required this.claudeEffort,
+    required this.onClaudeEffortChanged,
+    required this.claudeMaxTurnsController,
+    required this.maxTurnsError,
+    required this.onMaxTurnsChanged,
+    required this.claudeMaxBudgetController,
+    required this.maxBudgetError,
+    required this.onMaxBudgetChanged,
+    required this.claudeFallbackModelController,
+    required this.claudeForkSession,
+    required this.onClaudeForkSessionChanged,
+    required this.claudePersistSession,
+    required this.onClaudePersistSessionChanged,
+    required this.selectedModel,
+    required this.onSelectedModelChanged,
+    required this.sandboxMode,
+    required this.onSandboxModeChanged,
+    required this.modelReasoningEffort,
+    required this.onModelReasoningEffortChanged,
+    required this.webSearchMode,
+    required this.onWebSearchModeChanged,
+    required this.networkAccessEnabled,
+    required this.onNetworkAccessChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     return Container(
@@ -887,7 +1262,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: ExpansionTile(
-        key: ValueKey('dialog_advanced_${_provider.value}'),
+        key: ValueKey('dialog_advanced_${provider.value}'),
         shape: const Border(),
         collapsedShape: const Border(),
         tilePadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -896,20 +1271,90 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           l.advanced,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
-        children: _provider == Provider.claude
-            ? _buildClaudeAdvancedChildren()
-            : _buildCodexAdvancedChildren(),
+        children: provider == Provider.claude
+            ? _ClaudeAdvancedOptions(
+                buildInputDecoration: buildInputDecoration,
+                claudeModelController: claudeModelController,
+                claudeEffort: claudeEffort,
+                onClaudeEffortChanged: onClaudeEffortChanged,
+                claudeMaxTurnsController: claudeMaxTurnsController,
+                maxTurnsError: maxTurnsError,
+                onMaxTurnsChanged: onMaxTurnsChanged,
+                claudeMaxBudgetController: claudeMaxBudgetController,
+                maxBudgetError: maxBudgetError,
+                onMaxBudgetChanged: onMaxBudgetChanged,
+                claudeFallbackModelController: claudeFallbackModelController,
+                claudeForkSession: claudeForkSession,
+                onClaudeForkSessionChanged: onClaudeForkSessionChanged,
+                claudePersistSession: claudePersistSession,
+                onClaudePersistSessionChanged: onClaudePersistSessionChanged,
+              ).buildChildren(context)
+            : _CodexAdvancedOptions(
+                buildInputDecoration: buildInputDecoration,
+                selectedModel: selectedModel,
+                onSelectedModelChanged: onSelectedModelChanged,
+                sandboxMode: sandboxMode,
+                onSandboxModeChanged: onSandboxModeChanged,
+                modelReasoningEffort: modelReasoningEffort,
+                onModelReasoningEffortChanged: onModelReasoningEffortChanged,
+                webSearchMode: webSearchMode,
+                onWebSearchModeChanged: onWebSearchModeChanged,
+                networkAccessEnabled: networkAccessEnabled,
+                onNetworkAccessChanged: onNetworkAccessChanged,
+              ).buildChildren(context),
       ),
     );
   }
+}
 
-  List<Widget> _buildClaudeAdvancedChildren() {
+class _ClaudeAdvancedOptions extends StatelessWidget {
+  final InputDecoration Function(
+    String, {
+    String? hintText,
+    Widget? prefixIcon,
+    String? errorText,
+  })
+  buildInputDecoration;
+  final TextEditingController claudeModelController;
+  final ClaudeEffort? claudeEffort;
+  final ValueChanged<ClaudeEffort?> onClaudeEffortChanged;
+  final TextEditingController claudeMaxTurnsController;
+  final String? maxTurnsError;
+  final VoidCallback onMaxTurnsChanged;
+  final TextEditingController claudeMaxBudgetController;
+  final String? maxBudgetError;
+  final VoidCallback onMaxBudgetChanged;
+  final TextEditingController claudeFallbackModelController;
+  final bool claudeForkSession;
+  final ValueChanged<bool> onClaudeForkSessionChanged;
+  final bool claudePersistSession;
+  final ValueChanged<bool> onClaudePersistSessionChanged;
+
+  const _ClaudeAdvancedOptions({
+    required this.buildInputDecoration,
+    required this.claudeModelController,
+    required this.claudeEffort,
+    required this.onClaudeEffortChanged,
+    required this.claudeMaxTurnsController,
+    required this.maxTurnsError,
+    required this.onMaxTurnsChanged,
+    required this.claudeMaxBudgetController,
+    required this.maxBudgetError,
+    required this.onMaxBudgetChanged,
+    required this.claudeFallbackModelController,
+    required this.claudeForkSession,
+    required this.onClaudeForkSessionChanged,
+    required this.claudePersistSession,
+    required this.onClaudePersistSessionChanged,
+  });
+
+  List<Widget> buildChildren(BuildContext context) {
     final l = AppLocalizations.of(context);
     return [
       TextField(
         key: const ValueKey('dialog_claude_model'),
-        controller: _claudeModelController,
-        decoration: _buildInputDecoration(
+        controller: claudeModelController,
+        decoration: buildInputDecoration(
           l.modelOptional,
           hintText: 'claude-sonnet-4-5',
           prefixIcon: const Icon(Icons.psychology_outlined, size: 18),
@@ -922,8 +1367,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           Expanded(
             child: DropdownButtonFormField<ClaudeEffort?>(
               key: const ValueKey('dialog_claude_effort'),
-              initialValue: _claudeEffort,
-              decoration: _buildInputDecoration(l.effort),
+              initialValue: claudeEffort,
+              decoration: buildInputDecoration(l.effort),
               style: TextStyle(
                 fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -946,7 +1391,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   ),
               ],
               onChanged: (value) {
-                setState(() => _claudeEffort = value);
+                onClaudeEffortChanged(value);
               },
             ),
           ),
@@ -954,16 +1399,16 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           Expanded(
             child: TextField(
               key: const ValueKey('dialog_claude_max_turns'),
-              controller: _claudeMaxTurnsController,
+              controller: claudeMaxTurnsController,
               keyboardType: TextInputType.number,
-              decoration: _buildInputDecoration(
+              decoration: buildInputDecoration(
                 l.maxTurns,
                 hintText: l.maxTurnsHint,
-                errorText: _maxTurnsError,
+                errorText: maxTurnsError,
               ),
               style: const TextStyle(fontSize: 13),
               onChanged: (_) {
-                setState(() => _validateMaxTurns());
+                onMaxTurnsChanged();
               },
             ),
           ),
@@ -975,18 +1420,18 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           Expanded(
             child: TextField(
               key: const ValueKey('dialog_claude_max_budget'),
-              controller: _claudeMaxBudgetController,
+              controller: claudeMaxBudgetController,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: _buildInputDecoration(
+              decoration: buildInputDecoration(
                 l.maxBudgetUsd,
                 hintText: l.maxBudgetHint,
-                errorText: _maxBudgetError,
+                errorText: maxBudgetError,
               ),
               style: const TextStyle(fontSize: 13),
               onChanged: (_) {
-                setState(() => _validateMaxBudget());
+                onMaxBudgetChanged();
               },
             ),
           ),
@@ -994,8 +1439,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           Expanded(
             child: TextField(
               key: const ValueKey('dialog_claude_fallback_model'),
-              controller: _claudeFallbackModelController,
-              decoration: _buildInputDecoration(
+              controller: claudeFallbackModelController,
+              decoration: buildInputDecoration(
                 l.fallbackModel,
                 hintText: 'claude-haiku-4-5',
               ),
@@ -1012,9 +1457,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           l.forkSessionOnResume,
           style: const TextStyle(fontSize: 13),
         ),
-        value: _claudeForkSession,
+        value: claudeForkSession,
         onChanged: (value) {
-          setState(() => _claudeForkSession = value);
+          onClaudeForkSessionChanged(value);
         },
       ),
       SwitchListTile(
@@ -1024,21 +1469,60 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           l.persistSessionHistory,
           style: const TextStyle(fontSize: 13),
         ),
-        value: _claudePersistSession,
+        value: claudePersistSession,
         onChanged: (value) {
-          setState(() => _claudePersistSession = value);
+          onClaudePersistSessionChanged(value);
         },
       ),
     ];
   }
 
-  List<Widget> _buildCodexAdvancedChildren() {
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: buildChildren(context));
+  }
+}
+
+class _CodexAdvancedOptions extends StatelessWidget {
+  final InputDecoration Function(
+    String, {
+    String? hintText,
+    Widget? prefixIcon,
+    String? errorText,
+  })
+  buildInputDecoration;
+  final String? selectedModel;
+  final ValueChanged<String?> onSelectedModelChanged;
+  final SandboxMode sandboxMode;
+  final ValueChanged<SandboxMode> onSandboxModeChanged;
+  final ReasoningEffort? modelReasoningEffort;
+  final ValueChanged<ReasoningEffort?> onModelReasoningEffortChanged;
+  final WebSearchMode? webSearchMode;
+  final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
+  final bool networkAccessEnabled;
+  final ValueChanged<bool> onNetworkAccessChanged;
+
+  const _CodexAdvancedOptions({
+    required this.buildInputDecoration,
+    required this.selectedModel,
+    required this.onSelectedModelChanged,
+    required this.sandboxMode,
+    required this.onSandboxModeChanged,
+    required this.modelReasoningEffort,
+    required this.onModelReasoningEffortChanged,
+    required this.webSearchMode,
+    required this.onWebSearchModeChanged,
+    required this.networkAccessEnabled,
+    required this.onNetworkAccessChanged,
+  });
+
+  List<Widget> buildChildren(BuildContext context) {
     final l = AppLocalizations.of(context);
     return [
       DropdownButtonFormField<String?>(
         key: const ValueKey('dialog_codex_model'),
-        initialValue: _selectedModel,
-        decoration: _buildInputDecoration(
+        initialValue: selectedModel,
+        decoration: buildInputDecoration(
           l.model,
           prefixIcon: const Icon(Icons.psychology_outlined, size: 18),
         ),
@@ -1057,13 +1541,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               child: Text(model, style: const TextStyle(fontSize: 13)),
             ),
         ],
-        onChanged: (value) => setState(() => _selectedModel = value),
+        onChanged: (value) => onSelectedModelChanged(value),
       ),
       const SizedBox(height: 8),
       DropdownButtonFormField<SandboxMode>(
         key: const ValueKey('dialog_codex_sandbox'),
-        initialValue: _sandboxMode,
-        decoration: _buildInputDecoration(l.sandbox),
+        initialValue: sandboxMode,
+        decoration: buildInputDecoration(l.sandbox),
         style: TextStyle(
           fontSize: 13,
           color: Theme.of(context).colorScheme.onSurface,
@@ -1087,7 +1571,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             )
             .toList(),
         onChanged: (value) {
-          if (value != null) setState(() => _sandboxMode = value);
+          if (value != null) onSandboxModeChanged(value);
         },
       ),
       const SizedBox(height: 8),
@@ -1096,8 +1580,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           Expanded(
             child: DropdownButtonFormField<ReasoningEffort?>(
               key: const ValueKey('dialog_codex_reasoning_effort'),
-              initialValue: _modelReasoningEffort,
-              decoration: _buildInputDecoration(l.reasoning),
+              initialValue: modelReasoningEffort,
+              decoration: buildInputDecoration(l.reasoning),
               style: TextStyle(
                 fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -1120,7 +1604,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   ),
               ],
               onChanged: (value) {
-                setState(() => _modelReasoningEffort = value);
+                onModelReasoningEffortChanged(value);
               },
             ),
           ),
@@ -1128,8 +1612,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           Expanded(
             child: DropdownButtonFormField<WebSearchMode?>(
               key: const ValueKey('dialog_codex_web_search_mode'),
-              initialValue: _webSearchMode,
-              decoration: _buildInputDecoration(l.webSearch),
+              initialValue: webSearchMode,
+              decoration: buildInputDecoration(l.webSearch),
               style: TextStyle(
                 fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -1152,7 +1636,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   ),
               ],
               onChanged: (value) {
-                setState(() => _webSearchMode = value);
+                onWebSearchModeChanged(value);
               },
             ),
           ),
@@ -1163,18 +1647,52 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         key: const ValueKey('dialog_codex_network_access'),
         contentPadding: EdgeInsets.zero,
         title: Text(l.networkAccess, style: const TextStyle(fontSize: 13)),
-        value: _networkAccessEnabled,
+        value: networkAccessEnabled,
         onChanged: (value) {
-          setState(() => _networkAccessEnabled = value);
+          onNetworkAccessChanged(value);
         },
       ),
     ];
   }
 
-  Widget _buildWorktreeOptions(AppColors appColors) {
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: buildChildren(context));
+  }
+}
+
+class _WorktreeOptions extends StatelessWidget {
+  final AppColors appColors;
+  final _WorktreeMode worktreeMode;
+  final ValueChanged<_WorktreeMode> onWorktreeModeChanged;
+  final List<WorktreeInfo>? worktrees;
+  final WorktreeInfo? selectedWorktree;
+  final ValueChanged<WorktreeInfo> onWorktreeSelected;
+  final TextEditingController branchController;
+  final InputDecoration Function(
+    String, {
+    String? hintText,
+    Widget? prefixIcon,
+    String? errorText,
+  })
+  buildInputDecoration;
+
+  const _WorktreeOptions({
+    required this.appColors,
+    required this.worktreeMode,
+    required this.onWorktreeModeChanged,
+    required this.worktrees,
+    required this.selectedWorktree,
+    required this.onWorktreeSelected,
+    required this.branchController,
+    required this.buildInputDecoration,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
-    final hasWorktrees = _worktrees != null && _worktrees!.isNotEmpty;
+    final hasWorktrees = worktrees != null && worktrees!.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1188,35 +1706,32 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   l.worktreeNew,
                   style: TextStyle(
                     fontSize: 12,
-                    color: _worktreeMode == _WorktreeMode.createNew
+                    color: worktreeMode == _WorktreeMode.createNew
                         ? cs.onPrimaryContainer
                         : cs.onSurface,
                   ),
                 ),
                 checkmarkColor: cs.onPrimaryContainer,
-                selected: _worktreeMode == _WorktreeMode.createNew,
-                onSelected: (_) => setState(() {
-                  _worktreeMode = _WorktreeMode.createNew;
-                  _selectedWorktree = null;
-                }),
+                selected: worktreeMode == _WorktreeMode.createNew,
+                onSelected: (_) =>
+                    onWorktreeModeChanged(_WorktreeMode.createNew),
                 visualDensity: VisualDensity.compact,
               ),
               const SizedBox(width: 8),
               ChoiceChip(
                 label: Text(
-                  l.worktreeExisting(_worktrees!.length),
+                  l.worktreeExisting(worktrees!.length),
                   style: TextStyle(
                     fontSize: 12,
-                    color: _worktreeMode == _WorktreeMode.useExisting
+                    color: worktreeMode == _WorktreeMode.useExisting
                         ? cs.onPrimaryContainer
                         : cs.onSurface,
                   ),
                 ),
                 checkmarkColor: cs.onPrimaryContainer,
-                selected: _worktreeMode == _WorktreeMode.useExisting,
-                onSelected: (_) => setState(() {
-                  _worktreeMode = _WorktreeMode.useExisting;
-                }),
+                selected: worktreeMode == _WorktreeMode.useExisting,
+                onSelected: (_) =>
+                    onWorktreeModeChanged(_WorktreeMode.useExisting),
                 visualDensity: VisualDensity.compact,
               ),
             ],
@@ -1224,11 +1739,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           const SizedBox(height: 8),
         ],
         // New worktree: branch input
-        if (_worktreeMode == _WorktreeMode.createNew)
+        if (worktreeMode == _WorktreeMode.createNew)
           TextField(
             key: const ValueKey('dialog_worktree_branch'),
-            controller: _branchController,
-            decoration: _buildInputDecoration(
+            controller: branchController,
+            decoration: buildInputDecoration(
               l.branchOptional,
               hintText: l.branchHint,
               prefixIcon: const Icon(Icons.account_tree_outlined, size: 18),
@@ -1236,8 +1751,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             style: const TextStyle(fontSize: 13),
           ),
         // Existing worktree selection
-        if (_worktreeMode == _WorktreeMode.useExisting) ...[
-          if (_worktrees == null)
+        if (worktreeMode == _WorktreeMode.useExisting) ...[
+          if (worktrees == null)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Center(
@@ -1248,7 +1763,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 ),
               ),
             )
-          else if (_worktrees!.isEmpty)
+          else if (worktrees!.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
@@ -1262,8 +1777,14 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    for (final wt in _worktrees!)
-                      _buildWorktreeSelectionTile(wt, cs, appColors),
+                    for (final wt in worktrees!)
+                      _WorktreeSelectionTile(
+                        worktree: wt,
+                        appColors: appColors,
+                        isSelected:
+                            selectedWorktree?.worktreePath == wt.worktreePath,
+                        onTap: () => onWorktreeSelected(wt),
+                      ),
                   ],
                 ),
               ),
@@ -1272,15 +1793,26 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       ],
     );
   }
+}
 
-  Widget _buildWorktreeSelectionTile(
-    WorktreeInfo wt,
-    ColorScheme cs,
-    AppColors appColors,
-  ) {
-    final isSelected = _selectedWorktree?.worktreePath == wt.worktreePath;
+class _WorktreeSelectionTile extends StatelessWidget {
+  final WorktreeInfo worktree;
+  final AppColors appColors;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _WorktreeSelectionTile({
+    required this.worktree,
+    required this.appColors,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return InkWell(
-      onTap: () => setState(() => _selectedWorktree = wt),
+      onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1303,7 +1835,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    wt.branch,
+                    worktree.branch,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -1311,7 +1843,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                     ),
                   ),
                   Text(
-                    wt.worktreePath.split('/').last,
+                    worktree.worktreePath.split('/').last,
                     style: TextStyle(fontSize: 11, color: appColors.subtleText),
                   ),
                 ],
@@ -1324,16 +1856,23 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       ),
     );
   }
+}
 
-  Widget _buildActions() {
+class _SheetActions extends StatelessWidget {
+  final Provider provider;
+  final bool canStart;
+  final VoidCallback onStart;
+
+  const _SheetActions({
+    required this.provider,
+    required this.canStart,
+    required this.onStart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final canStart =
-        _hasPath &&
-        (!_useWorktree ||
-            _worktreeMode == _WorktreeMode.createNew ||
-            _selectedWorktree != null);
-
-    final providerStyle = providerStyleFor(context, _provider);
+    final providerStyle = providerStyleFor(context, provider);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1361,12 +1900,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                   ),
                   elevation: 0,
                 ),
-                onPressed: canStart ? _start : null,
+                onPressed: canStart ? onStart : null,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Start with ${_provider.label}',
+                      'Start with ${provider.label}',
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,

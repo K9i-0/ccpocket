@@ -127,28 +127,22 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildSortChip(
-                          context,
+                        _SortChip(
                           label: l.frequent,
                           value: PromptSortOrder.frequency,
                           current: sortOrder,
-                          cs: cs,
                         ),
                         const SizedBox(width: 4),
-                        _buildSortChip(
-                          context,
+                        _SortChip(
                           label: l.recent,
                           value: PromptSortOrder.recency,
                           current: sortOrder,
-                          cs: cs,
                         ),
                         const SizedBox(width: 4),
-                        _buildSortChip(
-                          context,
+                        _SortChip(
                           icon: Icons.star,
                           value: PromptSortOrder.favoritesFirst,
                           current: sortOrder,
-                          cs: cs,
                         ),
                       ],
                     );
@@ -206,21 +200,17 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
-                    _buildProjectChip(
-                      context,
+                    _ProjectChip(
                       label: l.all,
                       value: null,
                       current: data.filter,
-                      cs: cs,
                     ),
                     const SizedBox(width: 6),
                     for (final path in data.projects) ...[
-                      _buildProjectChip(
-                        context,
+                      _ProjectChip(
                         label: path.split('/').last,
                         value: path,
                         current: data.filter,
-                        cs: cs,
                       ),
                       const SizedBox(width: 6),
                     ],
@@ -308,15 +298,24 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
       ),
     );
   }
+}
 
-  Widget _buildSortChip(
-    BuildContext context, {
-    String? label,
-    IconData? icon,
-    required PromptSortOrder value,
-    required PromptSortOrder current,
-    required ColorScheme cs,
-  }) {
+class _SortChip extends StatelessWidget {
+  final String? label;
+  final IconData? icon;
+  final PromptSortOrder value;
+  final PromptSortOrder current;
+
+  const _SortChip({
+    this.label,
+    this.icon,
+    required this.value,
+    required this.current,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final isSelected = value == current;
     return GestureDetector(
       onTap: () => context.read<PromptHistoryCubit>().setSortOrder(value),
@@ -343,14 +342,22 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
       ),
     );
   }
+}
 
-  Widget _buildProjectChip(
-    BuildContext context, {
-    required String label,
-    required String? value,
-    required String? current,
-    required ColorScheme cs,
-  }) {
+class _ProjectChip extends StatelessWidget {
+  final String label;
+  final String? value;
+  final String? current;
+
+  const _ProjectChip({
+    required this.label,
+    required this.value,
+    required this.current,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final isSelected = value == current;
     return GestureDetector(
       onTap: () => context.read<PromptHistoryCubit>().setProjectFilter(value),

@@ -184,28 +184,26 @@ class SlashCommandSheet extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (project.isNotEmpty) ...[
-                    _sectionHeader(
-                      'Project',
-                      appColors,
-                      Theme.of(context).colorScheme.secondary,
+                    _SectionHeader(
+                      label: 'Project',
+                      accentColor: Theme.of(context).colorScheme.secondary,
                     ),
                     for (final cmd in project)
-                      _commandTile(context, cmd, appColors),
+                      _CommandTile(command: cmd, onSelect: onSelect),
                   ],
                   if (skills.isNotEmpty) ...[
-                    _sectionHeader(
-                      'Skills',
-                      appColors,
-                      Theme.of(context).colorScheme.tertiary,
+                    _SectionHeader(
+                      label: 'Skills',
+                      accentColor: Theme.of(context).colorScheme.tertiary,
                     ),
                     for (final cmd in skills)
-                      _commandTile(context, cmd, appColors),
+                      _CommandTile(command: cmd, onSelect: onSelect),
                   ],
                   if (builtin.isNotEmpty) ...[
                     if (project.isNotEmpty || skills.isNotEmpty)
-                      _sectionHeader('Built-in', appColors, null),
+                      const _SectionHeader(label: 'Built-in'),
                     for (final cmd in builtin)
-                      _commandTile(context, cmd, appColors),
+                      _CommandTile(command: cmd, onSelect: onSelect),
                   ],
                 ],
               ),
@@ -216,8 +214,17 @@ class SlashCommandSheet extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _sectionHeader(String label, AppColors appColors, Color? accentColor) {
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  final Color? accentColor;
+
+  const _SectionHeader({required this.label, this.accentColor});
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
     return Padding(
       padding: const EdgeInsets.only(left: 16, top: 8, bottom: 4),
       child: Text(
@@ -231,31 +238,36 @@ class SlashCommandSheet extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _commandTile(
-    BuildContext context,
-    SlashCommand cmd,
-    AppColors appColors,
-  ) {
+class _CommandTile extends StatelessWidget {
+  final SlashCommand command;
+  final void Function(String command) onSelect;
+
+  const _CommandTile({required this.command, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
     final colorScheme = Theme.of(context).colorScheme;
-    final iconColor = switch (cmd.category) {
+    final iconColor = switch (command.category) {
       SlashCommandCategory.project => colorScheme.secondary,
       SlashCommandCategory.skill => colorScheme.tertiary,
       SlashCommandCategory.builtin => null,
     };
     return ListTile(
-      leading: Icon(cmd.icon, size: 22, color: iconColor),
+      leading: Icon(command.icon, size: 22, color: iconColor),
       title: Row(
         children: [
           Text(
-            cmd.command,
+            command.command,
             style: const TextStyle(
               fontFamily: 'monospace',
               fontWeight: FontWeight.w600,
               fontSize: 15,
             ),
           ),
-          if (cmd.category != SlashCommandCategory.builtin) ...[
+          if (command.category != SlashCommandCategory.builtin) ...[
             const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -266,7 +278,7 @@ class SlashCommandSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                cmd.category == SlashCommandCategory.project
+                command.category == SlashCommandCategory.project
                     ? 'project'
                     : 'skill',
                 style: TextStyle(
@@ -279,12 +291,12 @@ class SlashCommandSheet extends StatelessWidget {
           ],
         ],
       ),
-      subtitle: Text(cmd.description, style: const TextStyle(fontSize: 13)),
+      subtitle: Text(command.description, style: const TextStyle(fontSize: 13)),
       dense: true,
       onTap: () {
         HapticFeedback.selectionClick();
         Navigator.pop(context);
-        onSelect(cmd.command);
+        onSelect(command.command);
       },
     );
   }

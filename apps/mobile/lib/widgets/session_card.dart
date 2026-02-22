@@ -8,6 +8,9 @@ import '../theme/provider_style.dart';
 import '../utils/command_parser.dart';
 import 'plan_detail_sheet.dart';
 
+/// Shared layout constant for AskUserArea buttons.
+const _buttonHeight = 44.0;
+
 /// Card for a currently running session
 class RunningSessionCard extends StatefulWidget {
   final SessionInfo session;
@@ -635,9 +638,6 @@ class _AskUserArea extends StatefulWidget {
 }
 
 class _AskUserAreaState extends State<_AskUserArea> {
-  // Layout constants
-  static const _buttonHeight = 44.0;
-
   late final PageController _pageController;
 
   /// 0 to questions.length (where questions.length == summary page).
@@ -773,6 +773,66 @@ class _AskUserAreaState extends State<_AskUserArea> {
     });
   }
 
+  void _toggleMultiSelectLabel(int questionIndex, String label) {
+    setState(() {
+      final selected = _multiAnswers.putIfAbsent(questionIndex, () => {});
+      if (selected.contains(label)) {
+        selected.remove(label);
+      } else {
+        selected.add(label);
+      }
+
+      final parts = [...selected];
+      final customText = _customControllers[questionIndex]?.text.trim() ?? '';
+      if (customText.isNotEmpty) parts.add(customText);
+
+      _singleAnswers[questionIndex] = parts.join(', ');
+    });
+  }
+
+  void _onCustomTextChanged(int questionIndex, String text) {
+    setState(() {
+      final q = _questions[questionIndex] as Map<String, dynamic>;
+      final isMulti = q['multiSelect'] as bool? ?? false;
+
+      if (isMulti) {
+        final selected = _multiAnswers[questionIndex] ?? {};
+        final parts = [...selected];
+        if (text.trim().isNotEmpty) parts.add(text.trim());
+        _singleAnswers[questionIndex] = parts.join(', ');
+      } else {
+        _singleAnswers[questionIndex] = text.trim();
+        // Clear single-select chips when typing
+        if (text.trim().isNotEmpty) {
+          _multiAnswers[questionIndex]?.clear();
+        }
+      }
+    });
+  }
+
+  void _showCustomInput(int questionIndex) {
+    setState(() {
+      _customInputs.add(questionIndex);
+    });
+  }
+
+  TextEditingController _getOrCreateController(int questionIndex) {
+    return _customControllers.putIfAbsent(
+      questionIndex,
+      () => TextEditingController(),
+    );
+  }
+
+  void _onPageChanged(int index) {
+    setState(() {
+      _currentPage = index;
+    });
+  }
+
+  void _goToPage(int index) {
+    setState(() => _currentPage = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     final questions = _questions;
@@ -789,43 +849,63 @@ class _AskUserAreaState extends State<_AskUserArea> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_isMultiQuestion) ...[
-            _buildPageView(questions),
+            _QuestionPageView(
+              questions: questions,
+              currentPage: _currentPage,
+              pageController: _pageController,
+              statusColor: widget.statusColor,
+              isMultiQuestion: _isMultiQuestion,
+              singleAnswers: _singleAnswers,
+              multiAnswers: _multiAnswers,
+              customInputs: _customInputs,
+              getOrCreateController: _getOrCreateController,
+              onAnswerSingle: _answerSingle,
+              onToggleMultiSelectLabel: _toggleMultiSelectLabel,
+              onConfirmMultiSelect: _confirmMultiSelect,
+              onSubmitCustomText: _submitCustomText,
+              onCustomTextChanged: _onCustomTextChanged,
+              onShowCustomInput: _showCustomInput,
+              onPageChanged: _onPageChanged,
+              onGoToPage: _goToPage,
+              onResetAll: _resetAll,
+              onSubmitAll: _submitAll,
+            ),
           ] else if (options.isNotEmpty) ...[
-            _buildQuestionLayout(firstQ, 0),
+            _QuestionLayout(
+              question: firstQ,
+              questionIndex: 0,
+              statusColor: widget.statusColor,
+              isMultiQuestion: _isMultiQuestion,
+              singleAnswers: _singleAnswers,
+              multiAnswers: _multiAnswers,
+              customInputs: _customInputs,
+              getOrCreateController: _getOrCreateController,
+              onAnswerSingle: _answerSingle,
+              onToggleMultiSelectLabel: _toggleMultiSelectLabel,
+              onConfirmMultiSelect: _confirmMultiSelect,
+              onSubmitCustomText: _submitCustomText,
+              onCustomTextChanged: _onCustomTextChanged,
+              onShowCustomInput: _showCustomInput,
+            ),
           ] else ...[
-            _buildQuestionText(firstQ),
+            _QuestionText(question: firstQ),
             const SizedBox(height: 6),
-            _buildOpenButton(),
+            _OpenButton(onTap: widget.onTap),
           ],
         ],
       ),
     );
   }
+}
 
-  /// Common layout for a single question page.
-  /// Used by both inline (single-question) and PageView (multi-question) modes
-  /// to ensure consistent ordering: question → options → other answer → confirm.
-  Widget _buildQuestionLayout(Map<String, dynamic> q, int questionIndex) {
-    final opts = q['options'] as List<dynamic>? ?? [];
-    final isMulti = q['multiSelect'] as bool? ?? false;
+/// Displays the question text from a question map.
+class _QuestionText extends StatelessWidget {
+  final Map<String, dynamic> question;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildQuestionText(q),
-        const SizedBox(height: 6),
-        if (isMulti && opts.isNotEmpty)
-          _buildMultiSelectChips(questionIndex, opts)
-        else if (opts.isNotEmpty)
-          _buildSingleSelectChips(questionIndex, opts),
-        _buildOtherAnswerSection(questionIndex),
-        if (isMulti && !_isMultiQuestion) _buildConfirmButton(questionIndex),
-      ],
-    );
-  }
+  const _QuestionText({required this.question});
 
-  Widget _buildQuestionText(Map<String, dynamic> question) {
+  @override
+  Widget build(BuildContext context) {
     final text = question['question'] as String? ?? '';
     if (text.isEmpty) return const SizedBox.shrink();
     return Text(
@@ -839,9 +919,52 @@ class _AskUserAreaState extends State<_AskUserArea> {
       overflow: TextOverflow.ellipsis,
     );
   }
+}
 
-  Widget _buildSingleSelectChips(int questionIndex, List<dynamic> options) {
-    final selectedLabel = _singleAnswers[questionIndex];
+/// "Open" button for questions without options.
+class _OpenButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _OpenButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: SizedBox(
+        height: _buttonHeight,
+        child: OutlinedButton.icon(
+          onPressed: onTap,
+          icon: const Icon(Icons.open_in_new, size: 14),
+          label: const Text('Open'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            textStyle: const TextStyle(fontSize: 13),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Single-select option chips for a question.
+class _SingleSelectChips extends StatelessWidget {
+  final int questionIndex;
+  final List<dynamic> options;
+  final String? selectedLabel;
+  final Color statusColor;
+  final void Function(int questionIndex, String label) onAnswerSingle;
+
+  const _SingleSelectChips({
+    required this.questionIndex,
+    required this.options,
+    required this.selectedLabel,
+    required this.statusColor,
+    required this.onAnswerSingle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -854,13 +977,9 @@ class _AskUserAreaState extends State<_AskUserArea> {
                   final label = opt['label'] as String? ?? '';
                   final isChosen = selectedLabel == label;
                   return OutlinedButton.icon(
-                    onPressed: () => _answerSingle(questionIndex, label),
+                    onPressed: () => onAnswerSingle(questionIndex, label),
                     icon: isChosen
-                        ? Icon(
-                            Icons.check_circle,
-                            size: 16,
-                            color: widget.statusColor,
-                          )
+                        ? Icon(Icons.check_circle, size: 16, color: statusColor)
                         : const SizedBox.shrink(),
                     label: Text(label, style: const TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
@@ -869,11 +988,11 @@ class _AskUserAreaState extends State<_AskUserArea> {
                         vertical: 10,
                       ),
                       minimumSize: const Size(0, _buttonHeight),
-                      backgroundColor: widget.statusColor.withValues(
+                      backgroundColor: statusColor.withValues(
                         alpha: isChosen ? 0.20 : 0.08,
                       ),
                       side: BorderSide(
-                        color: widget.statusColor.withValues(
+                        color: statusColor.withValues(
                           alpha: isChosen ? 0.6 : 0.3,
                         ),
                       ),
@@ -888,9 +1007,26 @@ class _AskUserAreaState extends State<_AskUserArea> {
       ],
     );
   }
+}
 
-  Widget _buildMultiSelectChips(int questionIndex, List<dynamic> options) {
-    final selected = _multiAnswers.putIfAbsent(questionIndex, () => {});
+/// Multi-select option chips for a question.
+class _MultiSelectChips extends StatelessWidget {
+  final int questionIndex;
+  final List<dynamic> options;
+  final Set<String> selected;
+  final Color statusColor;
+  final void Function(int questionIndex, String label) onToggleLabel;
+
+  const _MultiSelectChips({
+    required this.questionIndex,
+    required this.options,
+    required this.selected,
+    required this.statusColor,
+    required this.onToggleLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -903,33 +1039,15 @@ class _AskUserAreaState extends State<_AskUserArea> {
                   final label = opt['label'] as String? ?? '';
                   final isSelected = selected.contains(label);
                   return OutlinedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        if (isSelected) {
-                          selected.remove(label);
-                        } else {
-                          selected.add(label);
-                        }
-
-                        final parts = [...selected];
-                        final customText =
-                            _customControllers[questionIndex]?.text.trim() ??
-                            '';
-                        if (customText.isNotEmpty) parts.add(customText);
-
-                        _singleAnswers[questionIndex] = parts.join(', ');
-
-                        // We do NOT clear the custom controller for multi-select
-                      });
-                    },
+                    onPressed: () => onToggleLabel(questionIndex, label),
                     icon: Icon(
                       isSelected
                           ? Icons.check_box
                           : Icons.check_box_outline_blank,
                       size: 18,
                       color: isSelected
-                          ? widget.statusColor
-                          : widget.statusColor.withValues(alpha: 0.5),
+                          ? statusColor
+                          : statusColor.withValues(alpha: 0.5),
                     ),
                     label: Text(label, style: const TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
@@ -940,10 +1058,10 @@ class _AskUserAreaState extends State<_AskUserArea> {
                       minimumSize: const Size(0, _buttonHeight),
                       alignment: Alignment.centerLeft,
                       backgroundColor: isSelected
-                          ? widget.statusColor.withValues(alpha: 0.15)
-                          : widget.statusColor.withValues(alpha: 0.08),
+                          ? statusColor.withValues(alpha: 0.15)
+                          : statusColor.withValues(alpha: 0.08),
                       side: BorderSide(
-                        color: widget.statusColor.withValues(
+                        color: statusColor.withValues(
                           alpha: isSelected ? 0.6 : 0.3,
                         ),
                       ),
@@ -958,10 +1076,24 @@ class _AskUserAreaState extends State<_AskUserArea> {
       ],
     );
   }
+}
 
-  /// Confirm button for multi-select (used in single-question mode).
-  Widget _buildConfirmButton(int questionIndex) {
-    final selected = _multiAnswers[questionIndex] ?? {};
+/// Confirm button for multi-select (used in single-question mode).
+class _ConfirmButton extends StatelessWidget {
+  final int questionIndex;
+  final Set<String> selected;
+  final Color statusColor;
+  final void Function(int questionIndex) onConfirmMultiSelect;
+
+  const _ConfirmButton({
+    required this.questionIndex,
+    required this.selected,
+    required this.statusColor,
+    required this.onConfirmMultiSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 2),
       child: SizedBox(
@@ -969,16 +1101,16 @@ class _AskUserAreaState extends State<_AskUserArea> {
         height: _buttonHeight,
         child: FilledButton.icon(
           onPressed: selected.isNotEmpty
-              ? () => _confirmMultiSelect(questionIndex)
+              ? () => onConfirmMultiSelect(questionIndex)
               : null,
           icon: const Icon(Icons.check, size: 16),
           label: Text('Confirm (${selected.length})'),
           style: FilledButton.styleFrom(
             textStyle: const TextStyle(fontSize: 13),
-            backgroundColor: widget.statusColor.withValues(alpha: 0.15),
-            foregroundColor: widget.statusColor,
-            disabledBackgroundColor: widget.statusColor.withValues(alpha: 0.05),
-            disabledForegroundColor: widget.statusColor.withValues(alpha: 0.3),
+            backgroundColor: statusColor.withValues(alpha: 0.15),
+            foregroundColor: statusColor,
+            disabledBackgroundColor: statusColor.withValues(alpha: 0.05),
+            disabledForegroundColor: statusColor.withValues(alpha: 0.3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -987,10 +1119,33 @@ class _AskUserAreaState extends State<_AskUserArea> {
       ),
     );
   }
+}
 
-  /// "Other answer..." toggle button + inline text field.
-  Widget _buildOtherAnswerSection(int questionIndex) {
-    if (_customInputs.contains(questionIndex)) {
+/// "Other answer..." toggle button + inline text field.
+class _OtherAnswerSection extends StatelessWidget {
+  final int questionIndex;
+  final bool isCustomInputShown;
+  final bool isMultiQuestion;
+  final Color statusColor;
+  final TextEditingController controller;
+  final void Function(int questionIndex, String text) onCustomTextChanged;
+  final void Function(int questionIndex) onSubmitCustomText;
+  final void Function(int questionIndex) onShowCustomInput;
+
+  const _OtherAnswerSection({
+    required this.questionIndex,
+    required this.isCustomInputShown,
+    required this.isMultiQuestion,
+    required this.statusColor,
+    required this.controller,
+    required this.onCustomTextChanged,
+    required this.onSubmitCustomText,
+    required this.onShowCustomInput,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isCustomInputShown) {
       return Padding(
         padding: const EdgeInsets.only(top: 4),
         child: Row(
@@ -999,17 +1154,14 @@ class _AskUserAreaState extends State<_AskUserArea> {
               child: SizedBox(
                 height: _buttonHeight,
                 child: TextField(
-                  controller: _customControllers.putIfAbsent(
-                    questionIndex,
-                    () => TextEditingController(),
-                  ),
+                  controller: controller,
                   autofocus: true,
                   style: const TextStyle(fontSize: 13),
                   decoration: InputDecoration(
                     hintText: 'Type your answer...',
                     hintStyle: TextStyle(
                       fontSize: 13,
-                      color: widget.statusColor.withValues(alpha: 0.4),
+                      color: statusColor.withValues(alpha: 0.4),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -1018,55 +1170,36 @@ class _AskUserAreaState extends State<_AskUserArea> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(
-                        color: widget.statusColor.withValues(alpha: 0.3),
+                        color: statusColor.withValues(alpha: 0.3),
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(
-                        color: widget.statusColor.withValues(alpha: 0.3),
+                        color: statusColor.withValues(alpha: 0.3),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: widget.statusColor),
+                      borderSide: BorderSide(color: statusColor),
                     ),
                     isDense: true,
                   ),
-                  onChanged: (text) {
-                    setState(() {
-                      final q =
-                          _questions[questionIndex] as Map<String, dynamic>;
-                      final isMulti = q['multiSelect'] as bool? ?? false;
-
-                      if (isMulti) {
-                        final selected = _multiAnswers[questionIndex] ?? {};
-                        final parts = [...selected];
-                        if (text.trim().isNotEmpty) parts.add(text.trim());
-                        _singleAnswers[questionIndex] = parts.join(', ');
-                      } else {
-                        _singleAnswers[questionIndex] = text.trim();
-                        // Clear single-select chips when typing
-                        if (text.trim().isNotEmpty) {
-                          _multiAnswers[questionIndex]?.clear();
-                        }
-                      }
-                    });
-                  },
-                  onSubmitted: (_) => _submitCustomText(questionIndex),
+                  onChanged: (text) => onCustomTextChanged(questionIndex, text),
+                  onSubmitted: (_) => onSubmitCustomText(questionIndex),
                 ),
               ),
             ),
-            if (!_isMultiQuestion) ...[
+            if (!isMultiQuestion) ...[
               const SizedBox(width: 8),
               SizedBox(
                 height: _buttonHeight,
                 child: FilledButton(
-                  onPressed: () => _submitCustomText(questionIndex),
+                  onPressed: () => onSubmitCustomText(questionIndex),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    backgroundColor: widget.statusColor.withValues(alpha: 0.15),
-                    foregroundColor: widget.statusColor,
+                    backgroundColor: statusColor.withValues(alpha: 0.15),
+                    foregroundColor: statusColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -1084,28 +1217,157 @@ class _AskUserAreaState extends State<_AskUserArea> {
       child: Padding(
         padding: const EdgeInsets.only(top: 2),
         child: TextButton(
-          onPressed: () => setState(() {
-            _customInputs.add(questionIndex);
-          }),
+          onPressed: () => onShowCustomInput(questionIndex),
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             minimumSize: const Size(0, 36),
             textStyle: const TextStyle(fontSize: 12),
-            foregroundColor: widget.statusColor.withValues(alpha: 0.7),
+            foregroundColor: statusColor.withValues(alpha: 0.7),
           ),
           child: const Text('Other answer...'),
         ),
       ),
     );
   }
+}
 
-  Widget _buildPageView(List<dynamic> questions) {
-    final totalPages = _isMultiQuestion
+/// Common layout for a single question page.
+/// Used by both inline (single-question) and PageView (multi-question) modes
+/// to ensure consistent ordering: question -> options -> other answer -> confirm.
+class _QuestionLayout extends StatelessWidget {
+  final Map<String, dynamic> question;
+  final int questionIndex;
+  final Color statusColor;
+  final bool isMultiQuestion;
+  final Map<int, String> singleAnswers;
+  final Map<int, Set<String>> multiAnswers;
+  final Set<int> customInputs;
+  final TextEditingController Function(int) getOrCreateController;
+  final void Function(int questionIndex, String label) onAnswerSingle;
+  final void Function(int questionIndex, String label) onToggleMultiSelectLabel;
+  final void Function(int questionIndex) onConfirmMultiSelect;
+  final void Function(int questionIndex) onSubmitCustomText;
+  final void Function(int questionIndex, String text) onCustomTextChanged;
+  final void Function(int questionIndex) onShowCustomInput;
+
+  const _QuestionLayout({
+    required this.question,
+    required this.questionIndex,
+    required this.statusColor,
+    required this.isMultiQuestion,
+    required this.singleAnswers,
+    required this.multiAnswers,
+    required this.customInputs,
+    required this.getOrCreateController,
+    required this.onAnswerSingle,
+    required this.onToggleMultiSelectLabel,
+    required this.onConfirmMultiSelect,
+    required this.onSubmitCustomText,
+    required this.onCustomTextChanged,
+    required this.onShowCustomInput,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final opts = question['options'] as List<dynamic>? ?? [];
+    final isMulti = question['multiSelect'] as bool? ?? false;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _QuestionText(question: question),
+        const SizedBox(height: 6),
+        if (isMulti && opts.isNotEmpty)
+          _MultiSelectChips(
+            questionIndex: questionIndex,
+            options: opts,
+            selected: multiAnswers.putIfAbsent(questionIndex, () => {}),
+            statusColor: statusColor,
+            onToggleLabel: onToggleMultiSelectLabel,
+          )
+        else if (opts.isNotEmpty)
+          _SingleSelectChips(
+            questionIndex: questionIndex,
+            options: opts,
+            selectedLabel: singleAnswers[questionIndex],
+            statusColor: statusColor,
+            onAnswerSingle: onAnswerSingle,
+          ),
+        _OtherAnswerSection(
+          questionIndex: questionIndex,
+          isCustomInputShown: customInputs.contains(questionIndex),
+          isMultiQuestion: isMultiQuestion,
+          statusColor: statusColor,
+          controller: getOrCreateController(questionIndex),
+          onCustomTextChanged: onCustomTextChanged,
+          onSubmitCustomText: onSubmitCustomText,
+          onShowCustomInput: onShowCustomInput,
+        ),
+        if (isMulti && !isMultiQuestion)
+          _ConfirmButton(
+            questionIndex: questionIndex,
+            selected: multiAnswers[questionIndex] ?? {},
+            statusColor: statusColor,
+            onConfirmMultiSelect: onConfirmMultiSelect,
+          ),
+      ],
+    );
+  }
+}
+
+/// PageView for multi-question flows with step indicators and summary page.
+class _QuestionPageView extends StatelessWidget {
+  final List<dynamic> questions;
+  final int currentPage;
+  final PageController pageController;
+  final Color statusColor;
+  final bool isMultiQuestion;
+  final Map<int, String> singleAnswers;
+  final Map<int, Set<String>> multiAnswers;
+  final Set<int> customInputs;
+  final TextEditingController Function(int) getOrCreateController;
+  final void Function(int questionIndex, String label) onAnswerSingle;
+  final void Function(int questionIndex, String label) onToggleMultiSelectLabel;
+  final void Function(int questionIndex) onConfirmMultiSelect;
+  final void Function(int questionIndex) onSubmitCustomText;
+  final void Function(int questionIndex, String text) onCustomTextChanged;
+  final void Function(int questionIndex) onShowCustomInput;
+  final ValueChanged<int> onPageChanged;
+  final ValueChanged<int> onGoToPage;
+  final VoidCallback onResetAll;
+  final VoidCallback onSubmitAll;
+
+  const _QuestionPageView({
+    required this.questions,
+    required this.currentPage,
+    required this.pageController,
+    required this.statusColor,
+    required this.isMultiQuestion,
+    required this.singleAnswers,
+    required this.multiAnswers,
+    required this.customInputs,
+    required this.getOrCreateController,
+    required this.onAnswerSingle,
+    required this.onToggleMultiSelectLabel,
+    required this.onConfirmMultiSelect,
+    required this.onSubmitCustomText,
+    required this.onCustomTextChanged,
+    required this.onShowCustomInput,
+    required this.onPageChanged,
+    required this.onGoToPage,
+    required this.onResetAll,
+    required this.onSubmitAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final totalPages = isMultiQuestion
         ? questions.length + 1
         : questions.length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min, // Ensure it shrinks to content
+      mainAxisSize: MainAxisSize.min,
       children: [
         // Minimal step indicators: 1 of 3
         Row(
@@ -1113,23 +1375,23 @@ class _AskUserAreaState extends State<_AskUserArea> {
           children: [
             Expanded(
               child: Text(
-                _currentPage < questions.length
-                    ? ((questions[_currentPage]
+                currentPage < questions.length
+                    ? ((questions[currentPage]
                                   as Map<String, dynamic>)['header']
                               as String? ??
-                          'Q${_currentPage + 1}')
+                          'Q${currentPage + 1}')
                     : 'Review Summary',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: widget.statusColor.withValues(alpha: 0.8),
+                  color: statusColor.withValues(alpha: 0.8),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             Text(
-              '${_currentPage + 1} of $totalPages',
+              '${currentPage + 1} of $totalPages',
               style: TextStyle(
                 fontSize: 11,
                 color: Theme.of(
@@ -1142,46 +1404,77 @@ class _AskUserAreaState extends State<_AskUserArea> {
         const SizedBox(height: 6),
         // Progress bar instead of bulky chips
         LinearProgressIndicator(
-          value: (_currentPage + 1) / totalPages,
-          backgroundColor: widget.statusColor.withValues(alpha: 0.1),
-          valueColor: AlwaysStoppedAnimation<Color>(widget.statusColor),
+          value: (currentPage + 1) / totalPages,
+          backgroundColor: statusColor.withValues(alpha: 0.1),
+          valueColor: AlwaysStoppedAnimation<Color>(statusColor),
           minHeight: 2,
         ),
         const SizedBox(height: 10),
         // Dynamic height container based on content, avoiding rigid PageView size
         ExpandablePageView.builder(
-          controller: _pageController,
+          controller: pageController,
           itemCount: totalPages,
-          onPageChanged: (index) {
-            setState(() {
-              _currentPage = index;
-            });
-          },
+          onPageChanged: onPageChanged,
           itemBuilder: (context, index) {
             if (index == questions.length) {
-              return _buildSummaryPage(questions);
+              return _SummaryPage(
+                questions: questions,
+                statusColor: statusColor,
+                singleAnswers: singleAnswers,
+                multiAnswers: multiAnswers,
+                customControllers: getOrCreateController,
+                onGoToPage: onGoToPage,
+                onResetAll: onResetAll,
+                onSubmitAll: onSubmitAll,
+              );
             }
-            return _buildQuestionPage(
-              questions[index] as Map<String, dynamic>,
-              index,
-              questions.length,
+            return _QuestionLayout(
+              question: questions[index] as Map<String, dynamic>,
+              questionIndex: index,
+              statusColor: statusColor,
+              isMultiQuestion: isMultiQuestion,
+              singleAnswers: singleAnswers,
+              multiAnswers: multiAnswers,
+              customInputs: customInputs,
+              getOrCreateController: getOrCreateController,
+              onAnswerSingle: onAnswerSingle,
+              onToggleMultiSelectLabel: onToggleMultiSelectLabel,
+              onConfirmMultiSelect: onConfirmMultiSelect,
+              onSubmitCustomText: onSubmitCustomText,
+              onCustomTextChanged: onCustomTextChanged,
+              onShowCustomInput: onShowCustomInput,
             );
           },
         ),
       ],
     );
   }
+}
 
-  Widget _buildQuestionPage(
-    Map<String, dynamic> q,
-    int index,
-    int totalQuestions,
-  ) {
-    return _buildQuestionLayout(q, index);
-  }
+/// Summary page showing all answers with Submit/Cancel buttons.
+class _SummaryPage extends StatelessWidget {
+  final List<dynamic> questions;
+  final Color statusColor;
+  final Map<int, String> singleAnswers;
+  final Map<int, Set<String>> multiAnswers;
+  final TextEditingController Function(int) customControllers;
+  final ValueChanged<int> onGoToPage;
+  final VoidCallback onResetAll;
+  final VoidCallback onSubmitAll;
 
-  /// Summary page showing all answers with Submit/Cancel buttons.
-  Widget _buildSummaryPage(List<dynamic> questions) {
+  const _SummaryPage({
+    required this.questions,
+    required this.statusColor,
+    required this.singleAnswers,
+    required this.multiAnswers,
+    required this.customControllers,
+    required this.onGoToPage,
+    required this.onResetAll,
+    required this.onSubmitAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(right: 4),
@@ -1199,7 +1492,15 @@ class _AskUserAreaState extends State<_AskUserArea> {
           ),
           const SizedBox(height: 8),
           for (var i = 0; i < questions.length; i++) ...[
-            _buildSummaryRow(i, questions[i] as Map<String, dynamic>),
+            _SummaryRow(
+              index: i,
+              question: questions[i] as Map<String, dynamic>,
+              statusColor: statusColor,
+              singleAnswers: singleAnswers,
+              multiAnswers: multiAnswers,
+              customControllers: customControllers,
+              onGoToPage: onGoToPage,
+            ),
             if (i < questions.length - 1) const SizedBox(height: 6),
           ],
           const SizedBox(height: 12),
@@ -1209,7 +1510,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
                 child: SizedBox(
                   height: 36,
                   child: OutlinedButton(
-                    onPressed: _resetAll,
+                    onPressed: onResetAll,
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       side: BorderSide(color: cs.outlineVariant),
@@ -1227,12 +1528,11 @@ class _AskUserAreaState extends State<_AskUserArea> {
                 child: SizedBox(
                   height: 36,
                   child: FilledButton(
-                    onPressed: _submitAll,
+                    onPressed: onSubmitAll,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      backgroundColor: widget.statusColor,
-                      foregroundColor:
-                          widget.statusColor.computeLuminance() > 0.5
+                      backgroundColor: statusColor,
+                      foregroundColor: statusColor.computeLuminance() > 0.5
                           ? Colors.black
                           : Colors.white,
                       shape: RoundedRectangleBorder(
@@ -1262,27 +1562,49 @@ class _AskUserAreaState extends State<_AskUserArea> {
       ),
     );
   }
+}
 
-  Widget _buildSummaryRow(int index, Map<String, dynamic> question) {
+/// A single row in the summary page showing the answer for one question.
+class _SummaryRow extends StatelessWidget {
+  final int index;
+  final Map<String, dynamic> question;
+  final Color statusColor;
+  final Map<int, String> singleAnswers;
+  final Map<int, Set<String>> multiAnswers;
+  final TextEditingController Function(int) customControllers;
+  final ValueChanged<int> onGoToPage;
+
+  const _SummaryRow({
+    required this.index,
+    required this.question,
+    required this.statusColor,
+    required this.singleAnswers,
+    required this.multiAnswers,
+    required this.customControllers,
+    required this.onGoToPage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final header = question['header'] as String? ?? 'Q${index + 1}';
     final isMulti = question['multiSelect'] as bool? ?? false;
 
     // Compute combined answer for summary
     String? answer;
     if (isMulti) {
-      final selected = _multiAnswers[index] ?? {};
+      final selected = multiAnswers[index] ?? {};
       final parts = [...selected];
-      final customText = _customControllers[index]?.text.trim() ?? '';
+      final customText = customControllers(index).text.trim();
       if (customText.isNotEmpty) parts.add(customText);
       answer = parts.isNotEmpty ? parts.join(', ') : null;
     } else {
-      answer = _singleAnswers[index];
+      answer = singleAnswers[index];
     }
 
     final hasAnswer = answer != null && answer.isNotEmpty;
     final cs = Theme.of(context).colorScheme;
     return InkWell(
-      onTap: () => setState(() => _currentPage = index),
+      onTap: () => onGoToPage(index),
       borderRadius: BorderRadius.circular(6),
       child: Container(
         width: double.infinity,
@@ -1298,7 +1620,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
             Icon(
               hasAnswer ? Icons.check_circle : Icons.error_outline,
               size: 14,
-              color: hasAnswer ? widget.statusColor : cs.error,
+              color: hasAnswer ? statusColor : cs.error,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -1324,27 +1646,9 @@ class _AskUserAreaState extends State<_AskUserArea> {
             Icon(
               Icons.edit,
               size: 14,
-              color: widget.statusColor.withValues(alpha: 0.3),
+              color: statusColor.withValues(alpha: 0.3),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOpenButton() {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: SizedBox(
-        height: _buttonHeight,
-        child: OutlinedButton.icon(
-          onPressed: widget.onTap,
-          icon: const Icon(Icons.open_in_new, size: 14),
-          label: const Text('Open'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            textStyle: const TextStyle(fontSize: 13),
-          ),
         ),
       ),
     );

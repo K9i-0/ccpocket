@@ -120,22 +120,42 @@ class _PlanDetailContentState extends State<_PlanDetailContent> {
           const Divider(height: 1),
           // Content area
           Expanded(
-            child: _isEditing ? _buildEditMode(appColors) : _buildViewMode(),
+            child: _isEditing
+                ? _PlanEditMode(
+                    editController: _editController,
+                    onChanged: () => setState(() {}),
+                  )
+                : _PlanViewMode(planText: widget.planText),
           ),
           // Bottom action bar (edit mode only)
-          if (widget.editable && _isEditing) _buildEditActions(appColors, cs),
+          if (widget.editable && _isEditing)
+            _PlanEditActions(
+              hasChanges: _hasChanges,
+              onCancel: () {
+                _editController.text = widget.planText;
+                setState(() => _isEditing = false);
+              },
+              onApply: () => Navigator.pop(context, _editController.text),
+            ),
           // Bottom safe area
           SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
       ),
     );
   }
+}
 
-  Widget _buildViewMode() {
+class _PlanViewMode extends StatelessWidget {
+  final String planText;
+
+  const _PlanViewMode({required this.planText});
+
+  @override
+  Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: MarkdownBody(
-        data: widget.planText,
+        data: planText,
         selectable: true,
         styleSheet: buildMarkdownStyle(context),
         onTapLink: handleMarkdownLink,
@@ -144,13 +164,22 @@ class _PlanDetailContentState extends State<_PlanDetailContent> {
       ),
     );
   }
+}
 
-  Widget _buildEditMode(AppColors appColors) {
+class _PlanEditMode extends StatelessWidget {
+  final TextEditingController editController;
+  final VoidCallback onChanged;
+
+  const _PlanEditMode({required this.editController, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: TextField(
         key: const ValueKey('plan_edit_field'),
-        controller: _editController,
+        controller: editController,
         maxLines: null,
         style: TextStyle(
           fontSize: 13,
@@ -163,12 +192,26 @@ class _PlanDetailContentState extends State<_PlanDetailContent> {
           hintText: 'Edit the plan...',
           hintStyle: TextStyle(color: appColors.subtleText),
         ),
-        onChanged: (_) => setState(() {}),
+        onChanged: (_) => onChanged(),
       ),
     );
   }
+}
 
-  Widget _buildEditActions(AppColors appColors, ColorScheme cs) {
+class _PlanEditActions extends StatelessWidget {
+  final bool hasChanges;
+  final VoidCallback onCancel;
+  final VoidCallback onApply;
+
+  const _PlanEditActions({
+    required this.hasChanges,
+    required this.onCancel,
+    required this.onApply,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -181,19 +224,14 @@ class _PlanDetailContentState extends State<_PlanDetailContent> {
           // Cancel button
           TextButton(
             key: const ValueKey('plan_edit_cancel'),
-            onPressed: () {
-              _editController.text = widget.planText;
-              setState(() => _isEditing = false);
-            },
+            onPressed: onCancel,
             child: const Text('Cancel'),
           ),
           const Spacer(),
-          // Apply button – saves edits; approval happens back in chat
+          // Apply button -- saves edits; approval happens back in chat
           FilledButton.icon(
             key: const ValueKey('plan_edit_apply'),
-            onPressed: _hasChanges
-                ? () => Navigator.pop(context, _editController.text)
-                : null,
+            onPressed: hasChanges ? onApply : null,
             icon: const Icon(Icons.check, size: 18),
             label: const Text('Apply'),
           ),

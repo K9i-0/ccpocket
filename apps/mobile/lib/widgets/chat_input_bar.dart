@@ -80,42 +80,73 @@ class ChatInputBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (attachedDiffSelection != null) _buildDiffPreview(context, cs),
-          if (attachedImages.isNotEmpty) _buildImagePreview(cs),
-          _buildTextField(context, cs),
+          if (attachedDiffSelection != null)
+            _DiffPreview(
+              selection: attachedDiffSelection!,
+              onTap: onTapDiffPreview,
+              onClear: onClearDiffSelection,
+            ),
+          if (attachedImages.isNotEmpty)
+            _ImagePreview(images: attachedImages, onClearImage: onClearImage),
+          _InputTextField(
+            controller: inputController,
+            status: status,
+            hintText: hintText,
+          ),
           const SizedBox(height: 4),
           Row(
             children: [
-              _buildSlashButton(cs),
+              _SlashButton(onTap: onShowSlashCommands),
               const SizedBox(width: 8),
-              _buildModeButton(cs),
+              _ModeButton(
+                permissionMode: permissionMode,
+                sandboxMode: sandboxMode,
+                onTap: onShowModeMenu,
+              ),
               const SizedBox(width: 8),
-              _buildAttachButton(cs),
+              _AttachButton(
+                hasAttachment: attachedImages.isNotEmpty,
+                imageCount: attachedImages.length,
+                onTap: onAttachImage,
+              ),
               if (onShowPromptHistory != null) ...[
                 const SizedBox(width: 8),
-                _buildHistoryButton(cs),
+                _HistoryButton(onTap: onShowPromptHistory!),
               ],
               if (isVoiceAvailable) ...[
                 const SizedBox(width: 8),
-                _buildVoiceButton(cs),
+                _VoiceButton(isRecording: isRecording, onTap: onToggleVoice),
               ],
               const Spacer(),
-              _buildActionButton(context, cs),
+              _ActionButton(
+                status: status,
+                hasInputText: hasInputText,
+                onSend: onSend,
+                onStop: onStop,
+                onInterrupt: onInterrupt,
+              ),
             ],
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildSlashButton(ColorScheme cs) {
+class _SlashButton extends StatelessWidget {
+  const _SlashButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
       color: cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         key: const ValueKey('slash_command_button'),
         borderRadius: BorderRadius.circular(20),
-        onTap: onShowSlashCommands,
+        onTap: onTap,
         child: Container(
           width: 36,
           height: 36,
@@ -132,11 +163,25 @@ class ChatInputBar extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildModeButton(ColorScheme cs) {
+class _ModeButton extends StatelessWidget {
+  const _ModeButton({
+    required this.permissionMode,
+    required this.sandboxMode,
+    required this.onTap,
+  });
+  final PermissionMode permissionMode;
+  final SandboxMode? sandboxMode;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     // Codex: show sandbox mode badge
     if (sandboxMode != null) {
-      return _buildSandboxModeButton(cs);
+      return _SandboxModeButton(mode: sandboxMode!, onTap: onTap);
     }
 
     // Claude: show permission mode badge
@@ -180,7 +225,7 @@ class ChatInputBar extends StatelessWidget {
       child: InkWell(
         key: const ValueKey('mode_button'),
         borderRadius: BorderRadius.circular(20),
-        onTap: onShowModeMenu,
+        onTap: onTap,
         child: Container(
           height: 36,
           constraints: isDefault
@@ -211,9 +256,16 @@ class ChatInputBar extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildSandboxModeButton(ColorScheme cs) {
-    final mode = sandboxMode!;
+class _SandboxModeButton extends StatelessWidget {
+  const _SandboxModeButton({required this.mode, required this.onTap});
+  final SandboxMode mode;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final isDefault = mode == SandboxMode.workspaceWrite;
 
     final (IconData icon, String? label, Color bg, Color fg) = switch (mode) {
@@ -243,7 +295,7 @@ class ChatInputBar extends StatelessWidget {
       child: InkWell(
         key: const ValueKey('mode_button'),
         borderRadius: BorderRadius.circular(20),
-        onTap: onShowModeMenu,
+        onTap: onTap,
         child: Container(
           height: 36,
           constraints: isDefault
@@ -274,16 +326,28 @@ class ChatInputBar extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildAttachButton(ColorScheme cs) {
-    final hasAttachment = attachedImages.isNotEmpty;
+class _AttachButton extends StatelessWidget {
+  const _AttachButton({
+    required this.hasAttachment,
+    required this.imageCount,
+    required this.onTap,
+  });
+  final bool hasAttachment;
+  final int imageCount;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
       color: hasAttachment ? cs.primaryContainer : cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         key: const ValueKey('attach_image_button'),
         borderRadius: BorderRadius.circular(20),
-        onTap: onAttachImage,
+        onTap: onTap,
         child: Container(
           width: 36,
           height: 36,
@@ -293,7 +357,7 @@ class ChatInputBar extends StatelessWidget {
                   clipBehavior: Clip.none,
                   children: [
                     Icon(Icons.image, size: 18, color: cs.onPrimaryContainer),
-                    if (attachedImages.length > 1)
+                    if (imageCount > 1)
                       Positioned(
                         top: -6,
                         right: -8,
@@ -307,7 +371,7 @@ class ChatInputBar extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            '${attachedImages.length}',
+                            '$imageCount',
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
@@ -323,15 +387,22 @@ class ChatInputBar extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildHistoryButton(ColorScheme cs) {
+class _HistoryButton extends StatelessWidget {
+  const _HistoryButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
       color: cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         key: const ValueKey('prompt_history_button'),
         borderRadius: BorderRadius.circular(20),
-        onTap: onShowPromptHistory,
+        onTap: onTap,
         child: Container(
           width: 36,
           height: 36,
@@ -341,15 +412,22 @@ class ChatInputBar extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildImagePreview(ColorScheme cs) {
+class _ImagePreview extends StatelessWidget {
+  const _ImagePreview({required this.images, required this.onClearImage});
+  final List<({Uint8List bytes, String mimeType})> images;
+  final void Function([int? index])? onClearImage;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: SizedBox(
         height: 80,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          itemCount: attachedImages.length,
+          itemCount: images.length,
           separatorBuilder: (_, _) => const SizedBox(width: 6),
           itemBuilder: (context, index) {
             return Stack(
@@ -358,9 +436,9 @@ class ChatInputBar extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Image.memory(
-                    attachedImages[index].bytes,
+                    images[index].bytes,
                     height: 80,
-                    width: attachedImages.length == 1 ? null : 80,
+                    width: images.length == 1 ? null : 80,
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -390,34 +468,46 @@ class ChatInputBar extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildDiffPreview(BuildContext context, ColorScheme cs) {
+class _DiffPreview extends StatelessWidget {
+  const _DiffPreview({
+    required this.selection,
+    required this.onTap,
+    required this.onClear,
+  });
+  final DiffSelection selection;
+  final VoidCallback? onTap;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    final sel = attachedDiffSelection!;
     final parts = <String>[];
 
     // Build summary
     final summaryParts = <String>[];
-    if (sel.mentions.isNotEmpty) {
-      summaryParts.add(l.filesMentioned(sel.mentions.length));
+    if (selection.mentions.isNotEmpty) {
+      summaryParts.add(l.filesMentioned(selection.mentions.length));
     }
-    if (sel.diffText.isNotEmpty) {
-      final lineCount = sel.diffText.split('\n').length;
+    if (selection.diffText.isNotEmpty) {
+      final lineCount = selection.diffText.split('\n').length;
       summaryParts.add(l.diffLines(lineCount));
     }
     final summary = summaryParts.join(', ');
 
     // Build preview text
-    if (sel.mentions.isNotEmpty) {
-      parts.addAll(sel.mentions.map((f) => '@$f'));
+    if (selection.mentions.isNotEmpty) {
+      parts.addAll(selection.mentions.map((f) => '@$f'));
     }
-    if (sel.diffText.isNotEmpty) {
-      parts.add(sel.diffText.split('\n').take(2).join('\n'));
+    if (selection.diffText.isNotEmpty) {
+      parts.add(selection.diffText.split('\n').take(2).join('\n'));
     }
     final preview = parts.join('\n');
 
     return GestureDetector(
-      onTap: onTapDiffPreview,
+      onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(10),
@@ -458,7 +548,7 @@ class ChatInputBar extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: onClearDiffSelection,
+              onTap: onClear,
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.black54,
@@ -473,12 +563,25 @@ class ChatInputBar extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildTextField(BuildContext context, ColorScheme cs) {
+class _InputTextField extends StatelessWidget {
+  const _InputTextField({
+    required this.controller,
+    required this.status,
+    this.hintText,
+  });
+  final TextEditingController controller;
+  final ProcessStatus status;
+  final String? hintText;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     return TextField(
       key: const ValueKey('message_input'),
-      controller: inputController,
+      controller: controller,
       decoration: InputDecoration(
         hintText: hintText ?? l.messagePlaceholder,
         filled: true,
@@ -511,18 +614,42 @@ class ChatInputBar extends StatelessWidget {
       textInputAction: TextInputAction.newline,
     );
   }
+}
 
-  Widget _buildActionButton(BuildContext context, ColorScheme cs) {
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.status,
+    required this.hasInputText,
+    required this.onSend,
+    required this.onStop,
+    required this.onInterrupt,
+  });
+  final ProcessStatus status;
+  final bool hasInputText;
+  final VoidCallback onSend;
+  final VoidCallback onStop;
+  final VoidCallback onInterrupt;
+
+  @override
+  Widget build(BuildContext context) {
     if (status == ProcessStatus.starting) {
-      return _buildSendButton(cs, enabled: false);
+      return _SendButton(onSend: onSend, enabled: false);
     }
     if (status != ProcessStatus.idle && !hasInputText) {
-      return _buildStopButton(context, cs);
+      return _StopButton(onInterrupt: onInterrupt, onStop: onStop);
     }
-    return _buildSendButton(cs, enabled: hasInputText);
+    return _SendButton(onSend: onSend, enabled: hasInputText);
   }
+}
 
-  Widget _buildStopButton(BuildContext context, ColorScheme cs) {
+class _StopButton extends StatelessWidget {
+  const _StopButton({required this.onInterrupt, required this.onStop});
+  final VoidCallback onInterrupt;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     return Tooltip(
       message: l.tapInterruptHoldStop,
@@ -543,15 +670,23 @@ class ChatInputBar extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildVoiceButton(ColorScheme cs) {
+class _VoiceButton extends StatelessWidget {
+  const _VoiceButton({required this.isRecording, required this.onTap});
+  final bool isRecording;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
       color: isRecording ? cs.error : cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         key: const ValueKey('voice_button'),
         borderRadius: BorderRadius.circular(20),
-        onTap: onToggleVoice,
+        onTap: onTap,
         child: Container(
           width: 36,
           height: 36,
@@ -565,8 +700,16 @@ class ChatInputBar extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildSendButton(ColorScheme cs, {bool enabled = true}) {
+class _SendButton extends StatelessWidget {
+  const _SendButton({required this.onSend, this.enabled = true});
+  final VoidCallback onSend;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final opacity = enabled ? 1.0 : 0.4;
     return Opacity(
       opacity: opacity,

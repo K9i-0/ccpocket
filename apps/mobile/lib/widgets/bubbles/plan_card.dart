@@ -52,17 +52,27 @@ class PlanCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildHeader(cs),
+            _PlanHeader(isEdited: isEdited, sectionCount: _sectionCount),
             Divider(height: 1, color: cs.primary.withValues(alpha: 0.15)),
-            _buildBody(context, cs),
-            if (_isLongPlan) _buildFooter(cs),
+            _PlanBody(planText: planText, isLongPlan: _isLongPlan),
+            if (_isLongPlan) _PlanFooter(onViewFullPlan: onViewFullPlan),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildHeader(ColorScheme cs) {
+class _PlanHeader extends StatelessWidget {
+  final bool isEdited;
+  final int sectionCount;
+
+  const _PlanHeader({required this.isEdited, required this.sectionCount});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
@@ -96,7 +106,7 @@ class PlanCard extends StatelessWidget {
                 ),
               ),
             ),
-          if (_sectionCount > 0)
+          if (sectionCount > 0)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
@@ -104,7 +114,7 @@ class PlanCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '$_sectionCount sections',
+                '$sectionCount sections',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
@@ -116,8 +126,16 @@ class PlanCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildBody(BuildContext context, ColorScheme cs) {
+class _PlanBody extends StatelessWidget {
+  final String planText;
+  final bool isLongPlan;
+
+  const _PlanBody({required this.planText, required this.isLongPlan});
+
+  @override
+  Widget build(BuildContext context) {
     final markdownWidget = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: MarkdownBody(
@@ -130,11 +148,13 @@ class PlanCard extends StatelessWidget {
       ),
     );
 
-    if (!_isLongPlan) return markdownWidget;
+    if (!isLongPlan) return markdownWidget;
 
     return ClipRect(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: _maxPreviewHeight),
+        constraints: const BoxConstraints(
+          maxHeight: PlanCard._maxPreviewHeight,
+        ),
         child: ShaderMask(
           shaderCallback: (bounds) => LinearGradient(
             begin: Alignment.topCenter,
@@ -155,8 +175,17 @@ class PlanCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildFooter(ColorScheme cs) {
+class _PlanFooter extends StatelessWidget {
+  final VoidCallback onViewFullPlan;
+
+  const _PlanFooter({required this.onViewFullPlan});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return InkWell(
       key: const ValueKey('view_full_plan_button'),
       onTap: onViewFullPlan,

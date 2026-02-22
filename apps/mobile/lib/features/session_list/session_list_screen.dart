@@ -273,9 +273,21 @@ class _SessionListScreenState extends State<SessionListScreen>
                   ),
                 ),
                 const SizedBox(height: 8),
-                _setupStep(ctx, '1', l.setupStep1Title, l.setupStep1Command),
-                _setupStep(ctx, '2', l.setupStep2Title, l.setupStep2Command),
-                _setupStep(ctx, '3', l.setupStep3Title, l.setupStep3Command),
+                _SetupStep(
+                  number: '1',
+                  title: l.setupStep1Title,
+                  command: l.setupStep1Command,
+                ),
+                _SetupStep(
+                  number: '2',
+                  title: l.setupStep2Title,
+                  command: l.setupStep2Command,
+                ),
+                _SetupStep(
+                  number: '3',
+                  title: l.setupStep3Title,
+                  command: l.setupStep3Command,
+                ),
                 const SizedBox(height: 12),
                 Text(
                   l.setupNetworkHint,
@@ -299,62 +311,6 @@ class _SessionListScreenState extends State<SessionListScreen>
           ],
         );
       },
-    );
-  }
-
-  Widget _setupStep(
-    BuildContext ctx,
-    String number,
-    String title,
-    String command,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 10,
-            backgroundColor: Theme.of(ctx).colorScheme.primaryContainer,
-            child: Text(
-              number,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Theme.of(ctx).colorScheme.onPrimaryContainer,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontSize: 13)),
-                const SizedBox(height: 2),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    command,
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -723,6 +679,10 @@ class _SessionListScreenState extends State<SessionListScreen>
 
     final l = AppLocalizations.of(context);
 
+    // Try to get MachineManagerCubit if available
+    final machineManagerCubit = context.watch<MachineManagerCubit?>();
+    final machineState = machineManagerCubit?.state;
+
     return BlocListener<ConnectionCubit, BridgeConnectionState>(
       listener: (context, nextState) {
         // Clear auto-connecting spinner once we get any connection state update
@@ -856,7 +816,25 @@ class _SessionListScreenState extends State<SessionListScreen>
               )
             : connectionState == BridgeConnectionState.connecting
             ? const Center(child: CircularProgressIndicator())
-            : _buildConnectForm(discoveredServers),
+            : _ConnectFormWidget(
+                discoveredServers: discoveredServers,
+                machines: machineState?.machines ?? [],
+                startingMachineId: machineState?.startingMachineId,
+                updatingMachineId: machineState?.updatingMachineId,
+                onScanQrCode: _scanQrCode,
+                onViewSetupGuide: () =>
+                    context.router.push(const SetupGuideRoute()),
+                onConnectToDiscovered: _connectToDiscovered,
+                onConnectToMachine: _connectToMachine,
+                onStartMachine: _startMachine,
+                onEditMachine: _editMachine,
+                onDeleteMachine: _deleteMachine,
+                onToggleFavorite: _toggleFavorite,
+                onUpdateMachine: _updateMachine,
+                onStopMachine: _stopMachine,
+                onAddMachine: _addMachine,
+                onRefreshMachines: () => machineManagerCubit?.refreshAll(),
+              ),
         floatingActionButton: showConnectedUI
             ? FloatingActionButton(
                 key: const ValueKey('new_session_fab'),
@@ -921,32 +899,6 @@ class _SessionListScreenState extends State<SessionListScreen>
   }
 
   // ---- Machine Management ----
-
-  Widget _buildConnectForm(List<DiscoveredServer> discoveredServers) {
-    // Try to get MachineManagerCubit if available
-    final machineManagerCubit = context.watch<MachineManagerCubit?>();
-    final machineState = machineManagerCubit?.state;
-
-    return ConnectForm(
-      discoveredServers: discoveredServers,
-      onScanQrCode: _scanQrCode,
-      onViewSetupGuide: () => context.router.push(const SetupGuideRoute()),
-      onConnectToDiscovered: _connectToDiscovered,
-      // Machine management
-      machines: machineState?.machines ?? [],
-      startingMachineId: machineState?.startingMachineId,
-      updatingMachineId: machineState?.updatingMachineId,
-      onConnectToMachine: _connectToMachine,
-      onStartMachine: _startMachine,
-      onEditMachine: _editMachine,
-      onDeleteMachine: _deleteMachine,
-      onToggleFavorite: _toggleFavorite,
-      onUpdateMachine: _updateMachine,
-      onStopMachine: _stopMachine,
-      onAddMachine: _addMachine,
-      onRefreshMachines: () => machineManagerCubit?.refreshAll(),
-    );
-  }
 
   void _connectToMachine(MachineWithStatus m) async {
     final cubit = context.read<MachineManagerCubit>();
@@ -1180,6 +1132,132 @@ class _SessionListScreenState extends State<SessionListScreen>
         },
         onTestConnection: cubit.testConnectionWithCredentials,
       ),
+    );
+  }
+}
+
+class _SetupStep extends StatelessWidget {
+  final String number;
+  final String title;
+  final String command;
+
+  const _SetupStep({
+    required this.number,
+    required this.title,
+    required this.command,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 10,
+            backgroundColor: cs.primaryContainer,
+            child: Text(
+              number,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: cs.onPrimaryContainer,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontSize: 13)),
+                const SizedBox(height: 2),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    command,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConnectFormWidget extends StatelessWidget {
+  final List<DiscoveredServer> discoveredServers;
+  final List<MachineWithStatus> machines;
+  final String? startingMachineId;
+  final String? updatingMachineId;
+  final VoidCallback onScanQrCode;
+  final VoidCallback onViewSetupGuide;
+  final ValueChanged<DiscoveredServer> onConnectToDiscovered;
+  final ValueChanged<MachineWithStatus> onConnectToMachine;
+  final ValueChanged<MachineWithStatus> onStartMachine;
+  final ValueChanged<MachineWithStatus> onEditMachine;
+  final ValueChanged<MachineWithStatus> onDeleteMachine;
+  final ValueChanged<MachineWithStatus> onToggleFavorite;
+  final ValueChanged<MachineWithStatus> onUpdateMachine;
+  final ValueChanged<MachineWithStatus> onStopMachine;
+  final VoidCallback onAddMachine;
+  final VoidCallback? onRefreshMachines;
+
+  const _ConnectFormWidget({
+    required this.discoveredServers,
+    required this.machines,
+    this.startingMachineId,
+    this.updatingMachineId,
+    required this.onScanQrCode,
+    required this.onViewSetupGuide,
+    required this.onConnectToDiscovered,
+    required this.onConnectToMachine,
+    required this.onStartMachine,
+    required this.onEditMachine,
+    required this.onDeleteMachine,
+    required this.onToggleFavorite,
+    required this.onUpdateMachine,
+    required this.onStopMachine,
+    required this.onAddMachine,
+    this.onRefreshMachines,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ConnectForm(
+      discoveredServers: discoveredServers,
+      onScanQrCode: onScanQrCode,
+      onViewSetupGuide: onViewSetupGuide,
+      onConnectToDiscovered: onConnectToDiscovered,
+      // Machine management
+      machines: machines,
+      startingMachineId: startingMachineId,
+      updatingMachineId: updatingMachineId,
+      onConnectToMachine: onConnectToMachine,
+      onStartMachine: onStartMachine,
+      onEditMachine: onEditMachine,
+      onDeleteMachine: onDeleteMachine,
+      onToggleFavorite: onToggleFavorite,
+      onUpdateMachine: onUpdateMachine,
+      onStopMachine: onStopMachine,
+      onAddMachine: onAddMachine,
+      onRefreshMachines: onRefreshMachines,
     );
   }
 }
