@@ -18,6 +18,7 @@ import '../services/replay_bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/session_card.dart';
 import '../features/claude_session/claude_session_screen.dart';
+import '../features/codex_session/codex_session_screen.dart';
 
 @RoutePage()
 class MockPreviewScreen extends StatelessWidget {
@@ -489,10 +490,16 @@ class _MockChatWrapperState extends State<_MockChatWrapper> {
             create: (_) => FileListCubit(const [], mockService.fileList),
           ),
         ],
-        child: ClaudeSessionScreen(
-          sessionId: sessionId,
-          projectPath: '/mock/preview',
-        ),
+        child: switch (widget.scenario.provider) {
+          MockScenarioProvider.codex => CodexSessionScreen(
+            sessionId: sessionId,
+            projectPath: '/mock/preview',
+          ),
+          MockScenarioProvider.claude => ClaudeSessionScreen(
+            sessionId: sessionId,
+            projectPath: '/mock/preview',
+          ),
+        },
       ),
     );
   }
@@ -592,6 +599,8 @@ class _MockSessionListWrapperState extends State<_MockSessionListWrapper> {
         return mockSessionsBatchApproval();
       case 'Plan Approval':
         return [mockSessionPlanApproval()];
+      case 'Codex Plan Approval':
+        return [mockSessionCodexPlanApproval()];
       default:
         return [];
     }

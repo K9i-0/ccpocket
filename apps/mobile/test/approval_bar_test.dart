@@ -20,6 +20,7 @@ void main() {
   Widget buildSubject({
     PermissionRequestMessage? pendingPermission,
     bool isPlanApproval = false,
+    PlanApprovalUiMode planApprovalUiMode = PlanApprovalUiMode.claude,
     VoidCallback? onApprove,
     VoidCallback? onReject,
     VoidCallback? onApproveAlways,
@@ -36,6 +37,7 @@ void main() {
           appColors: AppColors.dark(),
           pendingPermission: pendingPermission,
           isPlanApproval: isPlanApproval,
+          planApprovalUiMode: planApprovalUiMode,
           planFeedbackController: feedbackController,
           onApprove: onApprove ?? () {},
           onReject: onReject ?? () {},
@@ -85,6 +87,32 @@ void main() {
       expect(find.text('Keep Planning'), findsOneWidget);
       // "Always" hidden for plan approval
       expect(find.text('Always'), findsNothing);
+    });
+
+    testWidgets('codex plan approval hides keep planning and clear action', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildSubject(
+          pendingPermission: const PermissionRequestMessage(
+            toolUseId: 'tu-1',
+            toolName: 'ExitPlanMode',
+            input: {},
+          ),
+          isPlanApproval: true,
+          planApprovalUiMode: PlanApprovalUiMode.codex,
+          onApproveClearContext: () {},
+        ),
+      );
+
+      expect(find.byKey(const ValueKey('keep_planning_card')), findsNothing);
+      expect(find.byKey(const ValueKey('plan_feedback_input')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('approve_clear_context_button')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('reject_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('approve_button')), findsOneWidget);
     });
 
     testWidgets('shows feedback field inside Keep Planning card', (

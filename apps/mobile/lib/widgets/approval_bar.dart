@@ -4,6 +4,8 @@ import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../theme/app_theme.dart';
 
+enum PlanApprovalUiMode { claude, codex }
+
 /// Bottom bar that presents tool-use / plan approval controls.
 ///
 /// Pure presentation — all actions are dispatched via callbacks.
@@ -19,6 +21,7 @@ class ApprovalBar extends StatelessWidget {
 
   /// Callback for "Accept & Clear Context" button (plan approval only).
   final VoidCallback? onApproveClearContext;
+  final PlanApprovalUiMode planApprovalUiMode;
 
   const ApprovalBar({
     super.key,
@@ -31,6 +34,7 @@ class ApprovalBar extends StatelessWidget {
     required this.onApproveAlways,
     this.onViewPlan,
     this.onApproveClearContext,
+    this.planApprovalUiMode = PlanApprovalUiMode.claude,
   });
 
   @override
@@ -72,7 +76,8 @@ class ApprovalBar extends StatelessWidget {
               onViewPlan: onViewPlan,
             ),
             const SizedBox(height: 6),
-            if (isPlanApproval) ...[
+            if (isPlanApproval &&
+                planApprovalUiMode == PlanApprovalUiMode.claude) ...[
               const SizedBox(height: 6),
               _KeepPlanningCard(
                 appColors: appColors,
@@ -84,6 +89,7 @@ class ApprovalBar extends StatelessWidget {
               const SizedBox(height: 6),
             _ApprovalButtons(
               isPlanApproval: isPlanApproval,
+              planApprovalUiMode: planApprovalUiMode,
               onApprove: onApprove,
               onReject: onReject,
               onApproveAlways: onApproveAlways,
@@ -251,6 +257,7 @@ class _KeepPlanningCard extends StatelessWidget {
 
 class _ApprovalButtons extends StatelessWidget {
   final bool isPlanApproval;
+  final PlanApprovalUiMode planApprovalUiMode;
   final VoidCallback onApprove;
   final VoidCallback onReject;
   final VoidCallback onApproveAlways;
@@ -258,6 +265,7 @@ class _ApprovalButtons extends StatelessWidget {
 
   const _ApprovalButtons({
     required this.isPlanApproval,
+    required this.planApprovalUiMode,
     required this.onApprove,
     required this.onReject,
     required this.onApproveAlways,
@@ -268,6 +276,34 @@ class _ApprovalButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     if (isPlanApproval) {
+      if (planApprovalUiMode == PlanApprovalUiMode.codex) {
+        return Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                key: const ValueKey('reject_button'),
+                onPressed: onReject,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                child: Text(l.reject, style: const TextStyle(fontSize: 13)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton(
+                key: const ValueKey('approve_button'),
+                onPressed: onApprove,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                child: Text(l.acceptPlan, style: const TextStyle(fontSize: 13)),
+              ),
+            ),
+          ],
+        );
+      }
+
       return Row(
         children: [
           if (onApproveClearContext != null) ...[

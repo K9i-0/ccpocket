@@ -201,6 +201,38 @@ void main() {
       expect(find.text('5'), findsOneWidget);
       // No lastMessage text rendered (empty by default)
     });
+
+    testWidgets('shows codex plan approval area for ExitPlanMode permission', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'codex-plan',
+        provider: 'codex',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        pendingPermission: const PermissionRequestMessage(
+          toolUseId: 'tool-codex-plan-1',
+          toolName: 'ExitPlanMode',
+          input: {'plan': 'Codex plan approval update'},
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(session: session, onTap: () {}, onStop: () {}),
+        ),
+      );
+
+      expect(find.text('Plan Ready'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('codex_plan_approval_area')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('approve_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('reject_button')), findsOneWidget);
+    });
   });
 
   group('RecentSessionCard', () {

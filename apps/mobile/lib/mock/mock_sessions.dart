@@ -403,3 +403,29 @@ SessionInfo mockSessionPlanApproval() => SessionInfo(
     input: {'plan': 'Push Notification Implementation Plan'},
   ),
 );
+
+/// Session with an ExitPlanMode pending for Codex.
+/// Used to verify Codex-specific plan approval UI in session list.
+SessionInfo mockSessionCodexPlanApproval() => SessionInfo(
+  id: 'mock-running-codex-plan',
+  provider: 'codex',
+  projectPath: '/Users/demo/Workspace/ccpocket',
+  status: 'waiting_approval',
+  createdAt: DateTime.now()
+      .subtract(const Duration(minutes: 11))
+      .toIso8601String(),
+  lastActivityAt: DateTime.now()
+      .subtract(const Duration(seconds: 20))
+      .toIso8601String(),
+  gitBranch: 'feat/codex-plan-ui',
+  lastMessage: 'I drafted the plan and need your approval before coding.',
+  messageCount: 9,
+  codexModel: 'gpt-5-codex',
+  codexSandboxMode: 'workspace-write',
+  codexApprovalPolicy: 'on-request',
+  pendingPermission: const PermissionRequestMessage(
+    toolUseId: 'tool-codex-plan-exit-1',
+    toolName: 'ExitPlanMode',
+    input: {'plan': 'Codex plan approval update'},
+  ),
+);

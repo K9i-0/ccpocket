@@ -99,32 +99,27 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     };
 
     final permission = session.pendingPermission;
-    final hasPermission =
-        session.status == 'waiting_approval' && permission != null;
+    final hasPermission = permission != null;
     final isCodexSession = session.provider == Provider.codex.value;
     final isPlanApproval =
-        !isCodexSession &&
-        hasPermission &&
-        permission.toolName == 'ExitPlanMode';
+        hasPermission && permission.toolName == 'ExitPlanMode';
     if (isPlanApproval) {
       _syncPlanApprovalState(permission);
     } else {
       _syncPlanApprovalState(null);
     }
-    final statusLabel = switch (session.status) {
-      'starting' => 'Starting',
-      'running' => 'Running',
-      'waiting_approval' when hasPermission =>
-        isCodexSession
-            ? 'Approval · ${permission.toolName}'
-            : switch (permission.toolName) {
-                'ExitPlanMode' => 'Plan Ready',
-                'AskUserQuestion' => 'Question',
-                _ => 'Approval · ${permission.toolName}',
-              },
-      'waiting_approval' => 'Approval',
-      _ => 'Idle',
-    };
+    final statusLabel = hasPermission
+        ? switch (permission.toolName) {
+            'ExitPlanMode' => 'Plan Ready',
+            'AskUserQuestion' => 'Question',
+            _ => 'Approval · ${permission.toolName}',
+          }
+        : switch (session.status) {
+            'starting' => 'Starting',
+            'running' => 'Running',
+            'waiting_approval' => 'Approval',
+            _ => 'Idle',
+          };
 
     final projectName = session.projectPath.split('/').last;
     final provider = providerFromRaw(session.provider);
@@ -189,18 +184,34 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
             // Approval area (shown when waiting for permission)
             if (hasPermission)
               isCodexSession
-                  ? _ToolApprovalArea(
-                      permission: permission,
-                      statusColor: statusColor,
-                      onApprove: () => widget.onApprove?.call(
-                        permission.toolUseId,
-                        clearContext: false,
-                      ),
-                      onApproveAlways: () =>
-                          widget.onApproveAlways?.call(permission.toolUseId),
-                      onReject: () =>
-                          widget.onReject?.call(permission.toolUseId),
-                    )
+                  ? (isPlanApproval
+                        ? _CodexPlanApprovalArea(
+                            statusColor: statusColor,
+                            canOpenPlan: _extractPlanText(permission) != null,
+                            onOpenPlan: () => _openPlanSheet(permission),
+                            onApprove: () => widget.onApprove?.call(
+                              permission.toolUseId,
+                              updatedInput: _editedPlanText != null
+                                  ? {'plan': _editedPlanText!}
+                                  : null,
+                              clearContext: false,
+                            ),
+                            onReject: () =>
+                                widget.onReject?.call(permission.toolUseId),
+                          )
+                        : _ToolApprovalArea(
+                            permission: permission,
+                            statusColor: statusColor,
+                            onApprove: () => widget.onApprove?.call(
+                              permission.toolUseId,
+                              clearContext: false,
+                            ),
+                            onApproveAlways: () => widget.onApproveAlways?.call(
+                              permission.toolUseId,
+                            ),
+                            onReject: () =>
+                                widget.onReject?.call(permission.toolUseId),
+                          ))
                   : switch (permission.toolName) {
                       'AskUserQuestion' => _AskUserArea(
                         permission: permission,
@@ -645,6 +656,117 @@ class _PlanApprovalArea extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       child: Text(
                         l.acceptAndClear,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: FilledButton(
+                    key: const ValueKey('approve_button'),
+                    onPressed: onApprove,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        l.acceptPlan,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Plan approval area for Codex sessions in session list.
+class _CodexPlanApprovalArea extends StatelessWidget {
+  final Color statusColor;
+  final bool canOpenPlan;
+  final VoidCallback onOpenPlan;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  const _CodexPlanApprovalArea({
+    required this.statusColor,
+    required this.canOpenPlan,
+    required this.onOpenPlan,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey('codex_plan_approval_area'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: statusColor.withValues(alpha: 0.06),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: canOpenPlan ? onOpenPlan : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l.planApprovalSummary,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.8),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (canOpenPlan)
+                      Icon(Icons.open_in_full, size: 16, color: cs.primary),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: OutlinedButton(
+                    key: const ValueKey('reject_button'),
+                    onPressed: onReject,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        l.reject,
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),

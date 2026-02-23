@@ -10,6 +10,8 @@ class MockStep {
   const MockStep({required this.delay, required this.message});
 }
 
+enum MockScenarioProvider { claude, codex }
+
 /// Section category for grouping scenarios in the preview screen.
 enum MockScenarioSection {
   chat('Chat Session', Icons.chat_bubble_outline),
@@ -27,6 +29,7 @@ class MockScenario {
   final String description;
   final List<MockStep> steps;
   final MockScenarioSection section;
+  final MockScenarioProvider provider;
 
   /// If non-null, a streaming scenario is played after the steps.
   final String? streamingText;
@@ -37,6 +40,7 @@ class MockScenario {
     required this.description,
     required this.steps,
     this.section = MockScenarioSection.chat,
+    this.provider = MockScenarioProvider.claude,
     this.streamingText,
   });
 }
@@ -54,6 +58,7 @@ final List<MockScenario> mockScenarios = [
   _markdownMixedContent,
   _thinkingBlock,
   _planMode,
+  _codexPlanApproval,
   _subagentSummary,
   _errorScenario,
   _fullConversation,
@@ -63,6 +68,7 @@ final List<MockScenario> mockScenarios = [
   _sessionListMultiSelect,
   _sessionListBatchApproval,
   _sessionListPlanApproval,
+  _sessionListCodexPlanApproval,
   // Store screenshot scenarios
   ...storeScreenshotScenarios,
 ];
@@ -905,6 +911,80 @@ final _planMode = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
+// 6b. Codex Plan Approval
+// ---------------------------------------------------------------------------
+final _codexPlanApproval = MockScenario(
+  name: 'Codex Plan Approval',
+  icon: Icons.task_alt_outlined,
+  description: 'Codex ExitPlanMode approval (Reject / Accept Plan)',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 600),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-plan-enter',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text: 'I will draft an implementation plan before editing code.',
+            ),
+            const ToolUseContent(
+              id: 'tool-codex-enter-plan-1',
+              name: 'EnterPlanMode',
+              input: {},
+            ),
+          ],
+          model: 'gpt-5-codex',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1000),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-plan-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  '## Plan\n'
+                  '1. Review existing approval components and identify Claude-specific UI paths.\n'
+                  '2. Split plan-approval presentation into Claude and Codex modes.\n'
+                  '3. Keep Claude behavior unchanged while simplifying Codex to Reject/Accept Plan.\n'
+                  '4. Validate session-list and session-screen behavior for both providers.\n'
+                  '5. Run static analysis and tests.',
+            ),
+            const ToolUseContent(
+              id: 'tool-codex-exit-plan-1',
+              name: 'ExitPlanMode',
+              input: {'plan': 'Codex plan approval update'},
+            ),
+          ],
+          model: 'gpt-5-codex',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1400),
+      message: const PermissionRequestMessage(
+        toolUseId: 'tool-codex-exit-plan-1',
+        toolName: 'ExitPlanMode',
+        input: {'plan': 'Codex plan approval update'},
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1600),
+      message: const StatusMessage(status: ProcessStatus.waitingApproval),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // 7. Subagent Summary (tool_use_summary)
 // ---------------------------------------------------------------------------
 final _subagentSummary = MockScenario(
@@ -1251,6 +1331,17 @@ const _sessionListPlanApproval = MockScenario(
   name: 'Plan Approval',
   icon: Icons.assignment_outlined,
   description: 'ExitPlanMode approval with Approve/Open actions',
+  section: MockScenarioSection.sessionList,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// SL-6. Codex Plan Approval
+// ---------------------------------------------------------------------------
+const _sessionListCodexPlanApproval = MockScenario(
+  name: 'Codex Plan Approval',
+  icon: Icons.task_alt_outlined,
+  description: 'Codex ExitPlanMode approval with Reject/Approve actions',
   section: MockScenarioSection.sessionList,
   steps: [],
 );

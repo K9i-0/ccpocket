@@ -605,6 +605,7 @@ class _CodexChatBody extends HookWidget {
                     appColors: appColors,
                     pendingPermission: pendingPermission,
                     isPlanApproval: isPlanApproval,
+                    planApprovalUiMode: PlanApprovalUiMode.codex,
                     planFeedbackController: planFeedbackController,
                     onApprove: approveToolUse,
                     onReject: rejectToolUse,
