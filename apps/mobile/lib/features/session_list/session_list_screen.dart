@@ -284,11 +284,6 @@ class _SessionListScreenState extends State<SessionListScreen>
                   title: l.setupStep2Title,
                   command: l.setupStep2Command,
                 ),
-                _SetupStep(
-                  number: '3',
-                  title: l.setupStep3Title,
-                  command: l.setupStep3Command,
-                ),
                 const SizedBox(height: 12),
                 Text(
                   l.setupNetworkHint,

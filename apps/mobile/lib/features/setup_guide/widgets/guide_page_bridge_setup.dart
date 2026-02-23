@@ -42,11 +42,6 @@ class GuidePageBridgeSetup extends StatelessWidget {
                 title: l.guideBridgeStep2,
                 code: l.guideBridgeStep2Command,
               ),
-              _Step(
-                number: '3',
-                title: l.guideBridgeStep3,
-                code: l.guideBridgeStep3Command,
-              ),
             ],
           ),
           const SizedBox(height: 16),

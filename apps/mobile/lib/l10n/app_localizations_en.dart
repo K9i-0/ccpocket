@@ -104,23 +104,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get setupSteps => 'Setup Steps:';
 
   @override
-  String get setupStep1Title => 'Install and build the Bridge server';
+  String get setupStep1Title => 'Start the Bridge server';
 
   @override
-  String get setupStep1Command =>
-      'cd packages/bridge && npm install && npm run bridge:build';
+  String get setupStep1Command => 'npx @ccpocket/bridge';
 
   @override
-  String get setupStep2Title => 'Start the server';
+  String get setupStep2Title => 'For persistent startup, register as service';
 
   @override
-  String get setupStep2Command => 'npm run bridge';
-
-  @override
-  String get setupStep3Title => 'For persistent startup, register as service';
-
-  @override
-  String get setupStep3Command => 'npm run setup';
+  String get setupStep2Command => 'npx @ccpocket/bridge setup';
 
   @override
   String get setupNetworkHint =>
@@ -568,22 +561,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Claude Code CLI or Codex CLI\n(either one is fine)';
 
   @override
-  String get guideBridgeStep1 => 'Clone the project';
+  String get guideBridgeStep1 => 'Run with npx (recommended)';
 
   @override
-  String get guideBridgeStep1Command => 'git clone <repo-url>\nnpm install';
+  String get guideBridgeStep1Command => 'npx @ccpocket/bridge';
 
   @override
-  String get guideBridgeStep2 => 'Build';
+  String get guideBridgeStep2 => 'Or install globally';
 
   @override
-  String get guideBridgeStep2Command => 'npm run bridge:build';
-
-  @override
-  String get guideBridgeStep3 => 'Start';
-
-  @override
-  String get guideBridgeStep3Command => 'npm run bridge';
+  String get guideBridgeStep2Command =>
+      'npm install -g @ccpocket/bridge\nccpocket-bridge';
 
   @override
   String get guideBridgeQrNote =>
@@ -655,7 +643,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get guideLaunchdCommand => 'Setup Command';
 
   @override
-  String get guideLaunchdCommandValue => 'npm run setup';
+  String get guideLaunchdCommandValue => 'npx @ccpocket/bridge setup';
 
   @override
   String get guideLaunchdRecommendation =>

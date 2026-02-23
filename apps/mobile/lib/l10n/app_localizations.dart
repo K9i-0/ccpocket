@@ -287,38 +287,26 @@ abstract class AppLocalizations {
   /// No description provided for @setupStep1Title.
   ///
   /// In ja, this message translates to:
-  /// **'Bridge Server をインストール・ビルド'**
+  /// **'Bridge Server を起動'**
   String get setupStep1Title;
 
   /// No description provided for @setupStep1Command.
   ///
   /// In ja, this message translates to:
-  /// **'cd packages/bridge && npm install && npm run bridge:build'**
+  /// **'npx @ccpocket/bridge'**
   String get setupStep1Command;
 
   /// No description provided for @setupStep2Title.
   ///
   /// In ja, this message translates to:
-  /// **'サーバーを起動'**
+  /// **'常時起動したい場合はサービス登録'**
   String get setupStep2Title;
 
   /// No description provided for @setupStep2Command.
   ///
   /// In ja, this message translates to:
-  /// **'npm run bridge'**
+  /// **'npx @ccpocket/bridge setup'**
   String get setupStep2Command;
-
-  /// No description provided for @setupStep3Title.
-  ///
-  /// In ja, this message translates to:
-  /// **'常時起動したい場合はサービス登録'**
-  String get setupStep3Title;
-
-  /// No description provided for @setupStep3Command.
-  ///
-  /// In ja, this message translates to:
-  /// **'npm run setup'**
-  String get setupStep3Command;
 
   /// No description provided for @setupNetworkHint.
   ///
@@ -1139,38 +1127,26 @@ abstract class AppLocalizations {
   /// No description provided for @guideBridgeStep1.
   ///
   /// In ja, this message translates to:
-  /// **'プロジェクトを取得'**
+  /// **'npx で実行（推奨）'**
   String get guideBridgeStep1;
 
   /// No description provided for @guideBridgeStep1Command.
   ///
   /// In ja, this message translates to:
-  /// **'git clone <repo-url>\nnpm install'**
+  /// **'npx @ccpocket/bridge'**
   String get guideBridgeStep1Command;
 
   /// No description provided for @guideBridgeStep2.
   ///
   /// In ja, this message translates to:
-  /// **'ビルド'**
+  /// **'またはグローバルインストール'**
   String get guideBridgeStep2;
 
   /// No description provided for @guideBridgeStep2Command.
   ///
   /// In ja, this message translates to:
-  /// **'npm run bridge:build'**
+  /// **'npm install -g @ccpocket/bridge\nccpocket-bridge'**
   String get guideBridgeStep2Command;
-
-  /// No description provided for @guideBridgeStep3.
-  ///
-  /// In ja, this message translates to:
-  /// **'起動'**
-  String get guideBridgeStep3;
-
-  /// No description provided for @guideBridgeStep3Command.
-  ///
-  /// In ja, this message translates to:
-  /// **'npm run bridge'**
-  String get guideBridgeStep3Command;
 
   /// No description provided for @guideBridgeQrNote.
   ///
@@ -1295,7 +1271,7 @@ abstract class AppLocalizations {
   /// No description provided for @guideLaunchdCommandValue.
   ///
   /// In ja, this message translates to:
-  /// **'npm run setup'**
+  /// **'npx @ccpocket/bridge setup'**
   String get guideLaunchdCommandValue;
 
   /// No description provided for @guideLaunchdRecommendation.

@@ -104,23 +104,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get setupSteps => 'セットアップ手順:';
 
   @override
-  String get setupStep1Title => 'Bridge Server をインストール・ビルド';
+  String get setupStep1Title => 'Bridge Server を起動';
 
   @override
-  String get setupStep1Command =>
-      'cd packages/bridge && npm install && npm run bridge:build';
+  String get setupStep1Command => 'npx @ccpocket/bridge';
 
   @override
-  String get setupStep2Title => 'サーバーを起動';
+  String get setupStep2Title => '常時起動したい場合はサービス登録';
 
   @override
-  String get setupStep2Command => 'npm run bridge';
-
-  @override
-  String get setupStep3Title => '常時起動したい場合はサービス登録';
-
-  @override
-  String get setupStep3Command => 'npm run setup';
+  String get setupStep2Command => 'npx @ccpocket/bridge setup';
 
   @override
   String get setupNetworkHint =>
@@ -562,22 +555,17 @@ class AppLocalizationsJa extends AppLocalizations {
       'Claude Code CLI または Codex CLI\n（使いたい方だけでOK）';
 
   @override
-  String get guideBridgeStep1 => 'プロジェクトを取得';
+  String get guideBridgeStep1 => 'npx で実行（推奨）';
 
   @override
-  String get guideBridgeStep1Command => 'git clone <repo-url>\nnpm install';
+  String get guideBridgeStep1Command => 'npx @ccpocket/bridge';
 
   @override
-  String get guideBridgeStep2 => 'ビルド';
+  String get guideBridgeStep2 => 'またはグローバルインストール';
 
   @override
-  String get guideBridgeStep2Command => 'npm run bridge:build';
-
-  @override
-  String get guideBridgeStep3 => '起動';
-
-  @override
-  String get guideBridgeStep3Command => 'npm run bridge';
+  String get guideBridgeStep2Command =>
+      'npm install -g @ccpocket/bridge\nccpocket-bridge';
 
   @override
   String get guideBridgeQrNote => '起動するとターミナルに QR コードが表示されます';
@@ -646,7 +634,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get guideLaunchdCommand => 'セットアップコマンド';
 
   @override
-  String get guideLaunchdCommandValue => 'npm run setup';
+  String get guideLaunchdCommandValue => 'npx @ccpocket/bridge setup';
 
   @override
   String get guideLaunchdRecommendation =>
