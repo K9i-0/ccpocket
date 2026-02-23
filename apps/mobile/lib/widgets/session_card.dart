@@ -284,7 +284,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                                 decoration: BoxDecoration(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.surfaceContainerHighest,
+                                  ).colorScheme.surfaceContainer,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
@@ -334,27 +334,14 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                                       width: 0.5,
                                     ),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        providerStyle.icon,
-                                        size: 14,
-                                        color: providerStyle.foreground,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Flexible(
-                                        child: Text(
-                                          projectName,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 12,
-                                            color: providerStyle.foreground,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    projectName,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12,
+                                      color: providerStyle.foreground,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ),
@@ -2026,7 +2013,7 @@ class RecentSessionCard extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest,
+                              color: colorScheme.surfaceContainer,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
@@ -2070,28 +2057,15 @@ class RecentSessionCard extends StatelessWidget {
                                   width: 0.5,
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    providerStyle.icon,
-                                    size: 14,
-                                    color: providerStyle.foreground,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Flexible(
-                                    child: Text(
-                                      session.projectName,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 12,
-                                        color: providerStyle.foreground,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                session.projectName,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12,
+                                  color: providerStyle.foreground,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             ),
                           ),
