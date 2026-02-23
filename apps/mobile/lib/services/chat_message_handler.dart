@@ -167,6 +167,13 @@ class ChatMessageHandler {
       case InputRejectedMessage():
         logger.warning('[handler] input_rejected');
         return const ChatStateUpdate(markUserMessagesFailed: true);
+      case RenameResultMessage(:final success, :final error):
+        if (!success) {
+          logger.warning(
+            '[handler] rename failed: ${error ?? "unknown reason"}',
+          );
+        }
+        return const ChatStateUpdate();
       case ErrorMessage(:final message):
         logger.error('[handler] error message: $message');
         return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);

@@ -534,6 +534,12 @@ sealed class ServerMessage {
         backedUpAt: json['backedUpAt'] as String?,
         sizeBytes: json['sizeBytes'] as int?,
       ),
+      'rename_result' => RenameResultMessage(
+        sessionId: json['sessionId'] as String? ?? '',
+        name: json['name'] as String?,
+        success: json['success'] as bool? ?? false,
+        error: json['error'] as String?,
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -993,6 +999,19 @@ class RecordingContentMessage implements ServerMessage {
   const RecordingContentMessage({
     required this.sessionId,
     required this.content,
+  });
+}
+
+class RenameResultMessage implements ServerMessage {
+  final String sessionId;
+  final String? name;
+  final bool success;
+  final String? error;
+  const RenameResultMessage({
+    required this.sessionId,
+    this.name,
+    required this.success,
+    this.error,
   });
 }
 
