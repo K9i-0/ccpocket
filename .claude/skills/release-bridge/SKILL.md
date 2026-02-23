@@ -37,12 +37,12 @@ git log $(git tag -l 'bridge/v*' --sort=-v:refname | head -1)..HEAD --oneline --
 
 差分コミットの内容を分析し、AskUserQuestion でバージョンを確認する。
 
-**選択肢の決定ルール:**
-- `feat` コミットがある → **minor** を推奨（1番目の選択肢にし「(Recommended)」を付ける）
-- `feat` がなく `fix` のみ → **patch** を推奨
-- 破壊的変更（`!` 付きや BREAKING CHANGE）がある → **major** を推奨
+選択肢の決定ルール:
+- `feat` コミットがある → `minor` を推奨（1番目の選択肢にし「Recommended」を付ける）
+- `feat` がなく `fix` のみ → `patch` を推奨
+- 破壊的変更（`!` 付きや BREAKING CHANGE）がある → `major` を推奨
 
-選択肢は具体的なバージョン番号で提示する（例: 「1.2.0 (minor)」「1.1.1 (patch)」）。
+選択肢は具体的なバージョン番号で提示する（例: 「1.2.0 minor」「1.1.1 patch」）。
 
 ### 3. CHANGELOG 更新
 
