@@ -270,54 +270,67 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                   // Title row: session name + project badge + elapsed
                   Row(
                     children: [
-                      if (session.name != null && session.name!.isNotEmpty) ...[
-                        Icon(
-                          Icons.label_outline,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            session.name!,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      Hero(
-                        tag: 'project_name_${session.id}',
-                        child: Material(
-                          color: Colors.transparent,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: providerStyle.background,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: providerStyle.border),
-                            ),
-                            child: Text(
-                              projectName,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                                color: providerStyle.foreground,
+                      // Left-aligned group: badge/name
+                      Expanded(
+                        child: Row(
+                          children: [
+                            if (session.name != null &&
+                                session.name!.isNotEmpty) ...[
+                              Icon(
+                                Icons.label_outline,
+                                size: 14,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
-                              overflow: TextOverflow.ellipsis,
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  session.name!,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Hero(
+                              tag: 'project_name_${session.id}',
+                              child: Material(
+                                color: Colors.transparent,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: providerStyle.background,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: providerStyle.border,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    projectName,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                      color: providerStyle.foreground,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 8),
+                      // Right-aligned time
                       Text(
                         elapsed,
                         style: TextStyle(
@@ -1969,53 +1982,59 @@ class RecentSessionCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (session.name != null && session.name!.isNotEmpty) ...[
-                    Icon(
-                      Icons.label_outline,
-                      size: 14,
-                      color: colorScheme.primary,
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        session.name!,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.primary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  if (!hideProjectBadge) ...[
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: providerStyle.background,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: providerStyle.border),
-                        ),
-                        child: Text(
-                          session.projectName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: providerStyle.foreground,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (session.name != null &&
+                            session.name!.isNotEmpty) ...[
+                          Icon(
+                            Icons.label_outline,
+                            size: 14,
+                            color: colorScheme.primary,
                           ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              session.name!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.primary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        if (!hideProjectBadge) ...[
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: providerStyle.background,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: providerStyle.border),
+                              ),
+                              child: Text(
+                                session.projectName,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: providerStyle.foreground,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                  const Spacer(),
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     dateStr,
