@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.2.0] - 2026-02-24
+
+### Added
+- Privacy mode for push notifications: hides project names, session names, tool names, and message content
+- Session name (rename) displayed in notification titles, with project name fallback
+- Notification title format: `セッション名 (プロジェクト名)` when both are available
+
 ## [1.1.1] - 2026-02-23
 
 ### Fixed
