@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.19.0] - 2026-02-23
+
+### Added
+- Session rename support for Claude Code and Codex (rename from chat AppBar or session list)
+- Codex plan approval UI optimization with dedicated mock scenarios
+
+### Changed
+- Redesigned session cards: compact layout with inline session name and project badge
+- Refined session name chip and elapsed time alignment in session cards
+- Improved plan approval header layout and tap targets
+
+### Fixed
+- Rename result no longer shows false error bubble in chat (handle rename_result message)
+- Codex session chat input now restores text draft correctly
+- Plan approval button text no longer clipped
+- Claude OAuth token refresh for usage API
+- Session name chip color adjusted for dark theme
+
 ## [1.18.0] - 2026-02-22
 
 ### Added
