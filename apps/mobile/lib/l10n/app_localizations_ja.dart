@@ -356,6 +356,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get planApprovalSummary => '上のプランを確認して、承認するか計画を続けてください';
 
   @override
+  String get planApprovalSummaryCard => 'プランを確認して、承認するか計画を続けてください';
+
+  @override
   String get toolApprovalSummary => 'ツール実行には承認が必要です';
 
   @override

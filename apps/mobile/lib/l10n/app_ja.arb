@@ -158,6 +158,7 @@
   "noExistingWorktrees": "既存の worktree はありません",
 
   "planApprovalSummary": "上のプランを確認して、承認するか計画を続けてください",
+  "planApprovalSummaryCard": "プランを確認して、承認するか計画を続けてください",
   "toolApprovalSummary": "ツール実行には承認が必要です",
   "planApproval": "プラン承認",
   "approvalRequired": "承認が必要",

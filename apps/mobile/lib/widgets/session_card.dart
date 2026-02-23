@@ -565,32 +565,37 @@ class _PlanApprovalArea extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: canOpenPlan ? onOpenPlan : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l.planApprovalSummary,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurface.withValues(alpha: 0.8),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Text(
+                    l.planApprovalSummaryCard,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurface.withValues(alpha: 0.8),
+                      height: 1.3,
                     ),
-                    if (canOpenPlan)
-                      Icon(Icons.open_in_full, size: 16, color: cs.primary),
-                  ],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
-            ),
+              if (canOpenPlan)
+                IconButton(
+                  onPressed: onOpenPlan,
+                  icon: const Icon(Icons.open_in_full, size: 22),
+                  color: cs.primary,
+                  tooltip: l.viewEditPlan,
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
@@ -721,32 +726,37 @@ class _CodexPlanApprovalArea extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: canOpenPlan ? onOpenPlan : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l.planApprovalSummary,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurface.withValues(alpha: 0.8),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Text(
+                    l.planApprovalSummaryCard,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurface.withValues(alpha: 0.8),
+                      height: 1.3,
                     ),
-                    if (canOpenPlan)
-                      Icon(Icons.open_in_full, size: 16, color: cs.primary),
-                  ],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
-            ),
+              if (canOpenPlan)
+                IconButton(
+                  onPressed: onOpenPlan,
+                  icon: const Icon(Icons.open_in_full, size: 22),
+                  color: cs.primary,
+                  tooltip: l.viewEditPlan,
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           Row(

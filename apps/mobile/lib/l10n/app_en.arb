@@ -123,6 +123,7 @@
   "noExistingWorktrees": "No existing worktrees",
 
   "planApprovalSummary": "Review the plan above and approve or continue planning",
+  "planApprovalSummaryCard": "Review the plan and approve or continue planning",
   "toolApprovalSummary": "Tool execution requires approval",
   "planApproval": "Plan Approval",
   "approvalRequired": "Approval Required",

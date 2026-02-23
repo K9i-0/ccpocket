@@ -358,6 +358,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Review the plan above and approve or continue planning';
 
   @override
+  String get planApprovalSummaryCard =>
+      'Review the plan and approve or continue planning';
+
+  @override
   String get toolApprovalSummary => 'Tool execution requires approval';
 
   @override

@@ -758,6 +758,12 @@ abstract class AppLocalizations {
   /// **'上のプランを確認して、承認するか計画を続けてください'**
   String get planApprovalSummary;
 
+  /// No description provided for @planApprovalSummaryCard.
+  ///
+  /// In ja, this message translates to:
+  /// **'プランを確認して、承認するか計画を続けてください'**
+  String get planApprovalSummaryCard;
+
   /// No description provided for @toolApprovalSummary.
   ///
   /// In ja, this message translates to:
