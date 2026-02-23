@@ -1,6 +1,6 @@
 ---
 name: shorebird-patch
-description: Shorebird OTA パッチの作成・配布
+description: Shorebird OTA パッチの作成・配布（ローカル実行）
 disable-model-invocation: true
 allowed-tools: Bash(bash:*), Bash(shorebird:*), Bash(dart:*), Bash(xcrun:*), Bash(grep:*), Read
 ---
@@ -8,6 +8,9 @@ allowed-tools: Bash(bash:*), Bash(shorebird:*), Bash(dart:*), Bash(xcrun:*), Bas
 # Shorebird パッチ配布
 
 Shorebird OTA パッチを作成し、stable に直接配布する。
+
+> **新バージョンのリリース**は `/release-mobile` スキルを使用する。
+> アセット差分でパッチが適用されない場合も、`/release-mobile` でリリース後に再パッチする。
 
 ## フロー概要
 
@@ -40,7 +43,6 @@ bash .claude/skills/shorebird-patch/patch.sh android <version>
 ```
 
 スクリプトが以下を一括で行う:
-- `dart analyze` で静的検証
 - `shorebird patch` で stable にパッチ作成
 - `--allow-asset-diffs` によりアセット変更の確認プロンプトを自動スキップ
 
@@ -62,7 +64,7 @@ bash .claude/skills/shorebird-patch/patch.sh android <version>
 
 1. **警告内容**: どのファイルにアセット差分があるか（例: `MaterialIcons-Regular.otf`）
 2. **影響**: パッチは作成されるが、デバイスでダウンロード後に適用されない
-3. **推奨対応**: 新しいリリースを作成してから、クリーンな状態でパッチを再作成する（下記「リリース手順」参照）
+3. **推奨対応**: `/release-mobile` で新リリースを作成してから、クリーンな状態でパッチを再作成する
 
 ### 4. 完了報告
 
@@ -75,44 +77,9 @@ bash .claude/skills/shorebird-patch/patch.sh android <version>
 
 ユーザーにアプリの再起動を案内する（1回目でダウンロード、2回目で適用）。
 
-## リリース手順
-
-アセット差分でパッチが適用されない場合や、新バージョンをリリースする場合に使用する。
-
-### 1. バージョン bump
-
-`apps/mobile/pubspec.yaml` の `version:` を更新する。
-
-### 2. リリース作成
-
-```bash
-# iOS（実機プレビュー用）
-bash .claude/skills/shorebird-patch/release.sh ios --export-method development
-
-# Android
-bash .claude/skills/shorebird-patch/release.sh android
-```
-
-### 3. デバイスインストール（iOS）
-
-```bash
-# デバイスID確認
-xcrun devicectl list devices
-
-# IPAインストール
-xcrun devicectl device install app --device <DEVICE_ID> apps/mobile/build/ios/ipa/ccpocket.ipa
-```
-
-### 4. その後のパッチ
-
-クリーンなリリースベースが出来たので、以降のパッチはアセット差分なしで作成可能:
-```bash
-bash .claude/skills/shorebird-patch/patch.sh ios <new-version>
-```
-
 ## トラブルシュート
 
-- **アセット差分でパッチが適用されない**: `--allow-asset-diffs` でパッチ作成は成功するが、アセット変更（フォント、画像等）を含むパッチは実機で適用に失敗する。新リリースの作成が必要
+- **アセット差分でパッチが適用されない**: `--allow-asset-diffs` でパッチ作成は成功するが、アセット変更（フォント、画像等）を含むパッチは実機で適用に失敗する。`/release-mobile` で新リリースが必要
 - **署名エラー（exportArchive）**: IPA生成時のエラーはShorebirdパッチ自体には影響しない。パッチが `Published Patch N!` と表示されていれば成功
 - **インタラクティブプロンプト**: `shorebird` コマンドを直接実行する場合は `--release-version` フラグ必須（省略するとインタラクティブプロンプトで非TTY環境がエラーになる）
 - **パッチが反映されない場合の確認**: 設定画面のバージョン表示で `(patch N)` が出ているか確認。出ていなければShorebirdリリースビルドでない可能性がある

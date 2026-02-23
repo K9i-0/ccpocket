@@ -257,6 +257,9 @@ cd apps/mobile/build/web && python3 -m http.server 8888
 
 | スキル | 呼び出し | 説明 |
 |--------|---------|------|
+| release-bridge | `/release-bridge` | Bridge Server リリース（version bump + CHANGELOG + タグ → npm publish） |
+| release-mobile | `/release-mobile` | モバイルアプリ リリース（version bump + CHANGELOG + タグ → Shorebird + ストア配布） |
+| shorebird-patch | `/shorebird-patch` | Shorebird OTA パッチ作成・配布（ローカル実行） |
 | test-bridge | `/test-bridge` | Bridge Server の Vitest テスト実行・TypeScript型チェック |
 | test-flutter | `/test-flutter` | Flutter App のテスト実行・dart analyze・format |
 | mobile-automation | `/mobile-automation` | MCP (dart-mcp + Marionette) E2E自動化・UI検証ガイド |
@@ -264,7 +267,6 @@ cd apps/mobile/build/web && python3 -m http.server 8888
 | web-preview | `/web-preview` | Web版ビルド・サーバー起動・Playwrightアクセス確認・URL案内 |
 | flutter-ui-design | `/flutter-ui-design` | Flutter UI実装規約 (Bloc/Cubit + Freezed) |
 | merge | `/merge` | 作業ブランチをmainにマージ |
-| shorebird-patch | `/shorebird-patch` | Shorebird OTA パッチ作成・配布 |
 
 実装後の検証では、変更領域に応じて対応するスキルを実行する。
 Bridge と Flutter の両方に影響がある場合は両方実行する。
@@ -276,34 +278,28 @@ Bridge と Flutter の両方に影響がある場合は両方実行する。
 | post-edit-analyze | Dartファイル編集後 | `dart analyze` 自動実行 |
 | pre-stop-check | タスク完了前 | `dart analyze` + `flutter test` で品質チェック |
 
-## Shorebird OTA パッチ配布
+## リリース & パッチ
 
-### フロー
-
-```
-patch (stable) → ユーザーがアプリ再起動で受信
-```
-
-### コマンド
+### リリース（タグ駆動 → GH Actions 自動実行）
 
 ```bash
-# バージョン確認
-grep '^version:' apps/mobile/pubspec.yaml
+# Bridge Server リリース → npm publish + GitHub Release
+/release-bridge
 
+# モバイルアプリ リリース → Shorebird release + ストア配布 + GitHub Release
+/release-mobile
+```
+
+### OTA パッチ（ローカル実行）
+
+```bash
 # パッチ作成 (stable)
 bash .claude/skills/shorebird-patch/patch.sh ios <version>
 bash .claude/skills/shorebird-patch/patch.sh android <version>
-
-# リリース作成
-bash .claude/skills/shorebird-patch/release.sh ios [extra-args]
-bash .claude/skills/shorebird-patch/release.sh android [extra-args]
 ```
 
-### 注意事項
-
-- スクリプトは `.claude/skills/shorebird-patch/` に集約（スキル自己完結）
 - パッチスクリプトは `--allow-asset-diffs` を常時付与し、非TTY環境でも安定動作する
-- `shorebird` コマンドを直接実行する場合は `--release-version` フラグ必須（省略するとインタラクティブプロンプトでエラーになる）
+- `shorebird` コマンドを直接実行する場合は `--release-version` フラグ必須
 - 詳細は `/shorebird-patch` スキルを参照
 
 ## 規約
