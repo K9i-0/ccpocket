@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.1.1] - 2026-02-23
+
+### Fixed
+- Persist renamed session name after CLI overwrites sessions-index.json on session end
+
 ## [1.1.0] - 2026-02-23
 
 ### Added
