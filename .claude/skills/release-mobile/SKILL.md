@@ -2,7 +2,7 @@
 name: release-mobile
 description: モバイルアプリのリリース（バージョンbump + CHANGELOG + タグ → GH Actions で Shorebird release + ストア配布）
 disable-model-invocation: true
-allowed-tools: Bash(git:*), Bash(grep:*), Read, Edit
+allowed-tools: Bash(git:*), Bash(grep:*), Read, Edit, AskUserQuestion
 ---
 
 # モバイルアプリ リリース
@@ -17,15 +17,13 @@ Flutter モバイルアプリのリリースを行う。
 
 ## 手順
 
-### 1. 現在のバージョン確認
+### 1. 現在のバージョン確認 & 変更内容の収集
 
 ```bash
 grep '^version:' apps/mobile/pubspec.yaml
 ```
 
 `version: X.Y.Z+N` の形式。`+N` は build number。
-
-### 2. 変更内容の確認
 
 前回リリースからの差分を確認する:
 
@@ -37,13 +35,28 @@ git tag -l 'ios/v*' 'android/v*' --sort=-v:refname | head -1
 git log $(git tag -l 'ios/v*' 'android/v*' --sort=-v:refname | head -1)..HEAD --oneline -- apps/mobile/ CHANGELOG.md
 ```
 
-### 3. バージョン bump
+### 2. バージョンとプラットフォームをユーザーに確認
 
-`apps/mobile/pubspec.yaml` の `version` を更新する:
-- **semver 部分** (X.Y.Z): Semver に従う
-- **build number** (+N): 必ずインクリメントする（iOS/Android ストアの要件）
+差分コミットの内容を分析し、AskUserQuestion で **2つの質問を同時に** 確認する。
 
-### 4. CHANGELOG 更新
+#### 質問 1: バージョン
+
+**選択肢の決定ルール:**
+- `feat` コミットがある → **minor** を推奨（1番目の選択肢にし「(Recommended)」を付ける）
+- `feat` がなく `fix` のみ → **patch** を推奨
+- 破壊的変更がある → **major** を推奨
+
+選択肢は具体的なバージョン番号で提示する（例: 「1.20.0+43 (minor)」「1.19.1+43 (patch)」）。
+build number は現在の値 +1 で統一する。
+
+#### 質問 2: プラットフォーム
+
+以下の3択:
+- **iOS + Android 両方** (Recommended)
+- **iOS のみ**
+- **Android のみ**
+
+### 3. CHANGELOG 更新
 
 `CHANGELOG.md`（ルート）の先頭に新しいセクションを追加する。
 
@@ -60,9 +73,14 @@ git log $(git tag -l 'ios/v*' 'android/v*' --sort=-v:refname | head -1)..HEAD --
 - ...
 ```
 
-ステップ 2 で確認したコミットを元に、Added / Changed / Fixed に分類する。
+ステップ 1 で確認したコミットを元に、Added / Changed / Fixed に分類する。
+空のセクション（該当なし）は省略する。
 
-### 5. コミット
+### 4. バージョン bump
+
+`apps/mobile/pubspec.yaml` の `version` をステップ 2 で決定したバージョンに更新する。
+
+### 5. コミット & タグ
 
 ```bash
 git add apps/mobile/pubspec.yaml CHANGELOG.md
@@ -70,21 +88,19 @@ git commit -m "chore: bump version to X.Y.Z+N"
 git push origin main
 ```
 
-### 6. タグ打ち
-
-プラットフォームごとにタグを打つ。引数でプラットフォームが指定された場合はそれだけ、指定がなければ両方。
+ステップ 2 で選択されたプラットフォームのタグを打つ:
 
 ```bash
-# iOS
+# iOS（選択された場合）
 git tag ios/vX.Y.Z+N
 git push origin ios/vX.Y.Z+N
 
-# Android
+# Android（選択された場合）
 git tag android/vX.Y.Z+N
 git push origin android/vX.Y.Z+N
 ```
 
-### 7. 完了確認
+### 6. 完了確認
 
 タグ push 後、GH Actions が自動実行される:
 
@@ -94,7 +110,10 @@ git push origin android/vX.Y.Z+N
 | `android/v*` | `android-release.yml` | Shorebird release Android → Google Play (internal draft) → GitHub Release |
 
 ```bash
+# iOS タグを打った場合
 gh run list --workflow=ios-release.yml --limit 1
+
+# Android タグを打った場合
 gh run list --workflow=android-release.yml --limit 1
 ```
 

@@ -2,7 +2,7 @@
 name: release-bridge
 description: Bridge Server のリリース（バージョンbump + CHANGELOG + タグ → GH Actions で npm publish）
 disable-model-invocation: true
-allowed-tools: Bash(git:*), Bash(grep:*), Read, Edit
+allowed-tools: Bash(git:*), Bash(grep:*), Read, Edit, AskUserQuestion
 ---
 
 # Bridge Server リリース
@@ -17,13 +17,11 @@ Bridge Server (`@ccpocket/bridge`) のリリースを行う。
 
 ## 手順
 
-### 1. 現在のバージョン確認
+### 1. 現在のバージョン確認 & 変更内容の収集
 
 ```bash
 grep '"version"' packages/bridge/package.json
 ```
-
-### 2. 変更内容の確認
 
 前回リリースのタグからの差分を確認する:
 
@@ -35,15 +33,18 @@ git tag -l 'bridge/v*' --sort=-v:refname | head -1
 git log $(git tag -l 'bridge/v*' --sort=-v:refname | head -1)..HEAD --oneline -- packages/bridge/
 ```
 
-### 3. バージョン bump
+### 2. バージョンをユーザーに確認
 
-`packages/bridge/package.json` の `version` を更新する。
-Semver に従う:
-- **patch**: バグ修正のみ
-- **minor**: 新機能追加（後方互換あり）
-- **major**: 破壊的変更
+差分コミットの内容を分析し、AskUserQuestion でバージョンを確認する。
 
-### 4. CHANGELOG 更新
+**選択肢の決定ルール:**
+- `feat` コミットがある → **minor** を推奨（1番目の選択肢にし「(Recommended)」を付ける）
+- `feat` がなく `fix` のみ → **patch** を推奨
+- 破壊的変更（`!` 付きや BREAKING CHANGE）がある → **major** を推奨
+
+選択肢は具体的なバージョン番号で提示する（例: 「1.2.0 (minor)」「1.1.1 (patch)」）。
+
+### 3. CHANGELOG 更新
 
 `packages/bridge/CHANGELOG.md` の先頭に新しいセクションを追加する。
 
@@ -60,24 +61,24 @@ Semver に従う:
 - ...
 ```
 
-ステップ 2 で確認したコミットを元に、Added / Changed / Fixed に分類する。
+ステップ 1 で確認したコミットを元に、Added / Changed / Fixed に分類する。
+空のセクション（該当なし）は省略する。
 
-### 5. コミット
+### 4. バージョン bump
+
+`packages/bridge/package.json` の `version` をステップ 2 で決定したバージョンに更新する。
+
+### 5. コミット & タグ
 
 ```bash
 git add packages/bridge/package.json packages/bridge/CHANGELOG.md
 git commit -m "chore(bridge): release vX.Y.Z"
 git push origin main
-```
-
-### 6. タグ打ち
-
-```bash
 git tag bridge/vX.Y.Z
 git push origin bridge/vX.Y.Z
 ```
 
-### 7. 完了確認
+### 6. 完了確認
 
 タグ push 後、GH Actions (`bridge-release.yml`) が自動実行される:
 - テスト + 型チェック + ビルド
