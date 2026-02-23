@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.20.0] - 2026-02-23
+
+### Added
+- GitHub repository link and changelog page in About section
+- Setup guide updated to recommend `npx @ccpocket/bridge`
+
+### Fixed
+- Rename result message no longer triggers false error display
+- Session name chip color adjusted for dark theme
+- Elapsed time right-aligned in session cards
+- Plan approval header layout and tap target improved
+
+### Changed
+- Redesigned session cards with compact inline session name and project badge
+- Refined session name and project badge to use cohesive rounded chip styles
+
 ## [1.19.0] - 2026-02-23
 
 ### Added
