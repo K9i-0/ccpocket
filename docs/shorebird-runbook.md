@@ -76,12 +76,12 @@ version: x.y.z+build
 
 ### Release
 
-```bash
-# Android
-bash .claude/skills/shorebird-patch/release.sh android
+リリースは GH Actions のタグ駆動で実行する（`/release-mobile` スキル参照）。
 
-# iOS
-bash .claude/skills/shorebird-patch/release.sh ios
+```bash
+# タグ打ちで自動実行
+git tag ios/vX.Y.Z+N && git push origin ios/vX.Y.Z+N
+git tag android/vX.Y.Z+N && git push origin android/vX.Y.Z+N
 ```
 
 ### Patch
@@ -109,8 +109,6 @@ shorebird patch promote --release-version=<release-version> --patch-number=<patc
 ### npm scripts
 
 ```bash
-npm run shorebird:release:android
-npm run shorebird:release:ios
 npm run shorebird:patch:android -- <release-version>
 npm run shorebird:patch:ios -- <release-version>
 ```
@@ -220,10 +218,7 @@ native コード (Kotlin/Swift, plugin のネイティブ部分) が変更され
 patch では反映されない。新しい release が必要。
 Shorebird はエラーを出さずに patch を受け付けるため、**開発者が判断する必要がある**。
 
-```bash
-# release として再ビルド
-bash .claude/skills/shorebird-patch/release.sh android
-```
+新しい release が必要な場合は `/release-mobile` スキルでタグを打つ。
 
 ## 参考リンク
 
