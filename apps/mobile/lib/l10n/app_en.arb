@@ -295,6 +295,8 @@
   "fcmEnabledPending": "Will register after Bridge reconnects",
   "fcmDisabled": "Notifications disabled",
   "fcmDisabledPending": "Will unregister after Bridge reconnects",
+  "pushPrivacyMode": "Privacy mode",
+  "pushPrivacyModeSubtitle": "Hide project names and content from notifications",
   "updateNotificationLanguage": "Update notification language",
   "notificationLanguageUpdated": "Notification language updated",
 

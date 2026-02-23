@@ -1458,11 +1458,13 @@ class ClientMessage {
     required String token,
     required String platform,
     String? locale,
+    bool? privacyMode,
   }) => ClientMessage._(<String, dynamic>{
     'type': 'push_register',
     'token': token,
     'platform': platform,
     'locale': ?locale,
+    'privacyMode': ?privacyMode,
   });
 
   factory ClientMessage.pushUnregister(String token) => ClientMessage._(

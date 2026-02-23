@@ -1676,6 +1676,18 @@ abstract class AppLocalizations {
   /// **'Bridge 再接続後に通知解除します'**
   String get fcmDisabledPending;
 
+  /// No description provided for @pushPrivacyMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'プライバシーモード'**
+  String get pushPrivacyMode;
+
+  /// No description provided for @pushPrivacyModeSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'通知にプロジェクト名や内容を含めない'**
+  String get pushPrivacyModeSubtitle;
+
   /// No description provided for @updateNotificationLanguage.
   ///
   /// In ja, this message translates to:

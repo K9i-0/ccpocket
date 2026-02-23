@@ -27,6 +27,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyAppLocale = 'settings_app_locale';
   static const _keySpeechLocale = 'settings_speech_locale';
   static const _keyFcmMachines = 'settings_fcm_machines';
+  static const _keyFcmPrivacyMachines = 'settings_fcm_privacy_machines';
   // Legacy key for migration
   static const _keyFcmEnabled = 'settings_fcm_enabled';
 
@@ -116,6 +117,14 @@ class SettingsCubit extends Cubit<SettingsState> {
       }
     }
 
+    // Load per-machine privacy mode set
+    var fcmPrivacyMachines = <String>{};
+    final privacyJson = prefs.getString(_keyFcmPrivacyMachines);
+    if (privacyJson != null) {
+      final list = jsonDecode(privacyJson) as List;
+      fcmPrivacyMachines = list.cast<String>().toSet();
+    }
+
     return SettingsState(
       themeMode:
           (themeModeIndex != null &&
@@ -126,6 +135,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       appLocaleId: appLocale,
       speechLocaleId: speechLocale ?? 'ja-JP',
       fcmEnabledMachines: fcmMachines,
+      fcmPrivacyMachines: fcmPrivacyMachines,
     );
   }
 
@@ -226,6 +236,30 @@ class SettingsCubit extends Cubit<SettingsState> {
     await _syncPushRegistration();
   }
 
+  Future<void> toggleFcmPrivacy(bool enabled) async {
+    final machineId = state.activeMachineId;
+    if (machineId == null) return;
+
+    final updated = Set<String>.from(state.fcmPrivacyMachines);
+    if (enabled) {
+      updated.add(machineId);
+    } else {
+      updated.remove(machineId);
+    }
+    await _prefs.setString(
+      _keyFcmPrivacyMachines,
+      jsonEncode(updated.toList()),
+    );
+    emit(state.copyWith(fcmPrivacyMachines: updated, fcmSyncInProgress: true));
+
+    // Re-register to update privacy mode on the bridge
+    if (state.fcmEnabled) {
+      await _syncPushRegistration();
+    } else {
+      emit(state.copyWith(fcmSyncInProgress: false));
+    }
+  }
+
   /// Resolve the push notification locale from app settings or system locale.
   /// Returns a BCP-47 language subtag (e.g. "en", "ja").
   String _resolvePushLocale() {
@@ -276,6 +310,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       token: token,
       platform: _fcmService.platform,
       locale: _resolvePushLocale(),
+      privacyMode: state.fcmPrivacy ? true : null,
     );
     final statusKey = bridge.isConnected
         ? FcmStatusKey.enabled

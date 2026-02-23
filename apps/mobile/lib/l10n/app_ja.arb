@@ -377,6 +377,8 @@
   "fcmEnabledPending": "Bridge 再接続後に通知登録します",
   "fcmDisabled": "通知を無効化しました",
   "fcmDisabledPending": "Bridge 再接続後に通知解除します",
+  "pushPrivacyMode": "プライバシーモード",
+  "pushPrivacyModeSubtitle": "通知にプロジェクト名や内容を含めない",
   "updateNotificationLanguage": "通知言語を更新",
   "notificationLanguageUpdated": "通知言語を更新しました",
 

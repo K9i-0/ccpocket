@@ -495,12 +495,14 @@ class BridgeService implements BridgeServiceBase {
     required String token,
     required String platform,
     String? locale,
+    bool? privacyMode,
   }) {
     send(
       ClientMessage.pushRegister(
         token: token,
         platform: platform,
         locale: locale,
+        privacyMode: privacyMode,
       ),
     );
   }

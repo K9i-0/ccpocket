@@ -857,6 +857,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fcmDisabledPending => 'Will unregister after Bridge reconnects';
 
   @override
+  String get pushPrivacyMode => 'Privacy mode';
+
+  @override
+  String get pushPrivacyModeSubtitle =>
+      'Hide project names and content from notifications';
+
+  @override
   String get updateNotificationLanguage => 'Update notification language';
 
   @override

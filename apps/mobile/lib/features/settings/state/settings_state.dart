@@ -34,6 +34,9 @@ abstract class SettingsState with _$SettingsState {
     /// Set of Machine IDs that have push notifications enabled.
     @Default({}) Set<String> fcmEnabledMachines,
 
+    /// Set of Machine IDs that have privacy mode enabled for push notifications.
+    @Default({}) Set<String> fcmPrivacyMachines,
+
     /// Currently connected Machine ID (null when disconnected).
     String? activeMachineId,
 
@@ -50,4 +53,8 @@ abstract class SettingsState with _$SettingsState {
   /// Whether push notifications are enabled for the currently connected machine.
   bool get fcmEnabled =>
       activeMachineId != null && fcmEnabledMachines.contains(activeMachineId);
+
+  /// Whether privacy mode is enabled for the currently connected machine.
+  bool get fcmPrivacy =>
+      activeMachineId != null && fcmPrivacyMachines.contains(activeMachineId);
 }

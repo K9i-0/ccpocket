@@ -844,6 +844,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get fcmDisabledPending => 'Bridge 再接続後に通知解除します';
 
   @override
+  String get pushPrivacyMode => 'プライバシーモード';
+
+  @override
+  String get pushPrivacyModeSubtitle => '通知にプロジェクト名や内容を含めない';
+
+  @override
   String get updateNotificationLanguage => '通知言語を更新';
 
   @override

@@ -113,6 +113,19 @@ class SettingsScreen extends StatelessWidget {
                           endIndent: 16,
                           color: cs.outlineVariant,
                         ),
+                        _PushPrivacyTile(
+                          value: state.fcmPrivacy,
+                          syncInProgress: state.fcmSyncInProgress,
+                          onChanged: (enabled) => context
+                              .read<SettingsCubit>()
+                              .toggleFcmPrivacy(enabled),
+                        ),
+                        Divider(
+                          height: 1,
+                          indent: 16,
+                          endIndent: 16,
+                          color: cs.outlineVariant,
+                        ),
                         _UpdateNotificationLanguageTile(
                           syncInProgress: state.fcmSyncInProgress,
                           onTap: () async {
@@ -331,6 +344,30 @@ class _PushNotificationTile extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : const Icon(Icons.notifications_active_outlined),
+    );
+  }
+}
+
+class _PushPrivacyTile extends StatelessWidget {
+  final bool value;
+  final bool syncInProgress;
+  final ValueChanged<bool> onChanged;
+
+  const _PushPrivacyTile({
+    required this.value,
+    required this.syncInProgress,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return SwitchListTile(
+      value: value,
+      onChanged: syncInProgress ? null : onChanged,
+      title: Text(l.pushPrivacyMode),
+      subtitle: Text(l.pushPrivacyModeSubtitle),
+      secondary: const Icon(Icons.visibility_off_outlined),
     );
   }
 }

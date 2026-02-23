@@ -13,7 +13,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class FakeBridgeService extends BridgeService {
   final _connectionController =
       StreamController<BridgeConnectionState>.broadcast();
-  final registerCalls = <({String token, String platform, String? locale})>[];
+  final registerCalls =
+      <({String token, String platform, String? locale, bool? privacyMode})>[];
   final unregisterCalls = <String>[];
   bool _connected = false;
   String? _fakeLastUrl;
@@ -39,8 +40,14 @@ class FakeBridgeService extends BridgeService {
     required String token,
     required String platform,
     String? locale,
+    bool? privacyMode,
   }) {
-    registerCalls.add((token: token, platform: platform, locale: locale));
+    registerCalls.add((
+      token: token,
+      platform: platform,
+      locale: locale,
+      privacyMode: privacyMode,
+    ));
   }
 
   @override

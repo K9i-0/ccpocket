@@ -69,7 +69,7 @@ export type ClientMessage =
       existingWorktreePath?: string;
     }
   | { type: "input"; text: string; sessionId?: string; images?: Array<{base64: string; mimeType: string}>; imageId?: string; imageBase64?: string; mimeType?: string }
-  | { type: "push_register"; token: string; platform: "ios" | "android" | "web"; locale?: string }
+  | { type: "push_register"; token: string; platform: "ios" | "android" | "web"; locale?: string; privacyMode?: boolean }
   | { type: "push_unregister"; token: string }
   | { type: "set_permission_mode"; mode: PermissionMode; sessionId?: string }
   | { type: "set_sandbox_mode"; sandboxMode: string; sessionId?: string }

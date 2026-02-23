@@ -70,6 +70,7 @@ export class BridgeWebSocketServer {
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
   /** FCM token → push notification locale */
   private tokenLocales = new Map<string, PushLocale>();
+  private tokenPrivacyMode = new Map<string, boolean>();
 
   constructor(options: BridgeServerOptions) {
     const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore, recordingStore, firebaseAuth, promptHistoryBackup } = options;
@@ -374,12 +375,14 @@ export class BridgeWebSocketServer {
 
       case "push_register": {
         const locale = normalizePushLocale(msg.locale);
-        console.log(`[ws] push_register received (platform: ${msg.platform}, locale: ${locale}, configured: ${this.pushRelay.isConfigured})`);
+        const privacyMode = msg.privacyMode === true;
+        console.log(`[ws] push_register received (platform: ${msg.platform}, locale: ${locale}, privacy: ${privacyMode}, configured: ${this.pushRelay.isConfigured})`);
         if (!this.pushRelay.isConfigured) {
           this.send(ws, { type: "error", message: "Push relay is not configured on bridge" });
           return;
         }
         this.tokenLocales.set(msg.token, locale);
+        this.tokenPrivacyMode.set(msg.token, privacyMode);
         this.pushRelay.registerToken(msg.token, msg.platform, locale).then(() => {
           console.log("[ws] push_register: token registered successfully");
         }).catch((err) => {
@@ -397,6 +400,7 @@ export class BridgeWebSocketServer {
           return;
         }
         this.tokenLocales.delete(msg.token);
+        this.tokenPrivacyMode.delete(msg.token);
         this.pushRelay.unregisterToken(msg.token).then(() => {
           console.log("[ws] push_unregister: token unregistered successfully");
         }).catch((err) => {
@@ -1387,10 +1391,29 @@ export class BridgeWebSocketServer {
     return locales.size > 0 ? [...locales] : ["en"];
   }
 
+  /** Whether any registered token has privacy mode enabled (conservative: privacy wins). */
+  private isPrivacyMode(): boolean {
+    for (const privacy of this.tokenPrivacyMode.values()) {
+      if (privacy) return true;
+    }
+    return false;
+  }
+
+  /** Get a display label for push notification title: "name (project)" or just project. */
+  private sessionLabel(sessionId: string): string {
+    const session = this.sessionManager.get(sessionId);
+    const project = this.projectLabel(sessionId);
+    if (session?.name) {
+      return project ? `${session.name} (${project})` : session.name;
+    }
+    return project;
+  }
+
   private maybeSendPushNotification(sessionId: string, msg: ServerMessage): void {
     if (!this.pushRelay.isConfigured) return;
 
-    const project = this.projectLabel(sessionId);
+    const privacy = this.isPrivacyMode();
+    const label = privacy ? "" : this.sessionLabel(sessionId);
 
     if (msg.type === "permission_request") {
       const seen = this.notifiedPermissionToolUses.get(sessionId) ?? new Set<string>();
@@ -1402,9 +1425,9 @@ export class BridgeWebSocketServer {
       const isExitPlanMode = msg.toolName === "ExitPlanMode";
       const eventType = isAskUserQuestion ? "ask_user_question" : "approval_required";
 
-      // Extract question text for AskUserQuestion
+      // Extract question text for AskUserQuestion (standard mode only)
       let questionText: string | undefined;
-      if (isAskUserQuestion) {
+      if (!privacy && isAskUserQuestion) {
         const questions = msg.input?.questions;
         const firstQuestion = Array.isArray(questions) && questions.length > 0
           ? (questions[0] as Record<string, unknown>)?.question
@@ -1427,16 +1450,20 @@ export class BridgeWebSocketServer {
 
         if (isExitPlanMode) {
           const titleKey = "plan_ready_title";
-          title = project ? `${t(locale, titleKey)} - ${project}` : t(locale, titleKey);
+          title = label ? `${t(locale, titleKey)} - ${label}` : t(locale, titleKey);
           body = t(locale, "plan_ready_body");
         } else if (isAskUserQuestion) {
           const titleKey = "ask_title";
-          title = project ? `${t(locale, titleKey)} - ${project}` : t(locale, titleKey);
-          body = questionText ?? t(locale, "ask_default_body");
+          title = label ? `${t(locale, titleKey)} - ${label}` : t(locale, titleKey);
+          body = privacy
+            ? t(locale, "ask_body_private")
+            : (questionText ?? t(locale, "ask_default_body"));
         } else {
           const titleKey = "approval_title";
-          title = project ? `${t(locale, titleKey)} - ${project}` : t(locale, titleKey);
-          body = t(locale, "approval_body", { toolName: msg.toolName });
+          title = label ? `${t(locale, titleKey)} - ${label}` : t(locale, titleKey);
+          body = privacy
+            ? t(locale, "approval_body_private")
+            : t(locale, "approval_body", { toolName: msg.toolName });
         }
 
         void this.pushRelay.notify({
@@ -1476,12 +1503,22 @@ export class BridgeWebSocketServer {
     if (msg.sessionId) data.providerSessionId = msg.sessionId;
 
     for (const locale of this.getRegisteredLocales()) {
-      const title = project
-        ? (isSuccess ? `✅ ${project}` : `❌ ${project}`)
-        : (isSuccess ? t(locale, "task_completed") : t(locale, "error_occurred"));
+      let title: string;
+      if (privacy) {
+        title = isSuccess ? t(locale, "task_completed") : t(locale, "error_occurred");
+      } else {
+        title = label
+          ? (isSuccess ? `✅ ${label}` : `❌ ${label}`)
+          : (isSuccess ? t(locale, "task_completed") : t(locale, "error_occurred"));
+      }
 
       let body: string;
-      if (isSuccess) {
+      if (privacy) {
+        const privateBody = isSuccess
+          ? t(locale, "result_success_body_private")
+          : t(locale, "result_error_body_private");
+        body = isSuccess ? `${privateBody}${stats}` : privateBody;
+      } else if (isSuccess) {
         body = msg.result
           ? `${msg.result.slice(0, 120)}${stats}`
           : `${t(locale, "session_completed")}${stats}`;

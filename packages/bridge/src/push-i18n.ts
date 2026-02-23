@@ -12,6 +12,11 @@ const translations: Record<PushLocale, Record<string, string>> = {
     error_occurred: "Error occurred",
     session_completed: "Session completed",
     session_failed: "Session failed",
+    // Privacy mode: generic bodies without tool names, question text, or result details
+    approval_body_private: "Approve tool execution",
+    ask_body_private: "Please respond to a question",
+    result_success_body_private: "Session completed",
+    result_error_body_private: "Session failed",
   },
   ja: {
     approval_title: "承認待ち",
@@ -24,6 +29,11 @@ const translations: Record<PushLocale, Record<string, string>> = {
     error_occurred: "エラー発生",
     session_completed: "セッション完了",
     session_failed: "セッションが失敗しました",
+    // Privacy mode
+    approval_body_private: "ツールの実行を承認してください",
+    ask_body_private: "質問に回答してください",
+    result_success_body_private: "セッション完了",
+    result_error_body_private: "セッションが失敗しました",
   },
 };
 
