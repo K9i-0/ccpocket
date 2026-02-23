@@ -2,6 +2,26 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.1.0] - 2026-02-23
+
+### Added
+- Session rename support for Claude Code and Codex
+- Fetch and display skills for Codex sessions
+- Collaboration mode logging for Codex startup
+- Tag-driven npm publish workflow via GitHub Actions (Trusted Publishing)
+
+### Changed
+- Unified mode system — removed ApprovalPolicy, simplified SandboxMode
+- Codex: use native ApprovalPolicy and collaboration_mode API
+- Extracted permission/sandbox mode mapping helpers
+
+### Fixed
+- Refresh Claude OAuth token for usage API
+- Correctly map bypassPermissions in Codex session list
+- Expose Codex collaborationMode as permissionMode in session list
+- Emit synthetic tool_result after Codex approve/reject/answer
+- Plan approval race condition
+
 ## [0.2.0] - 2026-02-22
 
 ### Added
