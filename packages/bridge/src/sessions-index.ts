@@ -545,33 +545,94 @@ export async function renameClaudeSession(
   name: string | null,
 ): Promise<boolean> {
   const slug = pathToSlug(projectPath);
-  const indexPath = join(homedir(), ".claude", "projects", slug, "sessions-index.json");
+  const dirPath = join(homedir(), ".claude", "projects", slug);
+  const indexPath = join(dirPath, "sessions-index.json");
 
-  let raw: string;
+  let index: RawSessionIndexFile | null = null;
   try {
-    raw = await readFile(indexPath, "utf-8");
-  } catch {
-    return false;
-  }
-
-  let index: RawSessionIndexFile;
-  try {
+    const raw = await readFile(indexPath, "utf-8");
     index = JSON.parse(raw) as RawSessionIndexFile;
   } catch {
-    return false;
+    // File doesn't exist or is invalid — will create below if needed
   }
 
-  if (!Array.isArray(index.entries)) return false;
-
-  const entry = index.entries.find((e) => e.sessionId === claudeSessionId);
-  if (!entry) return false;
-
-  if (name) {
-    entry.customTitle = name;
-  } else {
-    delete entry.customTitle;
+  if (index && Array.isArray(index.entries)) {
+    const entry = index.entries.find((e) => e.sessionId === claudeSessionId);
+    if (entry) {
+      if (name) {
+        entry.customTitle = name;
+      } else {
+        delete entry.customTitle;
+      }
+      await writeFile(indexPath, JSON.stringify(index, null, 2), "utf-8");
+      return true;
+    }
   }
 
+  // Entry not found in index (or index doesn't exist yet).
+  // The CLI may not have created the index entry for short-lived or new sessions.
+  // Create a minimal entry so customTitle is persisted and picked up by
+  // getAllRecentSessions() on next read.
+  if (!name) return false; // Nothing to persist when clearing name
+
+  if (!index || !Array.isArray(index.entries)) {
+    index = { version: 1, entries: [] };
+  }
+
+  // Build a minimal entry from the JSONL file if available
+  const jsonlPath = join(dirPath, `${claudeSessionId}.jsonl`);
+  let firstPrompt = "";
+  let created = new Date().toISOString();
+  let modified = created;
+  let messageCount = 0;
+  let gitBranch = "";
+  try {
+    const raw = await readFile(jsonlPath, "utf-8");
+    for (const line of raw.split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line) as Record<string, unknown>;
+        const type = entry.type as string;
+        if (type !== "user" && type !== "assistant") continue;
+        messageCount++;
+        const ts = entry.timestamp as string | undefined;
+        if (ts) {
+          if (!firstPrompt) created = ts;
+          modified = ts;
+        }
+        if (!gitBranch && entry.gitBranch) gitBranch = entry.gitBranch as string;
+        if (type === "user" && !firstPrompt) {
+          const msg = entry.message as { content?: unknown } | undefined;
+          if (msg?.content) {
+            if (typeof msg.content === "string") firstPrompt = msg.content;
+            else if (Array.isArray(msg.content)) {
+              const tb = (msg.content as Array<{ type: string; text?: string }>)
+                .find((c) => c.type === "text" && c.text);
+              if (tb?.text) firstPrompt = tb.text;
+            }
+          }
+        }
+      } catch { /* skip malformed lines */ }
+    }
+  } catch { /* JSONL not available */ }
+
+  index.entries.push({
+    sessionId: claudeSessionId,
+    fullPath: jsonlPath,
+    fileMtime: Date.now(),
+    firstPrompt,
+    customTitle: name,
+    messageCount,
+    created,
+    modified,
+    gitBranch,
+    projectPath,
+    isSidechain: false,
+  });
+
+  // Ensure directory exists (may not for brand-new projects)
+  const { mkdir } = await import("node:fs/promises");
+  await mkdir(dirPath, { recursive: true });
   await writeFile(indexPath, JSON.stringify(index, null, 2), "utf-8");
   return true;
 }

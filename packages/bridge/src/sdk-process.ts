@@ -280,6 +280,8 @@ export interface SdkProcessEvents {
   message: [ServerMessage];
   status: [ProcessStatus];
   exit: [number | null];
+  /** Fired just before "exit" to allow re-persisting session metadata. */
+  session_end: [];
 }
 
 interface PendingPermission {
@@ -327,6 +329,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private sessionAllowRules = new Set<string>();
 
   private initTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private sessionEndEmitted = false;
 
   // User message channel
   private userMessageResolve: ((msg: SDKUserMsg) => void) | null = null;
@@ -366,6 +369,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
     this.stopped = false;
     this._sessionId = null;
+    this.sessionEndEmitted = false;
     this.pendingPermissions.clear();
     this._permissionMode = options?.permissionMode;
     this.sessionAllowRules.clear();
@@ -454,6 +458,12 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.userMessageResolve = null;
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
+
+    // Emit session_end so listeners can re-persist metadata before cleanup.
+    // processMessages() won't reach its session_end emit because close()
+    // causes the iterator to throw and the error is suppressed.
+    this.emitSessionEnd();
+
     this.setStatus("idle");
   }
 
@@ -796,8 +806,12 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.updateStatusFromMessage(message);
     }
 
-    // Query finished
+    // Query finished — CLI has completed shutdown including file writes.
     this.queryInstance = null;
+
+    // Emit session_end before exit so listeners can re-persist metadata
+    // (e.g. customTitle) that the CLI may have overwritten during shutdown.
+    this.emitSessionEnd();
 
     this.setStatus("idle");
     this.emit("exit", 0);
@@ -909,6 +923,13 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.emit("status", status);
       this.emitMessage({ type: "status", status });
     }
+  }
+
+  /** Emit session_end at most once per session lifecycle. */
+  private emitSessionEnd(): void {
+    if (this.sessionEndEmitted) return;
+    this.sessionEndEmitted = true;
+    this.emit("session_end");
   }
 
   private emitMessage(msg: ServerMessage): void {

@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { pathToSlug } from "./sessions-index.js";
+import { pathToSlug, renameClaudeSession, renameCodexSession } from "./sessions-index.js";
 import { SdkProcess, type StartOptions, type RewindFilesResult } from "./sdk-process.js";
 import { CodexProcess, type CodexStartOptions } from "./codex-process.js";
 import type { ServerMessage, ProcessStatus, AssistantToolUseContent, Provider } from "./parser.js";
@@ -356,6 +356,29 @@ export class SessionManager {
       // Add status message to history so it stays in sync with session.status
       session.history.push({ type: "status", status: "idle" } as ServerMessage);
     });
+
+    // Re-persist customTitle after CLI finishes writing sessions-index.json.
+    // session_end fires after the query iterator completes (CLI has shut down
+    // and flushed its files), so writing the name here prevents the CLI from
+    // overwriting our customTitle.
+    if (proc instanceof SdkProcess) {
+      proc.on("session_end", async () => {
+        if (!session.name) return;
+        try {
+          if (session.provider === "claude" && session.claudeSessionId) {
+            await renameClaudeSession(
+              session.worktreePath ?? session.projectPath,
+              session.claudeSessionId,
+              session.name,
+            );
+          } else if (session.provider === "codex" && session.claudeSessionId) {
+            await renameCodexSession(session.claudeSessionId, session.name);
+          }
+        } catch (err) {
+          console.warn(`[session] Failed to re-persist session name on session end:`, err);
+        }
+      });
+    }
 
     if (effectiveProvider === "codex" && codexOptions) {
       session.codexSettings = {
