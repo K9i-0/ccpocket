@@ -1969,7 +1969,6 @@ class RecentSessionCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Session name (if set)
                   if (session.name != null && session.name!.isNotEmpty) ...[
                     Icon(
                       Icons.label_outline,
@@ -1993,28 +1992,25 @@ class RecentSessionCard extends StatelessWidget {
                   ],
                   if (!hideProjectBadge) ...[
                     Flexible(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: providerStyle.background,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: providerStyle.border),
+                        ),
+                        child: Text(
+                          session.projectName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: providerStyle.foreground,
                           ),
-                          decoration: BoxDecoration(
-                            color: providerStyle.background,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: providerStyle.border),
-                          ),
-                          child: Text(
-                            session.projectName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: providerStyle.foreground,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
                     ),
