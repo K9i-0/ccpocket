@@ -2,7 +2,7 @@
 name: release-bridge
 description: Bridge Server のリリース（バージョンbump + CHANGELOG + タグ → GH Actions で npm publish）
 disable-model-invocation: true
-allowed-tools: Bash(git:*), Bash(grep:*), Read, Edit, AskUserQuestion
+allowed-tools: Bash(git:*), Bash(grep:*), Bash(npm run test:bridge), Bash(npx tsc:*), Bash(npm run bridge:build), Read, Edit, AskUserQuestion
 ---
 
 # Bridge Server リリース
@@ -68,7 +68,25 @@ git log $(git tag -l 'bridge/v*' --sort=-v:refname | head -1)..HEAD --oneline --
 
 `packages/bridge/package.json` の `version` をステップ 2 で決定したバージョンに更新する。
 
-### 5. コミット & タグ
+### 5. ローカル検証
+
+タグ push 前に、CD と同じチェックをローカルで実行する。
+**すべて pass しなければ次のステップに進まない。**
+
+```bash
+# テスト
+npm run test:bridge
+
+# 型チェック
+npx tsc --noEmit -p packages/bridge/tsconfig.json
+
+# ビルド
+npm run bridge:build
+```
+
+失敗した場合はユーザーに報告し、修正を待つ。
+
+### 6. コミット & タグ
 
 ```bash
 git add packages/bridge/package.json packages/bridge/CHANGELOG.md
@@ -78,7 +96,7 @@ git tag bridge/vX.Y.Z
 git push origin bridge/vX.Y.Z
 ```
 
-### 6. 完了確認
+### 7. 完了確認
 
 タグ push 後、GH Actions (`bridge-release.yml`) が自動実行される:
 - テスト + 型チェック + ビルド

@@ -2,7 +2,7 @@
 name: release-mobile
 description: モバイルアプリのリリース（バージョンbump + CHANGELOG + タグ → GH Actions で Shorebird release + ストア配布）
 disable-model-invocation: true
-allowed-tools: Bash(git:*), Bash(grep:*), Read, Edit, AskUserQuestion
+allowed-tools: Bash(git:*), Bash(grep:*), Bash(dart analyze:*), Bash(cd apps/mobile && flutter test), Read, Edit, AskUserQuestion
 ---
 
 # モバイルアプリ リリース
@@ -80,7 +80,22 @@ build number は現在の値 +1 で統一する。
 
 `apps/mobile/pubspec.yaml` の `version` をステップ 2 で決定したバージョンに更新する。
 
-### 5. コミット & タグ
+### 5. ローカル検証
+
+タグ push 前に、CD と同じチェックをローカルで実行する。
+**すべて pass しなければ次のステップに進まない。**
+
+```bash
+# 静的解析
+dart analyze apps/mobile
+
+# テスト
+cd apps/mobile && flutter test
+```
+
+失敗した場合はユーザーに報告し、修正を待つ。
+
+### 6. コミット & タグ
 
 ```bash
 git add apps/mobile/pubspec.yaml CHANGELOG.md
@@ -100,7 +115,7 @@ git tag android/vX.Y.Z+N
 git push origin android/vX.Y.Z+N
 ```
 
-### 6. 完了確認
+### 7. 完了確認
 
 タグ push 後、GH Actions が自動実行される:
 
