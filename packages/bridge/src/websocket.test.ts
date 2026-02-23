@@ -283,6 +283,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
       ws,
     );
+    await Promise.resolve();
 
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
     const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
@@ -310,7 +311,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("maps set_permission_mode plan to collaborationMode for codex session", () => {
+  it("maps set_permission_mode plan to collaborationMode for codex session", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -325,6 +326,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
       ws,
     );
+    await Promise.resolve();
 
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
     const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
@@ -348,7 +350,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("maps set_permission_mode to approval_policy for codex session", () => {
+  it("maps set_permission_mode to approval_policy for codex session", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -363,6 +365,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
       ws,
     );
+    await Promise.resolve();
 
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
     const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
@@ -412,7 +415,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("returns debug_bundle for an active session", () => {
+  it("returns debug_bundle for an active session", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -427,6 +430,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
       ws,
     );
+    await Promise.resolve();
 
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
     const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
@@ -487,7 +491,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("cleans debug events when session is stopped", () => {
+  it("cleans debug events when session is stopped", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -502,6 +506,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
       ws,
     );
+    await Promise.resolve();
 
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
     const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
@@ -520,7 +525,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("clearContext approve recreates session immediately with plan input", () => {
+  it("clearContext approve recreates session immediately with plan input", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -535,6 +540,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
       ws,
     );
+    await Promise.resolve();
 
     const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
     const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");

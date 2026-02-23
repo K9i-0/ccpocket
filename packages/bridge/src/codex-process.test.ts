@@ -122,6 +122,7 @@ describe("CodexProcess (app-server)", () => {
     child.stdout.emit("data", `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_2" } } })}\n`);
 
     await tick();
+    drainSkillsList(child);
     proc.sendInput("run ls");
     await tick();
     const turnReq = nextOutgoingRequest(child);
@@ -194,6 +195,7 @@ describe("CodexProcess (app-server)", () => {
     child.stdout.emit("data", `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_3" } } })}\n`);
 
     await tick();
+    drainSkillsList(child);
     proc.sendInput("ask me a question");
     await tick();
     const turnReq = nextOutgoingRequest(child);
@@ -280,6 +282,7 @@ describe("CodexProcess (app-server)", () => {
     child.stdout.emit("data", `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_4" } } })}\n`);
 
     await tick();
+    drainSkillsList(child);
     proc.sendInput("make a plan");
     await tick();
     const turnReq = nextOutgoingRequest(child);
@@ -352,6 +355,16 @@ function consumeOutgoing(
 
 function nextOutgoingRequest(child: FakeChildProcess): Record<string, unknown> {
   return consumeOutgoing(child, (value) => typeof value.method === "string" && value.id !== undefined);
+}
+
+/** Consume and reply to the background skills/list request that fires after thread/start. */
+function drainSkillsList(child: FakeChildProcess): void {
+  try {
+    const req = consumeOutgoing(child, (value) => value.method === "skills/list" && value.id !== undefined);
+    child.stdout.emit("data", `${JSON.stringify({ id: req.id, result: { data: [] } })}\n`);
+  } catch {
+    // skills/list may not have been emitted yet — safe to ignore
+  }
 }
 
 function nextOutgoingNotification(child: FakeChildProcess): Record<string, unknown> {
