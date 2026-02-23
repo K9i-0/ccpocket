@@ -267,17 +267,17 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Session name (if set)
-                  if (session.name != null && session.name!.isNotEmpty) ...[
-                    Row(
-                      children: [
+                  // Title row: session name + project badge + elapsed
+                  Row(
+                    children: [
+                      if (session.name != null && session.name!.isNotEmpty) ...[
                         Icon(
                           Icons.label_outline,
                           size: 14,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         const SizedBox(width: 4),
-                        Expanded(
+                        Flexible(
                           child: Text(
                             session.name!,
                             style: TextStyle(
@@ -289,13 +289,8 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 8),
                       ],
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  // Title row: project badge + elapsed
-                  Row(
-                    children: [
                       Hero(
                         tag: 'project_name_${session.id}',
                         child: Material(
@@ -1970,17 +1965,19 @@ class RecentSessionCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Session name (if set)
-              if (session.name != null && session.name!.isNotEmpty) ...[
-                Row(
-                  children: [
+              // Title Row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Session name (if set)
+                  if (session.name != null && session.name!.isNotEmpty) ...[
                     Icon(
                       Icons.label_outline,
                       size: 14,
                       color: colorScheme.primary,
                     ),
                     const SizedBox(width: 4),
-                    Expanded(
+                    Flexible(
                       child: Text(
                         session.name!,
                         style: TextStyle(
@@ -1992,16 +1989,10 @@ class RecentSessionCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 8),
                   ],
-                ),
-                const SizedBox(height: 6),
-              ],
-              // Title Row
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
                   if (!hideProjectBadge) ...[
-                    Expanded(
+                    Flexible(
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Container(
@@ -2027,8 +2018,8 @@ class RecentSessionCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ] else
-                    const Spacer(),
+                  ],
+                  const Spacer(),
                   const SizedBox(width: 8),
                   Text(
                     dateStr,
