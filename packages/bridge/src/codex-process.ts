@@ -552,6 +552,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       });
       this.setStatus("idle");
 
+      // Fetch skills in background (non-blocking)
+      void this.fetchSkills(projectPath);
+
       await this.runInputLoop(options);
     } catch (err) {
       if (!this.stopped) {
@@ -562,6 +565,45 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       }
       this.setStatus("idle");
       this.emit("exit", 1);
+    }
+  }
+
+  /**
+   * Fetch skills from Codex app-server via `skills/list` RPC and emit them
+   * as a `supported_commands` system message so the Flutter client can display
+   * skill entries alongside built-in slash commands.
+   */
+  private async fetchSkills(projectPath: string): Promise<void> {
+    const TIMEOUT_MS = 10_000;
+    try {
+      const result = await Promise.race([
+        this.request("skills/list", { cwds: [projectPath] }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), TIMEOUT_MS)),
+      ]) as { data?: Array<{ cwd: string; skills: Array<{ name: string; enabled: boolean }> }> } | null;
+
+      if (this.stopped || !result?.data) return;
+
+      const skills: string[] = [];
+      const slashCommands: string[] = [];
+      for (const entry of result.data) {
+        for (const skill of entry.skills) {
+          if (skill.enabled) {
+            skills.push(skill.name);
+            slashCommands.push(skill.name);
+          }
+        }
+      }
+      if (slashCommands.length > 0) {
+        console.log(`[codex-process] skills/list returned ${slashCommands.length} skills`);
+        this.emitMessage({
+          type: "system",
+          subtype: "supported_commands",
+          slashCommands,
+          skills,
+        });
+      }
+    } catch (err) {
+      console.log(`[codex-process] skills/list failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
