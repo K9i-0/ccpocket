@@ -50,6 +50,7 @@ final List<MockScenario> mockScenarios = [
   _approvalFlow,
   _multipleApprovalFlow,
   _askUserQuestion,
+  _askUserSingleMultiSelect,
   _askUserMultiQuestion,
   _todoWrite,
   _imageResult,
@@ -253,6 +254,74 @@ final _askUserQuestion = MockScenario(
                       },
                     ],
                     'multiSelect': false,
+                  },
+                ],
+              },
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 2a-2. AskUserQuestion (Single question, multi-select)
+// ---------------------------------------------------------------------------
+final _askUserSingleMultiSelect = MockScenario(
+  name: 'Single Multi-Select',
+  icon: Icons.checklist,
+  description: 'Single question with multi-select options',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 800),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-ask-single-multi-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  'I have several improvements ready. '
+                  'Let me know which ones to implement.',
+            ),
+            const ToolUseContent(
+              id: 'tool-ask-single-multi-1',
+              name: 'AskUserQuestion',
+              input: {
+                'questions': [
+                  {
+                    'question':
+                        'Which improvements should I implement?',
+                    'header': 'Tasks',
+                    'options': [
+                      {
+                        'label': 'All of the above',
+                        'description':
+                            'Implement auto-reconnect, keyboard enhancement, and error handling all at once.',
+                      },
+                      {
+                        'label': 'Auto-reconnect + error handling',
+                        'description':
+                            'Auto-reconnect on disconnect and H.264→JPEG fallback.',
+                      },
+                      {
+                        'label': 'Keyboard enhancement',
+                        'description':
+                            'Modifier key support and iOS keyboard UI improvements.',
+                      },
+                      {
+                        'label': 'Multi-simulator support',
+                        'description':
+                            'Connect to multiple simulators simultaneously from different clients.',
+                      },
+                    ],
+                    'multiSelect': true,
                   },
                 ],
               },

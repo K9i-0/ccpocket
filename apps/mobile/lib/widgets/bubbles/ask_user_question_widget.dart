@@ -582,26 +582,6 @@ class _AskQuestionLayout extends StatelessWidget {
               onShowCustomInput: onShowCustomInput,
             ),
           ],
-          if (isMulti && !isMultiQuestion) ...[
-            const SizedBox(height: 6),
-            SizedBox(
-              width: double.infinity,
-              height: _buttonHeight,
-              child: FilledButton.icon(
-                onPressed:
-                    (multiAnswers[questionIndex] ?? {}).isNotEmpty ||
-                        (getOrCreateController(
-                          questionIndex,
-                        ).text.trim().isNotEmpty)
-                    ? () => onConfirmMultiSelect(questionIndex)
-                    : null,
-                icon: const Icon(Icons.check, size: 16),
-                label: Text(
-                  l.submitWithCount((multiAnswers[questionIndex] ?? {}).length),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
