@@ -287,6 +287,11 @@
   "loading": "Loading...",
   "setupGuideSubtitle": "New here? Start with this",
   "openSourceLicenses": "Open Source Licenses",
+  "githubRepository": "GitHub Repository",
+  "changelog": "Changelog",
+  "changelogTitle": "Changelog",
+  "showAllMain": "Show all (main)",
+  "changelogFetchError": "Failed to load changelog",
 
   "fcmBridgeNotInitialized": "Bridge not initialized",
   "fcmTokenFailed": "Failed to get FCM token",

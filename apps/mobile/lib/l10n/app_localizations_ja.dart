@@ -823,6 +823,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get openSourceLicenses => 'オープンソースライセンス';
 
   @override
+  String get githubRepository => 'GitHub リポジトリ';
+
+  @override
+  String get changelog => '変更履歴';
+
+  @override
+  String get changelogTitle => '変更履歴';
+
+  @override
+  String get showAllMain => 'すべて表示 (main)';
+
+  @override
+  String get changelogFetchError => '変更履歴の取得に失敗しました';
+
+  @override
   String get fcmBridgeNotInitialized => 'Bridge が未初期化です';
 
   @override

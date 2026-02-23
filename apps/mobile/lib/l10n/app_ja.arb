@@ -369,6 +369,11 @@
   "loading": "読み込み中...",
   "setupGuideSubtitle": "初めての方はこちら",
   "openSourceLicenses": "オープンソースライセンス",
+  "githubRepository": "GitHub リポジトリ",
+  "changelog": "変更履歴",
+  "changelogTitle": "変更履歴",
+  "showAllMain": "すべて表示 (main)",
+  "changelogFetchError": "変更履歴の取得に失敗しました",
 
   "fcmBridgeNotInitialized": "Bridge が未初期化です",
   "fcmTokenFailed": "FCM token を取得できませんでした",

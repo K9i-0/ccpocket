@@ -1634,6 +1634,36 @@ abstract class AppLocalizations {
   /// **'オープンソースライセンス'**
   String get openSourceLicenses;
 
+  /// No description provided for @githubRepository.
+  ///
+  /// In ja, this message translates to:
+  /// **'GitHub リポジトリ'**
+  String get githubRepository;
+
+  /// No description provided for @changelog.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更履歴'**
+  String get changelog;
+
+  /// No description provided for @changelogTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更履歴'**
+  String get changelogTitle;
+
+  /// No description provided for @showAllMain.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべて表示 (main)'**
+  String get showAllMain;
+
+  /// No description provided for @changelogFetchError.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更履歴の取得に失敗しました'**
+  String get changelogFetchError;
+
   /// No description provided for @fcmBridgeNotInitialized.
   ///
   /// In ja, this message translates to:

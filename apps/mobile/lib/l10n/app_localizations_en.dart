@@ -836,6 +836,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get openSourceLicenses => 'Open Source Licenses';
 
   @override
+  String get githubRepository => 'GitHub Repository';
+
+  @override
+  String get changelog => 'Changelog';
+
+  @override
+  String get changelogTitle => 'Changelog';
+
+  @override
+  String get showAllMain => 'Show all (main)';
+
+  @override
+  String get changelogFetchError => 'Failed to load changelog';
+
+  @override
   String get fcmBridgeNotInitialized => 'Bridge not initialized';
 
   @override

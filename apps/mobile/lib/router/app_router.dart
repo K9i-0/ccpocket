@@ -8,6 +8,7 @@ import '../features/codex_session/codex_session_screen.dart';
 import '../features/diff/diff_screen.dart';
 import '../features/gallery/gallery_screen.dart';
 import '../features/session_list/session_list_screen.dart';
+import '../features/settings/changelog_screen.dart';
 import '../features/settings/licenses_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../models/messages.dart';
@@ -29,6 +30,7 @@ class AppRouter extends RootStackRouter {
     AutoRoute(page: DiffRoute.page, path: '/diff'),
     AutoRoute(page: SettingsRoute.page, path: '/settings'),
     AutoRoute(page: LicensesRoute.page, path: '/licenses'),
+    AutoRoute(page: ChangelogRoute.page, path: '/changelog'),
     AutoRoute(page: QrScanRoute.page, path: '/qr-scan'),
     AutoRoute(page: MockPreviewRoute.page, path: '/mock-preview'),
     AutoRoute(page: SetupGuideRoute.page, path: '/setup-guide'),

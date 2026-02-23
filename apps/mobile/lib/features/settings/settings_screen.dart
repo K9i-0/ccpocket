@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../router/app_router.dart';
@@ -161,6 +162,35 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     // Version
                     const _VersionTile(),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    // GitHub Repository
+                    ListTile(
+                      leading: Icon(Icons.code, color: cs.onSurfaceVariant),
+                      title: Text(l.githubRepository),
+                      trailing: const Icon(Icons.open_in_new, size: 18),
+                      onTap: () => launchUrl(
+                        Uri.parse('https://github.com/K9i-0/ccpocket'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    // Changelog
+                    ListTile(
+                      leading: Icon(Icons.history, color: cs.onSurfaceVariant),
+                      title: Text(l.changelog),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => context.router.push(const ChangelogRoute()),
+                    ),
                     Divider(
                       height: 1,
                       indent: 16,

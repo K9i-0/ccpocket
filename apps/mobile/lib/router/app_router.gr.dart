@@ -11,6 +11,22 @@
 part of 'app_router.dart';
 
 /// generated route for
+/// [ChangelogScreen]
+class ChangelogRoute extends PageRouteInfo<void> {
+  const ChangelogRoute({List<PageRouteInfo>? children})
+    : super(ChangelogRoute.name, initialChildren: children);
+
+  static const String name = 'ChangelogRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const ChangelogScreen();
+    },
+  );
+}
+
+/// generated route for
 /// [ClaudeSessionScreen]
 class ClaudeSessionRoute extends PageRouteInfo<ClaudeSessionRouteArgs> {
   ClaudeSessionRoute({
