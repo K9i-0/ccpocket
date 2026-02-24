@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.21.2] - 2026-02-24
+
+### Changed
+- Recommend `npx @ccpocket/bridge@latest` in setup guide and tutorials to ensure users always run the latest Bridge Server
+
 ## [1.21.1] - 2026-02-24
 
 ### Fixed
