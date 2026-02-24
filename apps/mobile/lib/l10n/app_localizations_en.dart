@@ -1009,4 +1009,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sessionArchived => 'Session archived';
+
+  @override
+  String get tooltipDisplayMode => 'Change which message is shown on cards';
+
+  @override
+  String get tooltipProviderFilter => 'Filter by AI tool';
+
+  @override
+  String get tooltipProjectFilter => 'Filter by project';
+
+  @override
+  String get tooltipNamedOnly => 'Only sessions you\'ve named';
+
+  @override
+  String get tooltipSlashCommand => 'Slash commands';
+
+  @override
+  String get tooltipPermissionMode => 'Permission mode';
+
+  @override
+  String get tooltipAttachImage => 'Attach image';
+
+  @override
+  String get tooltipPromptHistory => 'Prompt history';
+
+  @override
+  String get tooltipVoiceInput => 'Voice input';
+
+  @override
+  String get tooltipStopRecording => 'Stop recording';
+
+  @override
+  String get tooltipSendMessage => 'Send message';
+
+  @override
+  String get tooltipRemoveImage => 'Remove image';
+
+  @override
+  String get tooltipClearDiff => 'Clear diff selection';
 }

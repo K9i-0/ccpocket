@@ -147,23 +147,27 @@ class _SlashButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        key: const ValueKey('slash_command_button'),
+    final l = AppLocalizations.of(context);
+    return Tooltip(
+      message: l.tooltipSlashCommand,
+      child: Material(
+        color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          child: Text(
-            '/',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: cs.primary,
+        child: InkWell(
+          key: const ValueKey('slash_command_button'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            child: Text(
+              '/',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: cs.primary,
+              ),
             ),
           ),
         ),
@@ -180,6 +184,7 @@ class _ModeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
 
     final isDefault = permissionMode == PermissionMode.defaultMode;
 
@@ -215,39 +220,42 @@ class _ModeButton extends StatelessWidget {
       ),
     };
 
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        key: const ValueKey('mode_button'),
+    return Tooltip(
+      message: l.tooltipPermissionMode,
+      child: Material(
+        color: bg,
         borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          height: 36,
-          constraints: isDefault
-              ? const BoxConstraints(minWidth: 36, maxWidth: 36)
-              : const BoxConstraints(minWidth: 36),
-          padding: isDefault
-              ? EdgeInsets.zero
-              : const EdgeInsets.symmetric(horizontal: 10),
-          alignment: Alignment.center,
-          child: isDefault
-              ? Icon(icon, size: 18, color: fg)
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 16, color: fg),
-                    const SizedBox(width: 4),
-                    Text(
-                      label!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: fg,
+        child: InkWell(
+          key: const ValueKey('mode_button'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            height: 36,
+            constraints: isDefault
+                ? const BoxConstraints(minWidth: 36, maxWidth: 36)
+                : const BoxConstraints(minWidth: 36),
+            padding: isDefault
+                ? EdgeInsets.zero
+                : const EdgeInsets.symmetric(horizontal: 10),
+            alignment: Alignment.center,
+            child: isDefault
+                ? Icon(icon, size: 18, color: fg)
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 16, color: fg),
+                      const SizedBox(width: 4),
+                      Text(
+                        label!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: fg,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+          ),
         ),
       ),
     );
@@ -320,48 +328,52 @@ class _AttachButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: hasAttachment ? cs.primaryContainer : cs.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        key: const ValueKey('attach_image_button'),
+    final l = AppLocalizations.of(context);
+    return Tooltip(
+      message: l.tooltipAttachImage,
+      child: Material(
+        color: hasAttachment ? cs.primaryContainer : cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          child: hasAttachment
-              ? Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Icon(Icons.image, size: 18, color: cs.onPrimaryContainer),
-                    if (imageCount > 1)
-                      Positioned(
-                        top: -6,
-                        right: -8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: cs.primary,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '$imageCount',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: cs.onPrimary,
+        child: InkWell(
+          key: const ValueKey('attach_image_button'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            child: hasAttachment
+                ? Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(Icons.image, size: 18, color: cs.onPrimaryContainer),
+                      if (imageCount > 1)
+                        Positioned(
+                          top: -6,
+                          right: -8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.primary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '$imageCount',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: cs.onPrimary,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
-                )
-              : Icon(Icons.attach_file, size: 18, color: cs.primary),
+                    ],
+                  )
+                : Icon(Icons.attach_file, size: 18, color: cs.primary),
+          ),
         ),
       ),
     );
@@ -375,18 +387,22 @@ class _HistoryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        key: const ValueKey('prompt_history_button'),
+    final l = AppLocalizations.of(context);
+    return Tooltip(
+      message: l.tooltipPromptHistory,
+      child: Material(
+        color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          child: Icon(Icons.history, size: 18, color: cs.primary),
+        child: InkWell(
+          key: const ValueKey('prompt_history_button'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            child: Icon(Icons.history, size: 18, color: cs.primary),
+          ),
         ),
       ),
     );
@@ -400,6 +416,7 @@ class _ImagePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: SizedBox(
@@ -424,18 +441,21 @@ class _ImagePreview extends StatelessWidget {
                 Positioned(
                   top: 4,
                   right: 4,
-                  child: GestureDetector(
-                    onTap: () => onClearImage?.call(index),
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      padding: const EdgeInsets.all(4),
-                      child: const Icon(
-                        Icons.close,
-                        size: 14,
-                        color: Colors.white,
+                  child: Tooltip(
+                    message: l.tooltipRemoveImage,
+                    child: GestureDetector(
+                      onTap: () => onClearImage?.call(index),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: const Icon(
+                          Icons.close,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -526,15 +546,18 @@ class _DiffPreview extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            GestureDetector(
-              onTap: onClear,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
+            Tooltip(
+              message: l.tooltipClearDiff,
+              child: GestureDetector(
+                onTap: onClear,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(4),
+                  child: const Icon(Icons.close, size: 14, color: Colors.white),
                 ),
-                padding: const EdgeInsets.all(4),
-                child: const Icon(Icons.close, size: 14, color: Colors.white),
               ),
             ),
           ],
@@ -659,21 +682,25 @@ class _VoiceButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: isRecording ? cs.error : cs.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        key: const ValueKey('voice_button'),
+    final l = AppLocalizations.of(context);
+    return Tooltip(
+      message: isRecording ? l.tooltipStopRecording : l.tooltipVoiceInput,
+      child: Material(
+        color: isRecording ? cs.error : cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          child: Icon(
-            isRecording ? Icons.stop : Icons.mic,
-            size: 18,
-            color: isRecording ? cs.onError : cs.primary,
+        child: InkWell(
+          key: const ValueKey('voice_button'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            child: Icon(
+              isRecording ? Icons.stop : Icons.mic,
+              size: 18,
+              color: isRecording ? cs.onError : cs.primary,
+            ),
           ),
         ),
       ),
@@ -689,6 +716,7 @@ class _SendButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     final opacity = enabled ? 1.0 : 0.4;
     return Opacity(
       opacity: opacity,
@@ -703,6 +731,7 @@ class _SendButton extends StatelessWidget {
         ),
         child: IconButton(
           key: const ValueKey('send_button'),
+          tooltip: l.tooltipSendMessage,
           onPressed: enabled ? onSend : null,
           icon: Icon(Icons.arrow_upward, color: cs.onPrimary, size: 20),
           constraints: const BoxConstraints(minWidth: 40, minHeight: 40),

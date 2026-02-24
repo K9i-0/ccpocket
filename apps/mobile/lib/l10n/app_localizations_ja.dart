@@ -995,4 +995,43 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get sessionArchived => 'セッションをアーカイブしました';
+
+  @override
+  String get tooltipDisplayMode => 'カードに表示するメッセージを切替';
+
+  @override
+  String get tooltipProviderFilter => 'AIツールで絞り込み';
+
+  @override
+  String get tooltipProjectFilter => 'プロジェクトで絞り込み';
+
+  @override
+  String get tooltipNamedOnly => '名前を付けたセッションのみ';
+
+  @override
+  String get tooltipSlashCommand => 'スラッシュコマンド';
+
+  @override
+  String get tooltipPermissionMode => 'パーミッションモード';
+
+  @override
+  String get tooltipAttachImage => '画像を添付';
+
+  @override
+  String get tooltipPromptHistory => 'プロンプト履歴';
+
+  @override
+  String get tooltipVoiceInput => '音声入力';
+
+  @override
+  String get tooltipStopRecording => '録音を停止';
+
+  @override
+  String get tooltipSendMessage => 'メッセージを送信';
+
+  @override
+  String get tooltipRemoveImage => '画像を削除';
+
+  @override
+  String get tooltipClearDiff => 'Diff選択を解除';
 }

@@ -466,5 +466,19 @@
   "voiceInputLanguage": "音声入力の言語",
 
   "archive": "アーカイブ",
-  "sessionArchived": "セッションをアーカイブしました"
+  "sessionArchived": "セッションをアーカイブしました",
+
+  "tooltipDisplayMode": "カードに表示するメッセージを切替",
+  "tooltipProviderFilter": "AIツールで絞り込み",
+  "tooltipProjectFilter": "プロジェクトで絞り込み",
+  "tooltipNamedOnly": "名前を付けたセッションのみ",
+  "tooltipSlashCommand": "スラッシュコマンド",
+  "tooltipPermissionMode": "パーミッションモード",
+  "tooltipAttachImage": "画像を添付",
+  "tooltipPromptHistory": "プロンプト履歴",
+  "tooltipVoiceInput": "音声入力",
+  "tooltipStopRecording": "録音を停止",
+  "tooltipSendMessage": "メッセージを送信",
+  "tooltipRemoveImage": "画像を削除",
+  "tooltipClearDiff": "Diff選択を解除"
 }

@@ -384,5 +384,19 @@
   "voiceInputLanguage": "Voice Input Language",
 
   "archive": "Archive",
-  "sessionArchived": "Session archived"
+  "sessionArchived": "Session archived",
+
+  "tooltipDisplayMode": "Change which message is shown on cards",
+  "tooltipProviderFilter": "Filter by AI tool",
+  "tooltipProjectFilter": "Filter by project",
+  "tooltipNamedOnly": "Only sessions you've named",
+  "tooltipSlashCommand": "Slash commands",
+  "tooltipPermissionMode": "Permission mode",
+  "tooltipAttachImage": "Attach image",
+  "tooltipPromptHistory": "Prompt history",
+  "tooltipVoiceInput": "Voice input",
+  "tooltipStopRecording": "Stop recording",
+  "tooltipSendMessage": "Send message",
+  "tooltipRemoveImage": "Remove image",
+  "tooltipClearDiff": "Clear diff selection"
 }

@@ -1951,6 +1951,84 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'セッションをアーカイブしました'**
   String get sessionArchived;
+
+  /// No description provided for @tooltipDisplayMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'カードに表示するメッセージを切替'**
+  String get tooltipDisplayMode;
+
+  /// No description provided for @tooltipProviderFilter.
+  ///
+  /// In ja, this message translates to:
+  /// **'AIツールで絞り込み'**
+  String get tooltipProviderFilter;
+
+  /// No description provided for @tooltipProjectFilter.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトで絞り込み'**
+  String get tooltipProjectFilter;
+
+  /// No description provided for @tooltipNamedOnly.
+  ///
+  /// In ja, this message translates to:
+  /// **'名前を付けたセッションのみ'**
+  String get tooltipNamedOnly;
+
+  /// No description provided for @tooltipSlashCommand.
+  ///
+  /// In ja, this message translates to:
+  /// **'スラッシュコマンド'**
+  String get tooltipSlashCommand;
+
+  /// No description provided for @tooltipPermissionMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'パーミッションモード'**
+  String get tooltipPermissionMode;
+
+  /// No description provided for @tooltipAttachImage.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像を添付'**
+  String get tooltipAttachImage;
+
+  /// No description provided for @tooltipPromptHistory.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロンプト履歴'**
+  String get tooltipPromptHistory;
+
+  /// No description provided for @tooltipVoiceInput.
+  ///
+  /// In ja, this message translates to:
+  /// **'音声入力'**
+  String get tooltipVoiceInput;
+
+  /// No description provided for @tooltipStopRecording.
+  ///
+  /// In ja, this message translates to:
+  /// **'録音を停止'**
+  String get tooltipStopRecording;
+
+  /// No description provided for @tooltipSendMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'メッセージを送信'**
+  String get tooltipSendMessage;
+
+  /// No description provided for @tooltipRemoveImage.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像を削除'**
+  String get tooltipRemoveImage;
+
+  /// No description provided for @tooltipClearDiff.
+  ///
+  /// In ja, this message translates to:
+  /// **'Diff選択を解除'**
+  String get tooltipClearDiff;
 }
 
 class _AppLocalizationsDelegate
