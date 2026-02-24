@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.4.0] - 2026-02-24
+
+### Changed
+- Replace `BRIDGE_HIDE_IP` with `BRIDGE_DEMO_MODE`: hides Tailscale IPs and omits API key from QR code deep links for safe video recording
+
 ## [1.3.0] - 2026-02-24
 
 ### Added
