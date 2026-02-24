@@ -52,60 +52,71 @@ export async function printStartupInfo(
   const addresses = getReachableAddresses();
   if (addresses.length === 0) return;
 
+  const demoMode = !!process.env.BRIDGE_DEMO_MODE;
+
+  // Demo mode: exclude Tailscale addresses for video recording
+  const displayAddresses = demoMode
+    ? addresses.filter((a) => a.label !== "Tailscale")
+    : addresses;
+
+  if (displayAddresses.length === 0) return;
+
   const lines: string[] = [];
   lines.push("");
-  lines.push("[bridge] ─── Connection Info ───────────────────────────");
+  if (demoMode) {
+    lines.push("[bridge] ─── Connection Info [DEMO MODE] ────────────────");
+  } else {
+    lines.push("[bridge] ─── Connection Info ───────────────────────────");
+  }
 
   // Group by label
   const grouped = new Map<string, string[]>();
-  for (const addr of addresses) {
+  for (const addr of displayAddresses) {
     const list = grouped.get(addr.label) ?? [];
     list.push(addr.ip);
     grouped.set(addr.label, list);
   }
 
-  const hideIp = !!process.env.BRIDGE_HIDE_IP;
-
   for (const [label, ips] of grouped) {
     for (const ip of ips) {
       const padded = `${label}:`.padEnd(12);
-      const display = hideIp ? "xxx.xxx.xxx.xxx" : ip;
-      lines.push(`[bridge]   ${padded} ws://${display}:${port}`);
+      lines.push(`[bridge]   ${padded} ws://${ip}:${port}`);
     }
   }
 
   // Use first LAN address, fallback to first address
   const primaryAddr =
-    addresses.find((a) => a.label === "LAN")?.ip ?? addresses[0].ip;
-  const deepLink = buildConnectionUrl(primaryAddr, port, apiKey);
+    displayAddresses.find((a) => a.label === "LAN")?.ip ??
+    displayAddresses[0].ip;
+  // Demo mode: omit API key from deep link
+  const deepLink = buildConnectionUrl(
+    primaryAddr,
+    port,
+    demoMode ? undefined : apiKey,
+  );
 
   lines.push("");
-  lines.push(`[bridge]   Deep Link: ${hideIp ? "(hidden)" : deepLink}`);
-
-  if (!hideIp) {
-    lines.push("");
-    lines.push("[bridge]   Scan QR code with ccpocket app:");
-  }
+  lines.push(`[bridge]   Deep Link: ${deepLink}`);
+  lines.push("");
+  lines.push("[bridge]   Scan QR code with ccpocket app:");
 
   // Print all non-QR lines
   console.log(lines.join("\n"));
 
-  // Generate and print QR code (skip when hiding IP)
-  if (!hideIp) {
-    try {
-      const qrText = await QRCode.toString(deepLink, {
-        type: "terminal",
-        small: true,
-      });
-      // Indent QR code lines
-      const indented = qrText
-        .split("\n")
-        .map((line) => `           ${line}`)
-        .join("\n");
-      console.log(indented);
-    } catch {
-      console.log("[bridge]   (QR code generation failed)");
-    }
+  // Generate and print QR code
+  try {
+    const qrText = await QRCode.toString(deepLink, {
+      type: "terminal",
+      small: true,
+    });
+    // Indent QR code lines
+    const indented = qrText
+      .split("\n")
+      .map((line) => `           ${line}`)
+      .join("\n");
+    console.log(indented);
+  } catch {
+    console.log("[bridge]   (QR code generation failed)");
   }
 
   console.log(

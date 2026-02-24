@@ -30,7 +30,7 @@ ccpocket-bridge
 | `BRIDGE_PORT` | `8765` | WebSocket port |
 | `BRIDGE_HOST` | `0.0.0.0` | Bind address |
 | `BRIDGE_API_KEY` | (none) | API key authentication (enabled when set) |
-| `BRIDGE_HIDE_IP` | (none) | Hide IP addresses in QR code and logs (set any value to enable) |
+| `BRIDGE_DEMO_MODE` | (none) | Demo mode: hide Tailscale IPs and API key from QR code / logs |
 
 ```bash
 # Example: custom port with API key
