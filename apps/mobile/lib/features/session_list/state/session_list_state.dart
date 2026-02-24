@@ -4,6 +4,9 @@ import '../../../models/messages.dart';
 
 part 'session_list_state.freezed.dart';
 
+/// Provider filter for recent sessions (toggles: All → Claude → Codex → All).
+enum ProviderFilter { all, claude, codex }
+
 /// Core state for the session list screen.
 @freezed
 abstract class SessionListState with _$SessionListState {
@@ -29,5 +32,11 @@ abstract class SessionListState with _$SessionListState {
     /// Accumulated project paths from all loaded sessions + project history.
     /// Used for the "New Session" project picker.
     @Default({}) Set<String> accumulatedProjectPaths,
+
+    /// Client-side provider filter (All / Claude / Codex).
+    @Default(ProviderFilter.all) ProviderFilter providerFilter,
+
+    /// Client-side named-only filter toggle.
+    @Default(false) bool namedOnly,
   }) = _SessionListState;
 }

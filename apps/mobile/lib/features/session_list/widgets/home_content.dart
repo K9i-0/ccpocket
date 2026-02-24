@@ -8,8 +8,10 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/session_card.dart';
 import '../session_list_screen.dart';
 import '../state/session_list_cubit.dart';
+import '../state/session_list_state.dart';
 import 'project_filter_chips.dart';
 import 'section_header.dart';
+import 'session_filter_chips.dart';
 import 'session_list_empty_state.dart';
 import 'session_reconnect_banner.dart';
 
@@ -53,6 +55,10 @@ class HomeContent extends StatefulWidget {
   final ValueChanged<SessionInfo> onLongPressRunningSession;
   final ValueChanged<String?> onSelectProject;
   final VoidCallback onLoadMore;
+  final ProviderFilter providerFilter;
+  final bool namedOnly;
+  final VoidCallback onToggleProvider;
+  final VoidCallback onToggleNamed;
 
   const HomeContent({
     super.key,
@@ -78,6 +84,10 @@ class HomeContent extends StatefulWidget {
     required this.onLongPressRunningSession,
     required this.onSelectProject,
     required this.onLoadMore,
+    required this.providerFilter,
+    required this.namedOnly,
+    required this.onToggleProvider,
+    required this.onToggleNamed,
   });
 
   @override
@@ -148,6 +158,25 @@ class _HomeContentState extends State<HomeContent> {
         ? widget.recentSessions
         : filterByProject(widget.recentSessions, widget.selectedProject);
     filteredSessions = filterByQuery(filteredSessions, widget.searchQuery);
+    // Apply provider filter
+    if (widget.providerFilter != ProviderFilter.all) {
+      final providerValue = widget.providerFilter == ProviderFilter.codex
+          ? 'codex'
+          : 'claude';
+      filteredSessions = filteredSessions.where((s) {
+        final p = s.provider;
+        if (widget.providerFilter == ProviderFilter.claude) {
+          return p == null || p == 'claude';
+        }
+        return p == providerValue;
+      }).toList();
+    }
+    // Apply named-only filter
+    if (widget.namedOnly) {
+      filteredSessions = filteredSessions
+          .where((s) => s.name != null && s.name!.isNotEmpty)
+          .toList();
+    }
     filteredSessions = filteredSessions.where((s) => !isDuplicate(s)).toList();
 
     final hasActiveFilter = widget.currentProjectFilter != null;
@@ -329,8 +358,15 @@ class _HomeContentState extends State<HomeContent> {
                   context.read<SessionListCubit>().setSearchQuery(v),
             ),
           ],
+          const SizedBox(height: 8),
+          SessionFilterChips(
+            providerFilter: widget.providerFilter,
+            namedOnly: widget.namedOnly,
+            onToggleProvider: widget.onToggleProvider,
+            onToggleNamed: widget.onToggleNamed,
+          ),
           if (widget.accumulatedProjectPaths.length > 1) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             ProjectFilterChips(
               accumulatedProjectPaths: widget.accumulatedProjectPaths,
               recentSessions: widget.recentSessions,

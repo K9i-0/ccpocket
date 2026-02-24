@@ -68,12 +68,13 @@ String shortenPath(String path) {
   return path;
 }
 
-/// Filter sessions by text query (matches firstPrompt, lastPrompt and summary).
+/// Filter sessions by text query (matches name, firstPrompt, lastPrompt and summary).
 List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
   if (query.isEmpty) return sessions;
   final q = query.toLowerCase();
   return sessions.where((s) {
-    return s.firstPrompt.toLowerCase().contains(q) ||
+    return (s.name?.toLowerCase().contains(q) ?? false) ||
+        s.firstPrompt.toLowerCase().contains(q) ||
         (s.lastPrompt?.toLowerCase().contains(q) ?? false) ||
         (s.summary?.toLowerCase().contains(q) ?? false);
   }).toList();
@@ -903,6 +904,12 @@ class _SessionListScreenState extends State<SessionListScreen>
                   onSelectProject: (path) =>
                       context.read<SessionListCubit>().selectProject(path),
                   onLoadMore: () => context.read<SessionListCubit>().loadMore(),
+                  providerFilter: slState.providerFilter,
+                  namedOnly: slState.namedOnly,
+                  onToggleProvider: () =>
+                      context.read<SessionListCubit>().toggleProviderFilter(),
+                  onToggleNamed: () =>
+                      context.read<SessionListCubit>().toggleNamedOnly(),
                 ),
               )
             : connectionState == BridgeConnectionState.connecting

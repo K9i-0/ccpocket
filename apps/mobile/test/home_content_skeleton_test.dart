@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
+import 'package:ccpocket/features/session_list/state/session_list_state.dart';
 import 'package:ccpocket/features/session_list/widgets/home_content.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
@@ -129,6 +130,10 @@ Widget _buildHomeContent({
             onLongPressRunningSession: (_) {},
             onSelectProject: (_) {},
             onLoadMore: () {},
+            providerFilter: ProviderFilter.all,
+            namedOnly: false,
+            onToggleProvider: () {},
+            onToggleNamed: () {},
           ),
         ),
       ),

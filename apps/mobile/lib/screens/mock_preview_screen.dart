@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../features/session_list/state/session_list_cubit.dart';
+import '../features/session_list/state/session_list_state.dart';
 import '../features/session_list/widgets/home_content.dart';
 import '../mock/mock_scenarios.dart';
 import '../mock/mock_sessions.dart';
@@ -861,6 +862,10 @@ class _StoreSessionListWrapperState extends State<_StoreSessionListWrapper> {
             onLongPressRunningSession: (_) {},
             onSelectProject: (_) {},
             onLoadMore: () {},
+            providerFilter: ProviderFilter.all,
+            namedOnly: false,
+            onToggleProvider: () {},
+            onToggleNamed: () {},
           ),
           floatingActionButton: FloatingActionButton(
             onPressed: () {},

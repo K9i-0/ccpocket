@@ -71,6 +71,21 @@ class SessionListCubit extends Cubit<SessionListState> {
     emit(state.copyWith(searchQuery: query));
   }
 
+  /// Toggle provider filter: All → Claude → Codex → All.
+  void toggleProviderFilter() {
+    final next = switch (state.providerFilter) {
+      ProviderFilter.all => ProviderFilter.claude,
+      ProviderFilter.claude => ProviderFilter.codex,
+      ProviderFilter.codex => ProviderFilter.all,
+    };
+    emit(state.copyWith(providerFilter: next));
+  }
+
+  /// Toggle named-only filter on/off.
+  void toggleNamedOnly() {
+    emit(state.copyWith(namedOnly: !state.namedOnly));
+  }
+
   /// Load more sessions (pagination).
   void loadMore() {
     emit(state.copyWith(isLoadingMore: true));
@@ -97,6 +112,8 @@ class SessionListCubit extends Cubit<SessionListState> {
         accumulatedProjectPaths: const {},
         isLoadingMore: false,
         isInitialLoading: true,
+        providerFilter: ProviderFilter.all,
+        namedOnly: false,
       ),
     );
   }
