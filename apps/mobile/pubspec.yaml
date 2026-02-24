@@ -78,6 +78,13 @@ dependencies:
   syntax_highlight: ^0.5.0
   in_app_review: ^2.0.11
 
+dependency_overrides:
+  # Temporary: use 16KB page-aligned fork until irondash/irondash#77 is merged
+  irondash_engine_context:
+    git:
+      url: https://github.com/Sabbar-Engineering/irondash
+      path: engine_context/dart
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

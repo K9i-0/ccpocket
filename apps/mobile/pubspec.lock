@@ -920,12 +920,13 @@ packages:
     source: hosted
     version: "1.0.5"
   irondash_engine_context:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: irondash_engine_context
-      sha256: "2bb0bc13dfda9f5aaef8dde06ecc5feb1379f5bb387d59716d799554f3f305d7"
-      url: "https://pub.dev"
-    source: hosted
+      path: "engine_context/dart"
+      ref: HEAD
+      resolved-ref: "3c8667f62ab0643361f4d9b393ab2b6229d28801"
+      url: "https://github.com/Sabbar-Engineering/irondash"
+    source: git
     version: "0.5.5"
   irondash_message_channel:
     dependency: transitive
