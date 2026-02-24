@@ -6,7 +6,7 @@
 #
 # デフォルトで staging トラックに配信する。
 # stable に昇格するには promote.sh を使う。
-# 常に --allow-asset-diffs を付与し、非TTY環境でも安定動作する。
+# 常に --allow-asset-diffs と --allow-native-diffs を付与し、非TTY環境でも安定動作する。
 
 set -euo pipefail
 export PATH="$HOME/.shorebird/bin:$PATH"
@@ -36,6 +36,7 @@ shorebird patch "$PLATFORM" \
   --release-version="$RELEASE_VERSION" \
   --track=staging \
   --allow-asset-diffs \
+  --allow-native-diffs \
   "$@"
 
 echo ""
