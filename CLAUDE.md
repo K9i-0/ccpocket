@@ -259,7 +259,7 @@ cd apps/mobile/build/web && python3 -m http.server 8888
 |--------|---------|------|
 | release-bridge | `/release-bridge` | Bridge Server リリース（version bump + CHANGELOG + タグ → npm publish） |
 | release-mobile | `/release-mobile` | モバイルアプリ リリース（version bump + CHANGELOG + タグ → Shorebird + ストア配布） |
-| shorebird-patch | `/shorebird-patch` | Shorebird OTA パッチ作成・配布（ローカル実行） |
+| shorebird-patch | `/shorebird-patch` | Shorebird OTA パッチ作成（staging → promote → stable） |
 | test-bridge | `/test-bridge` | Bridge Server の Vitest テスト実行・TypeScript型チェック |
 | test-flutter | `/test-flutter` | Flutter App のテスト実行・dart analyze・format |
 | mobile-automation | `/mobile-automation` | MCP (dart-mcp + Marionette) E2E自動化・UI検証ガイド |
@@ -290,14 +290,19 @@ Bridge と Flutter の両方に影響がある場合は両方実行する。
 /release-mobile
 ```
 
-### OTA パッチ（ローカル実行）
+### OTA パッチ（staging → promote → stable）
 
 ```bash
-# パッチ作成 (stable)
+# パッチ作成 (staging)
 bash .claude/skills/shorebird-patch/patch.sh ios <version>
 bash .claude/skills/shorebird-patch/patch.sh android <version>
+
+# 検証後に stable へ昇格
+bash .claude/skills/shorebird-patch/promote.sh <version> <patch-number>
 ```
 
+- パッチはデフォルトで **staging** に配信される
+- アプリのデバッグ画面（ロゴ5連打）で Update Track を Staging に変更して検証可能
 - パッチスクリプトは `--allow-asset-diffs` を常時付与し、非TTY環境でも安定動作する
 - `shorebird` コマンドを直接実行する場合は `--release-version` フラグ必須
 - 詳細は `/shorebird-patch` スキルを参照

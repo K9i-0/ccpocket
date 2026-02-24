@@ -23,6 +23,7 @@
     "functions:build": "npm --prefix functions run build",
     "functions:deploy": "npm --prefix functions run deploy",
     "shorebird:patch:android": "bash .claude/skills/shorebird-patch/patch.sh android",
-    "shorebird:patch:ios": "bash .claude/skills/shorebird-patch/patch.sh ios"
+    "shorebird:patch:ios": "bash .claude/skills/shorebird-patch/patch.sh ios",
+    "shorebird:promote": "bash .claude/skills/shorebird-patch/promote.sh"
   }
 }

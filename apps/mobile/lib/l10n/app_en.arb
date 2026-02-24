@@ -239,6 +239,11 @@
   "viewApplicationLogs": "View application logs",
   "mockPreview": "Mock Preview",
   "viewMockChatScenarios": "View mock chat scenarios",
+  "updateTrack": "Update Track",
+  "updateTrackDescription": "Restart app after changing to apply",
+  "updateTrackStable": "Stable",
+  "updateTrackStaging": "Staging",
+  "updateDownloaded": "Update downloaded. Restart app to apply.",
 
   "promptHistory": "Prompt History",
   "frequent": "Frequent",

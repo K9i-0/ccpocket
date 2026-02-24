@@ -438,13 +438,21 @@ class _VersionTileState extends State<_VersionTile> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-
     final l = AppLocalizations.of(context);
 
-    return ListTile(
-      leading: Icon(Icons.info_outline, color: cs.onSurfaceVariant),
-      title: Text(l.version),
-      subtitle: Text(_versionText ?? l.loading),
+    return BlocBuilder<SettingsCubit, SettingsState>(
+      builder: (context, settings) {
+        final trackSuffix = settings.shorebirdTrack != 'stable'
+            ? ' [${settings.shorebirdTrack}]'
+            : '';
+        return ListTile(
+          leading: Icon(Icons.info_outline, color: cs.onSurfaceVariant),
+          title: Text(l.version),
+          subtitle: Text(
+            _versionText != null ? '$_versionText$trackSuffix' : l.loading,
+          ),
+        );
+      },
     );
   }
 }

@@ -694,6 +694,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewMockChatScenarios => 'View mock chat scenarios';
 
   @override
+  String get updateTrack => 'Update Track';
+
+  @override
+  String get updateTrackDescription => 'Restart app after changing to apply';
+
+  @override
+  String get updateTrackStable => 'Stable';
+
+  @override
+  String get updateTrackStaging => 'Staging';
+
+  @override
+  String get updateDownloaded => 'Update downloaded. Restart app to apply.';
+
+  @override
   String get promptHistory => 'Prompt History';
 
   @override

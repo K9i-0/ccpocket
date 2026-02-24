@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.22.0] - 2026-02-24
+
+### Added
+- Session list filters: filter by provider (Claude/Codex) and named/unnamed sessions, with name search
+- Shorebird update track switching: change between stable and staging tracks via hidden debug screen
+
+### Changed
+- Shorebird auto_update disabled; app now manually controls update checks with track selection
+
+### Fixed
+- Update app name and subtitle metadata for App Store resubmission
+
 ## [1.21.2] - 2026-02-24
 
 ### Changed

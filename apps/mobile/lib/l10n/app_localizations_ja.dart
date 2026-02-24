@@ -684,6 +684,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get viewMockChatScenarios => 'モックチャットシナリオを表示';
 
   @override
+  String get updateTrack => 'アップデートトラック';
+
+  @override
+  String get updateTrackDescription => '変更後にアプリを再起動すると反映されます';
+
+  @override
+  String get updateTrackStable => 'Stable（安定版）';
+
+  @override
+  String get updateTrackStaging => 'Staging（テスト）';
+
+  @override
+  String get updateDownloaded => 'アップデートをダウンロードしました。アプリを再起動すると反映されます。';
+
+  @override
   String get promptHistory => 'プロンプト履歴';
 
   @override

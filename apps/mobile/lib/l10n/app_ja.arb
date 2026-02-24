@@ -311,6 +311,11 @@
   "viewApplicationLogs": "アプリケーションログを表示",
   "mockPreview": "モックプレビュー",
   "viewMockChatScenarios": "モックチャットシナリオを表示",
+  "updateTrack": "アップデートトラック",
+  "updateTrackDescription": "変更後にアプリを再起動すると反映されます",
+  "updateTrackStable": "Stable（安定版）",
+  "updateTrackStaging": "Staging（テスト）",
+  "updateDownloaded": "アップデートをダウンロードしました。アプリを再起動すると反映されます。",
 
   "promptHistory": "プロンプト履歴",
   "frequent": "頻度順",

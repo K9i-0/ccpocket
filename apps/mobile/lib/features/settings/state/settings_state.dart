@@ -48,6 +48,9 @@ abstract class SettingsState with _$SettingsState {
 
     /// Last push sync status key (resolved to localized string in UI).
     FcmStatusKey? fcmStatusKey,
+
+    /// Shorebird update track ('stable' or 'staging').
+    @Default('stable') String shorebirdTrack,
   }) = _SettingsState;
 
   /// Whether push notifications are enabled for the currently connected machine.

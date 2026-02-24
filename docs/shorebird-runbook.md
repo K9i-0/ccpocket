@@ -84,26 +84,29 @@ git tag ios/vX.Y.Z+N && git push origin ios/vX.Y.Z+N
 git tag android/vX.Y.Z+N && git push origin android/vX.Y.Z+N
 ```
 
-### Patch
+### Patch (staging)
 
 ```bash
-# Android (stable track)
+# Android (staging track)
 bash .claude/skills/shorebird-patch/patch.sh android <release-version>
 
-# iOS (stable track)
+# iOS (staging track)
 bash .claude/skills/shorebird-patch/patch.sh ios <release-version>
 ```
 
-### Preview (実機確認)
+### 検証 (staging)
 
 ```bash
-shorebird preview --release-version=<release-version> --patch-number=<patch-number>
+# ローカルプレビュー
+shorebird preview --track=staging --release-version=<release-version>
+
+# 実機 (TestFlight等): デバッグ画面 → Update Track を Staging に → アプリ再起動
 ```
 
 ### Promote (staging → stable)
 
 ```bash
-shorebird patch promote --release-version=<release-version> --patch-number=<patch-number>
+bash .claude/skills/shorebird-patch/promote.sh <release-version> <patch-number>
 ```
 
 ### npm scripts
@@ -111,6 +114,7 @@ shorebird patch promote --release-version=<release-version> --patch-number=<patc
 ```bash
 npm run shorebird:patch:android -- <release-version>
 npm run shorebird:patch:ios -- <release-version>
+npm run shorebird:promote -- <release-version> <patch-number>
 ```
 
 ## 運用フロー
@@ -125,9 +129,9 @@ npm run shorebird:patch:ios -- <release-version>
 ### Hotfix (Dart のみの変更)
 
 1. 修正をコミット
-2. `bash .claude/skills/shorebird-patch/patch.sh android <release-version>`
-3. `shorebird preview --release-version=<release-version> --patch-number=<patch-number>` で確認
-4. `shorebird patch promote --release-version=<release-version> --patch-number=<patch-number>` で stable 昇格
+2. `bash .claude/skills/shorebird-patch/patch.sh android <release-version>` → staging に配信
+3. 検証: デバッグ画面で Update Track を Staging に → アプリ再起動で確認
+4. `bash .claude/skills/shorebird-patch/promote.sh <release-version> <patch-number>` → stable に昇格
 5. iOS も同様に実施
 
 ### 緊急ロールバック
@@ -150,30 +154,28 @@ Shorebird Console (`https://console.shorebird.dev/`) から:
 
 ### ワークフロー構成
 
-手動 dispatch で `release` / `patch` を分離:
+タグ駆動で `release`、手動 dispatch で `patch` を分離:
 
 ```yaml
-# .github/workflows/shorebird-release.yml
+# .github/workflows/ios-release.yml / android-release.yml
 on:
-  workflow_dispatch:
-    inputs:
-      platform:
-        type: choice
-        options: [android, ios]
+  push:
+    tags: ['ios/v*'] / ['android/v*']
 
-# .github/workflows/shorebird-patch.yml
+# .github/workflows/ios-patch.yml / android-patch.yml
 on:
   workflow_dispatch:
     inputs:
-      platform:
-        type: choice
-        options: [android, ios]
       release_version:
         type: string
         required: true
+      track:
+        type: choice
+        default: staging
+        options: [staging, stable]
 ```
 
-iOS は `--no-codesign` で CI ビルドし、署名は既存の配布工程へ接続。
+CI パッチはデフォルトで staging に配信される。検証後に promote するか、緊急時は stable を直接選択する。
 
 ## 検証チェックリスト
 

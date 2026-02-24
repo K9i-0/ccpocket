@@ -5,6 +5,14 @@ on:
       release_version:
         description: 'The release version to patch (e.g. 1.0.0+8)'
         required: true
+      track:
+        description: 'Target track'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - stable
 jobs:
   patch:
     runs-on: macos-26
@@ -53,5 +61,5 @@ jobs:
         run: |
           shorebird patch ios \
             --release-version=${{ inputs.release_version }} \
-            --track=staging \
+            --track=${{ inputs.track }} \
             --export-options-plist=$HOME/export_options.plist

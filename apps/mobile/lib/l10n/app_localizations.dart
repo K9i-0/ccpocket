@@ -1364,6 +1364,36 @@ abstract class AppLocalizations {
   /// **'モックチャットシナリオを表示'**
   String get viewMockChatScenarios;
 
+  /// No description provided for @updateTrack.
+  ///
+  /// In ja, this message translates to:
+  /// **'アップデートトラック'**
+  String get updateTrack;
+
+  /// No description provided for @updateTrackDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更後にアプリを再起動すると反映されます'**
+  String get updateTrackDescription;
+
+  /// No description provided for @updateTrackStable.
+  ///
+  /// In ja, this message translates to:
+  /// **'Stable（安定版）'**
+  String get updateTrackStable;
+
+  /// No description provided for @updateTrackStaging.
+  ///
+  /// In ja, this message translates to:
+  /// **'Staging（テスト）'**
+  String get updateTrackStaging;
+
+  /// No description provided for @updateDownloaded.
+  ///
+  /// In ja, this message translates to:
+  /// **'アップデートをダウンロードしました。アプリを再起動すると反映されます。'**
+  String get updateDownloaded;
+
   /// No description provided for @promptHistory.
   ///
   /// In ja, this message translates to:

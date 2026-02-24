@@ -23,6 +23,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shorebird_code_push/shorebird_code_push.dart';
 import 'package:talker_bloc_logger/talker_bloc_logger.dart';
 
 import 'core/logger.dart';
@@ -54,6 +55,23 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // No-op: FCM notification messages are automatically displayed by the OS.
   // This handler is registered to prevent the "no onBackgroundMessage handler"
   // warning on Android.
+}
+
+/// Checks for Shorebird patches using the user-selected update track.
+Future<void> _checkShorebirdUpdate(SharedPreferences prefs) async {
+  try {
+    final updater = ShorebirdUpdater();
+    final trackName =
+        prefs.getString(SettingsCubit.keyShorebirdTrack) ?? 'stable';
+    final track = UpdateTrack(trackName);
+    final status = await updater.checkForUpdate(track: track);
+    if (status == UpdateStatus.outdated) {
+      await updater.update(track: track);
+      logger.info('[shorebird] Patch downloaded (track: $trackName)');
+    }
+  } catch (e) {
+    logger.warning('[shorebird] Update check failed: $e');
+  }
 }
 
 void main() async {
@@ -99,6 +117,11 @@ void main() async {
   final sshStartupService = kIsWeb
       ? null
       : SshStartupService(machineManagerService);
+
+  // Shorebird manual update check (auto_update is disabled in shorebird.yaml).
+  // Reads the user-selected track from SharedPreferences and checks for patches
+  // in the background. The patch is applied on next app restart.
+  unawaited(_checkShorebirdUpdate(prefs));
 
   final bridge = BridgeService();
   final draftService = DraftService(prefs);

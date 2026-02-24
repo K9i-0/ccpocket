@@ -1,6 +1,7 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shorebird_code_push/shorebird_code_push.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../core/logger.dart';
@@ -54,6 +55,18 @@ class DebugScreen extends StatelessWidget {
                 ),
               ),
               ListTile(
+                key: const ValueKey('debug_update_track_button'),
+                leading: Icon(Icons.update, color: cs.primary),
+                title: Text(l.updateTrack),
+                subtitle: Text(
+                  settings.shorebirdTrack == 'staging'
+                      ? l.updateTrackStaging
+                      : l.updateTrackStable,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showUpdateTrackSheet(context, settings),
+              ),
+              ListTile(
                 leading: const Icon(Icons.article_outlined),
                 title: Text(l.logs),
                 subtitle: Text(l.viewApplicationLogs),
@@ -76,6 +89,70 @@ class DebugScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  void _showUpdateTrackSheet(BuildContext context, SettingsState settings) {
+    final l = AppLocalizations.of(context);
+    final tracks = [
+      ('stable', l.updateTrackStable),
+      ('staging', l.updateTrackStaging),
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                l.updateTrackDescription,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            RadioGroup<String>(
+              groupValue: settings.shorebirdTrack,
+              onChanged: (v) {
+                if (v != null) {
+                  context.read<SettingsCubit>().setShorebirdTrack(v);
+                  Navigator.pop(context);
+                  _checkForUpdate(context, v);
+                }
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final (value, label) in tracks)
+                    RadioListTile<String>(title: Text(label), value: value),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _checkForUpdate(BuildContext context, String trackName) async {
+    try {
+      final updater = ShorebirdUpdater();
+      final track = UpdateTrack(trackName);
+      final status = await updater.checkForUpdate(track: track);
+      if (status == UpdateStatus.outdated) {
+        await updater.update(track: track);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).updateDownloaded),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      logger.warning('[shorebird] checkForUpdate failed: $e');
+    }
   }
 
   String _getThemeLabel(BuildContext context, ThemeMode mode) {

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# patch.sh - Shorebird パッチ作成 (stable)
+# patch.sh - Shorebird パッチ作成 (staging)
 #
 # Usage: patch.sh <ios|android> <release-version> [extra-args...]
 # Example: patch.sh ios 1.7.0+20
 #
+# デフォルトで staging トラックに配信する。
+# stable に昇格するには promote.sh を使う。
 # 常に --allow-asset-diffs を付与し、非TTY環境でも安定動作する。
 
 set -euo pipefail
@@ -24,22 +26,22 @@ PROJECT_DIR="$SCRIPT_DIR/../../../apps/mobile"
 
 echo "=== Shorebird Patch ($PLATFORM) ==="
 echo "Release version: $RELEASE_VERSION"
-echo "Track: stable"
+echo "Track: staging"
 echo ""
 
 cd "$PROJECT_DIR"
 
-# 静的検証 (CIやpre-stopフックで検証済みのためスキップ)
-# echo "--- Running dart analyze ---"
-# dart analyze .
-
-echo ""
-echo "--- Creating $PLATFORM patch (stable) ---"
+echo "--- Creating $PLATFORM patch (staging) ---"
 shorebird patch "$PLATFORM" \
   --release-version="$RELEASE_VERSION" \
+  --track=staging \
   --allow-asset-diffs \
   "$@"
 
 echo ""
 echo "=== Done ==="
-echo "Patch published to stable. Users will receive it on next app restart."
+echo "Patch published to staging."
+echo ""
+echo "Next steps:"
+echo "  1. Verify: Open debug screen → set track to 'Staging' → restart app"
+echo "  2. Promote: bash $SCRIPT_DIR/promote.sh <release-version> <patch-number>"

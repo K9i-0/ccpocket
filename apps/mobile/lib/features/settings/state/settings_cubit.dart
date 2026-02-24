@@ -28,6 +28,10 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keySpeechLocale = 'settings_speech_locale';
   static const _keyFcmMachines = 'settings_fcm_machines';
   static const _keyFcmPrivacyMachines = 'settings_fcm_privacy_machines';
+
+  /// SharedPreferences key for the Shorebird update track.
+  /// Also read directly from SharedPreferences in main.dart at startup.
+  static const keyShorebirdTrack = 'settings_shorebird_track';
   // Legacy key for migration
   static const _keyFcmEnabled = 'settings_fcm_enabled';
 
@@ -125,6 +129,8 @@ class SettingsCubit extends Cubit<SettingsState> {
       fcmPrivacyMachines = list.cast<String>().toSet();
     }
 
+    final shorebirdTrack = prefs.getString(keyShorebirdTrack) ?? 'stable';
+
     return SettingsState(
       themeMode:
           (themeModeIndex != null &&
@@ -136,6 +142,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       speechLocaleId: speechLocale ?? 'ja-JP',
       fcmEnabledMachines: fcmMachines,
       fcmPrivacyMachines: fcmPrivacyMachines,
+      shorebirdTrack: shorebirdTrack,
     );
   }
 
@@ -188,6 +195,11 @@ class SettingsCubit extends Cubit<SettingsState> {
     if (!state.fcmEnabled) return;
     emit(state.copyWith(fcmSyncInProgress: true, fcmStatusKey: null));
     await _syncPushRegistration();
+  }
+
+  void setShorebirdTrack(String track) {
+    _prefs.setString(keyShorebirdTrack, track);
+    emit(state.copyWith(shorebirdTrack: track));
   }
 
   void setSpeechLocaleId(String localeId) {
