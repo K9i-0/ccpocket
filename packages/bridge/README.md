@@ -7,7 +7,7 @@ This is the server component of [ccpocket](https://github.com/K9i-0/ccpocket) â€
 ## Quick Start
 
 ```bash
-npx @ccpocket/bridge
+npx @ccpocket/bridge@latest
 ```
 
 A QR code will appear in your terminal. Scan it with the ccpocket mobile app to connect.
@@ -16,7 +16,7 @@ A QR code will appear in your terminal. Scan it with the ccpocket mobile app to 
 
 ```bash
 # Run directly (no install needed)
-npx @ccpocket/bridge
+npx @ccpocket/bridge@latest
 
 # Or install globally
 npm install -g @ccpocket/bridge
@@ -34,7 +34,7 @@ ccpocket-bridge
 
 ```bash
 # Example: custom port with API key
-BRIDGE_PORT=9000 BRIDGE_API_KEY=my-secret npx @ccpocket/bridge
+BRIDGE_PORT=9000 BRIDGE_API_KEY=my-secret npx @ccpocket/bridge@latest
 ```
 
 ## Requirements

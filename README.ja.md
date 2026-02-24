@@ -28,7 +28,7 @@ Claude Code / Codex対応モバイルクライアント。Bridge Server経由で
 
 ```bash
 # npxで即実行 (インストール不要)
-npx @ccpocket/bridge
+npx @ccpocket/bridge@latest
 
 # またはグローバルインストール
 npm install -g @ccpocket/bridge

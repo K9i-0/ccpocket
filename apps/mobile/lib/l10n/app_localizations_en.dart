@@ -107,13 +107,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get setupStep1Title => 'Start the Bridge server';
 
   @override
-  String get setupStep1Command => 'npx @ccpocket/bridge';
+  String get setupStep1Command => 'npx @ccpocket/bridge@latest';
 
   @override
   String get setupStep2Title => 'For persistent startup, register as service';
 
   @override
-  String get setupStep2Command => 'npx @ccpocket/bridge setup';
+  String get setupStep2Command => 'npx @ccpocket/bridge@latest setup';
 
   @override
   String get setupNetworkHint =>
@@ -564,7 +564,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get guideBridgeStep1 => 'Run with npx (recommended)';
 
   @override
-  String get guideBridgeStep1Command => 'npx @ccpocket/bridge';
+  String get guideBridgeStep1Command => 'npx @ccpocket/bridge@latest';
 
   @override
   String get guideBridgeStep2 => 'Or install globally';
@@ -643,7 +643,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get guideLaunchdCommand => 'Setup Command';
 
   @override
-  String get guideLaunchdCommandValue => 'npx @ccpocket/bridge setup';
+  String get guideLaunchdCommandValue => 'npx @ccpocket/bridge@latest setup';
 
   @override
   String get guideLaunchdRecommendation =>

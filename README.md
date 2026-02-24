@@ -28,7 +28,7 @@ Mobile client for Claude Code and Codex. Control coding agents from your iPhone 
 
 ```bash
 # Run directly with npx (no install needed)
-npx @ccpocket/bridge
+npx @ccpocket/bridge@latest
 
 # Or install globally
 npm install -g @ccpocket/bridge

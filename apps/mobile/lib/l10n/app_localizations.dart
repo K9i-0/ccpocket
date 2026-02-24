@@ -293,7 +293,7 @@ abstract class AppLocalizations {
   /// No description provided for @setupStep1Command.
   ///
   /// In ja, this message translates to:
-  /// **'npx @ccpocket/bridge'**
+  /// **'npx @ccpocket/bridge@latest'**
   String get setupStep1Command;
 
   /// No description provided for @setupStep2Title.
@@ -305,7 +305,7 @@ abstract class AppLocalizations {
   /// No description provided for @setupStep2Command.
   ///
   /// In ja, this message translates to:
-  /// **'npx @ccpocket/bridge setup'**
+  /// **'npx @ccpocket/bridge@latest setup'**
   String get setupStep2Command;
 
   /// No description provided for @setupNetworkHint.
@@ -1133,7 +1133,7 @@ abstract class AppLocalizations {
   /// No description provided for @guideBridgeStep1Command.
   ///
   /// In ja, this message translates to:
-  /// **'npx @ccpocket/bridge'**
+  /// **'npx @ccpocket/bridge@latest'**
   String get guideBridgeStep1Command;
 
   /// No description provided for @guideBridgeStep2.
@@ -1271,7 +1271,7 @@ abstract class AppLocalizations {
   /// No description provided for @guideLaunchdCommandValue.
   ///
   /// In ja, this message translates to:
-  /// **'npx @ccpocket/bridge setup'**
+  /// **'npx @ccpocket/bridge@latest setup'**
   String get guideLaunchdCommandValue;
 
   /// No description provided for @guideLaunchdRecommendation.

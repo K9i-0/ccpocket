@@ -31,7 +31,7 @@ ccpocket connects to a self-hosted Bridge Server running on your Mac or PC, givi
 
 **How It Works**
 
-1. Install the Bridge Server on your Mac/PC: `npx @ccpocket/bridge`
+1. Install the Bridge Server on your Mac/PC: `npx @ccpocket/bridge@latest`
 2. Open ccpocket on your phone and scan the QR code
 3. Start coding with Claude Code or Codex from your phone
 
@@ -62,7 +62,7 @@ ccpocketは、MacやPC上で動作するセルフホストのBridge Serverに接
 
 **使い方**
 
-1. Mac/PCにBridge Serverをインストール: `npx @ccpocket/bridge`
+1. Mac/PCにBridge Serverをインストール: `npx @ccpocket/bridge@latest`
 2. ccpocketを開いてQRコードをスキャン
 3. スマホからClaude CodeやCodexでコーディング開始
 
