@@ -53,10 +53,13 @@ class BridgeService implements BridgeServiceBase {
   List<String> _projectHistory = [];
   UsageResultMessage? _lastUsageResult;
 
-  // Pagination state
+  // Pagination & filter state
   bool _recentSessionsHasMore = false;
   bool _appendMode = false;
   String? _currentProjectFilter;
+  String? _currentProvider;
+  bool? _currentNamedOnly;
+  String? _currentSearchQuery;
 
   // Auto-reconnect
   String? _lastUrl;
@@ -318,6 +321,9 @@ class BridgeService implements BridgeServiceBase {
         limit: limit,
         offset: offset,
         projectPath: projectPath,
+        provider: _currentProvider,
+        namedOnly: _currentNamedOnly,
+        searchQuery: _currentSearchQuery,
       ),
     );
   }
@@ -330,6 +336,9 @@ class BridgeService implements BridgeServiceBase {
         limit: pageSize,
         offset: _recentSessions.length,
         projectPath: _currentProjectFilter,
+        provider: _currentProvider,
+        namedOnly: _currentNamedOnly,
+        searchQuery: _currentSearchQuery,
       ),
     );
   }
@@ -344,6 +353,34 @@ class BridgeService implements BridgeServiceBase {
         limit: pageSize,
         offset: 0,
         projectPath: projectPath,
+        provider: _currentProvider,
+        namedOnly: _currentNamedOnly,
+        searchQuery: _currentSearchQuery,
+      ),
+    );
+  }
+
+  /// Switch all filters at once and re-fetch from offset 0.
+  void switchFilter({
+    String? projectPath,
+    String? provider,
+    bool? namedOnly,
+    String? searchQuery,
+    int pageSize = 20,
+  }) {
+    _currentProjectFilter = projectPath;
+    _currentProvider = provider;
+    _currentNamedOnly = namedOnly;
+    _currentSearchQuery = searchQuery;
+    _appendMode = false;
+    send(
+      ClientMessage.listRecentSessions(
+        limit: pageSize,
+        offset: 0,
+        projectPath: projectPath,
+        provider: provider,
+        namedOnly: namedOnly,
+        searchQuery: searchQuery,
       ),
     );
   }

@@ -193,8 +193,9 @@ class _ActionChip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color:
-                      isActive ? cs.onPrimaryContainer : appColors.subtleText,
+                  color: isActive
+                      ? cs.onPrimaryContainer
+                      : appColors.subtleText,
                 ),
               ),
             ],

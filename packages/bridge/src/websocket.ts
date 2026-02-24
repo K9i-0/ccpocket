@@ -710,6 +710,9 @@ export class BridgeWebSocketServer {
           limit: msg.limit,
           offset: msg.offset,
           projectPath: msg.projectPath,
+          provider: msg.provider,
+          namedOnly: msg.namedOnly,
+          searchQuery: msg.searchQuery,
           archivedSessionIds: this.archiveStore.archivedIds(),
         }).then(({ sessions, hasMore }) => {
           // Drop stale responses when rapid filter switches cause out-of-order completion

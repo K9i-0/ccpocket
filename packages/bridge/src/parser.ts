@@ -81,7 +81,7 @@ export type ClientMessage =
   | { type: "stop_session"; sessionId: string }
   | { type: "rename_session"; sessionId: string; name?: string; provider?: string; providerSessionId?: string; projectPath?: string }
   | { type: "get_history"; sessionId: string }
-  | { type: "list_recent_sessions"; limit?: number; offset?: number; projectPath?: string }
+  | { type: "list_recent_sessions"; limit?: number; offset?: number; projectPath?: string; provider?: "claude" | "codex"; namedOnly?: boolean; searchQuery?: string }
   | {
       type: "resume_session";
       sessionId: string;

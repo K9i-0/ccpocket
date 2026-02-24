@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -76,6 +75,27 @@ class MockBridgeService extends BridgeService {
   }
 
   @override
+  void switchFilter({
+    String? projectPath,
+    String? provider,
+    bool? namedOnly,
+    String? searchQuery,
+    int pageSize = 20,
+  }) {
+    _projectFilter = projectPath;
+    sentMessages.add(
+      ClientMessage.listRecentSessions(
+        limit: pageSize,
+        offset: 0,
+        projectPath: projectPath,
+        provider: provider,
+        namedOnly: namedOnly,
+        searchQuery: searchQuery,
+      ),
+    );
+  }
+
+  @override
   void dispose() {
     _recentSessionsController.close();
     _projectHistoryController.close();
@@ -120,7 +140,6 @@ void main() {
       expect(cubit.state.sessions, isEmpty);
       expect(cubit.state.hasMore, isFalse);
       expect(cubit.state.isLoadingMore, isFalse);
-      expect(cubit.state.selectedProject, isNull);
       expect(cubit.state.searchQuery, isEmpty);
       expect(cubit.state.accumulatedProjectPaths, isEmpty);
     });
@@ -162,25 +181,55 @@ void main() {
       expect(cubit.state.accumulatedProjectPaths, {'/a/proj1', '/c/proj3'});
     });
 
-    test('selectProject updates filter and calls bridge', () async {
+    test('selectProject triggers server re-fetch with isInitialLoading', () {
       cubit.selectProject('/a/proj1');
 
-      expect(cubit.state.selectedProject, 'proj1');
+      expect(cubit.state.isInitialLoading, isTrue);
+      expect(mockBridge.sentMessages, isNotEmpty);
     });
 
-    test('selectProject(null) clears filter', () async {
-      // Set a filter first
+    test('selectProject(null) triggers re-fetch', () {
       cubit.selectProject('/a/proj1');
-      // Then clear it
+      mockBridge.sentMessages.clear();
       cubit.selectProject(null);
 
-      expect(cubit.state.selectedProject, isNull);
+      expect(cubit.state.isInitialLoading, isTrue);
+      expect(mockBridge.sentMessages, isNotEmpty);
     });
 
     test('setSearchQuery updates query', () {
       cubit.setSearchQuery('hello');
 
       expect(cubit.state.searchQuery, 'hello');
+    });
+
+    test('setSearchQuery triggers server request after debounce', () async {
+      cubit.setSearchQuery('hello');
+
+      // Before debounce, no server request yet (beyond initial state)
+      final beforeDebounce = mockBridge.sentMessages.length;
+
+      // Wait for debounce
+      await Future.delayed(const Duration(milliseconds: 350));
+
+      expect(mockBridge.sentMessages.length, greaterThan(beforeDebounce));
+      expect(cubit.state.isInitialLoading, isTrue);
+    });
+
+    test('toggleProviderFilter triggers server re-fetch', () {
+      cubit.toggleProviderFilter();
+
+      expect(cubit.state.providerFilter, isNot(equals(null)));
+      expect(cubit.state.isInitialLoading, isTrue);
+      expect(mockBridge.sentMessages, isNotEmpty);
+    });
+
+    test('toggleNamedOnly triggers server re-fetch', () {
+      cubit.toggleNamedOnly();
+
+      expect(cubit.state.namedOnly, isTrue);
+      expect(cubit.state.isInitialLoading, isTrue);
+      expect(mockBridge.sentMessages, isNotEmpty);
     });
 
     test('loadMore sets isLoadingMore and calls bridge', () async {
@@ -202,12 +251,10 @@ void main() {
     });
 
     test('resetFilters clears all filter state', () {
-      cubit.selectProject('/a/proj1');
       cubit.setSearchQuery('test');
 
       cubit.resetFilters();
 
-      expect(cubit.state.selectedProject, isNull);
       expect(cubit.state.searchQuery, isEmpty);
       expect(cubit.state.accumulatedProjectPaths, isEmpty);
     });

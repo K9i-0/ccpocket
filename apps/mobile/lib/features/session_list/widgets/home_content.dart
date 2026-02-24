@@ -7,7 +7,6 @@ import '../../../models/messages.dart';
 import '../../../services/draft_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/session_card.dart';
-import '../session_list_screen.dart';
 import '../state/session_list_cubit.dart';
 import '../state/session_list_state.dart';
 import 'section_header.dart';
@@ -20,7 +19,6 @@ class HomeContent extends StatefulWidget {
   final List<SessionInfo> sessions;
   final List<RecentSession> recentSessions;
   final Set<String> accumulatedProjectPaths;
-  final String? selectedProject;
   final String searchQuery;
   final bool isLoadingMore;
   final bool isInitialLoading;
@@ -66,7 +64,6 @@ class HomeContent extends StatefulWidget {
     required this.sessions,
     required this.recentSessions,
     required this.accumulatedProjectPaths,
-    required this.selectedProject,
     required this.searchQuery,
     required this.isLoadingMore,
     required this.isInitialLoading,
@@ -184,32 +181,17 @@ class _HomeContentState extends State<HomeContent> {
       return false;
     }
 
-    var filteredSessions = widget.currentProjectFilter != null
-        ? widget.recentSessions
-        : filterByProject(widget.recentSessions, widget.selectedProject);
-    filteredSessions = filterByQuery(filteredSessions, widget.searchQuery);
-    // Apply provider filter
-    if (widget.providerFilter != ProviderFilter.all) {
-      final providerValue = widget.providerFilter == ProviderFilter.codex
-          ? 'codex'
-          : 'claude';
-      filteredSessions = filteredSessions.where((s) {
-        final p = s.provider;
-        if (widget.providerFilter == ProviderFilter.claude) {
-          return p == null || p == 'claude';
-        }
-        return p == providerValue;
-      }).toList();
-    }
-    // Apply named-only filter
-    if (widget.namedOnly) {
-      filteredSessions = filteredSessions
-          .where((s) => s.name != null && s.name!.isNotEmpty)
-          .toList();
-    }
-    filteredSessions = filteredSessions.where((s) => !isDuplicate(s)).toList();
+    // All filtering (project, provider, namedOnly, searchQuery) is applied
+    // server-side. Only deduplicate running sessions here.
+    final filteredSessions = widget.recentSessions
+        .where((s) => !isDuplicate(s))
+        .toList();
 
-    final hasActiveFilter = widget.currentProjectFilter != null;
+    final hasActiveFilter =
+        widget.currentProjectFilter != null ||
+        widget.providerFilter != ProviderFilter.all ||
+        widget.namedOnly ||
+        widget.searchQuery.isNotEmpty;
 
     if (!hasRunningSessions && !hasRecentSessions && !hasActiveFilter) {
       // Show skeleton while initial data is loading

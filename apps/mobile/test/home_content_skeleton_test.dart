@@ -107,7 +107,6 @@ Widget _buildHomeContent({
             sessions: sessions,
             recentSessions: recentSessions,
             accumulatedProjectPaths: const {},
-            selectedProject: null,
             searchQuery: '',
             isLoadingMore: false,
             isInitialLoading: isInitialLoading,

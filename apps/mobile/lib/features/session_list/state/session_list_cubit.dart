@@ -10,13 +10,14 @@ import 'session_list_state.dart';
 /// Manages session list state: sessions, filters, pagination, and
 /// accumulated project paths.
 ///
-/// Subscribes to [BridgeService.recentSessionsStream] and
-/// [BridgeService.projectHistoryStream] to accumulate project paths
-/// and track session data.
+/// All filters (project, provider, namedOnly, searchQuery) are applied
+/// server-side. Filter changes trigger a re-fetch from offset 0 with
+/// a skeleton loading state.
 class SessionListCubit extends Cubit<SessionListState> {
   final BridgeService _bridge;
   StreamSubscription<List<RecentSession>>? _recentSub;
   StreamSubscription<List<String>>? _projectHistorySub;
+  Timer? _searchDebounce;
 
   SessionListCubit({required BridgeService bridge})
     : _bridge = bridge,
@@ -75,19 +76,29 @@ class SessionListCubit extends Cubit<SessionListState> {
     }
   }
 
-  // ---- Filter commands ----
+  // ---- Filter commands (all trigger server re-fetch) ----
 
   /// Switch project filter. Resets sessions on the server side and fetches
   /// from offset 0 for the selected project.
   void selectProject(String? projectPath) {
-    final projectName = projectPath?.split('/').last;
-    emit(state.copyWith(selectedProject: projectName));
-    _bridge.switchProjectFilter(projectPath);
+    emit(state.copyWith(isInitialLoading: true));
+    _bridge.switchFilter(
+      projectPath: projectPath,
+      provider: _providerToString(state.providerFilter),
+      namedOnly: state.namedOnly ? true : null,
+      searchQuery: state.searchQuery.isNotEmpty ? state.searchQuery : null,
+    );
   }
 
-  /// Set search query (client-side only).
+  /// Set search query with debounce (server-side).
   void setSearchQuery(String query) {
     emit(state.copyWith(searchQuery: query));
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (isClosed) return;
+      emit(state.copyWith(isInitialLoading: true));
+      _requestWithCurrentFilters();
+    });
   }
 
   /// Toggle provider filter: All → Claude → Codex → All.
@@ -97,17 +108,23 @@ class SessionListCubit extends Cubit<SessionListState> {
       ProviderFilter.claude => ProviderFilter.codex,
       ProviderFilter.codex => ProviderFilter.all,
     };
-    emit(state.copyWith(providerFilter: next));
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('session_list_provider', next.name);
+    emit(state.copyWith(providerFilter: next, isInitialLoading: true));
+    _requestWithCurrentFilters();
+    // Persist preference in background (fire-and-forget).
+    SharedPreferences.getInstance().then(
+      (prefs) => prefs.setString('session_list_provider', next.name),
+    );
   }
 
   /// Toggle named-only filter on/off.
   void toggleNamedOnly() async {
     final next = !state.namedOnly;
-    emit(state.copyWith(namedOnly: next));
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('session_list_named_only', next);
+    emit(state.copyWith(namedOnly: next, isInitialLoading: true));
+    _requestWithCurrentFilters();
+    // Persist preference in background (fire-and-forget).
+    SharedPreferences.getInstance().then(
+      (prefs) => prefs.setBool('session_list_named_only', next),
+    );
   }
 
   /// Load more sessions (pagination).
@@ -119,19 +136,16 @@ class SessionListCubit extends Cubit<SessionListState> {
   /// Request fresh data from the server.
   void refresh() {
     _bridge.requestSessionList();
-    _bridge.requestRecentSessions(
-      offset: 0,
-      projectPath: _bridge.currentProjectFilter,
-    );
+    _requestWithCurrentFilters();
     _bridge.requestProjectHistory();
   }
 
   /// Reset all filter state (used on disconnect).
   void resetFilters() {
+    _searchDebounce?.cancel();
     emit(
       state.copyWith(
         sessions: const [],
-        selectedProject: null,
         searchQuery: '',
         accumulatedProjectPaths: const {},
         isLoadingMore: false,
@@ -142,8 +156,28 @@ class SessionListCubit extends Cubit<SessionListState> {
     );
   }
 
+  // ---- Private helpers ----
+
+  /// Send a re-fetch request with all current filters applied.
+  void _requestWithCurrentFilters() {
+    _bridge.switchFilter(
+      projectPath: _bridge.currentProjectFilter,
+      provider: _providerToString(state.providerFilter),
+      namedOnly: state.namedOnly ? true : null,
+      searchQuery: state.searchQuery.isNotEmpty ? state.searchQuery : null,
+    );
+  }
+
+  /// Convert [ProviderFilter] enum to the wire-format string (or null for all).
+  static String? _providerToString(ProviderFilter f) => switch (f) {
+    ProviderFilter.all => null,
+    ProviderFilter.claude => 'claude',
+    ProviderFilter.codex => 'codex',
+  };
+
   @override
   Future<void> close() {
+    _searchDebounce?.cancel();
     _recentSub?.cancel();
     _projectHistorySub?.cancel();
     return super.close();

@@ -23,20 +23,18 @@ abstract class SessionListState with _$SessionListState {
     /// Initial loading (true until the first recent sessions response arrives).
     @Default(true) bool isInitialLoading,
 
-    /// Client-side project name filter (null = show all).
-    String? selectedProject,
-
-    /// Client-side text search query.
+    /// Client-side text search query (bound to the TextField, sent to server
+    /// after debounce).
     @Default('') String searchQuery,
 
     /// Accumulated project paths from all loaded sessions + project history.
     /// Used for the "New Session" project picker.
     @Default({}) Set<String> accumulatedProjectPaths,
 
-    /// Client-side provider filter (All / Claude / Codex).
+    /// Provider filter (All / Claude / Codex). Applied server-side.
     @Default(ProviderFilter.all) ProviderFilter providerFilter,
 
-    /// Client-side named-only filter toggle.
+    /// Named-only filter toggle. Applied server-side.
     @Default(false) bool namedOnly,
   }) = _SessionListState;
 }

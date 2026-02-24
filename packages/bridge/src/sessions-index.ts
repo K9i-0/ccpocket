@@ -54,6 +54,12 @@ export interface GetRecentSessionsOptions {
   projectPath?: string; // filter by project
   /** Session IDs to exclude (archived sessions). */
   archivedSessionIds?: ReadonlySet<string>;
+  /** Filter by provider (claude or codex). */
+  provider?: "claude" | "codex";
+  /** Show only sessions with a non-empty name. */
+  namedOnly?: boolean;
+  /** Free-text search across name, firstPrompt, lastPrompt and summary. */
+  searchQuery?: string;
 }
 
 export interface GetRecentSessionsResult {
@@ -301,9 +307,31 @@ export async function getAllRecentSessions(
 
   // Filter out archived sessions
   const archivedIds = options.archivedSessionIds;
-  const filtered = archivedIds
+  let filtered = archivedIds
     ? entries.filter((e) => !archivedIds.has(e.sessionId))
-    : entries;
+    : [...entries];
+
+  // Filter by provider
+  if (options.provider) {
+    filtered = filtered.filter((e) => e.provider === options.provider);
+  }
+
+  // Filter named only
+  if (options.namedOnly) {
+    filtered = filtered.filter((e) => e.name != null && e.name !== "");
+  }
+
+  // Filter by search query (name, firstPrompt, lastPrompt, summary)
+  if (options.searchQuery) {
+    const q = options.searchQuery.toLowerCase();
+    filtered = filtered.filter(
+      (e) =>
+        e.name?.toLowerCase().includes(q) ||
+        e.firstPrompt?.toLowerCase().includes(q) ||
+        e.lastPrompt?.toLowerCase().includes(q) ||
+        e.summary?.toLowerCase().includes(q),
+    );
+  }
 
   // Sort by modified descending
   filtered.sort((a, b) => {

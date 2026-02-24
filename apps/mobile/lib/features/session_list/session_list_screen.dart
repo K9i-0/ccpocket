@@ -820,7 +820,6 @@ class _SessionListScreenState extends State<SessionListScreen>
                   sessions: sessions,
                   recentSessions: recentSessionsList,
                   accumulatedProjectPaths: slState.accumulatedProjectPaths,
-                  selectedProject: slState.selectedProject,
                   searchQuery: slState.searchQuery,
                   isLoadingMore: slState.isLoadingMore,
                   isInitialLoading: slState.isInitialLoading,

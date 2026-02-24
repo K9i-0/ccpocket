@@ -1597,12 +1597,18 @@ class ClientMessage {
     int? limit,
     int? offset,
     String? projectPath,
+    String? provider,
+    bool? namedOnly,
+    String? searchQuery,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'list_recent_sessions',
       'limit': ?limit,
       'offset': ?offset,
       'projectPath': ?projectPath,
+      'provider': ?provider,
+      'namedOnly': ?namedOnly,
+      'searchQuery': ?searchQuery,
     });
   }
 

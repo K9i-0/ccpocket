@@ -839,7 +839,6 @@ class _StoreSessionListWrapperState extends State<_StoreSessionListWrapper> {
             sessions: running,
             recentSessions: recent,
             accumulatedProjectPaths: projectPaths,
-            selectedProject: null,
             searchQuery: '',
             isLoadingMore: false,
             isInitialLoading: false,
