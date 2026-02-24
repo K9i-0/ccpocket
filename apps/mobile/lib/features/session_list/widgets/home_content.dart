@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../../models/messages.dart';
@@ -9,9 +10,8 @@ import '../../../widgets/session_card.dart';
 import '../session_list_screen.dart';
 import '../state/session_list_cubit.dart';
 import '../state/session_list_state.dart';
-import 'project_filter_chips.dart';
 import 'section_header.dart';
-import 'session_filter_chips.dart';
+import 'session_filter_bar.dart';
 import 'session_list_empty_state.dart';
 import 'session_reconnect_banner.dart';
 
@@ -98,6 +98,36 @@ class _HomeContentState extends State<HomeContent> {
   bool _isSearching = false;
   final _searchController = TextEditingController();
   SessionDisplayMode _displayMode = SessionDisplayMode.first;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDisplayMode();
+  }
+
+  Future<void> _loadDisplayMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final modeStr = prefs.getString('session_list_display_mode');
+    if (modeStr != null && mounted) {
+      setState(() {
+        _displayMode = SessionDisplayMode.values.firstWhere(
+          (m) => m.name == modeStr,
+          orElse: () => SessionDisplayMode.first,
+        );
+      });
+    }
+  }
+
+  void _toggleDisplayMode() async {
+    final next = switch (_displayMode) {
+      SessionDisplayMode.first => SessionDisplayMode.last,
+      SessionDisplayMode.last => SessionDisplayMode.summary,
+      SessionDisplayMode.summary => SessionDisplayMode.first,
+    };
+    setState(() => _displayMode = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('session_list_display_mode', next.name);
+  }
 
   @override
   void didUpdateWidget(covariant HomeContent oldWidget) {
@@ -293,32 +323,18 @@ class _HomeContentState extends State<HomeContent> {
             icon: Icons.history,
             label: 'Recent Sessions',
             color: appColors.subtleText,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _SessionDisplayModeToggle(
-                  key: const ValueKey('session_display_mode_toggle'),
-                  mode: _displayMode,
-                  onChanged: (mode) => setState(() => _displayMode = mode),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  key: const ValueKey('search_button'),
-                  icon: Icon(
-                    _isSearching ? Icons.close : Icons.search,
-                    size: 18,
-                    color: appColors.subtleText,
-                  ),
-                  onPressed: _toggleSearch,
-                  tooltip: 'Search',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
+            trailing: IconButton(
+              key: const ValueKey('search_button'),
+              icon: Icon(
+                _isSearching ? Icons.close : Icons.search,
+                size: 18,
+                color: appColors.subtleText,
+              ),
+              onPressed: _toggleSearch,
+              tooltip: 'Search',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              visualDensity: VisualDensity.compact,
             ),
           ),
           if (_isSearching) ...[
@@ -359,21 +375,19 @@ class _HomeContentState extends State<HomeContent> {
             ),
           ],
           const SizedBox(height: 8),
-          SessionFilterChips(
+          SessionFilterBar(
+            displayMode: _displayMode,
+            onToggleDisplayMode: _toggleDisplayMode,
             providerFilter: widget.providerFilter,
+            onToggleProviderFilter: widget.onToggleProvider,
+            projects: widget.accumulatedProjectPaths.map((path) {
+              return (path: path, name: path.split('/').last);
+            }).toList(),
+            currentProjectFilter: widget.currentProjectFilter,
+            onProjectFilterChanged: widget.onSelectProject,
             namedOnly: widget.namedOnly,
-            onToggleProvider: widget.onToggleProvider,
             onToggleNamed: widget.onToggleNamed,
           ),
-          if (widget.accumulatedProjectPaths.length > 1) ...[
-            const SizedBox(height: 4),
-            ProjectFilterChips(
-              accumulatedProjectPaths: widget.accumulatedProjectPaths,
-              recentSessions: widget.recentSessions,
-              currentFilterPath: widget.currentProjectFilter,
-              onSelected: widget.onSelectProject,
-            ),
-          ],
           const SizedBox(height: 8),
           for (final session in filteredSessions)
             RecentSessionCard(
@@ -501,96 +515,6 @@ class _SessionListSkeleton extends StatelessWidget {
           for (final session in _dummySessions)
             RecentSessionCard(session: session, onTap: () {}),
         ],
-      ),
-    );
-  }
-}
-
-class _SessionDisplayModeToggle extends StatelessWidget {
-  final SessionDisplayMode mode;
-  final ValueChanged<SessionDisplayMode> onChanged;
-
-  const _SessionDisplayModeToggle({
-    super.key,
-    required this.mode,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      padding: const EdgeInsets.all(2),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _DisplayModeSegment(
-            label: 'First',
-            value: SessionDisplayMode.first,
-            currentMode: mode,
-            onChanged: onChanged,
-          ),
-          _DisplayModeSegment(
-            label: 'Last',
-            value: SessionDisplayMode.last,
-            currentMode: mode,
-            onChanged: onChanged,
-          ),
-          _DisplayModeSegment(
-            label: 'Sum',
-            value: SessionDisplayMode.summary,
-            currentMode: mode,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DisplayModeSegment extends StatelessWidget {
-  final String label;
-  final SessionDisplayMode value;
-  final SessionDisplayMode currentMode;
-  final ValueChanged<SessionDisplayMode> onChanged;
-
-  const _DisplayModeSegment({
-    required this.label,
-    required this.value,
-    required this.currentMode,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isSelected = currentMode == value;
-
-    return GestureDetector(
-      onTap: () => onChanged(value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? cs.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
-          ),
-        ),
       ),
     );
   }

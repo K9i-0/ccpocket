@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Minimal mock for SessionListCubit tests.
 class MockBridgeService extends BridgeService {
@@ -97,10 +99,13 @@ RecentSession _session({
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late SessionListCubit cubit;
   late MockBridgeService mockBridge;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockBridge = MockBridgeService();
     cubit = SessionListCubit(bridge: mockBridge);
   });

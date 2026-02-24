@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
@@ -23,6 +24,24 @@ class SessionListCubit extends Cubit<SessionListState> {
     _recentSub = _bridge.recentSessionsStream.listen(_onSessionsUpdate);
     _projectHistorySub = _bridge.projectHistoryStream.listen(
       _onProjectHistoryUpdate,
+    );
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final providerStr = prefs.getString('session_list_provider');
+    final namedOnly = prefs.getBool('session_list_named_only');
+
+    var provider = ProviderFilter.all;
+    if (providerStr == ProviderFilter.claude.name) {
+      provider = ProviderFilter.claude;
+    } else if (providerStr == ProviderFilter.codex.name) {
+      provider = ProviderFilter.codex;
+    }
+
+    emit(
+      state.copyWith(providerFilter: provider, namedOnly: namedOnly ?? false),
     );
   }
 
@@ -72,18 +91,23 @@ class SessionListCubit extends Cubit<SessionListState> {
   }
 
   /// Toggle provider filter: All → Claude → Codex → All.
-  void toggleProviderFilter() {
+  void toggleProviderFilter() async {
     final next = switch (state.providerFilter) {
       ProviderFilter.all => ProviderFilter.claude,
       ProviderFilter.claude => ProviderFilter.codex,
       ProviderFilter.codex => ProviderFilter.all,
     };
     emit(state.copyWith(providerFilter: next));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('session_list_provider', next.name);
   }
 
   /// Toggle named-only filter on/off.
-  void toggleNamedOnly() {
-    emit(state.copyWith(namedOnly: !state.namedOnly));
+  void toggleNamedOnly() async {
+    final next = !state.namedOnly;
+    emit(state.copyWith(namedOnly: next));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('session_list_named_only', next);
   }
 
   /// Load more sessions (pagination).
