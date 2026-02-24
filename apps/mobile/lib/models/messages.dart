@@ -540,6 +540,11 @@ sealed class ServerMessage {
         success: json['success'] as bool? ?? false,
         error: json['error'] as String?,
       ),
+      'archive_result' => ArchiveResultMessage(
+        sessionId: json['sessionId'] as String? ?? '',
+        success: json['success'] as bool? ?? false,
+        error: json['error'] as String?,
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -1010,6 +1015,17 @@ class RenameResultMessage implements ServerMessage {
   const RenameResultMessage({
     required this.sessionId,
     this.name,
+    required this.success,
+    this.error,
+  });
+}
+
+class ArchiveResultMessage implements ServerMessage {
+  final String sessionId;
+  final bool success;
+  final String? error;
+  const ArchiveResultMessage({
+    required this.sessionId,
     required this.success,
     this.error,
   });
@@ -1732,6 +1748,19 @@ class ClientMessage {
 
   factory ClientMessage.getPromptHistoryBackupInfo() =>
       ClientMessage._({'type': 'get_prompt_history_backup_info'});
+
+  factory ClientMessage.archiveSession({
+    required String sessionId,
+    required String provider,
+    required String projectPath,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'archive_session',
+      'sessionId': sessionId,
+      'provider': provider,
+      'projectPath': projectPath,
+    });
+  }
 
   String toJson() => jsonEncode(_json);
 }

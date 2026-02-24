@@ -205,6 +205,11 @@ class BridgeService implements BridgeServiceBase {
                 _restoreResultController.add(msg);
               case PromptHistoryBackupInfoMessage():
                 _backupInfoController.add(msg);
+              case ArchiveResultMessage(:final success):
+                if (success) {
+                  // Refresh the recent sessions list to reflect the archived session
+                  requestRecentSessions();
+                }
               case WorktreeRemovedMessage():
                 _messageController.add(msg);
               case AssistantServerMessage(:final message):
@@ -418,6 +423,20 @@ class BridgeService implements BridgeServiceBase {
         name: name,
         provider: provider,
         providerSessionId: providerSessionId,
+        projectPath: projectPath,
+      ),
+    );
+  }
+
+  void archiveSession({
+    required String sessionId,
+    required String provider,
+    required String projectPath,
+  }) {
+    send(
+      ClientMessage.archiveSession(
+        sessionId: sessionId,
+        provider: provider,
         projectPath: projectPath,
       ),
     );

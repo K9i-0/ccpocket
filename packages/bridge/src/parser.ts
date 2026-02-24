@@ -119,7 +119,8 @@ export type ClientMessage =
   | { type: "get_message_images"; claudeSessionId: string; messageUuid: string }
   | { type: "backup_prompt_history"; data: string; appVersion: string; dbVersion: number }
   | { type: "restore_prompt_history" }
-  | { type: "get_prompt_history_backup_info" };
+  | { type: "get_prompt_history_backup_info" }
+  | { type: "archive_session"; sessionId: string; provider: Provider; projectPath: string };
 
 export interface DebugTraceEvent {
   ts: string;
@@ -418,6 +419,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "restore_prompt_history":
         break;
       case "get_prompt_history_backup_info":
+        break;
+      case "archive_session":
+        if (typeof msg.sessionId !== "string") return null;
+        if (msg.provider !== "claude" && msg.provider !== "codex") return null;
+        if (typeof msg.projectPath !== "string") return null;
         break;
       default:
         return null;

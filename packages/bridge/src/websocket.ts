@@ -10,6 +10,7 @@ import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory, findSe
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
+import { ArchiveStore } from "./archive-store.js";
 import { WorktreeStore } from "./worktree-store.js";
 import { listWorktrees, removeWorktree, createWorktree, worktreeExists } from "./worktree.js";
 import { listWindows, takeScreenshot } from "./screenshot.js";
@@ -68,6 +69,7 @@ export class BridgeWebSocketServer {
   private recentSessionsRequestId = 0;
   private debugEvents = new Map<string, DebugTraceEvent[]>();
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
+  private archiveStore: ArchiveStore;
   /** FCM token → push notification locale */
   private tokenLocales = new Map<string, PushLocale>();
   private tokenPrivacyMode = new Map<string, boolean>();
@@ -83,11 +85,15 @@ export class BridgeWebSocketServer {
     this.worktreeStore = new WorktreeStore();
     this.pushRelay = new PushRelayClient({ firebaseAuth });
     this.promptHistoryBackup = promptHistoryBackup ?? null;
+    this.archiveStore = new ArchiveStore();
     void this.debugTraceStore.init().catch((err) => {
       console.error("[ws] Failed to initialize debug trace store:", err);
     });
     void this.recordingStore.init().catch((err) => {
       console.error("[ws] Failed to initialize recording store:", err);
+    });
+    void this.archiveStore.init().catch((err) => {
+      console.error("[ws] Failed to initialize archive store:", err);
     });
     if (!this.pushRelay.isConfigured) {
       console.log("[ws] Push relay disabled (Firebase auth not available)");
@@ -704,6 +710,7 @@ export class BridgeWebSocketServer {
           limit: msg.limit,
           offset: msg.offset,
           projectPath: msg.projectPath,
+          archivedSessionIds: this.archiveStore.archivedIds(),
         }).then(({ sessions, hasMore }) => {
           // Drop stale responses when rapid filter switches cause out-of-order completion
           if (requestId !== this.recentSessionsRequestId) return;
@@ -711,6 +718,39 @@ export class BridgeWebSocketServer {
         }).catch((err) => {
           if (requestId !== this.recentSessionsRequestId) return;
           this.send(ws, { type: "error", message: `Failed to list recent sessions: ${err}` });
+        });
+        break;
+      }
+
+      case "archive_session": {
+        const { sessionId, provider, projectPath } = msg;
+        this.archiveStore.archive(sessionId, provider, projectPath).then(() => {
+          // For Codex sessions, also call thread/archive RPC (best-effort).
+          // Requires a running Codex app-server process; skip if none active.
+          if (provider === "codex") {
+            const activeSessions = this.sessionManager.list();
+            const codexSession = activeSessions.find((s) => s.provider === "codex");
+            if (codexSession) {
+              const session = this.sessionManager.get(codexSession.id);
+              if (session) {
+                (session.process as CodexProcess).archiveThread(sessionId).catch((err) => {
+                  console.warn(`[ws] Codex thread/archive failed (non-fatal): ${err}`);
+                });
+              }
+            }
+          }
+          this.send(ws, {
+            type: "archive_result",
+            sessionId,
+            success: true,
+          } as Record<string, unknown>);
+        }).catch((err) => {
+          this.send(ws, {
+            type: "archive_result",
+            sessionId,
+            success: false,
+            error: String(err),
+          } as Record<string, unknown>);
         });
         break;
       }

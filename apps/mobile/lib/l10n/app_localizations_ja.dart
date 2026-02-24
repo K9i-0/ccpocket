@@ -974,4 +974,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get voiceInputLanguage => '音声入力の言語';
+
+  @override
+  String get archive => 'アーカイブ';
+
+  @override
+  String get sessionArchived => 'セッションをアーカイブしました';
 }

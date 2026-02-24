@@ -558,6 +558,18 @@ class _SessionListScreenState extends State<SessionListScreen>
               title: Text(l.editSettingsThenStart),
               onTap: () => Navigator.pop(ctx, 'start_edit'),
             ),
+            const Divider(height: 1),
+            ListTile(
+              leading: Icon(
+                Icons.archive_outlined,
+                color: Theme.of(ctx).colorScheme.error,
+              ),
+              title: Text(
+                l.archive,
+                style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+              ),
+              onTap: () => Navigator.pop(ctx, 'archive'),
+            ),
           ],
         ),
       ),
@@ -600,6 +612,20 @@ class _SessionListScreenState extends State<SessionListScreen>
       await _saveSessionStartDefaults(edited);
       if (!mounted) return;
       _startNewSession(edited);
+      return;
+    }
+
+    if (action == 'archive') {
+      context.read<BridgeService>().archiveSession(
+        sessionId: session.sessionId,
+        provider: session.provider ?? 'claude',
+        projectPath: session.projectPath,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l.sessionArchived)));
+      }
     }
   }
 

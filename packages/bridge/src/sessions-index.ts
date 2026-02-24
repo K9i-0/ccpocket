@@ -52,6 +52,8 @@ export interface GetRecentSessionsOptions {
   limit?: number;       // default 20
   offset?: number;      // default 0
   projectPath?: string; // filter by project
+  /** Session IDs to exclude (archived sessions). */
+  archivedSessionIds?: ReadonlySet<string>;
 }
 
 export interface GetRecentSessionsResult {
@@ -297,15 +299,21 @@ export async function getAllRecentSessions(
   });
   entries.push(...codexEntries);
 
+  // Filter out archived sessions
+  const archivedIds = options.archivedSessionIds;
+  const filtered = archivedIds
+    ? entries.filter((e) => !archivedIds.has(e.sessionId))
+    : entries;
+
   // Sort by modified descending
-  entries.sort((a, b) => {
+  filtered.sort((a, b) => {
     const ta = new Date(a.modified).getTime();
     const tb = new Date(b.modified).getTime();
     return tb - ta;
   });
 
-  const sliced = entries.slice(offset, offset + limit);
-  const hasMore = offset + limit < entries.length;
+  const sliced = filtered.slice(offset, offset + limit);
+  const hasMore = offset + limit < filtered.length;
 
   return { sessions: sliced, hasMore };
 }

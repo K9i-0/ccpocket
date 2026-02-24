@@ -458,5 +458,8 @@
   "selectFromGallery": "ギャラリーから選択",
   "pasteFromClipboard": "クリップボードから貼付",
 
-  "voiceInputLanguage": "音声入力の言語"
+  "voiceInputLanguage": "音声入力の言語",
+
+  "archive": "アーカイブ",
+  "sessionArchived": "セッションをアーカイブしました"
 }

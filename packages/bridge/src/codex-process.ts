@@ -171,6 +171,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     });
   }
 
+  /**
+   * Archive a Codex thread via the app-server `thread/archive` RPC.
+   * Accepts an explicit threadId so that historical (non-active) sessions
+   * can be archived without requiring a running process.
+   */
+  async archiveThread(threadId: string): Promise<void> {
+    await this.request("thread/archive", { threadId });
+  }
+
   start(projectPath: string, options?: CodexStartOptions): void {
     if (this.child) {
       this.stop();

@@ -988,4 +988,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get voiceInputLanguage => 'Voice Input Language';
+
+  @override
+  String get archive => 'Archive';
+
+  @override
+  String get sessionArchived => 'Session archived';
 }

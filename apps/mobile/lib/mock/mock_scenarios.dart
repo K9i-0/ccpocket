@@ -296,8 +296,7 @@ final _askUserSingleMultiSelect = MockScenario(
               input: {
                 'questions': [
                   {
-                    'question':
-                        'Which improvements should I implement?',
+                    'question': 'Which improvements should I implement?',
                     'header': 'Tasks',
                     'options': [
                       {

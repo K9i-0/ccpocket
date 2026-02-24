@@ -1909,6 +1909,18 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'音声入力の言語'**
   String get voiceInputLanguage;
+
+  /// No description provided for @archive.
+  ///
+  /// In ja, this message translates to:
+  /// **'アーカイブ'**
+  String get archive;
+
+  /// No description provided for @sessionArchived.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッションをアーカイブしました'**
+  String get sessionArchived;
 }
 
 class _AppLocalizationsDelegate

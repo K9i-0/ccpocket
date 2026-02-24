@@ -376,5 +376,8 @@
   "selectFromGallery": "Select from Gallery",
   "pasteFromClipboard": "Paste from Clipboard",
 
-  "voiceInputLanguage": "Voice Input Language"
+  "voiceInputLanguage": "Voice Input Language",
+
+  "archive": "Archive",
+  "sessionArchived": "Session archived"
 }
