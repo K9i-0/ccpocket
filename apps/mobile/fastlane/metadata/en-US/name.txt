@@ -1,1 +1,1 @@
-CC Pocket: Coding AI Remote
+CC Pocket: Dev Agent Remote
