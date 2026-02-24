@@ -167,7 +167,7 @@ Flutter公式AIルール (flutter/flutter docs/rules) から、本プロジェ�
 
 ### Dartコーディング
 
-- **Null Safety**: `!` は値がnon-nullと保証できる場合のみ使用。安易に使わない
+- **Null Safety**: ! (bang operator) は値がnon-nullと保証できる場合のみ使用。安易に使わない
 - **exhaustive switch**: switch文/式は網羅的に書く。breakは不要
 - **パターンマッチング**: コードを簡潔にできる箇所ではパターンマッチングを活用する
 - **アロー関数**: 1行で済む関数はアロー構文 (`=>`) を使う
