@@ -50,7 +50,11 @@ jobs:
         working-directory: apps/mobile
       - name: Shorebird Release Android
         working-directory: apps/mobile
-        run: shorebird release android --flutter-version="${{ steps.mise.outputs.flutter_version }}"
+        # --no-tree-shake-icons: Prevent MaterialIcons-Regular.otf from changing
+        # between release and patch builds, which causes Shorebird asset diff warnings
+        # and prevents patches from being applied on devices.
+        # TODO: Remove once Shorebird supports asset patching (https://github.com/shorebirdtech/shorebird/issues/318)
+        run: shorebird release android --flutter-version="${{ steps.mise.outputs.flutter_version }}" -- --no-tree-shake-icons
       - name: Upload to Google Play
         uses: r0adkll/upload-google-play@v1
         with:

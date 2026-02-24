@@ -59,7 +59,10 @@ jobs:
       - name: Shorebird Patch iOS
         working-directory: apps/mobile
         run: |
+          # --no-tree-shake-icons: Keep MaterialIcons font stable across release/patch builds.
+          # TODO: Remove once Shorebird supports asset patching (https://github.com/shorebirdtech/shorebird/issues/318)
           shorebird patch ios \
             --release-version=${{ inputs.release_version }} \
             --track=${{ inputs.track }} \
-            --export-options-plist=$HOME/export_options.plist
+            --export-options-plist=$HOME/export_options.plist \
+            -- --no-tree-shake-icons

@@ -32,11 +32,14 @@ echo ""
 cd "$PROJECT_DIR"
 
 echo "--- Creating $PLATFORM patch (staging) ---"
+# --no-tree-shake-icons: Keep MaterialIcons font stable across release/patch builds.
+# TODO: Remove once Shorebird supports asset patching (https://github.com/shorebirdtech/shorebird/issues/318)
 shorebird patch "$PLATFORM" \
   --release-version="$RELEASE_VERSION" \
   --track=staging \
   --allow-asset-diffs \
   --allow-native-diffs \
+  -- --no-tree-shake-icons \
   "$@"
 
 echo ""

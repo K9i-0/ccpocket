@@ -55,6 +55,9 @@ jobs:
       - name: Shorebird Patch Android
         working-directory: apps/mobile
         run: |
+          # --no-tree-shake-icons: Keep MaterialIcons font stable across release/patch builds.
+          # TODO: Remove once Shorebird supports asset patching (https://github.com/shorebirdtech/shorebird/issues/318)
           shorebird patch android \
             --release-version=${{ inputs.release_version }} \
-            --track=${{ inputs.track }}
+            --track=${{ inputs.track }} \
+            -- --no-tree-shake-icons
