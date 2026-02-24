@@ -1,1 +1,1 @@
-コーディング,エージェント,リモート,承認,ターミナル,diff,開発,SSH,AI,CLI,通知,自動化,プログラミング,モバイル開発,ストリーミング
+Codex,Claude Code,Tailscale,happy,コーディング,リモート,AI,ターミナル,開発,SSH,CLI,通知
