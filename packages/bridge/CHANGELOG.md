@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.3.0] - 2026-02-24
+
+### Added
+- Session archive functionality: hide historical sessions from the session list
+- Archive store persists archived session IDs in `~/.ccpocket/archived-sessions.json`
+- Codex `thread/archive` RPC called best-effort when archiving Codex sessions
+- New WebSocket message: `archive_session` (client→server) / `archive_result` (server→client)
+
 ## [1.2.0] - 2026-02-24
 
 ### Added
