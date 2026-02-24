@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.21.0] - 2026-02-24
+
+### Added
+- Session archive: hide historical sessions from the session list via long-press menu
+- Push notification privacy mode: hides project names, session names, and message content
+- Session name displayed in push notification titles
+
+### Fixed
+- Duplicate submit button on single multi-select AskUserQuestion
+
 ## [1.20.0] - 2026-02-23
 
 ### Added
