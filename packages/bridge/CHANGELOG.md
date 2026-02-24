@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.5.0] - 2026-02-25
+
+### Added
+- Server-side filtering for `list_recent_sessions`: `provider`, `namedOnly`, and `searchQuery` parameters
+- Search matches against session name, first/last prompt, and summary
+
 ## [1.4.1] - 2026-02-24
 
 ### Changed
