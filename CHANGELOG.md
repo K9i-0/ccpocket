@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.21.1] - 2026-02-24
+
+### Fixed
+- Android 16KB page size compliance: use 16KB-aligned irondash fork for Google Play
+- Remove brand names from subtitle for App Store guideline 4.1
+
 ## [1.21.0] - 2026-02-24
 
 ### Added
