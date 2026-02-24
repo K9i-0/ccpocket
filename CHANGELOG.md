@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.23.0] - 2026-02-25
+
+### Changed
+- Session list filters unified into a single SessionFilterBar with active filter highlighting
+- Filtering and search now handled server-side for better performance and consistent pagination
+- Added 300ms debounce for search input and skeleton loading on filter switch
+
 ## [1.22.0] - 2026-02-24
 
 ### Added
