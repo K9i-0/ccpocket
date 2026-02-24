@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.4.1] - 2026-02-24
+
+### Changed
+- Recommend `npx @ccpocket/bridge@latest` to ensure users always run the latest version
+- Updated launchd plist template, README, and in-app setup guide
+
 ## [1.4.0] - 2026-02-24
 
 ### Changed
