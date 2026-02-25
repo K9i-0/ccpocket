@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.6.0] - 2026-02-25
+
+### Added
+- Forward SDK `compact_boundary` events as `compacting` process status for auto compact visibility
+
 ## [1.5.3] - 2026-02-25
 
 ### Changed
