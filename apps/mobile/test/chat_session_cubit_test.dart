@@ -311,6 +311,87 @@ void main() {
       expect(cubit.state.entries, hasLength(1));
       expect(cubit.state.entries.first, isA<UserChatEntry>());
     });
+
+    test(
+      'queued messages are promoted to sent one-by-one when assistant responses arrive',
+      () async {
+        final cubit = createCubit('s1');
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+
+        cubit.sendMessage('Message A');
+        cubit.sendMessage('Message B');
+
+        mockBridge.emitMessage(
+          const InputAckMessage(sessionId: 's1', queued: true),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        mockBridge.emitMessage(
+          const InputAckMessage(sessionId: 's1', queued: true),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        var users = cubit.state.entries.whereType<UserChatEntry>().toList();
+        expect(users.map((e) => e.status).toList(), [
+          MessageStatus.queued,
+          MessageStatus.queued,
+        ]);
+
+        mockBridge.emitMessage(
+          AssistantServerMessage(
+            message: AssistantMessage(
+              id: 'a1',
+              role: 'assistant',
+              content: [TextContent(text: 'reply for A')],
+              model: 'claude',
+            ),
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        users = cubit.state.entries.whereType<UserChatEntry>().toList();
+        expect(users.map((e) => e.status).toList(), [
+          MessageStatus.sent,
+          MessageStatus.queued,
+        ]);
+      },
+    );
+
+    test('input_ack(sent) advances sending messages one-by-one', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      cubit.sendMessage('Message A');
+      cubit.sendMessage('Message B');
+
+      mockBridge.emitMessage(
+        const InputAckMessage(sessionId: 's1', queued: false),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      var users = cubit.state.entries.whereType<UserChatEntry>().toList();
+      expect(users.map((e) => e.status).toList(), [
+        MessageStatus.sent,
+        MessageStatus.sending,
+      ]);
+
+      mockBridge.emitMessage(
+        const InputAckMessage(sessionId: 's1', queued: false),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      users = cubit.state.entries.whereType<UserChatEntry>().toList();
+      expect(users.map((e) => e.status).toList(), [
+        MessageStatus.sent,
+        MessageStatus.sent,
+      ]);
+    });
   });
 
   group('StreamingStateCubit', () {

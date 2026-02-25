@@ -976,4 +976,24 @@ void main() {
       expect(update.userUuidUpdate, isNull);
     });
   });
+
+  group('InputAck handling', () {
+    test('queued ack marks messages as queued', () {
+      final update = handler.handle(
+        const InputAckMessage(sessionId: 's1', queued: true),
+        isBackground: false,
+      );
+      expect(update.markUserMessagesSent, isTrue);
+      expect(update.markUserMessagesQueued, isTrue);
+    });
+
+    test('normal ack marks messages as sent (not queued)', () {
+      final update = handler.handle(
+        const InputAckMessage(sessionId: 's1', queued: false),
+        isBackground: false,
+      );
+      expect(update.markUserMessagesSent, isTrue);
+      expect(update.markUserMessagesQueued, isFalse);
+    });
+  });
 }

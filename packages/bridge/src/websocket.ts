@@ -286,14 +286,25 @@ export class BridgeWebSocketServer {
         const text = msg.text;
 
         // Codex: reject if the process is not waiting for input (turn-based, no internal queue)
-        // SDK (Claude Code): always accept — the async generator keeps the resolver set during processing
         if (session.provider === "codex" && !session.process.isWaitingForInput) {
           this.send(ws, { type: "input_rejected", sessionId: session.id, reason: "Process is busy" });
           break;
         }
 
-        // Acknowledge receipt immediately so the client can mark the message as sent
-        this.send(ws, { type: "input_ack", sessionId: session.id });
+        // SDK (Claude Code): determine if the agent is mid-turn.
+        // When the agent is busy (resolver is null), new input is queued
+        // and an interrupt is triggered so the agent finishes its current
+        // turn promptly and picks up the queued message on the next turn.
+        const isAgentBusy = session.provider === "claude" && !session.process.isWaitingForInput;
+
+        if (isAgentBusy) {
+          console.log(`[ws] Agent is busy — will queue input and interrupt current turn`);
+        }
+
+        // Acknowledge receipt immediately so the client can mark the message as sent.
+        // When the agent is busy the message is queued; include a flag so the
+        // client can show appropriate feedback (e.g. "queued" indicator).
+        this.send(ws, { type: "input_ack", sessionId: session.id, queued: isAgentBusy });
 
         // Normalize images: support new `images` array and legacy single-image fields
         let images: Array<{ base64: string; mimeType: string }> = [];
@@ -352,7 +363,7 @@ export class BridgeWebSocketServer {
           break;
         }
 
-        // Claude Code input path
+        // Claude Code input path — enqueue first, then interrupt if busy
         const claudeProc = session.process as SdkProcess;
         if (images.length > 0) {
           console.log(`[ws] Sending message with ${images.length} inline Base64 image(s)`);
@@ -367,14 +378,30 @@ export class BridgeWebSocketServer {
               console.warn(`[ws] Image not found: ${msg.imageId}`);
               session.process.sendInput(text);
             }
+            // Interrupt after async image resolution so the queued message
+            // is picked up promptly.
+            if (isAgentBusy) {
+              claudeProc.interrupt();
+            }
           }).catch((err) => {
             console.error(`[ws] Failed to load image: ${err}`);
             session.process.sendInput(text);
+            if (isAgentBusy) {
+              claudeProc.interrupt();
+            }
           });
         }
         // Text-only message
         else {
           session.process.sendInput(text);
+        }
+
+        // Interrupt the current agent turn so it wraps up promptly and
+        // the queued message is consumed on the next turn.
+        // Skip for the async imageId path — interrupt is called in the
+        // .then() callback above after the image is resolved.
+        if (isAgentBusy && !(msg.imageId && this.galleryStore)) {
+          claudeProc.interrupt();
         }
         break;
       }

@@ -147,27 +147,45 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       didModifyEntries = true;
     }
 
-    // Mark user messages as sent
+    // Advance at most one user message status per server event.
+    // This keeps FIFO behavior when multiple user messages are queued.
+    //
+    // - queued ack: first sending -> queued
+    // - sent ack / assistant/result: first queued -> sent
+    //   (fallback to first sending -> sent for non-queued path)
     if (update.markUserMessagesSent) {
-      var changed = false;
-      final updated = entries.map((e) {
-        if (e is UserChatEntry && e.status == MessageStatus.sending) {
-          changed = true;
-          return UserChatEntry(
-            e.text,
-            sessionId: e.sessionId,
-            imageBytesList: e.imageBytesList,
-            imageUrls: e.imageUrls,
-            imageCount: e.imageCount,
-            status: MessageStatus.sent,
-            messageUuid: e.messageUuid,
-            timestamp: e.timestamp,
+      final targetStatus = update.markUserMessagesQueued
+          ? MessageStatus.queued
+          : MessageStatus.sent;
+      int targetIndex = -1;
+      if (update.markUserMessagesQueued) {
+        targetIndex = entries.indexWhere(
+          (e) => e is UserChatEntry && e.status == MessageStatus.sending,
+        );
+      } else {
+        targetIndex = entries.indexWhere(
+          (e) => e is UserChatEntry && e.status == MessageStatus.queued,
+        );
+        if (targetIndex == -1) {
+          targetIndex = entries.indexWhere(
+            (e) => e is UserChatEntry && e.status == MessageStatus.sending,
           );
         }
-        return e;
-      }).toList();
-      if (changed) {
-        entries = updated;
+      }
+      if (targetIndex != -1) {
+        final entry = entries[targetIndex] as UserChatEntry;
+        final updatedEntry = UserChatEntry(
+          entry.text,
+          sessionId: entry.sessionId,
+          imageBytesList: entry.imageBytesList,
+          imageUrls: entry.imageUrls,
+          imageCount: entry.imageCount,
+          status: targetStatus,
+          messageUuid: entry.messageUuid,
+          timestamp: entry.timestamp,
+        );
+        entries = [...entries];
+        entries[targetIndex] = updatedEntry;
         didModifyEntries = true;
       }
     }

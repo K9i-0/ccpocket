@@ -75,7 +75,7 @@ enum BridgeConnectionState { disconnected, connecting, connected, reconnecting }
 
 // ---- Message status (for user messages) ----
 
-enum MessageStatus { sending, sent, failed }
+enum MessageStatus { sending, sent, queued, failed }
 
 // ---- Process status ----
 
@@ -487,7 +487,10 @@ sealed class ServerMessage {
         mode: json['mode'] as String? ?? 'both',
         error: json['error'] as String?,
       ),
-      'input_ack' => InputAckMessage(sessionId: json['sessionId'] as String?),
+      'input_ack' => InputAckMessage(
+        sessionId: json['sessionId'] as String?,
+        queued: json['queued'] as bool? ?? false,
+      ),
       'input_rejected' => InputRejectedMessage(
         sessionId: json['sessionId'] as String?,
         reason: json['reason'] as String?,
@@ -979,7 +982,12 @@ class RewindResultMessage implements ServerMessage {
 
 class InputAckMessage implements ServerMessage {
   final String? sessionId;
-  const InputAckMessage({this.sessionId});
+
+  /// When true the agent was busy and the message was queued for the next turn.
+  /// An automatic interrupt is triggered server-side so the agent picks it up
+  /// promptly, but the client can show a brief "queued" indicator.
+  final bool queued;
+  const InputAckMessage({this.sessionId, this.queued = false});
 }
 
 class InputRejectedMessage implements ServerMessage {

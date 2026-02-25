@@ -179,4 +179,31 @@ void main() {
       expect(result.fileEdits, 3);
     });
   });
+
+  group('InputAck message parsing', () {
+    test('parses queued=true', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'input_ack',
+        'sessionId': 's1',
+        'queued': true,
+      });
+
+      expect(msg, isA<InputAckMessage>());
+      final ack = msg as InputAckMessage;
+      expect(ack.sessionId, 's1');
+      expect(ack.queued, isTrue);
+    });
+
+    test('defaults queued to false when omitted', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'input_ack',
+        'sessionId': 's1',
+      });
+
+      expect(msg, isA<InputAckMessage>());
+      final ack = msg as InputAckMessage;
+      expect(ack.sessionId, 's1');
+      expect(ack.queued, isFalse);
+    });
+  });
 }

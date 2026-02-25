@@ -335,7 +335,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private userMessageResolve: ((msg: SDKUserMsg) => void) | null = null;
   private stopped = false;
 
-  private pendingInput: { text: string; images?: Array<{ base64: string; mimeType: string }> } | null = null;
+  private pendingInputQueue: Array<{ text: string; images?: Array<{ base64: string; mimeType: string }> }> = [];
   private _projectPath: string | null = null;
   private toolCallsSinceLastResult = 0;
   private fileEditsSinceLastResult = 0;
@@ -376,7 +376,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
     if (options?.initialInput) {
-      this.pendingInput = { text: options.initialInput };
+      this.pendingInputQueue.push({ text: options.initialInput });
     }
 
     this.setStatus("starting");
@@ -448,7 +448,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       this.initTimeoutId = null;
     }
     this.stopped = true;
-    this.pendingInput = null;
+    this.pendingInputQueue = [];
     if (this.queryInstance) {
       console.log("[sdk-process] Stopping query");
       this.queryInstance.close();
@@ -470,7 +470,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   interrupt(): void {
     if (this.queryInstance) {
       console.log("[sdk-process] Interrupting query");
-      this.pendingInput = null;
+      // NOTE: Do NOT clear pendingInputQueue here — queued messages should
+      // survive an interrupt so they are delivered on the next turn.
       this.queryInstance.interrupt().catch((err) => {
         console.error("[sdk-process] Interrupt error:", err);
       });
@@ -478,15 +479,22 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
   }
 
+  /**
+   * Returns true when the SDK async generator is blocked waiting for the
+   * next user message (i.e. the agent is idle between turns).
+   * When false, the agent is mid-turn and input will be queued.
+   */
+  get hasInputQueue(): boolean {
+    return this.pendingInputQueue.length > 0;
+  }
+
   sendInput(text: string): void {
     if (!this.userMessageResolve) {
-      // Queue the message instead of dropping it. The async generator
-      // (createUserMessageStream) checks pendingInput on each iteration,
-      // so the message will be delivered once the SDK is ready.
-      // NOTE: This is a single-slot queue — if called multiple times before
-      // the resolver is set, only the last message is preserved.
-      this.pendingInput = { text };
-      console.log("[sdk-process] Queued input (waiting for resolver)");
+      // Queue the message. The async generator (createUserMessageStream)
+      // drains pendingInputQueue on each iteration, so it will be
+      // delivered once the SDK is ready for the next turn.
+      this.pendingInputQueue.push({ text });
+      console.log(`[sdk-process] Queued input (queue depth: ${this.pendingInputQueue.length})`);
       return;
     }
     const resolve = this.userMessageResolve;
@@ -509,8 +517,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
    */
   sendInputWithImages(text: string, images: Array<{ base64: string; mimeType: string }>): void {
     if (!this.userMessageResolve) {
-      this.pendingInput = { text, images };
-      console.log(`[sdk-process] Queued input with ${images.length} image(s) (waiting for resolver)`);
+      this.pendingInputQueue.push({ text, images });
+      console.log(`[sdk-process] Queued input with ${images.length} image(s) (queue depth: ${this.pendingInputQueue.length})`);
       return;
     }
     const resolve = this.userMessageResolve;
@@ -728,10 +736,10 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   private async *createUserMessageStream(): AsyncGenerator<SDKUserMsg> {
     while (!this.stopped) {
-      if (this.pendingInput) {
-        const { text, images } = this.pendingInput;
-        this.pendingInput = null;
-        console.log(`[sdk-process] Sending pending input${images ? ` with ${images.length} image(s)` : ""}`);
+      // Drain queued messages first (FIFO order)
+      if (this.pendingInputQueue.length > 0) {
+        const { text, images } = this.pendingInputQueue.shift()!;
+        console.log(`[sdk-process] Sending queued input${images ? ` with ${images.length} image(s)` : ""} (remaining: ${this.pendingInputQueue.length})`);
         const content: SDKUserMsg["message"]["content"] = [];
         if (images) {
           for (const image of images) {

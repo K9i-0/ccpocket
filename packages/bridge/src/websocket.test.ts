@@ -58,11 +58,13 @@ vi.mock("./session.js", () => ({
     ): string {
       const id = `s-${++this.seq}`;
       const process = {
+        isWaitingForInput: true,
         setPermissionMode: vi.fn(async () => {}),
         setApprovalPolicy: vi.fn(),
         setCollaborationMode: vi.fn(),
         sendInput: vi.fn(),
         sendInputWithImage: vi.fn(),
+        sendInputWithImages: vi.fn(),
         approve: vi.fn(),
         approveAlways: vi.fn(),
         reject: vi.fn(),
@@ -660,6 +662,102 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       bridgeId: "bridge-test",
       eventType: "session_completed",
     });
+
+    bridge.close();
+  });
+
+  it("claude busy input is acked as queued and interrupts current turn", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(created).toBeDefined();
+    const sessionId = created.sessionId as string;
+
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.process.isWaitingForInput = false;
+
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId,
+        text: "interrupt this",
+      },
+      ws,
+    );
+
+    const inputAck = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "input_ack");
+    expect(inputAck).toMatchObject({
+      type: "input_ack",
+      sessionId,
+      queued: true,
+    });
+
+    expect(session.process.sendInput).toHaveBeenCalledWith("interrupt this");
+    expect(session.process.interrupt).toHaveBeenCalledTimes(1);
+
+    bridge.close();
+  });
+
+  it("codex busy input is rejected", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(created).toBeDefined();
+    const sessionId = created.sessionId as string;
+
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.process.isWaitingForInput = false;
+
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId,
+        text: "while busy",
+      },
+      ws,
+    );
+
+    const last = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
+    expect(last).toMatchObject({
+      type: "input_rejected",
+      sessionId,
+      reason: "Process is busy",
+    });
+    expect(session.process.sendInput).not.toHaveBeenCalled();
 
     bridge.close();
   });

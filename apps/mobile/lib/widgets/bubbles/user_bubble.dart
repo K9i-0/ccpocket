@@ -343,6 +343,11 @@ class _StatusIndicator extends StatelessWidget {
           color: appColors.subtleText,
         ),
       ),
+      MessageStatus.queued => Icon(
+        Icons.schedule,
+        size: 14,
+        color: appColors.subtleText,
+      ),
       MessageStatus.sent => Icon(
         Icons.check,
         size: 14,

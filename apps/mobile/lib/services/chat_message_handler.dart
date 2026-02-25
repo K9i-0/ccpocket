@@ -33,6 +33,12 @@ class ChatStateUpdate {
   final bool resetStreaming;
   final bool markUserMessagesSent;
   final bool markUserMessagesFailed;
+
+  /// When true, messages transition to [MessageStatus.queued] instead of
+  /// [MessageStatus.sent].  The server accepted the message but the agent was
+  /// busy — an interrupt has been triggered and the message will be processed
+  /// on the next turn.
+  final bool markUserMessagesQueued;
   final Set<ChatSideEffect> sideEffects;
   final String? claudeSessionId;
 
@@ -65,6 +71,7 @@ class ChatStateUpdate {
     this.resetStreaming = false,
     this.markUserMessagesSent = false,
     this.markUserMessagesFailed = false,
+    this.markUserMessagesQueued = false,
     this.sideEffects = const {},
     this.claudeSessionId,
     this.toolUseIdsToHide = const {},
@@ -162,8 +169,11 @@ class ChatMessageHandler {
         return ChatStateUpdate(
           entriesToAdd: [UserChatEntry(text, status: MessageStatus.sent)],
         );
-      case InputAckMessage():
-        return const ChatStateUpdate(markUserMessagesSent: true);
+      case InputAckMessage(:final queued):
+        return ChatStateUpdate(
+          markUserMessagesSent: true,
+          markUserMessagesQueued: queued,
+        );
       case InputRejectedMessage():
         logger.warning('[handler] input_rejected');
         return const ChatStateUpdate(markUserMessagesFailed: true);
