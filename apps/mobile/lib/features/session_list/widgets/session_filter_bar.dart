@@ -70,7 +70,7 @@ class SessionFilterBar extends StatelessWidget {
   Widget _buildProviderDropdown(BuildContext context) {
     final l = AppLocalizations.of(context);
     final label = switch (providerFilter) {
-      ProviderFilter.all => 'All Providers',
+      ProviderFilter.all => 'All AI Tools',
       ProviderFilter.claude => 'Claude',
       ProviderFilter.codex => 'Codex',
     };
