@@ -11,6 +11,7 @@ import 'state/diff_view_state.dart';
 import 'widgets/diff_content_list.dart';
 import 'widgets/diff_empty_state.dart';
 import 'widgets/diff_error_state.dart';
+import 'widgets/diff_file_path_text.dart';
 import 'widgets/diff_stats_badge.dart';
 
 /// Dedicated screen for viewing unified diffs.
@@ -197,13 +198,12 @@ class _DiffScreenBody extends StatelessWidget {
                         return CheckboxListTile(
                           value: visible,
                           onChanged: (_) => cubit.toggleFileVisibility(index),
-                          title: Text(
-                            file.filePath,
+                          title: DiffFilePathText(
+                            filePath: file.filePath,
                             style: const TextStyle(
                               fontSize: 13,
                               fontFamily: 'monospace',
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
                           secondary: DiffStatsBadge(file: file),
                           controlAffinity: ListTileControlAffinity.leading,
