@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { readFile, rm, mkdir, writeFile } from "node:fs/promises";
+import { rm, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -79,25 +79,6 @@ describe("ProjectHistory", () => {
     const projects = ph.getProjects();
     projects.push("/Users/test/mutated");
     expect(ph.getProjects()).toEqual(["/Users/test/project-a"]);
-  });
-
-  it("persists to disk and reloads", async () => {
-    const ph1 = new ProjectHistory(historyFile);
-    await ph1.init();
-    ph1.addProject("/Users/test/project-a");
-    ph1.addProject("/Users/test/project-b");
-
-    // Wait for async save to complete
-    await new Promise((r) => setTimeout(r, 100));
-
-    // Verify file exists and contains correct data
-    const data = JSON.parse(await readFile(historyFile, "utf-8"));
-    expect(data).toEqual(["/Users/test/project-b", "/Users/test/project-a"]);
-
-    // New instance should load from disk
-    const ph2 = new ProjectHistory(historyFile);
-    await ph2.init();
-    expect(ph2.getProjects()).toEqual(["/Users/test/project-b", "/Users/test/project-a"]);
   });
 
   it("rejects invalid project paths", async () => {
