@@ -374,6 +374,7 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color statusStarting;
   final Color statusRunning;
   final Color statusApproval;
+  final Color statusCompacting;
   final Color statusIdle;
 
   // Subtle text
@@ -418,6 +419,7 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.statusStarting,
     required this.statusRunning,
     required this.statusApproval,
+    required this.statusCompacting,
     required this.statusIdle,
     required this.subtleText,
     required this.codeBackground,
@@ -456,6 +458,7 @@ class AppColors extends ThemeExtension<AppColors> {
     statusStarting: Color(0xFF4F46E5), // Indigo 600
     statusRunning: Color(0xFF0D9488), // Teal 600 (brighter)
     statusApproval: Color(0xFFD4450A), // Ember (brighter)
+    statusCompacting: Color(0xFF7C3AED), // Violet 600
     statusIdle: Color(0xFF787068), // warm grey (WCAG AA)
     subtleText: Color(0xFF6B5E54), // warm stone (WCAG AA)
     codeBackground: Color(0xFFF5F0EB), // warm cream
@@ -494,6 +497,7 @@ class AppColors extends ThemeExtension<AppColors> {
     statusStarting: Color(0xFF60A5FA), // Blue 400
     statusRunning: Color(0xFF4ADE80), // Green 400
     statusApproval: Color(0xFFFDBA74), // Orange 300
+    statusCompacting: Color(0xFFA78BFA), // Violet 400
     statusIdle: Color(0xFF6E6E6E), // neutral grey
     subtleText: Color(0xFFB8B5B0), // neutral-warm stone
     codeBackground: Color(0xFF1E1E1E), // neutral lifted
@@ -532,6 +536,7 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? statusStarting,
     Color? statusRunning,
     Color? statusApproval,
+    Color? statusCompacting,
     Color? statusIdle,
     Color? subtleText,
     Color? codeBackground,
@@ -569,6 +574,7 @@ class AppColors extends ThemeExtension<AppColors> {
       statusStarting: statusStarting ?? this.statusStarting,
       statusRunning: statusRunning ?? this.statusRunning,
       statusApproval: statusApproval ?? this.statusApproval,
+      statusCompacting: statusCompacting ?? this.statusCompacting,
       statusIdle: statusIdle ?? this.statusIdle,
       subtleText: subtleText ?? this.subtleText,
       codeBackground: codeBackground ?? this.codeBackground,
@@ -633,6 +639,11 @@ class AppColors extends ThemeExtension<AppColors> {
       statusStarting: Color.lerp(statusStarting, other.statusStarting, t)!,
       statusRunning: Color.lerp(statusRunning, other.statusRunning, t)!,
       statusApproval: Color.lerp(statusApproval, other.statusApproval, t)!,
+      statusCompacting: Color.lerp(
+        statusCompacting,
+        other.statusCompacting,
+        t,
+      )!,
       statusIdle: Color.lerp(statusIdle, other.statusIdle, t)!,
       subtleText: Color.lerp(subtleText, other.subtleText, t)!,
       codeBackground: Color.lerp(codeBackground, other.codeBackground, t)!,

@@ -68,9 +68,7 @@ void main() {
   });
 
   group('RunningSessionCard', () {
-    testWidgets('displays gitBranch and lastMessage', (
-      tester,
-    ) async {
+    testWidgets('displays gitBranch and lastMessage', (tester) async {
       final session = SessionInfo(
         id: 'test-id',
         projectPath: '/home/user/my-app',
@@ -95,9 +93,7 @@ void main() {
       expect(find.byIcon(Icons.fork_right), findsOneWidget);
     });
 
-    testWidgets('hides info row when gitBranch empty', (
-      tester,
-    ) async {
+    testWidgets('hides info row when gitBranch empty', (tester) async {
       final session = SessionInfo(
         id: 'test-id',
         projectPath: '/home/user/my-app',

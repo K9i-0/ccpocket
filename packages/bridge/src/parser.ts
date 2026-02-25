@@ -234,7 +234,7 @@ export interface UsageInfoPayload {
   error?: string;
 }
 
-export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval";
+export type ProcessStatus = "starting" | "idle" | "running" | "waiting_approval" | "compacting";
 
 // ---- Helpers ----
 

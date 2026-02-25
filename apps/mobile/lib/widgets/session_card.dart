@@ -95,6 +95,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
       'starting' => appColors.statusStarting,
       'running' => appColors.statusRunning,
       'waiting_approval' => appColors.statusApproval,
+      'compacting' => appColors.statusCompacting,
       _ => appColors.statusIdle,
     };
 

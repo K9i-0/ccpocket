@@ -158,6 +158,9 @@ export function sdkMessageToServerMessage(msg: SDKMessage): ServerMessage | null
           ...(sys.skills ? { skills: sys.skills as string[] } : {}),
         };
       }
+      if (sys.subtype === "compact_boundary") {
+        return { type: "status", status: "compacting" as ProcessStatus };
+      }
       return null;
     }
 
