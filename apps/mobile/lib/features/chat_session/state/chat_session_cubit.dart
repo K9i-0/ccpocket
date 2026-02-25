@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/logger.dart';
 import '../../../models/messages.dart';
@@ -328,6 +329,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     final usage = _calculateUsageTotals(nextEntries);
 
     // --- Apply state update ---
+    final newClaudeSessionId =
+        update.claudeSessionId ?? current.claudeSessionId;
     emit(
       current.copyWith(
         status: update.status ?? current.status,
@@ -337,10 +340,21 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         totalDuration: usage.totalDuration,
         inPlanMode: update.inPlanMode ?? current.inPlanMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
-        claudeSessionId: update.claudeSessionId ?? current.claudeSessionId,
+        claudeSessionId: newClaudeSessionId,
         hiddenToolUseIds: hiddenToolUseIds,
       ),
     );
+
+    // Persist initial Claude settings when claudeSessionId is first known.
+    if (update.claudeSessionId != null &&
+        current.claudeSessionId == null &&
+        provider != Provider.codex) {
+      unawaited(
+        _SessionSettingsHelper.save(update.claudeSessionId!, {
+          'permissionMode': current.permissionMode.value,
+        }),
+      );
+    }
 
     // --- Fire side effects ---
     if (update.sideEffects.isNotEmpty) {
@@ -516,6 +530,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     _bridge.send(
       ClientMessage.setPermissionMode(mode.value, sessionId: sessionId),
     );
+
+    // Persist per-session so that future resumes use this mode.
+    final claudeSid = state.claudeSessionId;
+    if (claudeSid != null && claudeSid.isNotEmpty) {
+      _SessionSettingsHelper.save(claudeSid, {'permissionMode': mode.value});
+    }
   }
 
   /// Change sandbox mode for Codex sessions.
@@ -604,4 +624,34 @@ class _UsageTotals {
   final Duration? totalDuration;
 
   const _UsageTotals({required this.totalCost, required this.totalDuration});
+}
+
+/// Lightweight helper to persist per-session Claude settings.
+///
+/// Uses the same SharedPreferences key convention as
+/// [SessionListScreen.saveClaudeSessionSettings] so the session list
+/// can read them back when resuming.
+class _SessionSettingsHelper {
+  static const _prefix = 'claude_session_settings_';
+
+  static Future<void> save(
+    String sessionId,
+    Map<String, dynamic> settings,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = '$_prefix$sessionId';
+      final raw = prefs.getString(key);
+      Map<String, dynamic> existing = {};
+      if (raw != null) {
+        try {
+          existing = jsonDecode(raw) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+      final merged = <String, dynamic>{...existing, ...settings};
+      await prefs.setString(key, jsonEncode(merged));
+    } catch (_) {
+      // SharedPreferences may not be available in test environments.
+    }
+  }
 }

@@ -80,7 +80,7 @@ PermissionMode? permissionModeFromRaw(String? raw) =>
 PermissionMode _permissionModeFromRawWithDefault(String? raw) =>
     permissionModeFromRaw(raw) ?? PermissionMode.acceptEdits;
 
-ClaudeEffort? _claudeEffortFromRaw(String? raw) =>
+ClaudeEffort? claudeEffortFromRaw(String? raw) =>
     enumByValue(ClaudeEffort.values, raw, (v) => v.value);
 
 /// Serialize [NewSessionParams] to JSON for SharedPreferences.
@@ -129,7 +129,7 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
     networkAccessEnabled: json['networkAccessEnabled'] as bool?,
     webSearchMode: webSearchModeFromRaw(json['webSearchMode'] as String?),
     claudeModel: json['claudeModel'] as String?,
-    claudeEffort: _claudeEffortFromRaw(json['claudeEffort'] as String?),
+    claudeEffort: claudeEffortFromRaw(json['claudeEffort'] as String?),
     // claudeMaxTurns, claudeMaxBudgetUsd default to null
     claudeFallbackModel: json['claudeFallbackModel'] as String?,
     claudeForkSession: json['claudeForkSession'] as bool?,

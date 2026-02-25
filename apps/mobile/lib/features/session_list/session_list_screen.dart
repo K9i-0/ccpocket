@@ -124,6 +124,7 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeySessionStartDefaults = 'session_start_defaults_v1';
+  static const _prefKeyClaudeSessionSettingsPrefix = 'claude_session_settings_';
 
   @override
   void initState() {
@@ -464,17 +465,81 @@ class _SessionListScreenState extends State<SessionListScreen>
     await prefs.setString(_prefKeySessionStartDefaults, jsonEncode(json));
   }
 
-  NewSessionParams _newSessionFromRecentSession(RecentSession session) {
+  // ---- Per-session Claude settings persistence ----
+
+  static Future<void> saveClaudeSessionSettings(
+    String sessionId,
+    Map<String, dynamic> settings,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    // Merge with existing settings to preserve fields not being updated.
+    final existing = await loadClaudeSessionSettings(sessionId);
+    final merged = <String, dynamic>{
+      if (existing != null) ...existing,
+      ...settings,
+    };
+    await prefs.setString(
+      '$_prefKeyClaudeSessionSettingsPrefix$sessionId',
+      jsonEncode(merged),
+    );
+  }
+
+  static Future<Map<String, dynamic>?> loadClaudeSessionSettings(
+    String sessionId,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(
+      '$_prefKeyClaudeSessionSettingsPrefix$sessionId',
+    );
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Build a settings map from NewSessionParams (Claude fields only).
+  static Map<String, dynamic> _claudeSettingsFromParams(
+    NewSessionParams params,
+  ) {
+    return <String, dynamic>{
+      'permissionMode': params.permissionMode.value,
+      if (params.claudeModel != null) 'claudeModel': params.claudeModel,
+      if (params.claudeEffort != null)
+        'claudeEffort': params.claudeEffort!.value,
+      if (params.claudeFallbackModel != null)
+        'claudeFallbackModel': params.claudeFallbackModel,
+      if (params.claudeForkSession != null)
+        'claudeForkSession': params.claudeForkSession,
+      if (params.claudePersistSession != null)
+        'claudePersistSession': params.claudePersistSession,
+    };
+  }
+
+  Future<NewSessionParams> _newSessionFromRecentSession(
+    RecentSession session,
+  ) async {
     final provider = session.provider == Provider.codex.value
         ? Provider.codex
         : Provider.claude;
     final existingWorktreePath = session.resumeCwd;
     final hasExistingWorktree =
         existingWorktreePath != null && existingWorktreePath.isNotEmpty;
+
+    // Load per-session Claude settings (saved from previous runs).
+    final sessionSettings = provider == Provider.claude
+        ? await loadClaudeSessionSettings(session.sessionId)
+        : null;
+
     return NewSessionParams(
       projectPath: session.projectPath,
       provider: provider,
-      permissionMode: PermissionMode.acceptEdits,
+      permissionMode:
+          permissionModeFromRaw(
+            sessionSettings?['permissionMode'] as String?,
+          ) ??
+          PermissionMode.acceptEdits,
       useWorktree: hasExistingWorktree,
       worktreeBranch: session.gitBranch.isNotEmpty ? session.gitBranch : null,
       existingWorktreePath: hasExistingWorktree ? existingWorktreePath : null,
@@ -485,6 +550,13 @@ class _SessionListScreenState extends State<SessionListScreen>
       ),
       networkAccessEnabled: session.codexNetworkAccessEnabled,
       webSearchMode: webSearchModeFromRaw(session.codexWebSearchMode),
+      claudeModel: sessionSettings?['claudeModel'] as String?,
+      claudeEffort: claudeEffortFromRaw(
+        sessionSettings?['claudeEffort'] as String?,
+      ),
+      claudeFallbackModel: sessionSettings?['claudeFallbackModel'] as String?,
+      claudeForkSession: sessionSettings?['claudeForkSession'] as bool?,
+      claudePersistSession: sessionSettings?['claudePersistSession'] as bool?,
     );
   }
 
@@ -596,7 +668,8 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
 
     if (action == 'start_same') {
-      final params = _newSessionFromRecentSession(session);
+      final params = await _newSessionFromRecentSession(session);
+      if (!mounted) return;
       // Don't save as defaults — these are session-specific settings from a
       // recent session, not user-chosen defaults for future sessions.
       _startNewSession(params);
@@ -604,7 +677,8 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
 
     if (action == 'start_edit') {
-      final initialParams = _newSessionFromRecentSession(session);
+      final initialParams = await _newSessionFromRecentSession(session);
+      if (!mounted) return;
       final edited = await _openNewSessionSheet(
         initialParams: initialParams,
         lockProvider: true,
@@ -698,8 +772,12 @@ class _SessionListScreenState extends State<SessionListScreen>
     _pendingResumeGitBranch = session.gitBranch;
 
     final isCodex = session.provider == Provider.codex.value;
+
+    // For Claude sessions, prefer per-session settings over global defaults.
+    Map<String, dynamic>? sessionSettings;
     NewSessionParams? claudeDefaults;
     if (!isCodex) {
+      sessionSettings = await loadClaudeSessionSettings(session.sessionId);
       final defaults = await _loadSessionStartDefaults();
       if (!mounted) return;
       if (defaults?.provider == Provider.claude) {
@@ -707,23 +785,58 @@ class _SessionListScreenState extends State<SessionListScreen>
       }
     }
 
+    // Resolve each setting: per-session > global defaults > null
+    final permissionMode =
+        sessionSettings?['permissionMode'] as String? ??
+        claudeDefaults?.permissionMode.value;
+    final effort =
+        sessionSettings?['claudeEffort'] as String? ??
+        claudeDefaults?.claudeEffort?.value;
+    final claudeModel =
+        sessionSettings?['claudeModel'] as String? ??
+        claudeDefaults?.claudeModel;
+    final fallbackModel =
+        sessionSettings?['claudeFallbackModel'] as String? ??
+        claudeDefaults?.claudeFallbackModel;
+    final forkSession =
+        sessionSettings?['claudeForkSession'] as bool? ??
+        claudeDefaults?.claudeForkSession;
+    final persistSession =
+        sessionSettings?['claudePersistSession'] as bool? ??
+        claudeDefaults?.claudePersistSession;
+
     context.read<BridgeService>().resumeSession(
       session.sessionId,
       resumeProjectPath,
-      permissionMode: !isCodex ? claudeDefaults?.permissionMode.value : null,
-      effort: !isCodex ? claudeDefaults?.claudeEffort?.value : null,
+      permissionMode: !isCodex ? permissionMode : null,
+      effort: !isCodex ? effort : null,
       maxTurns: !isCodex ? claudeDefaults?.claudeMaxTurns : null,
       maxBudgetUsd: !isCodex ? claudeDefaults?.claudeMaxBudgetUsd : null,
-      fallbackModel: !isCodex ? claudeDefaults?.claudeFallbackModel : null,
-      forkSession: !isCodex ? claudeDefaults?.claudeForkSession : null,
-      persistSession: !isCodex ? claudeDefaults?.claudePersistSession : null,
+      fallbackModel: !isCodex ? fallbackModel : null,
+      forkSession: !isCodex ? forkSession : null,
+      persistSession: !isCodex ? persistSession : null,
       provider: session.provider,
       sandboxMode: session.codexSandboxMode,
-      model: isCodex ? session.codexModel : claudeDefaults?.claudeModel,
+      model: isCodex ? session.codexModel : claudeModel,
       modelReasoningEffort: session.codexModelReasoningEffort,
       networkAccessEnabled: session.codexNetworkAccessEnabled,
       webSearchMode: session.codexWebSearchMode,
     );
+
+    // Persist settings for this session (so the next resume uses them too).
+    if (!isCodex) {
+      final settings = <String, dynamic>{
+        'permissionMode': ?permissionMode,
+        'claudeEffort': ?effort,
+        'claudeModel': ?claudeModel,
+        'claudeFallbackModel': ?fallbackModel,
+        'claudeForkSession': ?forkSession,
+        'claudePersistSession': ?persistSession,
+      };
+      if (settings.isNotEmpty) {
+        unawaited(saveClaudeSessionSettings(session.sessionId, settings));
+      }
+    }
   }
 
   /// Resume session with user-edited settings (from "Edit settings then start")
@@ -753,6 +866,16 @@ class _SessionListScreenState extends State<SessionListScreen>
       networkAccessEnabled: isCodex ? edited.networkAccessEnabled : null,
       webSearchMode: isCodex ? edited.webSearchMode?.value : null,
     );
+
+    // Persist per-session Claude settings for future resumes.
+    if (!isCodex) {
+      unawaited(
+        saveClaudeSessionSettings(
+          session.sessionId,
+          _claudeSettingsFromParams(edited),
+        ),
+      );
+    }
   }
 
   void _stopSession(String sessionId) {
