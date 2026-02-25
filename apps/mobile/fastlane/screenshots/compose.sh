@@ -219,5 +219,22 @@ for entry in "${SCREENSHOTS[@]}"; do
   compose_ipad_screenshot "$key" "$kw_ja" "$tt_ja" "ja" "$FONT_JA_BOLD" "$FONT_JA_REG" "en-US"
 done
 
+# === README banner (4 screenshots side by side, resized to 1200px width) ===
+echo ""
+echo "=== README banner ==="
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
+README_IMG_DIR="${REPO_ROOT}/docs/images"
+mkdir -p "$README_IMG_DIR"
+
+README_KEYS=("01_session_list" "02_coding_session" "04_approval_flow" "05_ask_question")
+README_INPUTS=()
+for k in "${README_KEYS[@]}"; do
+  README_INPUTS+=("${SCRIPT_DIR}/en-US/${k}_framed.png")
+done
+
+README_OUTPUT="${README_IMG_DIR}/screenshots.png"
+magick "${README_INPUTS[@]}" +append -resize 1200x "$README_OUTPUT"
+echo "  -> $README_OUTPUT ($(du -h "$README_OUTPUT" | cut -f1))"
+
 echo ""
 echo "Done! Framed screenshots have '_framed' suffix."

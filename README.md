@@ -4,7 +4,9 @@ Mobile client for Claude Code and Codex. Control coding agents from your iPhone 
 
 [日本語版 README](README.ja.md)
 
-<!-- screenshots -->
+<p align="center">
+  <img src="docs/images/screenshots.png" alt="ccpocket screenshots" width="800">
+</p>
 
 ## Features
 
