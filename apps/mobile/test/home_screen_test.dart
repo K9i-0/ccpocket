@@ -18,7 +18,6 @@ RecentSession _session({
     sessionId: sessionId,
     firstPrompt: firstPrompt,
     summary: summary,
-    messageCount: 0,
     created: '2025-01-01T00:00:00Z',
     modified: modified,
     gitBranch: gitBranch,

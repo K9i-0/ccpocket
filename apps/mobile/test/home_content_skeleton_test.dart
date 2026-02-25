@@ -63,7 +63,6 @@ RecentSession _session({
   return RecentSession(
     sessionId: id,
     firstPrompt: 'test prompt for $id',
-    messageCount: 1,
     created: '2025-01-01T00:00:00Z',
     modified: '2025-01-01T00:00:00Z',
     gitBranch: 'main',

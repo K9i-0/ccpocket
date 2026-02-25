@@ -1213,7 +1213,6 @@ class RecentSession {
   final String? summary;
   final String firstPrompt;
   final String? lastPrompt;
-  final int messageCount;
   final String created;
   final String modified;
   final String gitBranch;
@@ -1234,7 +1233,6 @@ class RecentSession {
     this.summary,
     required this.firstPrompt,
     this.lastPrompt,
-    required this.messageCount,
     required this.created,
     required this.modified,
     required this.gitBranch,
@@ -1258,7 +1256,6 @@ class RecentSession {
       summary: json['summary'] as String?,
       firstPrompt: json['firstPrompt'] as String? ?? '',
       lastPrompt: json['lastPrompt'] as String?,
-      messageCount: json['messageCount'] as int? ?? 0,
       created: json['created'] as String? ?? '',
       modified: json['modified'] as String? ?? '',
       gitBranch: json['gitBranch'] as String? ?? '',
@@ -1305,7 +1302,6 @@ class SessionInfo {
   final String lastActivityAt;
   final String gitBranch;
   final String lastMessage;
-  final int messageCount;
   final String? worktreePath;
   final String? worktreeBranch;
   final String? permissionMode;
@@ -1328,7 +1324,6 @@ class SessionInfo {
     required this.lastActivityAt,
     this.gitBranch = '',
     this.lastMessage = '',
-    this.messageCount = 0,
     this.worktreePath,
     this.worktreeBranch,
     this.permissionMode,
@@ -1360,7 +1355,6 @@ class SessionInfo {
       lastActivityAt: lastActivityAt,
       gitBranch: gitBranch,
       lastMessage: lastMessage ?? this.lastMessage,
-      messageCount: messageCount,
       worktreePath: worktreePath,
       worktreeBranch: worktreeBranch,
       permissionMode: permissionMode,
@@ -1390,7 +1384,6 @@ class SessionInfo {
       lastActivityAt: json['lastActivityAt'] as String? ?? '',
       gitBranch: json['gitBranch'] as String? ?? '',
       lastMessage: json['lastMessage'] as String? ?? '',
-      messageCount: json['messageCount'] as int? ?? 0,
       worktreePath: json['worktreePath'] as String?,
       worktreeBranch: json['worktreeBranch'] as String?,
       permissionMode: json['permissionMode'] as String?,

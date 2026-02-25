@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile, appendFile, stat } from "node:fs/promises";
+import { readdir, readFile, writeFile, appendFile, stat, open } from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import { basename, join } from "node:path";
 import { homedir } from "node:os";
@@ -11,7 +11,6 @@ export interface SessionIndexEntry {
   summary?: string;
   firstPrompt: string;
   lastPrompt?: string;
-  messageCount: number;
   created: string;
   modified: string;
   gitBranch: string;
@@ -197,24 +196,266 @@ export function isWorktreeSlug(dirSlug: string, projectSlug: string): boolean {
   return dirSlug.startsWith(projectSlug + "-worktrees-");
 }
 
+/** Concurrency limit for parallel file reads to avoid fd exhaustion. */
+const PARALLEL_FILE_READ_LIMIT = 32;
+
+/** Head/Tail byte sizes for partial JSONL reads. */
+const HEAD_BYTES = 16384; // 16KB — covers first user entry + metadata
+const TAIL_BYTES = 8192;  // 8KB — covers last entries for modified/lastPrompt
+
+/**
+ * Run async tasks with a concurrency limit.
+ * Returns results in the same order as the input tasks.
+ */
+async function parallelMap<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const i = nextIndex++;
+      results[i] = await fn(items[i]);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    () => worker(),
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+// Regexes for fast field extraction without JSON.parse
+const RE_TYPE_USER = /"type"\s*:\s*"user"/;
+const RE_TYPE_ASSISTANT = /"type"\s*:\s*"assistant"/;
+const RE_TIMESTAMP = /"timestamp"\s*:\s*"([^"]+)"/;
+const RE_GIT_BRANCH = /"gitBranch"\s*:\s*"([^"]+)"/;
+const RE_CWD = /"cwd"\s*:\s*"([^"]+)"/;
+const RE_IS_SIDECHAIN = /"isSidechain"\s*:\s*true/;
+
+/** Extract user prompt text from a parsed JSONL entry. */
+function extractUserPromptText(entry: Record<string, unknown>): string {
+  const message = entry.message as { content?: unknown } | undefined;
+  if (!message?.content) return "";
+  if (typeof message.content === "string") return message.content;
+  if (Array.isArray(message.content)) {
+    const textBlock = (
+      message.content as Array<{ type: string; text?: string }>
+    ).find((c) => c.type === "text" && c.text);
+    return textBlock?.text ?? "";
+  }
+  return "";
+}
+
+/**
+ * Parse head and optional tail text chunks to build a SessionIndexEntry.
+ * Uses regex for most fields, JSON.parse only for first/last user lines.
+ */
+function parseFromChunks(
+  sessionId: string,
+  head: string,
+  tail: string | null,
+): SessionIndexEntry | null {
+  let firstPrompt = "";
+  let lastPrompt = "";
+  let created = "";
+  let modified = "";
+  let gitBranch = "";
+  let projectPath = "";
+  let isSidechain = false;
+  let hasAnyMessage = false;
+
+  // --- Scan head lines ---
+  const headLines = head.split("\n");
+  for (const line of headLines) {
+    if (!line.trim()) continue;
+
+    const isUser = RE_TYPE_USER.test(line);
+    const isAssistant = !isUser && RE_TYPE_ASSISTANT.test(line);
+    if (!isUser && !isAssistant) continue;
+    hasAnyMessage = true;
+
+    const tsMatch = line.match(RE_TIMESTAMP);
+    if (tsMatch) {
+      if (!created) created = tsMatch[1];
+      modified = tsMatch[1];
+    }
+
+    if (!gitBranch) {
+      const gbMatch = line.match(RE_GIT_BRANCH);
+      if (gbMatch) gitBranch = gbMatch[1];
+    }
+
+    if (!projectPath) {
+      const cwdMatch = line.match(RE_CWD);
+      if (cwdMatch) projectPath = normalizeWorktreePath(cwdMatch[1]);
+    }
+
+    if (!isSidechain && RE_IS_SIDECHAIN.test(line)) {
+      isSidechain = true;
+    }
+
+    if (isUser && !firstPrompt) {
+      // JSON.parse only the first user line to extract prompt text
+      try {
+        const entry = JSON.parse(line) as Record<string, unknown>;
+        firstPrompt = extractUserPromptText(entry);
+      } catch { /* skip */ }
+    }
+  }
+
+  // --- Scan tail lines (if separate from head) ---
+  if (tail) {
+    const tailLines = tail.split("\n");
+
+    // Find last timestamp and last user prompt from tail (scan in reverse)
+    let lastUserLine: string | null = null;
+    for (let i = tailLines.length - 1; i >= 0; i--) {
+      const line = tailLines[i];
+      if (!line.trim()) continue;
+
+      const isUser = RE_TYPE_USER.test(line);
+      const isAssistant = !isUser && RE_TYPE_ASSISTANT.test(line);
+      if (!isUser && !isAssistant) continue;
+      hasAnyMessage = true;
+
+      // Get the last modified timestamp
+      if (!modified || true) {
+        // Always update modified from tail (tail is later in file)
+        const tsMatch = line.match(RE_TIMESTAMP);
+        if (tsMatch) {
+          modified = tsMatch[1];
+          // We found the last message — we're done with timestamps
+          if (isUser && !lastUserLine) lastUserLine = line;
+          break;
+        }
+      }
+    }
+
+    // Also find last user line if not found in reverse timestamp scan
+    if (!lastUserLine) {
+      for (let i = tailLines.length - 1; i >= 0; i--) {
+        const line = tailLines[i];
+        if (!line.trim()) continue;
+        if (RE_TYPE_USER.test(line)) {
+          lastUserLine = line;
+          break;
+        }
+      }
+    }
+
+    // JSON.parse only the last user line for lastPrompt
+    if (lastUserLine) {
+      try {
+        const entry = JSON.parse(lastUserLine) as Record<string, unknown>;
+        const text = extractUserPromptText(entry);
+        if (text) lastPrompt = text;
+      } catch { /* skip */ }
+    }
+
+    // Fill in metadata from tail if head didn't have it
+    if (!gitBranch || !projectPath) {
+      for (const line of tailLines) {
+        if (!line.trim()) continue;
+        if (!RE_TYPE_USER.test(line) && !RE_TYPE_ASSISTANT.test(line)) continue;
+        if (!gitBranch) {
+          const gbMatch = line.match(RE_GIT_BRANCH);
+          if (gbMatch) gitBranch = gbMatch[1];
+        }
+        if (!projectPath) {
+          const cwdMatch = line.match(RE_CWD);
+          if (cwdMatch) projectPath = normalizeWorktreePath(cwdMatch[1]);
+        }
+        if (gitBranch && projectPath) break;
+      }
+    }
+  }
+
+  if (!hasAnyMessage) return null;
+
+  return {
+    sessionId,
+    provider: "claude",
+    firstPrompt,
+    ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
+    created,
+    modified,
+    gitBranch,
+    projectPath,
+    isSidechain,
+  };
+}
+
+/**
+ * Fast parse a Claude JSONL file using partial (head+tail) reads.
+ * Only reads the first 16KB and last 8KB of the file, avoiding full I/O.
+ * JSON.parse is called at most twice (first + last user lines).
+ */
+async function parseClaudeJsonlFileFast(
+  sessionId: string,
+  filePath: string,
+): Promise<SessionIndexEntry | null> {
+  let fh;
+  try {
+    fh = await open(filePath, "r");
+  } catch {
+    return null;
+  }
+  try {
+    const fileStat = await fh.stat();
+    const fileSize = fileStat.size;
+    if (fileSize === 0) return null;
+
+    // Small files: read entirely (no benefit from partial reads)
+    if (fileSize <= HEAD_BYTES + TAIL_BYTES) {
+      const buf = Buffer.alloc(fileSize);
+      await fh.read(buf, 0, fileSize, 0);
+      return parseFromChunks(sessionId, buf.toString("utf-8"), null);
+    }
+
+    // Head read
+    const headBuf = Buffer.alloc(HEAD_BYTES);
+    await fh.read(headBuf, 0, HEAD_BYTES, 0);
+    const headStr = headBuf.toString("utf-8");
+
+    // Tail read — discard the first partial line
+    const tailBuf = Buffer.alloc(TAIL_BYTES);
+    await fh.read(tailBuf, 0, TAIL_BYTES, fileSize - TAIL_BYTES);
+    const tailRaw = tailBuf.toString("utf-8");
+    const firstNewline = tailRaw.indexOf("\n");
+    const cleanTail = firstNewline >= 0 ? tailRaw.slice(firstNewline + 1) : "";
+
+    return parseFromChunks(sessionId, headStr, cleanTail);
+  } finally {
+    await fh.close();
+  }
+}
+
 /**
  * Scan a directory for JSONL session files and create SessionIndexEntry objects.
  * Used as a fallback when sessions-index.json is missing (common for worktree sessions).
+ * File reads are parallelized and use head+tail partial reads for performance.
  */
 export async function scanJsonlDir(
   dirPath: string,
   options: ScanJsonlDirOptions = {},
 ): Promise<SessionIndexEntry[]> {
-  const entries: SessionIndexEntry[] = [];
   const scanStats = options.stats;
 
   let files: string[];
   try {
     files = await readdir(dirPath);
   } catch {
-    return entries;
+    return [];
   }
 
+  // Filter to JSONL files and apply exclusions
+  const targets: Array<{ sessionId: string; filePath: string }> = [];
   for (const file of files) {
     if (!file.endsWith(".jsonl")) continue;
     scanStats && (scanStats.filesTotal += 1);
@@ -224,107 +465,26 @@ export async function scanJsonlDir(
       scanStats && (scanStats.filesExcluded += 1);
       continue;
     }
-    const filePath = join(dirPath, file);
-
-    let raw: string;
-    try {
-      raw = await readFile(filePath, "utf-8");
-    } catch {
-      continue;
-    }
-    scanStats && (scanStats.filesRead += 1);
-
-    const lines = raw.split("\n");
-    let firstPrompt = "";
-    let lastPrompt = "";
-    let messageCount = 0;
-    let created = "";
-    let modified = "";
-    let gitBranch = "";
-    let projectPath = "";
-    let isSidechain = false;
-    let summary: string | undefined;
-
-    for (const line of lines) {
-      if (!line.trim()) continue;
-
-      let entry: Record<string, unknown>;
-      try {
-        entry = JSON.parse(line) as Record<string, unknown>;
-      } catch {
-        continue;
-      }
-
-      const type = entry.type as string;
-
-      if (type === "summary" && entry.summary) {
-        summary = entry.summary as string;
-      }
-
-      if (type !== "user" && type !== "assistant") continue;
-      messageCount++;
-
-      const timestamp = entry.timestamp as string | undefined;
-      if (timestamp) {
-        if (!created) created = timestamp;
-        modified = timestamp;
-      }
-
-      if (!gitBranch && entry.gitBranch) {
-        gitBranch = entry.gitBranch as string;
-      }
-
-      if (!projectPath && entry.cwd) {
-        projectPath = normalizeWorktreePath(entry.cwd as string);
-      }
-
-      if (type === "user") {
-        const message = entry.message as
-          | { content?: unknown }
-          | undefined;
-        if (message?.content) {
-          let text = "";
-          if (typeof message.content === "string") {
-            text = message.content;
-          } else if (Array.isArray(message.content)) {
-            const textBlock = (
-              message.content as Array<{ type: string; text?: string }>
-            ).find((c) => c.type === "text" && c.text);
-            if (textBlock?.text) {
-              text = textBlock.text;
-            }
-          }
-          if (text) {
-            if (!firstPrompt) firstPrompt = text;
-            lastPrompt = text;
-          }
-        }
-      }
-
-      if (entry.isSidechain) {
-        isSidechain = true;
-      }
-    }
-
-    if (messageCount > 0) {
-      entries.push({
-        sessionId,
-        provider: "claude",
-        summary,
-        firstPrompt,
-        ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
-        messageCount,
-        created,
-        modified,
-        gitBranch,
-        projectPath,
-        isSidechain,
-      });
-      scanStats && (scanStats.entriesReturned += 1);
-    }
+    targets.push({ sessionId, filePath: join(dirPath, file) });
   }
 
-  return entries;
+  // Read and parse files in parallel using fast head+tail reads
+  const results = await parallelMap(
+    targets,
+    PARALLEL_FILE_READ_LIMIT,
+    async ({ sessionId, filePath }) => {
+      const entry = await parseClaudeJsonlFileFast(sessionId, filePath);
+      if (entry) {
+        scanStats && (scanStats.filesRead += 1);
+        scanStats && (scanStats.entriesReturned += 1);
+      } else {
+        scanStats && (scanStats.filesRead += 1);
+      }
+      return entry;
+    },
+  );
+
+  return results.filter((e): e is SessionIndexEntry => e !== null);
 }
 
 export async function getAllRecentSessions(
@@ -359,120 +519,131 @@ export async function getAllRecentSessions(
     ? pathToSlug(filterProjectPath)
     : null;
 
-  const loadClaudeStartedAt = process.hrtime.bigint();
-  if (shouldLoadClaude) {
-    for (const dirName of projectDirs) {
-      // Skip hidden directories
-      if (dirName.startsWith(".")) continue;
+  // --- Load Claude and Codex sessions in parallel ---
 
-      // When filtering by project, skip unrelated directories early
+  const loadClaudeStartedAt = process.hrtime.bigint();
+  const claudeEntriesPromise = (async (): Promise<SessionIndexEntry[]> => {
+    if (!shouldLoadClaude) return [];
+
+    // Filter directories first (sync), then process in parallel
+    const relevantDirs: string[] = [];
+    for (const dirName of projectDirs) {
+      if (dirName.startsWith(".")) continue;
       const isProjectDir = projectSlug ? dirName === projectSlug : false;
       const isWorktreeDir = projectSlug
         ? isWorktreeSlug(dirName, projectSlug)
         : false;
       if (filterProjectPath && !isProjectDir && !isWorktreeDir) continue;
-      perfStats.claudeProjectDirs += 1;
+      relevantDirs.push(dirName);
+    }
+    perfStats.claudeProjectDirs = relevantDirs.length;
 
-      const dirPath = join(projectsDir, dirName);
-      const indexPath = join(dirPath, "sessions-index.json");
-      let raw: string | null = null;
-      try {
-        raw = await readFile(indexPath, "utf-8");
-      } catch {
-        // No sessions-index.json — will try JSONL scan for worktree dirs
-      }
-
-      if (raw !== null) {
-        perfStats.claudeIndexDirs += 1;
-
-        // Parse sessions-index.json
-        let index: RawSessionIndexFile;
+    // Process directories in parallel
+    const dirResults = await parallelMap(
+      relevantDirs,
+      PARALLEL_FILE_READ_LIMIT,
+      async (dirName) => {
+        const dirPath = join(projectsDir, dirName);
+        const indexPath = join(dirPath, "sessions-index.json");
+        let raw: string | null = null;
         try {
-          index = JSON.parse(raw) as RawSessionIndexFile;
+          raw = await readFile(indexPath, "utf-8");
         } catch {
-          console.error(`[sessions-index] Failed to parse ${indexPath}`);
-          continue;
+          // No sessions-index.json — will try JSONL scan for worktree dirs
         }
 
-        if (!Array.isArray(index.entries)) continue;
+        const result: {
+          entries: SessionIndexEntry[];
+          indexDirs: number;
+          indexEntries: number;
+          jsonlOnlyDirs: number;
+          jsonlStats: JsonlScanStats;
+        } = {
+          entries: [],
+          indexDirs: 0,
+          indexEntries: 0,
+          jsonlOnlyDirs: 0,
+          jsonlStats: { filesTotal: 0, filesExcluded: 0, filesRead: 0, entriesReturned: 0 },
+        };
 
-        const indexedIds = new Set<string>();
-        for (const entry of index.entries) {
-          const name = entry.customTitle || undefined;
-          if (includeOnlyNamedClaude && (!name || name === "")) {
-            continue;
+        if (raw !== null) {
+          result.indexDirs = 1;
+
+          let index: RawSessionIndexFile;
+          try {
+            index = JSON.parse(raw) as RawSessionIndexFile;
+          } catch {
+            console.error(`[sessions-index] Failed to parse ${indexPath}`);
+            return result;
           }
 
-          indexedIds.add(entry.sessionId);
-          const mapped: SessionIndexEntry = {
-            sessionId: entry.sessionId,
-            provider: "claude",
-            name,
-            summary: entry.summary,
-            firstPrompt: entry.firstPrompt ?? "",
-            messageCount: entry.messageCount ?? 0,
-            created: entry.created ?? "",
-            modified: entry.modified ?? "",
-            gitBranch: entry.gitBranch ?? "",
-            projectPath: normalizeWorktreePath(entry.projectPath ?? ""),
-            isSidechain: entry.isSidechain ?? false,
-          };
-          entries.push(mapped);
-          perfStats.claudeIndexEntries += 1;
-        }
+          if (!Array.isArray(index.entries)) return result;
 
-        if (!includeOnlyNamedClaude) {
-          // Supplement: scan JSONL files not covered by the index.
-          // Claude CLI may not register every session (e.g. `claude -r` resumes)
-          // into sessions-index.json, so we pick up any orphaned JSONL files here.
-          const scanStats: JsonlScanStats = {
-            filesTotal: 0,
-            filesExcluded: 0,
-            filesRead: 0,
-            entriesReturned: 0,
-          };
-          const scanned = await scanJsonlDir(dirPath, {
-            excludeSessionIds: indexedIds,
-            stats: scanStats,
-          });
-          perfStats.claudeJsonlFilesTotal += scanStats.filesTotal;
-          perfStats.claudeJsonlFilesExcluded += scanStats.filesExcluded;
-          perfStats.claudeJsonlFilesRead += scanStats.filesRead;
-          perfStats.claudeJsonlEntries += scanStats.entriesReturned;
-          entries.push(...scanned);
+          const indexedIds = new Set<string>();
+          for (const entry of index.entries) {
+            const name = entry.customTitle || undefined;
+            if (includeOnlyNamedClaude && (!name || name === "")) {
+              continue;
+            }
+
+            indexedIds.add(entry.sessionId);
+            result.entries.push({
+              sessionId: entry.sessionId,
+              provider: "claude",
+              name,
+              summary: entry.summary,
+              firstPrompt: entry.firstPrompt ?? "",
+              created: entry.created ?? "",
+              modified: entry.modified ?? "",
+              gitBranch: entry.gitBranch ?? "",
+              projectPath: normalizeWorktreePath(entry.projectPath ?? ""),
+              isSidechain: entry.isSidechain ?? false,
+            });
+            result.indexEntries += 1;
+          }
+
+          if (!includeOnlyNamedClaude) {
+            const scanned = await scanJsonlDir(dirPath, {
+              excludeSessionIds: indexedIds,
+              stats: result.jsonlStats,
+            });
+            result.entries.push(...scanned);
+          } else {
+            perfStats.claudeNamedOnlyFastPathUsed = true;
+          }
         } else {
-          perfStats.claudeNamedOnlyFastPathUsed = true;
-        }
-      } else {
-        if (includeOnlyNamedClaude) {
-          // namedOnly=true では Claude の名前付きセッションは sessions-index.json
-          // 由来のみを採用する。index がないディレクトリの JSONL 補完は不要。
-          perfStats.claudeNamedOnlyFastPathUsed = true;
-          continue;
+          if (includeOnlyNamedClaude) {
+            perfStats.claudeNamedOnlyFastPathUsed = true;
+            return result;
+          }
+
+          result.jsonlOnlyDirs = 1;
+          const scanned = await scanJsonlDir(dirPath, { stats: result.jsonlStats });
+          result.entries.push(...scanned);
         }
 
-        perfStats.claudeJsonlOnlyDirs += 1;
-        // No sessions-index.json: scan JSONL files directly.
-        // Directories are already filtered above, so all remaining dirs are relevant.
-        const scanStats: JsonlScanStats = {
-          filesTotal: 0,
-          filesExcluded: 0,
-          filesRead: 0,
-          entriesReturned: 0,
-        };
-        const scanned = await scanJsonlDir(dirPath, { stats: scanStats });
-        perfStats.claudeJsonlFilesTotal += scanStats.filesTotal;
-        perfStats.claudeJsonlFilesExcluded += scanStats.filesExcluded;
-        perfStats.claudeJsonlFilesRead += scanStats.filesRead;
-        perfStats.claudeJsonlEntries += scanStats.entriesReturned;
-        entries.push(...scanned);
-      }
+        return result;
+      },
+    );
+
+    // Aggregate stats and entries
+    const allEntries: SessionIndexEntry[] = [];
+    for (const r of dirResults) {
+      allEntries.push(...r.entries);
+      perfStats.claudeIndexDirs += r.indexDirs;
+      perfStats.claudeIndexEntries += r.indexEntries;
+      perfStats.claudeJsonlOnlyDirs += r.jsonlOnlyDirs;
+      perfStats.claudeJsonlFilesTotal += r.jsonlStats.filesTotal;
+      perfStats.claudeJsonlFilesExcluded += r.jsonlStats.filesExcluded;
+      perfStats.claudeJsonlFilesRead += r.jsonlStats.filesRead;
+      perfStats.claudeJsonlEntries += r.jsonlStats.entriesReturned;
     }
-  }
-  markDuration(durations, "loadClaudeSessions", loadClaudeStartedAt);
+    return allEntries;
+  })();
 
   const loadCodexStartedAt = process.hrtime.bigint();
-  if (shouldLoadCodex) {
+  const codexEntriesPromise = (async (): Promise<SessionIndexEntry[]> => {
+    if (!shouldLoadCodex) return [];
     const codexPerf: CodexRecentPerfStats = {
       filesTotal: 0,
       filesRead: 0,
@@ -485,9 +656,19 @@ export async function getAllRecentSessions(
     perfStats.codexFilesTotal = codexPerf.filesTotal;
     perfStats.codexFilesRead = codexPerf.filesRead;
     perfStats.codexEntries = codexPerf.entriesReturned;
-    entries.push(...codexEntries);
-  }
+    return codexEntries;
+  })();
+
+  // Wait for both Claude and Codex loading to complete in parallel
+  const [claudeEntries, codexEntries] = await Promise.all([
+    claudeEntriesPromise,
+    codexEntriesPromise,
+  ]);
+  markDuration(durations, "loadClaudeSessions", loadClaudeStartedAt);
   markDuration(durations, "loadCodexSessions", loadCodexStartedAt);
+
+  // Combine results
+  entries.push(...claudeEntries, ...codexEntries);
 
   // Filter out archived sessions
   const archivedIds = options.archivedSessionIds;
@@ -595,7 +776,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   let firstPrompt = "";
   let lastPrompt = "";
   let summary = "";
-  let messageCount = 0;
+  let hasMessages = false;
   let lastAssistantText = "";
   // Settings extracted from the first turn_context entry
   let approvalPolicy: string | undefined;
@@ -670,7 +851,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
     if (entry.type === "event_msg") {
       const payload = entry.payload as Record<string, unknown> | undefined;
       if (payload?.type === "user_message" && typeof payload.message === "string") {
-        messageCount += 1;
+        hasMessages = true;
         if (!firstPrompt) firstPrompt = payload.message;
         lastPrompt = payload.message;
       }
@@ -690,13 +871,13 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
         .join("\n")
         .trim();
       if (text.length > 0) {
-        messageCount += 1;
+        hasMessages = true;
         lastAssistantText = text;
       }
     }
   }
 
-  if (!projectPath || messageCount === 0) return null;
+  if (!projectPath || !hasMessages) return null;
   summary = lastAssistantText || summary;
 
   const codexSettings = (
@@ -725,7 +906,6 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       summary: summary || undefined,
       firstPrompt,
       ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
-      messageCount,
       created,
       modified,
       gitBranch,
@@ -817,7 +997,6 @@ export async function renameClaudeSession(
   let firstPrompt = "";
   let created = new Date().toISOString();
   let modified = created;
-  let messageCount = 0;
   let gitBranch = "";
   try {
     const raw = await readFile(jsonlPath, "utf-8");
@@ -827,7 +1006,6 @@ export async function renameClaudeSession(
         const entry = JSON.parse(line) as Record<string, unknown>;
         const type = entry.type as string;
         if (type !== "user" && type !== "assistant") continue;
-        messageCount++;
         const ts = entry.timestamp as string | undefined;
         if (ts) {
           if (!firstPrompt) created = ts;
@@ -855,7 +1033,7 @@ export async function renameClaudeSession(
     fileMtime: Date.now(),
     firstPrompt,
     customTitle: name,
-    messageCount,
+    messageCount: 0,
     created,
     modified,
     gitBranch,

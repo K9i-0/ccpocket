@@ -65,7 +65,6 @@ List<SessionInfo> storeRunningSessions() => [
     gitBranch: 'feat/checkout-redesign',
     lastMessage:
         'Implementing the new checkout flow with Stripe integration...',
-    messageCount: 34,
   ),
   SessionInfo(
     id: 'store-run-2',
@@ -80,7 +79,6 @@ List<SessionInfo> storeRunningSessions() => [
         .toIso8601String(),
     gitBranch: 'feat/parser',
     lastMessage: 'Running the test suite to verify parser changes.',
-    messageCount: 18,
     pendingPermission: const PermissionRequestMessage(
       toolUseId: 'store-tool-1',
       toolName: 'Bash',
@@ -100,7 +98,6 @@ List<SessionInfo> storeRunningSessions() => [
         .toIso8601String(),
     gitBranch: 'feat/dark-mode',
     lastMessage: 'Which color palette should I use for the dark mode?',
-    messageCount: 12,
     pendingPermission: const PermissionRequestMessage(
       toolUseId: 'store-ask-1',
       toolName: 'AskUserQuestion',
@@ -150,7 +147,6 @@ List<SessionInfo> storeRunningSessionsMinimal() => [
     gitBranch: 'feat/checkout-redesign',
     lastMessage:
         'Implementing the new checkout flow with Stripe integration...',
-    messageCount: 34,
   ),
 ];
 
@@ -164,7 +160,6 @@ List<RecentSession> storeRecentSessions() => [
     provider: 'claude',
     summary: 'Add product search with Algolia integration',
     firstPrompt: 'Integrate Algolia search into the product listing page',
-    messageCount: 45,
     created: DateTime.now()
         .subtract(const Duration(hours: 2))
         .toIso8601String(),
@@ -180,7 +175,6 @@ List<RecentSession> storeRecentSessions() => [
     provider: 'claude',
     summary: 'Fix WebSocket reconnection on network change',
     firstPrompt: 'WebSocket drops when switching from WiFi to cellular',
-    messageCount: 22,
     created: DateTime.now()
         .subtract(const Duration(hours: 4))
         .toIso8601String(),
@@ -196,7 +190,6 @@ List<RecentSession> storeRecentSessions() => [
     provider: 'codex',
     summary: 'Implement streaming JSON parser for large files',
     firstPrompt: 'Add a streaming JSON parser that handles files over 1GB',
-    messageCount: 53,
     created: DateTime.now()
         .subtract(const Duration(hours: 6))
         .toIso8601String(),
@@ -212,7 +205,6 @@ List<RecentSession> storeRecentSessions() => [
     provider: 'claude',
     summary: 'Set up CI/CD pipeline with GitHub Actions',
     firstPrompt: 'Create a CI/CD pipeline for build, test, and deploy',
-    messageCount: 31,
     created: DateTime.now()
         .subtract(const Duration(days: 1, hours: 2))
         .toIso8601String(),
@@ -228,7 +220,6 @@ List<RecentSession> storeRecentSessions() => [
     provider: 'claude',
     summary: 'Refactor auth module to use OAuth 2.0 PKCE flow',
     firstPrompt: 'Migrate the authentication from session-based to OAuth 2.0',
-    messageCount: 67,
     created: DateTime.now()
         .subtract(const Duration(days: 1, hours: 8))
         .toIso8601String(),
@@ -244,7 +235,6 @@ List<RecentSession> storeRecentSessions() => [
     provider: 'codex',
     summary: 'Write unit tests for CLI argument parser',
     firstPrompt: 'Add comprehensive tests for the argument parsing module',
-    messageCount: 19,
     created: DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
     modified: DateTime.now()
         .subtract(const Duration(days: 1, hours: 18))
@@ -258,7 +248,6 @@ List<RecentSession> storeRecentSessions() => [
     provider: 'claude',
     summary: 'Add responsive layout for tablet and desktop',
     firstPrompt: 'Make the app responsive across phone, tablet, and desktop',
-    messageCount: 41,
     created: DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
     modified: DateTime.now()
         .subtract(const Duration(days: 2, hours: 12))

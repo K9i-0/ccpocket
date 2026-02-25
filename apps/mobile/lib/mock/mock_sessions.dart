@@ -7,7 +7,7 @@ final List<RecentSession> mockRecentSessions = [
     sessionId: 'mock-sess-1',
     summary: 'Implement slash command improvements',
     firstPrompt: 'スラッシュコマンド改善',
-    messageCount: 42,
+
     created: DateTime.now()
         .subtract(const Duration(hours: 1))
         .toIso8601String(),
@@ -22,7 +22,6 @@ final List<RecentSession> mockRecentSessions = [
     sessionId: 'mock-sess-2',
     summary: 'Fix WebSocket reconnection bug',
     firstPrompt: 'WebSocket reconnection issue',
-    messageCount: 18,
     created: DateTime.now()
         .subtract(const Duration(hours: 3))
         .toIso8601String(),
@@ -37,7 +36,6 @@ final List<RecentSession> mockRecentSessions = [
     sessionId: 'mock-sess-3',
     summary: 'Add dark mode support',
     firstPrompt: 'ダークモード対応して',
-    messageCount: 65,
     created: DateTime.now()
         .subtract(const Duration(hours: 5))
         .toIso8601String(),
@@ -52,7 +50,6 @@ final List<RecentSession> mockRecentSessions = [
     sessionId: 'mock-sess-4',
     summary: 'Setup CI/CD pipeline with GitHub Actions',
     firstPrompt: 'Set up CI/CD',
-    messageCount: 25,
     created: DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
     modified: DateTime.now()
         .subtract(const Duration(hours: 20))
@@ -65,7 +62,6 @@ final List<RecentSession> mockRecentSessions = [
     sessionId: 'mock-sess-5',
     summary: 'Refactor auth module',
     firstPrompt: '認証モジュールのリファクタ',
-    messageCount: 31,
     created: DateTime.now()
         .subtract(const Duration(days: 1, hours: 2))
         .toIso8601String(),
@@ -80,7 +76,6 @@ final List<RecentSession> mockRecentSessions = [
     sessionId: 'mock-sess-6',
     summary: 'Add JSON parser with streaming support',
     firstPrompt: 'Implement streaming JSON parser',
-    messageCount: 53,
     created: DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
     modified: DateTime.now()
         .subtract(const Duration(days: 1, hours: 20))
@@ -93,7 +88,6 @@ final List<RecentSession> mockRecentSessions = [
     sessionId: 'mock-sess-7',
     summary: 'Write unit tests for CLI arguments',
     firstPrompt: 'テスト書いて',
-    messageCount: 15,
     created: DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
     modified: DateTime.now()
         .subtract(const Duration(days: 2, hours: 12))
@@ -106,7 +100,6 @@ final List<RecentSession> mockRecentSessions = [
     sessionId: 'mock-sess-8',
     summary: 'Home screen UI improvements',
     firstPrompt: 'ホーム画面の改善',
-    messageCount: 8,
     created: DateTime.now()
         .subtract(const Duration(minutes: 15))
         .toIso8601String(),
@@ -139,7 +132,6 @@ SessionInfo mockSessionMultiQuestion() => SessionInfo(
       .toIso8601String(),
   gitBranch: 'feat/ci-setup',
   lastMessage: 'I have a few questions about how to set up the CI/CD pipeline.',
-  messageCount: 12,
   pendingPermission: const PermissionRequestMessage(
     toolUseId: 'tool-ask-mq-1',
     toolName: 'AskUserQuestion',
@@ -222,7 +214,6 @@ SessionInfo mockSessionMultiSelect() => SessionInfo(
       .toIso8601String(),
   gitBranch: 'refactor/ui-cleanup',
   lastMessage: 'Which areas should I update to use the new design tokens?',
-  messageCount: 8,
   pendingPermission: const PermissionRequestMessage(
     toolUseId: 'tool-ask-ms-1',
     toolName: 'AskUserQuestion',
@@ -273,7 +264,6 @@ List<SessionInfo> mockSessionsBatchApproval() => [
         .toIso8601String(),
     gitBranch: 'feat/api',
     lastMessage: 'Running tests to verify the API changes.',
-    messageCount: 15,
     pendingPermission: const PermissionRequestMessage(
       toolUseId: 'tool-bash-ba-1',
       toolName: 'Bash',
@@ -293,7 +283,6 @@ List<SessionInfo> mockSessionsBatchApproval() => [
         .toIso8601String(),
     gitBranch: 'fix/build',
     lastMessage: 'Need to update the pubspec.yaml dependencies.',
-    messageCount: 22,
     pendingPermission: const PermissionRequestMessage(
       toolUseId: 'tool-edit-ba-2',
       toolName: 'Edit',
@@ -317,7 +306,6 @@ List<SessionInfo> mockSessionsBatchApproval() => [
         .toIso8601String(),
     gitBranch: 'feat/parser',
     lastMessage: 'Checking git status before commit.',
-    messageCount: 7,
     pendingPermission: const PermissionRequestMessage(
       toolUseId: 'tool-bash-ba-3',
       toolName: 'Bash',
@@ -345,7 +333,6 @@ SessionInfo mockSessionSingleQuestion() => SessionInfo(
       .toIso8601String(),
   gitBranch: 'feat/config',
   lastMessage: 'How should we structure the configuration?',
-  messageCount: 5,
   pendingPermission: const PermissionRequestMessage(
     toolUseId: 'tool-ask-sq-1',
     toolName: 'AskUserQuestion',
@@ -396,7 +383,6 @@ SessionInfo mockSessionPlanApproval() => SessionInfo(
       .toIso8601String(),
   gitBranch: 'feat/notifications',
   lastMessage: 'I\'ve designed the implementation plan for push notifications.',
-  messageCount: 18,
   pendingPermission: const PermissionRequestMessage(
     toolUseId: 'tool-plan-exit-1',
     toolName: 'ExitPlanMode',
@@ -419,7 +405,6 @@ SessionInfo mockSessionCodexPlanApproval() => SessionInfo(
       .toIso8601String(),
   gitBranch: 'feat/codex-plan-ui',
   lastMessage: 'I drafted the plan and need your approval before coding.',
-  messageCount: 9,
   codexModel: 'gpt-5-codex',
   codexSandboxMode: 'workspace-write',
   codexApprovalPolicy: 'on-request',

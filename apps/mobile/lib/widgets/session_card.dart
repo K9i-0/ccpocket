@@ -382,9 +382,8 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  // Git branch + message count
-                  if (session.gitBranch.isNotEmpty ||
-                      session.messageCount > 0) ...[
+                  // Git branch + worktree
+                  if (session.gitBranch.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -407,21 +406,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                           ),
                           const SizedBox(width: 12),
                         ],
-                        if (session.messageCount > 0) ...[
-                          Icon(
-                            Icons.chat_bubble_outline,
-                            size: 12,
-                            color: appColors.subtleText,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${session.messageCount}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: appColors.subtleText,
-                            ),
-                          ),
-                        ],
+                        // messageCount removed for performance
                         if (session.worktreePath != null) ...[
                           const SizedBox(width: 12),
                           Icon(
@@ -2156,16 +2141,6 @@ class RecentSessionCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                   ],
-                  Icon(
-                    Icons.chat_bubble_outline,
-                    size: 13,
-                    color: appColors.subtleText,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${session.messageCount}',
-                    style: TextStyle(fontSize: 12, color: appColors.subtleText),
-                  ),
                 ],
               ),
             ],

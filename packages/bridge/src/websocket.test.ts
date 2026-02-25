@@ -103,7 +103,6 @@ vi.mock("./session.js", () => ({
         lastActivityAt: "",
         gitBranch: "",
         lastMessage: "",
-        messageCount: (s.pastMessages?.length ?? 0) + s.history.length,
       }));
     }
 

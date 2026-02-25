@@ -61,7 +61,6 @@ export interface SessionSummary {
   lastActivityAt: string;
   gitBranch: string;
   lastMessage: string;
-  messageCount: number;
   worktreePath?: string;
   worktreeBranch?: string;
   permissionMode?: string;
@@ -436,7 +435,6 @@ export class SessionManager {
         lastActivityAt: s.lastActivityAt.toISOString(),
         gitBranch: s.gitBranch,
         lastMessage: this.extractLastMessage(s),
-        messageCount: (s.pastMessages?.length ?? 0) + s.history.length,
         worktreePath: s.worktreePath,
         worktreeBranch: s.worktreeBranch,
         permissionMode:

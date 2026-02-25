@@ -160,7 +160,6 @@ describe("scanJsonlDir", () => {
     expect(entry.sessionId).toBe("test-session-1");
     expect(entry.provider).toBe("claude");
     expect(entry.firstPrompt).toBe("hello world");
-    expect(entry.messageCount).toBe(2);
     expect(entry.created).toBe("2026-01-01T00:00:00.000Z");
     expect(entry.modified).toBe("2026-01-01T00:00:01.000Z");
     expect(entry.gitBranch).toBe("main");
@@ -191,7 +190,8 @@ describe("scanJsonlDir", () => {
 
     const result = await scanJsonlDir(testDir);
     expect(result).toHaveLength(1);
-    expect(result[0].summary).toBe("This is a session summary");
+    // Fast parser skips summary entries for performance (summary comes from sessions-index.json)
+    expect(result[0].summary).toBeUndefined();
   });
 
   it("skips JSONL files with no user/assistant messages", async () => {

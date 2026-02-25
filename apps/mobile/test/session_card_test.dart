@@ -18,7 +18,7 @@ Widget _wrap(Widget child) {
 
 void main() {
   group('SessionInfo.fromJson', () {
-    test('parses gitBranch, lastMessage, messageCount', () {
+    test('parses gitBranch, lastMessage', () {
       final json = {
         'id': 'abc123',
         'projectPath': '/home/user/my-app',
@@ -27,12 +27,10 @@ void main() {
         'lastActivityAt': '2025-01-01T01:00:00Z',
         'gitBranch': 'feat/login',
         'lastMessage': 'Fixed the auth bug',
-        'messageCount': 42,
       };
       final info = SessionInfo.fromJson(json);
       expect(info.gitBranch, 'feat/login');
       expect(info.lastMessage, 'Fixed the auth bug');
-      expect(info.messageCount, 42);
     });
 
     test('defaults new fields when missing', () {
@@ -46,7 +44,6 @@ void main() {
       final info = SessionInfo.fromJson(json);
       expect(info.gitBranch, '');
       expect(info.lastMessage, '');
-      expect(info.messageCount, 0);
     });
 
     test('parses codex settings from codexSettings object', () {
@@ -71,7 +68,7 @@ void main() {
   });
 
   group('RunningSessionCard', () {
-    testWidgets('displays gitBranch, lastMessage, messageCount', (
+    testWidgets('displays gitBranch and lastMessage', (
       tester,
     ) async {
       final session = SessionInfo(
@@ -82,7 +79,6 @@ void main() {
         lastActivityAt: DateTime.now().toIso8601String(),
         gitBranch: 'feat/auth',
         lastMessage: 'Implemented login flow',
-        messageCount: 15,
       );
 
       await tester.pumpWidget(
@@ -95,15 +91,11 @@ void main() {
       expect(find.text('feat/auth'), findsOneWidget);
       // Last message text
       expect(find.text('Implemented login flow'), findsOneWidget);
-      // Message count
-      expect(find.text('15'), findsOneWidget);
       // Fork icon
       expect(find.byIcon(Icons.fork_right), findsOneWidget);
-      // Chat icon
-      expect(find.byIcon(Icons.chat_bubble_outline), findsOneWidget);
     });
 
-    testWidgets('hides info row when gitBranch/messageCount empty', (
+    testWidgets('hides info row when gitBranch empty', (
       tester,
     ) async {
       final session = SessionInfo(
@@ -122,8 +114,6 @@ void main() {
 
       // No fork icon when gitBranch is empty
       expect(find.byIcon(Icons.fork_right), findsNothing);
-      // No chat icon when messageCount is 0
-      expect(find.byIcon(Icons.chat_bubble_outline), findsNothing);
     });
 
     testWidgets('shows status bar with Running label', (tester) async {
@@ -186,7 +176,6 @@ void main() {
         createdAt: DateTime.now().toIso8601String(),
         lastActivityAt: DateTime.now().toIso8601String(),
         gitBranch: 'main',
-        messageCount: 5,
       );
 
       await tester.pumpWidget(
@@ -197,8 +186,6 @@ void main() {
 
       // Git branch should show
       expect(find.text('main'), findsOneWidget);
-      // Message count should show
-      expect(find.text('5'), findsOneWidget);
       // No lastMessage text rendered (empty by default)
     });
 
@@ -244,7 +231,6 @@ void main() {
         provider: 'codex',
         summary: 'summary',
         firstPrompt: 'prompt',
-        messageCount: 2,
         created: DateTime.now().toIso8601String(),
         modified: DateTime.now().toIso8601String(),
         gitBranch: 'main',
@@ -274,7 +260,6 @@ void main() {
         provider: 'codex',
         summary: 'summary',
         firstPrompt: 'prompt',
-        messageCount: 2,
         created: DateTime.now().toIso8601String(),
         modified: DateTime.now().toIso8601String(),
         gitBranch: 'main',

@@ -440,7 +440,6 @@ class _SessionListSkeleton extends StatelessWidget {
     RecentSession(
       sessionId: 'skeleton-1',
       firstPrompt: 'Implement the new feature for user authentication flow',
-      messageCount: 12,
       created: '2025-01-01T00:00:00Z',
       modified: '2025-01-01T01:00:00Z',
       gitBranch: 'feat/auth',
@@ -450,7 +449,6 @@ class _SessionListSkeleton extends StatelessWidget {
     RecentSession(
       sessionId: 'skeleton-2',
       firstPrompt: 'Fix the CI pipeline build failure on main branch',
-      messageCount: 8,
       created: '2025-01-01T00:00:00Z',
       modified: '2025-01-01T01:00:00Z',
       gitBranch: 'fix/ci',
@@ -460,7 +458,6 @@ class _SessionListSkeleton extends StatelessWidget {
     RecentSession(
       sessionId: 'skeleton-3',
       firstPrompt: 'Add dark mode support to the settings page',
-      messageCount: 5,
       created: '2025-01-01T00:00:00Z',
       modified: '2025-01-01T01:00:00Z',
       gitBranch: 'main',
@@ -470,7 +467,6 @@ class _SessionListSkeleton extends StatelessWidget {
     RecentSession(
       sessionId: 'skeleton-4',
       firstPrompt: 'Refactor database queries for better performance',
-      messageCount: 15,
       created: '2025-01-01T00:00:00Z',
       modified: '2025-01-01T01:00:00Z',
       gitBranch: 'perf/db',
@@ -480,7 +476,6 @@ class _SessionListSkeleton extends StatelessWidget {
     RecentSession(
       sessionId: 'skeleton-5',
       firstPrompt: 'Update documentation for the REST API endpoints',
-      messageCount: 3,
       created: '2025-01-01T00:00:00Z',
       modified: '2025-01-01T01:00:00Z',
       gitBranch: 'docs',
