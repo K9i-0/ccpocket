@@ -310,11 +310,24 @@ export class BridgeWebSocketServer {
         // otherwise lack them.  This ensures get_history responses include user
         // messages and replaceEntries on the client side preserves them.
         // We do NOT broadcast this back — Flutter already shows it via sendMessage().
+        //
+        // Register images in the image store so they can be served via HTTP
+        // when the client re-enters the session and loads history.
+        let imageRefs: Array<{ id: string; url: string; mimeType: string }> | undefined;
+        if (images.length > 0 && this.imageStore) {
+          imageRefs = [];
+          for (const img of images) {
+            const ref = this.imageStore.registerFromBase64(img.base64, img.mimeType);
+            if (ref) imageRefs.push(ref);
+          }
+          if (imageRefs.length === 0) imageRefs = undefined;
+        }
         session.history.push({
           type: "user_input",
           text,
           timestamp: new Date().toISOString(),
           ...(images.length > 0 ? { imageCount: images.length } : {}),
+          ...(imageRefs ? { images: imageRefs } : {}),
         } as ServerMessage);
 
         // Persist images to Gallery Store asynchronously (fire-and-forget)

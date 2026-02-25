@@ -477,6 +477,11 @@ sealed class ServerMessage {
         isMeta: json['isMeta'] as bool? ?? false,
         imageCount: json['imageCount'] as int? ?? 0,
         timestamp: json['timestamp'] as String?,
+        imageUrls: (json['images'] as List?)
+                ?.map((e) => (e as Map<String, dynamic>)['url'] as String?)
+                .whereType<String>()
+                .toList() ??
+            const [],
       ),
       'rewind_preview' => RewindPreviewMessage(
         canRewind: json['canRewind'] as bool? ?? false,
@@ -951,6 +956,9 @@ class UserInputMessage implements ServerMessage {
 
   /// ISO 8601 timestamp from the bridge server (may be null for older history).
   final String? timestamp;
+
+  /// Image URLs (relative, e.g. "/images/{id}") from the bridge image store.
+  final List<String> imageUrls;
   const UserInputMessage({
     required this.text,
     this.userMessageUuid,
@@ -958,6 +966,7 @@ class UserInputMessage implements ServerMessage {
     this.isMeta = false,
     this.imageCount = 0,
     this.timestamp,
+    this.imageUrls = const [],
   });
 }
 

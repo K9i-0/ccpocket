@@ -376,6 +376,7 @@ class ChatMessageHandler {
             status: MessageStatus.sent,
             messageUuid: m.userMessageUuid,
             imageCount: m.imageCount,
+            imageUrls: m.imageUrls,
             timestamp: ts,
           ),
         );
