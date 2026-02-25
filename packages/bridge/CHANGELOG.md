@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.5.1] - 2026-02-25
+
+### Fixed
+- Replace single-slot `pendingInput` with FIFO array queue to prevent message loss when multiple inputs arrive while the agent is busy
+- Auto-interrupt the current agent turn when a new message is queued, so queued messages are picked up promptly instead of waiting for the turn to finish
+- Add `queued` flag to `input_ack` response so the client can show a "queued" indicator
+- Preserve queued messages across `interrupt()` calls instead of clearing them
+
 ## [1.5.0] - 2026-02-25
 
 ### Added
