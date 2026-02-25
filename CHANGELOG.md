@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.24.0] - 2026-02-25
+
+### Added
+- Show compacting status during auto compact
+- Tooltips on filter bar and chat input buttons
+- Screenshot banner for README
+
+### Changed
+- Rename session filter label from "All Providers" to "All AI Tools"
+
+### Fixed
+- Preserve user message images and timestamps across history refresh
+- Serve user images via HTTP for session re-entry (images no longer disappear when returning to a running session)
+- Persist Claude session settings across resumes
+- Resume existing session on "Edit settings then start"
+- Preserve queued input ordering
+
 ## [1.23.0] - 2026-02-25
 
 ### Changed
