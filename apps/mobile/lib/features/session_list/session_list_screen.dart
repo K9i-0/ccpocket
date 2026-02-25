@@ -612,7 +612,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       if (edited == null || !mounted) return;
       await _saveSessionStartDefaults(edited);
       if (!mounted) return;
-      _startNewSession(edited);
+      _resumeSessionWithParams(session, edited);
       return;
     }
 
@@ -723,6 +723,35 @@ class _SessionListScreenState extends State<SessionListScreen>
       modelReasoningEffort: session.codexModelReasoningEffort,
       networkAccessEnabled: session.codexNetworkAccessEnabled,
       webSearchMode: session.codexWebSearchMode,
+    );
+  }
+
+  /// Resume session with user-edited settings (from "Edit settings then start")
+  void _resumeSessionWithParams(
+    RecentSession session,
+    NewSessionParams edited,
+  ) {
+    final resumeProjectPath = session.resumeCwd ?? session.projectPath;
+    _pendingResumeProjectPath = resumeProjectPath;
+    _pendingResumeGitBranch = session.gitBranch;
+
+    final isCodex = edited.provider == Provider.codex;
+    context.read<BridgeService>().resumeSession(
+      session.sessionId,
+      resumeProjectPath,
+      permissionMode: !isCodex ? edited.permissionMode.value : null,
+      effort: !isCodex ? edited.claudeEffort?.value : null,
+      maxTurns: !isCodex ? edited.claudeMaxTurns : null,
+      maxBudgetUsd: !isCodex ? edited.claudeMaxBudgetUsd : null,
+      fallbackModel: !isCodex ? edited.claudeFallbackModel : null,
+      forkSession: !isCodex ? edited.claudeForkSession : null,
+      persistSession: !isCodex ? edited.claudePersistSession : null,
+      provider: session.provider,
+      sandboxMode: isCodex ? edited.sandboxMode?.value : null,
+      model: isCodex ? edited.model : edited.claudeModel,
+      modelReasoningEffort: isCodex ? edited.modelReasoningEffort?.value : null,
+      networkAccessEnabled: isCodex ? edited.networkAccessEnabled : null,
+      webSearchMode: isCodex ? edited.webSearchMode?.value : null,
     );
   }
 
