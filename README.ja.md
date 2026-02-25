@@ -41,7 +41,11 @@ ccpocket-bridge
 
 ### 2. アプリをインストール
 
-App Store または Google Play からダウンロード。（準備中）
+<a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket">
+  <img alt="Google Play で手に入れよう" src="https://play.google.com/intl/ja/badges/static/images/badges/ja_badge_web_generic.png" height="80">
+</a>
+
+iOS: 準備中
 
 ### 3. 接続
 
