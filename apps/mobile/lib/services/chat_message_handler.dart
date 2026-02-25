@@ -366,13 +366,17 @@ class ChatMessageHandler {
       } else if (m is UserInputMessage) {
         // Skip synthetic and meta messages
         if (m.isSynthetic || m.isMeta) continue;
-        // Convert user_input to UserChatEntry with UUID
+        // Convert user_input to UserChatEntry with UUID and timestamp
+        final ts = m.timestamp != null
+            ? DateTime.tryParse(m.timestamp!)?.toLocal()
+            : null;
         entries.add(
           UserChatEntry(
             m.text,
             status: MessageStatus.sent,
             messageUuid: m.userMessageUuid,
             imageCount: m.imageCount,
+            timestamp: ts,
           ),
         );
       } else {

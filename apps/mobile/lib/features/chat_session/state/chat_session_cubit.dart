@@ -272,6 +272,51 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       }
 
       entries = [...pastEntries, ...nonStreamingEntries, ...extraLiveEntries];
+
+      // Preserve local data (image bytes, timestamps) from existing entries
+      // that the server history does not contain.
+      // Match by messageUuid (preferred) or text content (fallback for
+      // entries whose UUID hasn't been assigned yet).
+      final existingUserData = <String, UserChatEntry>{};
+      for (final e in existingNonPast) {
+        if (e is UserChatEntry) {
+          if (e.messageUuid != null) {
+            existingUserData[e.messageUuid!] = e;
+          } else {
+            existingUserData['text:${e.text}'] = e;
+          }
+        }
+      }
+      if (existingUserData.isNotEmpty) {
+        for (int i = 0; i < entries.length; i++) {
+          final e = entries[i];
+          if (e is! UserChatEntry) continue;
+          final existing =
+              (e.messageUuid != null
+                  ? existingUserData[e.messageUuid!]
+                  : null) ??
+              existingUserData['text:${e.text}'];
+          if (existing == null) continue;
+          final needsImages =
+              e.imageBytesList.isEmpty && existing.imageBytesList.isNotEmpty;
+          final needsTimestamp = existing.timestamp != e.timestamp;
+          if (needsImages || needsTimestamp) {
+            entries[i] = UserChatEntry(
+              e.text,
+              sessionId: e.sessionId,
+              imageBytesList: needsImages
+                  ? existing.imageBytesList
+                  : e.imageBytesList,
+              imageUrls: e.imageUrls,
+              imageCount: e.imageCount,
+              status: e.status,
+              messageUuid: e.messageUuid,
+              timestamp: existing.timestamp,
+            );
+          }
+        }
+      }
+
       didModifyEntries = true;
     } else if (nonStreamingEntries.isNotEmpty) {
       entries = [...entries, ...nonStreamingEntries];

@@ -313,6 +313,7 @@ export class BridgeWebSocketServer {
         session.history.push({
           type: "user_input",
           text,
+          timestamp: new Date().toISOString(),
           ...(images.length > 0 ? { imageCount: images.length } : {}),
         } as ServerMessage);
 

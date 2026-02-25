@@ -476,6 +476,7 @@ sealed class ServerMessage {
         isSynthetic: json['isSynthetic'] as bool? ?? false,
         isMeta: json['isMeta'] as bool? ?? false,
         imageCount: json['imageCount'] as int? ?? 0,
+        timestamp: json['timestamp'] as String?,
       ),
       'rewind_preview' => RewindPreviewMessage(
         canRewind: json['canRewind'] as bool? ?? false,
@@ -947,12 +948,16 @@ class UserInputMessage implements ServerMessage {
 
   /// Number of images attached to this user message.
   final int imageCount;
+
+  /// ISO 8601 timestamp from the bridge server (may be null for older history).
+  final String? timestamp;
   const UserInputMessage({
     required this.text,
     this.userMessageUuid,
     this.isSynthetic = false,
     this.isMeta = false,
     this.imageCount = 0,
+    this.timestamp,
   });
 }
 
