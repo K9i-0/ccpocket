@@ -319,6 +319,34 @@ describe("scanJsonlDir", () => {
     expect(result).toHaveLength(1);
     expect(result[0].isSidechain).toBe(true);
   });
+
+  it("skips jsonl files when sessionId is excluded", async () => {
+    writeFileSync(
+      join(testDir, "included.jsonl"),
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: "included session" },
+        cwd: "/proj",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+    writeFileSync(
+      join(testDir, "excluded.jsonl"),
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: "excluded session" },
+        cwd: "/proj",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+
+    const result = await scanJsonlDir(testDir, {
+      excludeSessionIds: new Set(["excluded"]),
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].sessionId).toBe("included");
+  });
 });
 
 describe("codex sessions integration", () => {
@@ -428,6 +456,55 @@ describe("codex sessions integration", () => {
       limit: 200,
     });
     expect(worktreeFilter.sessions.some((s) => s.sessionId === threadId)).toBe(true);
+  });
+
+  it("returns only codex sessions when provider=codex", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68088";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-00-00-${threadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.000Z",
+          type: "session_meta",
+          payload: { id: threadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:01.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: "codex only" },
+        }),
+      ].join("\n"),
+    );
+
+    // Add Claude data in the same HOME to validate provider filtering.
+    const claudeProjectDir = join(
+      tempHome,
+      ".claude",
+      "projects",
+      "-tmp-project-a",
+    );
+    mkdirSync(claudeProjectDir, { recursive: true });
+    writeFileSync(
+      join(claudeProjectDir, "claude-session-1.jsonl"),
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: "claude session" },
+        cwd: "/tmp/project-a",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "codex",
+      limit: 200,
+    });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0].provider).toBe("codex");
+    expect(result.sessions[0].sessionId).toBe(threadId);
   });
 
   it("reads codex history from jsonl", async () => {
@@ -796,5 +873,89 @@ describe("codex sessions integration", () => {
     const history = await getCodexSessionHistory(requestedThreadId);
     expect(history).toHaveLength(1);
     expect(history[0].content[0].text).toBe("correct session");
+  });
+});
+
+describe("claude namedOnly optimization", () => {
+  const oldHome = process.env.HOME;
+  const tempHome = mkdtempSync(join(tmpdir(), "ccpocket-test-claude-home-"));
+
+  beforeEach(() => {
+    process.env.HOME = tempHome;
+  });
+
+  afterEach(() => {
+    process.env.HOME = oldHome;
+    rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  it("returns only named Claude sessions from sessions-index", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(
+      join(projectDir, "sessions-index.json"),
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            sessionId: "named-s1",
+            fullPath: join(projectDir, "named-s1.jsonl"),
+            fileMtime: Date.now(),
+            firstPrompt: "named prompt",
+            customTitle: "My named session",
+            messageCount: 4,
+            created: "2026-02-13T11:00:00.000Z",
+            modified: "2026-02-13T12:00:00.000Z",
+            gitBranch: "main",
+            projectPath: "/tmp/project-a",
+            isSidechain: false,
+          },
+          {
+            sessionId: "unnamed-s2",
+            fullPath: join(projectDir, "unnamed-s2.jsonl"),
+            fileMtime: Date.now(),
+            firstPrompt: "unnamed prompt",
+            messageCount: 2,
+            created: "2026-02-13T10:00:00.000Z",
+            modified: "2026-02-13T10:10:00.000Z",
+            gitBranch: "main",
+            projectPath: "/tmp/project-a",
+            isSidechain: false,
+          },
+        ],
+      }),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      namedOnly: true,
+      limit: 200,
+    });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0].sessionId).toBe("named-s1");
+    expect(result.sessions[0].name).toBe("My named session");
+  });
+
+  it("skips jsonl-only Claude directories when namedOnly=true", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(
+      join(projectDir, "orphan.jsonl"),
+      JSON.stringify({
+        type: "user",
+        message: { role: "user", content: "orphan session" },
+        cwd: "/tmp/project-a",
+        timestamp: "2026-02-13T12:00:00.000Z",
+      }),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      namedOnly: true,
+      limit: 200,
+    });
+
+    expect(result.sessions).toEqual([]);
   });
 });

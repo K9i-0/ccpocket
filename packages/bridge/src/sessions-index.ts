@@ -1,4 +1,5 @@
 import { readdir, readFile, writeFile, appendFile, stat } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { basename, join } from "node:path";
 import { homedir } from "node:os";
 
@@ -67,6 +68,113 @@ export interface GetRecentSessionsResult {
   hasMore: boolean;
 }
 
+interface JsonlScanStats {
+  filesTotal: number;
+  filesExcluded: number;
+  filesRead: number;
+  entriesReturned: number;
+}
+
+interface RecentSessionsPerfStats {
+  claudeProjectDirs: number;
+  claudeIndexDirs: number;
+  claudeJsonlOnlyDirs: number;
+  claudeIndexEntries: number;
+  claudeJsonlFilesTotal: number;
+  claudeJsonlFilesExcluded: number;
+  claudeJsonlFilesRead: number;
+  claudeJsonlEntries: number;
+  codexFilesTotal: number;
+  codexFilesRead: number;
+  codexEntries: number;
+  claudeNamedOnlyFastPathUsed: boolean;
+  counts: {
+    beforeArchive: number;
+    afterArchive: number;
+    afterProvider: number;
+    afterNamedOnly: number;
+    afterSearch: number;
+    returned: number;
+  };
+}
+
+function createRecentSessionsPerfStats(): RecentSessionsPerfStats {
+  return {
+    claudeProjectDirs: 0,
+    claudeIndexDirs: 0,
+    claudeJsonlOnlyDirs: 0,
+    claudeIndexEntries: 0,
+    claudeJsonlFilesTotal: 0,
+    claudeJsonlFilesExcluded: 0,
+    claudeJsonlFilesRead: 0,
+    claudeJsonlEntries: 0,
+    codexFilesTotal: 0,
+    codexFilesRead: 0,
+    codexEntries: 0,
+    claudeNamedOnlyFastPathUsed: false,
+    counts: {
+      beforeArchive: 0,
+      afterArchive: 0,
+      afterProvider: 0,
+      afterNamedOnly: 0,
+      afterSearch: 0,
+      returned: 0,
+    },
+  };
+}
+
+function markDuration(
+  durations: Record<string, number>,
+  key: string,
+  startedAt: bigint,
+): void {
+  const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+  durations[key] = elapsedMs;
+}
+
+function shouldLogRecentSessionsPerf(): boolean {
+  const v = process.env.BRIDGE_RECENT_SESSIONS_PROFILE;
+  return v === "1" || v === "true";
+}
+
+function logRecentSessionsPerf(
+  options: GetRecentSessionsOptions,
+  durations: Record<string, number>,
+  stats: RecentSessionsPerfStats,
+): void {
+  if (!shouldLogRecentSessionsPerf()) return;
+
+  const projectPath = options.projectPath;
+  const projectPathLabel = projectPath
+    ? projectPath.length > 72
+      ? `${projectPath.slice(0, 69)}...`
+      : projectPath
+    : "";
+
+  const payload = {
+    options: {
+      limit: options.limit ?? 20,
+      offset: options.offset ?? 0,
+      projectPath: projectPathLabel || undefined,
+      provider: options.provider ?? "all",
+      namedOnly: options.namedOnly ?? false,
+      searchQuery: options.searchQuery ? "<set>" : "<none>",
+      archivedSessionIds: options.archivedSessionIds?.size ?? 0,
+    },
+    durationsMs: Object.fromEntries(
+      Object.entries(durations).map(([k, v]) => [k, Number(v.toFixed(1))]),
+    ),
+    stats,
+  };
+
+  console.info(`[recent-sessions][perf] ${JSON.stringify(payload)}`);
+}
+
+interface ScanJsonlDirOptions {
+  excludeSessionIds?: ReadonlySet<string>;
+  stats?: JsonlScanStats;
+}
+
 /** Convert a filesystem path to Claude's project directory slug (e.g. /foo/bar → -foo-bar). */
 export function pathToSlug(p: string): string {
   return p.replaceAll("/", "-").replaceAll("_", "-");
@@ -93,8 +201,12 @@ export function isWorktreeSlug(dirSlug: string, projectSlug: string): boolean {
  * Scan a directory for JSONL session files and create SessionIndexEntry objects.
  * Used as a fallback when sessions-index.json is missing (common for worktree sessions).
  */
-export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]> {
+export async function scanJsonlDir(
+  dirPath: string,
+  options: ScanJsonlDirOptions = {},
+): Promise<SessionIndexEntry[]> {
   const entries: SessionIndexEntry[] = [];
+  const scanStats = options.stats;
 
   let files: string[];
   try {
@@ -105,8 +217,13 @@ export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]
 
   for (const file of files) {
     if (!file.endsWith(".jsonl")) continue;
+    scanStats && (scanStats.filesTotal += 1);
 
     const sessionId = basename(file, ".jsonl");
+    if (options.excludeSessionIds?.has(sessionId)) {
+      scanStats && (scanStats.filesExcluded += 1);
+      continue;
+    }
     const filePath = join(dirPath, file);
 
     let raw: string;
@@ -115,6 +232,7 @@ export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]
     } catch {
       continue;
     }
+    scanStats && (scanStats.filesRead += 1);
 
     const lines = raw.split("\n");
     let firstPrompt = "";
@@ -202,6 +320,7 @@ export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]
         projectPath,
         isSidechain,
       });
+      scanStats && (scanStats.entriesReturned += 1);
     }
   }
 
@@ -211,115 +330,184 @@ export async function scanJsonlDir(dirPath: string): Promise<SessionIndexEntry[]
 export async function getAllRecentSessions(
   options: GetRecentSessionsOptions = {},
 ): Promise<GetRecentSessionsResult> {
+  const totalStartedAt = process.hrtime.bigint();
+  const durations: Record<string, number> = {};
+  const perfStats = createRecentSessionsPerfStats();
+
   const limit = options.limit ?? 20;
   const offset = options.offset ?? 0;
   const filterProjectPath = options.projectPath;
+  const shouldLoadClaude = options.provider !== "codex";
+  const shouldLoadCodex = options.provider !== "claude";
+  const includeOnlyNamedClaude = options.namedOnly === true;
 
   const projectsDir = join(homedir(), ".claude", "projects");
   const entries: SessionIndexEntry[] = [];
 
   let projectDirs: string[];
+  const loadProjectDirsStartedAt = process.hrtime.bigint();
   try {
     projectDirs = await readdir(projectsDir);
   } catch {
     // ~/.claude/projects doesn't exist
     projectDirs = [];
   }
+  markDuration(durations, "loadClaudeProjectDirs", loadProjectDirsStartedAt);
 
   // Compute worktree slug prefix for projectPath filtering
   const projectSlug = filterProjectPath
     ? pathToSlug(filterProjectPath)
     : null;
 
-  for (const dirName of projectDirs) {
-    // Skip hidden directories
-    if (dirName.startsWith(".")) continue;
+  const loadClaudeStartedAt = process.hrtime.bigint();
+  if (shouldLoadClaude) {
+    for (const dirName of projectDirs) {
+      // Skip hidden directories
+      if (dirName.startsWith(".")) continue;
 
-    // When filtering by project, skip unrelated directories early
-    const isProjectDir = projectSlug ? dirName === projectSlug : false;
-    const isWorktreeDir = projectSlug
-      ? isWorktreeSlug(dirName, projectSlug)
-      : false;
-    if (filterProjectPath && !isProjectDir && !isWorktreeDir) continue;
+      // When filtering by project, skip unrelated directories early
+      const isProjectDir = projectSlug ? dirName === projectSlug : false;
+      const isWorktreeDir = projectSlug
+        ? isWorktreeSlug(dirName, projectSlug)
+        : false;
+      if (filterProjectPath && !isProjectDir && !isWorktreeDir) continue;
+      perfStats.claudeProjectDirs += 1;
 
-    const dirPath = join(projectsDir, dirName);
-    const indexPath = join(dirPath, "sessions-index.json");
-    let raw: string | null = null;
-    try {
-      raw = await readFile(indexPath, "utf-8");
-    } catch {
-      // No sessions-index.json — will try JSONL scan for worktree dirs
-    }
-
-    if (raw !== null) {
-      // Parse sessions-index.json
-      let index: RawSessionIndexFile;
+      const dirPath = join(projectsDir, dirName);
+      const indexPath = join(dirPath, "sessions-index.json");
+      let raw: string | null = null;
       try {
-        index = JSON.parse(raw) as RawSessionIndexFile;
+        raw = await readFile(indexPath, "utf-8");
       } catch {
-        console.error(`[sessions-index] Failed to parse ${indexPath}`);
-        continue;
+        // No sessions-index.json — will try JSONL scan for worktree dirs
       }
 
-      if (!Array.isArray(index.entries)) continue;
+      if (raw !== null) {
+        perfStats.claudeIndexDirs += 1;
 
-      const indexedIds = new Set<string>();
-      for (const entry of index.entries) {
-        indexedIds.add(entry.sessionId);
-        const mapped: SessionIndexEntry = {
-          sessionId: entry.sessionId,
-          provider: "claude",
-          name: entry.customTitle || undefined,
-          summary: entry.summary,
-          firstPrompt: entry.firstPrompt ?? "",
-          messageCount: entry.messageCount ?? 0,
-          created: entry.created ?? "",
-          modified: entry.modified ?? "",
-          gitBranch: entry.gitBranch ?? "",
-          projectPath: normalizeWorktreePath(entry.projectPath ?? ""),
-          isSidechain: entry.isSidechain ?? false,
-        };
-
-        entries.push(mapped);
-      }
-
-      // Supplement: scan JSONL files not covered by the index.
-      // Claude CLI may not register every session (e.g. `claude -r` resumes)
-      // into sessions-index.json, so we pick up any orphaned JSONL files here.
-      const scanned = await scanJsonlDir(dirPath);
-      for (const s of scanned) {
-        if (!indexedIds.has(s.sessionId)) {
-          entries.push(s);
+        // Parse sessions-index.json
+        let index: RawSessionIndexFile;
+        try {
+          index = JSON.parse(raw) as RawSessionIndexFile;
+        } catch {
+          console.error(`[sessions-index] Failed to parse ${indexPath}`);
+          continue;
         }
+
+        if (!Array.isArray(index.entries)) continue;
+
+        const indexedIds = new Set<string>();
+        for (const entry of index.entries) {
+          const name = entry.customTitle || undefined;
+          if (includeOnlyNamedClaude && (!name || name === "")) {
+            continue;
+          }
+
+          indexedIds.add(entry.sessionId);
+          const mapped: SessionIndexEntry = {
+            sessionId: entry.sessionId,
+            provider: "claude",
+            name,
+            summary: entry.summary,
+            firstPrompt: entry.firstPrompt ?? "",
+            messageCount: entry.messageCount ?? 0,
+            created: entry.created ?? "",
+            modified: entry.modified ?? "",
+            gitBranch: entry.gitBranch ?? "",
+            projectPath: normalizeWorktreePath(entry.projectPath ?? ""),
+            isSidechain: entry.isSidechain ?? false,
+          };
+          entries.push(mapped);
+          perfStats.claudeIndexEntries += 1;
+        }
+
+        if (!includeOnlyNamedClaude) {
+          // Supplement: scan JSONL files not covered by the index.
+          // Claude CLI may not register every session (e.g. `claude -r` resumes)
+          // into sessions-index.json, so we pick up any orphaned JSONL files here.
+          const scanStats: JsonlScanStats = {
+            filesTotal: 0,
+            filesExcluded: 0,
+            filesRead: 0,
+            entriesReturned: 0,
+          };
+          const scanned = await scanJsonlDir(dirPath, {
+            excludeSessionIds: indexedIds,
+            stats: scanStats,
+          });
+          perfStats.claudeJsonlFilesTotal += scanStats.filesTotal;
+          perfStats.claudeJsonlFilesExcluded += scanStats.filesExcluded;
+          perfStats.claudeJsonlFilesRead += scanStats.filesRead;
+          perfStats.claudeJsonlEntries += scanStats.entriesReturned;
+          entries.push(...scanned);
+        } else {
+          perfStats.claudeNamedOnlyFastPathUsed = true;
+        }
+      } else {
+        if (includeOnlyNamedClaude) {
+          // namedOnly=true では Claude の名前付きセッションは sessions-index.json
+          // 由来のみを採用する。index がないディレクトリの JSONL 補完は不要。
+          perfStats.claudeNamedOnlyFastPathUsed = true;
+          continue;
+        }
+
+        perfStats.claudeJsonlOnlyDirs += 1;
+        // No sessions-index.json: scan JSONL files directly.
+        // Directories are already filtered above, so all remaining dirs are relevant.
+        const scanStats: JsonlScanStats = {
+          filesTotal: 0,
+          filesExcluded: 0,
+          filesRead: 0,
+          entriesReturned: 0,
+        };
+        const scanned = await scanJsonlDir(dirPath, { stats: scanStats });
+        perfStats.claudeJsonlFilesTotal += scanStats.filesTotal;
+        perfStats.claudeJsonlFilesExcluded += scanStats.filesExcluded;
+        perfStats.claudeJsonlFilesRead += scanStats.filesRead;
+        perfStats.claudeJsonlEntries += scanStats.entriesReturned;
+        entries.push(...scanned);
       }
-    } else {
-      // No sessions-index.json: scan JSONL files directly.
-      // Directories are already filtered above, so all remaining dirs are relevant.
-      const scanned = await scanJsonlDir(dirPath);
-      entries.push(...scanned);
     }
   }
+  markDuration(durations, "loadClaudeSessions", loadClaudeStartedAt);
 
-  const codexEntries = await getAllRecentCodexSessions({
-    projectPath: filterProjectPath,
-  });
-  entries.push(...codexEntries);
+  const loadCodexStartedAt = process.hrtime.bigint();
+  if (shouldLoadCodex) {
+    const codexPerf: CodexRecentPerfStats = {
+      filesTotal: 0,
+      filesRead: 0,
+      entriesReturned: 0,
+    };
+    const codexEntries = await getAllRecentCodexSessions({
+      projectPath: filterProjectPath,
+      perfStats: codexPerf,
+    });
+    perfStats.codexFilesTotal = codexPerf.filesTotal;
+    perfStats.codexFilesRead = codexPerf.filesRead;
+    perfStats.codexEntries = codexPerf.entriesReturned;
+    entries.push(...codexEntries);
+  }
+  markDuration(durations, "loadCodexSessions", loadCodexStartedAt);
 
   // Filter out archived sessions
   const archivedIds = options.archivedSessionIds;
   let filtered = archivedIds
     ? entries.filter((e) => !archivedIds.has(e.sessionId))
     : [...entries];
+  perfStats.counts.beforeArchive = entries.length;
+  perfStats.counts.afterArchive = filtered.length;
 
   // Filter by provider
   if (options.provider) {
     filtered = filtered.filter((e) => e.provider === options.provider);
   }
+  perfStats.counts.afterProvider = filtered.length;
 
   // Filter named only
   if (options.namedOnly) {
     filtered = filtered.filter((e) => e.name != null && e.name !== "");
   }
+  perfStats.counts.afterNamedOnly = filtered.length;
 
   // Filter by search query (name, firstPrompt, lastPrompt, summary)
   if (options.searchQuery) {
@@ -332,22 +520,37 @@ export async function getAllRecentSessions(
         e.summary?.toLowerCase().includes(q),
     );
   }
+  perfStats.counts.afterSearch = filtered.length;
 
   // Sort by modified descending
+  const sortStartedAt = process.hrtime.bigint();
   filtered.sort((a, b) => {
     const ta = new Date(a.modified).getTime();
     const tb = new Date(b.modified).getTime();
     return tb - ta;
   });
+  markDuration(durations, "sortSessions", sortStartedAt);
 
+  const paginateStartedAt = process.hrtime.bigint();
   const sliced = filtered.slice(offset, offset + limit);
   const hasMore = offset + limit < filtered.length;
+  perfStats.counts.returned = sliced.length;
+  markDuration(durations, "paginate", paginateStartedAt);
+  markDuration(durations, "total", totalStartedAt);
+  logRecentSessionsPerf(options, durations, perfStats);
 
   return { sessions: sliced, hasMore };
 }
 
 interface CodexRecentOptions {
   projectPath?: string;
+  perfStats?: CodexRecentPerfStats;
+}
+
+interface CodexRecentPerfStats {
+  filesTotal: number;
+  filesRead: number;
+  entriesReturned: number;
 }
 
 interface CodexSessionParseResult {
@@ -362,23 +565,17 @@ async function listCodexSessionFiles(): Promise<string[]> {
 
   while (stack.length > 0) {
     const dir = stack.pop()!;
-    let children: string[];
+    let children: Dirent[];
     try {
-      children = await readdir(dir);
+      children = await readdir(dir, { withFileTypes: true });
     } catch {
       continue;
     }
     for (const child of children) {
-      const p = join(dir, child);
-      let st: Awaited<ReturnType<typeof stat>>;
-      try {
-        st = await stat(p);
-      } catch {
-        continue;
-      }
-      if (st.isDirectory()) {
+      const p = join(dir, child.name);
+      if (child.isDirectory()) {
         stack.push(p);
-      } else if (st.isFile() && p.endsWith(".jsonl")) {
+      } else if (child.isFile() && p.endsWith(".jsonl")) {
         files.push(p);
       }
     }
@@ -728,6 +925,7 @@ export async function renameCodexSession(
 async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Promise<SessionIndexEntry[]> {
   const files = await listCodexSessionFiles();
   const entries: SessionIndexEntry[] = [];
+  options.perfStats && (options.perfStats.filesTotal = files.length);
   const normalizedProjectPath = options.projectPath
     ? normalizeWorktreePath(options.projectPath)
     : null;
@@ -742,6 +940,7 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
     } catch {
       continue;
     }
+    options.perfStats && (options.perfStats.filesRead += 1);
     const fallbackSessionId = basename(filePath, ".jsonl");
     const parsed = parseCodexSessionJsonl(raw, fallbackSessionId);
     if (!parsed) continue;
@@ -754,6 +953,7 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
       parsed.entry.name = threadName;
     }
     entries.push(parsed.entry);
+    options.perfStats && (options.perfStats.entriesReturned += 1);
   }
 
   return entries;
