@@ -5,7 +5,7 @@ Claude Code / Codex対応モバイルクライアント。Bridge Server経由で
 [English README](README.md)
 
 <p align="center">
-  <img src="docs/images/screenshots.png" alt="ccpocket screenshots" width="800">
+  <img src="docs/images/screenshots-ja.png" alt="ccpocket screenshots" width="800">
 </p>
 
 ## 主な機能

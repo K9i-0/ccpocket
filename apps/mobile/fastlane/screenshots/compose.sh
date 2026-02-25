@@ -227,14 +227,22 @@ README_IMG_DIR="${REPO_ROOT}/docs/images"
 mkdir -p "$README_IMG_DIR"
 
 README_KEYS=("01_session_list" "02_coding_session" "04_approval_flow" "05_ask_question")
-README_INPUTS=()
-for k in "${README_KEYS[@]}"; do
-  README_INPUTS+=("${SCRIPT_DIR}/en-US/${k}_framed.png")
-done
 
-README_OUTPUT="${README_IMG_DIR}/screenshots.png"
-magick "${README_INPUTS[@]}" +append -resize 1200x "$README_OUTPUT"
-echo "  -> $README_OUTPUT ($(du -h "$README_OUTPUT" | cut -f1))"
+for lang_dir in en-US ja; do
+  README_INPUTS=()
+  for k in "${README_KEYS[@]}"; do
+    README_INPUTS+=("${SCRIPT_DIR}/${lang_dir}/${k}_framed.png")
+  done
+
+  if [ "$lang_dir" = "en-US" ]; then
+    README_OUTPUT="${README_IMG_DIR}/screenshots.png"
+  else
+    README_OUTPUT="${README_IMG_DIR}/screenshots-${lang_dir}.png"
+  fi
+
+  magick "${README_INPUTS[@]}" +append -resize 1200x "$README_OUTPUT"
+  echo "  -> $README_OUTPUT ($(du -h "$README_OUTPUT" | cut -f1))"
+done
 
 echo ""
 echo "Done! Framed screenshots have '_framed' suffix."
