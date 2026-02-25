@@ -62,9 +62,9 @@ vi.mock("./session.js", () => ({
         setPermissionMode: vi.fn(async () => {}),
         setApprovalPolicy: vi.fn(),
         setCollaborationMode: vi.fn(),
-        sendInput: vi.fn(),
+        sendInput: vi.fn(() => false),
         sendInputWithImage: vi.fn(),
-        sendInputWithImages: vi.fn(),
+        sendInputWithImages: vi.fn(() => false),
         approve: vi.fn(),
         approveAlways: vi.fn(),
         reject: vi.fn(),
@@ -690,6 +690,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
 
     const session = (bridge as any).sessionManager.get(sessionId);
     session.process.isWaitingForInput = false;
+    session.process.sendInput.mockReturnValue(true);
 
     ws.send.mockClear();
     (bridge as any).handleClientMessage(
@@ -711,6 +712,56 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     });
 
     expect(session.process.sendInput).toHaveBeenCalledWith("interrupt this");
+    expect(session.process.interrupt).toHaveBeenCalledTimes(1);
+
+    bridge.close();
+  });
+
+  it("claude input uses enqueue result for queued ack and interrupt", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+
+    // Simulate race: snapshot says idle, but SDK queues the input.
+    session.process.isWaitingForInput = true;
+    session.process.sendInput.mockReturnValue(true);
+
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId,
+        text: "race queued",
+      },
+      ws,
+    );
+
+    const inputAck = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "input_ack");
+    expect(inputAck).toMatchObject({
+      type: "input_ack",
+      sessionId,
+      queued: true,
+    });
     expect(session.process.interrupt).toHaveBeenCalledTimes(1);
 
     bridge.close();

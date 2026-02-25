@@ -222,7 +222,7 @@ export class SessionManager {
           if (msg.type === "tool_result" && this.imageStore) {
             const paths = this.imageStore.extractImagePaths(msg.content);
             if (paths.length > 0) {
-              const images = await this.imageStore.registerImages(paths);
+              const images = await this.imageStore.registerImages(paths, session.projectPath);
               if (images.length > 0) {
                 msg = { ...msg, images };
               }

@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, it, expect } from "vitest";
 import { ImageStore } from "./image-store.js";
 
@@ -114,5 +117,25 @@ describe("ImageStore.extractImagePaths", () => {
   it("handles array input by JSON.stringifying it", () => {
     const arr = ["/tmp/a.jpg", "/tmp/b.png"];
     expect(extract(arr)).toEqual(["/tmp/a.jpg", "/tmp/b.png"]);
+  });
+});
+
+describe("ImageStore.registerImages", () => {
+  it("resolves leading-slash project-relative paths with projectPath", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ccpocket-image-store-"));
+    try {
+      const imageDir = join(root, "images");
+      const imagePath = join(imageDir, "screenshots.png");
+      await mkdir(imageDir, { recursive: true });
+      await writeFile(imagePath, Buffer.from("89504e470d0a1a0a", "hex"));
+
+      const store = new ImageStore();
+      const refs = await store.registerImages(["/images/screenshots.png"], root);
+
+      expect(refs).toHaveLength(1);
+      expect(refs[0]).toMatchObject({ mimeType: "image/png" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

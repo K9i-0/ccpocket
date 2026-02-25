@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
-import { extname } from "node:path";
+import { extname, isAbsolute, resolve } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 export interface ImageRef {
@@ -33,6 +33,33 @@ const IMAGE_PATH_RE =
 
 export class ImageStore {
   private store = new Map<string, StoredImage>();
+
+  private async resolveReadablePath(filePath: string, projectPath?: string): Promise<string | null> {
+    const candidates: string[] = [];
+    if (projectPath) {
+      if (isAbsolute(filePath)) {
+        candidates.push(filePath);
+        // Tool outputs sometimes return project-root-relative paths with a
+        // leading slash (e.g. /images/foo.png). Try resolving against project.
+        candidates.push(resolve(projectPath, filePath.replace(/^\/+/, "")));
+      } else {
+        candidates.push(resolve(projectPath, filePath));
+        candidates.push(filePath);
+      }
+    } else {
+      candidates.push(filePath);
+    }
+
+    for (const candidate of candidates) {
+      try {
+        const st = await stat(candidate);
+        if (st.isFile() && st.size <= MAX_FILE_SIZE) return candidate;
+      } catch {
+        // Try next candidate.
+      }
+    }
+    return null;
+  }
 
   /** Evict least-recently-used entries if store exceeds MAX_ENTRIES. */
   private evictLRU(): void {
@@ -80,20 +107,20 @@ export class ImageStore {
   }
 
   /** Read files from disk, assign UUIDs, store in memory. */
-  async registerImages(paths: string[]): Promise<ImageRef[]> {
+  async registerImages(paths: string[], projectPath?: string): Promise<ImageRef[]> {
     const refs: ImageRef[] = [];
     for (const filePath of paths) {
       try {
-        const st = await stat(filePath);
-        if (!st.isFile() || st.size > MAX_FILE_SIZE) {
+        const resolvedPath = await this.resolveReadablePath(filePath, projectPath);
+        if (!resolvedPath) {
           console.warn(`[image-store] Skipping ${filePath} (not file or >10MB)`);
           continue;
         }
-        const ext = extname(filePath).toLowerCase();
+        const ext = extname(resolvedPath).toLowerCase();
         const mimeType = MIME_TYPES[ext];
         if (!mimeType) continue;
 
-        const buffer = await readFile(filePath);
+        const buffer = await readFile(resolvedPath);
         const id = randomUUID();
         this.store.set(id, { id, mimeType, buffer, accessedAt: Date.now() });
         const ref: ImageRef = { id, url: `/images/${id}`, mimeType };

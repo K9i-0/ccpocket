@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile, mkdir, copyFile, stat, unlink } from "node:fs/promises";
-import { join, extname, basename } from "node:path";
+import { join, extname, basename, isAbsolute, resolve } from "node:path";
 import { homedir } from "node:os";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
@@ -46,6 +46,27 @@ function projectNameFromPath(projectPath: string): string {
 export class GalleryStore {
   private index: GalleryImageMeta[] = [];
 
+  private async resolveReadablePath(filePath: string, projectPath: string): Promise<string | null> {
+    const candidates: string[] = [];
+    if (isAbsolute(filePath)) {
+      candidates.push(filePath);
+      candidates.push(resolve(projectPath, filePath.replace(/^\/+/, "")));
+    } else {
+      candidates.push(resolve(projectPath, filePath));
+      candidates.push(filePath);
+    }
+
+    for (const candidate of candidates) {
+      try {
+        const st = await stat(candidate);
+        if (st.isFile()) return candidate;
+      } catch {
+        // Try next candidate.
+      }
+    }
+    return null;
+  }
+
   async init(): Promise<void> {
     await mkdir(IMAGES_DIR, { recursive: true });
     try {
@@ -67,10 +88,11 @@ export class GalleryStore {
     sessionId?: string,
   ): Promise<GalleryImageMeta | null> {
     try {
-      const st = await stat(filePath);
-      if (!st.isFile()) return null;
+      const resolvedPath = await this.resolveReadablePath(filePath, projectPath);
+      if (!resolvedPath) return null;
+      const st = await stat(resolvedPath);
 
-      const ext = extname(filePath).toLowerCase();
+      const ext = extname(resolvedPath).toLowerCase();
       const mimeType = MIME_TYPES[ext];
       if (!mimeType) return null;
 
@@ -78,7 +100,7 @@ export class GalleryStore {
       const filename = `${id}${ext}`;
       const destPath = join(IMAGES_DIR, filename);
 
-      await copyFile(filePath, destPath);
+      await copyFile(resolvedPath, destPath);
 
       const meta: GalleryImageMeta = {
         id,
@@ -86,7 +108,7 @@ export class GalleryStore {
         mimeType,
         projectPath,
         sessionId,
-        sourcePath: filePath,
+        sourcePath: resolvedPath,
         addedAt: new Date().toISOString(),
         sizeBytes: st.size,
       };
@@ -94,7 +116,7 @@ export class GalleryStore {
       this.index.push(meta);
       await this.saveIndex();
 
-      console.log(`[gallery] Added image ${id} from ${basename(filePath)}`);
+      console.log(`[gallery] Added image ${id} from ${basename(resolvedPath)}`);
       return meta;
     } catch (err) {
       console.warn(`[gallery] Failed to add image ${filePath}:`, err);

@@ -488,14 +488,14 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     return this.pendingInputQueue.length > 0;
   }
 
-  sendInput(text: string): void {
+  sendInput(text: string): boolean {
     if (!this.userMessageResolve) {
       // Queue the message. The async generator (createUserMessageStream)
       // drains pendingInputQueue on each iteration, so it will be
       // delivered once the SDK is ready for the next turn.
       this.pendingInputQueue.push({ text });
       console.log(`[sdk-process] Queued input (queue depth: ${this.pendingInputQueue.length})`);
-      return;
+      return true;
     }
     const resolve = this.userMessageResolve;
     this.userMessageResolve = null;
@@ -508,6 +508,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       },
       parent_tool_use_id: null,
     });
+    return false;
   }
 
   /**
@@ -515,11 +516,11 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
    * @param text - The text message
    * @param images - Array of base64-encoded image data with mime types
    */
-  sendInputWithImages(text: string, images: Array<{ base64: string; mimeType: string }>): void {
+  sendInputWithImages(text: string, images: Array<{ base64: string; mimeType: string }>): boolean {
     if (!this.userMessageResolve) {
       this.pendingInputQueue.push({ text, images });
       console.log(`[sdk-process] Queued input with ${images.length} image(s) (queue depth: ${this.pendingInputQueue.length})`);
-      return;
+      return true;
     }
     const resolve = this.userMessageResolve;
     this.userMessageResolve = null;
@@ -553,6 +554,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       },
       parent_tool_use_id: null,
     });
+    return false;
   }
 
   /**

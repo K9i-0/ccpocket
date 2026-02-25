@@ -291,20 +291,10 @@ export class BridgeWebSocketServer {
           break;
         }
 
-        // SDK (Claude Code): determine if the agent is mid-turn.
-        // When the agent is busy (resolver is null), new input is queued
-        // and an interrupt is triggered so the agent finishes its current
-        // turn promptly and picks up the queued message on the next turn.
-        const isAgentBusy = session.provider === "claude" && !session.process.isWaitingForInput;
-
-        if (isAgentBusy) {
-          console.log(`[ws] Agent is busy — will queue input and interrupt current turn`);
-        }
-
-        // Acknowledge receipt immediately so the client can mark the message as sent.
-        // When the agent is busy the message is queued; include a flag so the
-        // client can show appropriate feedback (e.g. "queued" indicator).
-        this.send(ws, { type: "input_ack", sessionId: session.id, queued: isAgentBusy });
+        // Snapshot busy state before dispatch. We prefer the actual enqueue
+        // result returned by SdkProcess sendInput* below, but keep this as a
+        // fallback for test doubles and async paths.
+        const isAgentBusySnapshot = session.provider === "claude" && !session.process.isWaitingForInput;
 
         // Normalize images: support new `images` array and legacy single-image fields
         let images: Array<{ base64: string; mimeType: string }> = [];
@@ -342,6 +332,7 @@ export class BridgeWebSocketServer {
 
         // Codex input path
         if (session.provider === "codex") {
+          this.send(ws, { type: "input_ack", sessionId: session.id, queued: false });
           const codexProc = session.process as CodexProcess;
           if (images.length > 0) {
             codexProc.sendInputWithImages(text, images);
@@ -365,42 +356,57 @@ export class BridgeWebSocketServer {
 
         // Claude Code input path — enqueue first, then interrupt if busy
         const claudeProc = session.process as SdkProcess;
+        let wasQueued = false;
         if (images.length > 0) {
           console.log(`[ws] Sending message with ${images.length} inline Base64 image(s)`);
-          claudeProc.sendInputWithImages(text, images);
+          const result = claudeProc.sendInputWithImages(text, images);
+          wasQueued = typeof result === "boolean" ? result : isAgentBusySnapshot;
         }
         // Legacy imageId mode (backward compatibility)
         else if (msg.imageId && this.galleryStore) {
+          this.send(ws, {
+            type: "input_ack",
+            sessionId: session.id,
+            queued: isAgentBusySnapshot,
+          });
           this.galleryStore.getImageAsBase64(msg.imageId).then((imageData) => {
+            let queuedAfterResolve = false;
             if (imageData) {
-              claudeProc.sendInputWithImages(text, [imageData]);
+              const result = claudeProc.sendInputWithImages(text, [imageData]);
+              queuedAfterResolve = typeof result === "boolean" ? result : isAgentBusySnapshot;
             } else {
               console.warn(`[ws] Image not found: ${msg.imageId}`);
-              session.process.sendInput(text);
+              const result = session.process.sendInput(text);
+              queuedAfterResolve = typeof result === "boolean" ? result : isAgentBusySnapshot;
             }
-            // Interrupt after async image resolution so the queued message
-            // is picked up promptly.
-            if (isAgentBusy) {
+            if (queuedAfterResolve) {
+              console.log(`[ws] Agent is busy — will queue input and interrupt current turn`);
               claudeProc.interrupt();
             }
           }).catch((err) => {
             console.error(`[ws] Failed to load image: ${err}`);
-            session.process.sendInput(text);
-            if (isAgentBusy) {
+            const result = session.process.sendInput(text);
+            const queuedAfterResolve = typeof result === "boolean" ? result : isAgentBusySnapshot;
+            if (queuedAfterResolve) {
+              console.log(`[ws] Agent is busy — will queue input and interrupt current turn`);
               claudeProc.interrupt();
             }
           });
+          break;
         }
         // Text-only message
         else {
-          session.process.sendInput(text);
+          const result = session.process.sendInput(text);
+          wasQueued = typeof result === "boolean" ? result : isAgentBusySnapshot;
         }
 
-        // Interrupt the current agent turn so it wraps up promptly and
-        // the queued message is consumed on the next turn.
-        // Skip for the async imageId path — interrupt is called in the
-        // .then() callback above after the image is resolved.
-        if (isAgentBusy && !(msg.imageId && this.galleryStore)) {
+        // Acknowledge receipt so the client can mark the message state.
+        // queued=true means the input was enqueued instead of being consumed
+        // immediately by the SDK stream.
+        this.send(ws, { type: "input_ack", sessionId: session.id, queued: wasQueued });
+
+        if (wasQueued) {
+          console.log(`[ws] Agent is busy — will queue input and interrupt current turn`);
           claudeProc.interrupt();
         }
         break;
