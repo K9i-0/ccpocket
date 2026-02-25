@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.5.3] - 2026-02-25
+
+### Changed
+- Optimize JSONL session parsing with head+tail partial file reads (16KB+8KB) and regex-based field extraction (6.6x speedup: 2507ms → 382ms)
+- Optimize namedOnly session path to skip unnamed sessions early
+- Parallelize Claude + Codex session loading with Promise.all
+- Remove messageCount from session index entries to eliminate full-file scanning
+
 ## [1.5.2] - 2026-02-25
 
 ### Fixed
