@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.5.2] - 2026-02-25
+
+### Fixed
+- Stabilize busy-path queue handling by deriving `input_ack.queued` and interrupt behavior from actual enqueue results
+- Ensure busy-path logs are emitted consistently when input is queued and interrupted
+- Resolve tool-result image paths relative to project root when CLI outputs project-relative absolute-like paths (e.g. `/images/...`)
+- Fix gallery/image persistence failures caused by unresolved screenshot paths
+
 ## [1.5.1] - 2026-02-25
 
 ### Fixed
