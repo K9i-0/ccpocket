@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.6.1] - 2026-02-25
+
+### Fixed
+- Add timestamp to `user_input` history entries so client displays original send time
+- Register uploaded images in imageStore and include image URLs in `user_input` history for session re-entry
+- Remove flaky persist-and-reload test
+
 ## [1.6.0] - 2026-02-25
 
 ### Added
