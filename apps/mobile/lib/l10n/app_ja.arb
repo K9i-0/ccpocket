@@ -467,6 +467,16 @@
 
   "archive": "アーカイブ",
   "sessionArchived": "セッションをアーカイブしました",
+  "archiveFailed": "セッションのアーカイブに失敗しました",
+  "archiveFailedWithError": "セッションのアーカイブに失敗しました: {error}",
+  "@archiveFailedWithError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "noRecentSessions": "最近のセッションはありません",
+  "noSessionsMatchFilters": "現在のフィルター条件に一致するセッションがありません",
+  "adjustFiltersAndSearch": "フィルター条件や検索語を変更してください",
 
   "tooltipDisplayMode": "カードに表示するメッセージを切替",
   "tooltipProviderFilter": "AIツールで絞り込み",

@@ -1952,6 +1952,36 @@ abstract class AppLocalizations {
   /// **'セッションをアーカイブしました'**
   String get sessionArchived;
 
+  /// No description provided for @archiveFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッションのアーカイブに失敗しました'**
+  String get archiveFailed;
+
+  /// No description provided for @archiveFailedWithError.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッションのアーカイブに失敗しました: {error}'**
+  String archiveFailedWithError(String error);
+
+  /// No description provided for @noRecentSessions.
+  ///
+  /// In ja, this message translates to:
+  /// **'最近のセッションはありません'**
+  String get noRecentSessions;
+
+  /// No description provided for @noSessionsMatchFilters.
+  ///
+  /// In ja, this message translates to:
+  /// **'現在のフィルター条件に一致するセッションがありません'**
+  String get noSessionsMatchFilters;
+
+  /// No description provided for @adjustFiltersAndSearch.
+  ///
+  /// In ja, this message translates to:
+  /// **'フィルター条件や検索語を変更してください'**
+  String get adjustFiltersAndSearch;
+
   /// No description provided for @tooltipDisplayMode.
   ///
   /// In ja, this message translates to:

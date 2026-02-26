@@ -121,6 +121,7 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   // Only subscription that remains: session_created navigation
   StreamSubscription<ServerMessage>? _messageSub;
+  final Set<String> _archivingSessionIds = <String>{};
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeySessionStartDefaults = 'session_start_defaults_v1';
@@ -157,6 +158,23 @@ class _SessionListScreenState extends State<SessionListScreen>
           _pendingResumeProjectPath = null;
           _pendingResumeGitBranch = null;
         }
+        return;
+      }
+
+      if (msg is ArchiveResultMessage) {
+        if (_archivingSessionIds.contains(msg.sessionId) && mounted) {
+          setState(() => _archivingSessionIds.remove(msg.sessionId));
+        }
+        if (!mounted) return;
+        final l = AppLocalizations.of(context);
+        final text = msg.success
+            ? l.sessionArchived
+            : (msg.error?.isNotEmpty == true
+                  ? l.archiveFailedWithError(msg.error!)
+                  : l.archiveFailed);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(text)));
       }
     });
     widget.deepLinkNotifier?.addListener(_onDeepLink);
@@ -691,16 +709,13 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
 
     if (action == 'archive') {
+      if (_archivingSessionIds.contains(session.sessionId)) return;
+      setState(() => _archivingSessionIds.add(session.sessionId));
       context.read<BridgeService>().archiveSession(
         sessionId: session.sessionId,
         provider: session.provider ?? 'claude',
         projectPath: session.projectPath,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(l.sessionArchived)));
-      }
     }
   }
 
@@ -976,6 +991,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                   isLoadingMore: slState.isLoadingMore,
                   isInitialLoading: slState.isInitialLoading,
                   hasMoreSessions: slState.hasMore,
+                  archivingSessionIds: _archivingSessionIds,
                   currentProjectFilter: context
                       .read<BridgeService>()
                       .currentProjectFilter,

@@ -385,6 +385,16 @@
 
   "archive": "Archive",
   "sessionArchived": "Session archived",
+  "archiveFailed": "Failed to archive session",
+  "archiveFailedWithError": "Failed to archive session: {error}",
+  "@archiveFailedWithError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "noRecentSessions": "No recent sessions",
+  "noSessionsMatchFilters": "No sessions match the current filters",
+  "adjustFiltersAndSearch": "Try changing filters or search terms",
 
   "tooltipDisplayMode": "Change which message is shown on cards",
   "tooltipProviderFilter": "Filter by AI tool",

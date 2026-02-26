@@ -1011,6 +1011,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sessionArchived => 'Session archived';
 
   @override
+  String get archiveFailed => 'Failed to archive session';
+
+  @override
+  String archiveFailedWithError(String error) {
+    return 'Failed to archive session: $error';
+  }
+
+  @override
+  String get noRecentSessions => 'No recent sessions';
+
+  @override
+  String get noSessionsMatchFilters => 'No sessions match the current filters';
+
+  @override
+  String get adjustFiltersAndSearch => 'Try changing filters or search terms';
+
+  @override
   String get tooltipDisplayMode => 'Change which message is shown on cards';
 
   @override

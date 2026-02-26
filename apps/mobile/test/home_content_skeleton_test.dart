@@ -258,9 +258,9 @@ void main() {
       expect(find.text('test prompt for s1'), findsOneWidget);
     });
 
-    testWidgets('does NOT show skeleton when sessions exist even if '
-        'isInitialLoading is true', (tester) async {
-      // This scenario shouldn't normally happen, but tests the guard
+    testWidgets('shows skeleton while loading even if recent sessions exist', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildHomeContent(
           recentSessions: [_session(id: 's1')],
@@ -271,10 +271,9 @@ void main() {
       );
       await tester.pump();
 
-      // Skeleton should NOT show because sessions exist
-      expect(find.byType(SkeletonizerScope), findsNothing);
-      // Real session card should be shown
-      expect(find.text('test prompt for s1'), findsOneWidget);
+      // While loading, skeleton should be preferred over stale cards.
+      expect(find.byType(SkeletonizerScope), findsOneWidget);
+      expect(find.text('test prompt for s1'), findsNothing);
     });
   });
 }

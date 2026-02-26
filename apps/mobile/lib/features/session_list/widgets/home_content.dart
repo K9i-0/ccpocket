@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/draft_service.dart';
 import '../../../theme/app_theme.dart';
@@ -23,6 +24,7 @@ class HomeContent extends StatefulWidget {
   final bool isLoadingMore;
   final bool isInitialLoading;
   final bool hasMoreSessions;
+  final Set<String> archivingSessionIds;
   final String? currentProjectFilter;
   final VoidCallback onNewSession;
   final void Function(
@@ -68,6 +70,7 @@ class HomeContent extends StatefulWidget {
     required this.isLoadingMore,
     required this.isInitialLoading,
     required this.hasMoreSessions,
+    this.archivingSessionIds = const {},
     required this.currentProjectFilter,
     required this.onNewSession,
     required this.onTapRunning,
@@ -154,6 +157,7 @@ class _HomeContentState extends State<HomeContent> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final appColors = Theme.of(context).extension<AppColors>()!;
     final hasRunningSessions = widget.sessions.isNotEmpty;
     final hasRecentSessions = widget.recentSessions.isNotEmpty;
@@ -291,16 +295,9 @@ class _HomeContentState extends State<HomeContent> {
             ),
           const SizedBox(height: 16),
         ],
-        // Show skeleton placeholder while waiting for recent sessions
-        if (widget.isInitialLoading && !hasRecentSessions) ...[
-          SectionHeader(
-            icon: Icons.history,
-            label: 'Recent Sessions',
-            color: appColors.subtleText,
-          ),
-          const SizedBox(height: 8),
-          const _SessionListSkeleton(),
-        ] else if (hasRecentSessions || hasActiveFilter) ...[
+        if (widget.isInitialLoading ||
+            hasRecentSessions ||
+            hasActiveFilter) ...[
           SectionHeader(
             icon: Icons.history,
             label: 'Recent Sessions',
@@ -371,39 +368,98 @@ class _HomeContentState extends State<HomeContent> {
             onToggleNamed: widget.onToggleNamed,
           ),
           const SizedBox(height: 8),
-          for (final session in filteredSessions)
-            RecentSessionCard(
-              session: session,
-              displayMode: _displayMode,
-              draftText: context.read<DraftService>().getDraft(
-                session.sessionId,
-              ),
-              onTap: () => widget.onResumeSession(session),
-              onLongPress: () => widget.onLongPressRecentSession(session),
-            ),
-          if (widget.hasMoreSessions) ...[
-            const SizedBox(height: 8),
-            Center(
-              child: widget.isLoadingMore
-                  ? const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+          if (widget.isInitialLoading)
+            const _SessionListSkeleton()
+          else ...[
+            if (filteredSessions.isEmpty)
+              _RecentSessionsEmptyResult(
+                title: hasActiveFilter
+                    ? l.noSessionsMatchFilters
+                    : l.noRecentSessions,
+                subtitle: hasActiveFilter ? l.adjustFiltersAndSearch : null,
+              )
+            else
+              for (final session in filteredSessions)
+                RecentSessionCard(
+                  session: session,
+                  displayMode: _displayMode,
+                  draftText: context.read<DraftService>().getDraft(
+                    session.sessionId,
+                  ),
+                  isProcessing: widget.archivingSessionIds.contains(
+                    session.sessionId,
+                  ),
+                  onTap: () => widget.onResumeSession(session),
+                  onLongPress: () => widget.onLongPressRecentSession(session),
+                ),
+            if (widget.hasMoreSessions) ...[
+              const SizedBox(height: 8),
+              Center(
+                child: widget.isLoadingMore
+                    ? const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : TextButton.icon(
+                        key: const ValueKey('load_more_button'),
+                        onPressed: widget.onLoadMore,
+                        icon: const Icon(Icons.expand_more, size: 18),
+                        label: const Text('Load More'),
                       ),
-                    )
-                  : TextButton.icon(
-                      key: const ValueKey('load_more_button'),
-                      onPressed: widget.onLoadMore,
-                      icon: const Icon(Icons.expand_more, size: 18),
-                      label: const Text('Load More'),
-                    ),
-            ),
-            const SizedBox(height: 8),
+              ),
+              const SizedBox(height: 8),
+            ],
           ],
         ],
       ],
+    );
+  }
+}
+
+class _RecentSessionsEmptyResult extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+
+  const _RecentSessionsEmptyResult({required this.title, this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        child: Row(
+          children: [
+            Icon(Icons.filter_alt_off, color: appColors.subtleText),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: appColors.subtleText,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

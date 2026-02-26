@@ -997,6 +997,23 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sessionArchived => 'セッションをアーカイブしました';
 
   @override
+  String get archiveFailed => 'セッションのアーカイブに失敗しました';
+
+  @override
+  String archiveFailedWithError(String error) {
+    return 'セッションのアーカイブに失敗しました: $error';
+  }
+
+  @override
+  String get noRecentSessions => '最近のセッションはありません';
+
+  @override
+  String get noSessionsMatchFilters => '現在のフィルター条件に一致するセッションがありません';
+
+  @override
+  String get adjustFiltersAndSearch => 'フィルター条件や検索語を変更してください';
+
+  @override
   String get tooltipDisplayMode => 'カードに表示するメッセージを切替';
 
   @override

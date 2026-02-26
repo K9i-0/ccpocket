@@ -1938,6 +1938,7 @@ class RecentSessionCard extends StatelessWidget {
   final bool hideProjectBadge;
   final SessionDisplayMode displayMode;
   final String? draftText;
+  final bool isProcessing;
 
   const RecentSessionCard({
     super.key,
@@ -1947,6 +1948,7 @@ class RecentSessionCard extends StatelessWidget {
     this.hideProjectBadge = false,
     this.displayMode = SessionDisplayMode.first,
     this.draftText,
+    this.isProcessing = false,
   });
 
   @override
@@ -1977,175 +1979,200 @@ class RecentSessionCard extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title Row
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+        onTap: isProcessing ? null : onTap,
+        onLongPress: isProcessing ? null : onLongPress,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        if (session.name != null &&
-                            session.name!.isNotEmpty) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainer,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.label_outline,
-                                  size: 14,
-                                  color: colorScheme.onSurfaceVariant,
+                  // Title Row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            if (session.name != null &&
+                                session.name!.isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
                                 ),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    session.name!,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainer,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.label_outline,
+                                      size: 14,
                                       color: colorScheme.onSurfaceVariant,
                                     ),
-                                    maxLines: 1,
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        session.name!,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            if (!hideProjectBadge) ...[
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: providerStyle.background,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: providerStyle.border,
+                                      width: 0.5,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    session.projectName,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12,
+                                      color: providerStyle.foreground,
+                                    ),
                                     overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        dateStr,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: appColors.subtleText,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Body Content
+                  if (draftText != null && draftText!.isNotEmpty) ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2, right: 6),
+                          child: Icon(
+                            Icons.edit_note,
+                            size: 16,
+                            color: appColors.subtleText,
                           ),
-                          const SizedBox(width: 8),
-                        ],
-                        if (!hideProjectBadge) ...[
-                          Flexible(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: providerStyle.background,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: providerStyle.border,
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Text(
-                                session.projectName,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 12,
-                                  color: providerStyle.foreground,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            draftText!,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontStyle: FontStyle.italic,
+                              color: appColors.subtleText,
+                              height: 1.4,
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    dateStr,
-                    style: TextStyle(fontSize: 11, color: appColors.subtleText),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
+                  ] else
+                    Text(
+                      _displayTextForMode(session, displayMode),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        height: 1.4,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
 
-              // Body Content
-              if (draftText != null && draftText!.isNotEmpty) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2, right: 6),
-                      child: Icon(
-                        Icons.edit_note,
-                        size: 16,
+                  if (codexSummary != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      codexSummary,
+                      style: TextStyle(
+                        fontSize: 11,
                         color: appColors.subtleText,
                       ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        draftText!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontStyle: FontStyle.italic,
-                          color: appColors.subtleText,
-                          height: 1.4,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ),
-              ] else
-                Text(
-                  _displayTextForMode(session, displayMode),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface,
-                    height: 1.4,
+
+                  const SizedBox(height: 8),
+
+                  // Meta Row
+                  Row(
+                    children: [
+                      if (session.gitBranch.isNotEmpty) ...[
+                        Icon(
+                          Icons.fork_right,
+                          size: 14,
+                          color: appColors.subtleText,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            session.gitBranch,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: appColors.subtleText,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                      ],
+                    ],
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
-              if (codexSummary != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  codexSummary,
-                  style: TextStyle(fontSize: 11, color: appColors.subtleText),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-
-              const SizedBox(height: 8),
-
-              // Meta Row
-              Row(
-                children: [
-                  if (session.gitBranch.isNotEmpty) ...[
-                    Icon(
-                      Icons.fork_right,
-                      size: 14,
-                      color: appColors.subtleText,
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        session.gitBranch,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: appColors.subtleText,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                  ],
                 ],
               ),
-            ],
-          ),
+            ),
+            if (isProcessing)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface.withValues(alpha: 0.55),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
