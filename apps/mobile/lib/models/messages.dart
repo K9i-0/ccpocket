@@ -477,7 +477,8 @@ sealed class ServerMessage {
         isMeta: json['isMeta'] as bool? ?? false,
         imageCount: json['imageCount'] as int? ?? 0,
         timestamp: json['timestamp'] as String?,
-        imageUrls: (json['images'] as List?)
+        imageUrls:
+            (json['images'] as List?)
                 ?.map((e) => (e as Map<String, dynamic>)['url'] as String?)
                 .whereType<String>()
                 .toList() ??

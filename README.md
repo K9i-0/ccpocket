@@ -10,14 +10,16 @@ Mobile client for Claude Code and Codex. Control coding agents from your iPhone 
 
 ## Features
 
-- **Chat** — Real-time conversation with Claude Code and Codex (streaming support)
-- **Session Management** — Create, switch, browse history, and resume multiple sessions
-- **Tool Approval** — Approve or reject file edits and command execution from your phone
+- **Start Sessions from Your Phone** — Launch new coding sessions directly from mobile — no desktop needed
+- **Batch Approval** — View all pending approvals across sessions and handle them at a glance
+- **Mobile-Optimized UI** — Answer questions, approve tools, and respond to agents with a UI built for touch
+- **Rich Prompts** — Write with Markdown formatting, bullet lists with auto-complete, and attach images from clipboard or gallery
+- **Session Organization** — Name your sessions and organize by project for easy navigation
+- **Diff Viewer** — Review every code change with syntax-highlighted diffs in one place
+- **Real-Time Streaming** — Watch your agent think and code live with streaming responses
+- **Push Notifications** — Get notified when your agent needs approval or completes a task
 - **Machine Management** — Register multiple machines, monitor status, remote start/stop via SSH
-- **Diff Viewer** — View git diffs with syntax highlighting
-- **Gallery** — Browse images and screenshots from sessions
-- **Voice Input** — Dictate prompts with speech-to-text
-- **Multiple Connection Methods** — Saved machines, QR code, mDNS auto-discovery, manual input
+- **Flexible Connections** — Saved machines, QR code, mDNS auto-discovery, manual input
 
 ## Prerequisites
 

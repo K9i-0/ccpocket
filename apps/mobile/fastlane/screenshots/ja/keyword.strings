@@ -1,7 +1,9 @@
 
 "01_session_list" = "PCのコーディングAIを";
-"02_coding_session" = "リアルタイム出力";
-"03_task_planning" = "思考とタスク";
-"04_approval_flow" = "ツール承認";
-"05_ask_question" = "質問に回答";
-"06_recent_sessions" = "プロジェクト別";
+"02_approval_list" = "複数セッション一覧";
+"03_multi_question" = "モバイル最適化";
+"04_markdown_input" = "リッチなプロンプト";
+"05_named_sessions" = "セッションに名前";
+"06_image_attach" = "画像を添付";
+"07_git_diff" = "差分を確認";
+"08_new_session" = "新しいセッション";

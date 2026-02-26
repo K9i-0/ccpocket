@@ -2,31 +2,40 @@ ccpocket is a mobile remote for Claude Code and Codex — the AI coding agents t
 
 This app is not affiliated with, endorsed by, or associated with Anthropic or OpenAI.
 
-<b>CONTROL YOUR AGENTS FROM ANYWHERE</b>
-Approve file edits, command executions, and tool calls right from your phone. No need to stay at your desk — manage your coding sessions on the go.
+<b>START SESSIONS FROM YOUR PHONE</b>
+Launch new coding sessions directly from your phone — no need to open a laptop first. Pick a project, set a permission mode, and start coding in seconds.
 
-<b>REAL-TIME STREAMING CHAT</b>
-Watch your agent think and code in real-time with streaming responses. View inline diffs, thinking blocks, and structured plans as they happen.
+<b>BATCH APPROVAL AT A GLANCE</b>
+Multiple agents running? See all pending approvals across sessions in one list. Review and approve file edits, command executions, and tool calls without switching context.
 
-<b>MULTI-SESSION MANAGEMENT</b>
-Run and switch between multiple sessions. Resume previous conversations, search session history, and filter by project.
+<b>MOBILE-OPTIMIZED UI</b>
+Built for touch. Answer agent questions, approve tools, and provide feedback through a UI designed for mobile — not a shrunken desktop experience.
 
-<b>ADVANCED DIFF VIEWER</b>
-Review code changes with syntax-highlighted diffs. Select specific change blocks, view file statistics, and send feedback to your agent.
+<b>RICH PROMPTS</b>
+Write with Markdown formatting and auto-completing bullet lists. Attach images from your clipboard or photo gallery to give visual context to your agent.
 
-<b>FLEXIBLE CONNECTIONS</b>
-Connect to your self-hosted Bridge Server via saved machines, QR code, mDNS auto-discovery, or manual URL. Optionally manage remote servers over SSH.
+<b>ORGANIZE YOUR SESSIONS</b>
+Name your sessions and browse by project. Find past conversations instantly with search and project-based filtering.
+
+<b>REVIEW DIFFS</b>
+See every code change at once with syntax-highlighted diffs. Review file statistics, select specific change blocks, and send feedback.
+
+<b>REAL-TIME STREAMING</b>
+Watch your agent think and code live. View inline diffs, thinking blocks, and structured plans as they stream in.
 
 <b>PUSH NOTIFICATIONS</b>
 Get notified instantly when your agent needs approval or completes a task. Never miss a permission request again.
+
+<b>FLEXIBLE CONNECTIONS</b>
+Connect to your self-hosted Bridge Server via saved machines, QR code, mDNS auto-discovery, or manual URL. Optionally manage remote servers over SSH.
 
 <b>PRIVACY FIRST</b>
 Your code and conversations stay on your own server. No telemetry, no tracking. ccpocket collects no personal data.
 
 <b>HOW IT WORKS</b>
-1. Install the Bridge Server on your Mac: npm install -g ccpocket-bridge
-2. Start it: ccpocket-bridge
-3. Open ccpocket on your phone and connect via QR code, auto-discovery, or URL
+1. Install the Bridge Server: npx @ccpocket/bridge@latest
+2. Scan the QR code or enter the URL in the app
+3. Start coding from your phone
 
 That's it — you're ready to go in under 5 minutes.
 

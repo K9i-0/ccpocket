@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
@@ -18,8 +19,10 @@ import '../services/mock_bridge_service.dart';
 import '../services/replay_bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/session_card.dart';
+import '../widgets/new_session_sheet.dart';
 import '../features/claude_session/claude_session_screen.dart';
 import '../features/codex_session/codex_session_screen.dart';
+import '../features/diff/diff_screen.dart';
 
 @RoutePage()
 class MockPreviewScreen extends StatelessWidget {
@@ -111,28 +114,79 @@ class _ScenariosTab extends StatelessWidget {
   }
 
   void _launchStoreScenario(BuildContext context, MockScenario scenario) {
-    if (scenario.name == 'Session List' ||
-        scenario.name == 'Session List (Recent)') {
-      final draftService = context.read<DraftService>();
-      final minimal = scenario.name == 'Session List (Recent)';
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _StoreSessionListWrapper(
-            draftService: draftService,
-            minimalRunning: minimal,
+    final draftService = context.read<DraftService>();
+
+    switch (scenario.name) {
+      case 'Session List':
+      case 'Session List (Recent)':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _StoreSessionListWrapper(
+              draftService: draftService,
+              minimalRunning: scenario.name == 'Session List (Recent)',
+            ),
           ),
-        ),
-      );
-    } else {
-      final mockService = MockBridgeService();
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              _StoreChatWrapper(mockService: mockService, scenario: scenario),
-        ),
-      );
+        );
+      case 'Session List (Named)':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _StoreSessionListWrapper(
+              draftService: draftService,
+              minimalRunning: true,
+              useNamedSessions: true,
+            ),
+          ),
+        );
+      case 'New Session':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _StoreNewSessionWrapper(draftService: draftService),
+          ),
+        );
+      case 'Multi-Question Approval':
+        final mockService = MockBridgeService();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                _StoreChatWrapper(mockService: mockService, scenario: scenario),
+          ),
+        );
+      case 'Markdown Input':
+        final mockService = MockBridgeService();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                _StoreMarkdownInputWrapper(mockService: mockService),
+          ),
+        );
+      case 'Image Attach':
+        final mockService = MockBridgeService();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _StoreImageAttachWrapper(mockService: mockService),
+          ),
+        );
+      case 'Git Diff':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const _StoreDiffWrapper()),
+        );
+      default:
+        // Legacy chat scenarios (Coding Session, Task Planning)
+        final mockService = MockBridgeService();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                _StoreChatWrapper(mockService: mockService, scenario: scenario),
+          ),
+        );
     }
   }
 }
@@ -781,9 +835,11 @@ class _MockSessionListWrapperState extends State<_MockSessionListWrapper> {
 class _StoreSessionListWrapper extends StatefulWidget {
   final DraftService draftService;
   final bool minimalRunning;
+  final bool useNamedSessions;
   const _StoreSessionListWrapper({
     required this.draftService,
     this.minimalRunning = false,
+    this.useNamedSessions = false,
   });
 
   @override
@@ -814,7 +870,9 @@ class _StoreSessionListWrapperState extends State<_StoreSessionListWrapper> {
     final running = widget.minimalRunning
         ? storeRunningSessionsMinimal()
         : storeRunningSessions();
-    final recent = storeRecentSessions();
+    final recent = widget.useNamedSessions
+        ? storeRecentSessionsNamed()
+        : storeRecentSessions();
     final projectPaths = {
       ...running.map((s) => s.projectPath),
       ...recent.map((s) => s.projectPath),
@@ -898,6 +956,7 @@ class _StoreChatWrapperState extends State<_StoreChatWrapper> {
       final history = switch (widget.scenario.name) {
         'Coding Session' => storeChatCodingSession,
         'Task Planning' => storeChatTaskPlanning,
+        'Multi-Question Approval' => storeChatMultiQuestion,
         _ => <ServerMessage>[],
       };
       widget.mockService.loadHistory(history);
@@ -936,6 +995,390 @@ class _StoreChatWrapperState extends State<_StoreChatWrapper> {
         child: ClaudeSessionScreen(
           sessionId: sessionId,
           projectPath: '/store/preview',
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Store Screenshot: Markdown Input Wrapper
+// =============================================================================
+
+class _StoreMarkdownInputWrapper extends StatefulWidget {
+  final MockBridgeService mockService;
+  const _StoreMarkdownInputWrapper({required this.mockService});
+
+  @override
+  State<_StoreMarkdownInputWrapper> createState() =>
+      _StoreMarkdownInputWrapperState();
+}
+
+class _StoreMarkdownInputWrapperState
+    extends State<_StoreMarkdownInputWrapper> {
+  static const _sessionId = 'store-markdown-input';
+  late final DraftService _draftService;
+
+  @override
+  void initState() {
+    super.initState();
+    _draftService = context.read<DraftService>();
+    // Pre-save the markdown draft so the input field is pre-populated
+    _draftService.saveDraft(_sessionId, storeMarkdownInputText);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.mockService.loadHistory(storeChatMarkdownInput);
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.mockService.dispose();
+    _draftService.deleteDraft(_sessionId);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mockService = widget.mockService;
+    return RepositoryProvider<BridgeService>.value(
+      value: mockService,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) => ConnectionCubit(
+              BridgeConnectionState.connected,
+              mockService.connectionStatus,
+            ),
+          ),
+          BlocProvider(
+            create: (_) =>
+                ActiveSessionsCubit(const [], mockService.sessionList),
+          ),
+          BlocProvider(
+            create: (_) => FileListCubit(const [], mockService.fileList),
+          ),
+        ],
+        child: const ClaudeSessionScreen(
+          sessionId: _sessionId,
+          projectPath: '/store/preview',
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Store Screenshot: Image Attachment Wrapper
+// =============================================================================
+
+class _StoreImageAttachWrapper extends StatefulWidget {
+  final MockBridgeService mockService;
+  const _StoreImageAttachWrapper({required this.mockService});
+
+  @override
+  State<_StoreImageAttachWrapper> createState() =>
+      _StoreImageAttachWrapperState();
+}
+
+class _StoreImageAttachWrapperState extends State<_StoreImageAttachWrapper> {
+  static const _sessionId = 'store-image-attach';
+  late final DraftService _draftService;
+
+  @override
+  void initState() {
+    super.initState();
+    _draftService = context.read<DraftService>();
+    // Pre-save mock images so the input bar shows image previews
+    final mockImages = _generateMockImages();
+    _draftService.saveImageDraft(_sessionId, mockImages);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.mockService.loadHistory(storeChatImageAttach);
+    });
+  }
+
+  /// Generate simple colored PNG images for the mock preview.
+  static List<({Uint8List bytes, String mimeType})> _generateMockImages() {
+    // Minimal 2x2 PNG in different colors (valid PNG with IHDR, IDAT, IEND)
+    return [
+      (bytes: _createMiniPng(0xFF4A90D9), mimeType: 'image/png'), // blue
+      (bytes: _createMiniPng(0xFFE8913A), mimeType: 'image/png'), // orange
+    ];
+  }
+
+  /// Create a minimal valid 60x60 PNG with a solid color.
+  static Uint8List _createMiniPng(int argb) {
+    // Use a hand-crafted minimal PNG for the mock.
+    // For simplicity, just use a small solid-color BMP-like data
+    // that Image.memory can render.
+    //
+    // Actually, let's use dart:ui to create a real image.
+    // But since we're in a StatefulWidget (not async), we'll use a
+    // pre-built tiny PNG.
+    //
+    // Minimal approach: 1x1 PNG
+    final r = (argb >> 16) & 0xFF;
+    final g = (argb >> 8) & 0xFF;
+    final b = argb & 0xFF;
+    // 1x1 RGBA PNG (minimal valid PNG)
+    final header = <int>[
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+    ];
+    final ihdr = _pngChunk('IHDR', [
+      0, 0, 0, 1, // width = 1
+      0, 0, 0, 1, // height = 1
+      8, // bit depth
+      2, // color type (RGB)
+      0, 0, 0, // compression, filter, interlace
+    ]);
+    // IDAT: zlib-compressed scanline (filter byte 0 + RGB)
+    final rawData = [0, r, g, b]; // filter=None + RGB
+    final idat = _pngChunk('IDAT', _zlibCompress(rawData));
+    final iend = _pngChunk('IEND', []);
+    return Uint8List.fromList([...header, ...ihdr, ...idat, ...iend]);
+  }
+
+  static List<int> _pngChunk(String type, List<int> data) {
+    final typeBytes = type.codeUnits;
+    final length = data.length;
+    final chunk = <int>[
+      (length >> 24) & 0xFF,
+      (length >> 16) & 0xFF,
+      (length >> 8) & 0xFF,
+      length & 0xFF,
+      ...typeBytes,
+      ...data,
+    ];
+    // CRC32 over type + data
+    final crc = _crc32([...typeBytes, ...data]);
+    chunk.addAll([
+      (crc >> 24) & 0xFF,
+      (crc >> 16) & 0xFF,
+      (crc >> 8) & 0xFF,
+      crc & 0xFF,
+    ]);
+    return chunk;
+  }
+
+  static List<int> _zlibCompress(List<int> data) {
+    // Minimal zlib: header(78 01) + stored block + adler32
+    final stored = <int>[
+      0x78, 0x01, // zlib header (deflate, no dict)
+      0x01, // final block, stored
+      data.length & 0xFF, (data.length >> 8) & 0xFF,
+      (~data.length) & 0xFF, ((~data.length) >> 8) & 0xFF,
+      ...data,
+    ];
+    // Adler32
+    int a = 1, b2 = 0;
+    for (final byte in data) {
+      a = (a + byte) % 65521;
+      b2 = (b2 + a) % 65521;
+    }
+    final adler = (b2 << 16) | a;
+    stored.addAll([
+      (adler >> 24) & 0xFF,
+      (adler >> 16) & 0xFF,
+      (adler >> 8) & 0xFF,
+      adler & 0xFF,
+    ]);
+    return stored;
+  }
+
+  static int _crc32(List<int> data) {
+    int crc = 0xFFFFFFFF;
+    for (final byte in data) {
+      crc ^= byte;
+      for (int i = 0; i < 8; i++) {
+        if ((crc & 1) != 0) {
+          crc = (crc >> 1) ^ 0xEDB88320;
+        } else {
+          crc >>= 1;
+        }
+      }
+    }
+    return crc ^ 0xFFFFFFFF;
+  }
+
+  @override
+  void dispose() {
+    widget.mockService.dispose();
+    _draftService.deleteImageDraft(_sessionId);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mockService = widget.mockService;
+    return RepositoryProvider<BridgeService>.value(
+      value: mockService,
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) => ConnectionCubit(
+              BridgeConnectionState.connected,
+              mockService.connectionStatus,
+            ),
+          ),
+          BlocProvider(
+            create: (_) =>
+                ActiveSessionsCubit(const [], mockService.sessionList),
+          ),
+          BlocProvider(
+            create: (_) => FileListCubit(const [], mockService.fileList),
+          ),
+        ],
+        child: const ClaudeSessionScreen(
+          sessionId: _sessionId,
+          projectPath: '/store/preview',
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Store Screenshot: Diff Wrapper
+// =============================================================================
+
+class _StoreDiffWrapper extends StatefulWidget {
+  const _StoreDiffWrapper();
+
+  @override
+  State<_StoreDiffWrapper> createState() => _StoreDiffWrapperState();
+}
+
+class _StoreDiffWrapperState extends State<_StoreDiffWrapper> {
+  late final MockBridgeService _mockBridge;
+
+  @override
+  void initState() {
+    super.initState();
+    _mockBridge = MockBridgeService();
+  }
+
+  @override
+  void dispose() {
+    _mockBridge.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RepositoryProvider<BridgeService>.value(
+      value: _mockBridge,
+      child: DiffScreen(initialDiff: storeMockDiff, title: 'shopify-app'),
+    );
+  }
+}
+
+// =============================================================================
+// Store Screenshot: New Session Wrapper
+// =============================================================================
+
+class _StoreNewSessionWrapper extends StatefulWidget {
+  final DraftService draftService;
+  const _StoreNewSessionWrapper({required this.draftService});
+
+  @override
+  State<_StoreNewSessionWrapper> createState() =>
+      _StoreNewSessionWrapperState();
+}
+
+class _StoreNewSessionWrapperState extends State<_StoreNewSessionWrapper> {
+  late final MockBridgeService _mockBridge;
+  late final SessionListCubit _sessionListCubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _mockBridge = MockBridgeService();
+    _sessionListCubit = SessionListCubit(bridge: _mockBridge);
+    // Auto-open the new session bottom sheet after build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showNewSessionSheet();
+    });
+  }
+
+  void _showNewSessionSheet() {
+    if (!mounted) return;
+    showNewSessionSheet(
+      context: context,
+      recentProjects: const [
+        (path: '/Users/dev/projects/shopify-app', name: 'shopify-app'),
+        (path: '/Users/dev/projects/rust-cli', name: 'rust-cli'),
+        (path: '/Users/dev/projects/my-portfolio', name: 'my-portfolio'),
+      ],
+      projectHistory: const [],
+      bridge: _mockBridge,
+    );
+  }
+
+  @override
+  void dispose() {
+    _sessionListCubit.close();
+    _mockBridge.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final running = storeRunningSessionsMinimal();
+    final recent = storeRecentSessions();
+    final projectPaths = {
+      ...running.map((s) => s.projectPath),
+      ...recent.map((s) => s.projectPath),
+    };
+
+    return RepositoryProvider<DraftService>.value(
+      value: widget.draftService,
+      child: BlocProvider.value(
+        value: _sessionListCubit,
+        child: Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            title: const Text('CC Pocket'),
+            actions: [
+              IconButton(icon: const Icon(Icons.settings), onPressed: () {}),
+              IconButton(icon: const Icon(Icons.collections), onPressed: () {}),
+              IconButton(icon: const Icon(Icons.link_off), onPressed: () {}),
+            ],
+          ),
+          body: HomeContent(
+            connectionState: BridgeConnectionState.connected,
+            sessions: running,
+            recentSessions: recent,
+            accumulatedProjectPaths: projectPaths,
+            searchQuery: '',
+            isLoadingMore: false,
+            isInitialLoading: false,
+            hasMoreSessions: false,
+            currentProjectFilter: null,
+            onNewSession: () {},
+            onTapRunning:
+                (
+                  _, {
+                  projectPath,
+                  gitBranch,
+                  worktreePath,
+                  provider,
+                  permissionMode,
+                  sandboxMode,
+                }) {},
+            onStopSession: (_) {},
+            onResumeSession: (_) {},
+            onLongPressRecentSession: (_) {},
+            onLongPressRunningSession: (_) {},
+            onSelectProject: (_) {},
+            onLoadMore: () {},
+            providerFilter: ProviderFilter.all,
+            namedOnly: false,
+            onToggleProvider: () {},
+            onToggleNamed: () {},
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: _showNewSessionSheet,
+            child: const Icon(Icons.add),
+          ),
         ),
       ),
     );
