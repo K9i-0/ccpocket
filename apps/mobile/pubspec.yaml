@@ -67,6 +67,7 @@ dependencies:
   auto_route: ^11.1.0
   collection: ^1.19.1
   extended_image: ^10.0.1
+  flutter_svg: ^2.0.17
   smooth_page_indicator: ^2.0.1
   talker: ^5.1.13
   talker_flutter: ^5.1.13

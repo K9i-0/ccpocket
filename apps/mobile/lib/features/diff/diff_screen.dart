@@ -137,6 +137,8 @@ class _DiffScreenBody extends StatelessWidget {
               onToggleHunkSelection: cubit.toggleHunkSelection,
               isFileFullySelected: cubit.isFileFullySelected,
               isFilePartiallySelected: cubit.isFilePartiallySelected,
+              onLoadImage: cubit.loadImage,
+              loadingImageIndices: state.loadingImageIndices,
             ),
     );
   }

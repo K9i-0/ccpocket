@@ -103,6 +103,7 @@ export type ClientMessage =
   | { type: "list_gallery"; project?: string; sessionId?: string }
   | { type: "list_files"; projectPath: string }
   | { type: "get_diff"; projectPath: string }
+  | { type: "get_diff_image"; projectPath: string; filePath: string; version: "old" | "new" }
   | { type: "interrupt"; sessionId?: string }
   | { type: "list_project_history" }
   | { type: "remove_project_history"; projectPath: string }
@@ -121,6 +122,23 @@ export type ClientMessage =
   | { type: "restore_prompt_history" }
   | { type: "get_prompt_history_backup_info" }
   | { type: "archive_session"; sessionId: string; provider: Provider; projectPath: string };
+
+/** Image change detected in a git diff (binary image file). */
+export interface ImageChange {
+  filePath: string;
+  isNew: boolean;
+  isDeleted: boolean;
+  isSvg: boolean;
+  oldSize?: number;
+  newSize?: number;
+  /** Base64-encoded old image (included only when size ≤ 200KB). */
+  oldBase64?: string;
+  /** Base64-encoded new image (included only when size ≤ 200KB). */
+  newBase64?: string;
+  mimeType: string;
+  /** Whether the image can be loaded on demand (200KB–2MB range). */
+  loadable: boolean;
+}
 
 export interface DebugTraceEvent {
   ts: string;
@@ -174,7 +192,8 @@ export type ServerMessage =
   | { type: "thinking_delta"; text: string }
   | { type: "file_list"; files: string[] }
   | { type: "project_history"; projects: string[] }
-  | { type: "diff_result"; diff: string; error?: string }
+  | { type: "diff_result"; diff: string; error?: string; imageChanges?: ImageChange[] }
+  | { type: "diff_image_result"; filePath: string; version: "old" | "new"; base64?: string; mimeType?: string; error?: string }
   | { type: "worktree_list"; worktrees: WorktreeInfo[] }
   | { type: "worktree_removed"; worktreePath: string }
   | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] }
@@ -368,6 +387,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "get_diff":
         if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "get_diff_image":
+        if (typeof msg.projectPath !== "string") return null;
+        if (typeof msg.filePath !== "string") return null;
+        if (msg.version !== "old" && msg.version !== "new") return null;
         break;
       case "interrupt":
         break;

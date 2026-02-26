@@ -6,6 +6,7 @@ import '../../../utils/diff_parser.dart';
 import 'diff_binary_notice.dart';
 import 'diff_file_header.dart';
 import 'diff_hunk_widget.dart';
+import 'diff_image_widget.dart';
 
 class DiffContentList extends StatelessWidget {
   final List<DiffFile> files;
@@ -19,6 +20,8 @@ class DiffContentList extends StatelessWidget {
   final void Function(int fileIdx, int hunkIdx)? onToggleHunkSelection;
   final bool Function(int fileIdx)? isFileFullySelected;
   final bool Function(int fileIdx)? isFilePartiallySelected;
+  final ValueChanged<int>? onLoadImage;
+  final Set<int> loadingImageIndices;
 
   const DiffContentList({
     super.key,
@@ -33,6 +36,8 @@ class DiffContentList extends StatelessWidget {
     this.onToggleHunkSelection,
     this.isFileFullySelected,
     this.isFilePartiallySelected,
+    this.onLoadImage,
+    this.loadingImageIndices = const {},
   });
 
   @override
@@ -42,7 +47,17 @@ class DiffContentList extends StatelessWidget {
     // Single-file mode: show file header + hunks (no filter/divider)
     if (files.length == 1) {
       final file = files.first;
-      if (file.isBinary) return const DiffBinaryNotice();
+      if (file.isBinary) {
+        if (file.isImage && file.imageData != null) {
+          return DiffImageWidget(
+            file: file,
+            imageData: file.imageData!,
+            onLoadRequested: onLoadImage != null ? () => onLoadImage!(0) : null,
+            loading: loadingImageIndices.contains(0),
+          );
+        }
+        return const DiffBinaryNotice();
+      }
       final collapsed = collapsedFileIndices.contains(0);
       final hunkCount = collapsed ? 0 : file.hunks.length;
       return ListView.builder(
@@ -115,6 +130,8 @@ class DiffContentList extends StatelessWidget {
         onToggleHunkSelection: onToggleHunkSelection,
         isFileFullySelected: isFileFullySelected,
         isFilePartiallySelected: isFilePartiallySelected,
+        onLoadImage: onLoadImage,
+        loadingImageIndices: loadingImageIndices,
       ),
     );
   }
@@ -147,6 +164,8 @@ class _DiffListItem extends StatelessWidget {
   final void Function(int fileIdx, int hunkIdx)? onToggleHunkSelection;
   final bool Function(int fileIdx)? isFileFullySelected;
   final bool Function(int fileIdx)? isFilePartiallySelected;
+  final ValueChanged<int>? onLoadImage;
+  final Set<int> loadingImageIndices;
 
   const _DiffListItem({
     required this.index,
@@ -160,6 +179,8 @@ class _DiffListItem extends StatelessWidget {
     this.onToggleHunkSelection,
     this.isFileFullySelected,
     this.isFilePartiallySelected,
+    this.onLoadImage,
+    this.loadingImageIndices = const {},
   });
 
   @override
@@ -191,6 +212,16 @@ class _DiffListItem extends StatelessWidget {
           );
         }
         if (file.isBinary) {
+          if (file.isImage && file.imageData != null) {
+            return DiffImageWidget(
+              file: file,
+              imageData: file.imageData!,
+              onLoadRequested: onLoadImage != null
+                  ? () => onLoadImage!(fileIdx)
+                  : null,
+              loading: loadingImageIndices.contains(fileIdx),
+            );
+          }
           return const DiffBinaryNotice();
         }
         final hunkIdx = localIdx - 1;

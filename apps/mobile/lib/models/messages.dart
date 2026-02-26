@@ -456,6 +456,20 @@ sealed class ServerMessage {
       'diff_result' => DiffResultMessage(
         diff: json['diff'] as String? ?? '',
         error: json['error'] as String?,
+        imageChanges:
+            (json['imageChanges'] as List?)
+                ?.map(
+                  (e) => DiffImageChange.fromJson(e as Map<String, dynamic>),
+                )
+                .toList() ??
+            const [],
+      ),
+      'diff_image_result' => DiffImageResultMessage(
+        filePath: json['filePath'] as String,
+        version: json['version'] as String,
+        base64: json['base64'] as String?,
+        mimeType: json['mimeType'] as String?,
+        error: json['error'] as String?,
       ),
       'worktree_list' => WorktreeListMessage(
         worktrees: (json['worktrees'] as List)
@@ -906,10 +920,71 @@ class ProjectHistoryMessage implements ServerMessage {
   const ProjectHistoryMessage({required this.projects});
 }
 
+/// Image change detected in a git diff.
+class DiffImageChange {
+  final String filePath;
+  final bool isNew;
+  final bool isDeleted;
+  final bool isSvg;
+  final int? oldSize;
+  final int? newSize;
+  final String? oldBase64;
+  final String? newBase64;
+  final String mimeType;
+  final bool loadable;
+
+  const DiffImageChange({
+    required this.filePath,
+    this.isNew = false,
+    this.isDeleted = false,
+    this.isSvg = false,
+    this.oldSize,
+    this.newSize,
+    this.oldBase64,
+    this.newBase64,
+    required this.mimeType,
+    this.loadable = false,
+  });
+
+  factory DiffImageChange.fromJson(Map<String, dynamic> json) =>
+      DiffImageChange(
+        filePath: json['filePath'] as String,
+        isNew: json['isNew'] as bool? ?? false,
+        isDeleted: json['isDeleted'] as bool? ?? false,
+        isSvg: json['isSvg'] as bool? ?? false,
+        oldSize: json['oldSize'] as int?,
+        newSize: json['newSize'] as int?,
+        oldBase64: json['oldBase64'] as String?,
+        newBase64: json['newBase64'] as String?,
+        mimeType: json['mimeType'] as String? ?? 'application/octet-stream',
+        loadable: json['loadable'] as bool? ?? false,
+      );
+}
+
 class DiffResultMessage implements ServerMessage {
   final String diff;
   final String? error;
-  const DiffResultMessage({required this.diff, this.error});
+  final List<DiffImageChange> imageChanges;
+  const DiffResultMessage({
+    required this.diff,
+    this.error,
+    this.imageChanges = const [],
+  });
+}
+
+class DiffImageResultMessage implements ServerMessage {
+  final String filePath;
+  final String version;
+  final String? base64;
+  final String? mimeType;
+  final String? error;
+  const DiffImageResultMessage({
+    required this.filePath,
+    required this.version,
+    this.base64,
+    this.mimeType,
+    this.error,
+  });
 }
 
 class WorktreeListMessage implements ServerMessage {
@@ -1679,6 +1754,17 @@ class ClientMessage {
 
   factory ClientMessage.getDiff(String projectPath) =>
       ClientMessage._({'type': 'get_diff', 'projectPath': projectPath});
+
+  factory ClientMessage.getDiffImage(
+    String projectPath,
+    String filePath,
+    String version,
+  ) => ClientMessage._({
+    'type': 'get_diff_image',
+    'projectPath': projectPath,
+    'filePath': filePath,
+    'version': version,
+  });
 
   factory ClientMessage.interrupt({String? sessionId}) => ClientMessage._(
     <String, dynamic>{'type': 'interrupt', 'sessionId': ?sessionId},

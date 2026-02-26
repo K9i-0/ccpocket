@@ -1,11 +1,13 @@
 import type { Server as HttpServer } from "node:http";
 import { execFile, execFileSync } from "node:child_process";
+import { readFileSync, existsSync } from "node:fs";
 import { unlink } from "node:fs/promises";
+import { resolve, extname } from "node:path";
 import { WebSocketServer, WebSocket } from "ws";
 import { SessionManager, type SessionInfo } from "./session.js";
 import { SdkProcess } from "./sdk-process.js";
 import type { CodexProcess } from "./codex-process.js";
-import { parseClientMessage, type ClientMessage, type DebugTraceEvent, type ServerMessage } from "./parser.js";
+import { parseClientMessage, type ClientMessage, type DebugTraceEvent, type ImageChange, type ServerMessage } from "./parser.js";
 import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory, findSessionsByClaudeIds, extractMessageImages, getClaudeSessionName, loadCodexSessionNames, renameClaudeSession, renameCodexSession } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
@@ -1077,8 +1079,20 @@ export class BridgeWebSocketServer {
             this.send(ws, { type: "diff_result", diff: "", error: `Failed to get diff: ${error}` });
             return;
           }
-          this.send(ws, { type: "diff_result", diff });
+          void this.collectImageChanges(msg.projectPath, diff).then((imageChanges) => {
+            if (imageChanges.length > 0) {
+              this.send(ws, { type: "diff_result", diff, imageChanges });
+            } else {
+              this.send(ws, { type: "diff_result", diff });
+            }
+          });
         });
+        break;
+      }
+
+      case "get_diff_image": {
+        const result = this.loadDiffImage(msg.projectPath, msg.filePath, msg.version);
+        this.send(ws, { type: "diff_image_result", filePath: msg.filePath, version: msg.version, ...result });
         break;
       }
 
@@ -1698,6 +1712,201 @@ export class BridgeWebSocketServer {
       }
       callback({ diff: stdout });
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Image diff helpers
+  // ---------------------------------------------------------------------------
+
+  private static readonly IMAGE_EXTENSIONS = new Set([
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp", ".svg",
+  ]);
+
+  private static readonly AUTO_DISPLAY_THRESHOLD = 200 * 1024; // 200 KB
+  private static readonly MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2 MB
+
+  private static mimeTypeForExt(ext: string): string {
+    const map: Record<string, string> = {
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".gif": "image/gif",
+      ".webp": "image/webp",
+      ".ico": "image/x-icon",
+      ".bmp": "image/bmp",
+      ".svg": "image/svg+xml",
+    };
+    return map[ext.toLowerCase()] ?? "application/octet-stream";
+  }
+
+  /**
+   * Scan diff text for image file changes and extract base64 data where appropriate.
+   *
+   * Detection strategy:
+   * 1. Binary markers: "Binary files a/<path> and b/<path> differ"
+   * 2. diff --git headers where the file extension is an image type
+   *
+   * For each detected image file:
+   * - Old version: `git show HEAD:<path>` (committed version)
+   * - New version: read from working tree
+   * - Apply size thresholds for auto-display / on-demand / text-only
+   */
+  private async collectImageChanges(cwd: string, diffText: string): Promise<ImageChange[]> {
+    // Phase 1: Extract image file entries from diff text (synchronous, CPU only)
+    interface ImageEntry {
+      filePath: string;
+      isNew: boolean;
+      isDeleted: boolean;
+      isSvg: boolean;
+      mimeType: string;
+      ext: string;
+    }
+    const entries: ImageEntry[] = [];
+    const processedPaths = new Set<string>();
+
+    const lines = diffText.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      const gitMatch = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+      if (!gitMatch) continue;
+
+      const filePath = gitMatch[2];
+      const ext = extname(filePath).toLowerCase();
+      if (!BridgeWebSocketServer.IMAGE_EXTENSIONS.has(ext)) continue;
+      if (processedPaths.has(filePath)) continue;
+      processedPaths.add(filePath);
+
+      let isNew = false;
+      let isDeleted = false;
+      for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
+        if (lines[j].startsWith("diff --git ")) break;
+        if (lines[j].startsWith("new file mode")) isNew = true;
+        if (lines[j].startsWith("deleted file mode")) isDeleted = true;
+      }
+
+      entries.push({
+        filePath,
+        isNew,
+        isDeleted,
+        isSvg: ext === ".svg",
+        mimeType: BridgeWebSocketServer.mimeTypeForExt(ext),
+        ext,
+      });
+    }
+
+    if (entries.length === 0) return [];
+
+    // Phase 2: Read image data asynchronously
+    const { readFile } = await import("node:fs/promises");
+    const { promisify } = await import("node:util");
+    const execFileAsync = promisify(execFile);
+
+    const changes: ImageChange[] = [];
+    for (const entry of entries) {
+      let oldBuf: Buffer | undefined;
+      let newBuf: Buffer | undefined;
+
+      // Read old image (committed version)
+      if (!entry.isNew) {
+        try {
+          const result = await execFileAsync("git", ["show", `HEAD:${entry.filePath}`], {
+            cwd,
+            maxBuffer: BridgeWebSocketServer.MAX_IMAGE_SIZE + 1024,
+            encoding: "buffer",
+          });
+          oldBuf = result.stdout as unknown as Buffer;
+        } catch {
+          // File may not exist in HEAD (e.g. untracked)
+        }
+      }
+
+      // Read new image (working tree)
+      if (!entry.isDeleted) {
+        try {
+          const absPath = resolve(cwd, entry.filePath);
+          if (existsSync(absPath)) {
+            newBuf = await readFile(absPath);
+          }
+        } catch {
+          // Ignore read errors
+        }
+      }
+
+      const oldSize = oldBuf?.length;
+      const newSize = newBuf?.length;
+      const maxSize = Math.max(oldSize ?? 0, newSize ?? 0);
+
+      const autoDisplay = maxSize <= BridgeWebSocketServer.AUTO_DISPLAY_THRESHOLD;
+      const loadable = !autoDisplay && maxSize <= BridgeWebSocketServer.MAX_IMAGE_SIZE;
+
+      const change: ImageChange = {
+        filePath: entry.filePath,
+        isNew: entry.isNew,
+        isDeleted: entry.isDeleted,
+        isSvg: entry.isSvg,
+        mimeType: entry.mimeType,
+        loadable,
+      };
+
+      if (oldSize !== undefined) change.oldSize = oldSize;
+      if (newSize !== undefined) change.newSize = newSize;
+
+      if (autoDisplay) {
+        if (oldBuf) change.oldBase64 = oldBuf.toString("base64");
+        if (newBuf) change.newBase64 = newBuf.toString("base64");
+      }
+
+      changes.push(change);
+    }
+
+    return changes;
+  }
+
+  /**
+   * Load a single diff image on demand (for 200KB–2MB range).
+   */
+  private loadDiffImage(
+    cwd: string,
+    filePath: string,
+    version: "old" | "new",
+  ): { base64?: string; mimeType?: string; error?: string } {
+    // Path traversal guard: reject paths containing '..' or absolute paths
+    if (filePath.includes("..") || filePath.startsWith("/")) {
+      return { error: "Invalid file path" };
+    }
+
+    const ext = extname(filePath).toLowerCase();
+    if (!BridgeWebSocketServer.IMAGE_EXTENSIONS.has(ext)) {
+      return { error: "Not an image file" };
+    }
+    const mimeType = BridgeWebSocketServer.mimeTypeForExt(ext);
+
+    try {
+      let buf: Buffer;
+      if (version === "old") {
+        buf = execFileSync("git", ["show", `HEAD:${filePath}`], {
+          cwd,
+          maxBuffer: BridgeWebSocketServer.MAX_IMAGE_SIZE + 1024,
+          encoding: "buffer",
+        }) as unknown as Buffer;
+      } else {
+        const absPath = resolve(cwd, filePath);
+        // Verify resolved path stays within cwd
+        if (!absPath.startsWith(resolve(cwd) + "/")) {
+          return { error: "Invalid file path" };
+        }
+        buf = readFileSync(absPath);
+      }
+
+      if (buf.length > BridgeWebSocketServer.MAX_IMAGE_SIZE) {
+        return { error: "Image too large" };
+      }
+
+      return { base64: buf.toString("base64"), mimeType };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   private extractSessionIdFromClientMessage(msg: ClientMessage): string | undefined {

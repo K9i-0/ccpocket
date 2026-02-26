@@ -1,6 +1,74 @@
 // Unified diff parser — converts raw `git diff` output into structured data.
 
+import 'dart:typed_data';
+
 enum DiffLineType { context, addition, deletion }
+
+/// Extensions treated as image files for diff preview.
+const _imageExtensions = {
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.ico',
+  '.bmp',
+  '.svg',
+};
+
+/// Whether the file path has an image extension.
+bool isImageFile(String filePath) {
+  final lower = filePath.toLowerCase();
+  return _imageExtensions.any((ext) => lower.endsWith(ext));
+}
+
+/// Image data attached to a diff file for visual comparison.
+class DiffImageData {
+  final int? oldSize;
+  final int? newSize;
+  final Uint8List? oldBytes;
+  final Uint8List? newBytes;
+  final String mimeType;
+  final bool isSvg;
+
+  /// Whether the image can be loaded on demand (200KB–2MB range).
+  final bool loadable;
+
+  /// Whether on-demand data has been fetched.
+  final bool loaded;
+
+  const DiffImageData({
+    this.oldSize,
+    this.newSize,
+    this.oldBytes,
+    this.newBytes,
+    this.mimeType = 'application/octet-stream',
+    this.isSvg = false,
+    this.loadable = false,
+    this.loaded = false,
+  });
+
+  /// Create a copy with updated fields.
+  DiffImageData copyWith({
+    int? oldSize,
+    int? newSize,
+    Uint8List? oldBytes,
+    Uint8List? newBytes,
+    String? mimeType,
+    bool? isSvg,
+    bool? loadable,
+    bool? loaded,
+  }) => DiffImageData(
+    oldSize: oldSize ?? this.oldSize,
+    newSize: newSize ?? this.newSize,
+    oldBytes: oldBytes ?? this.oldBytes,
+    newBytes: newBytes ?? this.newBytes,
+    mimeType: mimeType ?? this.mimeType,
+    isSvg: isSvg ?? this.isSvg,
+    loadable: loadable ?? this.loadable,
+    loaded: loaded ?? this.loaded,
+  );
+}
 
 class DiffLine {
   final DiffLineType type;
@@ -47,6 +115,8 @@ class DiffFile {
   final bool isBinary;
   final bool isNewFile;
   final bool isDeleted;
+  final bool isImage;
+  final DiffImageData? imageData;
 
   const DiffFile({
     required this.filePath,
@@ -54,7 +124,20 @@ class DiffFile {
     this.isBinary = false,
     this.isNewFile = false,
     this.isDeleted = false,
+    this.isImage = false,
+    this.imageData,
   });
+
+  /// Create a copy with updated image data.
+  DiffFile copyWithImageData(DiffImageData? data) => DiffFile(
+    filePath: filePath,
+    hunks: hunks,
+    isBinary: isBinary,
+    isNewFile: isNewFile,
+    isDeleted: isDeleted,
+    isImage: isImage,
+    imageData: data,
+  );
 
   /// Aggregate stats across all hunks.
   ({int added, int removed}) get stats {
@@ -134,6 +217,7 @@ List<DiffFile> parseDiff(String diffText) {
           isBinary: true,
           isNewFile: isNewFile,
           isDeleted: isDeleted,
+          isImage: isImageFile(filePath),
         ),
       );
       continue;
@@ -157,6 +241,7 @@ List<DiffFile> parseDiff(String diffText) {
         hunks: hunks,
         isNewFile: isNewFile,
         isDeleted: isDeleted,
+        isImage: isImageFile(filePath),
       ),
     );
   }

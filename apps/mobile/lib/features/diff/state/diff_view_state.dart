@@ -28,5 +28,8 @@ abstract class DiffViewState with _$DiffViewState {
 
     /// Selected hunk keys in the format "$fileIdx:$hunkIdx".
     @Default({}) Set<String> selectedHunkKeys,
+
+    /// Indices of image files currently loading on demand.
+    @Default({}) Set<int> loadingImageIndices,
   }) = _DiffViewState;
 }

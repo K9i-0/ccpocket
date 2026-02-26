@@ -26,6 +26,8 @@ class BridgeService implements BridgeServiceBase {
   final _fileListController = StreamController<List<String>>.broadcast();
   final _projectHistoryController = StreamController<List<String>>.broadcast();
   final _diffResultController = StreamController<DiffResultMessage>.broadcast();
+  final _diffImageResultController =
+      StreamController<DiffImageResultMessage>.broadcast();
   final _worktreeListController =
       StreamController<WorktreeListMessage>.broadcast();
   final _windowListController = StreamController<List<WindowInfo>>.broadcast();
@@ -83,6 +85,8 @@ class BridgeService implements BridgeServiceBase {
   @override
   Stream<List<String>> get fileList => _fileListController.stream;
   Stream<DiffResultMessage> get diffResults => _diffResultController.stream;
+  Stream<DiffImageResultMessage> get diffImageResults =>
+      _diffImageResultController.stream;
   Stream<WorktreeListMessage> get worktreeList =>
       _worktreeListController.stream;
   Stream<List<WindowInfo>> get windowList => _windowListController.stream;
@@ -187,6 +191,8 @@ class BridgeService implements BridgeServiceBase {
                 _projectHistoryController.add(projects);
               case DiffResultMessage():
                 _diffResultController.add(msg);
+              case DiffImageResultMessage():
+                _diffImageResultController.add(msg);
               case WorktreeListMessage():
                 _worktreeListController.add(msg);
               case WindowListMessage(:final windows):
@@ -794,6 +800,7 @@ class BridgeService implements BridgeServiceBase {
     _fileListController.close();
     _projectHistoryController.close();
     _diffResultController.close();
+    _diffImageResultController.close();
     _worktreeListController.close();
     _windowListController.close();
     _screenshotResultController.close();
