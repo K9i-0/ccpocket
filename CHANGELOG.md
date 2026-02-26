@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.25.0] - 2026-02-26
+
+### Added
+- 8 new store screenshot mock scenarios (approval list, multi-question, markdown input, named sessions, image attach, git diff, new session)
+- Framed screenshots for iPhone/iPad in EN/JA with updated compose script
+
+### Changed
+- Store descriptions and README features rewritten to highlight mobile-first capabilities
+- Store subtitle updated to "Coding AI in Your Pocket"
+
+### Fixed
+- File path display in diff screen
+- StoreDiffWrapper resource leak (converted to StatefulWidget for proper disposal)
+
 ## [1.24.0] - 2026-02-25
 
 ### Added
