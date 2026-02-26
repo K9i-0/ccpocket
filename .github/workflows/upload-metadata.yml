@@ -58,6 +58,29 @@ jobs:
       - name: Install fastlane
         run: gem install fastlane
 
+      - name: Validate metadata
+        run: |
+          error=0
+          for lang in en-US ja-JP; do
+            file="fastlane/metadata/android/${lang}/short_description.txt"
+            if [ -f "$file" ]; then
+              len=$(wc -m < "$file" | tr -d ' ')
+              if [ "$len" -gt 80 ]; then
+                echo "::error::${file} is ${len} chars (max 80)"
+                error=1
+              fi
+            fi
+            file="fastlane/metadata/android/${lang}/full_description.txt"
+            if [ -f "$file" ]; then
+              len=$(wc -m < "$file" | tr -d ' ')
+              if [ "$len" -gt 4000 ]; then
+                echo "::error::${file} is ${len} chars (max 4000)"
+                error=1
+              fi
+            fi
+          done
+          exit $error
+
       - name: Upload Android metadata
         env:
           GCLOUD_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.GCLOUD_SERVICE_ACCOUNT_CREDENTIALS }}
