@@ -1240,14 +1240,32 @@ class _StoreImageAttachWrapperState extends State<_StoreImageAttachWrapper> {
 // Store Screenshot: Diff Wrapper
 // =============================================================================
 
-class _StoreDiffWrapper extends StatelessWidget {
+class _StoreDiffWrapper extends StatefulWidget {
   const _StoreDiffWrapper();
 
   @override
+  State<_StoreDiffWrapper> createState() => _StoreDiffWrapperState();
+}
+
+class _StoreDiffWrapperState extends State<_StoreDiffWrapper> {
+  late final MockBridgeService _mockBridge;
+
+  @override
+  void initState() {
+    super.initState();
+    _mockBridge = MockBridgeService();
+  }
+
+  @override
+  void dispose() {
+    _mockBridge.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final mockService = MockBridgeService();
     return RepositoryProvider<BridgeService>.value(
-      value: mockService,
+      value: _mockBridge,
       child: DiffScreen(initialDiff: storeMockDiff, title: 'shopify-app'),
     );
   }
