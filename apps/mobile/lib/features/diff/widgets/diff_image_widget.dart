@@ -15,10 +15,10 @@ String _formatFileSize(int bytes) {
 
 /// Side-by-side image comparison widget for the diff screen.
 ///
-/// Display modes based on image size:
-/// 1. Auto-display (≤ 200KB): images shown inline.
-/// 2. Tap to load (200KB–2MB): placeholder with load button.
-/// 3. Text only (> 2MB): size info only.
+/// Display modes based on image size (thresholds configured on Bridge server):
+/// 1. Auto-display (≤ auto threshold): images shown inline.
+/// 2. Tap to load (auto threshold – max size): placeholder with load button.
+/// 3. Text only (> max size): size info only.
 class DiffImageWidget extends StatelessWidget {
   final DiffFile file;
   final DiffImageData imageData;
@@ -62,7 +62,7 @@ class DiffImageWidget extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Text-only notice (> 2MB)
+// Text-only notice (exceeds max size threshold)
 // ---------------------------------------------------------------------------
 
 class _TextOnlyNotice extends StatelessWidget {
@@ -95,7 +95,7 @@ class _TextOnlyNotice extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Tap to load (200KB–2MB)
+// Tap to load (between auto-display and max thresholds)
 // ---------------------------------------------------------------------------
 
 class _TapToLoadNotice extends StatelessWidget {

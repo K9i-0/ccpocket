@@ -1722,8 +1722,18 @@ export class BridgeWebSocketServer {
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp", ".svg",
   ]);
 
-  private static readonly AUTO_DISPLAY_THRESHOLD = 200 * 1024; // 200 KB
-  private static readonly MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2 MB
+  // Image diff thresholds (configurable via environment variables)
+  // - Auto-display: images ≤ threshold are sent inline as base64
+  // - Max size: images ≤ max are available for on-demand loading
+  // - Images > max size show text info only
+  private static readonly AUTO_DISPLAY_THRESHOLD = (() => {
+    const kb = parseInt(process.env.DIFF_IMAGE_AUTO_DISPLAY_KB ?? "", 10);
+    return Number.isFinite(kb) && kb > 0 ? kb * 1024 : 1024 * 1024; // default 1 MB
+  })();
+  private static readonly MAX_IMAGE_SIZE = (() => {
+    const mb = parseInt(process.env.DIFF_IMAGE_MAX_SIZE_MB ?? "", 10);
+    return Number.isFinite(mb) && mb > 0 ? mb * 1024 * 1024 : 5 * 1024 * 1024; // default 5 MB
+  })();
 
   private static mimeTypeForExt(ext: string): string {
     const map: Record<string, string> = {
@@ -1864,7 +1874,7 @@ export class BridgeWebSocketServer {
   }
 
   /**
-   * Load a single diff image on demand (for 200KB–2MB range).
+   * Load a single diff image on demand (for images between auto-display and max thresholds).
    */
   private loadDiffImage(
     cwd: string,

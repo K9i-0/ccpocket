@@ -91,6 +91,8 @@ Flutter App ←WebSocket→ websocket.ts ←→ session.ts ─┤
 | `BRIDGE_PORT` | `8765` | WebSocketポート |
 | `BRIDGE_HOST` | `0.0.0.0` | バインドアドレス |
 | `BRIDGE_API_KEY` | (なし) | APIキー認証 (設定時に有効化) |
+| `DIFF_IMAGE_AUTO_DISPLAY_KB` | `1024` (1MB) | Diff画像の自動表示閾値 (KB単位) |
+| `DIFF_IMAGE_MAX_SIZE_MB` | `5` (5MB) | Diff画像の最大サイズ (MB単位、超過はテキストのみ) |
 
 ### プッシュ通知 (FCM)
 

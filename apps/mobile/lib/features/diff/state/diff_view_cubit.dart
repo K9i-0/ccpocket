@@ -95,7 +95,7 @@ class DiffViewCubit extends Cubit<DiffViewState> {
       final ic = imageMap[file.filePath];
       if (ic == null) return file;
 
-      // Auto-display (≤200KB): loaded=true even if base64 is missing
+      // Auto-display (≤ auto threshold): loaded=true even if base64 is missing
       // (server may fail to read but we don't want "tap to load" for small files).
       // On-demand (loadable): loaded=false until explicitly fetched.
       final hasAnyData = ic.oldBase64 != null || ic.newBase64 != null;
@@ -124,7 +124,7 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     }).toList();
   }
 
-  /// Load image data on demand (for 200KB–2MB range).
+  /// Load image data on demand (for images between auto-display and max thresholds).
   void loadImage(int fileIdx) {
     final projectPath = _projectPath;
     if (projectPath == null) return;
