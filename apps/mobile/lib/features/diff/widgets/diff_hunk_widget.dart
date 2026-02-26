@@ -195,19 +195,31 @@ class _DiffHunkBody extends StatelessWidget {
         ),
         // Scrollable code content
         Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final line in lines)
-                  _DiffCodeRow(
-                    line: line,
-                    appColors: appColors,
-                    contentWidth: maxContentWidth,
-                  ),
-              ],
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Use the larger of viewport width and max content width
+              // so that short lines fill the visible area.
+              final minWidth = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : maxContentWidth;
+              final effectiveWidth = maxContentWidth > minWidth
+                  ? maxContentWidth
+                  : minWidth;
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final line in lines)
+                      _DiffCodeRow(
+                        line: line,
+                        appColors: appColors,
+                        contentWidth: effectiveWidth,
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ],
