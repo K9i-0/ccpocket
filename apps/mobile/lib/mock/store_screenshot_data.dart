@@ -336,7 +336,6 @@ List<RecentSession> storeRecentSessionsNamed() => [
   RecentSession(
     sessionId: 'store-named-3',
     provider: 'codex',
-    name: 'Streaming JSON Parser',
     summary: 'Implement streaming JSON parser for large files',
     firstPrompt: 'Add a streaming JSON parser that handles files over 1GB',
     created: DateTime.now()
@@ -384,7 +383,6 @@ List<RecentSession> storeRecentSessionsNamed() => [
   RecentSession(
     sessionId: 'store-named-6',
     provider: 'codex',
-    name: 'CLI Argument Tests',
     summary: 'Write unit tests for CLI argument parser',
     firstPrompt: 'Add comprehensive tests for the argument parsing module',
     created: DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
@@ -656,7 +654,8 @@ const storeMarkdownInputText =
     'Refactor the checkout module:\n'
     '- Extract payment logic into PaymentService\n'
     '- Add error handling for Stripe API failures\n'
-    '- Write unit tests for the new service\n';
+    '- Write unit tests for the new service\n'
+    '- ';
 
 // =============================================================================
 // Chat History: Image Attachment (short history for context)
