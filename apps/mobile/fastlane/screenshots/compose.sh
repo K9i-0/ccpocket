@@ -19,11 +19,11 @@ SCREENSHOTS=(
   "01_session_list|Desktop coding AI|in your pocket|PCのコーディングAIを|スマホから操作"
   "02_approval_list|Multiple sessions|Approve at a glance|複数セッション一覧|まとめて承認対応"
   "03_multi_question|Mobile-first UI|Questions, answered instantly|モバイル最適化|承認UIで素早く回答"
-  "04_markdown_input|Write rich prompts|Bullets, code & more|リッチなプロンプト|箇条書き・コードもOK"
+  "04_markdown_input|Write rich prompts|Bullet lists made easy|リッチなプロンプト|箇条書きが簡単"
   "05_named_sessions|Name your sessions|Organize your projects|セッションに名前|プロジェクトを整理"
   "06_image_attach|Attach images|From clipboard or gallery|画像を添付|クリップボードから貼り付け"
   "07_git_diff|Review diffs|See every change at once|差分を確認|変更を一覧表示"
-  "08_new_session|Start fresh|New session in seconds|新しいセッション|数秒で開始"
+  "08_new_session|Start fresh|Start from your phone|新しいセッション|スマホから開始"
 )
 
 compose_screenshot() {
@@ -228,7 +228,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 README_IMG_DIR="${REPO_ROOT}/docs/images"
 mkdir -p "$README_IMG_DIR"
 
-README_KEYS=("01_session_list" "02_approval_list" "03_multi_question" "07_git_diff")
+README_KEYS=("01_session_list" "03_multi_question" "04_markdown_input" "05_named_sessions")
 
 for lang_dir in en-US ja; do
   README_INPUTS=()
