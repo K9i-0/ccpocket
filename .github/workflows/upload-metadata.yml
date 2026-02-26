@@ -11,11 +11,17 @@ on:
           - both
           - ios
           - android
+      skip_screenshots:
+        description: 'Skip screenshot upload (use when app is in review)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   ios:
     if: ${{ inputs.platform == 'ios' || inputs.platform == 'both' }}
     runs-on: macos-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: apps/mobile
@@ -37,11 +43,13 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          SKIP_SCREENSHOTS: ${{ inputs.skip_screenshots }}
         run: fastlane ios metadata
 
   android:
     if: ${{ inputs.platform == 'android' || inputs.platform == 'both' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: apps/mobile

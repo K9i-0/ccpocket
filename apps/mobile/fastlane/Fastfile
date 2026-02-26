@@ -16,7 +16,7 @@ platform :ios do
     deliver(
       api_key: api_key,
       skip_binary_upload: true,
-      skip_screenshots: false,
+      skip_screenshots: ENV["SKIP_SCREENSHOTS"] == "true",
       force: true,                  # Skip HTML preview
       precheck_include_in_app_purchases: false,
       run_precheck_before_submit: false,
