@@ -17,6 +17,8 @@ platform :ios do
       api_key: api_key,
       skip_binary_upload: true,
       skip_screenshots: ENV["SKIP_SCREENSHOTS"] == "true",
+      overwrite_screenshots: true,  # Clear existing before upload
+      screenshots_path: "./fastlane/screenshots/store",
       force: true,                  # Skip HTML preview
       precheck_include_in_app_purchases: false,
       run_precheck_before_submit: false,
