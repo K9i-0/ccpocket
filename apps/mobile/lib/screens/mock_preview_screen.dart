@@ -143,9 +143,7 @@ class _ScenariosTab extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => _StoreNewSessionWrapper(
-              draftService: draftService,
-            ),
+            builder: (_) => _StoreNewSessionWrapper(draftService: draftService),
           ),
         );
       case 'Multi-Question Approval':
@@ -153,10 +151,8 @@ class _ScenariosTab extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => _StoreChatWrapper(
-              mockService: mockService,
-              scenario: scenario,
-            ),
+            builder: (_) =>
+                _StoreChatWrapper(mockService: mockService, scenario: scenario),
           ),
         );
       case 'Markdown Input':
@@ -164,9 +160,8 @@ class _ScenariosTab extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => _StoreMarkdownInputWrapper(
-              mockService: mockService,
-            ),
+            builder: (_) =>
+                _StoreMarkdownInputWrapper(mockService: mockService),
           ),
         );
       case 'Image Attach':
@@ -174,17 +169,13 @@ class _ScenariosTab extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => _StoreImageAttachWrapper(
-              mockService: mockService,
-            ),
+            builder: (_) => _StoreImageAttachWrapper(mockService: mockService),
           ),
         );
       case 'Git Diff':
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => const _StoreDiffWrapper(),
-          ),
+          MaterialPageRoute(builder: (_) => const _StoreDiffWrapper()),
         );
       default:
         // Legacy chat scenarios (Coding Session, Task Planning)
@@ -1257,10 +1248,7 @@ class _StoreDiffWrapper extends StatelessWidget {
     final mockService = MockBridgeService();
     return RepositoryProvider<BridgeService>.value(
       value: mockService,
-      child: DiffScreen(
-        initialDiff: storeMockDiff,
-        title: 'shopify-app',
-      ),
+      child: DiffScreen(initialDiff: storeMockDiff, title: 'shopify-app'),
     );
   }
 }

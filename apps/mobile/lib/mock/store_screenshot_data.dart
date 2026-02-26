@@ -540,8 +540,7 @@ final List<ServerMessage> storeChatMultiQuestion = [
             },
             {
               'label': 'Silent with badge',
-              'description':
-                  'No visible alert, only update the badge count.',
+              'description': 'No visible alert, only update the badge count.',
             },
           ],
           'multiSelect': false,
@@ -552,8 +551,7 @@ final List<ServerMessage> storeChatMultiQuestion = [
           'options': [
             {
               'label': 'Order updates',
-              'description':
-                  'Shipping, delivery, and order status changes.',
+              'description': 'Shipping, delivery, and order status changes.',
             },
             {
               'label': 'Promotions',
@@ -578,13 +576,11 @@ final List<ServerMessage> storeChatMultiQuestion = [
             },
             {
               'label': 'Custom analytics',
-              'description':
-                  'Send events to your existing analytics backend.',
+              'description': 'Send events to your existing analytics backend.',
             },
             {
               'label': 'No tracking',
-              'description':
-                  'Skip analytics for now. Can be added later.',
+              'description': 'Skip analytics for now. Can be added later.',
             },
           ],
           'multiSelect': false,
@@ -744,7 +740,8 @@ final List<ServerMessage> storeChatImageAttach = [
 // =============================================================================
 
 /// Realistic unified diff showing a typical code change.
-const storeMockDiff = '''diff --git a/lib/services/api_client.dart b/lib/services/api_client.dart
+const storeMockDiff =
+    '''diff --git a/lib/services/api_client.dart b/lib/services/api_client.dart
 index 3a4b2c1..8f9e0d2 100644
 --- a/lib/services/api_client.dart
 +++ b/lib/services/api_client.dart
