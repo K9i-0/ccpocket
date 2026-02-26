@@ -1,7 +1,9 @@
 
 "01_session_list" = "スマホから操作";
-"02_coding_session" = "ツール実行をそのまま表示";
-"03_task_planning" = "エージェントの計画を確認";
-"04_approval_flow" = "実行前に許可・拒否";
-"05_ask_question" = "エージェントからの質問に対応";
-"06_recent_sessions" = "セッションをまとめて管理";
+"02_approval_list" = "まとめて承認対応";
+"03_multi_question" = "承認UIで素早く回答";
+"04_markdown_input" = "箇条書き・コードもOK";
+"05_named_sessions" = "プロジェクトを整理";
+"06_image_attach" = "クリップボードから貼り付け";
+"07_git_diff" = "変更を一覧表示";
+"08_new_session" = "数秒で開始";

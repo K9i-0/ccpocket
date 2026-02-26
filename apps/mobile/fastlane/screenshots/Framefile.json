@@ -21,19 +21,25 @@
       "filter": "01_session_list"
     },
     {
-      "filter": "02_coding_session"
+      "filter": "02_approval_list"
     },
     {
-      "filter": "03_task_planning"
+      "filter": "03_multi_question"
     },
     {
-      "filter": "04_approval_flow"
+      "filter": "04_markdown_input"
     },
     {
-      "filter": "05_ask_question"
+      "filter": "05_named_sessions"
     },
     {
-      "filter": "06_recent_sessions"
+      "filter": "06_image_attach"
+    },
+    {
+      "filter": "07_git_diff"
+    },
+    {
+      "filter": "08_new_session"
     }
   ]
 }

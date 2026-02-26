@@ -1,7 +1,9 @@
 
 "01_session_list" = "Desktop coding AI";
-"02_coding_session" = "Never miss a line";
-"03_task_planning" = "Know what's next";
-"04_approval_flow" = "Stay in control";
-"05_ask_question" = "Agents need you";
-"06_recent_sessions" = "Multiple projects";
+"02_approval_list" = "Multiple sessions";
+"03_multi_question" = "Mobile-first UI";
+"04_markdown_input" = "Write rich prompts";
+"05_named_sessions" = "Name your sessions";
+"06_image_attach" = "Attach images";
+"07_git_diff" = "Review diffs";
+"08_new_session" = "Start fresh";

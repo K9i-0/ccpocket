@@ -7,22 +7,79 @@ import 'mock_scenarios.dart';
 // Store Screenshot Scenarios
 // =============================================================================
 
-final storeSessionListScenario = MockScenario(
-  name: 'Session List',
-  icon: Icons.home_outlined,
-  description: 'Home screen with running + recent sessions',
-  steps: [],
-  section: MockScenarioSection.storeScreenshot,
-);
-
+/// 01: Session list with 1 running + recent sessions (plain overview)
 final storeSessionListRecentScenario = MockScenario(
   name: 'Session List (Recent)',
   icon: Icons.history,
-  description: 'Minimal running, recent sessions prominent',
+  description: '01: Minimal running, recent sessions prominent',
   steps: [],
   section: MockScenarioSection.storeScreenshot,
 );
 
+/// 02: Session list with 3 running sessions (2 tool approval + 1 plan approval)
+final storeSessionListScenario = MockScenario(
+  name: 'Session List',
+  icon: Icons.home_outlined,
+  description: '02: Running sessions with approvals',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
+/// 03: Chat session with multi-question approval UI
+final storeChatMultiQuestionScenario = MockScenario(
+  name: 'Multi-Question Approval',
+  icon: Icons.quiz,
+  description: '03: Mobile-optimized approval UI with multiple questions',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
+/// 04: Chat session with markdown bullet list in input field
+final storeChatMarkdownInputScenario = MockScenario(
+  name: 'Markdown Input',
+  icon: Icons.format_list_bulleted,
+  description: '04: Bullet list in chat input field',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
+/// 05: Session list with named recent sessions
+final storeSessionListNamedScenario = MockScenario(
+  name: 'Session List (Named)',
+  icon: Icons.label,
+  description: '05: Named sessions for organization',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
+/// 06: Chat session with image attachment + bottom sheet
+final storeChatImageAttachScenario = MockScenario(
+  name: 'Image Attach',
+  icon: Icons.image,
+  description: '06: Image attachment with bottom sheet',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
+/// 07: Diff screen with realistic git diff
+final storeDiffScenario = MockScenario(
+  name: 'Git Diff',
+  icon: Icons.difference,
+  description: '07: Git diff viewer',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
+/// 08: Session list with New Session bottom sheet open
+final storeNewSessionScenario = MockScenario(
+  name: 'New Session',
+  icon: Icons.add_circle_outline,
+  description: '08: New session bottom sheet',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
+// Legacy aliases (kept for existing chat history rendering)
 final storeChatCodingScenario = MockScenario(
   name: 'Coding Session',
   icon: Icons.code,
@@ -40,8 +97,14 @@ final storeChatTaskScenario = MockScenario(
 );
 
 final List<MockScenario> storeScreenshotScenarios = [
-  storeSessionListScenario,
   storeSessionListRecentScenario,
+  storeSessionListScenario,
+  storeChatMultiQuestionScenario,
+  storeChatMarkdownInputScenario,
+  storeSessionListNamedScenario,
+  storeChatImageAttachScenario,
+  storeDiffScenario,
+  storeNewSessionScenario,
   storeChatCodingScenario,
   storeChatTaskScenario,
 ];
@@ -97,36 +160,11 @@ List<SessionInfo> storeRunningSessions() => [
         .subtract(const Duration(minutes: 1))
         .toIso8601String(),
     gitBranch: 'feat/dark-mode',
-    lastMessage: 'Which color palette should I use for the dark mode?',
+    lastMessage: "I've designed the implementation plan for dark mode support.",
     pendingPermission: const PermissionRequestMessage(
-      toolUseId: 'store-ask-1',
-      toolName: 'AskUserQuestion',
-      input: {
-        'questions': [
-          {
-            'question': 'Which color palette should I use for the dark mode?',
-            'header': 'Theme',
-            'options': [
-              {
-                'label': 'Nord (Recommended)',
-                'description':
-                    'Cool blue-gray tones. Popular for developer tools and IDEs.',
-              },
-              {
-                'label': 'Dracula',
-                'description':
-                    'Deep purple with vivid accents. High contrast and eye-friendly.',
-              },
-              {
-                'label': 'One Dark',
-                'description':
-                    'Warm neutral palette from Atom editor. Balanced readability.',
-              },
-            ],
-            'multiSelect': false,
-          },
-        ],
-      },
+      toolUseId: 'store-plan-1',
+      toolName: 'ExitPlanMode',
+      input: {'plan': 'Dark Mode Implementation Plan'},
     ),
   ),
 ];
@@ -257,6 +295,541 @@ List<RecentSession> storeRecentSessions() => [
     isSidechain: false,
   ),
 ];
+
+// =============================================================================
+// Recent Sessions with Names (for Named Sessions screenshot)
+// =============================================================================
+
+List<RecentSession> storeRecentSessionsNamed() => [
+  RecentSession(
+    sessionId: 'store-named-1',
+    provider: 'claude',
+    name: 'Stripe Checkout Redesign',
+    summary: 'Redesign the checkout flow with Stripe integration',
+    firstPrompt: 'Redesign the checkout page with Stripe Elements',
+    created: DateTime.now()
+        .subtract(const Duration(hours: 1))
+        .toIso8601String(),
+    modified: DateTime.now()
+        .subtract(const Duration(minutes: 20))
+        .toIso8601String(),
+    gitBranch: 'feat/checkout-redesign',
+    projectPath: '/Users/dev/projects/shopify-app',
+    isSidechain: false,
+  ),
+  RecentSession(
+    sessionId: 'store-named-2',
+    provider: 'claude',
+    name: 'WebSocket Bug Fix',
+    summary: 'Fix WebSocket reconnection on network change',
+    firstPrompt: 'WebSocket drops when switching from WiFi to cellular',
+    created: DateTime.now()
+        .subtract(const Duration(hours: 3))
+        .toIso8601String(),
+    modified: DateTime.now()
+        .subtract(const Duration(hours: 2))
+        .toIso8601String(),
+    gitBranch: 'fix/ws-reconnect',
+    projectPath: '/Users/dev/projects/shopify-app',
+    isSidechain: false,
+  ),
+  RecentSession(
+    sessionId: 'store-named-3',
+    provider: 'codex',
+    name: 'Streaming JSON Parser',
+    summary: 'Implement streaming JSON parser for large files',
+    firstPrompt: 'Add a streaming JSON parser that handles files over 1GB',
+    created: DateTime.now()
+        .subtract(const Duration(hours: 5))
+        .toIso8601String(),
+    modified: DateTime.now()
+        .subtract(const Duration(hours: 4))
+        .toIso8601String(),
+    gitBranch: 'feat/json-parser',
+    projectPath: '/Users/dev/projects/rust-cli',
+    isSidechain: false,
+  ),
+  RecentSession(
+    sessionId: 'store-named-4',
+    provider: 'claude',
+    name: 'CI/CD Pipeline',
+    summary: 'Set up CI/CD pipeline with GitHub Actions',
+    firstPrompt: 'Create a CI/CD pipeline for build, test, and deploy',
+    created: DateTime.now()
+        .subtract(const Duration(days: 1, hours: 2))
+        .toIso8601String(),
+    modified: DateTime.now()
+        .subtract(const Duration(days: 1))
+        .toIso8601String(),
+    gitBranch: 'chore/ci-cd',
+    projectPath: '/Users/dev/projects/my-portfolio',
+    isSidechain: false,
+  ),
+  RecentSession(
+    sessionId: 'store-named-5',
+    provider: 'claude',
+    name: 'OAuth 2.0 Migration',
+    summary: 'Refactor auth module to use OAuth 2.0 PKCE flow',
+    firstPrompt: 'Migrate the authentication from session-based to OAuth 2.0',
+    created: DateTime.now()
+        .subtract(const Duration(days: 1, hours: 8))
+        .toIso8601String(),
+    modified: DateTime.now()
+        .subtract(const Duration(days: 1, hours: 6))
+        .toIso8601String(),
+    gitBranch: 'refactor/auth-oauth2',
+    projectPath: '/Users/dev/projects/shopify-app',
+    isSidechain: false,
+  ),
+  RecentSession(
+    sessionId: 'store-named-6',
+    provider: 'codex',
+    name: 'CLI Argument Tests',
+    summary: 'Write unit tests for CLI argument parser',
+    firstPrompt: 'Add comprehensive tests for the argument parsing module',
+    created: DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
+    modified: DateTime.now()
+        .subtract(const Duration(days: 1, hours: 18))
+        .toIso8601String(),
+    gitBranch: 'test/cli-args',
+    projectPath: '/Users/dev/projects/rust-cli',
+    isSidechain: false,
+  ),
+  RecentSession(
+    sessionId: 'store-named-7',
+    provider: 'claude',
+    name: 'Responsive Layout',
+    summary: 'Add responsive layout for tablet and desktop',
+    firstPrompt: 'Make the app responsive across phone, tablet, and desktop',
+    created: DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
+    modified: DateTime.now()
+        .subtract(const Duration(days: 2, hours: 12))
+        .toIso8601String(),
+    gitBranch: 'feat/responsive',
+    projectPath: '/Users/dev/projects/my-portfolio',
+    isSidechain: false,
+  ),
+];
+
+// =============================================================================
+// Chat History: Multi-Question Approval
+// =============================================================================
+
+/// A chat session that ends with a multi-question AskUserQuestion.
+/// Used for the "mobile-optimized approval UI" store screenshot.
+final List<ServerMessage> storeChatMultiQuestion = [
+  const SystemMessage(
+    subtype: 'init',
+    sessionId: 'store-chat-mq',
+    model: 'claude-sonnet-4-20250514',
+    projectPath: '/Users/dev/projects/shopify-app',
+  ),
+  const StatusMessage(status: ProcessStatus.running),
+  const UserInputMessage(
+    text:
+        'Set up the new notification system. Use Firebase Cloud Messaging '
+        'and handle both foreground and background notifications.',
+  ),
+  AssistantServerMessage(
+    message: AssistantMessage(
+      id: 'store-mq-a1',
+      role: 'assistant',
+      content: [
+        const TextContent(
+          text:
+              "I'll set up FCM for push notifications. Before I begin, I have "
+              "a few questions about how you'd like to configure the system.",
+        ),
+        const ToolUseContent(
+          id: 'store-mq-ask-1',
+          name: 'AskUserQuestion',
+          input: {
+            'questions': [
+              {
+                'question':
+                    'How should notifications be displayed when the app is in the foreground?',
+                'header': 'Foreground',
+                'options': [
+                  {
+                    'label': 'In-app banner (Recommended)',
+                    'description':
+                        'Show a custom overlay banner at the top of the screen.',
+                  },
+                  {
+                    'label': 'System notification',
+                    'description':
+                        'Display as a standard OS notification even when active.',
+                  },
+                  {
+                    'label': 'Silent with badge',
+                    'description':
+                        'No visible alert, only update the badge count.',
+                  },
+                ],
+                'multiSelect': false,
+              },
+              {
+                'question': 'Which notification channels should I create?',
+                'header': 'Channels',
+                'options': [
+                  {
+                    'label': 'Order updates',
+                    'description':
+                        'Shipping, delivery, and order status changes.',
+                  },
+                  {
+                    'label': 'Promotions',
+                    'description': 'Sales, discounts, and marketing campaigns.',
+                  },
+                  {
+                    'label': 'System alerts',
+                    'description':
+                        'Security, account, and maintenance notifications.',
+                  },
+                ],
+                'multiSelect': true,
+              },
+              {
+                'question': 'Should I add notification analytics tracking?',
+                'header': 'Analytics',
+                'options': [
+                  {
+                    'label': 'Firebase Analytics (Recommended)',
+                    'description':
+                        'Track open rate, engagement, and delivery via Firebase.',
+                  },
+                  {
+                    'label': 'Custom analytics',
+                    'description':
+                        'Send events to your existing analytics backend.',
+                  },
+                  {
+                    'label': 'No tracking',
+                    'description':
+                        'Skip analytics for now. Can be added later.',
+                  },
+                ],
+                'multiSelect': false,
+              },
+            ],
+          },
+        ),
+      ],
+      model: 'claude-sonnet-4-20250514',
+    ),
+  ),
+  const PermissionRequestMessage(
+    toolUseId: 'store-mq-ask-1',
+    toolName: 'AskUserQuestion',
+    input: {
+      'questions': [
+        {
+          'question':
+              'How should notifications be displayed when the app is in the foreground?',
+          'header': 'Foreground',
+          'options': [
+            {
+              'label': 'In-app banner (Recommended)',
+              'description':
+                  'Show a custom overlay banner at the top of the screen.',
+            },
+            {
+              'label': 'System notification',
+              'description':
+                  'Display as a standard OS notification even when active.',
+            },
+            {
+              'label': 'Silent with badge',
+              'description':
+                  'No visible alert, only update the badge count.',
+            },
+          ],
+          'multiSelect': false,
+        },
+        {
+          'question': 'Which notification channels should I create?',
+          'header': 'Channels',
+          'options': [
+            {
+              'label': 'Order updates',
+              'description':
+                  'Shipping, delivery, and order status changes.',
+            },
+            {
+              'label': 'Promotions',
+              'description': 'Sales, discounts, and marketing campaigns.',
+            },
+            {
+              'label': 'System alerts',
+              'description':
+                  'Security, account, and maintenance notifications.',
+            },
+          ],
+          'multiSelect': true,
+        },
+        {
+          'question': 'Should I add notification analytics tracking?',
+          'header': 'Analytics',
+          'options': [
+            {
+              'label': 'Firebase Analytics (Recommended)',
+              'description':
+                  'Track open rate, engagement, and delivery via Firebase.',
+            },
+            {
+              'label': 'Custom analytics',
+              'description':
+                  'Send events to your existing analytics backend.',
+            },
+            {
+              'label': 'No tracking',
+              'description':
+                  'Skip analytics for now. Can be added later.',
+            },
+          ],
+          'multiSelect': false,
+        },
+      ],
+    },
+  ),
+  const StatusMessage(status: ProcessStatus.waitingApproval),
+];
+
+// =============================================================================
+// Chat History: Markdown Input (short history, then user types a bullet list)
+// =============================================================================
+
+/// A chat session where the user is typing a markdown bullet list.
+/// The input controller will be pre-populated separately in the wrapper.
+final List<ServerMessage> storeChatMarkdownInput = [
+  const SystemMessage(
+    subtype: 'init',
+    sessionId: 'store-chat-md',
+    model: 'claude-sonnet-4-20250514',
+    projectPath: '/Users/dev/projects/shopify-app',
+  ),
+  const StatusMessage(status: ProcessStatus.idle),
+  const UserInputMessage(
+    text: 'Show me the current project structure and key entry points.',
+  ),
+  AssistantServerMessage(
+    message: AssistantMessage(
+      id: 'store-md-a1',
+      role: 'assistant',
+      content: [
+        const TextContent(
+          text:
+              "Here's your project structure:\n\n"
+              "```\n"
+              "shopify-app/\n"
+              "├── lib/\n"
+              "│   ├── main.dart\n"
+              "│   ├── app.dart\n"
+              "│   ├── features/\n"
+              "│   │   ├── checkout/\n"
+              "│   │   ├── products/\n"
+              "│   │   └── auth/\n"
+              "│   └── services/\n"
+              "│       ├── api_client.dart\n"
+              "│       └── stripe_service.dart\n"
+              "└── test/\n"
+              "```\n\n"
+              "Key entry points:\n"
+              "- **`lib/main.dart`** — App initialization and provider setup\n"
+              "- **`lib/app.dart`** — MaterialApp configuration and routing\n"
+              "- **`lib/features/checkout/`** — Checkout flow (Stripe integration)\n\n"
+              "What would you like to work on?",
+        ),
+      ],
+      model: 'claude-sonnet-4-20250514',
+    ),
+  ),
+  const ResultMessage(
+    subtype: 'success',
+    cost: 0.0089,
+    duration: 3200,
+    sessionId: 'store-chat-md',
+    inputTokens: 4200,
+    outputTokens: 850,
+  ),
+  const StatusMessage(status: ProcessStatus.idle),
+];
+
+/// Pre-populated input text for the markdown input screenshot.
+const storeMarkdownInputText =
+    'Refactor the checkout module:\n'
+    '- Extract payment logic into PaymentService\n'
+    '- Add error handling for Stripe API failures\n'
+    '- Write unit tests for the new service\n';
+
+// =============================================================================
+// Chat History: Image Attachment (short history for context)
+// =============================================================================
+
+/// A chat session with brief history. The image attachment and bottom sheet
+/// are handled separately by the wrapper.
+final List<ServerMessage> storeChatImageAttach = [
+  const SystemMessage(
+    subtype: 'init',
+    sessionId: 'store-chat-img',
+    model: 'claude-sonnet-4-20250514',
+    projectPath: '/Users/dev/projects/my-portfolio',
+  ),
+  const StatusMessage(status: ProcessStatus.idle),
+  const UserInputMessage(
+    text: 'Help me rebuild the hero section of my portfolio site.',
+  ),
+  AssistantServerMessage(
+    message: AssistantMessage(
+      id: 'store-img-a1',
+      role: 'assistant',
+      content: [
+        const TextContent(
+          text:
+              "I'd be happy to help rebuild the hero section! Could you share "
+              "a screenshot or design mockup of what you have in mind? "
+              "That way I can match the layout and style accurately.\n\n"
+              "In the meantime, I'll review your current hero component.",
+        ),
+        const ToolUseContent(
+          id: 'store-img-r1',
+          name: 'Read',
+          input: {'file_path': 'src/components/Hero.tsx'},
+        ),
+      ],
+      model: 'claude-sonnet-4-20250514',
+    ),
+  ),
+  const ToolResultMessage(
+    toolUseId: 'store-img-r1',
+    toolName: 'Read',
+    content:
+        'export function Hero() {\n'
+        '  return (\n'
+        '    <section className="hero">\n'
+        '      <h1>Welcome</h1>\n'
+        '      <p>Full-stack developer</p>\n'
+        '    </section>\n'
+        '  );\n'
+        '}',
+  ),
+  AssistantServerMessage(
+    message: AssistantMessage(
+      id: 'store-img-a2',
+      role: 'assistant',
+      content: [
+        const TextContent(
+          text:
+              "I see your current hero is quite minimal. Share a design "
+              "reference image and I'll create a modern, responsive hero "
+              "section with animations.",
+        ),
+      ],
+      model: 'claude-sonnet-4-20250514',
+    ),
+  ),
+  const ResultMessage(
+    subtype: 'success',
+    cost: 0.0156,
+    duration: 5400,
+    sessionId: 'store-chat-img',
+    inputTokens: 8200,
+    outputTokens: 1420,
+  ),
+  const StatusMessage(status: ProcessStatus.idle),
+];
+
+// =============================================================================
+// Mock Diff (for Diff screen screenshot)
+// =============================================================================
+
+/// Realistic unified diff showing a typical code change.
+const storeMockDiff = '''diff --git a/lib/services/api_client.dart b/lib/services/api_client.dart
+index 3a4b2c1..8f9e0d2 100644
+--- a/lib/services/api_client.dart
++++ b/lib/services/api_client.dart
+@@ -1,6 +1,7 @@
+ import 'dart:convert';
+ import 'package:http/http.dart' as http;
++import 'package:retry/retry.dart';
+
+ class ApiClient {
+   final String baseUrl;
+@@ -15,12 +16,22 @@ class ApiClient {
+   });
+
+   Future<Map<String, dynamic>> get(String path) async {
+-    final response = await http.get(
+-      Uri.parse('\$baseUrl\$path'),
+-      headers: _headers,
++    final response = await RetryOptions(
++      maxAttempts: 3,
++      delayFactor: const Duration(milliseconds: 500),
++    ).retry(
++      () => http.get(
++        Uri.parse('\$baseUrl\$path'),
++        headers: _headers,
++      ),
++      retryIf: (e) => e is http.ClientException,
+     );
+
+-    if (response.statusCode != 200) {
+-      throw ApiException('GET \$path failed: \${response.statusCode}');
++    if (response.statusCode >= 500) {
++      throw ServerException('GET \$path failed: \${response.statusCode}');
++    }
++
++    if (response.statusCode >= 400) {
++      throw ClientException('GET \$path failed: \${response.statusCode}');
+     }
+
+     return jsonDecode(response.body) as Map<String, dynamic>;
+diff --git a/lib/services/stripe_service.dart b/lib/services/stripe_service.dart
+index 5c1d3e4..a7b8f9c 100644
+--- a/lib/services/stripe_service.dart
++++ b/lib/services/stripe_service.dart
+@@ -22,8 +22,14 @@ class StripeService {
+       'amount': amount,
+       'currency': currency,
+     });
+-    return PaymentIntent.fromJson(response);
++    final intent = PaymentIntent.fromJson(response);
++    _logger.info('Created payment intent: \${intent.id}');
++    return intent;
+   }
++
++  Future<void> confirmPayment(String intentId) async {
++    await _api.post('/payments/\$intentId/confirm');
++    _logger.info('Confirmed payment: \$intentId');
++  }
+ }
+diff --git a/test/services/api_client_test.dart b/test/services/api_client_test.dart
+new file mode 100644
+index 0000000..b2c4e5a
+--- /dev/null
++++ b/test/services/api_client_test.dart
+@@ -0,0 +1,18 @@
++import 'package:test/test.dart';
++import 'package:shopify_app/services/api_client.dart';
++
++void main() {
++  group('ApiClient', () {
++    late ApiClient client;
++
++    setUp(() {
++      client = ApiClient(baseUrl: 'https://api.example.com');
++    });
++
++    test('retries on ClientException', () async {
++      // Verify retry behavior
++      expect(
++        () => client.get('/test'),
++        throwsA(isA<ServerException>()),
++      );
++    });
++  });
++}
+''';
 
 // =============================================================================
 // Chat History: Coding Session

@@ -1,7 +1,9 @@
 
 "01_session_list" = "in your pocket";
-"02_coding_session" = "Live output, wherever you are";
-"03_task_planning" = "See your agent's plan unfold";
-"04_approval_flow" = "Approve or reject, instantly";
-"05_ask_question" = "Answer questions on the go";
-"06_recent_sessions" = "One app for every codebase";
+"02_approval_list" = "Approve at a glance";
+"03_multi_question" = "Questions, answered instantly";
+"04_markdown_input" = "Bullets, code & more";
+"05_named_sessions" = "Organize your projects";
+"06_image_attach" = "From clipboard or gallery";
+"07_git_diff" = "See every change at once";
+"08_new_session" = "New session in seconds";
