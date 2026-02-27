@@ -16,7 +16,8 @@ import { WebSocketServer } from "ws";
 
 // --- Config ---
 const PORT = parseInt(process.env.SIM_STREAM_PORT || "8100", 10);
-const TARGET_FPS = parseInt(process.env.SIM_STREAM_FPS || "12", 10);
+const TARGET_FPS = parseInt(process.env.SIM_STREAM_FPS || "30", 10);
+const QUALITY = parseFloat(process.env.SIM_STREAM_QUALITY || "0.7");
 const FRAME_INTERVAL = Math.floor(1000 / TARGET_FPS);
 const BOUNDARY = "--simframe";
 
@@ -54,6 +55,8 @@ for w in windowList {
         let bounds = w["kCGWindowBounds"] as? [String: Any] ?? [:]
         let width = bounds["Width"] as? Int ?? 0
         let height = bounds["Height"] as? Int ?? 0
+        // Skip small utility windows (status bars etc.)
+        if width < 100 || height < 100 { continue }
         print("\\(id),\\(name),\\(width),\\(height)")
         break
     }
@@ -141,7 +144,7 @@ function buildCoordMapper(windowBounds, axeContent, captureWidth, captureHeight)
   };
 }
 
-// --- Screencapture-based frame grabber ---
+// --- Frame grabber: ScreenCaptureKit daemon (primary) or screencapture fallback ---
 class FrameGrabber {
   constructor(windowId) {
     this.windowId = windowId;
@@ -150,7 +153,21 @@ class FrameGrabber {
     this.latestFrame = null;
     this.frameCount = 0;
     this.startTime = Date.now();
+    this.daemonProcess = null;
+    this.useDaemon = false;
     this.tmpPath = `/tmp/sim-stream-${process.pid}.jpg`;
+
+    // Check if daemon binary exists
+    const daemonPath = new URL("./daemon/.build/release/screencapturekit-daemon", import.meta.url).pathname;
+    try {
+      execSync(`test -x "${daemonPath}"`, { stdio: "ignore" });
+      this.daemonPath = daemonPath;
+      this.useDaemon = true;
+      console.log(`Using ScreenCaptureKit daemon: ${daemonPath}`);
+    } catch {
+      this.daemonPath = null;
+      console.log("Daemon not found, using screencapture fallback");
+    }
   }
 
   start() {
@@ -158,23 +175,30 @@ class FrameGrabber {
     this.running = true;
     this.startTime = Date.now();
     this.frameCount = 0;
-    console.log(`Frame grabber started (target ${TARGET_FPS}fps)`);
-    this._loop();
+
+    if (this.useDaemon) {
+      this._startDaemon();
+    } else {
+      console.log(`Frame grabber started (screencapture, target ${TARGET_FPS}fps)`);
+      this._screencaptureLoop();
+    }
   }
 
   stop() {
     this.running = false;
+    if (this.daemonProcess) {
+      this.daemonProcess.kill("SIGTERM");
+      this.daemonProcess = null;
+    }
   }
 
   subscribe(res) {
     this.clients.add(res);
-    // Start capturing if first client
     if (this.clients.size === 1 && !this.running) {
       this.start();
     }
     return () => {
       this.clients.delete(res);
-      // Stop capturing if no clients
       if (this.clients.size === 0) {
         this.stop();
         console.log("No clients, pausing capture");
@@ -182,52 +206,106 @@ class FrameGrabber {
     };
   }
 
-  async _loop() {
+  // --- ScreenCaptureKit daemon mode ---
+  _startDaemon() {
+    const args = [
+      "--window-id", String(this.windowId),
+      "--fps", String(TARGET_FPS),
+      "--quality", String(QUALITY),
+    ];
+    console.log(`Starting daemon: ${this.daemonPath} ${args.join(" ")}`);
+
+    this.daemonProcess = spawn(this.daemonPath, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    // Parse length-prefixed frames from stdout
+    let buffer = Buffer.alloc(0);
+
+    this.daemonProcess.stdout.on("data", (chunk) => {
+      buffer = Buffer.concat([buffer, chunk]);
+
+      // Extract frames: [4 bytes BE uint32 = length][JPEG data]
+      while (buffer.length >= 4) {
+        const frameLen = buffer.readUInt32BE(0);
+        if (frameLen === 0 || frameLen > 10 * 1024 * 1024) {
+          // Invalid frame, try to recover by finding next JPEG SOI
+          const soiIdx = buffer.indexOf(Buffer.from([0xff, 0xd8]), 1);
+          if (soiIdx > 0) {
+            buffer = buffer.subarray(soiIdx - 4 >= 0 ? soiIdx - 4 : 0);
+          } else {
+            buffer = Buffer.alloc(0);
+          }
+          break;
+        }
+
+        if (buffer.length < 4 + frameLen) break; // Wait for more data
+
+        const frame = buffer.subarray(4, 4 + frameLen);
+        buffer = buffer.subarray(4 + frameLen);
+
+        this.latestFrame = frame;
+        this.frameCount++;
+        this._broadcast(frame);
+
+        if (this.frameCount % (TARGET_FPS * 10) === 0) {
+          const elapsed = (Date.now() - this.startTime) / 1000;
+          console.log(
+            `Frames: ${this.frameCount}, FPS: ${(this.frameCount / elapsed).toFixed(1)}, Size: ${(frame.length / 1024).toFixed(0)}KB, Clients: ${this.clients.size}`
+          );
+        }
+      }
+    });
+
+    this.daemonProcess.stderr.on("data", (data) => {
+      const msg = data.toString().trim();
+      if (msg.includes("[daemon]")) {
+        console.log(msg);
+      }
+    });
+
+    this.daemonProcess.on("close", (code) => {
+      console.log(`Daemon exited with code ${code}`);
+      this.daemonProcess = null;
+      if (this.running && this.clients.size > 0) {
+        console.log("Daemon crashed, falling back to screencapture");
+        this.useDaemon = false;
+        this._screencaptureLoop();
+      }
+    });
+  }
+
+  // --- screencapture fallback mode ---
+  async _screencaptureLoop() {
     while (this.running) {
       const t0 = Date.now();
       try {
-        this._capture();
-      } catch (e) {
-        // Skip frame on error
-      }
-      const elapsed = Date.now() - t0;
-      const wait = Math.max(0, FRAME_INTERVAL - elapsed);
-      if (wait > 0) {
-        await new Promise((r) => setTimeout(r, wait));
-      }
-    }
-  }
-
-  _capture() {
-    try {
-      execFileSync(
-        "screencapture",
-        ["-l", String(this.windowId), "-t", "jpg", "-x", this.tmpPath],
-        { timeout: 500 }
-      );
-      const frame = readFileSync(this.tmpPath);
-      this.latestFrame = frame;
-      this.frameCount++;
-
-      // Log stats periodically
-      if (this.frameCount % (TARGET_FPS * 10) === 0) {
-        const elapsed = (Date.now() - this.startTime) / 1000;
-        const actualFps = (this.frameCount / elapsed).toFixed(1);
-        console.log(
-          `Frames: ${this.frameCount}, FPS: ${actualFps}, Size: ${(frame.length / 1024).toFixed(0)}KB, Clients: ${this.clients.size}`
+        execFileSync(
+          "screencapture",
+          ["-l", String(this.windowId), "-t", "jpg", "-x", this.tmpPath],
+          { timeout: 500 }
         );
-      }
+        const frame = readFileSync(this.tmpPath);
+        this.latestFrame = frame;
+        this.frameCount++;
+        this._broadcast(frame);
 
-      // Send to all connected clients
-      this._broadcast(frame);
-    } catch (e) {
-      // screencapture can fail if window moves/closes
+        if (this.frameCount % (TARGET_FPS * 10) === 0) {
+          const elapsed = (Date.now() - this.startTime) / 1000;
+          console.log(
+            `Frames: ${this.frameCount}, FPS: ${(this.frameCount / elapsed).toFixed(1)}, Size: ${(frame.length / 1024).toFixed(0)}KB [fallback]`
+          );
+        }
+      } catch (e) {
+        // Skip frame
+      }
+      const wait = Math.max(0, FRAME_INTERVAL - (Date.now() - t0));
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     }
   }
 
   _broadcast(frame) {
-    const header =
-      `${BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`;
+    const header = `${BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`;
     const headerBuf = Buffer.from(header);
     const tail = Buffer.from("\r\n");
 
@@ -249,6 +327,7 @@ class FrameGrabber {
       actualFps: elapsed > 0 ? (this.frameCount / elapsed).toFixed(1) : "0",
       clients: this.clients.size,
       running: this.running,
+      mode: this.useDaemon ? "screencapturekit" : "screencapture",
       frameSize: this.latestFrame
         ? `${(this.latestFrame.length / 1024).toFixed(0)}KB`
         : null,
@@ -554,24 +633,40 @@ if (!win) {
 
 const axeContent = getAxeContentArea(sim.udid);
 
-// Get capture image dimensions from first screenshot
-execFileSync("screencapture", ["-l", String(win.id), "-t", "jpg", "-x", "/tmp/sim-stream-init.jpg"], { timeout: 2000 });
-const initCapture = execSync("sips -g pixelWidth -g pixelHeight /tmp/sim-stream-init.jpg 2>/dev/null", { encoding: "utf-8" });
-const capW = parseInt(initCapture.match(/pixelWidth:\s*(\d+)/)?.[1] || "0", 10);
-const capH = parseInt(initCapture.match(/pixelHeight:\s*(\d+)/)?.[1] || "0", 10);
-console.log(`Capture size: ${capW}x${capH}`);
-
-let coordMapper = null;
-if (axeContent && capW && capH) {
-  coordMapper = buildCoordMapper(
-    { width: win.width, height: win.height },
-    axeContent,
-    capW,
-    capH
-  );
-}
-
 const grabber = new FrameGrabber(win.id);
+
+// Build coordinate mapper based on capture mode
+let coordMapper = null;
+if (axeContent) {
+  if (grabber.useDaemon) {
+    // ScreenCaptureKit captures the window content (same as CGWindow bounds)
+    // No title bar, no shadow. Capture pixels = window points (at scale 1.0)
+    // AXe content area may be slightly smaller than window (device bezel in sim)
+    const captureW = win.width;
+    const captureH = win.height;
+    coordMapper = buildCoordMapper(
+      { width: win.width, height: win.height },
+      axeContent,
+      captureW,
+      captureH,
+    );
+  } else {
+    // screencapture includes title bar + shadow, need to measure actual output
+    execFileSync("screencapture", ["-l", String(win.id), "-t", "jpg", "-x", "/tmp/sim-stream-init.jpg"], { timeout: 2000 });
+    const initCapture = execSync("sips -g pixelWidth -g pixelHeight /tmp/sim-stream-init.jpg 2>/dev/null", { encoding: "utf-8" });
+    const capW = parseInt(initCapture.match(/pixelWidth:\s*(\d+)/)?.[1] || "0", 10);
+    const capH = parseInt(initCapture.match(/pixelHeight:\s*(\d+)/)?.[1] || "0", 10);
+    console.log(`Screencapture size: ${capW}x${capH}`);
+    if (capW && capH) {
+      coordMapper = buildCoordMapper(
+        { width: win.width, height: win.height },
+        axeContent,
+        capW,
+        capH,
+      );
+    }
+  }
+}
 
 // HTTP Server
 const server = createServer((req, res) => {
@@ -599,7 +694,6 @@ const server = createServer((req, res) => {
       JSON.stringify({
         simulator: sim,
         window: win,
-        capture: { width: capW, height: capH },
         coordMapping: coordMapper?.meta || null,
         targetFps: TARGET_FPS,
         ...grabber.getStats(),

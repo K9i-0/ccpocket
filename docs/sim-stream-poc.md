@@ -1,4 +1,4 @@
-# sim-stream: iOS Simulator Remote Viewer PoC
+# sim-stream: iOS Simulator Remote Viewer
 
 ## 概要
 
@@ -6,24 +6,25 @@ Bridge Server を動かしている Mac の iOS Simulator を、iPhone のブラ
 
 ## 検証結果サマリー
 
-| 項目 | 結果 |
-|------|------|
-| 映像配信 | screencapture → MJPEG multipart HTTP: **12fps, 81KB/frame** |
-| タッチ入力 | AXe CLI: タップ ~50ms, スワイプ, テキスト入力対応 |
-| 座標変換 | screencapture pixels → AXe points 自動マッピング |
-| データ帯域 | ~1MB/s (LAN/Tailscale で十分) |
-| CPU負荷 | screencapture のみで低負荷 (FFmpeg 不要) |
+| 項目 | ScreenCaptureKit (推奨) | screencapture (fallback) |
+|------|------------------------|--------------------------|
+| 映像配信 | MJPEG multipart HTTP: **29fps, 65KB/frame** | **12fps, 81KB/frame** |
+| タッチ入力 | AXe CLI: タップ ~50ms, スワイプ, テキスト入力対応 | 同左 |
+| 座標変換 | window pixels → AXe points 自動マッピング | 同左 |
+| データ帯域 | ~2MB/s | ~1MB/s |
+| CPU負荷 | Swift デーモン (H/W accelerated) | screencapture CLI |
 
 ## アーキテクチャ
 
 ```
 iPhone Safari
-  ├─ GET /stream          ← MJPEG multipart (12fps JPEG)
+  ├─ GET /stream          ← MJPEG multipart (29fps JPEG)
   └─ WS  /ws              → tap/swipe/type イベント送信
        │
   Node.js (port 8100)
-  ├─ screencapture -l <WindowID>  → JPEG → broadcast to clients
-  └─ AXe tap/swipe/type CLI      ← WebSocket events (座標変換付き)
+  ├─ Swift daemon (ScreenCaptureKit)  → stdout: length-prefixed JPEG
+  │   └─ fallback: screencapture -l <WindowID> (デーモン未ビルド時)
+  └─ AXe tap/swipe/type CLI          ← WebSocket events (座標変換付き)
        │
   iOS Simulator (macOS)
 ```
@@ -65,14 +66,33 @@ axe stream-video --udid <UDID> --format mjpeg --fps 15
 
 **結果**: MJPEG HTTP multipart 出力は正しく動作するが、FPS が品質不足。
 
-### 5. screencapture -l (Window ID 指定) + Node.js ✅ 採用
+### 5. screencapture -l (Window ID 指定) + Node.js ✅ fallback
 
 ```bash
 screencapture -l <WindowID> -t jpg -x /tmp/frame.jpg
 # → 1枚 ~60ms, JPEG 81KB, シミュレータウィンドウのみキャプチャ
 ```
 
-**結果**: macOS 標準コマンドで安定・低CPU・高品質。12fps で十分操作可能。
+**結果**: macOS 標準コマンドで安定・低CPU・高品質。12fps で十分操作可能。デーモン未ビルド時の fallback として採用。
+
+### 6. ScreenCaptureKit Swift デーモン ✅ 推奨
+
+```swift
+// macOS 13+ の ScreenCaptureKit でウィンドウ単位の低遅延キャプチャ
+let filter = SCContentFilter(desktopIndependentWindow: window)
+let config = SCStreamConfiguration()
+config.minimumFrameInterval = CMTime(value: 1, timescale: 30)
+let stream = SCStream(filter: filter, configuration: config, delegate: delegate)
+```
+
+**結果**: 29.4fps, 43KB/frame を安定達成。H/W accelerated で CPU 負荷も低い。
+
+**実装詳細**:
+- `packages/sim-stream/daemon/` に Swift Package として実装
+- stdout に `[4byte BE uint32 = length][JPEG data]` で出力
+- ImageIO による直接 JPEG エンコード (CIContext より高速)
+- `desktopIndependentWindow` フィルタでタイトルバー・影なしキャプチャ
+- idle フレーム (画面変化なし) は最後のフレームを再送して fps 維持
 
 ## 座標変換
 
@@ -95,45 +115,43 @@ AXe content:   402x874  points (シミュレータ画面コンテンツ)
 |--------|-------------|------|
 | AXe | `brew install cameroncooke/axe/axe` | タッチ入力・テキスト入力 |
 | ws (npm) | `npm install ws` | WebSocket サーバー |
-| screencapture | macOS 標準 | ウィンドウキャプチャ |
+| Swift 5.9+ | Xcode 標準 | ScreenCaptureKit デーモンのビルド |
+| screencapture | macOS 標準 | ウィンドウキャプチャ (fallback) |
 | xcrun simctl | Xcode 標準 | シミュレータ検出 |
 
 ## 起動方法
 
 ```bash
 cd packages/sim-stream
+
+# 1. デーモンビルド (初回のみ)
+npm run build:daemon
+
+# 2. サーバー起動
 node server.mjs
 
 # 環境変数
-SIM_STREAM_PORT=8100   # ポート番号
-SIM_STREAM_FPS=12      # 目標FPS
-SIM_STREAM_QUALITY=8   # JPEG品質 (screencapture デフォルト)
+SIM_STREAM_PORT=8100    # ポート番号
+SIM_STREAM_FPS=30       # 目標FPS (デーモンモード)
+SIM_STREAM_QUALITY=0.7  # JPEG品質 (0-1, デーモンモード)
 ```
+
+**macOS Screen Recording 権限**: 初回起動時にシステム設定 > プライバシーとセキュリティ > 画面収録 でターミナルアプリに許可が必要。
+
+デーモンが未ビルドの場合は自動的に screencapture fallback モードで起動する (12fps)。
 
 ## 制限事項・今後の改善点
 
 ### 現時点の制限
 
-- **FPS**: screencapture ベースのため最大 ~15fps (Rork のような 60fps には届かない)
+- **FPS**: ScreenCaptureKit デーモンで ~30fps (Rork のような 60fps にはまだ届かない)
 - **ウィンドウ移動**: シミュレータウィンドウを移動すると座標がずれる (再起動で対応)
 - **マルチタッチ**: シングルタッチのみ (ピンチ等は未対応)
-- **遅延**: screencapture + HTTP + WebSocket で合計 100-200ms
+- **遅延**: MJPEG + HTTP + WebSocket で合計 50-150ms
 
 ### 改善案
 
-1. **ScreenCaptureKit API (Swift)**: macOS 12.3+ の ScreenCaptureKit を使えばウィンドウ単位の低遅延キャプチャが可能。60fps も視野に入る
-2. **WebRTC 化**: MJPEG → WebRTC に変更すれば遅延が大幅に低減
-3. **ccpocket 統合**: Bridge Server に `/simulator` エンドポイントを追加し、チャットとシミュレータを並行操作
-4. **Flutter WebView 統合**: ccpocket アプリ内にシミュレータビューを埋め込み
-
-### 最も有望な次のステップ: ScreenCaptureKit
-
-```swift
-// ScreenCaptureKit は 60fps ウィンドウキャプチャをネイティブにサポート
-let filter = SCContentFilter(desktopIndependentWindow: simulatorWindow)
-let config = SCStreamConfiguration()
-config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
-let stream = SCStream(filter: filter, configuration: config, delegate: self)
-```
-
-Swift で小さなキャプチャデーモンを書き、Node.js サーバーに WebSocket/TCP でフレームを送る構成にすれば、Rork に近い品質が実現可能。
+1. **WebRTC 化**: MJPEG → WebRTC に変更すれば遅延が大幅に低減
+2. **ccpocket 統合**: Bridge Server に `/simulator` エンドポイントを追加し、チャットとシミュレータを並行操作
+3. **Flutter WebView 統合**: ccpocket アプリ内にシミュレータビューを埋め込み
+4. **60fps 化**: JPEG エンコードの最適化、または H.264 ストリーム化で 60fps を目指す
