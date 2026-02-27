@@ -14,7 +14,7 @@ import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
 import { ArchiveStore } from "./archive-store.js";
 import { WorktreeStore } from "./worktree-store.js";
-import { listWorktrees, removeWorktree, createWorktree, worktreeExists } from "./worktree.js";
+import { listWorktrees, removeWorktree, createWorktree, worktreeExists, getMainBranch } from "./worktree.js";
 import { listWindows, takeScreenshot } from "./screenshot.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
 import { RecordingStore } from "./recording-store.js";
@@ -1099,7 +1099,8 @@ export class BridgeWebSocketServer {
       case "list_worktrees": {
         try {
           const worktrees = listWorktrees(msg.projectPath);
-          this.send(ws, { type: "worktree_list", worktrees });
+          const mainBranch = getMainBranch(msg.projectPath);
+          this.send(ws, { type: "worktree_list", worktrees, mainBranch });
         } catch (err) {
           this.send(ws, { type: "error", message: `Failed to list worktrees: ${err}` });
         }

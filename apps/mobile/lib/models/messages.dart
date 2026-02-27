@@ -475,6 +475,7 @@ sealed class ServerMessage {
         worktrees: (json['worktrees'] as List)
             .map((w) => WorktreeInfo.fromJson(w as Map<String, dynamic>))
             .toList(),
+        mainBranch: json['mainBranch'] as String?,
       ),
       'worktree_removed' => WorktreeRemovedMessage(
         worktreePath: json['worktreePath'] as String,
@@ -989,7 +990,8 @@ class DiffImageResultMessage implements ServerMessage {
 
 class WorktreeListMessage implements ServerMessage {
   final List<WorktreeInfo> worktrees;
-  const WorktreeListMessage({required this.worktrees});
+  final String? mainBranch;
+  const WorktreeListMessage({required this.worktrees, this.mainBranch});
 }
 
 class WorktreeRemovedMessage implements ServerMessage {

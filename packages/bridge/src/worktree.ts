@@ -326,6 +326,19 @@ export function listWorktrees(projectPath: string): WorktreeInfo[] {
   return worktrees;
 }
 
+/** Get the current branch of the main repo. */
+export function getMainBranch(projectPath: string): string {
+  const resolvedProject = resolveProject(projectPath);
+  try {
+    return execFileSync("git", ["branch", "--show-current"], {
+      cwd: resolvedProject,
+      encoding: "utf-8",
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+
 /** Check if a worktree path exists on disk. */
 export function worktreeExists(wtPath: string): boolean {
   return existsSync(wtPath);
