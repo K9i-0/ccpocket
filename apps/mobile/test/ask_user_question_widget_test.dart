@@ -126,11 +126,95 @@ void main() {
 
       // Type custom text and tap Send
       await tester.enterText(find.byType(TextField), 'Charlie');
-      await tester.tap(find.text('Send'));
+      await tester.pumpAndSettle();
+      final sendButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Send'),
+      );
+      expect(sendButton.onPressed, isNotNull);
+      sendButton.onPressed!.call();
       await tester.pumpAndSettle();
 
       expect(answeredResult, 'Charlie');
       expect(find.text('Answered'), findsOneWidget);
+    });
+
+    testWidgets('keyboard done closes keyboard without sending', (
+      tester,
+    ) async {
+      String? answeredResult;
+
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-3b',
+            input: {
+              'questions': [
+                {
+                  'question': 'What is your name?',
+                  'header': 'Name',
+                  'options': [
+                    {'label': 'Alice', 'description': ''},
+                    {'label': 'Bob', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
+              ],
+            },
+            onAnswer: (_, result) {
+              answeredResult = result;
+            },
+          ),
+        ),
+      );
+
+      final input = find.byType(TextField);
+      await tester.tap(input);
+      await tester.enterText(input, 'Charlie');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(answeredResult, isNull);
+      expect(find.text('Answered'), findsNothing);
+    });
+
+    testWidgets('send button is disabled until text is entered', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-3c',
+            input: {
+              'questions': [
+                {
+                  'question': 'What is your name?',
+                  'header': 'Name',
+                  'options': [
+                    {'label': 'Alice', 'description': ''},
+                    {'label': 'Bob', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
+              ],
+            },
+            onAnswer: (toolUseId, result) {},
+          ),
+        ),
+      );
+
+      FilledButton sendButton() => tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Send'),
+      );
+
+      expect(sendButton().onPressed, isNull);
+
+      await tester.enterText(find.byType(TextField), 'x');
+      await tester.pumpAndSettle();
+      expect(sendButton().onPressed, isNotNull);
+
+      await tester.enterText(find.byType(TextField), '   ');
+      await tester.pumpAndSettle();
+      expect(sendButton().onPressed, isNull);
     });
   });
 
@@ -213,6 +297,63 @@ void main() {
       );
 
       expect(answered, false);
+    });
+
+    testWidgets('custom answer in multi-question uses Next button', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-6',
+            input: {
+              'questions': [
+                {
+                  'question': 'Color?',
+                  'header': 'Color',
+                  'options': [
+                    {'label': 'Red', 'description': ''},
+                    {'label': 'Blue', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
+                {
+                  'question': 'Size?',
+                  'header': 'Size',
+                  'options': [
+                    {'label': 'Small', 'description': ''},
+                    {'label': 'Large', 'description': ''},
+                  ],
+                  'multiSelect': false,
+                },
+              ],
+            },
+            onAnswer: (toolUseId, result) {},
+          ),
+        ),
+      );
+
+      final otherAnswerButton = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Other answer...'),
+      );
+      otherAnswerButton.onPressed!.call();
+      await tester.pumpAndSettle();
+
+      FilledButton nextButton() => tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Next'),
+      );
+
+      expect(nextButton().onPressed, isNull);
+
+      await tester.enterText(find.byType(TextField), 'Green');
+      await tester.pumpAndSettle();
+      expect(nextButton().onPressed, isNotNull);
+
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Size?'), findsOneWidget);
+      expect(find.text('Color?'), findsNothing);
     });
   });
 

@@ -197,6 +197,11 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
       });
       if (_isSingleQuestion) {
         _sendAllAnswers();
+      } else {
+        final next = questionIndex + 1;
+        if (next <= _questions.length) {
+          _goToPage(next);
+        }
       }
       return;
     }
@@ -212,6 +217,12 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
 
     if (_isSingleQuestion) {
       _sendAnswer(answer);
+      return;
+    }
+
+    final next = questionIndex + 1;
+    if (next <= _questions.length) {
+      _goToPage(next);
     }
   }
 
@@ -569,6 +580,7 @@ class _AskQuestionLayout extends StatelessWidget {
               onChanged: (text) => onCustomTextChanged(questionIndex, text),
               onSubmitted: () => onSubmitCustomText(questionIndex),
               showSendButton: true,
+              submitLabel: l.send,
             ),
           ] else ...[
             const SizedBox(height: 4),
@@ -713,7 +725,8 @@ class _AskOtherAnswerSection extends StatelessWidget {
         hintText: isMultiQuestion ? l.orTypeCustomAnswer : l.typeYourAnswer,
         onChanged: (text) => onCustomTextChanged(questionIndex, text),
         onSubmitted: () => onSubmitCustomText(questionIndex),
-        showSendButton: !isMultiQuestion,
+        showSendButton: true,
+        submitLabel: isMultiQuestion ? l.next : l.send,
       );
     }
 
@@ -739,6 +752,7 @@ class _AskTextInputRow extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final VoidCallback onSubmitted;
   final bool showSendButton;
+  final String? submitLabel;
 
   const _AskTextInputRow({
     required this.controller,
@@ -746,11 +760,13 @@ class _AskTextInputRow extends StatelessWidget {
     required this.onSubmitted,
     this.onChanged,
     this.showSendButton = true,
+    this.submitLabel,
   });
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final canSubmit = controller.text.trim().isNotEmpty;
 
     return Row(
       children: [
@@ -758,6 +774,7 @@ class _AskTextInputRow extends StatelessWidget {
           child: TextField(
             controller: controller,
             onChanged: onChanged,
+            textInputAction: TextInputAction.done,
             decoration: InputDecoration(
               hintText: hintText,
               filled: true,
@@ -775,18 +792,26 @@ class _AskTextInputRow extends StatelessWidget {
               ),
             ),
             style: const TextStyle(fontSize: 13),
-            onSubmitted: (_) => onSubmitted(),
+            onSubmitted: (_) => FocusScope.of(context).unfocus(),
           ),
         ),
         if (showSendButton) ...[
           const SizedBox(width: 8),
           FilledButton(
-            onPressed: onSubmitted,
+            onPressed: canSubmit
+                ? () {
+                    FocusScope.of(context).unfocus();
+                    onSubmitted();
+                  }
+                : null,
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               minimumSize: Size.zero,
             ),
-            child: Text(l.send, style: const TextStyle(fontSize: 13)),
+            child: Text(
+              submitLabel ?? l.send,
+              style: const TextStyle(fontSize: 13),
+            ),
           ),
         ],
       ],
