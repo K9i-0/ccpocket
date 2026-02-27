@@ -4,7 +4,7 @@ import { setupLaunchd, uninstallLaunchd } from "./setup-launchd.js";
 
 const args = process.argv.slice(2);
 
-// Check for "setup" subcommand
+// Check for subcommand
 const subcommand = args.find((a) => !a.startsWith("-"));
 
 function parseFlag(name: string): string | undefined {
@@ -17,7 +17,20 @@ function hasFlag(name: string): boolean {
   return args.includes(`--${name}`);
 }
 
-if (subcommand === "setup") {
+if (subcommand === "doctor") {
+  // Doctor subcommand: check environment health
+  import("./doctor.js")
+    .then(({ runDoctor, printReport }) =>
+      runDoctor().then((report) => {
+        printReport(report);
+        process.exit(report.allRequiredPassed ? 0 : 1);
+      }),
+    )
+    .catch((err) => {
+      console.error("Doctor failed:", err);
+      process.exit(1);
+    });
+} else if (subcommand === "setup") {
   // launchd setup subcommand
   if (hasFlag("uninstall")) {
     uninstallLaunchd();
