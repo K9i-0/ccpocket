@@ -46,6 +46,7 @@ class _WorktreeListContent extends StatefulWidget {
 
 class _WorktreeListContentState extends State<_WorktreeListContent> {
   List<WorktreeInfo>? _worktrees;
+  String? _mainBranch;
   StreamSubscription<WorktreeListMessage>? _sub;
   StreamSubscription<ServerMessage>? _removeSub;
 
@@ -53,7 +54,12 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
   void initState() {
     super.initState();
     _sub = widget.bridge.worktreeList.listen((msg) {
-      if (mounted) setState(() => _worktrees = msg.worktrees);
+      if (mounted) {
+        setState(() {
+          _worktrees = msg.worktrees;
+          _mainBranch = msg.mainBranch;
+        });
+      }
     });
     _removeSub = widget.bridge.messages.listen((msg) {
       if (msg is WorktreeRemovedMessage && mounted) {
@@ -164,6 +170,7 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
             _MainRepoTile(
               projectPath: widget.projectPath,
               isCurrent: _isOnMainRepo,
+              branch: _mainBranch,
             ),
             // Worktree entries
             for (final wt in _worktrees!)
@@ -183,8 +190,13 @@ class _WorktreeListContentState extends State<_WorktreeListContent> {
 class _MainRepoTile extends StatelessWidget {
   final String projectPath;
   final bool isCurrent;
+  final String? branch;
 
-  const _MainRepoTile({required this.projectPath, required this.isCurrent});
+  const _MainRepoTile({
+    required this.projectPath,
+    required this.isCurrent,
+    this.branch,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +224,9 @@ class _MainRepoTile extends StatelessWidget {
           ),
         ),
         subtitle: Text(
-          projectPath.split('/').last,
+          branch?.isNotEmpty == true
+              ? branch!
+              : projectPath.split('/').last,
           style: TextStyle(fontSize: 11, color: appColors.subtleText),
         ),
         trailing: isCurrent

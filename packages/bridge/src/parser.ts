@@ -194,7 +194,7 @@ export type ServerMessage =
   | { type: "project_history"; projects: string[] }
   | { type: "diff_result"; diff: string; error?: string; imageChanges?: ImageChange[] }
   | { type: "diff_image_result"; filePath: string; version: "old" | "new"; base64?: string; mimeType?: string; error?: string }
-  | { type: "worktree_list"; worktrees: WorktreeInfo[] }
+  | { type: "worktree_list"; worktrees: WorktreeInfo[]; mainBranch?: string }
   | { type: "worktree_removed"; worktreePath: string }
   | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] }
   | { type: "rewind_preview"; canRewind: boolean; filesChanged?: string[]; insertions?: number; deletions?: number; error?: string }
