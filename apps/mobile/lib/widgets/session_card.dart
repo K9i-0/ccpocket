@@ -913,8 +913,8 @@ class _AskUserAreaState extends State<_AskUserArea> {
     } else {
       setState(() {
         _singleAnswers[questionIndex] = answer;
-        _currentPage++;
       });
+      _goToPage(_currentPage + 1);
     }
   }
 
@@ -940,6 +940,12 @@ class _AskUserAreaState extends State<_AskUserArea> {
 
     if (!_isMultiQuestion) {
       widget.onAnswer(finalAnswer);
+      return;
+    }
+
+    final next = questionIndex + 1;
+    if (next <= _questions.length) {
+      _goToPage(next);
     }
   }
 
@@ -1043,7 +1049,11 @@ class _AskUserAreaState extends State<_AskUserArea> {
   }
 
   void _goToPage(int index) {
-    setState(() => _currentPage = index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -1358,6 +1368,9 @@ class _OtherAnswerSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final canSubmit = controller.text.trim().isNotEmpty;
+
     if (isCustomInputShown) {
       return Padding(
         padding: const EdgeInsets.only(top: 4),
@@ -1399,28 +1412,36 @@ class _OtherAnswerSection extends StatelessWidget {
                     isDense: true,
                   ),
                   onChanged: (text) => onCustomTextChanged(questionIndex, text),
-                  onSubmitted: (_) => onSubmitCustomText(questionIndex),
+                  onSubmitted: (_) => FocusScope.of(context).unfocus(),
                 ),
               ),
             ),
-            if (!isMultiQuestion) ...[
-              const SizedBox(width: 8),
-              SizedBox(
-                height: _buttonHeight,
-                child: FilledButton(
-                  onPressed: () => onSubmitCustomText(questionIndex),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    backgroundColor: statusColor.withValues(alpha: 0.15),
-                    foregroundColor: statusColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: _buttonHeight,
+              child: FilledButton(
+                onPressed: canSubmit
+                    ? () {
+                        FocusScope.of(context).unfocus();
+                        onSubmitCustomText(questionIndex);
+                      }
+                    : null,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  backgroundColor: statusColor.withValues(alpha: 0.15),
+                  foregroundColor: statusColor,
+                  disabledBackgroundColor: statusColor.withValues(alpha: 0.08),
+                  disabledForegroundColor: statusColor.withValues(alpha: 0.35),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text('Send', style: TextStyle(fontSize: 13)),
+                ),
+                child: Text(
+                  isMultiQuestion ? l.next : l.send,
+                  style: const TextStyle(fontSize: 13),
                 ),
               ),
-            ],
+            ),
           ],
         ),
       );

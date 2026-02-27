@@ -216,6 +216,186 @@ void main() {
       expect(find.byKey(const ValueKey('approve_button')), findsOneWidget);
       expect(find.byKey(const ValueKey('reject_button')), findsOneWidget);
     });
+
+    testWidgets('ask user custom input does not send on keyboard done', (
+      tester,
+    ) async {
+      String? answered;
+      final session = SessionInfo(
+        id: 'ask-single-done',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        pendingPermission: const PermissionRequestMessage(
+          toolUseId: 'ask-tool-1',
+          toolName: 'AskUserQuestion',
+          input: {
+            'questions': [
+              {
+                'question': 'How should we handle this?',
+                'header': 'Approach',
+                'options': [
+                  {'label': 'A', 'description': ''},
+                  {'label': 'B', 'description': ''},
+                ],
+                'multiSelect': false,
+              },
+            ],
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(
+            session: session,
+            onTap: () {},
+            onStop: () {},
+            onAnswer: (_, result) => answered = result,
+          ),
+        ),
+      );
+
+      final otherAnswerButton = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Other answer...'),
+      );
+      otherAnswerButton.onPressed!.call();
+      await tester.pump();
+
+      final input = find.byType(TextField);
+      await tester.tap(input);
+      await tester.enterText(input, 'custom');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+
+      expect(answered, isNull);
+    });
+
+    testWidgets('ask user send button is disabled until input exists', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'ask-single-send',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        pendingPermission: const PermissionRequestMessage(
+          toolUseId: 'ask-tool-2',
+          toolName: 'AskUserQuestion',
+          input: {
+            'questions': [
+              {
+                'question': 'How should we handle this?',
+                'header': 'Approach',
+                'options': [
+                  {'label': 'A', 'description': ''},
+                  {'label': 'B', 'description': ''},
+                ],
+                'multiSelect': false,
+              },
+            ],
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(session: session, onTap: () {}, onStop: () {}),
+        ),
+      );
+
+      final otherAnswerButton = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Other answer...'),
+      );
+      otherAnswerButton.onPressed!.call();
+      await tester.pump();
+
+      FilledButton sendButton() => tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Send'),
+      );
+
+      expect(sendButton().onPressed, isNull);
+
+      await tester.enterText(find.byType(TextField), 'x');
+      await tester.pump();
+      expect(sendButton().onPressed, isNotNull);
+
+      await tester.enterText(find.byType(TextField), '   ');
+      await tester.pump();
+      expect(sendButton().onPressed, isNull);
+    });
+
+    testWidgets('ask user multi-question custom input uses Next button', (
+      tester,
+    ) async {
+      String? answered;
+      final session = SessionInfo(
+        id: 'ask-multi-next',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        pendingPermission: const PermissionRequestMessage(
+          toolUseId: 'ask-tool-3',
+          toolName: 'AskUserQuestion',
+          input: {
+            'questions': [
+              {
+                'question': 'Foreground?',
+                'header': 'Foreground',
+                'options': [
+                  {'label': 'A', 'description': ''},
+                  {'label': 'B', 'description': ''},
+                ],
+                'multiSelect': false,
+              },
+              {
+                'question': 'Background?',
+                'header': 'Background',
+                'options': [
+                  {'label': 'C', 'description': ''},
+                  {'label': 'D', 'description': ''},
+                ],
+                'multiSelect': false,
+              },
+            ],
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(
+            session: session,
+            onTap: () {},
+            onStop: () {},
+            onAnswer: (_, result) => answered = result,
+          ),
+        ),
+      );
+
+      final otherAnswerButton = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Other answer...'),
+      );
+      otherAnswerButton.onPressed!.call();
+      await tester.pump();
+
+      FilledButton nextButton() => tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Next'),
+      );
+
+      expect(nextButton().onPressed, isNull);
+
+      await tester.enterText(find.byType(TextField), 'In-app banner');
+      await tester.pump();
+      expect(nextButton().onPressed, isNotNull);
+
+      nextButton().onPressed!.call();
+      await tester.pump();
+      expect(answered, isNull);
+    });
   });
 
   group('RecentSessionCard', () {
