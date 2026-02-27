@@ -246,5 +246,44 @@ for lang_dir in en-US ja; do
   echo "  -> $README_OUTPUT ($(du -h "$README_OUTPUT" | cut -f1))"
 done
 
+# === Copy framed screenshots to store upload directories ===
+# iOS: screenshots/store/{en-US,ja}/ (used by fastlane deliver)
+# Android: metadata/android/{en-US,ja-JP}/images/phoneScreenshots/
+echo ""
+echo "=== Store upload directories ==="
+STORE_DIR="${SCRIPT_DIR}/store"
+ANDROID_META="${SCRIPT_DIR}/../../fastlane/metadata/android"
+
+for lang_dir in en-US ja; do
+  # iOS store directory
+  store_lang_dir="${STORE_DIR}/${lang_dir}"
+  mkdir -p "$store_lang_dir"
+  rm -f "$store_lang_dir"/*.png
+  for f in "${SCRIPT_DIR}/${lang_dir}"/*_framed.png; do
+    [ -f "$f" ] || continue
+    name=$(basename "$f" | sed 's/_framed//')
+    cp "$f" "$store_lang_dir/$name"
+  done
+  echo "  iOS  -> $store_lang_dir/ ($(ls "$store_lang_dir" | wc -l | tr -d ' ') files)"
+
+  # Android metadata directory (phone screenshots only)
+  if [ "$lang_dir" = "en-US" ]; then
+    android_lang="en-US"
+  else
+    android_lang="ja-JP"
+  fi
+  android_ss_dir="${ANDROID_META}/${android_lang}/images/phoneScreenshots"
+  mkdir -p "$android_ss_dir"
+  rm -f "$android_ss_dir"/*.png
+  for f in "${SCRIPT_DIR}/${lang_dir}"/*_framed.png; do
+    [ -f "$f" ] || continue
+    name=$(basename "$f" | sed 's/_framed//')
+    # Skip iPad screenshots (Android phone screenshots only)
+    case "$name" in ipad_*) continue ;; esac
+    cp "$f" "$android_ss_dir/$name"
+  done
+  echo "  Android -> $android_ss_dir/ ($(ls "$android_ss_dir" | wc -l | tr -d ' ') files)"
+done
+
 echo ""
 echo "Done! Framed screenshots have '_framed' suffix."

@@ -100,6 +100,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
         run: |
+          printf '%s\n' "$RELEASE_NOTES" > /tmp/release_notes.md
           gh release create "$GITHUB_REF_NAME" \
             --title "iOS ${{ steps.version.outputs.version }}" \
-            --notes "$RELEASE_NOTES"
+            --notes-file /tmp/release_notes.md
