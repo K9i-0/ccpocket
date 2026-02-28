@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.9.0] - 2026-02-28
+
+### Added
+- Add macOS Screen Recording permission check to doctor command
+- Add macOS Keychain access check to doctor command
+- Add Health Check section to README
+
 ## [1.8.0] - 2026-02-28
 
 ### Added
