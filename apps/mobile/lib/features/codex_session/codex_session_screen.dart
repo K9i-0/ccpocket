@@ -611,7 +611,8 @@ class _CodexChatBody extends HookWidget {
                       const Positioned(
                         top: 0,
                         left: 0,
-                        child: SessionModeBar(),
+                        right: 0,
+                        child: Center(child: SessionModeBar()),
                       ),
                       if (scroll.isScrolledUp)
                         Positioned(
