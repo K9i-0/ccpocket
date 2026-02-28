@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.26.0] - 2026-02-28
+
+### Added
+- Floating SessionModeBar with transparency over chat list
+- Glowing StatusLine indicator replacing dot-based StatusIndicator
+- Indent settings for markdown bullet lists in chat input
+- Image change support for git diff screen (auto-display up to 1MB, max 5MB)
+- Display main repo branch name in worktree list
+- Ask user free-text submit flow improvements
+- Granular upload controls (screenshots/metadata/images) in metadata workflow
+
+### Changed
+- Reorganized session UI buttons and consolidated into overflow menu
+- Compact header layout with updated icons for Message History and attach image
+- Permission mode colors/order aligned with Claude Code CLI
+- Compose script always syncs ja screenshots from en-US source
+- Store screenshots updated with new session UI layout
+
+### Fixed
+- SessionModeBar horizontal centering and content width fitting
+- BranchChip tap restored with Rename added to overflow menu
+- Diff background color fill to full viewport width for short lines
+- Recent sessions loading and archive UX improvements
+
 ## [1.25.0] - 2026-02-26
 
 ### Added
