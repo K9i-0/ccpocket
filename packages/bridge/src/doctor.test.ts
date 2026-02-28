@@ -3,8 +3,10 @@ import type { CheckResult, ProviderResult, DoctorReport } from "./doctor.js";
 
 // Mock child_process before importing the module
 const mockExecSync = vi.fn();
+const mockExecFile = vi.fn();
 vi.mock("node:child_process", () => ({
   execSync: (...args: unknown[]) => mockExecSync(...args),
+  execFile: (...args: unknown[]) => mockExecFile(...args),
 }));
 
 // Mock node:fs
@@ -26,6 +28,8 @@ const {
   checkTailscale,
   checkDataDirectory,
   checkLaunchdService,
+  checkScreenRecording,
+  checkKeychainAccess,
   printReport,
   runDoctor,
 } = await import("./doctor.js");
@@ -197,6 +201,100 @@ describe("doctor checks", () => {
       });
       const result = await checkDataDirectory();
       expect(result.status).toBe("warn");
+    });
+  });
+
+  describe("checkScreenRecording", () => {
+    it("passes when permission is granted", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          cb(null, "granted\n", "");
+        },
+      );
+      const result = await checkScreenRecording();
+      expect(result.status).toBe("pass");
+      expect(result.message).toContain("granted");
+    });
+
+    it("warns when permission is denied", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          cb(null, "denied\n", "");
+        },
+      );
+      const result = await checkScreenRecording();
+      expect(result.status).toBe("warn");
+      expect(result.message).toContain("not granted");
+      expect(result.remediation).toContain("Screen Recording");
+    });
+
+    it("warns when swift is not available", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          cb(new Error("command not found"), "", "");
+        },
+      );
+      const result = await checkScreenRecording();
+      expect(result.status).toBe("warn");
+      expect(result.remediation).toContain("xcode-select");
+    });
+
+    it("skips on non-macOS platforms", async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, "platform", { value: "linux" });
+      try {
+        const result = await checkScreenRecording();
+        expect(result.status).toBe("skip");
+      } finally {
+        Object.defineProperty(process, "platform", { value: originalPlatform });
+      }
+    });
+  });
+
+  describe("checkKeychainAccess", () => {
+    it("passes when credentials are accessible", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          cb(null, '{"claudeAiOauth":{}}', "");
+        },
+      );
+      const result = await checkKeychainAccess();
+      expect(result.status).toBe("pass");
+      expect(result.message).toContain("accessible");
+    });
+
+    it("skips when no credentials are stored", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          const err = new Error("security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.");
+          cb(err, "", "could not be found");
+        },
+      );
+      const result = await checkKeychainAccess();
+      expect(result.status).toBe("skip");
+    });
+
+    it("warns when keychain access is denied", async () => {
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          const err = new Error("User interaction is not allowed.");
+          cb(err, "", "User interaction is not allowed.");
+        },
+      );
+      const result = await checkKeychainAccess();
+      expect(result.status).toBe("warn");
+      expect(result.remediation).toContain("Keychain");
+    });
+
+    it("skips on non-macOS platforms", async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, "platform", { value: "linux" });
+      try {
+        const result = await checkKeychainAccess();
+        expect(result.status).toBe("skip");
+      } finally {
+        Object.defineProperty(process, "platform", { value: originalPlatform });
+      }
     });
   });
 

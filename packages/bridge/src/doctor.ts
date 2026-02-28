@@ -5,7 +5,7 @@
  * when issues are found — similar to `flutter doctor`.
  */
 
-import { execSync } from "node:child_process";
+import { execFile, execSync } from "node:child_process";
 import {
   accessSync,
   constants as fsConstants,
@@ -429,6 +429,122 @@ export async function checkLaunchdService(): Promise<CheckResult> {
 }
 
 // ---------------------------------------------------------------------------
+// macOS permission checks
+// ---------------------------------------------------------------------------
+
+/**
+ * Swift inline script to check Screen Recording permission.
+ * CGWindowListCopyWindowInfo returns window names only when the process has
+ * Screen Recording permission. Without it, kCGWindowName is always empty.
+ * We check if *any* on-screen window has a non-empty name.
+ */
+const CHECK_SCREEN_RECORDING_SWIFT = `
+import CoreGraphics
+
+let windowList = CGWindowListCopyWindowInfo(
+    [.optionOnScreenOnly, .excludeDesktopElements],
+    kCGNullWindowID
+) as? [[String: Any]] ?? []
+
+var hasName = false
+for w in windowList {
+    guard let layer = w[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
+    if let name = w[kCGWindowName as String] as? String, !name.isEmpty {
+        hasName = true
+        break
+    }
+}
+print(hasName ? "granted" : "denied")
+`;
+
+export async function checkScreenRecording(): Promise<CheckResult> {
+  if (process.platform !== "darwin") {
+    return { name: "Screen Recording", status: "skip", message: "macOS only" };
+  }
+
+  return new Promise<CheckResult>((resolve) => {
+    execFile(
+      "swift",
+      ["-e", CHECK_SCREEN_RECORDING_SWIFT],
+      { timeout: 15_000 },
+      (err, stdout) => {
+        if (err) {
+          resolve({
+            name: "Screen Recording",
+            status: "warn",
+            message: "Unable to check (swift not available)",
+            remediation:
+              "Install Xcode Command Line Tools: xcode-select --install",
+          });
+          return;
+        }
+        const result = stdout.trim();
+        if (result === "granted") {
+          resolve({
+            name: "Screen Recording",
+            status: "pass",
+            message: "Permission granted",
+          });
+        } else {
+          resolve({
+            name: "Screen Recording",
+            status: "warn",
+            message: "Permission not granted (screenshots will fail)",
+            remediation:
+              "System Settings > Privacy & Security > Screen Recording > enable your terminal app",
+          });
+        }
+      },
+    );
+  });
+}
+
+export async function checkKeychainAccess(): Promise<CheckResult> {
+  if (process.platform !== "darwin") {
+    return { name: "Keychain access", status: "skip", message: "macOS only" };
+  }
+
+  return new Promise<CheckResult>((resolve) => {
+    execFile(
+      "security",
+      ["find-generic-password", "-s", "Claude Code-credentials", "-w"],
+      { timeout: 5_000 },
+      (err, _stdout, stderr) => {
+        if (!err) {
+          // Successfully read credentials
+          resolve({
+            name: "Keychain access",
+            status: "pass",
+            message: "Claude Code credentials accessible",
+          });
+          return;
+        }
+
+        const msg = (stderr ?? "").toLowerCase() + (err.message ?? "").toLowerCase();
+        // "could not be found" = no credential stored (not an error)
+        if (msg.includes("could not be found") || msg.includes("not found") || msg.includes("no matching")) {
+          resolve({
+            name: "Keychain access",
+            status: "skip",
+            message: "No Claude Code credentials stored",
+            remediation: "Run: claude auth login (if using Claude Code)",
+          });
+        } else {
+          // Access denied or other Keychain error
+          resolve({
+            name: "Keychain access",
+            status: "warn",
+            message: "Keychain access denied",
+            remediation:
+              "Allow Keychain access for your terminal app, or re-login: claude auth login",
+          });
+        }
+      },
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -446,7 +562,18 @@ function getAllChecks(): CheckDefinition[] {
       category: "required",
       run: () => checkPortAvailable(port),
     },
-    // Optional
+    // Optional — macOS permissions
+    {
+      name: "Screen Recording",
+      category: "optional",
+      run: checkScreenRecording,
+    },
+    {
+      name: "Keychain access",
+      category: "optional",
+      run: checkKeychainAccess,
+    },
+    // Optional — connectivity & services
     { name: "Tailscale", category: "optional", run: checkTailscale },
     {
       name: "Firebase connectivity",

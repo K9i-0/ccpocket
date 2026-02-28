@@ -42,6 +42,16 @@ BRIDGE_PORT=9000 BRIDGE_API_KEY=my-secret npx @ccpocket/bridge@latest
 - Node.js v18+
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) and/or [Codex CLI](https://github.com/openai/codex)
 
+## Health Check
+
+Run the built-in doctor command to verify your environment:
+
+```bash
+npx @ccpocket/bridge@latest doctor
+```
+
+It checks Node.js, Git, CLI providers, macOS permissions (Screen Recording, Keychain), network connectivity, and more.
+
 ## Architecture
 
 ```
