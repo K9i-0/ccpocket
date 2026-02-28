@@ -459,9 +459,18 @@ class _CodexChatBody extends HookWidget {
                 sessionId: sessionId,
                 projectPath: projectPath,
               ),
-              bottom: StatusLine(
-                status: status,
-                inPlanMode: inPlanMode,
+              flexibleSpace: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: MediaQuery.of(context).padding.top,
+                    child: StatusLine(
+                      status: status,
+                      inPlanMode: inPlanMode,
+                    ),
+                  ),
+                ],
               ),
               actions: [
                 // Branch chip
