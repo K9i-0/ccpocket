@@ -22,7 +22,6 @@ import '../../widgets/message_bubble.dart';
 import '../../widgets/plan_detail_sheet.dart';
 import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
-import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
 import '../../router/app_router.dart';
 import '../chat_session/state/chat_session_cubit.dart';
@@ -33,7 +32,7 @@ import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/chat_message_list.dart';
 import '../chat_session/widgets/reconnect_banner.dart';
 import '../chat_session/widgets/session_mode_bar.dart';
-import '../chat_session/widgets/status_indicator.dart';
+import '../chat_session/widgets/status_line.dart';
 import 'widgets/rewind_action_sheet.dart';
 import 'widgets/rewind_message_list_sheet.dart' show UserMessageHistorySheet;
 import 'widgets/usage_summary_bar.dart';
@@ -503,6 +502,10 @@ class _ChatScreenBody extends HookWidget {
                 sessionId: sessionId,
                 projectPath: projectPath,
               ),
+              bottom: StatusLine(
+                status: status,
+                inPlanMode: inPlanMode,
+              ),
               actions: [
                 // Branch chip
                 if (projectPath != null)
@@ -518,22 +521,18 @@ class _ChatScreenBody extends HookWidget {
                       );
                     },
                   ),
-                if (projectPath != null) const SizedBox(width: 4),
-                // Status indicator
-                StatusIndicator(
-                  status: status,
-                  inPlanMode: inPlanMode,
-                  onLongPress: () =>
-                      copyDebugBundleForAgent(context, sessionId),
-                ),
                 // Overflow menu
                 PopupMenuButton<String>(
                   key: const ValueKey('session_overflow_menu'),
-                  icon: const Icon(Icons.more_vert, size: 20),
+                  icon: Icon(
+                    Icons.more_horiz,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
+                    minWidth: 32,
+                    minHeight: 32,
                   ),
                   onSelected: (value) {
                     switch (value) {
