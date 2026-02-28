@@ -518,6 +518,7 @@ class _ChatScreenBody extends HookWidget {
                       );
                     },
                   ),
+                if (projectPath != null) const SizedBox(width: 4),
                 // Status indicator
                 StatusIndicator(
                   status: status,
@@ -610,10 +611,6 @@ class _ChatScreenBody extends HookWidget {
             ),
             body: Column(
               children: [
-                const SessionModeBar(),
-                if (bridgeState == BridgeConnectionState.reconnecting ||
-                    bridgeState == BridgeConnectionState.disconnected)
-                  ReconnectBanner(bridgeState: bridgeState),
                 UsageSummaryBar(
                   totalCost: sessionState.totalCost,
                   totalDuration: sessionState.totalDuration,
@@ -623,6 +620,10 @@ class _ChatScreenBody extends HookWidget {
                   toolCalls: toolUsage.toolCalls,
                   fileEdits: toolUsage.fileEdits,
                 ),
+                const SessionModeBar(),
+                if (bridgeState == BridgeConnectionState.reconnecting ||
+                    bridgeState == BridgeConnectionState.disconnected)
+                  ReconnectBanner(bridgeState: bridgeState),
                 Expanded(
                   child: Stack(
                     children: [

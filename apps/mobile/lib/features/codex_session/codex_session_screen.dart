@@ -475,6 +475,7 @@ class _CodexChatBody extends HookWidget {
                       );
                     },
                   ),
+                if (projectPath != null) const SizedBox(width: 4),
                 // Status indicator
                 StatusIndicator(
                   status: status,
