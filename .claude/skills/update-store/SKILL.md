@@ -86,10 +86,13 @@ CHANGELOGの内容をベースに:
 xcrun simctl list devices available | grep -E "iPhone 17|iPad Pro.*13"
 ```
 
-iPhone 17 Proシミュレーターを起動:
+iPhone 17 Proシミュレーターを起動し、ダークモードに設定:
 ```bash
 xcrun simctl boot "iPhone 17 Pro" 2>/dev/null || true
+xcrun simctl ui booted appearance dark
 ```
+
+**重要**: アプリは `ThemeMode.system` がデフォルトのため、シミュレーターの外観をダークに設定するだけでダークテーマが適用される。
 
 #### 4-2. アプリ起動 & Marionette接続
 
@@ -113,15 +116,22 @@ dart-mcp `get_app_logs` でVM Service URIを取得し、marionette `connect` で
 
 2. **待機**: 2-3秒（描画完了を待つ。New SessionやImage Attachなど複雑なUIは3秒推奨）
 
-3. **撮影**:
+3. **Markdown Input のみ — キーボード表示**:
+   marionette `tap` で入力フィールドをタップしてフォーカスを当て、ソフトウェアキーボードを表示させる。
+   ```
+   marionette tap (text field をタップ)
+   ```
+   1秒待機してキーボード表示完了を待つ。
+
+4. **撮影**:
    ```bash
    xcrun simctl io booted screenshot apps/mobile/fastlane/screenshots/en-US/<key>.png
    ```
 
-4. **戻る**: marionette `call_custom_extension`
+5. **戻る**: marionette `call_custom_extension`
    - extension: `ccpocket.popToRoot`
 
-5. **待機**: 1秒（ルートへの遷移完了）
+6. **待機**: 1秒（ルートへの遷移完了）
 
 #### 4-4. アプリ停止
 
@@ -137,6 +147,7 @@ Step 4と同じフローをiPadで実行。
 
 ```bash
 xcrun simctl boot "iPad Pro 13-inch (M4)" 2>/dev/null || true
+xcrun simctl ui booted appearance dark
 ```
 
 保存先は `ipad_<key>.png`:
@@ -189,7 +200,7 @@ git diff --stat
 ## 注意事項
 
 - **New Session シナリオ**: ボトムシートが`addPostFrameCallback`で自動表示されるため、3秒待機推奨
-- **Markdown Input シナリオ**: DraftServiceで入力欄にテキストが事前セットされる
+- **Markdown Input シナリオ**: DraftServiceで入力欄にテキストが事前セットされる。撮影前にmarionetteで入力フィールドをtapしてキーボードを表示させること
 - **Image Attach シナリオ**: モック画像が自動的に添付される
 - **シミュレーターデバイス名**: Xcode バージョンにより正確な名前が異なる場合がある。`xcrun simctl list devices available` で確認
 - **compose.sh**: ImageMagick (`convert` / `magick`) が必要。PNGタイムスタンプを除去して不要なgit diffを防止
