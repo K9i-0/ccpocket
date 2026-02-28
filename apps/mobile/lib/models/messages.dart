@@ -113,8 +113,8 @@ enum Provider {
 
 enum PermissionMode {
   defaultMode('default', 'Default'),
-  plan('plan', 'Plan'),
   acceptEdits('acceptEdits', 'Accept Edits'),
+  plan('plan', 'Plan'),
   bypassPermissions('bypassPermissions', 'Bypass All');
 
   final String value;

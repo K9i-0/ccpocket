@@ -97,14 +97,9 @@ class UsageSummaryBar extends StatelessWidget {
       children.add(items[i]);
     }
 
-    return Container(
+    return SizedBox(
       key: const ValueKey('usage_summary_bar'),
-      height: 28,
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.3)),
-        ),
-      ),
+      height: 22,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),

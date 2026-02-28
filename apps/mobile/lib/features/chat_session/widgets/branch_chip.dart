@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// A chip that displays the current branch name and indicates if it's a worktree.
+/// A compact branch indicator matching StatusIndicator's minimal aesthetic.
 ///
-/// Tapping the chip opens the worktree list sheet.
+/// Tapping opens the worktree list sheet.
 class BranchChip extends StatelessWidget {
   final String? branchName;
   final bool isWorktree;
@@ -20,33 +20,33 @@ class BranchChip extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final displayName = branchName ?? 'main';
     final isMainRepo = !isWorktree;
-    final color = isMainRepo ? cs.primary : cs.tertiary;
 
-    return Material(
-      color: color.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
+    return Tooltip(
+      message: isMainRepo ? 'main repo' : 'worktree: $displayName',
+      preferBelow: true,
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        behavior: HitTestBehavior.opaque,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                isMainRepo ? Icons.home_outlined : Icons.fork_right,
-                size: 12,
-                color: color,
+                isMainRepo ? Icons.commit : Icons.fork_right,
+                size: 13,
+                color: cs.onSurfaceVariant,
               ),
               const SizedBox(width: 3),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 80),
+                constraints: const BoxConstraints(maxWidth: 72),
                 child: Text(
-                  isMainRepo ? 'main' : displayName,
+                  displayName,
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
-                    color: color,
+                    color: cs.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -58,3 +58,4 @@ class BranchChip extends StatelessWidget {
     );
   }
 }
+

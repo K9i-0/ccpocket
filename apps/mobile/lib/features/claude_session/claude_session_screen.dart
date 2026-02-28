@@ -11,6 +11,7 @@ import '../../hooks/use_scroll_tracking.dart';
 import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../services/bridge_service.dart';
+import '../../widgets/rename_session_dialog.dart';
 import '../../services/draft_service.dart';
 import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
@@ -22,7 +23,6 @@ import '../../widgets/message_bubble.dart';
 import '../../widgets/plan_detail_sheet.dart';
 import '../../widgets/screenshot_sheet.dart';
 import '../../widgets/worktree_list_sheet.dart';
-import '../../utils/debug_bundle_share.dart';
 import '../../utils/diff_parser.dart';
 import '../../router/app_router.dart';
 import '../chat_session/state/chat_session_cubit.dart';
@@ -32,7 +32,8 @@ import '../chat_session/widgets/branch_chip.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/chat_message_list.dart';
 import '../chat_session/widgets/reconnect_banner.dart';
-import '../chat_session/widgets/status_indicator.dart';
+import '../chat_session/widgets/session_mode_bar.dart';
+import '../chat_session/widgets/status_line.dart';
 import 'widgets/rewind_action_sheet.dart';
 import 'widgets/rewind_message_list_sheet.dart' show UserMessageHistorySheet;
 import 'widgets/usage_summary_bar.dart';
@@ -502,75 +503,21 @@ class _ChatScreenBody extends HookWidget {
                 sessionId: sessionId,
                 projectPath: projectPath,
               ),
+              flexibleSpace: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: MediaQuery.of(context).padding.top,
+                    child: StatusLine(
+                      status: status,
+                      inPlanMode: inPlanMode,
+                    ),
+                  ),
+                ],
+              ),
               actions: [
-                // 1. Message History (rewind + scroll)
-                IconButton(
-                  key: const ValueKey('message_history_button'),
-                  icon: const Icon(Icons.history, size: 18),
-                  tooltip: l.messageHistory,
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  onPressed: () =>
-                      _showUserMessageHistory(context, scrollToUserEntry),
-                ),
-                // 3. View Changes
-                if (projectPath != null)
-                  IconButton(
-                    icon: const Icon(Icons.difference, size: 18),
-                    tooltip: l.viewChanges,
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                    onPressed: () => _openDiffScreen(
-                      context,
-                      worktreePath ?? projectPath!,
-                      diffSelectionFromNav,
-                      existingSelection: diffSelectionFromNav.value,
-                    ),
-                  ),
-                // 4. Screenshot
-                if (projectPath != null)
-                  IconButton(
-                    icon: const Icon(Icons.screenshot_monitor, size: 18),
-                    tooltip: l.screenshot,
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                    onPressed: () {
-                      showScreenshotSheet(
-                        context: context,
-                        bridge: context.read<BridgeService>(),
-                        projectPath: projectPath!,
-                        sessionId: sessionId,
-                      );
-                    },
-                  ),
-                // 5. Gallery (session preview)
-                IconButton(
-                  key: const ValueKey('gallery_button'),
-                  icon: const Icon(Icons.collections, size: 18),
-                  tooltip: l.gallery,
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  onPressed: () {
-                    context.router.push(GalleryRoute(sessionId: sessionId));
-                  },
-                ),
-                // 6. Branch chip
+                // Branch chip
                 if (projectPath != null)
                   BranchChip(
                     branchName: gitBranch,
@@ -584,21 +531,107 @@ class _ChatScreenBody extends HookWidget {
                       );
                     },
                   ),
-                // 7. Status indicator (plan mode shown via color)
-                // Long press to copy debug bundle for agent
-                StatusIndicator(
-                  status: status,
-                  inPlanMode: inPlanMode,
-                  onLongPress: () =>
-                      copyDebugBundleForAgent(context, sessionId),
+                // Overflow menu
+                PopupMenuButton<String>(
+                  key: const ValueKey('session_overflow_menu'),
+                  icon: Icon(
+                    Icons.more_horiz,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'history':
+                        _showUserMessageHistory(context, scrollToUserEntry);
+                      case 'diff':
+                        if (projectPath == null) return;
+                        _openDiffScreen(
+                          context,
+                          worktreePath ?? projectPath!,
+                          diffSelectionFromNav,
+                          existingSelection: diffSelectionFromNav.value,
+                        );
+                      case 'screenshot':
+                        if (projectPath == null) return;
+                        showScreenshotSheet(
+                          context: context,
+                          bridge: context.read<BridgeService>(),
+                          projectPath: projectPath!,
+                          sessionId: sessionId,
+                        );
+                      case 'gallery':
+                        context.router.push(GalleryRoute(sessionId: sessionId));
+                      case 'rename':
+                        _renameSession(context, sessionId);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      key: const ValueKey('menu_rename'),
+                      value: 'rename',
+                      child: ListTile(
+                        leading: const Icon(Icons.edit_outlined, size: 20),
+                        title: Text(l.rename),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      key: const ValueKey('menu_message_history'),
+                      value: 'history',
+                      child: ListTile(
+                        leading: const Icon(Icons.chat_outlined, size: 20),
+                        title: Text(l.messageHistory),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    if (projectPath != null)
+                      PopupMenuItem(
+                        key: const ValueKey('menu_view_changes'),
+                        value: 'diff',
+                        child: ListTile(
+                          leading: const Icon(Icons.difference, size: 20),
+                          title: Text(l.viewChanges),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    if (projectPath != null)
+                      PopupMenuItem(
+                        key: const ValueKey('menu_screenshot'),
+                        value: 'screenshot',
+                        child: ListTile(
+                          leading: const Icon(
+                            Icons.screenshot_monitor,
+                            size: 20,
+                          ),
+                          title: Text(l.screenshot),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    PopupMenuItem(
+                      key: const ValueKey('menu_gallery'),
+                      value: 'gallery',
+                      child: ListTile(
+                        leading: const Icon(Icons.collections, size: 20),
+                        title: Text(l.gallery),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
             body: Column(
               children: [
-                if (bridgeState == BridgeConnectionState.reconnecting ||
-                    bridgeState == BridgeConnectionState.disconnected)
-                  ReconnectBanner(bridgeState: bridgeState),
                 UsageSummaryBar(
                   totalCost: sessionState.totalCost,
                   totalDuration: sessionState.totalDuration,
@@ -608,6 +641,10 @@ class _ChatScreenBody extends HookWidget {
                   toolCalls: toolUsage.toolCalls,
                   fileEdits: toolUsage.fileEdits,
                 ),
+                const SessionModeBar(),
+                if (bridgeState == BridgeConnectionState.reconnecting ||
+                    bridgeState == BridgeConnectionState.disconnected)
+                  ReconnectBanner(bridgeState: bridgeState),
                 Expanded(
                   child: Stack(
                     children: [
@@ -847,6 +884,21 @@ String? findPlanFromWriteTool(List<ChatEntry> entries) {
     }
   }
   return null;
+}
+
+Future<void> _renameSession(BuildContext context, String sessionId) async {
+  final bridge = context.read<BridgeService>();
+  final sessions = bridge.sessions;
+  final session = sessions.where((s) => s.id == sessionId).firstOrNull;
+  final newName = await showRenameSessionDialog(
+    context,
+    currentName: session?.name,
+  );
+  if (newName == null || !context.mounted) return;
+  bridge.renameSession(
+    sessionId: sessionId,
+    name: newName.isEmpty ? null : newName,
+  );
 }
 
 void _showUserMessageHistory(
