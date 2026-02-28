@@ -1,4 +1,4 @@
-import 'package:ccpocket/features/chat_session/widgets/status_indicator.dart';
+import 'package:ccpocket/features/chat_session/widgets/status_line.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/widgets/approval_bar.dart';
 import 'package:ccpocket/widgets/bubbles/ask_user_question_widget.dart';
@@ -25,10 +25,10 @@ void main() {
 
       // Verify plan approval bar is showing
       expect(find.text('Accept Plan'), findsOneWidget);
-      final indicator = $.tester.widget<StatusIndicator>(
-        find.byType(StatusIndicator),
+      final statusLine = $.tester.widget<StatusLine>(
+        find.byType(StatusLine),
       );
-      expect(indicator.inPlanMode, isTrue);
+      expect(statusLine.inPlanMode, isTrue);
 
       // Accept plan
       await $.tester.tap(find.byKey(const ValueKey('approve_button')));
@@ -69,10 +69,10 @@ void main() {
       );
 
       // Plan mode still active (inPlanMode not reset by approve)
-      final indicator2 = $.tester.widget<StatusIndicator>(
-        find.byType(StatusIndicator),
+      final statusLine2 = $.tester.widget<StatusLine>(
+        find.byType(StatusLine),
       );
-      expect(indicator2.inPlanMode, isTrue);
+      expect(statusLine2.inPlanMode, isTrue);
     });
 
     patrolWidgetTest('J2: Plan reject with feedback triggers re-plan cycle', (
