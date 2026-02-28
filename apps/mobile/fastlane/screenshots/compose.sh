@@ -7,12 +7,23 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CANVAS_W=1320
 CANVAS_H=2868
 BG_COLOR="#141416"
+# Strip timestamps from PNG to avoid spurious git diffs
+PNG_STRIP="-define png:exclude-chunks=date,time"
 
 # Font settings
-FONT_EN_BOLD="Helvetica-Bold"
-FONT_EN_REG="Helvetica"
-FONT_JA_BOLD="Hiragino-Sans-W7"
-FONT_JA_REG="Hiragino-Sans-W3"
+# Try font name first (works with system ImageMagick), fall back to file path (Homebrew)
+resolve_font() {
+  local name="$1" path="$2"
+  if magick -list font 2>/dev/null | grep "Font: ${name}$" >/dev/null 2>&1; then
+    echo "$name"
+  else
+    echo "$path"
+  fi
+}
+FONT_EN_BOLD="$(resolve_font Helvetica-Bold /System/Library/Fonts/Helvetica.ttc)"
+FONT_EN_REG="$(resolve_font Helvetica /System/Library/Fonts/Helvetica.ttc)"
+FONT_JA_BOLD="$(resolve_font Hiragino-Sans-W7 '/System/Library/Fonts/ヒラギノ角ゴシック W7.ttc')"
+FONT_JA_REG="$(resolve_font Hiragino-Sans-W3 '/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc')"
 
 # Screenshot definitions: key, keyword_en, title_en, keyword_ja, title_ja
 SCREENSHOTS=(
@@ -94,7 +105,7 @@ compose_screenshot() {
     -annotate +0+180 "$keyword" \
     -font "$font_reg" -pointsize 72 -fill "rgba(17,17,17,0.75)" \
     -annotate +0+320 "$title" \
-    -depth 8 "$output"
+    -depth 8 $PNG_STRIP "$output"
 
   rm -f /tmp/mask_$$.png /tmp/ss_$$.png /tmp/bezel_$$.png /tmp/framed_ss_$$.png
   echo "  -> $output"
@@ -199,7 +210,7 @@ compose_ipad_screenshot() {
     -annotate +0+150 "$keyword" \
     -font "$font_reg" -pointsize 64 -fill "rgba(17,17,17,0.75)" \
     -annotate +0+280 "$title" \
-    -depth 8 "$output"
+    -depth 8 $PNG_STRIP "$output"
 
   rm -f /tmp/screen_$$.png /tmp/inner_mask_$$.png /tmp/screen_masked_$$.png /tmp/bezel_$$.png /tmp/device_$$.png /tmp/outline_$$.png
   echo "  -> $output"

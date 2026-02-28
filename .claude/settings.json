@@ -73,6 +73,11 @@
     ],
     "deny": []
   },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "marionette",
+    "dart-mcp"
+  ],
   "hooks": {
     "PostToolUse": [
       {
@@ -98,6 +103,7 @@
       }
     ]
   },
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["marionette", "dart-mcp"]
+  "enabledPlugins": {
+    "skill-creator@claude-plugins-official": true
+  }
 }
