@@ -21,30 +21,23 @@ class SessionModeBar extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
             decoration: BoxDecoration(
               color: isDark
                   ? cs.surface.withValues(alpha: 0.6)
                   : cs.surface.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isDark
                     ? Colors.white.withValues(alpha: 0.1)
                     : Colors.white.withValues(alpha: 0.6),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: IntrinsicHeight(
               child: Row(
@@ -56,7 +49,7 @@ class SessionModeBar extends StatelessWidget {
                   ),
                   if (sandboxMode != null) ...[
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
                       child: VerticalDivider(
                         width: 1,
                         thickness: 1,
@@ -81,24 +74,32 @@ class SessionModeBar extends StatelessWidget {
 void showPermissionModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
   final currentMode = chatCubit.state.permissionMode;
 
-  const modeDetails = <PermissionMode, ({IconData icon, String description})>{
-    PermissionMode.defaultMode: (
-      icon: Icons.tune,
-      description: 'Standard permission prompts',
-    ),
-    PermissionMode.plan: (
-      icon: Icons.assignment,
-      description: 'Analyze & plan without executing',
-    ),
-    PermissionMode.acceptEdits: (
-      icon: Icons.edit_note,
-      description: 'Auto-approve file edits',
-    ),
-    PermissionMode.bypassPermissions: (
-      icon: Icons.flash_on,
-      description: 'Skip all permission prompts',
-    ),
-  };
+  const purple = Color(0xFFBB86FC);
+  const green = Color(0xFF66BB6A);
+
+  final modeDetails =
+      <PermissionMode, ({IconData icon, String description, Color color})>{
+        PermissionMode.defaultMode: (
+          icon: Icons.tune,
+          description: 'Standard permission prompts',
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        PermissionMode.acceptEdits: (
+          icon: Icons.edit_note,
+          description: 'Auto-approve file edits',
+          color: purple,
+        ),
+        PermissionMode.plan: (
+          icon: Icons.assignment,
+          description: 'Analyze & plan without executing',
+          color: green,
+        ),
+        PermissionMode.bypassPermissions: (
+          icon: Icons.flash_on,
+          description: 'Skip all permission prompts',
+          color: Theme.of(context).colorScheme.error,
+        ),
+      };
 
   showModalBottomSheet(
     context: context,
@@ -127,7 +128,7 @@ void showPermissionModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
                 leading: Icon(
                   modeDetails[mode]!.icon,
                   color: mode == currentMode
-                      ? sheetCs.primary
+                      ? modeDetails[mode]!.color
                       : sheetCs.onSurfaceVariant,
                 ),
                 title: Text(mode.label),
@@ -136,7 +137,11 @@ void showPermissionModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
                   style: const TextStyle(fontSize: 12),
                 ),
                 trailing: mode == currentMode
-                    ? Icon(Icons.check, color: sheetCs.primary, size: 20)
+                    ? Icon(
+                        Icons.check,
+                        color: modeDetails[mode]!.color,
+                        size: 20,
+                      )
                     : null,
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -235,39 +240,42 @@ class PermissionModeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
+    // Colors aligned with Claude Code CLI
+    const purple = Color(0xFFBB86FC);
+    const green = Color(0xFF66BB6A);
+
     final (IconData icon, String label, Color fg) = switch (currentMode) {
       PermissionMode.defaultMode => (
         Icons.tune,
         'Default',
         cs.onSurfaceVariant,
       ),
-      PermissionMode.plan => (Icons.assignment, 'Plan', cs.tertiary),
-      PermissionMode.acceptEdits => (Icons.edit_note, 'Edits', cs.primary),
+      PermissionMode.acceptEdits => (Icons.edit_note, 'Edits', purple),
+      PermissionMode.plan => (Icons.assignment, 'Plan', green),
       PermissionMode.bypassPermissions => (Icons.flash_on, 'Bypass', cs.error),
     };
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: fg),
-              const SizedBox(width: 4),
+              Icon(icon, size: 13, color: fg),
+              const SizedBox(width: 3),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: fg,
                 ),
               ),
-              const SizedBox(width: 2),
               Icon(
                 Icons.arrow_drop_down,
                 size: 14,
@@ -302,26 +310,25 @@ class SandboxModeChip extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: fg),
-              const SizedBox(width: 4),
+              Icon(icon, size: 13, color: fg),
+              const SizedBox(width: 3),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: fg,
                 ),
               ),
-              const SizedBox(width: 2),
               Icon(
                 Icons.arrow_drop_down,
                 size: 14,
