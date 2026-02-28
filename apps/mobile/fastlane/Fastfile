@@ -37,10 +37,10 @@ platform :android do
       track: "internal",
       skip_upload_aab: true,
       skip_upload_apk: true,
-      skip_upload_metadata: false,
+      skip_upload_metadata: ENV["SKIP_UPLOAD_METADATA"] == "true",
       skip_upload_changelogs: true,
-      skip_upload_images: false,
-      skip_upload_screenshots: false,
+      skip_upload_images: ENV["SKIP_UPLOAD_IMAGES"] == "true",
+      skip_upload_screenshots: ENV["SKIP_UPLOAD_SCREENSHOTS"] == "true",
     )
   end
 end

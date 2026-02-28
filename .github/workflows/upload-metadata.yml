@@ -11,8 +11,18 @@ on:
           - both
           - ios
           - android
-      skip_screenshots:
-        description: 'Skip screenshot upload (use when app is in review)'
+      upload_screenshots:
+        description: 'Upload screenshots'
+        required: false
+        type: boolean
+        default: true
+      upload_metadata:
+        description: 'Upload metadata (title, description, etc.)'
+        required: false
+        type: boolean
+        default: true
+      upload_images:
+        description: 'Upload images (icon, feature graphic, etc.)'
         required: false
         type: boolean
         default: false
@@ -43,7 +53,7 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
-          SKIP_SCREENSHOTS: ${{ inputs.skip_screenshots }}
+          SKIP_SCREENSHOTS: ${{ inputs.upload_screenshots == false }}
         run: fastlane ios metadata
 
   android:
@@ -92,4 +102,7 @@ jobs:
       - name: Upload Android metadata
         env:
           GCLOUD_SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.GCLOUD_SERVICE_ACCOUNT_CREDENTIALS }}
+          SKIP_UPLOAD_METADATA: ${{ inputs.upload_metadata == false }}
+          SKIP_UPLOAD_SCREENSHOTS: ${{ inputs.upload_screenshots == false }}
+          SKIP_UPLOAD_IMAGES: ${{ inputs.upload_images == false }}
         run: fastlane android metadata
