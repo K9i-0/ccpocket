@@ -205,6 +205,15 @@ describe("doctor checks", () => {
   });
 
   describe("checkScreenRecording", () => {
+    let originalPlatform: string;
+    beforeEach(() => {
+      originalPlatform = process.platform;
+      Object.defineProperty(process, "platform", { value: "darwin" });
+    });
+    afterEach(() => {
+      Object.defineProperty(process, "platform", { value: originalPlatform });
+    });
+
     it("passes when permission is granted", async () => {
       mockExecFile.mockImplementation(
         (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
@@ -252,6 +261,15 @@ describe("doctor checks", () => {
   });
 
   describe("checkKeychainAccess", () => {
+    let originalPlatform: string;
+    beforeEach(() => {
+      originalPlatform = process.platform;
+      Object.defineProperty(process, "platform", { value: "darwin" });
+    });
+    afterEach(() => {
+      Object.defineProperty(process, "platform", { value: originalPlatform });
+    });
+
     it("passes when credentials are accessible", async () => {
       mockExecFile.mockImplementation(
         (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
