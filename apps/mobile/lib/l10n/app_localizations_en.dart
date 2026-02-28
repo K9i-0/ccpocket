@@ -501,6 +501,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refresh => 'Refresh';
 
   @override
+  String get diffCompareSideBySide => 'Side by Side';
+
+  @override
+  String get diffCompareSlider => 'Slider';
+
+  @override
+  String get diffCompareOverlay => 'Overlay';
+
+  @override
+  String get diffBefore => 'Before';
+
+  @override
+  String get diffAfter => 'After';
+
+  @override
+  String get diffNewFile => 'New file';
+
+  @override
+  String get diffDeleted => 'Deleted';
+
+  @override
+  String get diffNoImage => 'No image';
+
+  @override
   String get filterFiles => 'Filter files';
 
   @override

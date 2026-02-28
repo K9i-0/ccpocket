@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../../utils/diff_parser.dart';
+import 'diff_image_viewer.dart';
 
 /// Formats a byte count into a human-readable string.
 String _formatFileSize(int bytes) {
@@ -68,10 +69,31 @@ class _DiffImageWidgetState extends State<DiffImageWidget> {
 
     // Loaded → show side-by-side comparison
     if (imageData.loaded) {
-      return _SideBySideView(
-        file: widget.file,
-        imageData: imageData,
-        appColors: appColors,
+      return GestureDetector(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                DiffImageViewer(file: widget.file, imageData: imageData),
+          ),
+        ),
+        child: Stack(
+          children: [
+            _SideBySideView(
+              file: widget.file,
+              imageData: imageData,
+              appColors: appColors,
+            ),
+            Positioned(
+              right: 12,
+              bottom: 16,
+              child: Icon(
+                Icons.fullscreen,
+                size: 20,
+                color: appColors.subtleText,
+              ),
+            ),
+          ],
+        ),
       );
     }
 

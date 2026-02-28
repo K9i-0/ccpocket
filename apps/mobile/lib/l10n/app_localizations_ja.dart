@@ -496,6 +496,30 @@ class AppLocalizationsJa extends AppLocalizations {
   String get refresh => '更新';
 
   @override
+  String get diffCompareSideBySide => '並べて比較';
+
+  @override
+  String get diffCompareSlider => 'スライダー';
+
+  @override
+  String get diffCompareOverlay => 'オーバーレイ';
+
+  @override
+  String get diffBefore => '変更前';
+
+  @override
+  String get diffAfter => '変更後';
+
+  @override
+  String get diffNewFile => '新規ファイル';
+
+  @override
+  String get diffDeleted => '削除済み';
+
+  @override
+  String get diffNoImage => '画像なし';
+
+  @override
   String get filterFiles => 'ファイルをフィルター';
 
   @override

@@ -1016,6 +1016,54 @@ abstract class AppLocalizations {
   /// **'更新'**
   String get refresh;
 
+  /// No description provided for @diffCompareSideBySide.
+  ///
+  /// In ja, this message translates to:
+  /// **'並べて比較'**
+  String get diffCompareSideBySide;
+
+  /// No description provided for @diffCompareSlider.
+  ///
+  /// In ja, this message translates to:
+  /// **'スライダー'**
+  String get diffCompareSlider;
+
+  /// No description provided for @diffCompareOverlay.
+  ///
+  /// In ja, this message translates to:
+  /// **'オーバーレイ'**
+  String get diffCompareOverlay;
+
+  /// No description provided for @diffBefore.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更前'**
+  String get diffBefore;
+
+  /// No description provided for @diffAfter.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更後'**
+  String get diffAfter;
+
+  /// No description provided for @diffNewFile.
+  ///
+  /// In ja, this message translates to:
+  /// **'新規ファイル'**
+  String get diffNewFile;
+
+  /// No description provided for @diffDeleted.
+  ///
+  /// In ja, this message translates to:
+  /// **'削除済み'**
+  String get diffDeleted;
+
+  /// No description provided for @diffNoImage.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像なし'**
+  String get diffNoImage;
+
   /// No description provided for @filterFiles.
   ///
   /// In ja, this message translates to:
