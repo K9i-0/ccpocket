@@ -469,15 +469,14 @@ class _CodexChatBody extends HookWidget {
                     context.read<ChatSessionCubit>(),
                   ),
                 ),
-                // Sandbox mode chip (Codex only)
-                if (context.read<ChatSessionCubit>().isCodex)
-                  SandboxModeChip(
-                    currentMode: sessionState.sandboxMode,
-                    onTap: () => showSandboxModeMenu(
-                      context,
-                      context.read<ChatSessionCubit>(),
-                    ),
+                // Sandbox mode chip
+                SandboxModeChip(
+                  currentMode: sessionState.sandboxMode,
+                  onTap: () => showSandboxModeMenu(
+                    context,
+                    context.read<ChatSessionCubit>(),
                   ),
+                ),
                 // Branch chip
                 if (projectPath != null)
                   BranchChip(
@@ -513,6 +512,7 @@ class _CodexChatBody extends HookWidget {
                       case 'history':
                         _showUserMessageHistory(context, scrollToUserEntry);
                       case 'diff':
+                        if (projectPath == null) return;
                         _openDiffScreen(
                           context,
                           worktreePath ?? projectPath!,
@@ -520,6 +520,7 @@ class _CodexChatBody extends HookWidget {
                           existingSelection: diffSelectionFromNav.value,
                         );
                       case 'screenshot':
+                        if (projectPath == null) return;
                         showScreenshotSheet(
                           context: context,
                           bridge: context.read<BridgeService>(),

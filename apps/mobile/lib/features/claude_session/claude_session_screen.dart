@@ -547,6 +547,7 @@ class _ChatScreenBody extends HookWidget {
                       case 'history':
                         _showUserMessageHistory(context, scrollToUserEntry);
                       case 'diff':
+                        if (projectPath == null) return;
                         _openDiffScreen(
                           context,
                           worktreePath ?? projectPath!,
@@ -554,6 +555,7 @@ class _ChatScreenBody extends HookWidget {
                           existingSelection: diffSelectionFromNav.value,
                         );
                       case 'screenshot':
+                        if (projectPath == null) return;
                         showScreenshotSheet(
                           context: context,
                           bridge: context.read<BridgeService>(),
