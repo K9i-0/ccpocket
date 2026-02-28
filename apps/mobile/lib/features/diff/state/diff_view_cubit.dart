@@ -80,13 +80,29 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     _bridge.send(ClientMessage.getDiff(projectPath));
   }
 
+  /// Whether this cubit supports refresh (projectPath mode).
+  bool get canRefresh => _projectPath != null;
+
+  /// Re-request `git diff` from Bridge (e.g. for manual refresh).
+  void refresh() {
+    final projectPath = _projectPath;
+    if (projectPath == null) return;
+    emit(state.copyWith(loading: true, error: null));
+    _bridge.send(ClientMessage.getDiff(projectPath));
+  }
+
   /// Merge image change data from the server into parsed diff files.
+  ///
+  /// For each image file, checks the in-memory cache first. If the cache
+  /// contains matching bytes (same oldSize/newSize), the cached bytes are
+  /// restored immediately so the image renders without a network round-trip.
   List<DiffFile> _mergeImageChanges(
     List<DiffFile> files,
     List<DiffImageChange> imageChanges,
   ) {
     if (imageChanges.isEmpty) return files;
 
+    final projectPath = _projectPath;
     final imageMap = <String, DiffImageChange>{
       for (final ic in imageChanges) ic.filePath: ic,
     };
@@ -95,11 +111,37 @@ class DiffViewCubit extends Cubit<DiffViewState> {
       final ic = imageMap[file.filePath];
       if (ic == null) return file;
 
-      // Auto-display (≤ auto threshold): loaded=true even if base64 is missing
-      // (server may fail to read but we don't want "tap to load" for small files).
-      // On-demand (loadable): loaded=false until explicitly fetched.
-      final hasAnyData = ic.oldBase64 != null || ic.newBase64 != null;
-      final isAutoDisplay = !ic.loadable && hasAnyData;
+      // Check cache: if sizes match, restore bytes without network request.
+      if (projectPath != null) {
+        final cached = _bridge.getDiffImageCache(projectPath, file.filePath);
+        if (cached != null &&
+            cached.oldSize == ic.oldSize &&
+            cached.newSize == ic.newSize) {
+          final imageData = DiffImageData(
+            oldSize: ic.oldSize,
+            newSize: ic.newSize,
+            oldBytes: cached.oldBytes,
+            newBytes: cached.newBytes,
+            mimeType: ic.mimeType,
+            isSvg: ic.isSvg,
+            loadable: ic.loadable,
+            loaded: true,
+            autoDisplay: ic.autoDisplay,
+          );
+          return DiffFile(
+            filePath: file.filePath,
+            hunks: file.hunks,
+            isBinary: file.isBinary,
+            isNewFile: file.isNewFile,
+            isDeleted: file.isDeleted,
+            isImage: true,
+            imageData: imageData,
+          );
+        }
+      }
+
+      // No cache hit — use embedded data or leave for lazy loading.
+      final hasEmbeddedData = ic.oldBase64 != null || ic.newBase64 != null;
 
       final imageData = DiffImageData(
         oldSize: ic.oldSize,
@@ -109,7 +151,8 @@ class DiffViewCubit extends Cubit<DiffViewState> {
         mimeType: ic.mimeType,
         isSvg: ic.isSvg,
         loadable: ic.loadable,
-        loaded: isAutoDisplay,
+        loaded: hasEmbeddedData,
+        autoDisplay: ic.autoDisplay,
       );
 
       return DiffFile(
@@ -124,13 +167,15 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     }).toList();
   }
 
-  /// Load image data on demand (for images between auto-display and max thresholds).
+  /// Load image data on demand (for loadable or auto-display images).
   void loadImage(int fileIdx) {
     final projectPath = _projectPath;
     if (projectPath == null) return;
     if (fileIdx >= state.files.length) return;
     final file = state.files[fileIdx];
-    if (file.imageData == null || !file.imageData!.loadable) return;
+    final imageData = file.imageData;
+    if (imageData == null || !imageData.loadable) return;
+    if (imageData.loaded) return;
     if (state.loadingImageIndices.contains(fileIdx)) return;
 
     emit(
@@ -139,16 +184,9 @@ class DiffViewCubit extends Cubit<DiffViewState> {
       ),
     );
 
-    if (!file.isDeleted) {
-      _bridge.send(
-        ClientMessage.getDiffImage(projectPath, file.filePath, 'new'),
-      );
-    }
-    if (!file.isNewFile) {
-      _bridge.send(
-        ClientMessage.getDiffImage(projectPath, file.filePath, 'old'),
-      );
-    }
+    _bridge.send(
+      ClientMessage.getDiffImage(projectPath, file.filePath, 'both'),
+    );
   }
 
   void _onDiffImageResult(DiffImageResultMessage result) {
@@ -160,27 +198,59 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     final existing = file.imageData;
     if (existing == null) return;
 
-    Uint8List? bytes;
-    if (result.base64 != null) {
-      bytes = base64Decode(result.base64!);
-    }
+    DiffImageData updated;
+    bool removeFromLoading;
 
-    final updated = result.version == 'old'
-        ? existing.copyWith(oldBytes: bytes, loaded: true)
-        : existing.copyWith(newBytes: bytes, loaded: true);
+    if (result.version == 'both') {
+      // Both old and new in a single response — always complete
+      final oldBytes = result.oldBase64 != null
+          ? base64Decode(result.oldBase64!)
+          : null;
+      final newBytes = result.newBase64 != null
+          ? base64Decode(result.newBase64!)
+          : null;
+      updated = existing.copyWith(
+        oldBytes: oldBytes,
+        newBytes: newBytes,
+        loaded: true,
+      );
+      removeFromLoading = true;
+    } else {
+      Uint8List? bytes;
+      if (result.base64 != null) {
+        bytes = base64Decode(result.base64!);
+      }
+      updated = result.version == 'old'
+          ? existing.copyWith(oldBytes: bytes, loaded: true)
+          : existing.copyWith(newBytes: bytes, loaded: true);
+
+      // Check if both sides are loaded (or not needed)
+      removeFromLoading =
+          (file.isNewFile || updated.oldBytes != null) &&
+          (file.isDeleted || updated.newBytes != null);
+    }
 
     final newFiles = List<DiffFile>.from(files);
     newFiles[idx] = file.copyWithImageData(updated);
 
-    // Check if both sides are loaded (or not needed)
-    final bothLoaded =
-        (file.isNewFile || updated.oldBytes != null) &&
-        (file.isDeleted || updated.newBytes != null);
+    // Persist loaded image bytes to in-memory cache for instant reuse.
+    if (removeFromLoading && _projectPath != null) {
+      _bridge.setDiffImageCache(
+        _projectPath,
+        file.filePath,
+        DiffImageCacheEntry(
+          oldSize: updated.oldSize,
+          newSize: updated.newSize,
+          oldBytes: updated.oldBytes,
+          newBytes: updated.newBytes,
+        ),
+      );
+    }
 
     emit(
       state.copyWith(
         files: newFiles,
-        loadingImageIndices: bothLoaded
+        loadingImageIndices: removeFromLoading
             ? (Set<int>.from(state.loadingImageIndices)..remove(idx))
             : state.loadingImageIndices,
       ),

@@ -1010,6 +1010,12 @@ abstract class AppLocalizations {
   /// **'選択して添付'**
   String get selectAndAttach;
 
+  /// No description provided for @refresh.
+  ///
+  /// In ja, this message translates to:
+  /// **'更新'**
+  String get refresh;
+
   /// No description provided for @filterFiles.
   ///
   /// In ja, this message translates to:

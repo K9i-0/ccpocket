@@ -237,6 +237,7 @@
   "changes": "変更",
   "cancelSelection": "選択をキャンセル",
   "selectAndAttach": "選択して添付",
+  "refresh": "更新",
   "filterFiles": "ファイルをフィルター",
   "attachFilesAndHunks": "添付 {files} ファイル, {hunks} ハンク",
   "@attachFilesAndHunks": {

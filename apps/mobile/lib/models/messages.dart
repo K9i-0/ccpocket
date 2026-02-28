@@ -470,6 +470,8 @@ sealed class ServerMessage {
         base64: json['base64'] as String?,
         mimeType: json['mimeType'] as String?,
         error: json['error'] as String?,
+        oldBase64: json['oldBase64'] as String?,
+        newBase64: json['newBase64'] as String?,
       ),
       'worktree_list' => WorktreeListMessage(
         worktrees: (json['worktrees'] as List)
@@ -933,6 +935,7 @@ class DiffImageChange {
   final String? newBase64;
   final String mimeType;
   final bool loadable;
+  final bool autoDisplay;
 
   const DiffImageChange({
     required this.filePath,
@@ -945,6 +948,7 @@ class DiffImageChange {
     this.newBase64,
     required this.mimeType,
     this.loadable = false,
+    this.autoDisplay = false,
   });
 
   factory DiffImageChange.fromJson(Map<String, dynamic> json) =>
@@ -959,6 +963,7 @@ class DiffImageChange {
         newBase64: json['newBase64'] as String?,
         mimeType: json['mimeType'] as String? ?? 'application/octet-stream',
         loadable: json['loadable'] as bool? ?? false,
+        autoDisplay: json['autoDisplay'] as bool? ?? false,
       );
 }
 
@@ -979,12 +984,19 @@ class DiffImageResultMessage implements ServerMessage {
   final String? base64;
   final String? mimeType;
   final String? error;
+
+  /// For version="both": old/new base64 in a single response.
+  final String? oldBase64;
+  final String? newBase64;
+
   const DiffImageResultMessage({
     required this.filePath,
     required this.version,
     this.base64,
     this.mimeType,
     this.error,
+    this.oldBase64,
+    this.newBase64,
   });
 }
 

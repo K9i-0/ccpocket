@@ -16,10 +16,11 @@ String _formatFileSize(int bytes) {
 /// Side-by-side image comparison widget for the diff screen.
 ///
 /// Display modes based on image size (thresholds configured on Bridge server):
-/// 1. Auto-display (≤ auto threshold): images shown inline.
+/// 1. Auto-display loading (≤ auto threshold, not yet loaded): auto-triggers load.
 /// 2. Tap to load (auto threshold – max size): placeholder with load button.
 /// 3. Text only (> max size): size info only.
-class DiffImageWidget extends StatelessWidget {
+/// 4. Loaded: side-by-side comparison.
+class DiffImageWidget extends StatefulWidget {
   final DiffFile file;
   final DiffImageData imageData;
   final VoidCallback? onLoadRequested;
@@ -34,29 +35,96 @@ class DiffImageWidget extends StatelessWidget {
   });
 
   @override
+  State<DiffImageWidget> createState() => _DiffImageWidgetState();
+}
+
+class _DiffImageWidgetState extends State<DiffImageWidget> {
+  bool _autoLoadTriggered = false;
+
+  @override
+  void didUpdateWidget(DiffImageWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reset trigger if the file changed
+    if (oldWidget.file.filePath != widget.file.filePath) {
+      _autoLoadTriggered = false;
+    }
+  }
+
+  void _triggerAutoLoad() {
+    if (_autoLoadTriggered) return;
+    _autoLoadTriggered = true;
+    // Schedule after frame to avoid calling during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        widget.onLoadRequested?.call();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final imageData = widget.imageData;
 
-    // Not loadable and no data → image too large or unavailable
-    if (!imageData.loaded && !imageData.loadable) {
-      return _TextOnlyNotice(imageData: imageData, appColors: appColors);
-    }
-
-    // Loadable but not yet loaded → tap to load
-    if (!imageData.loaded && imageData.loadable) {
-      return _TapToLoadNotice(
+    // Loaded → show side-by-side comparison
+    if (imageData.loaded) {
+      return _SideBySideView(
+        file: widget.file,
         imageData: imageData,
         appColors: appColors,
-        onLoadRequested: onLoadRequested,
-        loading: loading,
       );
     }
 
-    // Loaded → show side-by-side comparison
-    return _SideBySideView(
-      file: file,
+    // Not loadable → image too large or unavailable
+    if (!imageData.loadable) {
+      return _TextOnlyNotice(imageData: imageData, appColors: appColors);
+    }
+
+    // Auto-display: trigger load automatically when widget is built
+    if (imageData.autoDisplay) {
+      _triggerAutoLoad();
+      return _AutoLoadPlaceholder(imageData: imageData, appColors: appColors);
+    }
+
+    // Loadable but not auto-display → tap to load
+    return _TapToLoadNotice(
       imageData: imageData,
       appColors: appColors,
+      onLoadRequested: widget.onLoadRequested,
+      loading: widget.loading,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto-load placeholder (auto-display images loading in background)
+// ---------------------------------------------------------------------------
+
+class _AutoLoadPlaceholder extends StatelessWidget {
+  final DiffImageData imageData;
+  final AppColors appColors;
+
+  const _AutoLoadPlaceholder({
+    required this.imageData,
+    required this.appColors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(height: 8),
+          _SizeInfoRow(imageData: imageData, appColors: appColors),
+        ],
+      ),
     );
   }
 }

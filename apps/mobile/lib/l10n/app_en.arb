@@ -171,6 +171,7 @@
   "changes": "Changes",
   "cancelSelection": "Cancel selection",
   "selectAndAttach": "Select & attach",
+  "refresh": "Refresh",
   "filterFiles": "Filter files",
   "attachFilesAndHunks": "Attach {files} file(s), {hunks} hunk(s)",
   "filterFilesTitle": "Filter Files",

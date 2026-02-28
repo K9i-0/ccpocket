@@ -98,6 +98,13 @@ class _DiffScreenBody extends StatelessWidget {
               onPressed: () =>
                   _showFilterBottomSheet(context, appColors, cubit),
             ),
+          // Refresh (projectPath mode only, hidden during selection/loading)
+          if (cubit.canRefresh && !state.selectionMode && !state.loading)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: l.refresh,
+              onPressed: cubit.refresh,
+            ),
         ],
       ),
       floatingActionButton: state.selectionMode && cubit.hasAnySelection

@@ -31,11 +31,15 @@ class DiffImageData {
   final String mimeType;
   final bool isSvg;
 
-  /// Whether the image can be loaded on demand (200KB–2MB range).
+  /// Whether the image can be loaded on demand.
   final bool loadable;
 
   /// Whether on-demand data has been fetched.
   final bool loaded;
+
+  /// Whether the image qualifies for auto-display (≤ auto threshold).
+  /// These images are loaded automatically when the widget becomes visible.
+  final bool autoDisplay;
 
   const DiffImageData({
     this.oldSize,
@@ -46,6 +50,7 @@ class DiffImageData {
     this.isSvg = false,
     this.loadable = false,
     this.loaded = false,
+    this.autoDisplay = false,
   });
 
   /// Create a copy with updated fields.
@@ -58,6 +63,7 @@ class DiffImageData {
     bool? isSvg,
     bool? loadable,
     bool? loaded,
+    bool? autoDisplay,
   }) => DiffImageData(
     oldSize: oldSize ?? this.oldSize,
     newSize: newSize ?? this.newSize,
@@ -67,6 +73,7 @@ class DiffImageData {
     isSvg: isSvg ?? this.isSvg,
     loadable: loadable ?? this.loadable,
     loaded: loaded ?? this.loaded,
+    autoDisplay: autoDisplay ?? this.autoDisplay,
   );
 }
 

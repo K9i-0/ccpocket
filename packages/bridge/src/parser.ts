@@ -103,7 +103,7 @@ export type ClientMessage =
   | { type: "list_gallery"; project?: string; sessionId?: string }
   | { type: "list_files"; projectPath: string }
   | { type: "get_diff"; projectPath: string }
-  | { type: "get_diff_image"; projectPath: string; filePath: string; version: "old" | "new" }
+  | { type: "get_diff_image"; projectPath: string; filePath: string; version: "old" | "new" | "both" }
   | { type: "interrupt"; sessionId?: string }
   | { type: "list_project_history" }
   | { type: "remove_project_history"; projectPath: string }
@@ -131,13 +131,15 @@ export interface ImageChange {
   isSvg: boolean;
   oldSize?: number;
   newSize?: number;
-  /** Base64-encoded old image (included only when size ≤ 200KB). */
+  /** Base64-encoded old image (included only for on-demand loads). */
   oldBase64?: string;
-  /** Base64-encoded new image (included only when size ≤ 200KB). */
+  /** Base64-encoded new image (included only for on-demand loads). */
   newBase64?: string;
   mimeType: string;
-  /** Whether the image can be loaded on demand (200KB–2MB range). */
+  /** Whether the image can be loaded on demand (auto-display or loadable range). */
   loadable: boolean;
+  /** Whether the image qualifies for auto-display (≤ auto threshold). */
+  autoDisplay?: boolean;
 }
 
 export interface DebugTraceEvent {
@@ -193,7 +195,7 @@ export type ServerMessage =
   | { type: "file_list"; files: string[] }
   | { type: "project_history"; projects: string[] }
   | { type: "diff_result"; diff: string; error?: string; imageChanges?: ImageChange[] }
-  | { type: "diff_image_result"; filePath: string; version: "old" | "new"; base64?: string; mimeType?: string; error?: string }
+  | { type: "diff_image_result"; filePath: string; version: "old" | "new" | "both"; base64?: string; mimeType?: string; error?: string; oldBase64?: string; newBase64?: string }
   | { type: "worktree_list"; worktrees: WorktreeInfo[]; mainBranch?: string }
   | { type: "worktree_removed"; worktreePath: string }
   | { type: "tool_use_summary"; summary: string; precedingToolUseIds: string[] }
@@ -391,7 +393,7 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "get_diff_image":
         if (typeof msg.projectPath !== "string") return null;
         if (typeof msg.filePath !== "string") return null;
-        if (msg.version !== "old" && msg.version !== "new") return null;
+        if (msg.version !== "old" && msg.version !== "new" && msg.version !== "both") return null;
         break;
       case "interrupt":
         break;

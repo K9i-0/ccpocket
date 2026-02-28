@@ -498,6 +498,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectAndAttach => 'Select & attach';
 
   @override
+  String get refresh => 'Refresh';
+
+  @override
   String get filterFiles => 'Filter files';
 
   @override

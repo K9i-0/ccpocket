@@ -493,6 +493,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get selectAndAttach => '選択して添付';
 
   @override
+  String get refresh => '更新';
+
+  @override
   String get filterFiles => 'ファイルをフィルター';
 
   @override

@@ -1,8 +1,9 @@
 import type { Server as HttpServer } from "node:http";
 import { execFile, execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
-import { unlink } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import { resolve, extname } from "node:path";
+import { promisify } from "node:util";
 import { WebSocketServer, WebSocket } from "ws";
 import { SessionManager, type SessionInfo } from "./session.js";
 import { SdkProcess } from "./sdk-process.js";
@@ -1091,8 +1092,38 @@ export class BridgeWebSocketServer {
       }
 
       case "get_diff_image": {
-        const result = this.loadDiffImage(msg.projectPath, msg.filePath, msg.version);
-        this.send(ws, { type: "diff_image_result", filePath: msg.filePath, version: msg.version, ...result });
+        if (msg.version === "both") {
+          void (async () => {
+            try {
+              const [oldResult, newResult] = await Promise.all([
+                this.loadDiffImageAsync(msg.projectPath, msg.filePath, "old"),
+                this.loadDiffImageAsync(msg.projectPath, msg.filePath, "new"),
+              ]);
+              const errors = [oldResult.error, newResult.error].filter(Boolean);
+              this.send(ws, {
+                type: "diff_image_result",
+                filePath: msg.filePath,
+                version: "both" as const,
+                oldBase64: oldResult.base64,
+                newBase64: newResult.base64,
+                mimeType: oldResult.mimeType ?? newResult.mimeType,
+                ...(errors.length > 0 ? { error: errors.join("; ") } : {}),
+              });
+            } catch {
+              // WebSocket may have closed; ignore send errors.
+            }
+          })();
+        } else {
+          const version = msg.version as "old" | "new";
+          void (async () => {
+            try {
+              const result = await this.loadDiffImageAsync(msg.projectPath, msg.filePath, version);
+              this.send(ws, { type: "diff_image_result", filePath: msg.filePath, version, ...result });
+            } catch {
+              // WebSocket may have closed; ignore send errors.
+            }
+          })();
+        }
         break;
       }
 
@@ -1809,8 +1840,6 @@ export class BridgeWebSocketServer {
     if (entries.length === 0) return [];
 
     // Phase 2: Read image data asynchronously
-    const { readFile } = await import("node:fs/promises");
-    const { promisify } = await import("node:util");
     const execFileAsync = promisify(execFile);
 
     const changes: ImageChange[] = [];
@@ -1849,7 +1878,7 @@ export class BridgeWebSocketServer {
       const maxSize = Math.max(oldSize ?? 0, newSize ?? 0);
 
       const autoDisplay = maxSize <= BridgeWebSocketServer.AUTO_DISPLAY_THRESHOLD;
-      const loadable = !autoDisplay && maxSize <= BridgeWebSocketServer.MAX_IMAGE_SIZE;
+      const loadable = autoDisplay || maxSize <= BridgeWebSocketServer.MAX_IMAGE_SIZE;
 
       const change: ImageChange = {
         filePath: entry.filePath,
@@ -1858,15 +1887,14 @@ export class BridgeWebSocketServer {
         isSvg: entry.isSvg,
         mimeType: entry.mimeType,
         loadable,
+        autoDisplay: autoDisplay || undefined,
       };
 
       if (oldSize !== undefined) change.oldSize = oldSize;
       if (newSize !== undefined) change.newSize = newSize;
 
-      if (autoDisplay) {
-        if (oldBuf) change.oldBase64 = oldBuf.toString("base64");
-        if (newBuf) change.newBase64 = newBuf.toString("base64");
-      }
+      // Auto-display images are no longer embedded in the initial response.
+      // They are loaded on-demand when the Flutter widget becomes visible.
 
       changes.push(change);
     }
@@ -1875,13 +1903,13 @@ export class BridgeWebSocketServer {
   }
 
   /**
-   * Load a single diff image on demand (for images between auto-display and max thresholds).
+   * Load a single diff image on demand (async I/O for better throughput).
    */
-  private loadDiffImage(
+  private async loadDiffImageAsync(
     cwd: string,
     filePath: string,
     version: "old" | "new",
-  ): { base64?: string; mimeType?: string; error?: string } {
+  ): Promise<{ base64?: string; mimeType?: string; error?: string }> {
     // Path traversal guard: reject paths containing '..' or absolute paths
     if (filePath.includes("..") || filePath.startsWith("/")) {
       return { error: "Invalid file path" };
@@ -1894,20 +1922,23 @@ export class BridgeWebSocketServer {
     const mimeType = BridgeWebSocketServer.mimeTypeForExt(ext);
 
     try {
+      const execFileAsync = promisify(execFile);
+
       let buf: Buffer;
       if (version === "old") {
-        buf = execFileSync("git", ["show", `HEAD:${filePath}`], {
+        const result = await execFileAsync("git", ["show", `HEAD:${filePath}`], {
           cwd,
           maxBuffer: BridgeWebSocketServer.MAX_IMAGE_SIZE + 1024,
           encoding: "buffer",
-        }) as unknown as Buffer;
+        });
+        buf = result.stdout as unknown as Buffer;
       } else {
         const absPath = resolve(cwd, filePath);
         // Verify resolved path stays within cwd
         if (!absPath.startsWith(resolve(cwd) + "/")) {
           return { error: "Invalid file path" };
         }
-        buf = readFileSync(absPath);
+        buf = await readFile(absPath);
       }
 
       if (buf.length > BridgeWebSocketServer.MAX_IMAGE_SIZE) {

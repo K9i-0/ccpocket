@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -54,6 +55,10 @@ class BridgeService implements BridgeServiceBase {
   List<GalleryImage> _galleryImages = [];
   List<String> _projectHistory = [];
   UsageResultMessage? _lastUsageResult;
+
+  // Diff image cache: survives screen navigation, cleared on session stop.
+  // Key: "$projectPath\n$filePath"
+  final _diffImageCache = <String, DiffImageCacheEntry>{};
 
   // Pagination & filter state
   bool _recentSessionsHasMore = false;
@@ -449,6 +454,7 @@ class BridgeService implements BridgeServiceBase {
   @override
   void stopSession(String sessionId) {
     send(ClientMessage.stopSession(sessionId));
+    clearDiffImageCache();
   }
 
   /// Rename a session. For running sessions, [sessionId] is the bridge id.
@@ -782,7 +788,31 @@ class BridgeService implements BridgeServiceBase {
     _channel?.sink.close();
     _channel = null;
     _setBridgeConnectionState(BridgeConnectionState.disconnected);
+    clearDiffImageCache();
   }
+
+  // ---------------------------------------------------------------------------
+  // Diff image cache
+  // ---------------------------------------------------------------------------
+
+  static String _diffImageCacheKey(String projectPath, String filePath) =>
+      '$projectPath\n$filePath';
+
+  /// Retrieve cached image bytes for a diff file.
+  DiffImageCacheEntry? getDiffImageCache(String projectPath, String filePath) =>
+      _diffImageCache[_diffImageCacheKey(projectPath, filePath)];
+
+  /// Store image bytes in the diff cache.
+  void setDiffImageCache(
+    String projectPath,
+    String filePath,
+    DiffImageCacheEntry entry,
+  ) {
+    _diffImageCache[_diffImageCacheKey(projectPath, filePath)] = entry;
+  }
+
+  /// Clear all cached diff images.
+  void clearDiffImageCache() => _diffImageCache.clear();
 
   void dispose() {
     _intentionalDisconnect = true;
@@ -809,5 +839,21 @@ class BridgeService implements BridgeServiceBase {
     _backupResultController.close();
     _restoreResultController.close();
     _backupInfoController.close();
+    clearDiffImageCache();
   }
+}
+
+/// Cached diff image data for a single file.
+class DiffImageCacheEntry {
+  final int? oldSize;
+  final int? newSize;
+  final Uint8List? oldBytes;
+  final Uint8List? newBytes;
+
+  const DiffImageCacheEntry({
+    this.oldSize,
+    this.newSize,
+    this.oldBytes,
+    this.newBytes,
+  });
 }
