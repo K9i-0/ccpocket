@@ -541,6 +541,40 @@ const HTML_PAGE = `<!DOCTYPE html>
       }
     }
 
+    // --- Frame rendering with drop logic ---
+    // Only render one frame at a time; if a new frame arrives while
+    // the previous is still decoding, keep only the latest and drop the rest.
+    let rendering = false;
+    let pendingFrame = null;
+
+    function renderFrame(data) {
+      if (rendering) {
+        // Drop previous pending, keep only latest
+        pendingFrame = data;
+        return;
+      }
+      rendering = true;
+      const blob = new Blob([data], { type: 'image/jpeg' });
+      createImageBitmap(blob).then(bmp => {
+        if (canvas.width !== bmp.width || canvas.height !== bmp.height) {
+          canvas.width = bmp.width;
+          canvas.height = bmp.height;
+          canvasW = bmp.width;
+          canvasH = bmp.height;
+        }
+        ctx.drawImage(bmp, 0, 0);
+        bmp.close();
+        countFrame();
+        rendering = false;
+        // If a newer frame arrived during decode, render it now
+        if (pendingFrame) {
+          const next = pendingFrame;
+          pendingFrame = null;
+          renderFrame(next);
+        }
+      }).catch(() => { rendering = false; });
+    }
+
     // --- WebSocket (video + input on single connection) ---
     let ws;
     function connectWS() {
@@ -554,19 +588,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 
       ws.onmessage = (e) => {
         if (e.data instanceof ArrayBuffer) {
-          // Binary = JPEG frame from server
-          const blob = new Blob([e.data], { type: 'image/jpeg' });
-          createImageBitmap(blob).then(bmp => {
-            if (canvas.width !== bmp.width || canvas.height !== bmp.height) {
-              canvas.width = bmp.width;
-              canvas.height = bmp.height;
-              canvasW = bmp.width;
-              canvasH = bmp.height;
-            }
-            ctx.drawImage(bmp, 0, 0);
-            bmp.close();
-            countFrame();
-          });
+          renderFrame(e.data);
         } else {
           // Text = JSON control message
           try {
