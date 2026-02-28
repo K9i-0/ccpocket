@@ -24,6 +24,8 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onDedent;
   final bool canDedent;
   final VoidCallback onSlashCommand;
+  final VoidCallback onMention;
+  final bool isInMentionContext;
   final VoidCallback? onShowPromptHistory;
   final VoidCallback? onAttachImage;
   final List<({Uint8List bytes, String mimeType})> attachedImages;
@@ -49,6 +51,8 @@ class ChatInputBar extends StatelessWidget {
     required this.onDedent,
     this.canDedent = true,
     required this.onSlashCommand,
+    required this.onMention,
+    this.isInMentionContext = false,
     this.onShowPromptHistory,
     this.onAttachImage,
     this.attachedImages = const [],
@@ -113,6 +117,8 @@ class ChatInputBar extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               _IndentButton(onTap: onIndent),
+              const SizedBox(width: 8),
+              _MentionButton(onTap: onMention, enabled: !isInMentionContext),
               const SizedBox(width: 8),
               _AttachButton(
                 hasAttachment: attachedImages.isNotEmpty,
@@ -238,6 +244,46 @@ class _SlashCommandButton extends StatelessWidget {
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: cs.primary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MentionButton extends StatelessWidget {
+  const _MentionButton({required this.onTap, required this.enabled});
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    return Tooltip(
+      message: l.tooltipMention,
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.4,
+        child: Material(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            key: const ValueKey('mention_button'),
+            borderRadius: BorderRadius.circular(20),
+            onTap: enabled ? onTap : null,
+            child: Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              child: Text(
+                '@',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: cs.primary,
+                ),
               ),
             ),
           ),

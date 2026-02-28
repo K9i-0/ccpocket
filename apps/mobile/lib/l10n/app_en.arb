@@ -415,6 +415,7 @@
   "tooltipIndent": "Indent",
   "tooltipDedent": "Dedent",
   "tooltipSlashCommand": "Slash commands",
+  "tooltipMention": "Mention file",
   "tooltipPermissionMode": "Permission mode",
   "tooltipAttachImage": "Attach image",
   "tooltipPromptHistory": "Prompt history",

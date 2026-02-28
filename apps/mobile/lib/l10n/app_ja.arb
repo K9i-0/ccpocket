@@ -497,6 +497,7 @@
   "tooltipIndent": "インデント",
   "tooltipDedent": "インデント解除",
   "tooltipSlashCommand": "スラッシュコマンド",
+  "tooltipMention": "ファイルをメンション",
   "tooltipPermissionMode": "パーミッションモード",
   "tooltipAttachImage": "画像を添付",
   "tooltipPromptHistory": "プロンプト履歴",

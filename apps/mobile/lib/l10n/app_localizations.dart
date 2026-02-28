@@ -2096,6 +2096,12 @@ abstract class AppLocalizations {
   /// **'スラッシュコマンド'**
   String get tooltipSlashCommand;
 
+  /// No description provided for @tooltipMention.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルをメンション'**
+  String get tooltipMention;
+
   /// No description provided for @tooltipPermissionMode.
   ///
   /// In ja, this message translates to:

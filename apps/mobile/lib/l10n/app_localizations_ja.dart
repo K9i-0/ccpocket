@@ -1071,6 +1071,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tooltipSlashCommand => 'スラッシュコマンド';
 
   @override
+  String get tooltipMention => 'ファイルをメンション';
+
+  @override
   String get tooltipPermissionMode => 'パーミッションモード';
 
   @override

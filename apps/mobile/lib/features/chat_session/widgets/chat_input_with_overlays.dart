@@ -69,6 +69,7 @@ class ChatInputWithOverlays extends HookWidget {
 
     // Track if input is completely empty (for slash command button swap)
     final isInputEmpty = useState(inputController.text.isEmpty);
+    final isInMentionContext = useState(false);
 
     // List auto-complete (Google Keep-style)
     useListAutoComplete(inputController);
@@ -162,6 +163,11 @@ class ChatInputWithOverlays extends HookWidget {
             text,
             inputController.selection.baseOffset,
           );
+          // Track whether cursor is in @-mention context (for button state)
+          final inMention = mentionQuery != null;
+          if (inMention != isInMentionContext.value) {
+            isInMentionContext.value = inMention;
+          }
           if (mentionQuery != null && projectFiles.isNotEmpty) {
             final q = mentionQuery.toLowerCase();
             final filtered = projectFiles
@@ -211,6 +217,21 @@ class ChatInputWithOverlays extends HookWidget {
       inputController.selection = TextSelection.fromPosition(
         const TextPosition(offset: 1),
       );
+    }
+
+    void insertMention() {
+      final text = inputController.text;
+      final cursorPos = inputController.selection.baseOffset;
+      final pos = cursorPos < 0 ? text.length : cursorPos;
+      final before = text.substring(0, pos);
+      final after = text.substring(pos);
+      // Insert space before @ if preceded by a non-whitespace character
+      final needSpace = before.isNotEmpty && !RegExp(r'\s$').hasMatch(before);
+      final insertion = needSpace ? ' @' : '@';
+      final newText = '$before$insertion$after';
+      final newCursor = pos + insertion.length;
+      inputController.text = newText;
+      inputController.selection = TextSelection.collapsed(offset: newCursor);
     }
 
     // Callbacks
@@ -582,6 +603,8 @@ class ChatInputWithOverlays extends HookWidget {
             onDedent: dedent,
             canDedent: canDedent.value,
             onSlashCommand: insertSlashPrefix,
+            onMention: insertMention,
+            isInMentionContext: isInMentionContext.value,
             onShowPromptHistory: showPromptHistory,
             onAttachImage: showAttachOptions,
             attachedImages: attachedImages.value,

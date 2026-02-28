@@ -1085,6 +1085,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tooltipSlashCommand => 'Slash commands';
 
   @override
+  String get tooltipMention => 'Mention file';
+
+  @override
   String get tooltipPermissionMode => 'Permission mode';
 
   @override

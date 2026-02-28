@@ -30,6 +30,8 @@ void main() {
     VoidCallback? onDedent,
     bool canDedent = true,
     VoidCallback? onSlashCommand,
+    VoidCallback? onMention,
+    bool isInMentionContext = false,
   }) {
     return MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -51,6 +53,8 @@ void main() {
           onDedent: onDedent ?? () {},
           canDedent: canDedent,
           onSlashCommand: onSlashCommand ?? () {},
+          onMention: onMention ?? () {},
+          isInMentionContext: isInMentionContext,
         ),
       ),
     );
@@ -239,6 +243,54 @@ void main() {
       );
 
       expect(find.byKey(const ValueKey('send_button')), findsOneWidget);
+    });
+
+    group('mention button (@)', () {
+      testWidgets('mention button exists between indent and attach', (
+        tester,
+      ) async {
+        await tester.pumpWidget(buildSubject());
+
+        // All three buttons should be present
+        final indentFinder = find.byKey(const ValueKey('indent_button'));
+        final mentionFinder = find.byKey(const ValueKey('mention_button'));
+        final attachFinder = find.byKey(const ValueKey('attach_image_button'));
+
+        expect(indentFinder, findsOneWidget);
+        expect(mentionFinder, findsOneWidget);
+        expect(attachFinder, findsOneWidget);
+
+        // Verify order: indent center.dx < mention center.dx < attach center.dx
+        final indentCenter = tester.getCenter(indentFinder);
+        final mentionCenter = tester.getCenter(mentionFinder);
+        final attachCenter = tester.getCenter(attachFinder);
+        expect(mentionCenter.dx, greaterThan(indentCenter.dx));
+        expect(mentionCenter.dx, lessThan(attachCenter.dx));
+      });
+
+      testWidgets('mention button fires callback on tap', (tester) async {
+        var tapped = false;
+        await tester.pumpWidget(buildSubject(onMention: () => tapped = true));
+
+        await tester.tap(find.byKey(const ValueKey('mention_button')));
+        expect(tapped, isTrue);
+      });
+
+      testWidgets(
+        'mention button is disabled when isInMentionContext is true',
+        (tester) async {
+          var tapped = false;
+          await tester.pumpWidget(
+            buildSubject(
+              isInMentionContext: true,
+              onMention: () => tapped = true,
+            ),
+          );
+
+          await tester.tap(find.byKey(const ValueKey('mention_button')));
+          expect(tapped, isFalse);
+        },
+      );
     });
 
     group('slash command button (input empty swap)', () {
