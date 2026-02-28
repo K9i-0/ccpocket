@@ -214,7 +214,7 @@ class _AttachButton extends StatelessWidget {
                         ),
                     ],
                   )
-                : Icon(Icons.attach_file, size: 18, color: cs.primary),
+                : Icon(Icons.image_outlined, size: 18, color: cs.primary),
           ),
         ),
       ),

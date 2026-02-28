@@ -521,7 +521,7 @@ class _CodexChatBody extends HookWidget {
                       key: ValueKey('menu_message_history'),
                       value: 'history',
                       child: ListTile(
-                        leading: Icon(Icons.history, size: 20),
+                        leading: Icon(Icons.chat_outlined, size: 20),
                         title: Text('Message History'),
                         dense: true,
                         contentPadding: EdgeInsets.zero,

@@ -564,7 +564,7 @@ class _ChatScreenBody extends HookWidget {
                       key: const ValueKey('menu_message_history'),
                       value: 'history',
                       child: ListTile(
-                        leading: const Icon(Icons.history, size: 20),
+                        leading: const Icon(Icons.chat_outlined, size: 20),
                         title: Text(l.messageHistory),
                         dense: true,
                         contentPadding: EdgeInsets.zero,
