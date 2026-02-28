@@ -31,6 +31,7 @@ import '../chat_session/widgets/branch_chip.dart';
 import '../chat_session/widgets/chat_input_with_overlays.dart';
 import '../chat_session/widgets/chat_message_list.dart';
 import '../chat_session/widgets/reconnect_banner.dart';
+import '../chat_session/widgets/session_mode_bar.dart';
 import '../chat_session/widgets/status_indicator.dart';
 import '../../router/app_router.dart';
 import '../claude_session/widgets/rewind_message_list_sheet.dart'
@@ -460,72 +461,24 @@ class _CodexChatBody extends HookWidget {
                 projectPath: projectPath,
               ),
               actions: [
-                IconButton(
-                  key: const ValueKey('codex_message_history_button'),
-                  icon: const Icon(Icons.history, size: 18),
-                  tooltip: 'Message History',
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
+                // Permission mode chip (moved from SessionModeBar)
+                PermissionModeChip(
+                  currentMode: sessionState.permissionMode,
+                  onTap: () => showPermissionModeMenu(
+                    context,
+                    context.read<ChatSessionCubit>(),
                   ),
-                  onPressed: () =>
-                      _showUserMessageHistory(context, scrollToUserEntry),
                 ),
-                // View Changes
-                if (projectPath != null)
-                  IconButton(
-                    icon: const Icon(Icons.difference, size: 18),
-                    tooltip: 'View Changes',
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                    onPressed: () => _openDiffScreen(
+                // Sandbox mode chip (Codex only)
+                if (context.read<ChatSessionCubit>().isCodex)
+                  SandboxModeChip(
+                    currentMode: sessionState.sandboxMode,
+                    onTap: () => showSandboxModeMenu(
                       context,
-                      worktreePath ?? projectPath!,
-                      diffSelectionFromNav,
-                      existingSelection: diffSelectionFromNav.value,
+                      context.read<ChatSessionCubit>(),
                     ),
                   ),
-                // Screenshot
-                if (projectPath != null)
-                  IconButton(
-                    icon: const Icon(Icons.screenshot_monitor, size: 18),
-                    tooltip: 'Screenshot',
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                    onPressed: () {
-                      showScreenshotSheet(
-                        context: context,
-                        bridge: context.read<BridgeService>(),
-                        projectPath: projectPath!,
-                        sessionId: sessionId,
-                      );
-                    },
-                  ),
-                // Gallery
-                IconButton(
-                  key: const ValueKey('gallery_button'),
-                  icon: const Icon(Icons.collections, size: 18),
-                  tooltip: 'Gallery',
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  onPressed: () {
-                    context.router.push(GalleryRoute(sessionId: sessionId));
-                  },
-                ),
+                // Branch chip
                 if (projectPath != null)
                   BranchChip(
                     branchName: gitBranch,
@@ -540,12 +493,87 @@ class _CodexChatBody extends HookWidget {
                     },
                   ),
                 // Status indicator
-                // Long press to copy debug bundle for agent
                 StatusIndicator(
                   status: status,
                   inPlanMode: inPlanMode,
                   onLongPress: () =>
                       copyDebugBundleForAgent(context, sessionId),
+                ),
+                // Overflow menu
+                PopupMenuButton<String>(
+                  key: const ValueKey('session_overflow_menu'),
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'history':
+                        _showUserMessageHistory(context, scrollToUserEntry);
+                      case 'diff':
+                        _openDiffScreen(
+                          context,
+                          worktreePath ?? projectPath!,
+                          diffSelectionFromNav,
+                          existingSelection: diffSelectionFromNav.value,
+                        );
+                      case 'screenshot':
+                        showScreenshotSheet(
+                          context: context,
+                          bridge: context.read<BridgeService>(),
+                          projectPath: projectPath!,
+                          sessionId: sessionId,
+                        );
+                      case 'gallery':
+                        context.router.push(GalleryRoute(sessionId: sessionId));
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      key: ValueKey('menu_message_history'),
+                      value: 'history',
+                      child: ListTile(
+                        leading: Icon(Icons.history, size: 20),
+                        title: Text('Message History'),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    if (projectPath != null)
+                      const PopupMenuItem(
+                        key: ValueKey('menu_view_changes'),
+                        value: 'diff',
+                        child: ListTile(
+                          leading: Icon(Icons.difference, size: 20),
+                          title: Text('View Changes'),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    if (projectPath != null)
+                      const PopupMenuItem(
+                        key: ValueKey('menu_screenshot'),
+                        value: 'screenshot',
+                        child: ListTile(
+                          leading: Icon(Icons.screenshot_monitor, size: 20),
+                          title: Text('Screenshot'),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    const PopupMenuItem(
+                      key: ValueKey('menu_gallery'),
+                      value: 'gallery',
+                      child: ListTile(
+                        leading: Icon(Icons.collections, size: 20),
+                        title: Text('Gallery'),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

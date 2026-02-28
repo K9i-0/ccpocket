@@ -25,8 +25,7 @@ void main() {
     VoidCallback? onStop,
     VoidCallback? onInterrupt,
     VoidCallback? onToggleVoice,
-    VoidCallback? onShowSlashCommands,
-    VoidCallback? onShowModeMenu,
+    VoidCallback? onShowPlusMenu,
   }) {
     return MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -43,8 +42,7 @@ void main() {
           onStop: onStop ?? () {},
           onInterrupt: onInterrupt ?? () {},
           onToggleVoice: onToggleVoice ?? () {},
-          onShowSlashCommands: onShowSlashCommands ?? () {},
-          onShowModeMenu: onShowModeMenu ?? () {},
+          onShowPlusMenu: onShowPlusMenu ?? () {},
         ),
       ),
     );
@@ -131,21 +129,11 @@ void main() {
       expect(stopped, isTrue);
     });
 
-    testWidgets('slash command button fires callback', (tester) async {
+    testWidgets('plus button fires callback', (tester) async {
       var shown = false;
-      await tester.pumpWidget(
-        buildSubject(onShowSlashCommands: () => shown = true),
-      );
+      await tester.pumpWidget(buildSubject(onShowPlusMenu: () => shown = true));
 
-      await tester.tap(find.byKey(const ValueKey('slash_command_button')));
-      expect(shown, isTrue);
-    });
-
-    testWidgets('mode button fires callback', (tester) async {
-      var shown = false;
-      await tester.pumpWidget(buildSubject(onShowModeMenu: () => shown = true));
-
-      await tester.tap(find.byKey(const ValueKey('mode_button')));
+      await tester.tap(find.byKey(const ValueKey('plus_button')));
       expect(shown, isTrue);
     });
 
@@ -211,6 +199,12 @@ void main() {
       );
 
       expect(find.byKey(const ValueKey('send_button')), findsOneWidget);
+    });
+
+    testWidgets('plus button is always visible', (tester) async {
+      await tester.pumpWidget(buildSubject());
+
+      expect(find.byKey(const ValueKey('plus_button')), findsOneWidget);
     });
   });
 }
