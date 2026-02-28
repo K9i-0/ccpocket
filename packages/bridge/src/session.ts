@@ -395,13 +395,15 @@ export class SessionManager {
       }
     }
 
-    this.sessions.set(id, session);
-
     if (effectiveProvider === "codex") {
       (proc as CodexProcess).start(effectiveCwd, codexOptions);
     } else {
       (proc as SdkProcess).start(effectiveCwd, options);
     }
+
+    // Add session to Map only after proc.start() succeeds.
+    // If start() throws, no zombie session is left behind.
+    this.sessions.set(id, session);
 
     console.log(`[session] Created ${effectiveProvider} session ${id} for ${effectiveCwd}${wtPath ? ` (worktree of ${projectPath})` : ""}`);
     return id;

@@ -118,6 +118,15 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
         if (msg.sessionId != null && mounted) {
           _resolveSession(msg);
         }
+      } else if (msg is ErrorMessage && _isPending && mounted) {
+        _pendingSub?.cancel();
+        _pendingSub = null;
+        widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
+        final errorText = msg.message;
+        context.router.maybePop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorText)),
+        );
       }
     });
   }

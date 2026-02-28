@@ -367,7 +367,11 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this._projectPath = projectPath;
 
     if (!existsSync(projectPath)) {
-      mkdirSync(projectPath, { recursive: true });
+      try {
+        mkdirSync(projectPath, { recursive: true });
+      } catch (err) {
+        throw new Error(`Cannot create project directory: ${projectPath} (${(err as NodeJS.ErrnoException).code ?? err})`);
+      }
     }
 
     this.stopped = false;

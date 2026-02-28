@@ -205,78 +205,83 @@ export class BridgeWebSocketServer {
 
     switch (msg.type) {
       case "start": {
-        const provider = msg.provider ?? "claude";
-        if (provider === "codex") {
-          console.log(`[ws] start(codex): permissionMode=${msg.permissionMode} → collaboration=${msg.permissionMode === "plan" ? "plan" : "default"}`);
-        }
-        const cached = provider === "claude" ? this.sessionManager.getCachedCommands(msg.projectPath) : undefined;
-        const sessionId = this.sessionManager.create(
-          msg.projectPath,
-          {
-            sessionId: msg.sessionId,
-            continueMode: msg.continue,
-            permissionMode: msg.permissionMode,
-            model: msg.model,
-            effort: msg.effort,
-            maxTurns: msg.maxTurns,
-            maxBudgetUsd: msg.maxBudgetUsd,
-            fallbackModel: msg.fallbackModel,
-            forkSession: msg.forkSession,
-            persistSession: msg.persistSession,
-          },
-          undefined,
-          {
-            useWorktree: msg.useWorktree,
-            worktreeBranch: msg.worktreeBranch,
-            existingWorktreePath: msg.existingWorktreePath,
-          },
-          provider,
-          provider === "codex"
-            ? {
-                approvalPolicy: permissionModeToApprovalPolicy(msg.permissionMode),
-                sandboxMode: sandboxModeToInternal(msg.sandboxMode),
-                model: msg.model,
-                modelReasoningEffort: (msg.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
-                networkAccessEnabled: msg.networkAccessEnabled,
-                webSearchMode: (msg.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
-                threadId: msg.sessionId,
-                collaborationMode: msg.permissionMode === "plan" ? "plan" as const : "default" as const,
-              }
-            : undefined,
-        );
-        const createdSession = this.sessionManager.get(sessionId);
-
-        // Load saved session name from CLI storage (for resumed sessions)
-        void this.loadAndSetSessionName(createdSession, provider, msg.projectPath, msg.sessionId).then(() => {
-          this.send(ws, {
-            type: "system",
-            subtype: "session_created",
-            sessionId,
+        try {
+          const provider = msg.provider ?? "claude";
+          if (provider === "codex") {
+            console.log(`[ws] start(codex): permissionMode=${msg.permissionMode} → collaboration=${msg.permissionMode === "plan" ? "plan" : "default"}`);
+          }
+          const cached = provider === "claude" ? this.sessionManager.getCachedCommands(msg.projectPath) : undefined;
+          const sessionId = this.sessionManager.create(
+            msg.projectPath,
+            {
+              sessionId: msg.sessionId,
+              continueMode: msg.continue,
+              permissionMode: msg.permissionMode,
+              model: msg.model,
+              effort: msg.effort,
+              maxTurns: msg.maxTurns,
+              maxBudgetUsd: msg.maxBudgetUsd,
+              fallbackModel: msg.fallbackModel,
+              forkSession: msg.forkSession,
+              persistSession: msg.persistSession,
+            },
+            undefined,
+            {
+              useWorktree: msg.useWorktree,
+              worktreeBranch: msg.worktreeBranch,
+              existingWorktreePath: msg.existingWorktreePath,
+            },
             provider,
-            projectPath: msg.projectPath,
-            ...(provider === "claude" && msg.permissionMode ? { permissionMode: msg.permissionMode } : {}),
-            ...(provider === "codex" && msg.sandboxMode ? { sandboxMode: msg.sandboxMode } : {}),
-            ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
-            ...(createdSession?.worktreePath ? {
-              worktreePath: createdSession.worktreePath,
-              worktreeBranch: createdSession.worktreeBranch,
-            } : {}),
+            provider === "codex"
+              ? {
+                  approvalPolicy: permissionModeToApprovalPolicy(msg.permissionMode),
+                  sandboxMode: sandboxModeToInternal(msg.sandboxMode),
+                  model: msg.model,
+                  modelReasoningEffort: (msg.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
+                  networkAccessEnabled: msg.networkAccessEnabled,
+                  webSearchMode: (msg.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
+                  threadId: msg.sessionId,
+                  collaborationMode: msg.permissionMode === "plan" ? "plan" as const : "default" as const,
+                }
+              : undefined,
+          );
+          const createdSession = this.sessionManager.get(sessionId);
+
+          // Load saved session name from CLI storage (for resumed sessions)
+          void this.loadAndSetSessionName(createdSession, provider, msg.projectPath, msg.sessionId).then(() => {
+            this.send(ws, {
+              type: "system",
+              subtype: "session_created",
+              sessionId,
+              provider,
+              projectPath: msg.projectPath,
+              ...(provider === "claude" && msg.permissionMode ? { permissionMode: msg.permissionMode } : {}),
+              ...(provider === "codex" && msg.sandboxMode ? { sandboxMode: msg.sandboxMode } : {}),
+              ...(cached ? { slashCommands: cached.slashCommands, skills: cached.skills } : {}),
+              ...(createdSession?.worktreePath ? {
+                worktreePath: createdSession.worktreePath,
+                worktreeBranch: createdSession.worktreeBranch,
+              } : {}),
+            });
+            this.broadcastSessionList();
           });
-          this.broadcastSessionList();
-        });
-        this.debugEvents.set(sessionId, []);
-        this.recordDebugEvent(sessionId, {
-          direction: "internal",
-          channel: "bridge",
-          type: "session_created",
-          detail: `provider=${provider} projectPath=${msg.projectPath}`,
-        });
-        this.recordingStore.saveMeta(sessionId, {
-          bridgeSessionId: sessionId,
-          projectPath: msg.projectPath,
-          createdAt: new Date().toISOString(),
-        });
-        this.projectHistory?.addProject(msg.projectPath);
+          this.debugEvents.set(sessionId, []);
+          this.recordDebugEvent(sessionId, {
+            direction: "internal",
+            channel: "bridge",
+            type: "session_created",
+            detail: `provider=${provider} projectPath=${msg.projectPath}`,
+          });
+          this.recordingStore.saveMeta(sessionId, {
+            bridgeSessionId: sessionId,
+            projectPath: msg.projectPath,
+            createdAt: new Date().toISOString(),
+          });
+          this.projectHistory?.addProject(msg.projectPath);
+        } catch (err) {
+          console.error(`[ws] Failed to start session:`, err);
+          this.send(ws, { type: "error", message: `Failed to start session: ${(err as Error).message}` });
+        }
         break;
       }
 
