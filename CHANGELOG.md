@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.27.0] - 2026-02-28
+
+### Added
+- Full-screen image comparison viewer for diff screen
+- Lazy loading, combined requests, and image caching for diff view
+
+### Fixed
+- Prevent app freeze when opening diffs with many images
+- Handle session creation failure gracefully instead of hanging on loading screen
+
 ## [1.26.0] - 2026-02-28
 
 ### Added
