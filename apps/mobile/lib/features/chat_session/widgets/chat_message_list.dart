@@ -306,7 +306,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
         child: AnimatedList(
           key: _listKey,
           controller: widget.scrollController,
-          padding: const EdgeInsets.only(top: 8, bottom: 8),
+          padding: const EdgeInsets.only(top: 36, bottom: 8),
           initialItemCount: _entries.length,
           itemBuilder: (context, index, animation) {
             final entry = _entries[index];
