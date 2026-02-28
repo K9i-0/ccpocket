@@ -224,9 +224,7 @@ class _MainRepoTile extends StatelessWidget {
           ),
         ),
         subtitle: Text(
-          branch?.isNotEmpty == true
-              ? branch!
-              : projectPath.split('/').last,
+          branch?.isNotEmpty == true ? branch! : projectPath.split('/').last,
           style: TextStyle(fontSize: 11, color: appColors.subtleText),
         ),
         trailing: isCurrent

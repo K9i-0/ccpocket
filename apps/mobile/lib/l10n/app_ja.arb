@@ -355,6 +355,9 @@
 
   "settingsTitle": "設定",
   "sectionGeneral": "一般",
+  "sectionEditor": "エディタ",
+  "indentSize": "インデント幅",
+  "indentSizeSubtitle": "箇条書きのインデントに使用するスペース数",
   "sectionAbout": "概要",
   "theme": "テーマ",
   "themeSystem": "システム",
@@ -482,6 +485,8 @@
   "tooltipProviderFilter": "AIツールで絞り込み",
   "tooltipProjectFilter": "プロジェクトで絞り込み",
   "tooltipNamedOnly": "名前を付けたセッションのみ",
+  "tooltipIndent": "インデント",
+  "tooltipDedent": "インデント解除",
   "tooltipSlashCommand": "スラッシュコマンド",
   "tooltipPermissionMode": "パーミッションモード",
   "tooltipAttachImage": "画像を添付",

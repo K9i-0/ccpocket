@@ -781,6 +781,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sectionGeneral => '一般';
 
   @override
+  String get sectionEditor => 'エディタ';
+
+  @override
+  String get indentSize => 'インデント幅';
+
+  @override
+  String get indentSizeSubtitle => '箇条書きのインデントに使用するスペース数';
+
+  @override
   String get sectionAbout => '概要';
 
   @override
@@ -1024,6 +1033,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tooltipNamedOnly => '名前を付けたセッションのみ';
+
+  @override
+  String get tooltipIndent => 'インデント';
+
+  @override
+  String get tooltipDedent => 'インデント解除';
 
   @override
   String get tooltipSlashCommand => 'スラッシュコマンド';

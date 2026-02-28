@@ -51,6 +51,9 @@ abstract class SettingsState with _$SettingsState {
 
     /// Shorebird update track ('stable' or 'staging').
     @Default('stable') String shorebirdTrack,
+
+    /// Indent size for list formatting (1-4 spaces).
+    @Default(2) int indentSize,
   }) = _SettingsState;
 
   /// Whether push notifications are enabled for the currently connected machine.

@@ -15,14 +15,11 @@ import '../../../utils/diff_parser.dart';
 import '../../../widgets/chat_input_bar.dart';
 import '../../../widgets/file_mention_overlay.dart';
 import '../../../widgets/slash_command_overlay.dart';
+import '../../settings/state/settings_cubit.dart';
 import '../../../services/draft_service.dart';
 import '../../prompt_history/widgets/prompt_history_sheet.dart';
 import '../../../widgets/slash_command_sheet.dart'
-    show
-        SlashCommand,
-        SlashCommandSheet,
-        fallbackCodexSlashCommands,
-        fallbackSlashCommands;
+    show SlashCommand, fallbackCodexSlashCommands, fallbackSlashCommands;
 import '../state/chat_session_cubit.dart';
 
 /// Manages the chat input bar together with slash-command and @-mention
@@ -75,6 +72,10 @@ class ChatInputWithOverlays extends HookWidget {
 
     // Voice input
     final voice = useVoiceInput(inputController);
+
+    // Indent settings
+    final indentSize = context.watch<SettingsCubit>().state.indentSize;
+    final canDedent = useState(false);
 
     // OverlayPortal controllers
     final slashPortalController = useMemoized(() => OverlayPortalController());
@@ -175,6 +176,28 @@ class ChatInputWithOverlays extends HookWidget {
       inputController.addListener(onChange);
       return () => inputController.removeListener(onChange);
     }, [commands, projectFiles]);
+
+    // Update canDedent on cursor/text changes
+    useEffect(() {
+      void onCursorChange() {
+        canDedent.value = _currentLineHasLeadingSpaces(inputController);
+      }
+
+      inputController.addListener(onCursorChange);
+      return () => inputController.removeListener(onCursorChange);
+    }, [inputController]);
+
+    void indent() {
+      final spaces = ' ' * indentSize;
+      _applyIndent(inputController, spaces, isIndent: true);
+      canDedent.value = _currentLineHasLeadingSpaces(inputController);
+    }
+
+    void dedent() {
+      final spaces = ' ' * indentSize;
+      _applyIndent(inputController, spaces, isIndent: false);
+      canDedent.value = _currentLineHasLeadingSpaces(inputController);
+    }
 
     // Callbacks
     void onSlashCommandSelected(String command) {
@@ -468,16 +491,6 @@ class ChatInputWithOverlays extends HookWidget {
       context.read<ChatSessionCubit>().interrupt();
     }
 
-    void showSlashCommandSheet() {
-      showModalBottomSheet(
-        context: context,
-        builder: (_) => SlashCommandSheet(
-          commands: commands,
-          onSelect: onSlashCommandSelected,
-        ),
-      );
-    }
-
     void showPromptHistory() {
       final service = context.read<PromptHistoryService>();
       final projectPath = context.read<ChatSessionCubit>().state.projectPath;
@@ -550,7 +563,9 @@ class ChatInputWithOverlays extends HookWidget {
             onStop: stopSession,
             onInterrupt: interruptSession,
             onToggleVoice: voice.toggle,
-            onShowSlashCommands: showSlashCommandSheet,
+            onIndent: indent,
+            onDedent: dedent,
+            canDedent: canDedent.value,
             onShowPromptHistory: showPromptHistory,
             onAttachImage: showAttachOptions,
             attachedImages: attachedImages.value,
@@ -583,4 +598,106 @@ String? _extractMentionQuery(String text, int cursorPos) {
   // No spaces in the query (file paths don't have spaces)
   if (query.contains(' ')) return null;
   return query;
+}
+
+/// Check if the current cursor line has leading spaces.
+bool _currentLineHasLeadingSpaces(TextEditingController controller) {
+  final text = controller.text;
+  if (text.isEmpty) return false;
+  final cursorPos = controller.selection.baseOffset;
+  if (cursorPos < 0) return false;
+
+  // Find line start
+  final beforeCursor = text.substring(0, cursorPos);
+  final lineStart = beforeCursor.lastIndexOf('\n') + 1;
+  final lineEnd = text.indexOf('\n', lineStart);
+  final line = text.substring(lineStart, lineEnd < 0 ? text.length : lineEnd);
+  return line.startsWith(' ');
+}
+
+/// Apply indent or dedent to the current line(s).
+void _applyIndent(
+  TextEditingController controller,
+  String spaces, {
+  required bool isIndent,
+}) {
+  final text = controller.text;
+  final selection = controller.selection;
+
+  if (!selection.isValid) return;
+
+  // Determine line range
+  final selStart = selection.start;
+  final selEnd = selection.end;
+
+  // Find first line start
+  final beforeStart = text.substring(0, selStart);
+  final firstLineStart = beforeStart.lastIndexOf('\n') + 1;
+
+  // Find last line end
+  final lastLineEnd = text.indexOf('\n', selEnd);
+  final endPos = lastLineEnd < 0 ? text.length : lastLineEnd;
+
+  // Extract the block of lines
+  final block = text.substring(firstLineStart, endPos);
+  final lines = block.split('\n');
+
+  // Track cursor offset changes
+  var startDelta = 0;
+  var endDelta = 0;
+
+  final modifiedLines = <String>[];
+  var charsSoFar = firstLineStart;
+
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    String newLine;
+
+    if (isIndent) {
+      newLine = '$spaces$line';
+      final delta = spaces.length;
+      // Adjust selection deltas
+      if (charsSoFar + line.length >= selStart && i == 0) {
+        startDelta += delta;
+      }
+      endDelta += delta;
+    } else {
+      // Remove up to `spaces.length` leading spaces
+      var removeCount = 0;
+      for (var j = 0; j < spaces.length && j < line.length; j++) {
+        if (line[j] == ' ') {
+          removeCount++;
+        } else {
+          break;
+        }
+      }
+      newLine = line.substring(removeCount);
+      final delta = -removeCount;
+      if (i == 0) {
+        startDelta += delta;
+      }
+      endDelta += delta;
+    }
+
+    modifiedLines.add(newLine);
+    charsSoFar += line.length + 1; // +1 for \n
+  }
+
+  final newBlock = modifiedLines.join('\n');
+  final newText =
+      text.substring(0, firstLineStart) + newBlock + text.substring(endPos);
+
+  // Calculate new selection
+  final newStart = (selStart + startDelta).clamp(
+    firstLineStart,
+    newText.length,
+  );
+  final newEnd = (selEnd + endDelta).clamp(newStart, newText.length);
+
+  controller.value = TextEditingValue(
+    text: newText,
+    selection: selection.isCollapsed
+        ? TextSelection.collapsed(offset: newStart)
+        : TextSelection(baseOffset: newStart, extentOffset: newEnd),
+  );
 }

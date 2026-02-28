@@ -58,4 +58,3 @@ class BranchChip extends StatelessWidget {
     );
   }
 }
-

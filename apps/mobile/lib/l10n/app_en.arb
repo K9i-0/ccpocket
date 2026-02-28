@@ -273,6 +273,9 @@
 
   "settingsTitle": "Settings",
   "sectionGeneral": "GENERAL",
+  "sectionEditor": "EDITOR",
+  "indentSize": "Indent size",
+  "indentSizeSubtitle": "Number of spaces for list indentation",
   "sectionAbout": "ABOUT",
   "theme": "Theme",
   "themeSystem": "System",
@@ -400,6 +403,8 @@
   "tooltipProviderFilter": "Filter by AI tool",
   "tooltipProjectFilter": "Filter by project",
   "tooltipNamedOnly": "Only sessions you've named",
+  "tooltipIndent": "Indent",
+  "tooltipDedent": "Dedent",
   "tooltipSlashCommand": "Slash commands",
   "tooltipPermissionMode": "Permission mode",
   "tooltipAttachImage": "Attach image",

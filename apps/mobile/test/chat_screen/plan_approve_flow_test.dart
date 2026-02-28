@@ -25,9 +25,7 @@ void main() {
 
       // Verify plan approval bar is showing
       expect(find.text('Accept Plan'), findsOneWidget);
-      final statusLine = $.tester.widget<StatusLine>(
-        find.byType(StatusLine),
-      );
+      final statusLine = $.tester.widget<StatusLine>(find.byType(StatusLine));
       expect(statusLine.inPlanMode, isTrue);
 
       // Accept plan
@@ -69,9 +67,7 @@ void main() {
       );
 
       // Plan mode still active (inPlanMode not reset by approve)
-      final statusLine2 = $.tester.widget<StatusLine>(
-        find.byType(StatusLine),
-      );
+      final statusLine2 = $.tester.widget<StatusLine>(find.byType(StatusLine));
       expect(statusLine2.inPlanMode, isTrue);
     });
 

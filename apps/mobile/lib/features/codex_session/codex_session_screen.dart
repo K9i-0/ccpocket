@@ -466,14 +466,34 @@ class _CodexChatBody extends HookWidget {
                     left: 0,
                     right: 0,
                     top: MediaQuery.of(context).padding.top,
-                    child: StatusLine(
-                      status: status,
-                      inPlanMode: inPlanMode,
-                    ),
+                    child: StatusLine(status: status, inPlanMode: inPlanMode),
                   ),
                 ],
               ),
               actions: [
+                // View Changes button
+                if (projectPath != null)
+                  IconButton(
+                    key: const ValueKey('appbar_view_changes'),
+                    icon: Icon(
+                      Icons.difference,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    onPressed: () {
+                      _openDiffScreen(
+                        context,
+                        worktreePath ?? projectPath!,
+                        diffSelectionFromNav,
+                        existingSelection: diffSelectionFromNav.value,
+                      );
+                    },
+                  ),
                 // Branch chip
                 if (projectPath != null)
                   BranchChip(
@@ -505,14 +525,6 @@ class _CodexChatBody extends HookWidget {
                     switch (value) {
                       case 'history':
                         _showUserMessageHistory(context, scrollToUserEntry);
-                      case 'diff':
-                        if (projectPath == null) return;
-                        _openDiffScreen(
-                          context,
-                          worktreePath ?? projectPath!,
-                          diffSelectionFromNav,
-                          existingSelection: diffSelectionFromNav.value,
-                        );
                       case 'screenshot':
                         if (projectPath == null) return;
                         showScreenshotSheet(
@@ -548,17 +560,6 @@ class _CodexChatBody extends HookWidget {
                         contentPadding: EdgeInsets.zero,
                       ),
                     ),
-                    if (projectPath != null)
-                      const PopupMenuItem(
-                        key: ValueKey('menu_view_changes'),
-                        value: 'diff',
-                        child: ListTile(
-                          leading: Icon(Icons.difference, size: 20),
-                          title: Text('View Changes'),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
                     if (projectPath != null)
                       const PopupMenuItem(
                         key: ValueKey('menu_screenshot'),

@@ -25,7 +25,9 @@ void main() {
     VoidCallback? onStop,
     VoidCallback? onInterrupt,
     VoidCallback? onToggleVoice,
-    VoidCallback? onShowSlashCommands,
+    VoidCallback? onIndent,
+    VoidCallback? onDedent,
+    bool canDedent = true,
   }) {
     return MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -42,7 +44,9 @@ void main() {
           onStop: onStop ?? () {},
           onInterrupt: onInterrupt ?? () {},
           onToggleVoice: onToggleVoice ?? () {},
-          onShowSlashCommands: onShowSlashCommands ?? () {},
+          onIndent: onIndent ?? () {},
+          onDedent: onDedent ?? () {},
+          canDedent: canDedent,
         ),
       ),
     );
@@ -129,14 +133,34 @@ void main() {
       expect(stopped, isTrue);
     });
 
-    testWidgets('slash command button fires callback', (tester) async {
-      var shown = false;
+    testWidgets('indent button fires callback', (tester) async {
+      var indented = false;
+      await tester.pumpWidget(buildSubject(onIndent: () => indented = true));
+
+      await tester.tap(find.byKey(const ValueKey('indent_button')));
+      expect(indented, isTrue);
+    });
+
+    testWidgets('dedent button fires callback when enabled', (tester) async {
+      var dedented = false;
       await tester.pumpWidget(
-        buildSubject(onShowSlashCommands: () => shown = true),
+        buildSubject(onDedent: () => dedented = true, canDedent: true),
       );
 
-      await tester.tap(find.byKey(const ValueKey('slash_command_button')));
-      expect(shown, isTrue);
+      await tester.tap(find.byKey(const ValueKey('dedent_button')));
+      expect(dedented, isTrue);
+    });
+
+    testWidgets('dedent button is disabled when canDedent is false', (
+      tester,
+    ) async {
+      var dedented = false;
+      await tester.pumpWidget(
+        buildSubject(onDedent: () => dedented = true, canDedent: false),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('dedent_button')));
+      expect(dedented, isFalse);
     });
 
     testWidgets('voice toggle callback fires', (tester) async {

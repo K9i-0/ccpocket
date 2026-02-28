@@ -11,11 +11,7 @@ class StatusLine extends StatefulWidget implements PreferredSizeWidget {
   final ProcessStatus status;
   final bool inPlanMode;
 
-  const StatusLine({
-    super.key,
-    required this.status,
-    this.inPlanMode = false,
-  });
+  const StatusLine({super.key, required this.status, this.inPlanMode = false});
 
   @override
   Size get preferredSize => const Size.fromHeight(2);
@@ -36,9 +32,10 @@ class _StatusLineState extends State<StatusLine>
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
-    _glowAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _glowAnimation = Tween<double>(
+      begin: 0.3,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     if (_isActive) {
       _controller.repeat(reverse: true);
     }

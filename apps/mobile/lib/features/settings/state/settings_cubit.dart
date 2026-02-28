@@ -33,6 +33,8 @@ class SettingsCubit extends Cubit<SettingsState> {
   /// Also read directly from SharedPreferences in main.dart at startup.
   static const keyShorebirdTrack = 'settings_shorebird_track';
   // Legacy key for migration
+  static const _keyIndentSize = 'settings_indent_size';
+  // Legacy key for migration
   static const _keyFcmEnabled = 'settings_fcm_enabled';
 
   SettingsCubit(
@@ -130,6 +132,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     }
 
     final shorebirdTrack = prefs.getString(keyShorebirdTrack) ?? 'stable';
+    final indentSize = prefs.getInt(_keyIndentSize) ?? 2;
 
     return SettingsState(
       themeMode:
@@ -143,6 +146,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       fcmEnabledMachines: fcmMachines,
       fcmPrivacyMachines: fcmPrivacyMachines,
       shorebirdTrack: shorebirdTrack,
+      indentSize: indentSize.clamp(1, 4),
     );
   }
 
@@ -195,6 +199,12 @@ class SettingsCubit extends Cubit<SettingsState> {
     if (!state.fcmEnabled) return;
     emit(state.copyWith(fcmSyncInProgress: true, fcmStatusKey: null));
     await _syncPushRegistration();
+  }
+
+  void setIndentSize(int size) {
+    final clamped = size.clamp(1, 4);
+    _prefs.setInt(_keyIndentSize, clamped);
+    emit(state.copyWith(indentSize: clamped));
   }
 
   void setShorebirdTrack(String track) {

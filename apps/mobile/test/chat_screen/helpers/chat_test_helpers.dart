@@ -8,6 +8,7 @@ import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/database_service.dart';
 import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/services/prompt_history_service.dart';
+import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -131,6 +132,7 @@ Future<Widget> buildTestClaudeSessionScreen({
           BlocProvider<FileListCubit>(
             create: (_) => FileListCubit(const <String>[], bridge.fileList),
           ),
+          BlocProvider<SettingsCubit>(create: (_) => SettingsCubit(prefs)),
         ],
         child: ClaudeSessionScreen(
           sessionId: sessionId,

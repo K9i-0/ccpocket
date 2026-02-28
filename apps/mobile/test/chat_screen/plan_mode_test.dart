@@ -53,9 +53,7 @@ void main() {
       ]);
       await pumpN($.tester);
 
-      final statusLine = $.tester.widget<StatusLine>(
-        find.byType(StatusLine),
-      );
+      final statusLine = $.tester.widget<StatusLine>(find.byType(StatusLine));
       expect(statusLine.inPlanMode, isTrue);
     });
 

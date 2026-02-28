@@ -1550,6 +1550,24 @@ abstract class AppLocalizations {
   /// **'一般'**
   String get sectionGeneral;
 
+  /// No description provided for @sectionEditor.
+  ///
+  /// In ja, this message translates to:
+  /// **'エディタ'**
+  String get sectionEditor;
+
+  /// No description provided for @indentSize.
+  ///
+  /// In ja, this message translates to:
+  /// **'インデント幅'**
+  String get indentSize;
+
+  /// No description provided for @indentSizeSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'箇条書きのインデントに使用するスペース数'**
+  String get indentSizeSubtitle;
+
   /// No description provided for @sectionAbout.
   ///
   /// In ja, this message translates to:
@@ -2005,6 +2023,18 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'名前を付けたセッションのみ'**
   String get tooltipNamedOnly;
+
+  /// No description provided for @tooltipIndent.
+  ///
+  /// In ja, this message translates to:
+  /// **'インデント'**
+  String get tooltipIndent;
+
+  /// No description provided for @tooltipDedent.
+  ///
+  /// In ja, this message translates to:
+  /// **'インデント解除'**
+  String get tooltipDedent;
 
   /// No description provided for @tooltipSlashCommand.
   ///

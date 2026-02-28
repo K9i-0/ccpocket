@@ -793,6 +793,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionGeneral => 'GENERAL';
 
   @override
+  String get sectionEditor => 'EDITOR';
+
+  @override
+  String get indentSize => 'Indent size';
+
+  @override
+  String get indentSizeSubtitle => 'Number of spaces for list indentation';
+
+  @override
   String get sectionAbout => 'ABOUT';
 
   @override
@@ -1038,6 +1047,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tooltipNamedOnly => 'Only sessions you\'ve named';
+
+  @override
+  String get tooltipIndent => 'Indent';
+
+  @override
+  String get tooltipDedent => 'Dedent';
 
   @override
   String get tooltipSlashCommand => 'Slash commands';

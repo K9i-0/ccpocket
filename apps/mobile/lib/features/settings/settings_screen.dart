@@ -156,6 +156,49 @@ class SettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
+              // ── Editor ──
+              _SectionHeader(title: l.sectionEditor),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              l.indentSize,
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
+                          ),
+                          SegmentedButton<int>(
+                            segments: const [
+                              ButtonSegment(value: 1, label: Text('1')),
+                              ButtonSegment(value: 2, label: Text('2')),
+                              ButtonSegment(value: 3, label: Text('3')),
+                              ButtonSegment(value: 4, label: Text('4')),
+                            ],
+                            selected: {state.indentSize},
+                            onSelectionChanged: (selected) {
+                              context.read<SettingsCubit>().setIndentSize(
+                                selected.first,
+                              );
+                            },
+                            showSelectedIcon: false,
+                            style: ButtonStyle(
+                              visualDensity: VisualDensity.compact,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+
               // ── Usage ──
               UsageSection(bridgeService: context.read<BridgeService>()),
               const SizedBox(height: 8),

@@ -19,7 +19,9 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onStop;
   final VoidCallback onInterrupt;
   final VoidCallback onToggleVoice;
-  final VoidCallback onShowSlashCommands;
+  final VoidCallback onIndent;
+  final VoidCallback onDedent;
+  final bool canDedent;
   final VoidCallback? onShowPromptHistory;
   final VoidCallback? onAttachImage;
   final List<({Uint8List bytes, String mimeType})> attachedImages;
@@ -40,7 +42,9 @@ class ChatInputBar extends StatelessWidget {
     required this.onStop,
     required this.onInterrupt,
     required this.onToggleVoice,
-    required this.onShowSlashCommands,
+    required this.onIndent,
+    required this.onDedent,
+    this.canDedent = true,
     this.onShowPromptHistory,
     this.onAttachImage,
     this.attachedImages = const [],
@@ -90,7 +94,9 @@ class ChatInputBar extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              _SlashButton(onTap: onShowSlashCommands),
+              _DedentButton(onTap: onDedent, enabled: canDedent),
+              const SizedBox(width: 8),
+              _IndentButton(onTap: onIndent),
               const SizedBox(width: 8),
               _AttachButton(
                 hasAttachment: attachedImages.isNotEmpty,
@@ -101,11 +107,11 @@ class ChatInputBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 _HistoryButton(onTap: onShowPromptHistory!),
               ],
-              if (isVoiceAvailable) ...[
-                const SizedBox(width: 8),
-                _VoiceButton(isRecording: isRecording, onTap: onToggleVoice),
-              ],
               const Spacer(),
+              if (isVoiceAvailable) ...[
+                _VoiceButton(isRecording: isRecording, onTap: onToggleVoice),
+                const SizedBox(width: 8),
+              ],
               _ActionButton(
                 status: status,
                 hasInputText: hasInputText,
@@ -121,8 +127,8 @@ class ChatInputBar extends StatelessWidget {
   }
 }
 
-class _SlashButton extends StatelessWidget {
-  const _SlashButton({required this.onTap});
+class _IndentButton extends StatelessWidget {
+  const _IndentButton({required this.onTap});
   final VoidCallback onTap;
 
   @override
@@ -130,23 +136,57 @@ class _SlashButton extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     return Tooltip(
-      message: l.tooltipSlashCommand,
+      message: l.tooltipIndent,
       child: Material(
         color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          key: const ValueKey('slash_command_button'),
+          key: const ValueKey('indent_button'),
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Container(
             width: 36,
             height: 36,
             alignment: Alignment.center,
-            child: Text(
-              '/',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            child: Icon(
+              Icons.format_indent_increase,
+              size: 18,
+              color: cs.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DedentButton extends StatelessWidget {
+  const _DedentButton({required this.onTap, required this.enabled});
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    return Tooltip(
+      message: l.tooltipDedent,
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.4,
+        child: Material(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            key: const ValueKey('dedent_button'),
+            borderRadius: BorderRadius.circular(20),
+            onTap: enabled ? onTap : null,
+            child: Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.format_indent_decrease,
+                size: 18,
                 color: cs.primary,
               ),
             ),
