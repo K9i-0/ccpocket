@@ -2,11 +2,9 @@
  * sim-stream: iOS Simulator Remote Viewer (Prototype)
  *
  * アーキテクチャ:
- *   映像: screencapture -l (Window ID指定) → JPEG → HTTP MJPEG multipart
- *   入力: AXe CLI (tap/swipe/type/button)
- *
- * screencapture は macOS 標準コマンドでウィンドウ単位のキャプチャに対応。
- * 1枚 ~60ms (≈15fps) で高品質な JPEG を出力する。
+ *   映像: ScreenCaptureKit daemon → WebSocket バイナリ (バックプレッシャー付き)
+ *   入力: AXe CLI (tap/swipe/type/button) via 同一 WebSocket
+ *   fallback: screencapture -l → MJPEG multipart HTTP
  */
 
 import { createServer } from "node:http";
@@ -145,13 +143,20 @@ function buildCoordMapper(windowBounds, axeContent, captureWidth, captureHeight)
 }
 
 // --- Frame grabber: ScreenCaptureKit daemon (primary) or screencapture fallback ---
+// Daemon protocol: [4 bytes BE uint32 = length][1 byte type][payload]
+//   type=0: JPEG frame, type=1: idle (no change)
+const FRAME_TYPE_JPEG = 0;
+const FRAME_TYPE_IDLE = 1;
+
 class FrameGrabber {
   constructor(windowId) {
     this.windowId = windowId;
     this.running = false;
-    this.clients = new Set();
+    this.mjpegClients = new Set();  // HTTP MJPEG clients (legacy/debug)
+    this.wsClients = new Set();     // WebSocket binary clients
     this.latestFrame = null;
     this.frameCount = 0;
+    this.skippedFrames = 0;
     this.startTime = Date.now();
     this.daemonProcess = null;
     this.useDaemon = false;
@@ -170,11 +175,16 @@ class FrameGrabber {
     }
   }
 
+  get clientCount() {
+    return this.mjpegClients.size + this.wsClients.size;
+  }
+
   start() {
     if (this.running) return;
     this.running = true;
     this.startTime = Date.now();
     this.frameCount = 0;
+    this.skippedFrames = 0;
 
     if (this.useDaemon) {
       this._startDaemon();
@@ -192,18 +202,31 @@ class FrameGrabber {
     }
   }
 
-  subscribe(res) {
-    this.clients.add(res);
-    if (this.clients.size === 1 && !this.running) {
-      this.start();
+  _checkAutoStart() {
+    if (this.clientCount > 0 && !this.running) this.start();
+  }
+
+  _checkAutoStop() {
+    if (this.clientCount === 0) {
+      this.stop();
+      console.log("No clients, pausing capture");
     }
-    return () => {
-      this.clients.delete(res);
-      if (this.clients.size === 0) {
-        this.stop();
-        console.log("No clients, pausing capture");
-      }
-    };
+  }
+
+  subscribeMjpeg(res) {
+    this.mjpegClients.add(res);
+    this._checkAutoStart();
+    return () => { this.mjpegClients.delete(res); this._checkAutoStop(); };
+  }
+
+  subscribeWs(ws) {
+    this.wsClients.add(ws);
+    this._checkAutoStart();
+    // Send latest frame immediately so client doesn't see blank
+    if (this.latestFrame) {
+      ws.send(this.latestFrame, { binary: true });
+    }
+    return () => { this.wsClients.delete(ws); this._checkAutoStop(); };
   }
 
   // --- ScreenCaptureKit daemon mode ---
@@ -225,14 +248,14 @@ class FrameGrabber {
     this.daemonProcess.stdout.on("data", (chunk) => {
       buffer = Buffer.concat([buffer, chunk]);
 
-      // Extract frames: [4 bytes BE uint32 = length][JPEG data]
+      // Extract frames: [4 bytes BE uint32 = length][1 byte type][payload]
       while (buffer.length >= 4) {
         const frameLen = buffer.readUInt32BE(0);
         if (frameLen === 0 || frameLen > 10 * 1024 * 1024) {
-          // Invalid frame, try to recover by finding next JPEG SOI
+          // Invalid frame, try to recover
           const soiIdx = buffer.indexOf(Buffer.from([0xff, 0xd8]), 1);
           if (soiIdx > 0) {
-            buffer = buffer.subarray(soiIdx - 4 >= 0 ? soiIdx - 4 : 0);
+            buffer = buffer.subarray(soiIdx - 5 >= 0 ? soiIdx - 5 : 0);
           } else {
             buffer = Buffer.alloc(0);
           }
@@ -241,18 +264,26 @@ class FrameGrabber {
 
         if (buffer.length < 4 + frameLen) break; // Wait for more data
 
-        const frame = buffer.subarray(4, 4 + frameLen);
+        const frameType = buffer[4]; // type byte
+        const payload = buffer.subarray(5, 4 + frameLen);
         buffer = buffer.subarray(4 + frameLen);
 
-        this.latestFrame = frame;
+        if (frameType === FRAME_TYPE_IDLE) {
+          // Screen unchanged — skip broadcast to save bandwidth
+          continue;
+        }
+
+        // JPEG frame
+        this.latestFrame = payload;
         this.frameCount++;
-        this._broadcast(frame);
+        this._broadcast(payload);
 
         if (this.frameCount % (TARGET_FPS * 10) === 0) {
           const elapsed = (Date.now() - this.startTime) / 1000;
           console.log(
-            `Frames: ${this.frameCount}, FPS: ${(this.frameCount / elapsed).toFixed(1)}, Size: ${(frame.length / 1024).toFixed(0)}KB, Clients: ${this.clients.size}`
+            `Frames: ${this.frameCount}, FPS: ${(this.frameCount / elapsed).toFixed(1)}, Size: ${(payload.length / 1024).toFixed(0)}KB, WS: ${this.wsClients.size}, Skip: ${this.skippedFrames}`
           );
+          this.skippedFrames = 0;
         }
       }
     });
@@ -267,7 +298,7 @@ class FrameGrabber {
     this.daemonProcess.on("close", (code) => {
       console.log(`Daemon exited with code ${code}`);
       this.daemonProcess = null;
-      if (this.running && this.clients.size > 0) {
+      if (this.running && this.clientCount > 0) {
         console.log("Daemon crashed, falling back to screencapture");
         this.useDaemon = false;
         this._screencaptureLoop();
@@ -305,17 +336,33 @@ class FrameGrabber {
   }
 
   _broadcast(frame) {
-    const header = `${BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`;
-    const headerBuf = Buffer.from(header);
-    const tail = Buffer.from("\r\n");
+    // WebSocket binary clients (with backpressure)
+    for (const ws of this.wsClients) {
+      if (ws.readyState !== 1) {
+        this.wsClients.delete(ws);
+        continue;
+      }
+      if (ws.bufferedAmount > 128_000) {
+        // Client is slow — skip this frame to prevent queue buildup
+        this.skippedFrames++;
+        continue;
+      }
+      ws.send(frame, { binary: true });
+    }
 
-    for (const res of this.clients) {
-      try {
-        res.write(headerBuf);
-        res.write(frame);
-        res.write(tail);
-      } catch (e) {
-        this.clients.delete(res);
+    // MJPEG HTTP clients (legacy/debug)
+    if (this.mjpegClients.size > 0) {
+      const header = `${BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`;
+      const headerBuf = Buffer.from(header);
+      const tail = Buffer.from("\r\n");
+      for (const res of this.mjpegClients) {
+        try {
+          res.write(headerBuf);
+          res.write(frame);
+          res.write(tail);
+        } catch (e) {
+          this.mjpegClients.delete(res);
+        }
       }
     }
   }
@@ -325,7 +372,8 @@ class FrameGrabber {
     return {
       frameCount: this.frameCount,
       actualFps: elapsed > 0 ? (this.frameCount / elapsed).toFixed(1) : "0",
-      clients: this.clients.size,
+      wsClients: this.wsClients.size,
+      mjpegClients: this.mjpegClients.size,
       running: this.running,
       mode: this.useDaemon ? "screencapturekit" : "screencapture",
       frameSize: this.latestFrame
@@ -425,6 +473,7 @@ const HTML_PAGE = `<!DOCTYPE html>
       max-height: 82dvh;
       max-width: 95vw;
       width: auto; height: auto;
+      object-fit: contain;
     }
     #ov {
       position: absolute;
@@ -463,7 +512,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 <body>
   <div id="hud"><span class="st">Connecting...</span><span class="fps"></span></div>
   <div id="sim">
-    <img id="frame" alt="">
+    <canvas id="frame"></canvas>
     <div id="ov"></div>
   </div>
   <div id="bar">
@@ -471,93 +520,78 @@ const HTML_PAGE = `<!DOCTYPE html>
     <button class="b" id="bl">Lock</button>
   </div>
   <script>
-    const img = document.getElementById('frame');
+    const canvas = document.getElementById('frame');
+    const ctx = canvas.getContext('2d');
     const ov = document.getElementById('ov');
     const hud = document.getElementById('hud');
     const stEl = hud.querySelector('.st');
     const fpsEl = hud.querySelector('.fps');
 
-    // --- Stream via fetch + ReadableStream ---
+    // Track canvas native size for coordinate mapping
+    let canvasW = 0, canvasH = 0;
+
+    // --- FPS counter ---
     let fpsCnt = 0, fpsStart = performance.now();
-
-    async function startStream() {
-      try {
-        const res = await fetch('/stream');
-        if (!res.body) throw new Error('No body');
-        const reader = res.body.getReader();
-        let buf = new Uint8Array(0);
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const next = new Uint8Array(buf.length + value.length);
-          next.set(buf); next.set(value, buf.length);
-          buf = next;
-
-          // Extract JPEG frames (SOI=FFD8, EOI=FFD9)
-          while (true) {
-            const soi = find(buf, 0xFF, 0xD8, 0);
-            if (soi === -1) { buf = new Uint8Array(0); break; }
-            const eoi = find(buf, 0xFF, 0xD9, soi + 2);
-            if (eoi === -1) { if (soi > 0) buf = buf.slice(soi); break; }
-
-            const frame = buf.slice(soi, eoi + 2);
-            buf = buf.slice(eoi + 2);
-
-            const blob = new Blob([frame], { type: 'image/jpeg' });
-            const url = URL.createObjectURL(blob);
-            const old = img.src;
-            img.src = url;
-            if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
-
-            fpsCnt++;
-            const el = performance.now() - fpsStart;
-            if (el > 2000) {
-              fpsEl.textContent = (fpsCnt/el*1000).toFixed(1) + ' fps';
-              fpsCnt = 0; fpsStart = performance.now();
-            }
-          }
-        }
-      } catch (e) {
-        stEl.textContent = 'Reconnecting...';
-        hud.className = 'err';
-        setTimeout(startStream, 2000);
+    function countFrame() {
+      fpsCnt++;
+      const el = performance.now() - fpsStart;
+      if (el > 2000) {
+        fpsEl.textContent = (fpsCnt/el*1000).toFixed(1) + ' fps';
+        fpsCnt = 0; fpsStart = performance.now();
       }
     }
 
-    function find(b, m1, m2, s) {
-      for (let i = s; i < b.length - 1; i++) if (b[i]===m1 && b[i+1]===m2) return i;
-      return -1;
-    }
-    startStream();
-
-    // --- WebSocket ---
+    // --- WebSocket (video + input on single connection) ---
     let ws;
     function connectWS() {
       const p = location.protocol === 'https:' ? 'wss' : 'ws';
       ws = new WebSocket(p+'://'+location.host+'/ws');
+      ws.binaryType = 'arraybuffer';
+
       ws.onopen = () => { stEl.textContent='Connected'; hud.className='ok'; };
       ws.onclose = () => { stEl.textContent='Reconnecting...'; hud.className='err'; setTimeout(connectWS,2000); };
       ws.onerror = () => ws.close();
+
+      ws.onmessage = (e) => {
+        if (e.data instanceof ArrayBuffer) {
+          // Binary = JPEG frame from server
+          const blob = new Blob([e.data], { type: 'image/jpeg' });
+          createImageBitmap(blob).then(bmp => {
+            if (canvas.width !== bmp.width || canvas.height !== bmp.height) {
+              canvas.width = bmp.width;
+              canvas.height = bmp.height;
+              canvasW = bmp.width;
+              canvasH = bmp.height;
+            }
+            ctx.drawImage(bmp, 0, 0);
+            bmp.close();
+            countFrame();
+          });
+        } else {
+          // Text = JSON control message
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'coord_info') {
+              // Store coord info if needed
+            }
+          } catch {}
+        }
+      };
     }
     connectWS();
     function send(m) { if (ws?.readyState===1) ws.send(JSON.stringify(m)); }
 
     // --- Coordinate mapping ---
-    // screencapture outputs at actual pixel size of the window
-    // AXe expects point coordinates (not pixels)
-    // On non-retina displays, pixels = points
-    // The img naturalWidth/Height matches the screencapture output
+    // Map browser pixel coords → canvas pixel coords (= capture pixel coords)
     function map(cx, cy) {
-      const r = img.getBoundingClientRect();
-      const sx = img.naturalWidth / r.width;
-      const sy = img.naturalHeight / r.height;
+      const r = canvas.getBoundingClientRect();
+      const sx = canvasW / r.width;
+      const sy = canvasH / r.height;
       return { x: Math.round((cx-r.left)*sx), y: Math.round((cy-r.top)*sy) };
     }
 
     function dot(cx, cy) {
-      const r = img.getBoundingClientRect();
+      const r = canvas.getBoundingClientRect();
       const d = document.createElement('div');
       d.className='dot';
       d.style.left=(cx-r.left)+'px'; d.style.top=(cy-r.top)+'px';
@@ -671,13 +705,14 @@ if (axeContent) {
 // HTTP Server
 const server = createServer((req, res) => {
   if (req.url === "/stream") {
+    // Legacy MJPEG endpoint (for debugging / direct browser viewing)
     res.writeHead(200, {
       "Content-Type": `multipart/x-mixed-replace; boundary=${BOUNDARY}`,
       "Cache-Control": "no-cache, no-store",
       Connection: "close",
       Pragma: "no-cache",
     });
-    const unsub = grabber.subscribe(res);
+    const unsub = grabber.subscribeMjpeg(res);
     req.on("close", unsub);
     return;
   }
@@ -719,12 +754,17 @@ server.on("upgrade", (req, socket, head) => {
 wss.on("connection", (ws) => {
   console.log("WS client connected");
 
+  // Subscribe to video frames (binary broadcast)
+  const unsub = grabber.subscribeWs(ws);
+
   // Send coordinate mapping info to client
   if (coordMapper) {
     ws.send(JSON.stringify({ type: "coord_info", ...coordMapper.meta }));
   }
 
-  ws.on("message", async (data) => {
+  ws.on("message", async (data, isBinary) => {
+    if (isBinary) return; // Binary messages from client are ignored
+
     try {
       const msg = JSON.parse(data.toString());
 
@@ -765,7 +805,7 @@ wss.on("connection", (ws) => {
       console.error("Input error:", e.message);
     }
   });
-  ws.on("close", () => console.log("WS client disconnected"));
+  ws.on("close", () => { unsub(); console.log("WS client disconnected"); });
 });
 
 server.listen(PORT, "0.0.0.0", () => {

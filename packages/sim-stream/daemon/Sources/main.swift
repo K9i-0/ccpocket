@@ -124,13 +124,22 @@ class FrameWriter {
         setbuf(stdout, nil)
     }
 
+    // Frame types
+    static let typeFrame: UInt8 = 0  // JPEG frame (screen changed)
+    static let typeIdle: UInt8 = 1   // No change (no payload)
+
     func write(jpegData: Data) {
-        // Protocol: [4 bytes BE uint32 = length][JPEG data]
-        var length = UInt32(jpegData.count).bigEndian
+        // Protocol: [4 bytes BE uint32 = length][1 byte type][JPEG data]
+        let payloadLen = 1 + jpegData.count  // type byte + JPEG
+        var length = UInt32(payloadLen).bigEndian
         let headerData = Data(bytes: &length, count: 4)
+        let typeByte = Data([FrameWriter.typeFrame])
 
         // Use low-level write to avoid buffering
         headerData.withUnsafeBytes { ptr in
+            _ = Darwin.write(fd, ptr.baseAddress!, ptr.count)
+        }
+        typeByte.withUnsafeBytes { ptr in
             _ = Darwin.write(fd, ptr.baseAddress!, ptr.count)
         }
         jpegData.withUnsafeBytes { ptr in
@@ -144,6 +153,20 @@ class FrameWriter {
             let elapsed = Date().timeIntervalSince(startTime)
             let fps = Double(frameCount) / elapsed
             log("frames=\(frameCount) fps=\(String(format: "%.1f", fps)) size=\(jpegData.count / 1024)KB")
+        }
+    }
+
+    func writeIdle() {
+        // Protocol: [4 bytes BE uint32 = 1][1 byte type=idle]
+        var length = UInt32(1).bigEndian
+        let headerData = Data(bytes: &length, count: 4)
+        let typeByte = Data([FrameWriter.typeIdle])
+
+        headerData.withUnsafeBytes { ptr in
+            _ = Darwin.write(fd, ptr.baseAddress!, ptr.count)
+        }
+        typeByte.withUnsafeBytes { ptr in
+            _ = Darwin.write(fd, ptr.baseAddress!, ptr.count)
         }
     }
 }
@@ -179,11 +202,9 @@ class StreamOutputHandler: NSObject, SCStreamOutput {
             log("Frame #\(receivedFrames): status=\(statusRaw)")
         }
 
-        // For idle frames (no change), re-send the last frame to maintain fps
+        // For idle frames (no change), notify Node.js but don't resend JPEG
         if status == .idle {
-            if let last = lastFrame {
-                writer.write(jpegData: last)
-            }
+            writer.writeIdle()
             return
         }
 
