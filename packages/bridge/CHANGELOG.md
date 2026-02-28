@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.8.0] - 2026-02-28
+
+### Added
+- Lazy loading, combined requests, and image caching for diff view
+
+### Fixed
+- Prevent server crash when starting a session with an invalid or inaccessible project path
+- Prevent zombie session entries when session creation fails
+
 ## [1.7.0] - 2026-02-28
 
 ### Added
