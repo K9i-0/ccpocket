@@ -11,6 +11,7 @@ import '../../hooks/use_scroll_tracking.dart';
 import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../services/bridge_service.dart';
+import '../../widgets/rename_session_dialog.dart';
 import '../../services/draft_service.dart';
 import '../../services/chat_message_handler.dart';
 import '../../services/notification_service.dart';
@@ -565,9 +566,21 @@ class _ChatScreenBody extends HookWidget {
                         );
                       case 'gallery':
                         context.router.push(GalleryRoute(sessionId: sessionId));
+                      case 'rename':
+                        _renameSession(context, sessionId);
                     }
                   },
                   itemBuilder: (context) => [
+                    PopupMenuItem(
+                      key: const ValueKey('menu_rename'),
+                      value: 'rename',
+                      child: ListTile(
+                        leading: const Icon(Icons.edit_outlined, size: 20),
+                        title: Text(l.rename),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
                     PopupMenuItem(
                       key: const ValueKey('menu_message_history'),
                       value: 'history',
@@ -871,6 +884,21 @@ String? findPlanFromWriteTool(List<ChatEntry> entries) {
     }
   }
   return null;
+}
+
+Future<void> _renameSession(BuildContext context, String sessionId) async {
+  final bridge = context.read<BridgeService>();
+  final sessions = bridge.sessions;
+  final session = sessions.where((s) => s.id == sessionId).firstOrNull;
+  final newName = await showRenameSessionDialog(
+    context,
+    currentName: session?.name,
+  );
+  if (newName == null || !context.mounted) return;
+  bridge.renameSession(
+    sessionId: sessionId,
+    name: newName.isEmpty ? null : newName,
+  );
 }
 
 void _showUserMessageHistory(

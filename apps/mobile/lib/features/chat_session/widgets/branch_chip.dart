@@ -21,12 +21,12 @@ class BranchChip extends StatelessWidget {
     final displayName = branchName ?? 'main';
     final isMainRepo = !isWorktree;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Tooltip(
-        message: isMainRepo ? 'main repo' : 'worktree: $displayName',
-        preferBelow: true,
-        triggerMode: TooltipTriggerMode.tap,
+    return Tooltip(
+      message: isMainRepo ? 'main repo' : 'worktree: $displayName',
+      preferBelow: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Row(
@@ -58,3 +58,4 @@ class BranchChip extends StatelessWidget {
     );
   }
 }
+
