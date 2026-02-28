@@ -113,10 +113,8 @@ echo "=== Japanese ==="
 mkdir -p "${SCRIPT_DIR}/ja"
 for entry in "${SCREENSHOTS[@]}"; do
   IFS='|' read -r key kw_en tt_en kw_ja tt_ja <<< "$entry"
-  # Copy source screenshot to ja dir if not exists
-  if [ ! -f "${SCRIPT_DIR}/ja/${key}.png" ]; then
-    cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/ja/${key}.png" 2>/dev/null || true
-  fi
+  # Always copy latest source screenshot from en-US
+  cp "${SCRIPT_DIR}/en-US/${key}.png" "${SCRIPT_DIR}/ja/${key}.png" 2>/dev/null || true
   compose_screenshot "$key" "$kw_ja" "$tt_ja" "ja" "$FONT_JA_BOLD" "$FONT_JA_REG"
 done
 

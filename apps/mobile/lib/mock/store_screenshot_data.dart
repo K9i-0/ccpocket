@@ -653,9 +653,10 @@ final List<ServerMessage> storeChatMarkdownInput = [
 const storeMarkdownInputText =
     'Refactor the checkout module:\n'
     '- Extract payment logic into PaymentService\n'
-    '- Add error handling for Stripe API failures\n'
-    '- Write unit tests for the new service\n'
-    '- ';
+    '  - Move Stripe API calls to dedicated methods\n'
+    '  - Add retry logic for transient failures\n'
+    '- Write unit tests\n'
+    '  - ';
 
 // =============================================================================
 // Chat History: Image Attachment (short history for context)
