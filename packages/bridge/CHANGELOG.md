@@ -2,6 +2,16 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.7.0] - 2026-02-28
+
+### Added
+- Add doctor command for environment health checks
+- Add image change support for git diff screen
+- Display main repo branch name in worktree list
+
+### Changed
+- Relax diff image thresholds to 1MB auto-display / 5MB max and add env var config (`DIFF_IMAGE_AUTO_DISPLAY_KB`, `DIFF_IMAGE_MAX_SIZE_MB`)
+
 ## [1.6.1] - 2026-02-25
 
 ### Fixed
