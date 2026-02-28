@@ -167,6 +167,9 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     }).toList();
   }
 
+  /// Maximum number of concurrent image loads to prevent server overload.
+  static const _maxConcurrentLoads = 3;
+
   /// Load image data on demand (for loadable or auto-display images).
   void loadImage(int fileIdx) {
     final projectPath = _projectPath;
@@ -177,6 +180,8 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     if (imageData == null || !imageData.loadable) return;
     if (imageData.loaded) return;
     if (state.loadingImageIndices.contains(fileIdx)) return;
+    // Throttle concurrent loads to avoid overwhelming the server
+    if (state.loadingImageIndices.length >= _maxConcurrentLoads) return;
 
     emit(
       state.copyWith(

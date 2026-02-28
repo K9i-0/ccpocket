@@ -40,22 +40,15 @@ class DiffImageWidget extends StatefulWidget {
 }
 
 class _DiffImageWidgetState extends State<DiffImageWidget> {
-  bool _autoLoadTriggered = false;
-
-  @override
-  void didUpdateWidget(DiffImageWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Reset trigger if the file changed
-    if (oldWidget.file.filePath != widget.file.filePath) {
-      _autoLoadTriggered = false;
-    }
-  }
+  bool _autoLoadScheduled = false;
 
   void _triggerAutoLoad() {
-    if (_autoLoadTriggered) return;
-    _autoLoadTriggered = true;
+    // Skip if already loading or a callback is already scheduled
+    if (widget.loading || _autoLoadScheduled) return;
+    _autoLoadScheduled = true;
     // Schedule after frame to avoid calling during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoLoadScheduled = false;
       if (mounted) {
         widget.onLoadRequested?.call();
       }
@@ -133,19 +126,24 @@ class _AutoLoadPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(height: 8),
-          _SizeInfoRow(imageData: imageData, appColors: appColors),
-        ],
+    // Fixed height matching loaded image panels so ListView.builder
+    // correctly virtualizes items and avoids triggering all auto-loads
+    // at once when many images are present.
+    return SizedBox(
+      height: 200,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(height: 8),
+            _SizeInfoRow(imageData: imageData, appColors: appColors),
+          ],
+        ),
       ),
     );
   }
