@@ -504,14 +504,6 @@ class _ChatScreenBody extends HookWidget {
                 projectPath: projectPath,
               ),
               actions: [
-                // Permission mode chip (moved from SessionModeBar)
-                PermissionModeChip(
-                  currentMode: sessionState.permissionMode,
-                  onTap: () => showPermissionModeMenu(
-                    context,
-                    context.read<ChatSessionCubit>(),
-                  ),
-                ),
                 // Branch chip
                 if (projectPath != null)
                   BranchChip(
@@ -618,6 +610,7 @@ class _ChatScreenBody extends HookWidget {
             ),
             body: Column(
               children: [
+                const SessionModeBar(),
                 if (bridgeState == BridgeConnectionState.reconnecting ||
                     bridgeState == BridgeConnectionState.disconnected)
                   ReconnectBanner(bridgeState: bridgeState),

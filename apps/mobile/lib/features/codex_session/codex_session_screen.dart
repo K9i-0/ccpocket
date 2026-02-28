@@ -461,22 +461,6 @@ class _CodexChatBody extends HookWidget {
                 projectPath: projectPath,
               ),
               actions: [
-                // Permission mode chip (moved from SessionModeBar)
-                PermissionModeChip(
-                  currentMode: sessionState.permissionMode,
-                  onTap: () => showPermissionModeMenu(
-                    context,
-                    context.read<ChatSessionCubit>(),
-                  ),
-                ),
-                // Sandbox mode chip
-                SandboxModeChip(
-                  currentMode: sessionState.sandboxMode,
-                  onTap: () => showSandboxModeMenu(
-                    context,
-                    context.read<ChatSessionCubit>(),
-                  ),
-                ),
                 // Branch chip
                 if (projectPath != null)
                   BranchChip(
@@ -580,6 +564,7 @@ class _CodexChatBody extends HookWidget {
             ),
             body: Column(
               children: [
+                const SessionModeBar(),
                 if (bridgeState == BridgeConnectionState.reconnecting ||
                     bridgeState == BridgeConnectionState.disconnected)
                   ReconnectBanner(bridgeState: bridgeState),

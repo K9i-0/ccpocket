@@ -1,8 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../models/messages.dart';
 import '../state/chat_session_cubit.dart';
+
+class SessionModeBar extends StatelessWidget {
+  const SessionModeBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final chatCubit = context.watch<ChatSessionCubit>();
+    final permissionMode = chatCubit.state.permissionMode;
+    // sandboxMode is only available for Codex
+    final sandboxMode = chatCubit.isCodex ? chatCubit.state.sandboxMode : null;
+
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        border: Border(
+          bottom: BorderSide(color: cs.outlineVariant, width: 0.5),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            PermissionModeChip(
+              currentMode: permissionMode,
+              onTap: () => showPermissionModeMenu(context, chatCubit),
+            ),
+            if (sandboxMode != null) ...[
+              const SizedBox(width: 8),
+              SandboxModeChip(
+                currentMode: sandboxMode,
+                onTap: () => showSandboxModeMenu(context, chatCubit),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 void showPermissionModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
   final currentMode = chatCubit.state.permissionMode;

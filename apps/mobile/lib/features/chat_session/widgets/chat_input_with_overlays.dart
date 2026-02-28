@@ -500,6 +500,81 @@ class ChatInputWithOverlays extends HookWidget {
       );
     }
 
+    void showModeMenu() {
+      final currentMode = chatCubit.state.permissionMode;
+
+      const modeDetails =
+          <PermissionMode, ({IconData icon, String description})>{
+            PermissionMode.defaultMode: (
+              icon: Icons.tune,
+              description: 'Standard permission prompts',
+            ),
+            PermissionMode.plan: (
+              icon: Icons.assignment,
+              description: 'Analyze & plan without executing',
+            ),
+            PermissionMode.acceptEdits: (
+              icon: Icons.edit_note,
+              description: 'Auto-approve file edits',
+            ),
+            PermissionMode.bypassPermissions: (
+              icon: Icons.flash_on,
+              description: 'Skip all permission prompts',
+            ),
+          };
+
+      showModalBottomSheet(
+        context: context,
+        builder: (sheetContext) {
+          final sheetCs = Theme.of(sheetContext).colorScheme;
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Permission Mode',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: sheetCs.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+                for (final mode in PermissionMode.values)
+                  ListTile(
+                    leading: Icon(
+                      modeDetails[mode]!.icon,
+                      color: mode == currentMode
+                          ? sheetCs.primary
+                          : sheetCs.onSurfaceVariant,
+                    ),
+                    title: Text(mode.label),
+                    subtitle: Text(
+                      modeDetails[mode]!.description,
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    trailing: mode == currentMode
+                        ? Icon(Icons.check, color: sheetCs.primary, size: 20)
+                        : null,
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      HapticFeedback.lightImpact();
+                      chatCubit.setPermissionMode(mode);
+                    },
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
     final screenWidth = MediaQuery.of(context).size.width;
 
     Widget buildFollowerOverlay({required Widget child}) {
@@ -550,12 +625,18 @@ class ChatInputWithOverlays extends HookWidget {
             onStop: stopSession,
             onInterrupt: interruptSession,
             onToggleVoice: voice.toggle,
-            onShowPlusMenu: () => _showPlusMenu(
-              context,
-              onSlashCommands: showSlashCommandSheet,
-              onAttachImage: showAttachOptions,
-              onPromptHistory: showPromptHistory,
-            ),
+            onShowSlashCommands: showSlashCommandSheet,
+            onShowModeMenu: showModeMenu,
+            showModeButton: true,
+            permissionMode: context
+                .watch<ChatSessionCubit>()
+                .state
+                .permissionMode,
+            sandboxMode: isCodex
+                ? context.watch<ChatSessionCubit>().state.sandboxMode
+                : null,
+            onShowPromptHistory: showPromptHistory,
+            onAttachImage: showAttachOptions,
             attachedImages: attachedImages.value,
             onClearImage: clearAttachment,
             attachedDiffSelection: attachedDiffSelection.value,
@@ -569,52 +650,6 @@ class ChatInputWithOverlays extends HookWidget {
       ),
     );
   }
-}
-
-void _showPlusMenu(
-  BuildContext context, {
-  required VoidCallback onSlashCommands,
-  required VoidCallback onAttachImage,
-  required VoidCallback onPromptHistory,
-}) {
-  final l = AppLocalizations.of(context);
-  showModalBottomSheet(
-    context: context,
-    builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            key: const ValueKey('plus_menu_slash_commands'),
-            leading: const Icon(Icons.terminal),
-            title: Text(l.tooltipSlashCommand),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              onSlashCommands();
-            },
-          ),
-          ListTile(
-            key: const ValueKey('plus_menu_attach_image'),
-            leading: const Icon(Icons.attach_file),
-            title: Text(l.tooltipAttachImage),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              onAttachImage();
-            },
-          ),
-          ListTile(
-            key: const ValueKey('plus_menu_prompt_history'),
-            leading: const Icon(Icons.history),
-            title: Text(l.tooltipPromptHistory),
-            onTap: () {
-              Navigator.pop(sheetContext);
-              onPromptHistory();
-            },
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 /// Extract the file query after the last '@' before cursor position.

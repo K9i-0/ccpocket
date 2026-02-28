@@ -6,7 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../utils/diff_parser.dart';
 
-/// Bottom input bar with plus-menu button, text field, and action buttons.
+/// Bottom input bar with slash-command button, text field, and action buttons.
 ///
 /// Pure presentation — all actions are dispatched via callbacks.
 class ChatInputBar extends StatelessWidget {
@@ -19,7 +19,13 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onStop;
   final VoidCallback onInterrupt;
   final VoidCallback onToggleVoice;
-  final VoidCallback onShowPlusMenu;
+  final VoidCallback onShowSlashCommands;
+  final VoidCallback onShowModeMenu;
+  final bool showModeButton;
+  final PermissionMode permissionMode;
+  final SandboxMode? sandboxMode;
+  final VoidCallback? onShowPromptHistory;
+  final VoidCallback? onAttachImage;
   final List<({Uint8List bytes, String mimeType})> attachedImages;
   final void Function([int? index])? onClearImage;
   final DiffSelection? attachedDiffSelection;
@@ -38,7 +44,13 @@ class ChatInputBar extends StatelessWidget {
     required this.onStop,
     required this.onInterrupt,
     required this.onToggleVoice,
-    required this.onShowPlusMenu,
+    required this.onShowSlashCommands,
+    required this.onShowModeMenu,
+    this.showModeButton = true,
+    this.permissionMode = PermissionMode.defaultMode,
+    this.sandboxMode,
+    this.onShowPromptHistory,
+    this.onAttachImage,
     this.attachedImages = const [],
     this.onClearImage,
     this.attachedDiffSelection,
@@ -86,7 +98,28 @@ class ChatInputBar extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              _PlusButton(onTap: onShowPlusMenu),
+              _SlashButton(onTap: onShowSlashCommands),
+              if (showModeButton) ...[
+                const SizedBox(width: 8),
+                _ModeButton(
+                  permissionMode: permissionMode,
+                  onTap: onShowModeMenu,
+                ),
+              ],
+              if (sandboxMode != null) ...[
+                const SizedBox(width: 6),
+                _SandboxModeBadge(mode: sandboxMode!),
+              ],
+              const SizedBox(width: 8),
+              _AttachButton(
+                hasAttachment: attachedImages.isNotEmpty,
+                imageCount: attachedImages.length,
+                onTap: onAttachImage,
+              ),
+              if (onShowPromptHistory != null) ...[
+                const SizedBox(width: 8),
+                _HistoryButton(onTap: onShowPromptHistory!),
+              ],
               if (isVoiceAvailable) ...[
                 const SizedBox(width: 8),
                 _VoiceButton(isRecording: isRecording, onTap: onToggleVoice),
@@ -107,25 +140,269 @@ class ChatInputBar extends StatelessWidget {
   }
 }
 
-class _PlusButton extends StatelessWidget {
-  const _PlusButton({required this.onTap});
+class _SlashButton extends StatelessWidget {
+  const _SlashButton({required this.onTap});
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        key: const ValueKey('plus_button'),
+    final l = AppLocalizations.of(context);
+    return Tooltip(
+      message: l.tooltipSlashCommand,
+      child: Material(
+        color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          child: Icon(Icons.add, size: 20, color: cs.primary),
+        child: InkWell(
+          key: const ValueKey('slash_command_button'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            child: Text(
+              '/',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: cs.primary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeButton extends StatelessWidget {
+  const _ModeButton({required this.permissionMode, required this.onTap});
+  final PermissionMode permissionMode;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+
+    final isDefault = permissionMode == PermissionMode.defaultMode;
+
+    final (
+      IconData icon,
+      String? label,
+      Color bg,
+      Color fg,
+    ) = switch (permissionMode) {
+      PermissionMode.defaultMode => (
+        Icons.tune,
+        null,
+        cs.surfaceContainerHigh,
+        cs.primary,
+      ),
+      PermissionMode.plan => (
+        Icons.assignment,
+        'Plan',
+        cs.tertiaryContainer,
+        cs.onTertiaryContainer,
+      ),
+      PermissionMode.acceptEdits => (
+        Icons.edit_note,
+        'Edits',
+        cs.primaryContainer,
+        cs.onPrimaryContainer,
+      ),
+      PermissionMode.bypassPermissions => (
+        Icons.flash_on,
+        'Bypass',
+        cs.errorContainer,
+        cs.onErrorContainer,
+      ),
+    };
+
+    return Tooltip(
+      message: l.tooltipPermissionMode,
+      child: Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          key: const ValueKey('mode_button'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            height: 36,
+            constraints: isDefault
+                ? const BoxConstraints(minWidth: 36, maxWidth: 36)
+                : const BoxConstraints(minWidth: 36),
+            padding: isDefault
+                ? EdgeInsets.zero
+                : const EdgeInsets.symmetric(horizontal: 10),
+            alignment: Alignment.center,
+            child: isDefault
+                ? Icon(icon, size: 18, color: fg)
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 16, color: fg),
+                      const SizedBox(width: 4),
+                      Text(
+                        label!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: fg,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// _SandboxModeButton removed — sandbox is now a simple On/Off badge
+
+/// Read-only sandbox mode badge displayed alongside the permission mode button
+/// for Codex sessions.
+class _SandboxModeBadge extends StatelessWidget {
+  const _SandboxModeBadge({required this.mode});
+  final SandboxMode mode;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    final (IconData icon, String label, Color bg, Color fg) = switch (mode) {
+      SandboxMode.on => (
+        Icons.shield_outlined,
+        'SB',
+        cs.tertiaryContainer,
+        cs.onTertiaryContainer,
+      ),
+      SandboxMode.off => (
+        Icons.warning_amber,
+        'No SB',
+        cs.errorContainer,
+        cs.onErrorContainer,
+      ),
+    };
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttachButton extends StatelessWidget {
+  const _AttachButton({
+    required this.hasAttachment,
+    required this.imageCount,
+    required this.onTap,
+  });
+  final bool hasAttachment;
+  final int imageCount;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    return Tooltip(
+      message: l.tooltipAttachImage,
+      child: Material(
+        color: hasAttachment ? cs.primaryContainer : cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          key: const ValueKey('attach_image_button'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            child: hasAttachment
+                ? Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(Icons.image, size: 18, color: cs.onPrimaryContainer),
+                      if (imageCount > 1)
+                        Positioned(
+                          top: -6,
+                          right: -8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.primary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '$imageCount',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: cs.onPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  )
+                : Icon(Icons.attach_file, size: 18, color: cs.primary),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryButton extends StatelessWidget {
+  const _HistoryButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    return Tooltip(
+      message: l.tooltipPromptHistory,
+      child: Material(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          key: const ValueKey('prompt_history_button'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            child: Icon(Icons.history, size: 18, color: cs.primary),
+          ),
         ),
       ),
     );
