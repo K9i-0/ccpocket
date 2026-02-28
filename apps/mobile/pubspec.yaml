@@ -85,6 +85,12 @@ dependency_overrides:
     git:
       url: https://github.com/Sabbar-Engineering/irondash
       path: engine_context/dart
+  # Temporary: use git main for call_custom_extension support (PR #30)
+  # Remove after marionette_flutter v0.4.0 is published to pub.dev
+  marionette_flutter:
+    git:
+      url: https://github.com/leancodepl/marionette_mcp
+      path: packages/marionette_flutter
 
 dev_dependencies:
   flutter_test:

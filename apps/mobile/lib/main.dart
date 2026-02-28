@@ -46,6 +46,7 @@ import 'services/notification_service.dart';
 import 'services/prompt_history_service.dart';
 import 'services/ssh_startup_service.dart';
 import 'theme/app_theme.dart';
+import 'services/store_screenshot_extension.dart';
 import 'theme/markdown_style.dart';
 
 /// Top-level handler for FCM background messages.
@@ -77,6 +78,7 @@ Future<void> _checkShorebirdUpdate(SharedPreferences prefs) async {
 void main() async {
   if (kDebugMode && !kIsWeb) {
     MarionetteBinding.ensureInitialized();
+    registerStoreScreenshotExtensions();
   } else {
     WidgetsFlutterBinding.ensureInitialized();
   }
@@ -125,6 +127,7 @@ void main() async {
 
   final bridge = BridgeService();
   final draftService = DraftService(prefs);
+  StoreScreenshotState.draftService = draftService;
   final dbService = DatabaseService();
   final promptHistoryService = PromptHistoryService(dbService);
   runApp(
@@ -233,6 +236,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
     if (_routerInitialized) return;
     _routerInitialized = true;
     _appRouter = AppRouter();
+    StoreScreenshotState.navigatorKey = _appRouter.navigatorKey;
     // Navigate to session screen when user taps a notification
     NotificationService.instance.onNotificationTap = (payload) {
       _openSessionFromPayload(payload);
