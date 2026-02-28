@@ -19,6 +19,7 @@ void main() {
   Widget buildSubject({
     ProcessStatus status = ProcessStatus.idle,
     bool hasInputText = false,
+    bool isInputEmpty = true,
     bool isVoiceAvailable = false,
     bool isRecording = false,
     VoidCallback? onSend,
@@ -28,6 +29,7 @@ void main() {
     VoidCallback? onIndent,
     VoidCallback? onDedent,
     bool canDedent = true,
+    VoidCallback? onSlashCommand,
   }) {
     return MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -38,6 +40,7 @@ void main() {
           inputController: inputController,
           status: status,
           hasInputText: hasInputText,
+          isInputEmpty: isInputEmpty,
           isVoiceAvailable: isVoiceAvailable,
           isRecording: isRecording,
           onSend: onSend ?? () {},
@@ -47,6 +50,7 @@ void main() {
           onIndent: onIndent ?? () {},
           onDedent: onDedent ?? () {},
           canDedent: canDedent,
+          onSlashCommand: onSlashCommand ?? () {},
         ),
       ),
     );
@@ -144,8 +148,13 @@ void main() {
     testWidgets('dedent button fires callback when enabled', (tester) async {
       var dedented = false;
       await tester.pumpWidget(
-        buildSubject(onDedent: () => dedented = true, canDedent: true),
+        buildSubject(
+          isInputEmpty: false,
+          onDedent: () => dedented = true,
+          canDedent: true,
+        ),
       );
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('dedent_button')));
       expect(dedented, isTrue);
@@ -156,8 +165,13 @@ void main() {
     ) async {
       var dedented = false;
       await tester.pumpWidget(
-        buildSubject(onDedent: () => dedented = true, canDedent: false),
+        buildSubject(
+          isInputEmpty: false,
+          onDedent: () => dedented = true,
+          canDedent: false,
+        ),
       );
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('dedent_button')));
       expect(dedented, isFalse);
@@ -225,6 +239,45 @@ void main() {
       );
 
       expect(find.byKey(const ValueKey('send_button')), findsOneWidget);
+    });
+
+    group('slash command button (input empty swap)', () {
+      testWidgets('shows slash command button when input is empty', (
+        tester,
+      ) async {
+        await tester.pumpWidget(buildSubject(isInputEmpty: true));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('slash_command_button')),
+          findsOneWidget,
+        );
+        expect(find.byKey(const ValueKey('dedent_button')), findsNothing);
+      });
+
+      testWidgets('shows dedent button when input is not empty', (
+        tester,
+      ) async {
+        await tester.pumpWidget(buildSubject(isInputEmpty: false));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const ValueKey('dedent_button')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('slash_command_button')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('slash command button fires callback on tap', (tester) async {
+        var tapped = false;
+        await tester.pumpWidget(
+          buildSubject(isInputEmpty: true, onSlashCommand: () => tapped = true),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const ValueKey('slash_command_button')));
+        expect(tapped, isTrue);
+      });
     });
   });
 }

@@ -124,9 +124,9 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
         widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
         final errorText = msg.message;
         context.router.maybePop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorText)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorText)));
       }
     });
   }

@@ -13,6 +13,7 @@ class ChatInputBar extends StatelessWidget {
   final TextEditingController inputController;
   final ProcessStatus status;
   final bool hasInputText;
+  final bool isInputEmpty;
   final bool isVoiceAvailable;
   final bool isRecording;
   final VoidCallback onSend;
@@ -22,6 +23,7 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onIndent;
   final VoidCallback onDedent;
   final bool canDedent;
+  final VoidCallback onSlashCommand;
   final VoidCallback? onShowPromptHistory;
   final VoidCallback? onAttachImage;
   final List<({Uint8List bytes, String mimeType})> attachedImages;
@@ -36,6 +38,7 @@ class ChatInputBar extends StatelessWidget {
     required this.inputController,
     required this.status,
     required this.hasInputText,
+    this.isInputEmpty = true,
     required this.isVoiceAvailable,
     required this.isRecording,
     required this.onSend,
@@ -45,6 +48,7 @@ class ChatInputBar extends StatelessWidget {
     required this.onIndent,
     required this.onDedent,
     this.canDedent = true,
+    required this.onSlashCommand,
     this.onShowPromptHistory,
     this.onAttachImage,
     this.attachedImages = const [],
@@ -94,7 +98,19 @@ class ChatInputBar extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              _DedentButton(onTap: onDedent, enabled: canDedent),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: isInputEmpty
+                    ? _SlashCommandButton(
+                        key: const ValueKey('slash_command_button'),
+                        onTap: onSlashCommand,
+                      )
+                    : _DedentButton(
+                        key: const ValueKey('dedent_button'),
+                        onTap: onDedent,
+                        enabled: canDedent,
+                      ),
+              ),
               const SizedBox(width: 8),
               _IndentButton(onTap: onIndent),
               const SizedBox(width: 8),
@@ -161,7 +177,7 @@ class _IndentButton extends StatelessWidget {
 }
 
 class _DedentButton extends StatelessWidget {
-  const _DedentButton({required this.onTap, required this.enabled});
+  const _DedentButton({super.key, required this.onTap, required this.enabled});
   final VoidCallback onTap;
   final bool enabled;
 
@@ -177,7 +193,6 @@ class _DedentButton extends StatelessWidget {
           color: cs.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
-            key: const ValueKey('dedent_button'),
             borderRadius: BorderRadius.circular(20),
             onTap: enabled ? onTap : null,
             child: Container(
@@ -187,6 +202,41 @@ class _DedentButton extends StatelessWidget {
               child: Icon(
                 Icons.format_indent_decrease,
                 size: 18,
+                color: cs.primary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SlashCommandButton extends StatelessWidget {
+  const _SlashCommandButton({super.key, required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    return Tooltip(
+      message: l.tooltipSlashCommand,
+      child: Material(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            child: Text(
+              '/',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
                 color: cs.primary,
               ),
             ),

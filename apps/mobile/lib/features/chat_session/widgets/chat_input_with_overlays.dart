@@ -67,6 +67,9 @@ class ChatInputWithOverlays extends HookWidget {
     // Track if input has text (initialize from controller's current value)
     final hasInputText = useState(inputController.text.trim().isNotEmpty);
 
+    // Track if input is completely empty (for slash command button swap)
+    final isInputEmpty = useState(inputController.text.isEmpty);
+
     // List auto-complete (Google Keep-style)
     useListAutoComplete(inputController);
 
@@ -134,6 +137,10 @@ class ChatInputWithOverlays extends HookWidget {
         if (trimHasText != hasInputText.value) {
           hasInputText.value = trimHasText;
         }
+        final empty = text.isEmpty;
+        if (empty != isInputEmpty.value) {
+          isInputEmpty.value = empty;
+        }
 
         if (text.startsWith('/') && text.isNotEmpty) {
           // Slash command filtering
@@ -197,6 +204,13 @@ class ChatInputWithOverlays extends HookWidget {
       final spaces = ' ' * indentSize;
       _applyIndent(inputController, spaces, isIndent: false);
       canDedent.value = _currentLineHasLeadingSpaces(inputController);
+    }
+
+    void insertSlashPrefix() {
+      inputController.text = '/';
+      inputController.selection = TextSelection.fromPosition(
+        const TextPosition(offset: 1),
+      );
     }
 
     // Callbacks
@@ -557,6 +571,7 @@ class ChatInputWithOverlays extends HookWidget {
                 hasInputText.value ||
                 attachedImages.value.isNotEmpty ||
                 attachedDiffSelection.value != null,
+            isInputEmpty: isInputEmpty.value,
             isVoiceAvailable: voice.isAvailable,
             isRecording: voice.isRecording,
             onSend: sendMessage,
@@ -566,6 +581,7 @@ class ChatInputWithOverlays extends HookWidget {
             onIndent: indent,
             onDedent: dedent,
             canDedent: canDedent.value,
+            onSlashCommand: insertSlashPrefix,
             onShowPromptHistory: showPromptHistory,
             onAttachImage: showAttachOptions,
             attachedImages: attachedImages.value,

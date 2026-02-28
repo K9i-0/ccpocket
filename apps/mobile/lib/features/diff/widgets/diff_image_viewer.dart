@@ -101,8 +101,8 @@ class DiffImageViewer extends HookWidget {
                     label: file.isNewFile
                         ? l.diffNewFile
                         : file.isDeleted
-                            ? l.diffDeleted
-                            : null,
+                        ? l.diffDeleted
+                        : null,
                     onTap: toggleChrome,
                   ),
           ),
