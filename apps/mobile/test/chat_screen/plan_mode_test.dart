@@ -1,4 +1,4 @@
-import 'package:ccpocket/features/chat_session/widgets/status_indicator.dart';
+import 'package:ccpocket/features/chat_session/widgets/status_line.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,7 +41,7 @@ Future<void> setupPlanApproval(PatrolTester $, MockBridgeService bridge) async {
 
 void main() {
   group('Plan Mode', () {
-    patrolWidgetTest('C1: StatusIndicator shows plan mode when EnterPlanMode', (
+    patrolWidgetTest('C1: StatusLine shows plan mode when EnterPlanMode', (
       $,
     ) async {
       final bridge = MockBridgeService();
@@ -53,10 +53,10 @@ void main() {
       ]);
       await pumpN($.tester);
 
-      final indicator = $.tester.widget<StatusIndicator>(
-        find.byType(StatusIndicator),
+      final statusLine = $.tester.widget<StatusLine>(
+        find.byType(StatusLine),
       );
-      expect(indicator.inPlanMode, isTrue);
+      expect(statusLine.inPlanMode, isTrue);
     });
 
     patrolWidgetTest(

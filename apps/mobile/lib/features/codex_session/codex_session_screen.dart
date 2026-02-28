@@ -586,7 +586,6 @@ class _CodexChatBody extends HookWidget {
             ),
             body: Column(
               children: [
-                const SessionModeBar(),
                 if (bridgeState == BridgeConnectionState.reconnecting ||
                     bridgeState == BridgeConnectionState.disconnected)
                   ReconnectBanner(bridgeState: bridgeState),
@@ -608,6 +607,12 @@ class _CodexChatBody extends HookWidget {
                         scrollToUserEntry: scrollToUserEntry,
                         collapseToolResults: collapseToolResults,
                         onScrollToBottom: scroll.scrollToBottom,
+                      ),
+                      const Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: SessionModeBar(),
                       ),
                       if (scroll.isScrolledUp)
                         Positioned(

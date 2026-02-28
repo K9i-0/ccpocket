@@ -641,7 +641,6 @@ class _ChatScreenBody extends HookWidget {
                   toolCalls: toolUsage.toolCalls,
                   fileEdits: toolUsage.fileEdits,
                 ),
-                const SessionModeBar(),
                 if (bridgeState == BridgeConnectionState.reconnecting ||
                     bridgeState == BridgeConnectionState.disconnected)
                   ReconnectBanner(bridgeState: bridgeState),
@@ -664,6 +663,12 @@ class _ChatScreenBody extends HookWidget {
                         pendingPlanToolUseId: pendingPlanToolUseId,
                         onScrollToBottom: scroll.scrollToBottom,
                         scrollToUserEntry: scrollToUserEntry,
+                      ),
+                      const Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: SessionModeBar(),
                       ),
                       if (scroll.isScrolledUp)
                         Positioned(
