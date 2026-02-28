@@ -500,81 +500,6 @@ class ChatInputWithOverlays extends HookWidget {
       );
     }
 
-    void showModeMenu() {
-      final currentMode = chatCubit.state.permissionMode;
-
-      const modeDetails =
-          <PermissionMode, ({IconData icon, String description})>{
-            PermissionMode.defaultMode: (
-              icon: Icons.tune,
-              description: 'Standard permission prompts',
-            ),
-            PermissionMode.plan: (
-              icon: Icons.assignment,
-              description: 'Analyze & plan without executing',
-            ),
-            PermissionMode.acceptEdits: (
-              icon: Icons.edit_note,
-              description: 'Auto-approve file edits',
-            ),
-            PermissionMode.bypassPermissions: (
-              icon: Icons.flash_on,
-              description: 'Skip all permission prompts',
-            ),
-          };
-
-      showModalBottomSheet(
-        context: context,
-        builder: (sheetContext) {
-          final sheetCs = Theme.of(sheetContext).colorScheme;
-          return SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Permission Mode',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: sheetCs.onSurface,
-                      ),
-                    ),
-                  ),
-                ),
-                for (final mode in PermissionMode.values)
-                  ListTile(
-                    leading: Icon(
-                      modeDetails[mode]!.icon,
-                      color: mode == currentMode
-                          ? sheetCs.primary
-                          : sheetCs.onSurfaceVariant,
-                    ),
-                    title: Text(mode.label),
-                    subtitle: Text(
-                      modeDetails[mode]!.description,
-                      style: TextStyle(fontSize: 12),
-                    ),
-                    trailing: mode == currentMode
-                        ? Icon(Icons.check, color: sheetCs.primary, size: 20)
-                        : null,
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      HapticFeedback.lightImpact();
-                      chatCubit.setPermissionMode(mode);
-                    },
-                  ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          );
-        },
-      );
-    }
-
     final screenWidth = MediaQuery.of(context).size.width;
 
     Widget buildFollowerOverlay({required Widget child}) {
@@ -626,15 +551,6 @@ class ChatInputWithOverlays extends HookWidget {
             onInterrupt: interruptSession,
             onToggleVoice: voice.toggle,
             onShowSlashCommands: showSlashCommandSheet,
-            onShowModeMenu: showModeMenu,
-            showModeButton: true,
-            permissionMode: context
-                .watch<ChatSessionCubit>()
-                .state
-                .permissionMode,
-            sandboxMode: isCodex
-                ? context.watch<ChatSessionCubit>().state.sandboxMode
-                : null,
             onShowPromptHistory: showPromptHistory,
             onAttachImage: showAttachOptions,
             attachedImages: attachedImages.value,

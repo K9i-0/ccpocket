@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,32 +18,60 @@ class SessionModeBar extends StatelessWidget {
     final sandboxMode = chatCubit.isCodex ? chatCubit.state.sandboxMode : null;
 
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      width: double.infinity,
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        border: Border(
-          bottom: BorderSide(color: cs.outlineVariant, width: 0.5),
-        ),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            PermissionModeChip(
-              currentMode: permissionMode,
-              onTap: () => showPermissionModeMenu(context, chatCubit),
-            ),
-            if (sandboxMode != null) ...[
-              const SizedBox(width: 8),
-              SandboxModeChip(
-                currentMode: sandboxMode,
-                onTap: () => showSandboxModeMenu(context, chatCubit),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? cs.surface.withValues(alpha: 0.6)
+                  : cs.surface.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.white.withValues(alpha: 0.6),
               ),
-            ],
-          ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PermissionModeChip(
+                    currentMode: permissionMode,
+                    onTap: () => showPermissionModeMenu(context, chatCubit),
+                  ),
+                  if (sandboxMode != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: cs.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    SandboxModeChip(
+                      currentMode: sandboxMode,
+                      onTap: () => showSandboxModeMenu(context, chatCubit),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -205,41 +235,20 @@ class PermissionModeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    final (
-      IconData icon,
-      String label,
-      Color bg,
-      Color fg,
-    ) = switch (currentMode) {
+    final (IconData icon, String label, Color fg) = switch (currentMode) {
       PermissionMode.defaultMode => (
         Icons.tune,
         'Default',
-        cs.surfaceContainerHighest,
         cs.onSurfaceVariant,
       ),
-      PermissionMode.plan => (
-        Icons.assignment,
-        'Plan',
-        cs.tertiaryContainer,
-        cs.onTertiaryContainer,
-      ),
-      PermissionMode.acceptEdits => (
-        Icons.edit_note,
-        'Edits',
-        cs.primaryContainer,
-        cs.onPrimaryContainer,
-      ),
-      PermissionMode.bypassPermissions => (
-        Icons.flash_on,
-        'Bypass',
-        cs.errorContainer,
-        cs.onErrorContainer,
-      ),
+      PermissionMode.plan => (Icons.assignment, 'Plan', cs.tertiary),
+      PermissionMode.acceptEdits => (Icons.edit_note, 'Edits', cs.primary),
+      PermissionMode.bypassPermissions => (Icons.flash_on, 'Bypass', cs.error),
     };
 
     return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -261,8 +270,8 @@ class PermissionModeChip extends StatelessWidget {
               const SizedBox(width: 2),
               Icon(
                 Icons.arrow_drop_down,
-                size: 16,
-                color: fg.withValues(alpha: 0.7),
+                size: 14,
+                color: fg.withValues(alpha: 0.5),
               ),
             ],
           ),
@@ -286,29 +295,14 @@ class SandboxModeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    final (
-      IconData icon,
-      String label,
-      Color bg,
-      Color fg,
-    ) = switch (currentMode) {
-      SandboxMode.on => (
-        Icons.shield_outlined,
-        'Sandbox On',
-        cs.tertiaryContainer,
-        cs.onTertiaryContainer,
-      ),
-      SandboxMode.off => (
-        Icons.warning_amber,
-        'Sandbox Off',
-        cs.errorContainer,
-        cs.onErrorContainer,
-      ),
+    final (IconData icon, String label, Color fg) = switch (currentMode) {
+      SandboxMode.on => (Icons.shield_outlined, 'Sandbox', cs.tertiary),
+      SandboxMode.off => (Icons.warning_amber, 'No SB', cs.error),
     };
 
     return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -330,8 +324,8 @@ class SandboxModeChip extends StatelessWidget {
               const SizedBox(width: 2),
               Icon(
                 Icons.arrow_drop_down,
-                size: 16,
-                color: fg.withValues(alpha: 0.7),
+                size: 14,
+                color: fg.withValues(alpha: 0.5),
               ),
             ],
           ),
