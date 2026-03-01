@@ -238,6 +238,12 @@ class BridgeService implements BridgeServiceBase {
                 }
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
+              case SystemMessage(:final permissionMode):
+                if (sessionId != null && permissionMode != null) {
+                  _patchSessionPermissionMode(sessionId, permissionMode);
+                }
+                _taggedMessageController.add((msg, sessionId));
+                _messageController.add(msg);
               case StatusMessage(:final status):
                 // Patch cached session list so the session list screen
                 // reflects status changes in real-time.
@@ -621,6 +627,16 @@ class BridgeService implements BridgeServiceBase {
     _sessionListController.add(_sessions);
   }
 
+  void _patchSessionPermissionMode(String sessionId, String permissionMode) {
+    final idx = _sessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) return;
+    final current = _sessions[idx];
+    if (current.permissionMode == permissionMode) return;
+    _sessions = List.of(_sessions)
+      ..[idx] = current.copyWith(permissionMode: permissionMode);
+    _sessionListController.add(_sessions);
+  }
+
   /// Update the cached lastMessage when an [AssistantMessage] arrives so the
   /// session list card shows the latest response in real-time.
   void _patchSessionLastMessage(String sessionId, AssistantMessage message) {
@@ -648,6 +664,10 @@ class BridgeService implements BridgeServiceBase {
     _sessions = List.of(_sessions)
       ..[idx] = _sessions[idx].copyWith(clearPermission: true);
     _sessionListController.add(_sessions);
+  }
+
+  void patchSessionPermissionMode(String sessionId, String permissionMode) {
+    _patchSessionPermissionMode(sessionId, permissionMode);
   }
 
   @override

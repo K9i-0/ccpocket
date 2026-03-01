@@ -376,6 +376,8 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color statusApproval;
   final Color statusCompacting;
   final Color statusIdle;
+  final Color statusPlan;
+  final Color statusPlanGlow;
 
   // Subtle text
   final Color subtleText;
@@ -421,6 +423,8 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.statusApproval,
     required this.statusCompacting,
     required this.statusIdle,
+    required this.statusPlan,
+    required this.statusPlanGlow,
     required this.subtleText,
     required this.codeBackground,
     required this.codeBorder,
@@ -455,11 +459,13 @@ class AppColors extends ThemeExtension<AppColors> {
     errorChip: Color(0xFFFEE2E2), // Red 100
     approvalBar: Color(0xFFFFF7ED), // Orange 50
     approvalBarBorder: Color(0xFFD4450A), // Ember (unified)
-    statusStarting: Color(0xFF4F46E5), // Indigo 600
-    statusRunning: Color(0xFF0D9488), // Teal 600 (brighter)
+    statusStarting: Color(0xFF6F7C8C), // cool grey for light surfaces
+    statusRunning: Color(0xFF156FDB), // clear working blue
     statusApproval: Color(0xFFD4450A), // Ember (brighter)
     statusCompacting: Color(0xFF7C3AED), // Violet 600
     statusIdle: Color(0xFF787068), // warm grey (WCAG AA)
+    statusPlan: Color(0xFF1F8F4E), // structured plan green
+    statusPlanGlow: Color(0xFF7BD89A), // lighter green for glow
     subtleText: Color(0xFF6B5E54), // warm stone (WCAG AA)
     codeBackground: Color(0xFFF5F0EB), // warm cream
     codeBorder: Color(0xFF99D5CF), // Teal accent border
@@ -494,11 +500,13 @@ class AppColors extends ThemeExtension<AppColors> {
     errorChip: Color(0xFF2A1215),
     approvalBar: Color(0xFF241A0B),
     approvalBarBorder: Color(0xFF5C3D15),
-    statusStarting: Color(0xFF60A5FA), // Blue 400
-    statusRunning: Color(0xFF4ADE80), // Green 400
+    statusStarting: Color(0xFFE8EDF3), // cool white
+    statusRunning: Color(0xFF4DA3FF), // electric working blue
     statusApproval: Color(0xFFFDBA74), // Orange 300
     statusCompacting: Color(0xFFA78BFA), // Violet 400
     statusIdle: Color(0xFF6E6E6E), // neutral grey
+    statusPlan: Color(0xFF57C779), // natural plan green
+    statusPlanGlow: Color(0xFF9AE6B4), // lifted green glow
     subtleText: Color(0xFFB8B5B0), // neutral-warm stone
     codeBackground: Color(0xFF1E1E1E), // neutral lifted
     codeBorder: Color(0xFF3D3D3D), // match outlineVariant
@@ -538,6 +546,8 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? statusApproval,
     Color? statusCompacting,
     Color? statusIdle,
+    Color? statusPlan,
+    Color? statusPlanGlow,
     Color? subtleText,
     Color? codeBackground,
     Color? codeBorder,
@@ -576,6 +586,8 @@ class AppColors extends ThemeExtension<AppColors> {
       statusApproval: statusApproval ?? this.statusApproval,
       statusCompacting: statusCompacting ?? this.statusCompacting,
       statusIdle: statusIdle ?? this.statusIdle,
+      statusPlan: statusPlan ?? this.statusPlan,
+      statusPlanGlow: statusPlanGlow ?? this.statusPlanGlow,
       subtleText: subtleText ?? this.subtleText,
       codeBackground: codeBackground ?? this.codeBackground,
       codeBorder: codeBorder ?? this.codeBorder,
@@ -645,6 +657,8 @@ class AppColors extends ThemeExtension<AppColors> {
         t,
       )!,
       statusIdle: Color.lerp(statusIdle, other.statusIdle, t)!,
+      statusPlan: Color.lerp(statusPlan, other.statusPlan, t)!,
+      statusPlanGlow: Color.lerp(statusPlanGlow, other.statusPlanGlow, t)!,
       subtleText: Color.lerp(subtleText, other.subtleText, t)!,
       codeBackground: Color.lerp(codeBackground, other.codeBackground, t)!,
       codeBorder: Color.lerp(codeBorder, other.codeBorder, t)!,

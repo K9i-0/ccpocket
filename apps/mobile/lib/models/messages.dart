@@ -1447,6 +1447,7 @@ class SessionInfo {
     String? name,
     bool clearName = false,
     String? lastMessage,
+    String? permissionMode,
     PermissionRequestMessage? pendingPermission,
     bool clearPermission = false,
   }) {
@@ -1463,7 +1464,7 @@ class SessionInfo {
       lastMessage: lastMessage ?? this.lastMessage,
       worktreePath: worktreePath,
       worktreeBranch: worktreeBranch,
-      permissionMode: permissionMode,
+      permissionMode: permissionMode ?? this.permissionMode,
       codexApprovalPolicy: codexApprovalPolicy,
       codexSandboxMode: codexSandboxMode,
       codexModel: codexModel,

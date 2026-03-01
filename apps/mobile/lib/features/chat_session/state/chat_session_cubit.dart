@@ -384,6 +384,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         totalCost: usage.totalCost,
         totalDuration: usage.totalDuration,
         inPlanMode: update.inPlanMode ?? current.inPlanMode,
+        permissionMode: update.permissionMode ?? current.permissionMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
         claudeSessionId: newClaudeSessionId,
         hiddenToolUseIds: hiddenToolUseIds,
@@ -571,7 +572,13 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Change permission mode for Claude sessions.
   void setPermissionMode(PermissionMode mode) {
     logger.info('[session:$sessionId] setPermissionMode=${mode.value}');
-    emit(state.copyWith(permissionMode: mode));
+    emit(
+      state.copyWith(
+        permissionMode: mode,
+        inPlanMode: mode == PermissionMode.plan,
+      ),
+    );
+    _bridge.patchSessionPermissionMode(sessionId, mode.value);
     _bridge.send(
       ClientMessage.setPermissionMode(mode.value, sessionId: sessionId),
     );

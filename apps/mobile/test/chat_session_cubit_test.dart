@@ -192,6 +192,20 @@ void main() {
       expect(cubit.state.inPlanMode, false);
     });
 
+    test('setPermissionMode updates local mode state immediately', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      cubit.setPermissionMode(PermissionMode.plan);
+      expect(cubit.state.permissionMode, PermissionMode.plan);
+      expect(cubit.state.inPlanMode, isTrue);
+
+      cubit.setPermissionMode(PermissionMode.defaultMode);
+      expect(cubit.state.permissionMode, PermissionMode.defaultMode);
+      expect(cubit.state.inPlanMode, isFalse);
+    });
+
     test('history message adds entries', () async {
       final cubit = createCubit('s1');
       addTearDown(cubit.close);

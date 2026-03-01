@@ -19,6 +19,7 @@ enum ChatSideEffect {
 /// Result of processing a single [ServerMessage].
 class ChatStateUpdate {
   final ProcessStatus? status;
+  final PermissionMode? permissionMode;
   final List<ChatEntry> entriesToAdd;
   final List<ChatEntry> entriesToPrepend;
   final String? pendingToolUseId;
@@ -57,6 +58,7 @@ class ChatStateUpdate {
 
   const ChatStateUpdate({
     this.status,
+    this.permissionMode,
     this.entriesToAdd = const [],
     this.entriesToPrepend = const [],
     this.pendingToolUseId,
@@ -468,11 +470,22 @@ class ChatMessageHandler {
     List<String> skills,
   ) {
     List<SlashCommand>? commands;
+    PermissionMode? permissionMode;
+    bool? inPlanMode;
     if ((subtype == 'init' ||
             subtype == 'session_created' ||
             subtype == 'supported_commands') &&
         slashCommands.isNotEmpty) {
       commands = _buildCommandList(slashCommands, skills);
+    }
+    if (msg is SystemMessage && msg.permissionMode != null) {
+      permissionMode = PermissionMode.values.cast<PermissionMode?>().firstWhere(
+        (mode) => mode?.value == msg.permissionMode,
+        orElse: () => null,
+      );
+      if (subtype == 'set_permission_mode' && permissionMode != null) {
+        inPlanMode = permissionMode == PermissionMode.plan;
+      }
     }
     // Extract claudeSessionId from session_created or init messages.
     // Prefer the full Claude CLI UUID (claudeSessionId) over the Bridge's
@@ -485,6 +498,8 @@ class ChatMessageHandler {
     final addEntry = subtype == 'init';
     return ChatStateUpdate(
       entriesToAdd: addEntry ? [ServerChatEntry(msg)] : [],
+      permissionMode: permissionMode,
+      inPlanMode: inPlanMode,
       slashCommands: commands,
       claudeSessionId: sessionId,
     );

@@ -66,14 +66,11 @@ class _StatusLineState extends State<StatusLine>
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final cs = Theme.of(context).colorScheme;
 
     final color = switch (widget.status) {
       ProcessStatus.starting => appColors.statusStarting,
-      ProcessStatus.idle =>
-        widget.inPlanMode ? cs.tertiary : appColors.statusIdle,
-      ProcessStatus.running =>
-        widget.inPlanMode ? cs.tertiary : appColors.statusRunning,
+      ProcessStatus.idle => appColors.statusIdle,
+      ProcessStatus.running => appColors.statusRunning,
       ProcessStatus.waitingApproval => appColors.statusApproval,
       ProcessStatus.compacting => appColors.statusCompacting,
     };

@@ -228,6 +228,32 @@ void main() {
     });
   });
 
+  group('SystemMessage handling', () {
+    test('set_permission_mode plan updates inPlanMode', () {
+      final update = handler.handle(
+        const SystemMessage(
+          subtype: 'set_permission_mode',
+          permissionMode: 'plan',
+        ),
+        isBackground: false,
+      );
+
+      expect(update.inPlanMode, isTrue);
+    });
+
+    test('set_permission_mode default exits plan mode', () {
+      final update = handler.handle(
+        const SystemMessage(
+          subtype: 'set_permission_mode',
+          permissionMode: 'default',
+        ),
+        isBackground: false,
+      );
+
+      expect(update.inPlanMode, isFalse);
+    });
+  });
+
   group('PastHistory handling', () {
     test('converts past messages to entries', () {
       final update = handler.handle(

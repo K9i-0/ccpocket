@@ -1,4 +1,5 @@
 import 'package:ccpocket/features/chat_session/widgets/status_line.dart';
+import 'package:ccpocket/features/chat_session/widgets/session_mode_bar.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,6 +42,40 @@ Future<void> setupPlanApproval(PatrolTester $, MockBridgeService bridge) async {
 
 void main() {
   group('Plan Mode', () {
+    patrolWidgetTest('C0: SessionModeBar glows in plan mode', ($) async {
+      final bridge = MockBridgeService();
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+      await pumpN($.tester);
+
+      BoxDecoration pulseDecoration() {
+        final surface = $.tester.widget<DecoratedBox>(
+          find.byKey(const ValueKey('session_mode_bar_pulse')),
+        );
+        return surface.decoration as BoxDecoration;
+      }
+
+      expect(pulseDecoration().boxShadow, anyOf(isNull, isEmpty));
+
+      await emitAndPump($.tester, bridge, [
+        const SystemMessage(
+          subtype: 'set_permission_mode',
+          permissionMode: 'plan',
+        ),
+      ]);
+      await pumpN($.tester);
+
+      expect(find.byType(SessionModeBar), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('session_mode_bar_glow')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('session_mode_bar_pulse')),
+        findsOneWidget,
+      );
+      expect(pulseDecoration().boxShadow, isNotEmpty);
+    });
+
     patrolWidgetTest('C1: StatusLine shows plan mode when EnterPlanMode', (
       $,
     ) async {

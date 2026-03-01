@@ -57,14 +57,15 @@ class StatusIndicator extends HookWidget {
       return timer.cancel;
     }, [isActive, startTime.value]);
 
-    final cs = Theme.of(context).colorScheme;
     final (color, label) = switch (status) {
       ProcessStatus.starting => (appColors.statusStarting, 'Starting'),
       ProcessStatus.idle =>
-        inPlanMode ? (cs.tertiary, 'Plan') : (appColors.statusIdle, 'Idle'),
+        inPlanMode
+            ? (appColors.statusPlan, 'Plan')
+            : (appColors.statusIdle, 'Idle'),
       ProcessStatus.running =>
         inPlanMode
-            ? (cs.tertiary, 'Plan')
+            ? (appColors.statusPlan, 'Plan')
             : (appColors.statusRunning, 'Running'),
       ProcessStatus.waitingApproval => (appColors.statusApproval, 'Approval'),
       ProcessStatus.compacting => (appColors.statusCompacting, 'Compacting'),

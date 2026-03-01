@@ -5,6 +5,7 @@ import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/session_card.dart';
+import 'package:ccpocket/widgets/session_visual_status.dart';
 
 Widget _wrap(Widget child) {
   return MaterialApp(
@@ -68,6 +69,33 @@ void main() {
   });
 
   group('RunningSessionCard', () {
+    test('maps visual status for running plan session', () {
+      final visual = sessionVisualStatusFor(
+        rawStatus: 'running',
+        permissionMode: PermissionMode.plan.value,
+      );
+
+      expect(visual.label, 'Working');
+      expect(visual.showPlanBadge, isTrue);
+      expect(visual.detail, isNull);
+    });
+
+    test('maps visual status for plan approval', () {
+      final visual = sessionVisualStatusFor(
+        rawStatus: 'waiting_approval',
+        permissionMode: PermissionMode.plan.value,
+        pendingPermission: const PermissionRequestMessage(
+          toolUseId: 'tool-plan',
+          toolName: 'ExitPlanMode',
+          input: {'plan': 'Test plan'},
+        ),
+      );
+
+      expect(visual.label, 'Needs You');
+      expect(visual.detail, 'Review plan');
+      expect(visual.showPlanBadge, isTrue);
+    });
+
     testWidgets('displays gitBranch and lastMessage', (tester) async {
       final session = SessionInfo(
         id: 'test-id',
@@ -112,7 +140,7 @@ void main() {
       expect(find.byIcon(Icons.fork_right), findsNothing);
     });
 
-    testWidgets('shows status bar with Running label', (tester) async {
+    testWidgets('shows status bar with Working label', (tester) async {
       final session = SessionInfo(
         id: 'test-id',
         projectPath: '/home/user/my-app',
@@ -128,11 +156,36 @@ void main() {
       );
 
       // Status label in bar
-      expect(find.text('Running'), findsOneWidget);
+      expect(find.text('Working'), findsOneWidget);
       // Project name as badge
       expect(find.text('my-app'), findsOneWidget);
       // Stop button
       expect(find.byIcon(Icons.stop_circle_outlined), findsOneWidget);
+    });
+
+    testWidgets('shows Plan badge when session is in plan mode', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'plan-running',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        permissionMode: PermissionMode.plan.value,
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(session: session, onTap: () {}, onStop: () {}),
+        ),
+      );
+
+      expect(
+        find.byKey(const ValueKey('running_session_plan_badge')),
+        findsOneWidget,
+      );
+      expect(find.text('Working'), findsOneWidget);
     });
 
     testWidgets('shows codex settings summary for codex provider', (
@@ -208,7 +261,9 @@ void main() {
         ),
       );
 
-      expect(find.text('Plan Ready'), findsOneWidget);
+      expect(find.text('Needs You'), findsOneWidget);
+      expect(find.text('Review plan'), findsOneWidget);
+      expect(find.text('Plan'), findsNothing);
       expect(
         find.byKey(const ValueKey('codex_plan_approval_area')),
         findsOneWidget,

@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
 import '../utils/command_parser.dart';
 import 'plan_detail_sheet.dart';
+import 'session_visual_status.dart';
 
 /// Shared layout constant for AskUserArea buttons.
 const _buttonHeight = 44.0;
@@ -91,12 +92,15 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final statusColor = switch (session.status) {
-      'starting' => appColors.statusStarting,
-      'running' => appColors.statusRunning,
-      'waiting_approval' => appColors.statusApproval,
-      'compacting' => appColors.statusCompacting,
-      _ => appColors.statusIdle,
+    final visualStatus = sessionVisualStatusFor(
+      rawStatus: session.status,
+      permissionMode: session.permissionMode,
+      pendingPermission: session.pendingPermission,
+    );
+    final statusColor = switch (visualStatus.primary) {
+      SessionPrimaryStatus.working => appColors.statusRunning,
+      SessionPrimaryStatus.needsYou => appColors.statusApproval,
+      SessionPrimaryStatus.ready => appColors.statusIdle,
     };
 
     final permission = session.pendingPermission;
@@ -109,19 +113,6 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     } else {
       _syncPlanApprovalState(null);
     }
-    final statusLabel = hasPermission
-        ? switch (permission.toolName) {
-            'ExitPlanMode' => 'Plan Ready',
-            'AskUserQuestion' => 'Question',
-            _ => 'Approval · ${permission.toolName}',
-          }
-        : switch (session.status) {
-            'starting' => 'Starting',
-            'running' => 'Running',
-            'waiting_approval' => 'Approval',
-            _ => 'Idle',
-          };
-
     final projectName = session.projectPath.split('/').last;
     final provider = providerFromRaw(session.provider);
     final providerStyle = providerStyleFor(context, provider);
@@ -153,19 +144,55 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
               color: statusColor.withValues(alpha: 0.12),
               child: Row(
                 children: [
-                  _StatusDot(
-                    color: statusColor,
-                    animate: session.status != 'idle',
-                  ),
+                  _StatusDot(color: statusColor, animate: visualStatus.animate),
                   const SizedBox(width: 6),
                   Text(
-                    statusLabel,
+                    visualStatus.label,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: statusColor,
                     ),
                   ),
+                  if (visualStatus.showPlanBadge) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      key: const ValueKey('running_session_plan_badge'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: appColors.statusPlan.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: appColors.statusPlan.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        'Plan',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: appColors.statusPlan,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (visualStatus.detail != null) ...[
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        visualStatus.detail!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: statusColor.withValues(alpha: 0.82),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                   const Spacer(),
                   IconButton(
                     iconSize: 20,
