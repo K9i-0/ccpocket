@@ -137,74 +137,104 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status bar
+            // Status bar with gradient
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              color: statusColor.withValues(alpha: 0.12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    statusColor.withValues(alpha: 0.15),
+                    statusColor.withValues(alpha: 0.04),
+                  ],
+                ),
+              ),
               child: Row(
                 children: [
-                  _StatusDot(color: statusColor, animate: visualStatus.animate),
-                  const SizedBox(width: 6),
-                  Text(
-                    visualStatus.label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        _StatusDot(
+                          color: statusColor,
+                          animate: visualStatus.animate,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          visualStatus.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: statusColor,
+                          ),
+                        ),
+                        if (visualStatus.detail != null) ...[
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              visualStatus.detail!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: statusColor.withValues(alpha: 0.82),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        if (visualStatus.showPlanBadge) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            key: const ValueKey('running_session_plan_badge'),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: appColors.statusPlan.withValues(
+                                alpha: 0.15,
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                              boxShadow: visualStatus.animate
+                                  ? [
+                                      BoxShadow(
+                                        color:
+                                            appColors.statusPlanGlow.withValues(
+                                              alpha: 0.4,
+                                            ),
+                                        blurRadius: 6,
+                                        spreadRadius: 0,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Text(
+                              'Plan',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: appColors.statusPlan,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  if (visualStatus.showPlanBadge) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      key: const ValueKey('running_session_plan_badge'),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: appColors.statusPlan.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: appColors.statusPlan.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Text(
-                        'Plan',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: appColors.statusPlan,
-                        ),
-                      ),
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: IconButton(
+                      iconSize: 16,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.stop_circle_outlined),
+                      onPressed: widget.onStop,
+                      tooltip: 'Stop session',
+                      color: Theme.of(context).colorScheme.error,
                     ),
-                  ],
-                  if (visualStatus.detail != null) ...[
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        visualStatus.detail!,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: statusColor.withValues(alpha: 0.82),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                  IconButton(
-                    iconSize: 20,
-                    visualDensity: VisualDensity.compact,
-                    constraints: const BoxConstraints(
-                      minWidth: 40,
-                      minHeight: 40,
-                    ),
-                    icon: const Icon(Icons.stop_circle_outlined),
-                    onPressed: widget.onStop,
-                    tooltip: 'Stop session',
-                    color: Theme.of(context).colorScheme.error,
                   ),
                 ],
               ),
@@ -689,13 +719,17 @@ class _PlanApprovalArea extends StatelessWidget {
               Expanded(
                 child: SizedBox(
                   height: 36,
-                  child: FilledButton.tonal(
+                  child: OutlinedButton(
                     key: const ValueKey('approve_clear_context_button'),
                     onPressed: onApproveClearContext,
-                    style: FilledButton.styleFrom(
+                    style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 8,
+                      ),
+                      foregroundColor: statusColor,
+                      side: BorderSide(
+                        color: statusColor.withValues(alpha: 0.5),
                       ),
                     ),
                     child: FittedBox(
@@ -720,6 +754,8 @@ class _PlanApprovalArea extends StatelessWidget {
                         horizontal: 8,
                         vertical: 8,
                       ),
+                      backgroundColor: statusColor.withValues(alpha: 0.15),
+                      foregroundColor: statusColor,
                     ),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
@@ -813,6 +849,14 @@ class _CodexPlanApprovalArea extends StatelessWidget {
                         horizontal: 8,
                         vertical: 8,
                       ),
+                      foregroundColor:
+                          Theme.of(context).colorScheme.error,
+                      side: BorderSide(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .error
+                            .withValues(alpha: 0.5),
+                      ),
                     ),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
@@ -836,6 +880,8 @@ class _CodexPlanApprovalArea extends StatelessWidget {
                         horizontal: 8,
                         vertical: 8,
                       ),
+                      backgroundColor: statusColor.withValues(alpha: 0.15),
+                      foregroundColor: statusColor,
                     ),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
@@ -1238,9 +1284,10 @@ class _SingleSelectChips extends StatelessWidget {
                         vertical: 10,
                       ),
                       minimumSize: const Size(0, _buttonHeight),
-                      backgroundColor: statusColor.withValues(
-                        alpha: isChosen ? 0.20 : 0.08,
-                      ),
+                      foregroundColor: statusColor,
+                      backgroundColor: isChosen
+                          ? statusColor.withValues(alpha: 0.15)
+                          : Colors.transparent,
                       side: BorderSide(
                         color: statusColor.withValues(
                           alpha: isChosen ? 0.6 : 0.3,
@@ -1307,9 +1354,10 @@ class _MultiSelectChips extends StatelessWidget {
                       ),
                       minimumSize: const Size(0, _buttonHeight),
                       alignment: Alignment.centerLeft,
+                      foregroundColor: statusColor,
                       backgroundColor: isSelected
                           ? statusColor.withValues(alpha: 0.15)
-                          : statusColor.withValues(alpha: 0.08),
+                          : Colors.transparent,
                       side: BorderSide(
                         color: statusColor.withValues(
                           alpha: isSelected ? 0.6 : 0.3,
@@ -1972,6 +2020,17 @@ class _StatusDotState extends State<_StatusDot>
           decoration: BoxDecoration(
             color: widget.color.withValues(alpha: _animation.value),
             shape: BoxShape.circle,
+            boxShadow: widget.animate
+                ? [
+                    BoxShadow(
+                      color: widget.color.withValues(
+                        alpha: _animation.value * 0.4,
+                      ),
+                      blurRadius: 4,
+                      spreadRadius: 0.5,
+                    ),
+                  ]
+                : null,
           ),
         );
       },
