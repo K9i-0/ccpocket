@@ -16,16 +16,19 @@ class SessionModeBar extends StatelessWidget {
     final chatCubit = context.watch<ChatSessionCubit>();
     final permissionMode = chatCubit.state.permissionMode;
     final inPlanMode = chatCubit.state.inPlanMode;
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final status = chatCubit.state.status;
+    final isActive = status == ProcessStatus.running ||
+        status == ProcessStatus.waitingApproval ||
+        status == ProcessStatus.compacting;
     // sandboxMode is only available for Codex
     final sandboxMode = chatCubit.isCodex ? chatCubit.state.sandboxMode : null;
 
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: _PulsingModeBarSurface(
-        inPlanMode: inPlanMode,
+        inPlanMode: inPlanMode && isActive,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: BackdropFilter(
@@ -40,9 +43,7 @@ class SessionModeBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: inPlanMode
-                      ? appColors.statusPlan.withValues(
-                          alpha: isDark ? 0.9 : 0.8,
-                        )
+                      ? Colors.transparent
                       : (isDark
                             ? Colors.white.withValues(alpha: 0.1)
                             : Colors.white.withValues(alpha: 0.6)),
@@ -94,21 +95,16 @@ class _PulsingModeBarSurface extends StatefulWidget {
 class _PulsingModeBarSurfaceState extends State<_PulsingModeBarSurface>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 2500),
       vsync: this,
     );
-    _animation = Tween<double>(
-      begin: 0.35,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     if (widget.inPlanMode) {
-      _controller.repeat(reverse: true);
+      _controller.repeat();
     }
   }
 
@@ -116,7 +112,7 @@ class _PulsingModeBarSurfaceState extends State<_PulsingModeBarSurface>
   void didUpdateWidget(_PulsingModeBarSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.inPlanMode && !_controller.isAnimating) {
-      _controller.repeat(reverse: true);
+      _controller.repeat();
     } else if (!widget.inPlanMode && _controller.isAnimating) {
       _controller.stop();
       _controller.reset();
@@ -134,32 +130,120 @@ class _PulsingModeBarSurfaceState extends State<_PulsingModeBarSurface>
     final appColors = Theme.of(context).extension<AppColors>()!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    if (!widget.inPlanMode) {
+      return widget.child;
+    }
+
     return AnimatedBuilder(
-      animation: _animation,
+      animation: _controller,
       child: widget.child,
       builder: (context, child) {
-        final intensity = widget.inPlanMode ? _animation.value : 0.0;
-        return DecoratedBox(
-          key: const ValueKey('session_mode_bar_pulse'),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: intensity > 0
-                ? [
-                    BoxShadow(
-                      color: appColors.statusPlanGlow.withValues(
-                        alpha: (isDark ? 0.24 : 0.18) * intensity,
-                      ),
-                      blurRadius: 8 + (12 * intensity),
-                      spreadRadius: 0.4 + (0.8 * intensity),
-                    ),
-                  ]
-                : null,
+        return CustomPaint(
+          painter: _RotatingBorderPainter(
+            progress: _controller.value,
+            color: appColors.statusPlan,
+            glowColor: appColors.statusPlanGlow,
+            borderRadius: 12,
+            strokeWidth: 1.5,
+            isDark: isDark,
           ),
           child: child,
         );
       },
     );
   }
+}
+
+class _RotatingBorderPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final Color glowColor;
+  final double borderRadius;
+  final double strokeWidth;
+  final bool isDark;
+
+  _RotatingBorderPainter({
+    required this.progress,
+    required this.color,
+    required this.glowColor,
+    required this.borderRadius,
+    required this.strokeWidth,
+    required this.isDark,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(borderRadius));
+
+    // Subtle base border
+    final basePaint = Paint()
+      ..color = color.withValues(alpha: isDark ? 0.12 : 0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    canvas.drawRRect(rrect, basePaint);
+
+    // Build path from the rounded rect and find the dot position
+    final path = Path()..addRRect(rrect);
+    final metric = path.computeMetrics().first;
+    final totalLen = metric.length;
+    final dotOffset = metric.getTangentForOffset(totalLen * progress)!.position;
+
+    // Radial gradient centered on the dot for a clean glow
+    final glowRadius = 18.0;
+    final dotRect = Rect.fromCircle(center: dotOffset, radius: glowRadius);
+    final radial = RadialGradient(
+      colors: [
+        glowColor.withValues(alpha: isDark ? 0.85 : 0.7),
+        color.withValues(alpha: isDark ? 0.4 : 0.25),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.35, 1.0],
+    );
+
+    // Clip to border stroke region (outer rrect minus inner rrect)
+    final halfW = (strokeWidth + 4) / 2;
+    final outerRRect = RRect.fromRectAndRadius(
+      rect.inflate(halfW),
+      Radius.circular(borderRadius + halfW),
+    );
+    final innerRRect = RRect.fromRectAndRadius(
+      rect.deflate(halfW),
+      Radius.circular((borderRadius - halfW).clamp(0, double.infinity)),
+    );
+    final clipPath = Path()
+      ..addRRect(outerRRect)
+      ..addRRect(innerRRect)
+      ..fillType = PathFillType.evenOdd;
+
+    canvas.save();
+    canvas.clipPath(clipPath);
+
+    // Outer glow
+    final glowPaint = Paint()
+      ..shader = radial.createShader(dotRect)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+    canvas.drawRect(dotRect, glowPaint);
+
+    // Bright core
+    final coreRect = Rect.fromCircle(center: dotOffset, radius: 8);
+    final coreGradient = RadialGradient(
+      colors: [
+        glowColor.withValues(alpha: isDark ? 1.0 : 0.9),
+        color.withValues(alpha: isDark ? 0.5 : 0.35),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.4, 1.0],
+    );
+    final corePaint = Paint()..shader = coreGradient.createShader(coreRect);
+    canvas.drawRect(coreRect, corePaint);
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_RotatingBorderPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 void showPermissionModeMenu(BuildContext context, ChatSessionCubit chatCubit) {

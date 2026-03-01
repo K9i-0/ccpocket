@@ -159,6 +159,8 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                         _StatusDot(
                           color: statusColor,
                           animate: visualStatus.animate,
+                          inPlanMode: visualStatus.showPlanBadge &&
+                              visualStatus.animate,
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -180,42 +182,6 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                        if (visualStatus.showPlanBadge) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            key: const ValueKey('running_session_plan_badge'),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: appColors.statusPlan.withValues(
-                                alpha: 0.15,
-                              ),
-                              borderRadius: BorderRadius.circular(999),
-                              boxShadow: visualStatus.animate
-                                  ? [
-                                      BoxShadow(
-                                        color:
-                                            appColors.statusPlanGlow.withValues(
-                                              alpha: 0.4,
-                                            ),
-                                        blurRadius: 6,
-                                        spreadRadius: 0,
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Text(
-                              'Plan',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: appColors.statusPlan,
-                              ),
                             ),
                           ),
                         ],
@@ -1967,75 +1933,195 @@ class _SummaryRow extends StatelessWidget {
 class _StatusDot extends StatefulWidget {
   final Color color;
   final bool animate;
-  const _StatusDot({required this.color, required this.animate});
+  final bool inPlanMode;
+  const _StatusDot({
+    required this.color,
+    required this.animate,
+    this.inPlanMode = false,
+  });
 
   @override
   State<_StatusDot> createState() => _StatusDotState();
 }
 
 class _StatusDotState extends State<_StatusDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _animation;
+    with TickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+  late final AnimationController _orbitController;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    _animation = Tween(
+    _pulseAnimation = Tween(
       begin: 0.4,
       end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-    if (widget.animate) _controller.repeat(reverse: true);
+    ).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    _orbitController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+    if (widget.animate) _pulseController.repeat(reverse: true);
+    if (widget.inPlanMode) _orbitController.repeat();
   }
 
   @override
   void didUpdateWidget(_StatusDot oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.animate && !_controller.isAnimating) {
-      _controller.repeat(reverse: true);
-    } else if (!widget.animate && _controller.isAnimating) {
-      _controller.stop();
-      _controller.value = 1.0;
+    if (widget.animate && !_pulseController.isAnimating) {
+      _pulseController.repeat(reverse: true);
+    } else if (!widget.animate && _pulseController.isAnimating) {
+      _pulseController.stop();
+      _pulseController.value = 1.0;
+    }
+    if (widget.inPlanMode && !_orbitController.isAnimating) {
+      _orbitController.repeat();
+    } else if (!widget.inPlanMode && _orbitController.isAnimating) {
+      _orbitController.stop();
+      _orbitController.reset();
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _pulseController.dispose();
+    _orbitController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return AnimatedBuilder(
-      animation: _animation,
+      animation: Listenable.merge([_pulseAnimation, _orbitController]),
       builder: (context, child) {
-        return Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: widget.color.withValues(alpha: _animation.value),
-            shape: BoxShape.circle,
-            boxShadow: widget.animate
-                ? [
-                    BoxShadow(
-                      color: widget.color.withValues(
-                        alpha: _animation.value * 0.4,
-                      ),
-                      blurRadius: 4,
-                      spreadRadius: 0.5,
-                    ),
-                  ]
-                : null,
+        return CustomPaint(
+          size: const Size(14, 14),
+          painter: _StatusDotPainter(
+            color: widget.color,
+            pulseValue: _pulseAnimation.value,
+            animate: widget.animate,
+            inPlanMode: widget.inPlanMode,
+            orbitProgress: _orbitController.value,
+            planColor: appColors.statusPlan,
+            planGlowColor: appColors.statusPlanGlow,
+            isDark: isDark,
           ),
         );
       },
     );
   }
+}
+
+class _StatusDotPainter extends CustomPainter {
+  final Color color;
+  final double pulseValue;
+  final bool animate;
+  final bool inPlanMode;
+  final double orbitProgress;
+  final Color planColor;
+  final Color planGlowColor;
+  final bool isDark;
+
+  _StatusDotPainter({
+    required this.color,
+    required this.pulseValue,
+    required this.animate,
+    required this.inPlanMode,
+    required this.orbitProgress,
+    required this.planColor,
+    required this.planGlowColor,
+    required this.isDark,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const dotRadius = 5.0;
+
+    // Glow behind the dot
+    if (animate) {
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: pulseValue * 0.4)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+      canvas.drawCircle(center, dotRadius + 1.5, glowPaint);
+    }
+
+    // Main dot
+    final dotPaint = Paint()..color = color.withValues(alpha: pulseValue);
+    canvas.drawCircle(center, dotRadius, dotPaint);
+
+    // Plan mode: orbiting light around the dot
+    if (inPlanMode) {
+      final orbitRadius = dotRadius + 2.5;
+      final path = Path()
+        ..addOval(Rect.fromCircle(center: center, radius: orbitRadius));
+      final metric = path.computeMetrics().first;
+      final lightPos =
+          metric.getTangentForOffset(metric.length * orbitProgress)!.position;
+
+      // Clip to a thin ring around the dot
+      const ringHalf = 2.0;
+      final clipPath = Path()
+        ..addOval(
+          Rect.fromCircle(center: center, radius: orbitRadius + ringHalf),
+        )
+        ..addOval(
+          Rect.fromCircle(center: center, radius: dotRadius - 0.5),
+        )
+        ..fillType = PathFillType.evenOdd;
+
+      canvas.save();
+      canvas.clipPath(clipPath);
+
+      // Glow
+      final glowRect = Rect.fromCircle(center: lightPos, radius: 8);
+      final radial = RadialGradient(
+        colors: [
+          planGlowColor.withValues(alpha: isDark ? 0.9 : 0.7),
+          planColor.withValues(alpha: isDark ? 0.3 : 0.2),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.4, 1.0],
+      );
+      final glowPaint = Paint()
+        ..shader = radial.createShader(glowRect)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
+      canvas.drawRect(glowRect, glowPaint);
+
+      // Bright core
+      final coreRect = Rect.fromCircle(center: lightPos, radius: 4);
+      final coreGradient = RadialGradient(
+        colors: [
+          planGlowColor.withValues(alpha: isDark ? 1.0 : 0.85),
+          planColor.withValues(alpha: isDark ? 0.4 : 0.3),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      );
+      canvas.drawRect(
+        coreRect,
+        Paint()..shader = coreGradient.createShader(coreRect),
+      );
+
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_StatusDotPainter oldDelegate) =>
+      oldDelegate.pulseValue != pulseValue ||
+      oldDelegate.orbitProgress != orbitProgress ||
+      oldDelegate.color != color ||
+      oldDelegate.inPlanMode != inPlanMode;
 }
 
 class RecentSessionCard extends StatelessWidget {
