@@ -644,6 +644,10 @@ class _MockSessionListWrapperState extends State<_MockSessionListWrapper> {
 
   List<SessionInfo> _buildSessions() {
     switch (widget.scenario.name) {
+      case 'All Statuses':
+        return mockSessionsAllStatuses();
+      case 'All Approval UIs':
+        return mockSessionsAllApprovals();
       case 'Single Question':
         return [mockSessionSingleQuestion()];
       case 'PageView Multi-Question':

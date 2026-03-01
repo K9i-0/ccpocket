@@ -390,6 +390,210 @@ SessionInfo mockSessionPlanApproval() => SessionInfo(
   ),
 );
 
+// ---------------------------------------------------------------------------
+// All statuses scenario — every visual status in one list
+// ---------------------------------------------------------------------------
+
+/// All session status variants for visual confirmation.
+/// Covers: Running, Running+Plan, Compacting, NeedsYou (tool/ask/plan),
+/// Ready, Ready+Plan.
+List<SessionInfo> mockSessionsAllStatuses() => [
+  // Working — running
+  SessionInfo(
+    id: 'mock-status-running',
+    provider: 'claude',
+    projectPath: '/Users/demo/Workspace/my-app',
+    status: 'running',
+    createdAt:
+        DateTime.now().subtract(const Duration(minutes: 5)).toIso8601String(),
+    lastActivityAt:
+        DateTime.now().subtract(const Duration(seconds: 3)).toIso8601String(),
+    gitBranch: 'feat/api',
+    lastMessage: 'Implementing the new REST API endpoints.',
+  ),
+  // Working — running + Plan badge
+  SessionInfo(
+    id: 'mock-status-running-plan',
+    provider: 'claude',
+    projectPath: '/Users/demo/Workspace/my-app',
+    status: 'running',
+    permissionMode: 'plan',
+    createdAt:
+        DateTime.now().subtract(const Duration(minutes: 8)).toIso8601String(),
+    lastActivityAt:
+        DateTime.now().subtract(const Duration(seconds: 10)).toIso8601String(),
+    gitBranch: 'feat/auth',
+    lastMessage: 'Designing the authentication flow.',
+  ),
+  // Working — compacting
+  SessionInfo(
+    id: 'mock-status-compacting',
+    provider: 'claude',
+    projectPath: '/Users/demo/Workspace/ccpocket',
+    status: 'compacting',
+    createdAt:
+        DateTime.now().subtract(const Duration(minutes: 20)).toIso8601String(),
+    lastActivityAt:
+        DateTime.now().subtract(const Duration(seconds: 5)).toIso8601String(),
+    gitBranch: 'feat/long-session',
+    lastMessage: 'Summarizing conversation context.',
+  ),
+  // Needs You — tool approval
+  SessionInfo(
+    id: 'mock-status-tool-approval',
+    provider: 'claude',
+    projectPath: '/Users/demo/Workspace/my-app',
+    status: 'waiting_approval',
+    createdAt:
+        DateTime.now().subtract(const Duration(minutes: 3)).toIso8601String(),
+    lastActivityAt:
+        DateTime.now().subtract(const Duration(seconds: 8)).toIso8601String(),
+    gitBranch: 'feat/tests',
+    lastMessage: 'Running the test suite.',
+    pendingPermission: const PermissionRequestMessage(
+      toolUseId: 'tool-status-bash',
+      toolName: 'Bash',
+      input: {'command': 'flutter test'},
+    ),
+  ),
+  // Needs You — AskUserQuestion
+  SessionInfo(
+    id: 'mock-status-ask',
+    provider: 'claude',
+    projectPath: '/Users/demo/Workspace/my-app',
+    status: 'waiting_approval',
+    createdAt:
+        DateTime.now().subtract(const Duration(minutes: 6)).toIso8601String(),
+    lastActivityAt:
+        DateTime.now().subtract(const Duration(seconds: 15)).toIso8601String(),
+    gitBranch: 'feat/config',
+    lastMessage: 'Which database should we use?',
+    pendingPermission: const PermissionRequestMessage(
+      toolUseId: 'tool-status-ask',
+      toolName: 'AskUserQuestion',
+      input: {
+        'questions': [
+          {
+            'question': 'Which database should we use?',
+            'header': 'DB',
+            'options': [
+              {'label': 'SQLite', 'description': 'Local embedded database.'},
+              {'label': 'PostgreSQL', 'description': 'Full relational DB.'},
+            ],
+            'multiSelect': false,
+          },
+        ],
+      },
+    ),
+  ),
+  // Needs You — ExitPlanMode
+  SessionInfo(
+    id: 'mock-status-plan',
+    provider: 'claude',
+    projectPath: '/Users/demo/Workspace/ccpocket',
+    status: 'waiting_approval',
+    permissionMode: 'plan',
+    createdAt:
+        DateTime.now().subtract(const Duration(minutes: 12)).toIso8601String(),
+    lastActivityAt:
+        DateTime.now().subtract(const Duration(seconds: 30)).toIso8601String(),
+    gitBranch: 'feat/refactor',
+    lastMessage: 'Plan is ready for review.',
+    pendingPermission: const PermissionRequestMessage(
+      toolUseId: 'tool-status-plan',
+      toolName: 'ExitPlanMode',
+      input: {'plan': 'Refactor plan'},
+    ),
+  ),
+  // Ready — idle
+  SessionInfo(
+    id: 'mock-status-idle',
+    provider: 'claude',
+    projectPath: '/Users/demo/Workspace/cli-tool',
+    status: 'idle',
+    createdAt:
+        DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
+    lastActivityAt:
+        DateTime.now().subtract(const Duration(minutes: 30)).toIso8601String(),
+    gitBranch: 'main',
+    lastMessage: 'All tasks completed successfully.',
+  ),
+  // Ready — idle + Plan badge
+  SessionInfo(
+    id: 'mock-status-idle-plan',
+    provider: 'codex',
+    projectPath: '/Users/demo/Workspace/cli-tool',
+    status: 'idle',
+    permissionMode: 'plan',
+    createdAt:
+        DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+    lastActivityAt:
+        DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
+    gitBranch: 'feat/parser',
+    lastMessage: 'Finished implementing the parser.',
+  ),
+];
+
+// ---------------------------------------------------------------------------
+// All approval UIs scenario — every approval variant in one list
+// ---------------------------------------------------------------------------
+
+/// All approval UI variants for visual confirmation.
+/// Covers: Tool (Bash), Tool (Edit), AskUser single, AskUser multi-select,
+/// AskUser multi-question, ExitPlanMode (Claude), ExitPlanMode (Codex).
+List<SessionInfo> mockSessionsAllApprovals() => [
+  // Tool approval — Bash
+  SessionInfo(
+    id: 'mock-approval-bash',
+    provider: 'claude',
+    projectPath: '/Users/demo/Workspace/my-app',
+    status: 'waiting_approval',
+    createdAt:
+        DateTime.now().subtract(const Duration(minutes: 2)).toIso8601String(),
+    lastActivityAt:
+        DateTime.now().subtract(const Duration(seconds: 5)).toIso8601String(),
+    gitBranch: 'feat/deploy',
+    lastMessage: 'Deploying to staging environment.',
+    pendingPermission: const PermissionRequestMessage(
+      toolUseId: 'tool-all-bash',
+      toolName: 'Bash',
+      input: {'command': 'npm run deploy:staging'},
+    ),
+  ),
+  // Tool approval — Edit
+  SessionInfo(
+    id: 'mock-approval-edit',
+    provider: 'claude',
+    projectPath: '/Users/demo/Workspace/ccpocket',
+    status: 'waiting_approval',
+    createdAt:
+        DateTime.now().subtract(const Duration(minutes: 4)).toIso8601String(),
+    lastActivityAt:
+        DateTime.now().subtract(const Duration(seconds: 8)).toIso8601String(),
+    gitBranch: 'fix/typo',
+    lastMessage: 'Fixing a typo in the README.',
+    pendingPermission: const PermissionRequestMessage(
+      toolUseId: 'tool-all-edit',
+      toolName: 'Edit',
+      input: {
+        'file_path': 'README.md',
+        'old_string': 'recieve',
+        'new_string': 'receive',
+      },
+    ),
+  ),
+  // AskUser — single select
+  mockSessionSingleQuestion(),
+  // AskUser — multi select
+  mockSessionMultiSelect(),
+  // AskUser — multi question
+  mockSessionMultiQuestion(),
+  // Plan approval — Claude
+  mockSessionPlanApproval(),
+  // Plan approval — Codex
+  mockSessionCodexPlanApproval(),
+];
+
 /// Session with an ExitPlanMode pending for Codex.
 /// Used to verify Codex-specific plan approval UI in session list.
 SessionInfo mockSessionCodexPlanApproval() => SessionInfo(

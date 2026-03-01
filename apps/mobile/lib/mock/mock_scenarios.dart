@@ -64,6 +64,8 @@ final List<MockScenario> mockScenarios = [
   _errorScenario,
   _fullConversation,
   // Session list scenarios
+  _sessionListAllStatuses,
+  _sessionListAllApprovals,
   _sessionListSingleQuestion,
   _sessionListMultiQuestion,
   _sessionListMultiSelect,
@@ -1350,6 +1352,31 @@ final _fullConversation = MockScenario(
 
 // ---------------------------------------------------------------------------
 // SL-1. Single Question (most common pattern)
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// SL-0a. All Statuses
+// ---------------------------------------------------------------------------
+const _sessionListAllStatuses = MockScenario(
+  name: 'All Statuses',
+  icon: Icons.palette_outlined,
+  description: 'Every session status variant in one view',
+  section: MockScenarioSection.sessionList,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// SL-0b. All Approval UIs
+// ---------------------------------------------------------------------------
+const _sessionListAllApprovals = MockScenario(
+  name: 'All Approval UIs',
+  icon: Icons.approval_outlined,
+  description: 'Every approval UI variant (tool, ask, plan) in one view',
+  section: MockScenarioSection.sessionList,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// SL-1. Single Question
 // ---------------------------------------------------------------------------
 const _sessionListSingleQuestion = MockScenario(
   name: 'Single Question',

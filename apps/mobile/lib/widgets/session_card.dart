@@ -712,13 +712,17 @@ class _PlanApprovalArea extends StatelessWidget {
               Expanded(
                 child: SizedBox(
                   height: 36,
-                  child: FilledButton.tonal(
+                  child: OutlinedButton(
                     key: const ValueKey('approve_clear_context_button'),
                     onPressed: onApproveClearContext,
-                    style: FilledButton.styleFrom(
+                    style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 8,
+                      ),
+                      foregroundColor: statusColor,
+                      side: BorderSide(
+                        color: statusColor.withValues(alpha: 0.5),
                       ),
                     ),
                     child: FittedBox(
@@ -743,6 +747,8 @@ class _PlanApprovalArea extends StatelessWidget {
                         horizontal: 8,
                         vertical: 8,
                       ),
+                      backgroundColor: statusColor.withValues(alpha: 0.15),
+                      foregroundColor: statusColor,
                     ),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
@@ -836,6 +842,14 @@ class _CodexPlanApprovalArea extends StatelessWidget {
                         horizontal: 8,
                         vertical: 8,
                       ),
+                      foregroundColor:
+                          Theme.of(context).colorScheme.error,
+                      side: BorderSide(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .error
+                            .withValues(alpha: 0.5),
+                      ),
                     ),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
@@ -859,6 +873,8 @@ class _CodexPlanApprovalArea extends StatelessWidget {
                         horizontal: 8,
                         vertical: 8,
                       ),
+                      backgroundColor: statusColor.withValues(alpha: 0.15),
+                      foregroundColor: statusColor,
                     ),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
@@ -1261,9 +1277,10 @@ class _SingleSelectChips extends StatelessWidget {
                         vertical: 10,
                       ),
                       minimumSize: const Size(0, _buttonHeight),
-                      backgroundColor: statusColor.withValues(
-                        alpha: isChosen ? 0.20 : 0.08,
-                      ),
+                      foregroundColor: statusColor,
+                      backgroundColor: isChosen
+                          ? statusColor.withValues(alpha: 0.15)
+                          : Colors.transparent,
                       side: BorderSide(
                         color: statusColor.withValues(
                           alpha: isChosen ? 0.6 : 0.3,
@@ -1330,9 +1347,10 @@ class _MultiSelectChips extends StatelessWidget {
                       ),
                       minimumSize: const Size(0, _buttonHeight),
                       alignment: Alignment.centerLeft,
+                      foregroundColor: statusColor,
                       backgroundColor: isSelected
                           ? statusColor.withValues(alpha: 0.15)
-                          : statusColor.withValues(alpha: 0.08),
+                          : Colors.transparent,
                       side: BorderSide(
                         color: statusColor.withValues(
                           alpha: isSelected ? 0.6 : 0.3,
