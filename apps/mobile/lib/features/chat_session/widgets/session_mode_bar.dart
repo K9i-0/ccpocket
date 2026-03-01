@@ -16,6 +16,10 @@ class SessionModeBar extends StatelessWidget {
     final chatCubit = context.watch<ChatSessionCubit>();
     final permissionMode = chatCubit.state.permissionMode;
     final inPlanMode = chatCubit.state.inPlanMode;
+    final status = chatCubit.state.status;
+    final isActive = status == ProcessStatus.running ||
+        status == ProcessStatus.waitingApproval ||
+        status == ProcessStatus.compacting;
     // sandboxMode is only available for Codex
     final sandboxMode = chatCubit.isCodex ? chatCubit.state.sandboxMode : null;
 
@@ -24,7 +28,7 @@ class SessionModeBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: _PulsingModeBarSurface(
-        inPlanMode: inPlanMode,
+        inPlanMode: inPlanMode && isActive,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: BackdropFilter(

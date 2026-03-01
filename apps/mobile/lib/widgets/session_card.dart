@@ -159,7 +159,8 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                         _StatusDot(
                           color: statusColor,
                           animate: visualStatus.animate,
-                          inPlanMode: visualStatus.showPlanBadge,
+                          inPlanMode: visualStatus.showPlanBadge &&
+                              visualStatus.animate,
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -181,18 +182,6 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                        if (visualStatus.showPlanBadge) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            'Plan',
-                            key: const ValueKey('running_session_plan_badge'),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: appColors.statusPlan,
                             ),
                           ),
                         ],
