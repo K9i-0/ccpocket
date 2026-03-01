@@ -169,35 +169,6 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                             color: statusColor,
                           ),
                         ),
-                        if (visualStatus.showPlanBadge) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            key: const ValueKey('running_session_plan_badge'),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: appColors.statusPlan.withValues(
-                                alpha: 0.12,
-                              ),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: appColors.statusPlan.withValues(
-                                  alpha: 0.35,
-                                ),
-                              ),
-                            ),
-                            child: Text(
-                              'Plan',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: appColors.statusPlan,
-                              ),
-                            ),
-                          ),
-                        ],
                         if (visualStatus.detail != null) ...[
                           const SizedBox(width: 6),
                           Flexible(
@@ -209,6 +180,42 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        if (visualStatus.showPlanBadge) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            key: const ValueKey('running_session_plan_badge'),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: appColors.statusPlan.withValues(
+                                alpha: 0.15,
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                              boxShadow: visualStatus.animate
+                                  ? [
+                                      BoxShadow(
+                                        color:
+                                            appColors.statusPlanGlow.withValues(
+                                              alpha: 0.4,
+                                            ),
+                                        blurRadius: 6,
+                                        spreadRadius: 0,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Text(
+                              'Plan',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: appColors.statusPlan,
+                              ),
                             ),
                           ),
                         ],
