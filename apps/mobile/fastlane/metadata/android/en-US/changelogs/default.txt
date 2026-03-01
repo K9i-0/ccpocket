@@ -1,1 +1,6 @@
-Initial release.
+- Plan mode: animated rotating light on session bar and status dots
+- Slash command and @ mention buttons in chat input
+- Redesigned session card UI with unified status colors
+- Improved Plan mode visuals with orbiting indicator
+- Updated all store screenshots
+- Fixed Codex sandbox mode switching

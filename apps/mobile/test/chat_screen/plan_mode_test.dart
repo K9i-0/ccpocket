@@ -42,19 +42,10 @@ Future<void> setupPlanApproval(PatrolTester $, MockBridgeService bridge) async {
 
 void main() {
   group('Plan Mode', () {
-    patrolWidgetTest('C0: SessionModeBar glows in plan mode', ($) async {
+    patrolWidgetTest('C0: SessionModeBar shows in plan mode', ($) async {
       final bridge = MockBridgeService();
       await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
       await pumpN($.tester);
-
-      BoxDecoration pulseDecoration() {
-        final surface = $.tester.widget<DecoratedBox>(
-          find.byKey(const ValueKey('session_mode_bar_pulse')),
-        );
-        return surface.decoration as BoxDecoration;
-      }
-
-      expect(pulseDecoration().boxShadow, anyOf(isNull, isEmpty));
 
       await emitAndPump($.tester, bridge, [
         const SystemMessage(
@@ -64,16 +55,9 @@ void main() {
       ]);
       await pumpN($.tester);
 
+      // SessionModeBar is visible and shows Plan mode indicator
+      // (rotating border is drawn via CustomPaint, not testable via keys)
       expect(find.byType(SessionModeBar), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('session_mode_bar_glow')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('session_mode_bar_pulse')),
-        findsOneWidget,
-      );
-      expect(pulseDecoration().boxShadow, isNotEmpty);
     });
 
     patrolWidgetTest('C1: StatusLine shows plan mode when EnterPlanMode', (

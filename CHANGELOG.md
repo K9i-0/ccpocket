@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.28.0] - 2026-03-01
+
+### Added
+- Plan mode rotating light animation on session mode bar border
+- Orbiting green light on session card status dot during Plan mode
+- Slash command button in chat input (replaces dedent when input is empty)
+- @ mention button in chat input bar
+- New mock scenarios for store screenshots (Coding Session, Task Planning)
+
+### Changed
+- Redesigned session card UI with unified status colors and compact header
+- Plan mode visuals: removed Plan text badge, orbit indicator limited to active states (Working/Needs You)
+- Updated all store screenshots with latest UI
+
+### Fixed
+- Codex sandbox mode switching now works correctly
+- Store screenshot extension error codes (valid range 0-16)
+- Session card status dot clipping and Plan border padding
+
 ## [1.27.0] - 2026-02-28
 
 ### Added

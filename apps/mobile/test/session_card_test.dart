@@ -163,7 +163,7 @@ void main() {
       expect(find.byIcon(Icons.stop_circle_outlined), findsOneWidget);
     });
 
-    testWidgets('shows Plan badge when session is in plan mode', (
+    testWidgets('shows Working status when session is in plan mode', (
       tester,
     ) async {
       final session = SessionInfo(
@@ -181,10 +181,8 @@ void main() {
         ),
       );
 
-      expect(
-        find.byKey(const ValueKey('running_session_plan_badge')),
-        findsOneWidget,
-      );
+      // Plan text badge was removed; plan mode is now indicated by
+      // an orbiting light on the status dot (visual only, no key).
       expect(find.text('Working'), findsOneWidget);
     });
 
