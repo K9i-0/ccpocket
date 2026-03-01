@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -172,45 +171,70 @@ class _RotatingBorderPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final rrect = RRect.fromRectAndRadius(rect, Radius.circular(borderRadius));
-    final angle = progress * 2 * math.pi;
 
-    // Tight sweep gradient — a small bright dot traveling along the border
-    final gradient = SweepGradient(
-      startAngle: angle,
-      endAngle: angle + 2 * math.pi,
-      colors: [
-        glowColor.withValues(alpha: isDark ? 1.0 : 0.9),  // bright center
-        color.withValues(alpha: isDark ? 0.6 : 0.45),      // short tail
-        color.withValues(alpha: isDark ? 0.08 : 0.04),     // fade out
-        Colors.transparent,                                  // dark gap
-        Colors.transparent,                                  // dark gap
-        color.withValues(alpha: isDark ? 0.08 : 0.04),     // fade in
-        glowColor.withValues(alpha: isDark ? 1.0 : 0.9),   // wrap back
-      ],
-      stops: const [0.0, 0.04, 0.10, 0.18, 0.88, 0.96, 1.0],
-    );
-
-    // Subtle base border so the shape is visible even where the dot isn't
+    // Subtle base border
     final basePaint = Paint()
       ..color = color.withValues(alpha: isDark ? 0.12 : 0.08)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
     canvas.drawRRect(rrect, basePaint);
 
-    // Glow halo around the bright dot
-    final glowPaint = Paint()
-      ..shader = gradient.createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth + 4
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    canvas.drawRRect(rrect, glowPaint);
+    // Build path from the rounded rect and find the dot position
+    final path = Path()..addRRect(rrect);
+    final metric = path.computeMetrics().first;
+    final totalLen = metric.length;
+    final dotOffset = metric.getTangentForOffset(totalLen * progress)!.position;
 
-    // Sharp dot layer
-    final dotPaint = Paint()
-      ..shader = gradient.createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-    canvas.drawRRect(rrect, dotPaint);
+    // Radial gradient centered on the dot for a clean glow
+    final glowRadius = 28.0;
+    final dotRect = Rect.fromCircle(center: dotOffset, radius: glowRadius);
+    final radial = RadialGradient(
+      colors: [
+        glowColor.withValues(alpha: isDark ? 0.85 : 0.7),
+        color.withValues(alpha: isDark ? 0.4 : 0.25),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.35, 1.0],
+    );
+
+    // Clip to border stroke region (outer rrect minus inner rrect)
+    final halfW = (strokeWidth + 6) / 2;
+    final outerRRect = RRect.fromRectAndRadius(
+      rect.inflate(halfW),
+      Radius.circular(borderRadius + halfW),
+    );
+    final innerRRect = RRect.fromRectAndRadius(
+      rect.deflate(halfW),
+      Radius.circular((borderRadius - halfW).clamp(0, double.infinity)),
+    );
+    final clipPath = Path()
+      ..addRRect(outerRRect)
+      ..addRRect(innerRRect)
+      ..fillType = PathFillType.evenOdd;
+
+    canvas.save();
+    canvas.clipPath(clipPath);
+
+    // Outer glow
+    final glowPaint = Paint()
+      ..shader = radial.createShader(dotRect)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+    canvas.drawRect(dotRect, glowPaint);
+
+    // Bright core
+    final coreRect = Rect.fromCircle(center: dotOffset, radius: 12);
+    final coreGradient = RadialGradient(
+      colors: [
+        glowColor.withValues(alpha: isDark ? 1.0 : 0.9),
+        color.withValues(alpha: isDark ? 0.5 : 0.35),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.4, 1.0],
+    );
+    final corePaint = Paint()..shader = coreGradient.createShader(coreRect);
+    canvas.drawRect(coreRect, corePaint);
+
+    canvas.restore();
   }
 
   @override
