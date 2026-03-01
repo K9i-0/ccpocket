@@ -403,42 +403,47 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      if (session.gitBranch.isNotEmpty) ...[
-                        Icon(
-                          Icons.fork_right,
-                          size: 13,
-                          color: appColors.subtleText,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            if (session.gitBranch.isNotEmpty) ...[
+                              Icon(
+                                Icons.fork_right,
+                                size: 13,
+                                color: appColors.subtleText,
+                              ),
+                              const SizedBox(width: 2),
+                              Flexible(
+                                child: Text(
+                                  session.gitBranch,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: appColors.subtleText,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                            if (session.worktreePath != null) ...[
+                              const SizedBox(width: 12),
+                              Icon(
+                                Icons.account_tree_outlined,
+                                size: 12,
+                                color: appColors.subtleText,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                'worktree',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: appColors.subtleText,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                        const SizedBox(width: 2),
-                        Flexible(
-                          child: Text(
-                            session.gitBranch,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: appColors.subtleText,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                      // messageCount removed for performance
-                      if (session.worktreePath != null) ...[
-                        const SizedBox(width: 12),
-                        Icon(
-                          Icons.account_tree_outlined,
-                          size: 12,
-                          color: appColors.subtleText,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          'worktree',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: appColors.subtleText,
-                          ),
-                        ),
-                      ],
-                      const Spacer(),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         elapsed,
                         style: TextStyle(
@@ -2314,26 +2319,32 @@ class RecentSessionCard extends StatelessWidget {
                   // Meta Row: branch (left) + date (right)
                   Row(
                     children: [
-                      if (session.gitBranch.isNotEmpty) ...[
-                        Icon(
-                          Icons.fork_right,
-                          size: 14,
-                          color: appColors.subtleText,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            if (session.gitBranch.isNotEmpty) ...[
+                              Icon(
+                                Icons.fork_right,
+                                size: 14,
+                                color: appColors.subtleText,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  session.gitBranch,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: appColors.subtleText,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            session.gitBranch,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: appColors.subtleText,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                      const Spacer(),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         dateStr,
                         style: TextStyle(
