@@ -216,6 +216,17 @@ class AppTheme {
         ),
       ),
 
+      // BottomSheet
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: brightness == Brightness.dark
+            ? colorScheme.surfaceContainerLowest
+            : null,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+      ),
+
       // Divider
       dividerTheme: DividerThemeData(
         color: colorScheme.outlineVariant,
