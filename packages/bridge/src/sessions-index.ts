@@ -819,8 +819,10 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       continue;
     }
 
-    // Extract codex settings from turn_context
-    if (entry.type === "turn_context" && !approvalPolicy) {
+    // Extract codex settings from turn_context.
+    // Always update (no guard) so the **last** turn_context wins — this is
+    // important when sandbox mode or other settings change mid-session.
+    if (entry.type === "turn_context") {
       const payload = entry.payload as Record<string, unknown> | undefined;
       if (payload) {
         if (typeof payload.approval_policy === "string") {
