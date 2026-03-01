@@ -208,11 +208,74 @@ void main() {
       );
 
       expect(
-        find.text(
-          'gpt-5.3-codex  sandbox:workspace-write  approval:on-request',
-        ),
+        find.text('gpt-5.3-codex  sandbox-workspace-write  on-request'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('shows settings summary for claude provider with model', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'claude-running',
+        provider: 'claude',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        permissionMode: 'plan',
+        model: 'claude-sonnet-4-20250514',
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(session: session, onTap: () {}, onStop: () {}),
+        ),
+      );
+
+      expect(find.text('claude-sonnet-4-20250514  plan'), findsOneWidget);
+    });
+
+    testWidgets('shows bypass-all for claude bypassPermissions mode', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'claude-bypass',
+        provider: 'claude',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        permissionMode: 'bypassPermissions',
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(session: session, onTap: () {}, onStop: () {}),
+        ),
+      );
+
+      expect(find.text('bypass-all'), findsOneWidget);
+    });
+
+    testWidgets('shows only mode when claude model is null', (tester) async {
+      final session = SessionInfo(
+        id: 'claude-no-model',
+        provider: 'claude',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        permissionMode: 'plan',
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(session: session, onTap: () {}, onStop: () {}),
+        ),
+      );
+
+      expect(find.text('plan'), findsOneWidget);
     });
 
     testWidgets('hides lastMessage row when empty', (tester) async {
@@ -475,9 +538,7 @@ void main() {
       );
 
       expect(
-        find.text(
-          'gpt-5-codex  sandbox:danger-full-access  approval:on-failure',
-        ),
+        find.text('gpt-5-codex  sandbox-danger-full-access  on-failure'),
         findsOneWidget,
       );
     });

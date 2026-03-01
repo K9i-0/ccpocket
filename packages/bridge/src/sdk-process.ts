@@ -329,6 +329,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private pendingPermissions = new Map<string, PendingPermission>();
   private _permissionMode: PermissionMode | undefined;
   get permissionMode(): PermissionMode | undefined { return this._permissionMode; }
+  private _model: string | undefined;
+  get model(): string | undefined { return this._model; }
   private sessionAllowRules = new Set<string>();
 
   private initTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -809,13 +811,17 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         this.emitMessage(serverMsg);
       }
 
-      // Extract session ID from system/init
+      // Extract session ID and model from system/init
       if (message.type === "system" && "subtype" in message && (message as Record<string, unknown>).subtype === "init") {
         if (this.initTimeoutId) {
           clearTimeout(this.initTimeoutId);
           this.initTimeoutId = null;
         }
         this._sessionId = message.session_id;
+        const initModel = (message as Record<string, unknown>).model;
+        if (typeof initModel === "string" && initModel) {
+          this._model = initModel;
+        }
         this.setStatus("idle");
       }
 

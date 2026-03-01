@@ -64,6 +64,7 @@ export interface SessionSummary {
   worktreePath?: string;
   worktreeBranch?: string;
   permissionMode?: string;
+  model?: string;
   codexSettings?: {
     approvalPolicy?: string;
     sandboxMode?: string;
@@ -449,6 +450,9 @@ export class SessionManager {
                   ? "bypassPermissions"
                   : "acceptEdits")
               : undefined,
+        model: s.process instanceof SdkProcess
+          ? s.process.model
+          : undefined,
         codexSettings: s.codexSettings,
         pendingPermission,
       };

@@ -120,13 +120,13 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     final displayMessage = formatCommandText(
       session.lastMessage.replaceAll(RegExp(r'\s+'), ' ').trim(),
     );
-    final codexSummary = session.provider == 'codex'
-        ? _buildCodexSettingsSummary(
-            model: session.codexModel,
-            sandboxMode: session.codexSandboxMode,
-            approvalPolicy: session.codexApprovalPolicy,
-          )
-        : null;
+    final settingsSummary = _buildSettingsSummary(
+      isCodex: session.provider == 'codex',
+      model: session.provider == 'codex' ? session.codexModel : session.model,
+      sandboxMode: session.codexSandboxMode,
+      approvalPolicy: session.codexApprovalPolicy,
+      permissionMode: session.permissionMode,
+    );
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 0),
@@ -159,7 +159,8 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                         _StatusDot(
                           color: statusColor,
                           animate: visualStatus.animate,
-                          inPlanMode: visualStatus.showPlanBadge &&
+                          inPlanMode:
+                              visualStatus.showPlanBadge &&
                               visualStatus.animate,
                         ),
                         const SizedBox(width: 6),
@@ -310,6 +311,12 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                                     context,
                                   ).colorScheme.surfaceContainer,
                                   borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outlineVariant,
+                                    width: 0.5,
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -373,15 +380,6 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      // Right-aligned time
-                      Text(
-                        elapsed,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: appColors.subtleText,
-                        ),
-                      ),
                     ],
                   ),
                   // Last message
@@ -394,62 +392,62 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  if (codexSummary != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      codexSummary,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: appColors.subtleText,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  // Git branch + worktree
-                  if (session.gitBranch.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (session.gitBranch.isNotEmpty) ...[
-                          Icon(
-                            Icons.fork_right,
-                            size: 13,
-                            color: appColors.subtleText,
-                          ),
-                          const SizedBox(width: 2),
-                          Flexible(
-                            child: Text(
-                              session.gitBranch,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: appColors.subtleText,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                        ],
-                        // messageCount removed for performance
-                        if (session.worktreePath != null) ...[
-                          const SizedBox(width: 12),
-                          Icon(
-                            Icons.account_tree_outlined,
-                            size: 12,
-                            color: appColors.subtleText,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            'worktree',
+                  const SizedBox(height: 4),
+                  Text(
+                    settingsSummary,
+                    style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  // Meta Row: branch + worktree (left) + elapsed (right)
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (session.gitBranch.isNotEmpty) ...[
+                        Icon(
+                          Icons.fork_right,
+                          size: 13,
+                          color: appColors.subtleText,
+                        ),
+                        const SizedBox(width: 2),
+                        Flexible(
+                          child: Text(
+                            session.gitBranch,
                             style: TextStyle(
                               fontSize: 11,
                               color: appColors.subtleText,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
+                        ),
                       ],
-                    ),
-                  ],
+                      // messageCount removed for performance
+                      if (session.worktreePath != null) ...[
+                        const SizedBox(width: 12),
+                        Icon(
+                          Icons.account_tree_outlined,
+                          size: 12,
+                          color: appColors.subtleText,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          'worktree',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: appColors.subtleText,
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      Text(
+                        elapsed,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: appColors.subtleText,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -815,13 +813,11 @@ class _CodexPlanApprovalArea extends StatelessWidget {
                         horizontal: 8,
                         vertical: 8,
                       ),
-                      foregroundColor:
-                          Theme.of(context).colorScheme.error,
+                      foregroundColor: Theme.of(context).colorScheme.error,
                       side: BorderSide(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .error
-                            .withValues(alpha: 0.5),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.error.withValues(alpha: 0.5),
                       ),
                     ),
                     child: FittedBox(
@@ -1944,8 +1940,7 @@ class _StatusDot extends StatefulWidget {
   State<_StatusDot> createState() => _StatusDotState();
 }
 
-class _StatusDotState extends State<_StatusDot>
-    with TickerProviderStateMixin {
+class _StatusDotState extends State<_StatusDot> with TickerProviderStateMixin {
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
   late final AnimationController _orbitController;
@@ -1957,10 +1952,7 @@ class _StatusDotState extends State<_StatusDot>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    _pulseAnimation = Tween(
-      begin: 0.4,
-      end: 1.0,
-    ).animate(
+    _pulseAnimation = Tween(begin: 0.4, end: 1.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     _orbitController = AnimationController(
@@ -2065,8 +2057,9 @@ class _StatusDotPainter extends CustomPainter {
       final path = Path()
         ..addOval(Rect.fromCircle(center: center, radius: orbitRadius));
       final metric = path.computeMetrics().first;
-      final lightPos =
-          metric.getTangentForOffset(metric.length * orbitProgress)!.position;
+      final lightPos = metric
+          .getTangentForOffset(metric.length * orbitProgress)!
+          .position;
 
       // Clip to a thin ring around the dot
       const ringHalf = 2.0;
@@ -2074,9 +2067,7 @@ class _StatusDotPainter extends CustomPainter {
         ..addOval(
           Rect.fromCircle(center: center, radius: orbitRadius + ringHalf),
         )
-        ..addOval(
-          Rect.fromCircle(center: center, radius: dotRadius - 0.5),
-        )
+        ..addOval(Rect.fromCircle(center: center, radius: dotRadius - 0.5))
         ..fillType = PathFillType.evenOdd;
 
       canvas.save();
@@ -2151,8 +2142,10 @@ class RecentSessionCard extends StatelessWidget {
     final appColors = theme.extension<AppColors>()!;
     final provider = providerFromRaw(session.provider);
     final providerStyle = providerStyleFor(context, provider);
-    final codexSummary = session.provider == 'codex'
-        ? _buildCodexSettingsSummary(
+    final isCodex = session.provider == 'codex';
+    final settingsSummary = isCodex
+        ? _buildSettingsSummary(
+            isCodex: true,
             model: session.codexModel,
             sandboxMode: session.codexSandboxMode,
             approvalPolicy: session.codexApprovalPolicy,
@@ -2198,6 +2191,10 @@ class RecentSessionCard extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: colorScheme.surfaceContainer,
                                   borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: colorScheme.outlineVariant,
+                                    width: 0.5,
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -2256,14 +2253,6 @@ class RecentSessionCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        dateStr,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: appColors.subtleText,
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -2307,10 +2296,10 @@ class RecentSessionCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
 
-                  if (codexSummary != null) ...[
+                  if (settingsSummary != null) ...[
                     const SizedBox(height: 6),
                     Text(
-                      codexSummary,
+                      settingsSummary,
                       style: TextStyle(
                         fontSize: 11,
                         color: appColors.subtleText,
@@ -2322,7 +2311,7 @@ class RecentSessionCard extends StatelessWidget {
 
                   const SizedBox(height: 8),
 
-                  // Meta Row
+                  // Meta Row: branch (left) + date (right)
                   Row(
                     children: [
                       if (session.gitBranch.isNotEmpty) ...[
@@ -2343,8 +2332,15 @@ class RecentSessionCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 16),
                       ],
+                      const Spacer(),
+                      Text(
+                        dateStr,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: appColors.subtleText,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -2450,17 +2446,42 @@ class RecentSessionCard extends StatelessWidget {
   }
 }
 
-String _buildCodexSettingsSummary({
+/// Build a compact settings summary for session cards.
+///
+/// Codex:  "gpt-5.3-codex  sandbox-on  bypass-all"
+/// Claude: "claude-sonnet-4-20250514  default" / "plan" / "bypass-all"
+String _buildSettingsSummary({
+  required bool isCodex,
   String? model,
   String? sandboxMode,
   String? approvalPolicy,
+  String? permissionMode,
 }) {
-  final modelText = (model == null || model.isEmpty) ? 'model:auto' : model;
-  final sandboxText = (sandboxMode == null || sandboxMode.isEmpty)
-      ? 'sandbox:default'
-      : 'sandbox:$sandboxMode';
-  final approvalText = (approvalPolicy == null || approvalPolicy.isEmpty)
-      ? 'approval:default'
-      : 'approval:$approvalPolicy';
-  return '$modelText  $sandboxText  $approvalText';
+  if (isCodex) {
+    final modelText = (model == null || model.isEmpty) ? 'model:auto' : model;
+    final sandboxText = switch (sandboxMode) {
+      null || '' => 'sandbox-default',
+      'on' => 'sandbox-on',
+      'off' => 'sandbox-off',
+      final v => 'sandbox-$v',
+    };
+    final approvalText = switch (approvalPolicy) {
+      null || '' || 'unless-allow-listed' => 'default',
+      'never' => 'bypass-all',
+      final v => v,
+    };
+    return '$modelText  $sandboxText  $approvalText';
+  }
+  // Claude Code: show model + permissionMode label
+  final modeLabel = switch (permissionMode) {
+    null || '' || 'default' => 'default',
+    'acceptEdits' => 'accept-edits',
+    'plan' => 'plan',
+    'bypassPermissions' => 'bypass-all',
+    final v => v,
+  };
+  if (model != null && model.isNotEmpty) {
+    return '$model  $modeLabel';
+  }
+  return modeLabel;
 }

@@ -404,10 +404,12 @@ List<SessionInfo> mockSessionsAllStatuses() => [
     provider: 'claude',
     projectPath: '/Users/demo/Workspace/my-app',
     status: 'running',
-    createdAt:
-        DateTime.now().subtract(const Duration(minutes: 5)).toIso8601String(),
-    lastActivityAt:
-        DateTime.now().subtract(const Duration(seconds: 3)).toIso8601String(),
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 5))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 3))
+        .toIso8601String(),
     gitBranch: 'feat/api',
     lastMessage: 'Implementing the new REST API endpoints.',
   ),
@@ -418,10 +420,12 @@ List<SessionInfo> mockSessionsAllStatuses() => [
     projectPath: '/Users/demo/Workspace/my-app',
     status: 'running',
     permissionMode: 'plan',
-    createdAt:
-        DateTime.now().subtract(const Duration(minutes: 8)).toIso8601String(),
-    lastActivityAt:
-        DateTime.now().subtract(const Duration(seconds: 10)).toIso8601String(),
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 8))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 10))
+        .toIso8601String(),
     gitBranch: 'feat/auth',
     lastMessage: 'Designing the authentication flow.',
   ),
@@ -431,10 +435,12 @@ List<SessionInfo> mockSessionsAllStatuses() => [
     provider: 'claude',
     projectPath: '/Users/demo/Workspace/ccpocket',
     status: 'compacting',
-    createdAt:
-        DateTime.now().subtract(const Duration(minutes: 20)).toIso8601String(),
-    lastActivityAt:
-        DateTime.now().subtract(const Duration(seconds: 5)).toIso8601String(),
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 20))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 5))
+        .toIso8601String(),
     gitBranch: 'feat/long-session',
     lastMessage: 'Summarizing conversation context.',
   ),
@@ -444,10 +450,12 @@ List<SessionInfo> mockSessionsAllStatuses() => [
     provider: 'claude',
     projectPath: '/Users/demo/Workspace/my-app',
     status: 'waiting_approval',
-    createdAt:
-        DateTime.now().subtract(const Duration(minutes: 3)).toIso8601String(),
-    lastActivityAt:
-        DateTime.now().subtract(const Duration(seconds: 8)).toIso8601String(),
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 3))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 8))
+        .toIso8601String(),
     gitBranch: 'feat/tests',
     lastMessage: 'Running the test suite.',
     pendingPermission: const PermissionRequestMessage(
@@ -462,10 +470,12 @@ List<SessionInfo> mockSessionsAllStatuses() => [
     provider: 'claude',
     projectPath: '/Users/demo/Workspace/my-app',
     status: 'waiting_approval',
-    createdAt:
-        DateTime.now().subtract(const Duration(minutes: 6)).toIso8601String(),
-    lastActivityAt:
-        DateTime.now().subtract(const Duration(seconds: 15)).toIso8601String(),
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 6))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 15))
+        .toIso8601String(),
     gitBranch: 'feat/config',
     lastMessage: 'Which database should we use?',
     pendingPermission: const PermissionRequestMessage(
@@ -493,10 +503,12 @@ List<SessionInfo> mockSessionsAllStatuses() => [
     projectPath: '/Users/demo/Workspace/ccpocket',
     status: 'waiting_approval',
     permissionMode: 'plan',
-    createdAt:
-        DateTime.now().subtract(const Duration(minutes: 12)).toIso8601String(),
-    lastActivityAt:
-        DateTime.now().subtract(const Duration(seconds: 30)).toIso8601String(),
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 12))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 30))
+        .toIso8601String(),
     gitBranch: 'feat/refactor',
     lastMessage: 'Plan is ready for review.',
     pendingPermission: const PermissionRequestMessage(
@@ -511,10 +523,12 @@ List<SessionInfo> mockSessionsAllStatuses() => [
     provider: 'claude',
     projectPath: '/Users/demo/Workspace/cli-tool',
     status: 'idle',
-    createdAt:
-        DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
-    lastActivityAt:
-        DateTime.now().subtract(const Duration(minutes: 30)).toIso8601String(),
+    createdAt: DateTime.now()
+        .subtract(const Duration(hours: 1))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(minutes: 30))
+        .toIso8601String(),
     gitBranch: 'main',
     lastMessage: 'All tasks completed successfully.',
   ),
@@ -525,10 +539,12 @@ List<SessionInfo> mockSessionsAllStatuses() => [
     projectPath: '/Users/demo/Workspace/cli-tool',
     status: 'idle',
     permissionMode: 'plan',
-    createdAt:
-        DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
-    lastActivityAt:
-        DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
+    createdAt: DateTime.now()
+        .subtract(const Duration(hours: 2))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(hours: 1))
+        .toIso8601String(),
     gitBranch: 'feat/parser',
     lastMessage: 'Finished implementing the parser.',
   ),
@@ -548,10 +564,12 @@ List<SessionInfo> mockSessionsAllApprovals() => [
     provider: 'claude',
     projectPath: '/Users/demo/Workspace/my-app',
     status: 'waiting_approval',
-    createdAt:
-        DateTime.now().subtract(const Duration(minutes: 2)).toIso8601String(),
-    lastActivityAt:
-        DateTime.now().subtract(const Duration(seconds: 5)).toIso8601String(),
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 2))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 5))
+        .toIso8601String(),
     gitBranch: 'feat/deploy',
     lastMessage: 'Deploying to staging environment.',
     pendingPermission: const PermissionRequestMessage(
@@ -566,10 +584,12 @@ List<SessionInfo> mockSessionsAllApprovals() => [
     provider: 'claude',
     projectPath: '/Users/demo/Workspace/ccpocket',
     status: 'waiting_approval',
-    createdAt:
-        DateTime.now().subtract(const Duration(minutes: 4)).toIso8601String(),
-    lastActivityAt:
-        DateTime.now().subtract(const Duration(seconds: 8)).toIso8601String(),
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 4))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 8))
+        .toIso8601String(),
     gitBranch: 'fix/typo',
     lastMessage: 'Fixing a typo in the README.',
     pendingPermission: const PermissionRequestMessage(

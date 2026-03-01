@@ -17,7 +17,8 @@ class SessionModeBar extends StatelessWidget {
     final permissionMode = chatCubit.state.permissionMode;
     final inPlanMode = chatCubit.state.inPlanMode;
     final status = chatCubit.state.status;
-    final isActive = status == ProcessStatus.running ||
+    final isActive =
+        status == ProcessStatus.running ||
         status == ProcessStatus.waitingApproval ||
         status == ProcessStatus.compacting;
     // sandboxMode is only available for Codex
@@ -42,11 +43,9 @@ class SessionModeBar extends StatelessWidget {
                     : cs.surface.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: inPlanMode
-                      ? Colors.transparent
-                      : (isDark
-                            ? Colors.white.withValues(alpha: 0.1)
-                            : Colors.white.withValues(alpha: 0.6)),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.white.withValues(alpha: 0.6),
                 ),
               ),
               child: IntrinsicHeight(
