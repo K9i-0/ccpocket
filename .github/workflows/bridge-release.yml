@@ -43,17 +43,10 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#bridge/v}" >> "$GITHUB_OUTPUT"
 
       - name: Extract changelog section
-        id: changelog
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           # Extract the section for this version from CHANGELOG.md
-          NOTES=$(awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" packages/bridge/CHANGELOG.md)
-          # Use delimiter for multiline output
-          {
-            echo "notes<<EOF"
-            echo "$NOTES"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          awk "/^## \\[${VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" packages/bridge/CHANGELOG.md > /tmp/release-notes.md
 
       - name: Create GitHub Release
         env:
@@ -61,4 +54,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             --title "@ccpocket/bridge ${{ steps.version.outputs.version }}" \
-            --notes "${{ steps.changelog.outputs.notes }}"
+            --notes-file /tmp/release-notes.md
