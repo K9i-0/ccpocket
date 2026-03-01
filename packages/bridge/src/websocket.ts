@@ -540,8 +540,14 @@ export class BridgeWebSocketServer {
         this.sessionManager.destroy(oldSessionId);
         console.log(`[ws] Sandbox mode change: destroyed session ${oldSessionId}`);
 
-        const hasMessages = (session.history && session.history.length > 0) || (session.pastMessages && session.pastMessages.length > 0);
-        if (!threadId || !hasMessages) {
+        // Check if the user actually exchanged messages in this session.
+        // session.history always contains system events (init, status, etc.)
+        // even before the first user turn, so we check for user_input/assistant
+        // messages specifically.
+        const hasUserMessages = session.history?.some(
+          (m: Record<string, unknown>) => m.type === "user_input" || m.type === "assistant",
+        ) || (session.pastMessages && session.pastMessages.length > 0);
+        if (!threadId || !hasUserMessages) {
           // Session has no thread yet, or has a thread but no messages exchanged.
           // Create a fresh session with the new sandbox — no resume needed.
           // (A thread with no messages cannot be resumed — Codex returns
