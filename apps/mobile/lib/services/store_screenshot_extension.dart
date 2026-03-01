@@ -70,7 +70,7 @@ void registerStoreScreenshotExtensions() {
       final navState = StoreScreenshotState.navigatorKey?.currentState;
       if (navState == null) {
         return MarionetteExtensionResult.error(
-          -1,
+          1,
           'Navigator not available yet. Is the app fully initialized?',
         );
       }
@@ -82,7 +82,7 @@ void registerStoreScreenshotExtensions() {
           'status': 'navigated',
         });
       } catch (e) {
-        return MarionetteExtensionResult.error(-1, 'Navigation failed: $e');
+        return MarionetteExtensionResult.error(2, 'Navigation failed: $e');
       }
     },
   );
@@ -93,7 +93,7 @@ void registerStoreScreenshotExtensions() {
     callback: (params) async {
       final navState = StoreScreenshotState.navigatorKey?.currentState;
       if (navState == null) {
-        return MarionetteExtensionResult.error(-1, 'Navigator not available.');
+        return MarionetteExtensionResult.error(1, 'Navigator not available.');
       }
       navState.popUntil((route) => route.isFirst);
       return MarionetteExtensionResult.success({'status': 'popped'});
