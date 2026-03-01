@@ -22,7 +22,7 @@ class SessionModeBar extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: _PulsingModeBarSurface(
         inPlanMode: inPlanMode,
         child: ClipRRect(
@@ -186,7 +186,7 @@ class _RotatingBorderPainter extends CustomPainter {
     final dotOffset = metric.getTangentForOffset(totalLen * progress)!.position;
 
     // Radial gradient centered on the dot for a clean glow
-    final glowRadius = 28.0;
+    final glowRadius = 18.0;
     final dotRect = Rect.fromCircle(center: dotOffset, radius: glowRadius);
     final radial = RadialGradient(
       colors: [
@@ -198,7 +198,7 @@ class _RotatingBorderPainter extends CustomPainter {
     );
 
     // Clip to border stroke region (outer rrect minus inner rrect)
-    final halfW = (strokeWidth + 6) / 2;
+    final halfW = (strokeWidth + 4) / 2;
     final outerRRect = RRect.fromRectAndRadius(
       rect.inflate(halfW),
       Radius.circular(borderRadius + halfW),
@@ -222,7 +222,7 @@ class _RotatingBorderPainter extends CustomPainter {
     canvas.drawRect(dotRect, glowPaint);
 
     // Bright core
-    final coreRect = Rect.fromCircle(center: dotOffset, radius: 12);
+    final coreRect = Rect.fromCircle(center: dotOffset, radius: 8);
     final coreGradient = RadialGradient(
       colors: [
         glowColor.withValues(alpha: isDark ? 1.0 : 0.9),
