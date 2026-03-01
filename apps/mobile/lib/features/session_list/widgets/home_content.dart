@@ -239,7 +239,7 @@ class _HomeContentState extends State<HomeContent> {
           SectionHeader(
             icon: Icons.play_circle_filled,
             label: 'Running',
-            color: appColors.statusRunning,
+            color: appColors.statusOnline,
           ),
           const SizedBox(height: 4),
           for (final session in widget.sessions)

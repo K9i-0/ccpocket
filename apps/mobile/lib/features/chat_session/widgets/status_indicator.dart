@@ -66,7 +66,7 @@ class StatusIndicator extends HookWidget {
       ProcessStatus.running =>
         inPlanMode
             ? (appColors.statusPlan, 'Plan')
-            : (appColors.statusRunning, 'Running'),
+            : (appColors.statusOnline, 'Running'),
       ProcessStatus.waitingApproval => (appColors.statusApproval, 'Approval'),
       ProcessStatus.compacting => (appColors.statusCompacting, 'Compacting'),
     };

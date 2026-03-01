@@ -471,7 +471,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: _testSuccess
-                                ? appColors.statusRunning.withValues(alpha: 0.1)
+                                ? appColors.statusOnline.withValues(alpha: 0.1)
                                 : colorScheme.error.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -480,7 +480,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                               Icon(
                                 _testSuccess ? Icons.check_circle : Icons.error,
                                 color: _testSuccess
-                                    ? appColors.statusRunning
+                                    ? appColors.statusOnline
                                     : colorScheme.error,
                                 size: 20,
                               ),
@@ -490,7 +490,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                                   _testResult!,
                                   style: TextStyle(
                                     color: _testSuccess
-                                        ? appColors.statusRunning
+                                        ? appColors.statusOnline
                                         : colorScheme.error,
                                   ),
                                 ),

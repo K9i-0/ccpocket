@@ -376,6 +376,7 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color statusApproval;
   final Color statusCompacting;
   final Color statusIdle;
+  final Color statusOnline;
   final Color statusPlan;
   final Color statusPlanGlow;
 
@@ -423,6 +424,7 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.statusApproval,
     required this.statusCompacting,
     required this.statusIdle,
+    required this.statusOnline,
     required this.statusPlan,
     required this.statusPlanGlow,
     required this.subtleText,
@@ -464,6 +466,7 @@ class AppColors extends ThemeExtension<AppColors> {
     statusApproval: Color(0xFFD4450A), // Ember (brighter)
     statusCompacting: Color(0xFF7C3AED), // Violet 600
     statusIdle: Color(0xFF787068), // warm grey (WCAG AA)
+    statusOnline: Color(0xFF16A34A), // green for online/running indicators
     statusPlan: Color(0xFF1F8F4E), // structured plan green
     statusPlanGlow: Color(0xFF7BD89A), // lighter green for glow
     subtleText: Color(0xFF6B5E54), // warm stone (WCAG AA)
@@ -505,6 +508,7 @@ class AppColors extends ThemeExtension<AppColors> {
     statusApproval: Color(0xFFFDBA74), // Orange 300
     statusCompacting: Color(0xFFA78BFA), // Violet 400
     statusIdle: Color(0xFF6E6E6E), // neutral grey
+    statusOnline: Color(0xFF4ADE80), // green for online/running indicators
     statusPlan: Color(0xFF57C779), // natural plan green
     statusPlanGlow: Color(0xFF9AE6B4), // lifted green glow
     subtleText: Color(0xFFB8B5B0), // neutral-warm stone
@@ -546,6 +550,7 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? statusApproval,
     Color? statusCompacting,
     Color? statusIdle,
+    Color? statusOnline,
     Color? statusPlan,
     Color? statusPlanGlow,
     Color? subtleText,
@@ -586,6 +591,7 @@ class AppColors extends ThemeExtension<AppColors> {
       statusApproval: statusApproval ?? this.statusApproval,
       statusCompacting: statusCompacting ?? this.statusCompacting,
       statusIdle: statusIdle ?? this.statusIdle,
+      statusOnline: statusOnline ?? this.statusOnline,
       statusPlan: statusPlan ?? this.statusPlan,
       statusPlanGlow: statusPlanGlow ?? this.statusPlanGlow,
       subtleText: subtleText ?? this.subtleText,
@@ -657,6 +663,7 @@ class AppColors extends ThemeExtension<AppColors> {
         t,
       )!,
       statusIdle: Color.lerp(statusIdle, other.statusIdle, t)!,
+      statusOnline: Color.lerp(statusOnline, other.statusOnline, t)!,
       statusPlan: Color.lerp(statusPlan, other.statusPlan, t)!,
       statusPlanGlow: Color.lerp(statusPlanGlow, other.statusPlanGlow, t)!,
       subtleText: Color.lerp(subtleText, other.subtleText, t)!,

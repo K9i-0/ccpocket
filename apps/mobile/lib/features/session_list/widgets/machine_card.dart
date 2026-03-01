@@ -137,7 +137,7 @@ class _StatusDot extends StatelessWidget {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final colorScheme = Theme.of(context).colorScheme;
     final color = switch (status) {
-      MachineStatus.online => appColors.statusRunning,
+      MachineStatus.online => appColors.statusOnline,
       MachineStatus.offline => colorScheme.error,
       MachineStatus.unreachable => appColors.statusApproval,
       MachineStatus.unknown => appColors.statusIdle,
