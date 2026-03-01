@@ -305,8 +305,9 @@ void showSandboxModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
                     : null,
                 onTap: () {
                   Navigator.pop(sheetContext);
+                  if (mode == currentMode) return;
                   HapticFeedback.lightImpact();
-                  chatCubit.setSandboxMode(mode);
+                  _confirmSandboxModeChange(context, chatCubit, mode);
                 },
               ),
             const SizedBox(height: 8),
@@ -315,6 +316,44 @@ void showSandboxModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
       );
     },
   );
+}
+
+/// Show confirmation dialog before changing sandbox mode, because
+/// the change requires a session restart (thread/resume with new sandbox).
+Future<void> _confirmSandboxModeChange(
+  BuildContext context,
+  ChatSessionCubit chatCubit,
+  SandboxMode mode,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      final cs = Theme.of(dialogContext).colorScheme;
+      return AlertDialog(
+        title: const Text('Change Sandbox Mode'),
+        content: Text(
+          'Switching to ${mode.label} will restart the session. '
+          'Your conversation will be preserved.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: mode == SandboxMode.off
+                ? FilledButton.styleFrom(backgroundColor: cs.error)
+                : null,
+            child: const Text('Restart'),
+          ),
+        ],
+      );
+    },
+  );
+  if (confirmed == true) {
+    chatCubit.setSandboxMode(mode);
+  }
 }
 
 class PermissionModeChip extends StatelessWidget {

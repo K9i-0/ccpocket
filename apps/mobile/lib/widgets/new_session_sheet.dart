@@ -62,8 +62,13 @@ T? enumByValue<T>(List<T> values, String? raw, String Function(T) readValue) {
   return null;
 }
 
-SandboxMode? sandboxModeFromRaw(String? raw) =>
-    enumByValue(SandboxMode.values, raw, (v) => v.value);
+SandboxMode? sandboxModeFromRaw(String? raw) {
+  if (raw == null || raw.isEmpty) return null;
+  // Accept both external ("on"/"off") and internal ("workspace-write"/"danger-full-access") formats.
+  if (raw == 'danger-full-access') return SandboxMode.off;
+  if (raw == 'workspace-write') return SandboxMode.on;
+  return enumByValue(SandboxMode.values, raw, (v) => v.value);
+}
 
 ReasoningEffort? reasoningEffortFromRaw(String? raw) =>
     enumByValue(ReasoningEffort.values, raw, (v) => v.value);

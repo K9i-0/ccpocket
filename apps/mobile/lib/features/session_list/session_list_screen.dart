@@ -153,6 +153,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               gitBranch: _pendingResumeGitBranch,
               worktreePath: msg.worktreePath,
               provider: msg.provider == 'codex' ? Provider.codex : null,
+              sandboxMode: msg.sandboxMode,
             );
           }
           _pendingResumeProjectPath = null;

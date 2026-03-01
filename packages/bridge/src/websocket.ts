@@ -42,6 +42,13 @@ function sandboxModeToInternal(
   return mode === "off" ? "danger-full-access" : "workspace-write";
 }
 
+/** Map Codex internal sandbox mode back to simplified on/off for clients. */
+function sandboxModeToExternal(
+  mode?: string,
+): "on" | "off" {
+  return mode === "danger-full-access" ? "off" : "on";
+}
+
 export interface BridgeServerOptions {
   server: HttpServer;
   apiKey?: string;
@@ -512,17 +519,133 @@ export class BridgeWebSocketServer {
           return;
         }
         const newSandboxMode = sandboxModeToInternal(msg.sandboxMode);
-        // Update stored settings.
-        // Note: Codex app-server does not reliably support resuming an existing
-        // thread with a different sandbox mode. Restarting here can terminate
-        // the process (`codex app-server exited`) and leave the session in a
-        // broken state. We therefore persist the preference and keep the
-        // current runtime alive.
-        if (!session.codexSettings) {
-          session.codexSettings = {};
+        const currentSandboxMode = session.codexSettings?.sandboxMode ?? "workspace-write";
+        if (newSandboxMode === currentSandboxMode) {
+          break; // No change needed
         }
-        session.codexSettings.sandboxMode = newSandboxMode;
-        console.log(`[ws] Sandbox mode changed to ${newSandboxMode} for session ${session.id} (deferred apply)`);
+
+        // Sandbox mode is a thread-level setting — it can only be applied at
+        // thread/start or thread/resume time, not per-turn. To apply the new
+        // mode we destroy the current session and resume the same Codex thread
+        // with the updated sandbox parameter (same pattern as clearContext).
+        const oldSessionId = session.id;
+        const threadId = session.claudeSessionId;
+        const projectPath = session.projectPath;
+        const oldSettings = session.codexSettings ?? {};
+        const worktreePath = session.worktreePath;
+        const worktreeBranch = session.worktreeBranch;
+        const sessionName = session.name;
+        const collaborationMode = (session.process as CodexProcess).collaborationMode;
+
+        this.sessionManager.destroy(oldSessionId);
+        console.log(`[ws] Sandbox mode change: destroyed session ${oldSessionId}`);
+
+        const hasMessages = (session.history && session.history.length > 0) || (session.pastMessages && session.pastMessages.length > 0);
+        if (!threadId || !hasMessages) {
+          // Session has no thread yet, or has a thread but no messages exchanged.
+          // Create a fresh session with the new sandbox — no resume needed.
+          // (A thread with no messages cannot be resumed — Codex returns
+          // "no rollout found for thread id".)
+          const newId = this.sessionManager.create(
+            projectPath,
+            undefined,
+            undefined,
+            worktreePath ? { existingWorktreePath: worktreePath, worktreeBranch } : undefined,
+            "codex",
+            {
+              approvalPolicy: oldSettings.approvalPolicy as "never" | "on-request" | undefined,
+              sandboxMode: newSandboxMode,
+              model: oldSettings.model,
+              modelReasoningEffort: oldSettings.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh" | undefined,
+              networkAccessEnabled: oldSettings.networkAccessEnabled as boolean | undefined,
+              webSearchMode: oldSettings.webSearchMode as "disabled" | "cached" | "live" | undefined,
+              collaborationMode,
+            },
+          );
+          const newSession = this.sessionManager.get(newId);
+          if (newSession && sessionName) newSession.name = sessionName;
+          this.broadcast({
+            type: "system",
+            subtype: "session_created",
+            sessionId: newId,
+            provider: "codex",
+            projectPath,
+            sandboxMode: sandboxModeToExternal(newSandboxMode),
+            sourceSessionId: oldSessionId,
+            ...(newSession?.worktreePath ? { worktreePath: newSession.worktreePath, worktreeBranch: newSession.worktreeBranch } : {}),
+          });
+          this.broadcastSessionList();
+          console.log(`[ws] Sandbox mode change (no thread): created new session ${newId} (sandbox=${newSandboxMode})`);
+          break;
+        }
+
+        // Worktree resolution (same as resume_session)
+        const wtMapping = this.worktreeStore.get(threadId);
+        const effectiveProjectPath = wtMapping?.projectPath ?? projectPath;
+        let worktreeOpts: { useWorktree?: boolean; worktreeBranch?: string; existingWorktreePath?: string } | undefined;
+        if (wtMapping) {
+          if (worktreeExists(wtMapping.worktreePath)) {
+            worktreeOpts = { existingWorktreePath: wtMapping.worktreePath, worktreeBranch: wtMapping.worktreeBranch };
+          } else {
+            worktreeOpts = { useWorktree: true, worktreeBranch: wtMapping.worktreeBranch };
+          }
+        } else if (worktreePath) {
+          worktreeOpts = { existingWorktreePath: worktreePath, worktreeBranch };
+        }
+
+        getCodexSessionHistory(threadId).then((pastMessages) => {
+          const newId = this.sessionManager.create(
+            effectiveProjectPath,
+            undefined,
+            pastMessages,
+            worktreeOpts,
+            "codex",
+            {
+              threadId,
+              approvalPolicy: oldSettings.approvalPolicy as "never" | "on-request" | undefined,
+              sandboxMode: newSandboxMode,
+              model: oldSettings.model,
+              modelReasoningEffort: oldSettings.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh" | undefined,
+              networkAccessEnabled: oldSettings.networkAccessEnabled as boolean | undefined,
+              webSearchMode: oldSettings.webSearchMode as "disabled" | "cached" | "live" | undefined,
+              collaborationMode,
+            },
+          );
+
+          // Restore session name
+          const newSession = this.sessionManager.get(newId);
+          if (newSession && sessionName) {
+            newSession.name = sessionName;
+          }
+
+          void this.loadAndSetSessionName(newSession, "codex", effectiveProjectPath, threadId).then(() => {
+            this.broadcast({
+              type: "system",
+              subtype: "session_created",
+              sessionId: newId,
+              provider: "codex",
+              projectPath: effectiveProjectPath,
+              sandboxMode: sandboxModeToExternal(newSandboxMode),
+              sourceSessionId: oldSessionId,
+              ...(newSession?.worktreePath ? {
+                worktreePath: newSession.worktreePath,
+                worktreeBranch: newSession.worktreeBranch,
+              } : {}),
+            });
+            this.broadcastSessionList();
+          });
+
+          this.debugEvents.set(newId, []);
+          this.recordDebugEvent(newId, {
+            direction: "internal" as const,
+            channel: "bridge" as const,
+            type: "sandbox_mode_changed",
+            detail: `sandbox=${newSandboxMode} thread=${threadId} oldSession=${oldSessionId}`,
+          });
+          console.log(`[ws] Sandbox mode change: created new session ${newId} (thread=${threadId}, sandbox=${newSandboxMode})`);
+        }).catch((err) => {
+          this.send(ws, { type: "error", message: `Failed to restart session for sandbox mode change: ${err}` });
+        });
         break;
       }
 
@@ -862,7 +985,7 @@ export class BridgeWebSocketServer {
                 sessionId,
                 provider: "codex",
                 projectPath: effectiveProjectPath,
-                ...(createdSession?.codexSettings?.sandboxMode ? { sandboxMode: createdSession.codexSettings.sandboxMode } : {}),
+                ...(createdSession?.codexSettings?.sandboxMode ? { sandboxMode: sandboxModeToExternal(createdSession.codexSettings.sandboxMode) } : {}),
                 ...(createdSession?.worktreePath ? {
                   worktreePath: createdSession.worktreePath,
                   worktreeBranch: createdSession.worktreeBranch,

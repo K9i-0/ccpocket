@@ -81,6 +81,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   late bool _isPending;
   SandboxMode? _sandboxMode;
   StreamSubscription<ServerMessage>? _pendingSub;
+  StreamSubscription<ServerMessage>? _sandboxRestartSub;
 
   @override
   void initState() {
@@ -95,6 +96,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     if (_isPending) {
       _listenForSessionCreated();
     }
+    _listenForSandboxRestart();
   }
 
   void _listenForSessionCreated() {
@@ -129,6 +131,35 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     }
   }
 
+  /// Listen for sandbox mode restart events.
+  /// When the bridge destroys the old session and creates a new one with
+  /// a different sandbox mode, we switch to the new session seamlessly.
+  void _listenForSandboxRestart() {
+    final bridge = context.read<BridgeService>();
+    _sandboxRestartSub = bridge.messages.listen((msg) {
+      if (msg is SystemMessage &&
+          msg.subtype == 'session_created' &&
+          msg.sourceSessionId == _sessionId &&
+          msg.sessionId != null &&
+          msg.sessionId != _sessionId &&
+          !_isPending &&
+          mounted) {
+        _switchSession(msg);
+      }
+    });
+  }
+
+  /// Switch to a new session (e.g. after sandbox mode change).
+  void _switchSession(SystemMessage msg) {
+    setState(() {
+      _sessionId = msg.sessionId!;
+      _projectPath = msg.projectPath ?? _projectPath;
+      _worktreePath = msg.worktreePath ?? _worktreePath;
+      _gitBranch = msg.worktreeBranch ?? _gitBranch;
+      _sandboxMode = sandboxModeFromRaw(msg.sandboxMode) ?? _sandboxMode;
+    });
+  }
+
   void _resolveSession(SystemMessage msg) {
     widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
     final oldId = _sessionId;
@@ -153,6 +184,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   void dispose() {
     widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
     _pendingSub?.cancel();
+    _sandboxRestartSub?.cancel();
     super.dispose();
   }
 
