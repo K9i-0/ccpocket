@@ -174,34 +174,43 @@ class _RotatingBorderPainter extends CustomPainter {
     final rrect = RRect.fromRectAndRadius(rect, Radius.circular(borderRadius));
     final angle = progress * 2 * math.pi;
 
-    // Sweep gradient that rotates around the border
+    // Tight sweep gradient — a small bright dot traveling along the border
     final gradient = SweepGradient(
       startAngle: angle,
       endAngle: angle + 2 * math.pi,
       colors: [
-        color.withValues(alpha: isDark ? 0.95 : 0.85),
-        glowColor.withValues(alpha: isDark ? 0.7 : 0.5),
-        color.withValues(alpha: isDark ? 0.08 : 0.05),
-        color.withValues(alpha: isDark ? 0.08 : 0.05),
-        color.withValues(alpha: isDark ? 0.95 : 0.85),
+        glowColor.withValues(alpha: isDark ? 1.0 : 0.9),  // bright center
+        color.withValues(alpha: isDark ? 0.6 : 0.45),      // short tail
+        color.withValues(alpha: isDark ? 0.08 : 0.04),     // fade out
+        Colors.transparent,                                  // dark gap
+        Colors.transparent,                                  // dark gap
+        color.withValues(alpha: isDark ? 0.08 : 0.04),     // fade in
+        glowColor.withValues(alpha: isDark ? 1.0 : 0.9),   // wrap back
       ],
-      stops: const [0.0, 0.15, 0.4, 0.85, 1.0],
+      stops: const [0.0, 0.04, 0.10, 0.18, 0.88, 0.96, 1.0],
     );
 
-    // Glow layer (wider, softer)
+    // Subtle base border so the shape is visible even where the dot isn't
+    final basePaint = Paint()
+      ..color = color.withValues(alpha: isDark ? 0.12 : 0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    canvas.drawRRect(rrect, basePaint);
+
+    // Glow halo around the bright dot
     final glowPaint = Paint()
       ..shader = gradient.createShader(rect)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth + 3
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+      ..strokeWidth = strokeWidth + 4
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
     canvas.drawRRect(rrect, glowPaint);
 
-    // Main border
-    final borderPaint = Paint()
+    // Sharp dot layer
+    final dotPaint = Paint()
       ..shader = gradient.createShader(rect)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
-    canvas.drawRRect(rrect, borderPaint);
+    canvas.drawRRect(rrect, dotPaint);
   }
 
   @override
