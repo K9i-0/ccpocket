@@ -42,8 +42,8 @@ class AppTheme {
       surfaceContainerLow: const Color(0xFF171717), // Neutral 900
       surfaceContainer: const Color(0xFF171717), // Neutral 900
       surfaceContainerHigh: const Color(
-        0xFF262626,
-      ), // distinct card bg (Neutral 800)
+        0xFF161616,
+      ), // near-surface card bg, glow-focused
       surfaceContainerHighest: const Color(0xFF404040), // Neutral 700
       primary: const Color(0xFFF97316), // Orange 500 (brighter for dark)
       onPrimary: Colors.white,
