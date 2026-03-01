@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.9.2] - 2026-03-01
+
+### Added
+- Include Claude Code model name in session list response (stored from system/init message)
+
 ## [1.9.1] - 2026-03-01
 
 ### Fixed
