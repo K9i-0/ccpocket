@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.9.1] - 2026-03-01
+
+### Fixed
+- Make Codex sandbox mode switching actually work (destroy + resume with new sandbox parameter)
+- Fix 0-message session sandbox switch causing "no rollout found" error
+- Always use last turn_context for codex session settings after sandbox mode changes
+- Send sandbox mode in external format ("on"/"off") to clients instead of internal format
+- Pass sandboxMode to navigation when resuming Codex sessions from session list
+
 ## [1.9.0] - 2026-02-28
 
 ### Added
