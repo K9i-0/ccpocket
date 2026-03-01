@@ -137,9 +137,10 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status bar with glow line + gradient
+            // Status bar with gradient
             Container(
               width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -150,31 +151,9 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                   ],
                 ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: Row(
                 children: [
-                  // 2px glow line at top edge
-                  Container(
-                    height: 2,
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(
-                        alpha: visualStatus.animate ? 0.7 : 0.3,
-                      ),
-                      boxShadow: visualStatus.animate
-                          ? [
-                              BoxShadow(
-                                color: statusColor.withValues(alpha: 0.4),
-                                blurRadius: 4,
-                              ),
-                            ]
-                          : null,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
+                  Expanded(
                     child: Row(
                       children: [
                         _StatusDot(
@@ -233,21 +212,21 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                             ),
                           ),
                         ],
-                        const Spacer(),
-                        SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: IconButton(
-                            iconSize: 16,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            icon: const Icon(Icons.stop_circle_outlined),
-                            onPressed: widget.onStop,
-                            tooltip: 'Stop session',
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: IconButton(
+                      iconSize: 16,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.stop_circle_outlined),
+                      onPressed: widget.onStop,
+                      tooltip: 'Stop session',
+                      color: Theme.of(context).colorScheme.error,
                     ),
                   ),
                 ],
@@ -645,108 +624,134 @@ class _PlanApprovalArea extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       color: statusColor.withValues(alpha: 0.06),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1: Summary + open plan button
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Text(
-                  l.planApprovalSummaryCard,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: cs.onSurface.withValues(alpha: 0.7),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Text(
+                    l.planApprovalSummaryCard,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurface.withValues(alpha: 0.8),
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (canOpenPlan)
-                SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: IconButton(
-                    onPressed: onOpenPlan,
-                    icon: const Icon(Icons.open_in_full, size: 16),
-                    color: cs.primary,
-                    tooltip: l.viewEditPlan,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                IconButton(
+                  onPressed: onOpenPlan,
+                  icon: const Icon(Icons.open_in_full, size: 22),
+                  color: cs.primary,
+                  tooltip: l.viewEditPlan,
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 6),
-          // Row 2: Feedback + action buttons
+          const SizedBox(height: 8),
+          Text(
+            l.keepPlanning,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
           Row(
             children: [
               Expanded(
-                flex: 2,
-                child: SizedBox(
-                  height: 32,
-                  child: TextField(
-                    key: const ValueKey('plan_feedback_input'),
-                    controller: planFeedbackController,
-                    style: const TextStyle(fontSize: 12),
-                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                    decoration: InputDecoration(
-                      hintText: l.keepPlanningHint,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide.none,
-                      ),
-                      suffixIcon: IconButton(
-                        key: const ValueKey('reject_button'),
-                        onPressed: onKeepPlanning,
-                        icon: Icon(Icons.send, size: 14, color: cs.primary),
-                        tooltip: l.sendFeedbackKeepPlanning,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                      suffixIconConstraints: const BoxConstraints(
-                        minWidth: 28,
-                        minHeight: 28,
-                      ),
+                child: TextField(
+                  key: const ValueKey('plan_feedback_input'),
+                  controller: planFeedbackController,
+                  style: const TextStyle(fontSize: 13),
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                  decoration: InputDecoration(
+                    hintText: l.keepPlanningHint,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
                     ),
-                    maxLines: 1,
-                    onSubmitted: (_) => onKeepPlanning(),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              SizedBox(
-                height: 28,
-                child: FilledButton.tonal(
-                  key: const ValueKey('approve_clear_context_button'),
-                  onPressed: onApproveClearContext,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    textStyle: const TextStyle(fontSize: 11),
-                    minimumSize: Size.zero,
-                  ),
-                  child: Text(l.acceptAndClear),
+                  minLines: 1,
+                  maxLines: 2,
+                  onSubmitted: (_) => onKeepPlanning(),
                 ),
               ),
               const SizedBox(width: 4),
-              SizedBox(
-                height: 28,
-                child: FilledButton(
-                  key: const ValueKey('approve_button'),
-                  onPressed: onApprove,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    textStyle: const TextStyle(fontSize: 11),
-                    minimumSize: Size.zero,
+              IconButton(
+                key: const ValueKey('reject_button'),
+                onPressed: onKeepPlanning,
+                icon: Icon(Icons.send, size: 18, color: cs.primary),
+                tooltip: l.sendFeedbackKeepPlanning,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: FilledButton.tonal(
+                    key: const ValueKey('approve_clear_context_button'),
+                    onPressed: onApproveClearContext,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        l.acceptAndClear,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
                   ),
-                  child: Text(l.acceptPlan),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: FilledButton(
+                    key: const ValueKey('approve_button'),
+                    onPressed: onApprove,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        l.acceptPlan,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -780,62 +785,92 @@ class _CodexPlanApprovalArea extends StatelessWidget {
     return Container(
       key: const ValueKey('codex_plan_approval_area'),
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       color: statusColor.withValues(alpha: 0.06),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              l.planApprovalSummaryCard,
-              style: TextStyle(
-                fontSize: 12,
-                color: cs.onSurface.withValues(alpha: 0.7),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Text(
+                    l.planApprovalSummaryCard,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurface.withValues(alpha: 0.8),
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+              if (canOpenPlan)
+                IconButton(
+                  onPressed: onOpenPlan,
+                  icon: const Icon(Icons.open_in_full, size: 22),
+                  color: cs.primary,
+                  tooltip: l.viewEditPlan,
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                ),
+            ],
           ),
-          if (canOpenPlan) ...[
-            SizedBox(
-              width: 28,
-              height: 28,
-              child: IconButton(
-                onPressed: onOpenPlan,
-                icon: const Icon(Icons.open_in_full, size: 16),
-                color: cs.primary,
-                tooltip: l.viewEditPlan,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: OutlinedButton(
+                    key: const ValueKey('reject_button'),
+                    onPressed: onReject,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        l.reject,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-          ],
-          SizedBox(
-            height: 28,
-            child: OutlinedButton(
-              key: const ValueKey('reject_button'),
-              onPressed: onReject,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                textStyle: const TextStyle(fontSize: 11),
-                minimumSize: Size.zero,
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: FilledButton(
+                    key: const ValueKey('approve_button'),
+                    onPressed: onApprove,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        l.acceptPlan,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              child: Text(l.reject),
-            ),
-          ),
-          const SizedBox(width: 4),
-          SizedBox(
-            height: 28,
-            child: FilledButton(
-              key: const ValueKey('approve_button'),
-              onPressed: onApprove,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                textStyle: const TextStyle(fontSize: 11),
-                minimumSize: Size.zero,
-              ),
-              child: Text(l.acceptPlan),
-            ),
+            ],
           ),
         ],
       ),
