@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.9.5] - 2026-03-02
+
+### Fixed
+- Replace `claude auth status` process spawn with lightweight file read for auth pre-check (reduces memory pressure)
+- Preserve extra credential fields (scopes, subscriptionType, rateLimitTier) when refreshing OAuth tokens
+
 ## [1.9.4] - 2026-03-02
 
 ### Fixed
