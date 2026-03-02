@@ -1,16 +1,6 @@
-import { execFile } from "node:child_process";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, writeFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-
-/**
- * Path to the login keychain. By specifying this explicitly in all
- * `security find-generic-password` / `add-generic-password` calls we
- * avoid searching iCloud Keychains which can trigger the macOS
- * "iCloudHelper wants to access keychain" GUI dialog — especially
- * problematic when running as a launchd service.
- */
-const LOGIN_KEYCHAIN = join(homedir(), "Library/Keychains/login.keychain-db");
 
 // ── Types ──
 
@@ -65,35 +55,36 @@ interface RefreshedClaudeToken {
   expiresAt?: number;
 }
 
-function getClaudeOAuthCredentials(): Promise<ClaudeOAuthCredentials> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      "security",
-      ["find-generic-password", "-s", "Claude Code-credentials", "-w", LOGIN_KEYCHAIN],
-      { timeout: 5000 },
-      (err, stdout) => {
-        if (err) {
-          reject(new Error("Claude Code credentials not found in Keychain"));
-          return;
-        }
-        try {
-          const payload: ClaudeOAuthPayload = JSON.parse(stdout.trim());
-          const oauth = payload.claudeAiOauth;
-          if (!oauth) {
-            reject(new Error("No OAuth payload in Claude Code credentials"));
-            return;
-          }
-          resolve({
-            accessToken: oauth.accessToken,
-            refreshToken: oauth.refreshToken,
-            expiresAt: oauth.expiresAt,
-          });
-        } catch {
-          reject(new Error("Failed to parse Claude Code credentials"));
-        }
-      },
-    );
-  });
+/**
+ * Read Claude OAuth credentials from ~/.claude/.credentials.json.
+ *
+ * Claude Code v2.x stores credentials as a plain JSON file on disk
+ * instead of the macOS Keychain ("Claude Code-credentials" service)
+ * used in earlier versions.
+ */
+async function getClaudeOAuthCredentials(): Promise<ClaudeOAuthCredentials> {
+  const credPath = join(homedir(), ".claude", ".credentials.json");
+  let raw: string;
+  try {
+    raw = await readFile(credPath, "utf-8");
+  } catch {
+    throw new Error("Claude Code credentials file not found (~/.claude/.credentials.json)");
+  }
+  try {
+    const payload: ClaudeOAuthPayload = JSON.parse(raw);
+    const oauth = payload.claudeAiOauth;
+    if (!oauth) {
+      throw new Error("No OAuth payload in Claude Code credentials");
+    }
+    return {
+      accessToken: oauth.accessToken,
+      refreshToken: oauth.refreshToken,
+      expiresAt: oauth.expiresAt,
+    };
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("OAuth")) throw err;
+    throw new Error("Failed to parse Claude Code credentials");
+  }
 }
 
 function isTokenExpired(expiresAt?: number): boolean {
@@ -103,22 +94,10 @@ function isTokenExpired(expiresAt?: number): boolean {
   return Date.now() >= expiresAt - TOKEN_EXPIRY_SKEW_MS;
 }
 
-function saveClaudeOAuthCredentials(creds: ClaudeOAuthCredentials): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({ claudeAiOauth: creds });
-    execFile(
-      "security",
-      ["add-generic-password", "-U", "-s", "Claude Code-credentials", "-w", payload, LOGIN_KEYCHAIN],
-      { timeout: 5000 },
-      (err) => {
-        if (err) {
-          reject(new Error("Failed to update Claude Code credentials in Keychain"));
-          return;
-        }
-        resolve();
-      },
-    );
-  });
+async function saveClaudeOAuthCredentials(creds: ClaudeOAuthCredentials): Promise<void> {
+  const credPath = join(homedir(), ".claude", ".credentials.json");
+  const payload = JSON.stringify({ claudeAiOauth: creds });
+  await writeFile(credPath, payload, { encoding: "utf-8", mode: 0o600 });
 }
 
 async function refreshClaudeAccessToken(refreshToken: string): Promise<RefreshedClaudeToken> {
