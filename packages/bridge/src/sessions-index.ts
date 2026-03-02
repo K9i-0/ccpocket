@@ -242,13 +242,13 @@ const RE_IS_SIDECHAIN = /"isSidechain"\s*:\s*true/;
 /**
  * Detect system-injected messages that should be skipped when determining
  * the user's first/last prompt text (e.g. local-command-caveat, stderr/stdout
- * captures, team notifications).
+ * captures, team notifications, skill loading).
  */
 const RE_SYSTEM_INJECTED =
   /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
 
 function isSystemInjectedText(text: string): boolean {
-  return RE_SYSTEM_INJECTED.test(text);
+  return RE_SYSTEM_INJECTED.test(text) || text.startsWith("Base directory for this skill:");
 }
 
 /** Extract user prompt text from a parsed JSONL entry. */
@@ -503,6 +503,75 @@ async function extractFirstPromptStreaming(
       if (!found) resolve("");
     });
   });
+}
+
+/**
+ * Maximum bytes to read from file tail when searching for lastPrompt.
+ * Claude sessions often have large tool-result lines (diffs, etc.) near the
+ * end, so 8KB is rarely enough.  We grow the read window in steps up to this
+ * cap to balance speed and coverage.
+ */
+const LAST_PROMPT_MAX_TAIL = 131072; // 128KB
+
+/**
+ * Fast tail-read to extract the last user prompt from a JSONL file.
+ * Starts at TAIL_BYTES and doubles up to LAST_PROMPT_MAX_TAIL until a real
+ * user text prompt is found.  No full-file scan is ever performed.
+ * Used to supplement sessions-index.json entries that lack lastPrompt.
+ */
+async function extractLastPromptFromTail(
+  filePath: string,
+): Promise<string> {
+  let fh;
+  try {
+    fh = await open(filePath, "r");
+  } catch {
+    return "";
+  }
+  try {
+    const fileSize = (await fh.stat()).size;
+    if (fileSize === 0) return "";
+
+    // Grow tail window: 8KB → 16KB → 32KB → 64KB → 128KB
+    for (
+      let tailSize = TAIL_BYTES;
+      tailSize <= LAST_PROMPT_MAX_TAIL;
+      tailSize *= 2
+    ) {
+      const readSize = Math.min(fileSize, tailSize);
+      const readOffset = fileSize - readSize;
+      const buf = Buffer.alloc(readSize);
+      await fh.read(buf, 0, readSize, readOffset);
+      let raw = buf.toString("utf-8");
+
+      // Discard the first partial line if reading from middle of file
+      if (readOffset > 0) {
+        const nl = raw.indexOf("\n");
+        if (nl >= 0) raw = raw.slice(nl + 1);
+      }
+
+      // Scan in reverse to find the last user line with real text
+      const lines = raw.split("\n");
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+        if (!RE_TYPE_USER.test(line)) continue;
+        try {
+          const entry = JSON.parse(line) as Record<string, unknown>;
+          const text = extractUserPromptText(entry);
+          if (text && !isSystemInjectedText(text)) return text;
+        } catch {
+          // Truncated line — skip
+        }
+      }
+
+      // If we already read the entire file, stop
+      if (readSize >= fileSize) break;
+    }
+    return "";
+  } finally {
+    await fh.close();
+  }
 }
 
 /**
@@ -786,6 +855,27 @@ export async function getAllRecentSessions(
   const hasMore = offset + limit < filtered.length;
   perfStats.counts.returned = sliced.length;
   markDuration(durations, "paginate", paginateStartedAt);
+
+  // Supplement missing lastPrompt for Claude sessions (sessions-index.json
+  // doesn't include lastPrompt).  Only the paginated page is processed so at
+  // most `limit` tail reads are needed — lightweight enough to keep inline.
+  const supplementStartedAt = process.hrtime.bigint();
+  const needLastPrompt = sliced.filter(
+    (e) => e.provider === "claude" && !e.lastPrompt && e.projectPath,
+  );
+  if (needLastPrompt.length > 0) {
+    const projectsDir = join(homedir(), ".claude", "projects");
+    await parallelMap(needLastPrompt, PARALLEL_FILE_READ_LIMIT, async (entry) => {
+      const slug = pathToSlug(entry.projectPath);
+      const jsonlPath = join(projectsDir, slug, `${entry.sessionId}.jsonl`);
+      const lp = await extractLastPromptFromTail(jsonlPath);
+      if (lp && lp !== entry.firstPrompt) {
+        entry.lastPrompt = lp;
+      }
+    });
+  }
+  markDuration(durations, "supplementLastPrompt", supplementStartedAt);
+
   markDuration(durations, "total", totalStartedAt);
   logRecentSessionsPerf(options, durations, perfStats);
 
