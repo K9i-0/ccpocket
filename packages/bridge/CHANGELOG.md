@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.9.4] - 2026-03-02
+
+### Fixed
+- Read Claude OAuth credentials from disk (`~/.claude/.credentials.json`) instead of macOS Keychain, eliminating iCloudHelper keychain dialog
+- Replace keychain-based doctor check with file-based credential check
+
 ## [1.9.3] - 2026-03-02
 
 ### Fixed
