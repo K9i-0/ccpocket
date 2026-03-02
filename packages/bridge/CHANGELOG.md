@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.9.6] - 2026-03-02
+
+### Fixed
+- Skip system-injected messages (`<local-command-caveat>`, `<local-command-stderr>`, etc.) when extracting firstPrompt/lastPrompt from JSONL scan
+- Add streaming fallback for sessions with large user messages (embedded images) that exceed the 16KB head-read buffer
+- Supplement missing lastPrompt for Claude sessions via tail-read with growing window (8KB→128KB), enabling distinct Last display mode in session list (+3-5ms overhead)
+
 ## [1.9.5] - 2026-03-02
 
 ### Fixed
