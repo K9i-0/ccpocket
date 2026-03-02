@@ -96,8 +96,27 @@ function isTokenExpired(expiresAt?: number): boolean {
 
 async function saveClaudeOAuthCredentials(creds: ClaudeOAuthCredentials): Promise<void> {
   const credPath = join(homedir(), ".claude", ".credentials.json");
-  const payload = JSON.stringify({ claudeAiOauth: creds });
-  await writeFile(credPath, payload, { encoding: "utf-8", mode: 0o600 });
+  // Merge with existing file to preserve extra fields (scopes, subscriptionType, etc.)
+  let existing: Record<string, unknown> = {};
+  try {
+    const raw = await readFile(credPath, "utf-8");
+    existing = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    // File doesn't exist or is invalid — start fresh
+  }
+  const existingOauth = (typeof existing.claudeAiOauth === "object" && existing.claudeAiOauth !== null)
+    ? existing.claudeAiOauth as Record<string, unknown>
+    : {};
+  const merged = {
+    ...existing,
+    claudeAiOauth: {
+      ...existingOauth,
+      accessToken: creds.accessToken,
+      refreshToken: creds.refreshToken,
+      expiresAt: creds.expiresAt,
+    },
+  };
+  await writeFile(credPath, JSON.stringify(merged), { encoding: "utf-8", mode: 0o600 });
 }
 
 async function refreshClaudeAccessToken(refreshToken: string): Promise<RefreshedClaudeToken> {

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { EventEmitter } from "node:events";
 import { query, type Query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import {
@@ -122,34 +123,28 @@ export function buildSessionRule(toolName: string, input: Record<string, unknown
  * Returns authenticated=false with a message when login is required.
  */
 function checkClaudeAuth(): { authenticated: boolean; message?: string } {
-  // Skip auth check when using API key directly (keychain not needed)
+  // Skip auth check when using API key directly
   if (process.env.ANTHROPIC_API_KEY) {
     return { authenticated: true };
   }
+  // Check credentials file on disk (Claude Code v2.x)
+  // Avoids spawning heavy `claude auth status` process
+  const credPath = join(homedir(), ".claude", ".credentials.json");
   try {
-    const out = execFileSync("claude", ["auth", "status"], {
-      encoding: "utf-8",
-      timeout: 5000,
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim();
-    const lower = out.toLowerCase();
-    if (
-      lower.includes("not logged in") ||
-      lower.includes("unauthenticated") ||
-      lower.includes("not authenticated")
-    ) {
-      return {
-        authenticated: false,
-        message: "Claude is not authenticated. Please run: claude auth login",
-      };
+    const raw = readFileSync(credPath, "utf-8");
+    const payload = JSON.parse(raw) as Record<string, unknown>;
+    const oauth = payload.claudeAiOauth as Record<string, unknown> | undefined;
+    if (oauth?.accessToken) {
+      return { authenticated: true };
     }
-    return { authenticated: true };
-  } catch {
-    // Command failed or not found — treat as unauthenticated to avoid starting
-    // a session that would trigger the macOS keychain dialog
     return {
       authenticated: false,
-      message: "Claude auth check failed. Please run: claude auth login",
+      message: "Claude credentials found but no access token. Please run: claude auth login",
+    };
+  } catch {
+    return {
+      authenticated: false,
+      message: "Claude credentials not found (~/.claude/.credentials.json). Please run: claude auth login",
     };
   }
 }
