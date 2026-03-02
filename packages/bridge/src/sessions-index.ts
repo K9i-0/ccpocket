@@ -1,5 +1,6 @@
 import { readdir, readFile, writeFile, appendFile, stat, open } from "node:fs/promises";
-import type { Dirent } from "node:fs";
+import { createReadStream, type Dirent } from "node:fs";
+import { createInterface } from "node:readline";
 import { basename, join } from "node:path";
 import { homedir } from "node:os";
 
@@ -238,6 +239,18 @@ const RE_GIT_BRANCH = /"gitBranch"\s*:\s*"([^"]+)"/;
 const RE_CWD = /"cwd"\s*:\s*"([^"]+)"/;
 const RE_IS_SIDECHAIN = /"isSidechain"\s*:\s*true/;
 
+/**
+ * Detect system-injected messages that should be skipped when determining
+ * the user's first/last prompt text (e.g. local-command-caveat, stderr/stdout
+ * captures, team notifications).
+ */
+const RE_SYSTEM_INJECTED =
+  /^<(?:local-command-caveat|local-command-std(?:err|out)|task-notification|teammate-message|bash-(?:input|stdout))>/;
+
+function isSystemInjectedText(text: string): boolean {
+  return RE_SYSTEM_INJECTED.test(text);
+}
+
 /** Extract user prompt text from a parsed JSONL entry. */
 function extractUserPromptText(entry: Record<string, unknown>): string {
   const message = entry.message as { content?: unknown } | undefined;
@@ -301,10 +314,14 @@ function parseFromChunks(
     }
 
     if (isUser && !firstPrompt) {
-      // JSON.parse only the first user line to extract prompt text
+      // JSON.parse only user lines to extract prompt text, skipping
+      // system-injected messages (e.g. <local-command-caveat>)
       try {
         const entry = JSON.parse(line) as Record<string, unknown>;
-        firstPrompt = extractUserPromptText(entry);
+        const text = extractUserPromptText(entry);
+        if (text && !isSystemInjectedText(text)) {
+          firstPrompt = text;
+        }
       } catch { /* skip */ }
     }
   }
@@ -354,7 +371,7 @@ function parseFromChunks(
       try {
         const entry = JSON.parse(lastUserLine) as Record<string, unknown>;
         const text = extractUserPromptText(entry);
-        if (text) lastPrompt = text;
+        if (text && !isSystemInjectedText(text)) lastPrompt = text;
       } catch { /* skip */ }
     }
 
@@ -406,6 +423,8 @@ async function parseClaudeJsonlFileFast(
   } catch {
     return null;
   }
+
+  let result: SessionIndexEntry | null;
   try {
     const fileStat = await fh.stat();
     const fileSize = fileStat.size;
@@ -430,10 +449,60 @@ async function parseClaudeJsonlFileFast(
     const firstNewline = tailRaw.indexOf("\n");
     const cleanTail = firstNewline >= 0 ? tailRaw.slice(firstNewline + 1) : "";
 
-    return parseFromChunks(sessionId, headStr, cleanTail);
+    result = parseFromChunks(sessionId, headStr, cleanTail);
   } finally {
     await fh.close();
   }
+
+  // Fallback: if the fast head+tail read could not extract firstPrompt (e.g.
+  // the first user message line is very large due to embedded images and got
+  // truncated within HEAD_BYTES), stream the file line-by-line to find it.
+  if (result && !result.firstPrompt) {
+    result.firstPrompt = await extractFirstPromptStreaming(filePath);
+  }
+
+  return result;
+}
+
+/**
+ * Fallback: stream a JSONL file line-by-line to find the first real user prompt.
+ * Called when the fast head-read could not extract firstPrompt (e.g. the first
+ * user message line is very large due to embedded images and got truncated).
+ * Reads only until the first valid user prompt is found, then stops.
+ */
+async function extractFirstPromptStreaming(
+  filePath: string,
+): Promise<string> {
+  return new Promise((resolve) => {
+    const stream = createReadStream(filePath, { encoding: "utf-8" });
+    const rl = createInterface({ input: stream, crlfDelay: Infinity });
+    let found = false;
+
+    rl.on("line", (line) => {
+      if (found) return;
+      if (!RE_TYPE_USER.test(line)) return;
+      try {
+        const entry = JSON.parse(line) as Record<string, unknown>;
+        const text = extractUserPromptText(entry);
+        if (text && !isSystemInjectedText(text)) {
+          found = true;
+          rl.close();
+          stream.destroy();
+          resolve(text);
+        }
+      } catch {
+        // Line might be malformed — skip
+      }
+    });
+
+    rl.on("close", () => {
+      if (!found) resolve("");
+    });
+
+    stream.on("error", () => {
+      if (!found) resolve("");
+    });
+  });
 }
 
 /**
