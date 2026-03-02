@@ -261,58 +261,18 @@ describe("doctor checks", () => {
   });
 
   describe("checkKeychainAccess", () => {
-    let originalPlatform: string;
-    beforeEach(() => {
-      originalPlatform = process.platform;
-      Object.defineProperty(process, "platform", { value: "darwin" });
-    });
-    afterEach(() => {
-      Object.defineProperty(process, "platform", { value: originalPlatform });
-    });
-
-    it("passes when credentials are accessible", async () => {
-      mockExecFile.mockImplementation(
-        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
-          cb(null, '{"claudeAiOauth":{}}', "");
-        },
-      );
+    it("passes when credentials file exists", async () => {
+      mockExistsSync.mockReturnValue(true);
       const result = await checkKeychainAccess();
       expect(result.status).toBe("pass");
-      expect(result.message).toContain("found in keychain");
+      expect(result.message).toContain(".credentials.json");
     });
 
-    it("skips when no credentials are stored", async () => {
-      mockExecFile.mockImplementation(
-        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
-          const err = new Error("security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.");
-          cb(err, "", "could not be found");
-        },
-      );
+    it("skips when credentials file does not exist", async () => {
+      mockExistsSync.mockReturnValue(false);
       const result = await checkKeychainAccess();
       expect(result.status).toBe("skip");
-    });
-
-    it("warns when keychain access is denied", async () => {
-      mockExecFile.mockImplementation(
-        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
-          const err = new Error("User interaction is not allowed.");
-          cb(err, "", "User interaction is not allowed.");
-        },
-      );
-      const result = await checkKeychainAccess();
-      expect(result.status).toBe("warn");
-      expect(result.remediation).toContain("Keychain");
-    });
-
-    it("skips on non-macOS platforms", async () => {
-      const originalPlatform = process.platform;
-      Object.defineProperty(process, "platform", { value: "linux" });
-      try {
-        const result = await checkKeychainAccess();
-        expect(result.status).toBe("skip");
-      } finally {
-        Object.defineProperty(process, "platform", { value: originalPlatform });
-      }
+      expect(result.remediation).toContain("claude auth login");
     });
   });
 

@@ -499,53 +499,30 @@ export async function checkScreenRecording(): Promise<CheckResult> {
   });
 }
 
+/**
+ * Check if Claude Code credentials file exists on disk.
+ *
+ * Claude Code v2.x stores OAuth credentials in ~/.claude/.credentials.json
+ * (previously used macOS Keychain "Claude Code-credentials" service).
+ * This check reads the file instead of accessing the keychain, avoiding
+ * the macOS iCloudHelper keychain dialog.
+ */
 export async function checkKeychainAccess(): Promise<CheckResult> {
-  if (process.platform !== "darwin") {
-    return { name: "Keychain access", status: "skip", message: "macOS only" };
+  // Function name kept for backwards-compat with test mocks / report structure.
+  const credPath = join(homedir(), ".claude", ".credentials.json");
+  if (existsSync(credPath)) {
+    return {
+      name: "Keychain access",
+      status: "pass",
+      message: "Claude Code credentials found (~/.claude/.credentials.json)",
+    };
   }
-
-  return new Promise<CheckResult>((resolve) => {
-    // Specify login.keychain-db explicitly to avoid searching iCloud
-    // Keychains which triggers the "iCloudHelper wants to access keychain"
-    // GUI dialog — especially problematic when running as a launchd service.
-    const keychainPath = join(homedir(), "Library/Keychains/login.keychain-db");
-    execFile(
-      "security",
-      ["find-generic-password", "-s", "Claude Code-credentials", keychainPath],
-      { timeout: 5_000 },
-      (err, _stdout, stderr) => {
-        if (!err) {
-          // Credential entry found in keychain
-          resolve({
-            name: "Keychain access",
-            status: "pass",
-            message: "Claude Code credentials found in keychain",
-          });
-          return;
-        }
-
-        const msg = (stderr ?? "").toLowerCase() + (err.message ?? "").toLowerCase();
-        // "could not be found" = no credential stored (not an error)
-        if (msg.includes("could not be found") || msg.includes("not found") || msg.includes("no matching")) {
-          resolve({
-            name: "Keychain access",
-            status: "skip",
-            message: "No Claude Code credentials stored",
-            remediation: "Run: claude auth login (if using Claude Code)",
-          });
-        } else {
-          // Access denied or other Keychain error
-          resolve({
-            name: "Keychain access",
-            status: "warn",
-            message: "Keychain access denied",
-            remediation:
-              "Allow Keychain access for your terminal app, or re-login: claude auth login",
-          });
-        }
-      },
-    );
-  });
+  return {
+    name: "Keychain access",
+    status: "skip",
+    message: "No Claude Code credentials stored",
+    remediation: "Run: claude auth login (if using Claude Code)",
+  };
 }
 
 // ---------------------------------------------------------------------------
