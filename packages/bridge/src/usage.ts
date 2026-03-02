@@ -3,6 +3,15 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+/**
+ * Path to the login keychain. By specifying this explicitly in all
+ * `security find-generic-password` / `add-generic-password` calls we
+ * avoid searching iCloud Keychains which can trigger the macOS
+ * "iCloudHelper wants to access keychain" GUI dialog — especially
+ * problematic when running as a launchd service.
+ */
+const LOGIN_KEYCHAIN = join(homedir(), "Library/Keychains/login.keychain-db");
+
 // ── Types ──
 
 export interface UsageWindow {
@@ -60,7 +69,7 @@ function getClaudeOAuthCredentials(): Promise<ClaudeOAuthCredentials> {
   return new Promise((resolve, reject) => {
     execFile(
       "security",
-      ["find-generic-password", "-s", "Claude Code-credentials", "-w"],
+      ["find-generic-password", "-s", "Claude Code-credentials", "-w", LOGIN_KEYCHAIN],
       { timeout: 5000 },
       (err, stdout) => {
         if (err) {
@@ -99,7 +108,7 @@ function saveClaudeOAuthCredentials(creds: ClaudeOAuthCredentials): Promise<void
     const payload = JSON.stringify({ claudeAiOauth: creds });
     execFile(
       "security",
-      ["add-generic-password", "-U", "-s", "Claude Code-credentials", "-w", payload],
+      ["add-generic-password", "-U", "-s", "Claude Code-credentials", "-w", payload, LOGIN_KEYCHAIN],
       { timeout: 5000 },
       (err) => {
         if (err) {

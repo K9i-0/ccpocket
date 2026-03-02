@@ -505,12 +505,13 @@ export async function checkKeychainAccess(): Promise<CheckResult> {
   }
 
   return new Promise<CheckResult>((resolve) => {
-    // Use -g (print attributes) instead of -w (print password) to avoid
-    // triggering a macOS keychain GUI dialog when running from a launchd
-    // service context. Checking existence is sufficient here.
+    // Specify login.keychain-db explicitly to avoid searching iCloud
+    // Keychains which triggers the "iCloudHelper wants to access keychain"
+    // GUI dialog — especially problematic when running as a launchd service.
+    const keychainPath = join(homedir(), "Library/Keychains/login.keychain-db");
     execFile(
       "security",
-      ["find-generic-password", "-s", "Claude Code-credentials"],
+      ["find-generic-password", "-s", "Claude Code-credentials", keychainPath],
       { timeout: 5_000 },
       (err, _stdout, stderr) => {
         if (!err) {
