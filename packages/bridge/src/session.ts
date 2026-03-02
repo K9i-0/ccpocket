@@ -311,7 +311,14 @@ export class SessionManager {
                 m.type === "user_input" &&
                 !("userMessageUuid" in m && m.userMessageUuid)
               ) {
-                session.history[i] = { ...m, ...msg };
+                // Preserve the original text from the user input and only
+                // take the UUID from the SDK echo.  The SDK may return a
+                // transformed/translated version of the user's message, so
+                // we must not overwrite the original text.
+                session.history[i] = {
+                  ...m,
+                  userMessageUuid: msg.userMessageUuid,
+                };
                 merged = true;
                 break;
               }
