@@ -505,17 +505,20 @@ export async function checkKeychainAccess(): Promise<CheckResult> {
   }
 
   return new Promise<CheckResult>((resolve) => {
+    // Use -g (print attributes) instead of -w (print password) to avoid
+    // triggering a macOS keychain GUI dialog when running from a launchd
+    // service context. Checking existence is sufficient here.
     execFile(
       "security",
-      ["find-generic-password", "-s", "Claude Code-credentials", "-w"],
+      ["find-generic-password", "-s", "Claude Code-credentials"],
       { timeout: 5_000 },
       (err, _stdout, stderr) => {
         if (!err) {
-          // Successfully read credentials
+          // Credential entry found in keychain
           resolve({
             name: "Keychain access",
             status: "pass",
-            message: "Claude Code credentials accessible",
+            message: "Claude Code credentials found in keychain",
           });
           return;
         }

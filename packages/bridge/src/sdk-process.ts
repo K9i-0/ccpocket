@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { query, type Query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import {
@@ -113,6 +114,44 @@ export function buildSessionRule(toolName: string, input: Record<string, unknown
     if (firstWord) return `${toolName}(${firstWord}:*)`;
   }
   return toolName;
+}
+
+/**
+ * Check if Claude CLI is authenticated without triggering macOS keychain dialog.
+ * Reads auth state from disk-level config via `claude auth status`.
+ * Returns authenticated=false with a message when login is required.
+ */
+function checkClaudeAuth(): { authenticated: boolean; message?: string } {
+  // Skip auth check when using API key directly (keychain not needed)
+  if (process.env.ANTHROPIC_API_KEY) {
+    return { authenticated: true };
+  }
+  try {
+    const out = execFileSync("claude", ["auth", "status"], {
+      encoding: "utf-8",
+      timeout: 5000,
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    const lower = out.toLowerCase();
+    if (
+      lower.includes("not logged in") ||
+      lower.includes("unauthenticated") ||
+      lower.includes("not authenticated")
+    ) {
+      return {
+        authenticated: false,
+        message: "Claude is not authenticated. Please run: claude auth login",
+      };
+    }
+    return { authenticated: true };
+  } catch {
+    // Command failed or not found — treat as unauthenticated to avoid starting
+    // a session that would trigger the macOS keychain dialog
+    return {
+      authenticated: false,
+      message: "Claude auth check failed. Please run: claude auth login",
+    };
+  }
 }
 
 export interface StartOptions {
@@ -389,6 +428,22 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
 
     this.setStatus("starting");
+
+    // Pre-check Claude auth before starting the SDK to prevent macOS keychain
+    // dialog from appearing when auth is expired. The dialog appears because
+    // Claude CLI tries to read the OAuth token from the keychain, and running
+    // as a launchd service (non-interactive) triggers a GUI prompt.
+    const authCheck = checkClaudeAuth();
+    if (!authCheck.authenticated) {
+      console.log(`[sdk-process] Auth pre-check failed: ${authCheck.message}`);
+      this.emitMessage({
+        type: "error",
+        message: authCheck.message ?? "Claude is not authenticated. Please run: claude auth login",
+      });
+      this.setStatus("idle");
+      this.emit("exit", 1);
+      return;
+    }
 
     console.log(`[sdk-process] Starting SDK query (cwd: ${projectPath}, mode: ${options?.permissionMode ?? "default"})`);
 
