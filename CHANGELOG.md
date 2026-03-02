@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.29.0] - 2026-03-02
+
+### Added
+- Claude model name display on session cards
+
+### Changed
+- Improved session card layout with better date/time alignment
+- Improved bottom sheet visibility in dark mode
+- Consolidated store screenshots from 8 to 7 scenarios
+
+### Fixed
+- Date/time alignment in session card meta row
+- Bottom sheet background contrast in dark mode
+
 ## [1.28.0] - 2026-03-01
 
 ### Added
