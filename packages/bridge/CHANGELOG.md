@@ -2,6 +2,13 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.9.3] - 2026-03-02
+
+### Fixed
+- Pre-check Claude auth before starting SDK session to prevent macOS keychain access dialog
+- Remove password read (-w flag) from doctor's keychain check to avoid triggering keychain dialog
+- Preserve original user text when merging SDK echo (avoid overwriting with translated text)
+
 ## [1.9.2] - 2026-03-01
 
 ### Added
