@@ -278,7 +278,7 @@ describe("doctor checks", () => {
       );
       const result = await checkKeychainAccess();
       expect(result.status).toBe("pass");
-      expect(result.message).toContain("accessible");
+      expect(result.message).toContain("found in keychain");
     });
 
     it("skips when no credentials are stored", async () => {
