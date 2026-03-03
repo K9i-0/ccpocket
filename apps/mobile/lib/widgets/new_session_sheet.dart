@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
-import '../features/session_list/session_list_screen.dart' show shortenPath;
+import '../features/session_list/session_list_screen.dart'
+    show recentProjects, shortenPath;
 import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
@@ -233,6 +234,14 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   WorktreeInfo? _selectedWorktree;
   List<WorktreeInfo>? _worktrees;
   StreamSubscription<WorktreeListMessage>? _worktreeSub;
+  StreamSubscription<List<RecentSession>>? _recentSub;
+  StreamSubscription<List<String>>? _projectHistorySub;
+
+  /// Live-updated recent projects (initially from widget, updated via stream).
+  late List<({String path, String name})> _liveRecentProjects;
+
+  /// Live-updated project history (initially from widget, updated via stream).
+  late List<String> _liveProjectHistory;
 
   // Claude-specific options
   ClaudeEffort? _claudeEffort;
@@ -257,18 +266,18 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   /// Capped at [_maxRecentProjects].
   List<({String path, String name})> get _effectiveProjects {
     List<({String path, String name})> merged;
-    if (widget.projectHistory.isEmpty) {
-      merged = widget.recentProjects;
+    if (_liveProjectHistory.isEmpty) {
+      merged = _liveRecentProjects;
     } else {
       final seen = <String>{};
       final result = <({String path, String name})>[];
-      for (final path in widget.projectHistory) {
+      for (final path in _liveProjectHistory) {
         if (seen.add(path)) {
           final name = path.split('/').last;
           result.add((path: path, name: name));
         }
       }
-      for (final project in widget.recentProjects) {
+      for (final project in _liveRecentProjects) {
         if (seen.add(project.path)) {
           result.add(project);
         }
@@ -284,10 +293,46 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   @override
   void initState() {
     super.initState();
+    // Use the latest cached recent sessions from BridgeService if available,
+    // because the broadcast stream may have already fired before this listener
+    // was registered.
+    final cachedSessions = widget.bridge?.recentSessions;
+    _liveRecentProjects = (cachedSessions != null && cachedSessions.isNotEmpty)
+        ? recentProjects(cachedSessions)
+        : widget.recentProjects;
+    // Use the latest cached project history from BridgeService if available,
+    // because the broadcast stream may have already fired before this listener
+    // was registered.
+    _liveProjectHistory = widget.bridge?.projectHistory ?? widget.projectHistory;
     _worktreeSub = widget.bridge?.worktreeList.listen((msg) {
       if (mounted) setState(() => _worktrees = msg.worktrees);
     });
+    // Subscribe to live updates so projects appear even if data arrives
+    // after the sheet is already open (e.g. right after connection).
+    _recentSub = widget.bridge?.recentSessionsStream.listen((sessions) {
+      if (mounted) {
+        setState(() => _liveRecentProjects = recentProjects(sessions));
+      }
+    });
+    _projectHistorySub = widget.bridge?.projectHistoryStream.listen((projects) {
+      if (mounted) {
+        setState(() => _liveProjectHistory = projects);
+      }
+    });
     _applyInitialParams();
+    // Pre-fill project path with allowedDirs prefix when the path is empty
+    // and the server has exactly one allowed directory.
+    if (_pathController.text.isEmpty) {
+      final dirs = widget.bridge?.allowedDirs ?? const [];
+      if (dirs.length == 1) {
+        final prefix = dirs.first.endsWith('/') ? dirs.first : '${dirs.first}/';
+        _pathController.text = prefix;
+        // Place cursor at the end so the user can type the project name.
+        _pathController.selection = TextSelection.collapsed(
+          offset: prefix.length,
+        );
+      }
+    }
     if (_useWorktree) {
       _fetchWorktrees();
     }
@@ -296,6 +341,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   @override
   void dispose() {
     _worktreeSub?.cancel();
+    _recentSub?.cancel();
+    _projectHistorySub?.cancel();
     _pathController.dispose();
     _branchController.dispose();
     _claudeModelController.dispose();
@@ -366,6 +413,16 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         _worktrees = null;
         _selectedWorktree = null;
         widget.bridge?.requestWorktreeList(path);
+      }
+    });
+  }
+
+  void _onProjectRemoved(String path) {
+    widget.bridge?.removeProjectHistory(path);
+    setState(() {
+      // Clear path input if the removed project was selected.
+      if (_pathController.text == path) {
+        _pathController.clear();
       }
     });
   }
@@ -520,9 +577,23 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                         projects: _effectiveProjects,
                         selectedPath: _pathController.text,
                         onProjectSelected: _onProjectSelected,
+                        onProjectRemoved: _onProjectRemoved,
                       ),
                       _SheetDivider(appColors: appColors),
                     ],
+                    if ((widget.bridge?.allowedDirs.length ?? 0) > 1)
+                      _AllowedDirChips(
+                        dirs: widget.bridge!.allowedDirs,
+                        onSelected: (dir) {
+                          final prefix = dir.endsWith('/') ? dir : '$dir/';
+                          setState(() {
+                            _pathController.text = prefix;
+                            _pathController.selection = TextSelection.collapsed(
+                              offset: prefix.length,
+                            );
+                          });
+                        },
+                      ),
                     _PathInput(
                       controller: _pathController,
                       decoration: _buildInputDecoration(
@@ -729,12 +800,14 @@ class _RecentProjectsSection extends StatelessWidget {
   final List<({String path, String name})> projects;
   final String selectedPath;
   final ValueChanged<String> onProjectSelected;
+  final ValueChanged<String>? onProjectRemoved;
 
   const _RecentProjectsSection({
     required this.appColors,
     required this.projects,
     required this.selectedPath,
     required this.onProjectSelected,
+    this.onProjectRemoved,
   });
 
   @override
@@ -762,6 +835,9 @@ class _RecentProjectsSection extends StatelessWidget {
             appColors: appColors,
             isSelected: selectedPath == project.path,
             onTap: () => onProjectSelected(project.path),
+            onLongPress: onProjectRemoved != null
+                ? () => onProjectRemoved!(project.path)
+                : null,
           ),
       ],
     );
@@ -773,12 +849,14 @@ class _ProjectTile extends StatelessWidget {
   final AppColors appColors;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _ProjectTile({
     required this.project,
     required this.appColors,
     required this.isSelected,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -790,6 +868,7 @@ class _ProjectTile extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(12),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -864,6 +943,35 @@ class _SheetDivider extends StatelessWidget {
             child: Divider(color: appColors.subtleText.withValues(alpha: 0.2)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AllowedDirChips extends StatelessWidget {
+  final List<String> dirs;
+  final ValueChanged<String> onSelected;
+
+  const _AllowedDirChips({required this.dirs, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        children: dirs.map((dir) {
+          final trimmed = dir.endsWith('/')
+              ? dir.substring(0, dir.length - 1)
+              : dir;
+          final label = trimmed.split('/').last;
+          return ActionChip(
+            label: Text(label),
+            avatar: const Icon(Icons.folder, size: 16),
+            onPressed: () => onSelected(dir),
+          );
+        }).toList(),
       ),
     );
   }

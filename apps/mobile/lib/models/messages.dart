@@ -388,6 +388,9 @@ sealed class ServerMessage {
         sessions: (json['sessions'] as List)
             .map((s) => SessionInfo.fromJson(s as Map<String, dynamic>))
             .toList(),
+        allowedDirs:
+            (json['allowedDirs'] as List?)?.map((e) => e as String).toList() ??
+            const [],
       ),
       'recent_sessions' => RecentSessionsMessage(
         sessions: (json['sessions'] as List)
@@ -715,7 +718,11 @@ class ThinkingDeltaMessage implements ServerMessage {
 
 class SessionListMessage implements ServerMessage {
   final List<SessionInfo> sessions;
-  const SessionListMessage({required this.sessions});
+  final List<String> allowedDirs;
+  const SessionListMessage({
+    required this.sessions,
+    this.allowedDirs = const [],
+  });
 }
 
 class RecentSessionsMessage implements ServerMessage {

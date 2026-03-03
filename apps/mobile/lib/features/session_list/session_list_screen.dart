@@ -196,7 +196,27 @@ class _SessionListScreenState extends State<SessionListScreen>
     final url = prefs.getString(_prefKeyUrl);
     if (url != null && url.isNotEmpty) {
       setState(() => _isAutoConnecting = true);
-      final attempted = await context.read<BridgeService>().autoConnect();
+      // Try to get API key from SecureStorage via MachineManagerCubit.
+      String? apiKey;
+      try {
+        final uri = Uri.tryParse(url);
+        if (uri != null) {
+          final cubit = context.read<MachineManagerCubit?>();
+          final machine = cubit?.findByHostPort(
+            uri.host,
+            uri.hasPort ? uri.port : 8765,
+          );
+          if (machine != null) {
+            apiKey = await cubit?.getApiKey(machine.id);
+          }
+        }
+      } catch (_) {
+        // Ignore — autoConnect falls back to legacy SharedPreferences.
+      }
+      if (!mounted) return;
+      final attempted = await context.read<BridgeService>().autoConnect(
+        apiKey: apiKey,
+      );
       if (!attempted) {
         setState(() => _isAutoConnecting = false);
       }
@@ -244,7 +264,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
     final bridge = context.read<BridgeService>();
     bridge.connect(connectUrl);
-    bridge.savePreferences(url, trimmedApiKey);
+    bridge.savePreferences(url);
   }
 
   /// Show setup guide when health check fails. Returns true if user wants
@@ -1181,7 +1201,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     if (!mounted) return;
     final bridge = context.read<BridgeService>();
     bridge.connect(wsUrl);
-    bridge.savePreferences(m.machine.wsUrl, apiKey ?? '');
+    bridge.savePreferences(m.machine.wsUrl);
   }
 
   void _toggleFavorite(MachineWithStatus m) {

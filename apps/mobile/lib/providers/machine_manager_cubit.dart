@@ -337,6 +337,10 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
   /// Get a machine by ID
   Machine? getMachine(String id) => _service.getMachine(id);
 
+  /// Find a machine by host and port.
+  Machine? findByHostPort(String host, int port) =>
+      _service.findByHostPort(host, port);
+
   /// Get API key for a machine
   Future<String?> getApiKey(String machineId) => _service.getApiKey(machineId);
 

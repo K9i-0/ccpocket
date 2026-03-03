@@ -1,4 +1,6 @@
 import { createServer } from "node:http";
+import { homedir } from "node:os";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BridgeWebSocketServer } from "./websocket.js";
 import { ImageStore } from "./image-store.js";
@@ -17,6 +19,11 @@ export async function startServer() {
   const HOST = process.env.BRIDGE_HOST ?? "0.0.0.0";
   const API_KEY = process.env.BRIDGE_API_KEY;
 
+  // Parse allowed project directories (default: $HOME)
+  const ALLOWED_DIRS: string[] = process.env.BRIDGE_ALLOWED_DIRS
+    ? process.env.BRIDGE_ALLOWED_DIRS.split(",").map((d) => resolve(d.trim())).filter(Boolean)
+    : [homedir()];
+
   console.log("[bridge] Starting ccpocket bridge server...");
 
   if (API_KEY) {
@@ -24,6 +31,8 @@ export async function startServer() {
   } else {
     console.log("[bridge] WARNING: No BRIDGE_API_KEY set - authentication disabled");
   }
+
+  console.log(`[bridge] Allowed dirs: ${ALLOWED_DIRS.join(", ")}`);
 
   // Initialize Firebase Anonymous Auth for push notifications
   let firebaseAuth: FirebaseAuthClient | undefined;
@@ -133,6 +142,7 @@ export async function startServer() {
   wsServer = new BridgeWebSocketServer({
     server: httpServer,
     apiKey: API_KEY,
+    allowedDirs: ALLOWED_DIRS,
     imageStore,
     galleryStore,
     projectHistory,

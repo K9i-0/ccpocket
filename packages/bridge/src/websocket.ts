@@ -52,6 +52,7 @@ function sandboxModeToExternal(
 export interface BridgeServerOptions {
   server: HttpServer;
   apiKey?: string;
+  allowedDirs?: string[];
   imageStore?: ImageStore;
   galleryStore?: GalleryStore;
   projectHistory?: ProjectHistory;
@@ -68,6 +69,7 @@ export class BridgeWebSocketServer {
   private wss: WebSocketServer;
   private sessionManager: SessionManager;
   private apiKey: string | null;
+  private allowedDirs: string[];
   private imageStore: ImageStore | null;
   private galleryStore: GalleryStore | null;
   private projectHistory: ProjectHistory | null;
@@ -85,8 +87,9 @@ export class BridgeWebSocketServer {
   private tokenPrivacyMode = new Map<string, boolean>();
 
   constructor(options: BridgeServerOptions) {
-    const { server, apiKey, imageStore, galleryStore, projectHistory, debugTraceStore, recordingStore, firebaseAuth, promptHistoryBackup } = options;
+    const { server, apiKey, allowedDirs, imageStore, galleryStore, projectHistory, debugTraceStore, recordingStore, firebaseAuth, promptHistoryBackup } = options;
     this.apiKey = apiKey ?? null;
+    this.allowedDirs = allowedDirs ?? [];
     this.imageStore = imageStore ?? null;
     this.galleryStore = galleryStore ?? null;
     this.projectHistory = projectHistory ?? null;
@@ -152,6 +155,18 @@ export class BridgeWebSocketServer {
     console.log(`[ws] WebSocket server attached to HTTP server`);
   }
 
+  /**
+   * Validate that a project path is within the allowed directories.
+   * Returns true if the path is allowed, false otherwise.
+   */
+  private isPathAllowed(path: string): boolean {
+    if (this.allowedDirs.length === 0) return true;
+    const resolved = resolve(path);
+    return this.allowedDirs.some(
+      (dir) => resolved === dir || resolved.startsWith(dir + "/"),
+    );
+  }
+
   close(): void {
     console.log("[ws] Shutting down...");
     this.sessionManager.destroyAll();
@@ -170,8 +185,10 @@ export class BridgeWebSocketServer {
   }
 
   private handleConnection(ws: WebSocket): void {
-    // Send session list on connect
+    // Send session list and project history on connect
     this.sendSessionList(ws);
+    const projects = this.projectHistory?.getProjects() ?? [];
+    this.send(ws, { type: "project_history", projects });
 
     ws.on("message", (data) => {
       const raw = data.toString();
@@ -212,6 +229,10 @@ export class BridgeWebSocketServer {
 
     switch (msg.type) {
       case "start": {
+        if (!this.isPathAllowed(msg.projectPath)) {
+          this.send(ws, { type: "error", message: `Project path not allowed: ${msg.projectPath}` });
+          break;
+        }
         try {
           const provider = msg.provider ?? "claude";
           if (provider === "codex") {
@@ -943,6 +964,10 @@ export class BridgeWebSocketServer {
       }
 
       case "resume_session": {
+        if (!this.isPathAllowed(msg.projectPath)) {
+          this.send(ws, { type: "error", message: `Project path not allowed: ${msg.projectPath}` });
+          break;
+        }
         const provider = msg.provider ?? "claude";
         const sessionRefId = msg.sessionId;
         // Resume flow: keep past history in SessionInfo and deliver it only
@@ -1135,6 +1160,10 @@ export class BridgeWebSocketServer {
       }
 
       case "list_files": {
+        if (!this.isPathAllowed(msg.projectPath)) {
+          this.send(ws, { type: "error", message: `Project path not allowed: ${msg.projectPath}` });
+          break;
+        }
         execFile("git", ["ls-files"], { cwd: msg.projectPath, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
           if (err) {
             this.send(ws, { type: "error", message: `Failed to list files: ${err.message}` });
@@ -1209,6 +1238,10 @@ export class BridgeWebSocketServer {
       }
 
       case "get_diff": {
+        if (!this.isPathAllowed(msg.projectPath)) {
+          this.send(ws, { type: "error", message: `Project path not allowed: ${msg.projectPath}` });
+          break;
+        }
         this.collectGitDiff(msg.projectPath, ({ diff, error }) => {
           if (error) {
             this.send(ws, { type: "diff_result", diff: "", error: `Failed to get diff: ${error}` });
@@ -1226,6 +1259,10 @@ export class BridgeWebSocketServer {
       }
 
       case "get_diff_image": {
+        if (!this.isPathAllowed(msg.projectPath) || !this.isPathAllowed(resolve(msg.projectPath, msg.filePath))) {
+          this.send(ws, { type: "error", message: `Path not allowed` });
+          break;
+        }
         if (msg.version === "both") {
           void (async () => {
             try {
@@ -1262,6 +1299,10 @@ export class BridgeWebSocketServer {
       }
 
       case "list_worktrees": {
+        if (!this.isPathAllowed(msg.projectPath)) {
+          this.send(ws, { type: "error", message: `Project path not allowed: ${msg.projectPath}` });
+          break;
+        }
         try {
           const worktrees = listWorktrees(msg.projectPath);
           const mainBranch = getMainBranch(msg.projectPath);
@@ -1273,6 +1314,10 @@ export class BridgeWebSocketServer {
       }
 
       case "remove_worktree": {
+        if (!this.isPathAllowed(msg.projectPath)) {
+          this.send(ws, { type: "error", message: `Project path not allowed: ${msg.projectPath}` });
+          break;
+        }
         try {
           removeWorktree(msg.projectPath, msg.worktreePath);
           this.worktreeStore.deleteByWorktreePath(msg.worktreePath);
@@ -1606,14 +1651,14 @@ export class BridgeWebSocketServer {
   private sendSessionList(ws: WebSocket): void {
     this.pruneDebugEvents();
     const sessions = this.sessionManager.list();
-    this.send(ws, { type: "session_list", sessions });
+    this.send(ws, { type: "session_list", sessions, allowedDirs: this.allowedDirs });
   }
 
   /** Broadcast session list to all connected clients. */
   private broadcastSessionList(): void {
     this.pruneDebugEvents();
     const sessions = this.sessionManager.list();
-    this.broadcast({ type: "session_list", sessions });
+    this.broadcast({ type: "session_list", sessions, allowedDirs: this.allowedDirs });
   }
 
   private broadcastSessionMessage(sessionId: string, msg: ServerMessage): void {

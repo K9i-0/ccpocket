@@ -54,6 +54,7 @@ class BridgeService implements BridgeServiceBase {
   List<RecentSession> _recentSessions = [];
   List<GalleryImage> _galleryImages = [];
   List<String> _projectHistory = [];
+  List<String> _allowedDirs = [];
   UsageResultMessage? _lastUsageResult;
 
   // Diff image cache: survives screen navigation, cleared on session stop.
@@ -118,6 +119,7 @@ class BridgeService implements BridgeServiceBase {
   String? get currentProjectFilter => _currentProjectFilter;
   List<GalleryImage> get galleryImages => _galleryImages;
   List<String> get projectHistory => _projectHistory;
+  List<String> get allowedDirs => _allowedDirs;
   UsageResultMessage? get lastUsageResult => _lastUsageResult;
 
   /// The last WebSocket URL used for connection (or reconnection).
@@ -168,9 +170,10 @@ class BridgeService implements BridgeServiceBase {
             final sessionId = json['sessionId'] as String?;
             final msg = ServerMessage.fromJson(json);
             switch (msg) {
-              case SessionListMessage(:final sessions):
+              case SessionListMessage(:final sessions, :final allowedDirs):
                 _sessions = sessions;
                 _sessionListController.add(_sessions);
+                _allowedDirs = allowedDirs;
               case RecentSessionsMessage(:final sessions, :final hasMore):
                 _recentSessionsHasMore = hasMore;
                 if (_appendMode) {
@@ -678,26 +681,47 @@ class BridgeService implements BridgeServiceBase {
   }
 
   /// Try to auto-connect using saved preferences.
-  Future<bool> autoConnect() async {
+  ///
+  /// [apiKey] should be provided from [FlutterSecureStorage] via
+  /// [MachineManagerService]. Falls back to legacy [SharedPreferences]
+  /// for migration.
+  Future<bool> autoConnect({String? apiKey}) async {
     final prefs = await SharedPreferences.getInstance();
     final url = prefs.getString(_prefKeyUrl);
     if (url == null || url.isEmpty) return false;
 
+    // Prefer caller-provided apiKey (from SecureStorage), fall back to
+    // legacy SharedPreferences value for backward compatibility.
+    final effectiveApiKey = apiKey ?? prefs.getString(_prefKeyApiKey);
+
     var connectUrl = url;
-    final apiKey = prefs.getString(_prefKeyApiKey);
-    if (apiKey != null && apiKey.isNotEmpty) {
+    if (effectiveApiKey != null && effectiveApiKey.isNotEmpty) {
       final sep = connectUrl.contains('?') ? '&' : '?';
-      connectUrl = '$connectUrl${sep}token=$apiKey';
+      connectUrl = '$connectUrl${sep}token=$effectiveApiKey';
     }
+
+    // Migrate: remove legacy plaintext API key from SharedPreferences.
+    if (prefs.containsKey(_prefKeyApiKey)) {
+      await prefs.remove(_prefKeyApiKey);
+    }
+
     connect(connectUrl);
     return true;
   }
 
-  /// Save connection settings to preferences.
-  Future<void> savePreferences(String url, String apiKey) async {
+  /// Save connection URL to preferences.
+  ///
+  /// API keys are stored separately via [FlutterSecureStorage] in
+  /// [MachineManagerService], not in [SharedPreferences].
+  Future<void> savePreferences(String url) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefKeyUrl, url);
-    await prefs.setString(_prefKeyApiKey, apiKey);
+    // API key is no longer stored in SharedPreferences (plaintext).
+    // It is managed by MachineManagerService via FlutterSecureStorage.
+    // Clean up any legacy value.
+    if (prefs.containsKey(_prefKeyApiKey)) {
+      await prefs.remove(_prefKeyApiKey);
+    }
   }
 
   /// Check if the Bridge server is reachable via /health endpoint.
