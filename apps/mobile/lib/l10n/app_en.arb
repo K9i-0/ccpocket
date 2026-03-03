@@ -6,6 +6,16 @@
   "cancel": "Cancel",
   "save": "Save",
   "delete": "Delete",
+  "remove": "Remove",
+  "removeProjectTitle": "Remove Project",
+  "removeProjectConfirm": "Remove \"{name}\" from recent projects?",
+  "@removeProjectConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "Object"
+      }
+    }
+  },
   "rename": "Rename",
   "renameSession": "Rename Session",
   "sessionNameHint": "Session name",

@@ -21,6 +21,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get delete => 'Delete';
 
   @override
+  String get remove => 'Remove';
+
+  @override
+  String get removeProjectTitle => 'Remove Project';
+
+  @override
+  String removeProjectConfirm(Object name) {
+    return 'Remove \"$name\" from recent projects?';
+  }
+
+  @override
   String get rename => 'Rename';
 
   @override

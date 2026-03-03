@@ -303,7 +303,8 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     // Use the latest cached project history from BridgeService if available,
     // because the broadcast stream may have already fired before this listener
     // was registered.
-    _liveProjectHistory = widget.bridge?.projectHistory ?? widget.projectHistory;
+    _liveProjectHistory =
+        widget.bridge?.projectHistory ?? widget.projectHistory;
     _worktreeSub = widget.bridge?.worktreeList.listen((msg) {
       if (mounted) setState(() => _worktrees = msg.worktrees);
     });
@@ -417,7 +418,30 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     });
   }
 
-  void _onProjectRemoved(String path) {
+  Future<void> _onProjectRemoved(String path) async {
+    final l = AppLocalizations.of(context);
+    final name = path.split('/').last;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.removeProjectTitle),
+        content: Text(l.removeProjectConfirm(name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l.remove),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     widget.bridge?.removeProjectHistory(path);
     setState(() {
       // Clear path input if the removed project was selected.
@@ -800,7 +824,7 @@ class _RecentProjectsSection extends StatelessWidget {
   final List<({String path, String name})> projects;
   final String selectedPath;
   final ValueChanged<String> onProjectSelected;
-  final ValueChanged<String>? onProjectRemoved;
+  final Future<void> Function(String path)? onProjectRemoved;
 
   const _RecentProjectsSection({
     required this.appColors,
@@ -830,14 +854,36 @@ class _RecentProjectsSection extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         for (final project in projects)
-          _ProjectTile(
-            project: project,
-            appColors: appColors,
-            isSelected: selectedPath == project.path,
-            onTap: () => onProjectSelected(project.path),
-            onLongPress: onProjectRemoved != null
-                ? () => onProjectRemoved!(project.path)
-                : null,
+          Dismissible(
+            key: ValueKey('project_${project.path}'),
+            direction: onProjectRemoved != null
+                ? DismissDirection.endToStart
+                : DismissDirection.none,
+            background: const SizedBox.shrink(),
+            secondaryBackground: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.error,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).colorScheme.onError,
+              ),
+            ),
+            confirmDismiss: (_) async {
+              await onProjectRemoved?.call(project.path);
+              // Always return false — removal is handled by the callback
+              // which updates state and removes the item from the list.
+              return false;
+            },
+            child: _ProjectTile(
+              project: project,
+              appColors: appColors,
+              isSelected: selectedPath == project.path,
+              onTap: () => onProjectSelected(project.path),
+            ),
           ),
       ],
     );
@@ -849,14 +895,12 @@ class _ProjectTile extends StatelessWidget {
   final AppColors appColors;
   final bool isSelected;
   final VoidCallback onTap;
-  final VoidCallback? onLongPress;
 
   const _ProjectTile({
     required this.project,
     required this.appColors,
     required this.isSelected,
     required this.onTap,
-    this.onLongPress,
   });
 
   @override
@@ -868,7 +912,6 @@ class _ProjectTile extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(12),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),

@@ -122,6 +122,24 @@ abstract class AppLocalizations {
   /// **'削除'**
   String get delete;
 
+  /// No description provided for @remove.
+  ///
+  /// In ja, this message translates to:
+  /// **'削除'**
+  String get remove;
+
+  /// No description provided for @removeProjectTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'プロジェクトを削除'**
+  String get removeProjectTitle;
+
+  /// No description provided for @removeProjectConfirm.
+  ///
+  /// In ja, this message translates to:
+  /// **'「{name}」を最近のプロジェクトから削除しますか？'**
+  String removeProjectConfirm(Object name);
+
   /// No description provided for @rename.
   ///
   /// In ja, this message translates to:
