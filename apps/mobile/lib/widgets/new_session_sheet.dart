@@ -232,6 +232,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _branchController = TextEditingController();
   final _claudeMaxTurnsController = TextEditingController();
   final _claudeMaxBudgetController = TextEditingController();
+  late final PageController _pageController;
   var _provider = Provider.claude;
   var _permissionMode = PermissionMode.acceptEdits;
   var _useWorktree = false;
@@ -304,6 +305,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(
+      initialPage: widget.initialParams?.provider == Provider.codex ? 1 : 0,
+    );
     // Use the latest cached recent sessions from BridgeService if available,
     // because the broadcast stream may have already fired before this listener
     // was registered.
@@ -365,6 +369,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _worktreeSub?.cancel();
     _recentSub?.cancel();
     _projectHistorySub?.cancel();
+    _pageController.dispose();
     _pathController.dispose();
     _branchController.dispose();
     _claudeMaxTurnsController.dispose();
@@ -588,6 +593,142 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     );
   }
 
+  Widget _buildPage(Provider pageProvider) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_effectiveProjects.isNotEmpty) ...[
+            _RecentProjectsSection(
+              appColors: appColors,
+              projects: _effectiveProjects,
+              selectedPath: _pathController.text,
+              onProjectSelected: _onProjectSelected,
+              onProjectRemoved: _onProjectRemoved,
+            ),
+            _SheetDivider(appColors: appColors),
+          ],
+          if ((widget.bridge?.allowedDirs.length ?? 0) > 1)
+            _AllowedDirChips(
+              dirs: widget.bridge!.allowedDirs,
+              onSelected: (dir) {
+                final prefix = dir.endsWith('/') ? dir : '$dir/';
+                setState(() {
+                  _pathController.text = prefix;
+                  _pathController.selection = TextSelection.collapsed(
+                    offset: prefix.length,
+                  );
+                });
+              },
+            ),
+          _PathInput(
+            controller: _pathController,
+            decoration: _buildInputDecoration(
+              AppLocalizations.of(context).projectPath,
+              hintText: AppLocalizations.of(context).projectPathHint,
+            ),
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          _OptionsSection(
+            appColors: appColors,
+            provider: pageProvider,
+            permissionMode: _permissionMode,
+            onPermissionModeChanged: (value) {
+              setState(() => _permissionMode = value);
+            },
+            useWorktree: _useWorktree,
+            onWorktreeToggle: _onWorktreeToggle,
+            worktreeMode: _worktreeMode,
+            onWorktreeModeChanged: (mode) {
+              setState(() {
+                _worktreeMode = mode;
+                if (mode == _WorktreeMode.createNew) {
+                  _selectedWorktree = null;
+                }
+              });
+            },
+            worktrees: _worktrees,
+            selectedWorktree: _selectedWorktree,
+            onWorktreeSelected: (wt) {
+              setState(() => _selectedWorktree = wt);
+            },
+            branchController: _branchController,
+            buildInputDecoration: _buildInputDecoration,
+            // Claude advanced
+            claudeModels: _claudeModelList,
+            selectedClaudeModel: _selectedClaudeModel,
+            onClaudeModelChanged: (value) {
+              setState(() => _selectedClaudeModel = value);
+            },
+            claudeEffort: _claudeEffort,
+            onClaudeEffortChanged: (value) {
+              setState(() => _claudeEffort = value);
+            },
+            claudeMaxTurnsController: _claudeMaxTurnsController,
+            maxTurnsError: _maxTurnsError,
+            onMaxTurnsChanged: () {
+              setState(() => _validateMaxTurns());
+            },
+            claudeMaxBudgetController: _claudeMaxBudgetController,
+            maxBudgetError: _maxBudgetError,
+            onMaxBudgetChanged: () {
+              setState(() => _validateMaxBudget());
+            },
+            selectedClaudeFallbackModel: _selectedClaudeFallbackModel,
+            onClaudeFallbackModelChanged: (value) {
+              setState(() => _selectedClaudeFallbackModel = value);
+            },
+            claudeForkSession: _claudeForkSession,
+            onClaudeForkSessionChanged: (value) {
+              setState(() => _claudeForkSession = value);
+            },
+            claudePersistSession: _claudePersistSession,
+            onClaudePersistSessionChanged: (value) {
+              setState(() => _claudePersistSession = value);
+            },
+            // Codex advanced
+            codexModels: _codexModelList,
+            selectedModel: _selectedModel,
+            onSelectedModelChanged: (value) {
+              setState(() => _selectedModel = value);
+            },
+            sandboxMode: _sandboxMode,
+            onSandboxModeChanged: (value) {
+              setState(() => _sandboxMode = value);
+            },
+            modelReasoningEffort: _modelReasoningEffort,
+            onModelReasoningEffortChanged: (value) {
+              setState(() => _modelReasoningEffort = value);
+            },
+            webSearchMode: _webSearchMode,
+            onWebSearchModeChanged: (value) {
+              setState(() => _webSearchMode = value);
+            },
+            networkAccessEnabled: _networkAccessEnabled,
+            onNetworkAccessChanged: (value) {
+              setState(() => _networkAccessEnabled = value);
+            },
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  void _onProviderChanged(Provider p) {
+    setState(() => _provider = p);
+    final page = p == Provider.claude ? 0 : 1;
+    _pageController.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
@@ -597,139 +738,31 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _DragHandle(appColors: appColors),
             _SheetTitle(
               provider: _provider,
               lockProvider: widget.lockProvider,
-              onProviderChanged: (p) => setState(() => _provider = p),
+              onProviderChanged: _onProviderChanged,
             ),
             const SizedBox(height: 12),
-            Flexible(
-              child: SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_effectiveProjects.isNotEmpty) ...[
-                      _RecentProjectsSection(
-                        appColors: appColors,
-                        projects: _effectiveProjects,
-                        selectedPath: _pathController.text,
-                        onProjectSelected: _onProjectSelected,
-                        onProjectRemoved: _onProjectRemoved,
-                      ),
-                      _SheetDivider(appColors: appColors),
-                    ],
-                    if ((widget.bridge?.allowedDirs.length ?? 0) > 1)
-                      _AllowedDirChips(
-                        dirs: widget.bridge!.allowedDirs,
-                        onSelected: (dir) {
-                          final prefix = dir.endsWith('/') ? dir : '$dir/';
-                          setState(() {
-                            _pathController.text = prefix;
-                            _pathController.selection = TextSelection.collapsed(
-                              offset: prefix.length,
-                            );
-                          });
-                        },
-                      ),
-                    _PathInput(
-                      controller: _pathController,
-                      decoration: _buildInputDecoration(
-                        AppLocalizations.of(context).projectPath,
-                        hintText: AppLocalizations.of(context).projectPathHint,
-                      ),
-                      onChanged: () => setState(() {}),
-                    ),
-                    const SizedBox(height: 12),
-                    _OptionsSection(
-                      appColors: appColors,
-                      provider: _provider,
-                      permissionMode: _permissionMode,
-                      onPermissionModeChanged: (value) {
-                        setState(() => _permissionMode = value);
-                      },
-                      useWorktree: _useWorktree,
-                      onWorktreeToggle: _onWorktreeToggle,
-                      worktreeMode: _worktreeMode,
-                      onWorktreeModeChanged: (mode) {
-                        setState(() {
-                          _worktreeMode = mode;
-                          if (mode == _WorktreeMode.createNew) {
-                            _selectedWorktree = null;
-                          }
-                        });
-                      },
-                      worktrees: _worktrees,
-                      selectedWorktree: _selectedWorktree,
-                      onWorktreeSelected: (wt) {
-                        setState(() => _selectedWorktree = wt);
-                      },
-                      branchController: _branchController,
-                      buildInputDecoration: _buildInputDecoration,
-                      // Claude advanced
-                      claudeModels: _claudeModelList,
-                      selectedClaudeModel: _selectedClaudeModel,
-                      onClaudeModelChanged: (value) {
-                        setState(() => _selectedClaudeModel = value);
-                      },
-                      claudeEffort: _claudeEffort,
-                      onClaudeEffortChanged: (value) {
-                        setState(() => _claudeEffort = value);
-                      },
-                      claudeMaxTurnsController: _claudeMaxTurnsController,
-                      maxTurnsError: _maxTurnsError,
-                      onMaxTurnsChanged: () {
-                        setState(() => _validateMaxTurns());
-                      },
-                      claudeMaxBudgetController: _claudeMaxBudgetController,
-                      maxBudgetError: _maxBudgetError,
-                      onMaxBudgetChanged: () {
-                        setState(() => _validateMaxBudget());
-                      },
-                      selectedClaudeFallbackModel: _selectedClaudeFallbackModel,
-                      onClaudeFallbackModelChanged: (value) {
-                        setState(() => _selectedClaudeFallbackModel = value);
-                      },
-                      claudeForkSession: _claudeForkSession,
-                      onClaudeForkSessionChanged: (value) {
-                        setState(() => _claudeForkSession = value);
-                      },
-                      claudePersistSession: _claudePersistSession,
-                      onClaudePersistSessionChanged: (value) {
-                        setState(() => _claudePersistSession = value);
-                      },
-                      // Codex advanced
-                      codexModels: _codexModelList,
-                      selectedModel: _selectedModel,
-                      onSelectedModelChanged: (value) {
-                        setState(() => _selectedModel = value);
-                      },
-                      sandboxMode: _sandboxMode,
-                      onSandboxModeChanged: (value) {
-                        setState(() => _sandboxMode = value);
-                      },
-                      modelReasoningEffort: _modelReasoningEffort,
-                      onModelReasoningEffortChanged: (value) {
-                        setState(() => _modelReasoningEffort = value);
-                      },
-                      webSearchMode: _webSearchMode,
-                      onWebSearchModeChanged: (value) {
-                        setState(() => _webSearchMode = value);
-                      },
-                      networkAccessEnabled: _networkAccessEnabled,
-                      onNetworkAccessChanged: (value) {
-                        setState(() => _networkAccessEnabled = value);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: widget.lockProvider
+                    ? const NeverScrollableScrollPhysics()
+                    : null,
+                onPageChanged: (index) {
+                  setState(() {
+                    _provider = index == 0 ? Provider.claude : Provider.codex;
+                  });
+                },
+                children: [
+                  _buildPage(Provider.claude),
+                  _buildPage(Provider.codex),
+                ],
               ),
             ),
             const SizedBox(height: 12),
