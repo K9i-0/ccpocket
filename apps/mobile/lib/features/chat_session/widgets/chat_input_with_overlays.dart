@@ -339,14 +339,10 @@ class ChatInputWithOverlays extends HookWidget {
         final bytes = await image.readAsBytes();
         if (!context.mounted) return;
 
-        // Determine mime type from extension
-        final ext = image.path.split('.').last.toLowerCase();
-        final mimeType = switch (ext) {
-          'png' => 'image/png',
-          'gif' => 'image/gif',
-          'webp' => 'image/webp',
-          _ => 'image/jpeg',
-        };
+        // Determine mime type from actual bytes (magic bytes), not extension.
+        // On Android, image_picker may re-encode to JPEG while keeping a .png
+        // extension, causing API errors when media_type doesn't match content.
+        final mimeType = _detectMimeType(bytes, image.path);
 
         // Add to list (append, not replace)
         final updated = [
@@ -620,6 +616,55 @@ class ChatInputWithOverlays extends HookWidget {
       ),
     );
   }
+}
+
+/// Detect MIME type from image bytes using magic bytes.
+///
+/// On Android, [image_picker] with `imageQuality` re-encodes to JPEG but may
+/// keep the original file extension (e.g. `.png`). Relying on the extension
+/// causes a mismatch between `media_type` and the actual image content,
+/// which the Claude API rejects. Inspecting magic bytes is reliable.
+String _detectMimeType(Uint8List bytes, String fallbackPath) {
+  if (bytes.length >= 8) {
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      return 'image/png';
+    }
+    // JPEG: FF D8 FF
+    if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
+      return 'image/jpeg';
+    }
+    // GIF: 47 49 46 38
+    if (bytes[0] == 0x47 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x38) {
+      return 'image/gif';
+    }
+    // WebP: RIFF....WEBP
+    if (bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes.length >= 12 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
+      return 'image/webp';
+    }
+  }
+  // Fallback: guess from extension
+  final ext = fallbackPath.split('.').last.toLowerCase();
+  return switch (ext) {
+    'png' => 'image/png',
+    'gif' => 'image/gif',
+    'webp' => 'image/webp',
+    _ => 'image/jpeg',
+  };
 }
 
 /// Extract the file query after the last '@' before cursor position.
