@@ -11,7 +11,6 @@ import '../../router/app_router.dart';
 import '../../services/bridge_service.dart';
 import '../../services/database_service.dart';
 import '../../models/machine.dart';
-import 'settings_focus_controller.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
 import 'widgets/app_locale_bottom_sheet.dart';
@@ -30,39 +29,12 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _claudeAuthKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    SettingsFocusController.instance.addListener(_handleFocusRequest);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _handleFocusRequest());
-  }
+  final _scrollController = ScrollController();
 
   @override
   void dispose() {
-    SettingsFocusController.instance.removeListener(_handleFocusRequest);
+    _scrollController.dispose();
     super.dispose();
-  }
-
-  void _handleFocusRequest() {
-    if (!mounted) return;
-    if (SettingsFocusController.instance.pendingSection !=
-        SettingsFocusSection.claudeAuth) {
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final context = _claudeAuthKey.currentContext;
-      if (context == null) return;
-      await Scrollable.ensureVisible(
-        context,
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeOutCubic,
-        alignment: 0.08,
-      );
-      SettingsFocusController.instance.clear(SettingsFocusSection.claudeAuth);
-    });
   }
 
   @override
@@ -77,6 +49,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (context, state) {
           final machine = _activeMachine(context, state.activeMachineId);
           return ListView(
+            key: const PageStorageKey('settings_list'),
+            controller: _scrollController,
             children: [
               const _SectionHeader(title: 'Connection & Accounts'),
               Card(
@@ -97,7 +71,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 8),
 
               ClaudeAuthSection(
-                key: _claudeAuthKey,
                 bridgeService: bridge,
                 activeMachineName: machine?.displayName,
               ),

@@ -2,7 +2,6 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../features/settings/settings_focus_controller.dart';
 import '../../models/messages.dart';
 import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
@@ -139,9 +138,6 @@ class ErrorBubble extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
               onPressed: () {
-                SettingsFocusController.instance.request(
-                  SettingsFocusSection.claudeAuth,
-                );
                 context.router.navigate(const SettingsRoute());
               },
               icon: const Icon(Icons.settings_outlined, size: 16),
