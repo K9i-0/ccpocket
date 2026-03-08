@@ -78,15 +78,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           final machine = _activeMachine(context, state.activeMachineId);
           return ListView(
             children: [
-              // ── Bridge ──
-              const _SectionHeader(title: 'Bridge'),
+              const _SectionHeader(title: 'Connection & Accounts'),
               Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
                     ListTile(
                       leading: Icon(Icons.computer_outlined, color: cs.primary),
-                      title: const Text('Connected machine'),
+                      title: const Text('Bridge machine'),
                       subtitle: Text(
                         machine?.displayName ??
                             (bridge.lastUrl ?? 'Not connected'),
@@ -97,8 +96,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 8),
 
-              // ── Claude Authentication ──
-              const _SectionHeader(title: 'Claude Authentication'),
               ClaudeAuthSection(
                 key: _claudeAuthKey,
                 bridgeService: bridge,
@@ -167,14 +164,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             context.read<SettingsCubit>().setSpeechLocaleId(id),
                       ),
                     ),
-                    // Push Notifications (only when connected to a server)
-                    if (state.activeMachineId != null) ...[
-                      Divider(
-                        height: 1,
-                        indent: 16,
-                        endIndent: 16,
-                        color: cs.outlineVariant,
-                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              if (state.activeMachineId != null) ...[
+                const _SectionHeader(title: 'Notifications'),
+                Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
                       _PushNotificationTile(
                         state: state,
                         onChanged: (enabled) =>
@@ -225,10 +225,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
+              ],
 
               // ── Editor ──
               _SectionHeader(title: l.sectionEditor),

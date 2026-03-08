@@ -196,7 +196,15 @@ export type ServerMessage =
       authenticated: boolean;
       source?: "api_key" | "oauth" | "none";
       loginInProgress: boolean;
-      state: "idle" | "starting" | "waiting_code" | "authorizing" | "success" | "error" | "cancelled";
+      state:
+        | "idle"
+        | "starting"
+        | "waiting_browser"
+        | "waiting_code"
+        | "authorizing"
+        | "success"
+        | "error"
+        | "cancelled";
       message?: string;
       errorCode?: string;
       loginUrl?: string;

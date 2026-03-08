@@ -5,6 +5,7 @@ import { getClaudeAuthStatus, type ClaudeAuthStatus } from "./usage.js";
 export type ClaudeAuthLoginState =
   | "idle"
   | "starting"
+  | "waiting_browser"
   | "waiting_code"
   | "authorizing"
   | "success"
@@ -34,7 +35,7 @@ function stripAnsi(text: string): string {
 }
 
 function isWaitingForCode(text: string): boolean {
-  return /paste|enter.*code|verification|one[- ]time code|browser.*code/i.test(text);
+  return /paste.*code|enter.*code|verification code|one[- ]time code|authorization code/i.test(text);
 }
 
 function isSuccessful(text: string): boolean {
@@ -53,6 +54,7 @@ export class ClaudeAuthLoginManager extends EventEmitter<ClaudeAuthLoginEvents> 
   };
   private recentOutput = "";
   private cancelled = false;
+  private authPollTimer: ReturnType<typeof setInterval> | null = null;
 
   async getStatus(): Promise<ClaudeAuthSnapshot> {
     if (this.child) {
@@ -71,6 +73,7 @@ export class ClaudeAuthLoginManager extends EventEmitter<ClaudeAuthLoginEvents> 
 
     this.cancelled = false;
     this.recentOutput = "";
+    this.stopPolling();
     this.update({
       authenticated: false,
       source: "none",
@@ -95,6 +98,7 @@ export class ClaudeAuthLoginManager extends EventEmitter<ClaudeAuthLoginEvents> 
     this.child.on("exit", () => {
       void this.handleExit();
     });
+    this.startPolling();
 
     return this.snapshot;
   }
@@ -124,7 +128,7 @@ export class ClaudeAuthLoginManager extends EventEmitter<ClaudeAuthLoginEvents> 
   }
 
   private spawnLoginProcess(): ChildProcessWithoutNullStreams {
-    return spawn("script", ["-q", "/dev/null", "zsh", "-lc", "claude auth login"], {
+    return spawn("claude", ["auth", "login"], {
       env: process.env,
       stdio: "pipe",
     });
@@ -170,14 +174,19 @@ export class ClaudeAuthLoginManager extends EventEmitter<ClaudeAuthLoginEvents> 
       this.update({
         ...this.snapshot,
         loginInProgress: true,
-        state: this.snapshot.state == "idle" ? "starting" : this.snapshot.state,
+        state: this.snapshot.state === "waiting_code" ? "waiting_code" : "waiting_browser",
         loginUrl,
-        message: this.snapshot.message ?? "Open the login URL on your phone.",
+        message: "Finish sign-in in your browser.",
+        prompt: "Open the login page and complete the browser flow. If Claude shows a verification code, return here and paste it.",
       });
       return;
     }
 
-    if (latestLine != null && this.snapshot.state == "starting") {
+    if (
+      latestLine != null &&
+      !latestLine.includes("http") &&
+      (this.snapshot.state === "starting" || this.snapshot.state === "waiting_browser")
+    ) {
       this.update({
         ...this.snapshot,
         message: latestLine,
@@ -187,6 +196,7 @@ export class ClaudeAuthLoginManager extends EventEmitter<ClaudeAuthLoginEvents> 
 
   private async handleExit(): Promise<void> {
     this.child = null;
+    this.stopPolling();
 
     if (this.cancelled) {
       this.finish({
@@ -223,6 +233,48 @@ export class ClaudeAuthLoginManager extends EventEmitter<ClaudeAuthLoginEvents> 
       message: status.message ?? this.lastRelevantLine() ?? "Claude Code authentication failed.",
       errorCode: status.errorCode ?? "auth_api_error",
     });
+  }
+
+  private startPolling(): void {
+    if (this.authPollTimer) {
+      return;
+    }
+    this.authPollTimer = setInterval(() => {
+      void this.pollForCompletion();
+    }, 1500);
+  }
+
+  private stopPolling(): void {
+    if (!this.authPollTimer) {
+      return;
+    }
+    clearInterval(this.authPollTimer);
+    this.authPollTimer = null;
+  }
+
+  private async pollForCompletion(): Promise<void> {
+    if (!this.child || this.cancelled) {
+      return;
+    }
+
+    try {
+      const status = await getClaudeAuthStatus();
+      if (!status.authenticated) {
+        return;
+      }
+
+      this.update({
+        authenticated: true,
+        source: status.source,
+        loginInProgress: false,
+        state: "success",
+        message: "Claude Code is authenticated.",
+      });
+
+      this.child.kill("SIGTERM");
+    } catch {
+      // Ignore transient polling failures while the login process is still active.
+    }
   }
 
   private lastRelevantLine(): string | undefined {

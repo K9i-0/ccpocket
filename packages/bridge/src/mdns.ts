@@ -3,10 +3,18 @@ import { Bonjour, type Service } from "bonjour-service";
 export class MdnsAdvertiser {
   private bonjour: Bonjour | null = null;
   private service: Service | null = null;
+  private disabled = false;
 
   start(port: number, apiKey?: string): void {
+    if (this.disabled) return;
     try {
-      this.bonjour = new Bonjour();
+      this.bonjour = new Bonjour({}, (err: Error) => {
+        console.warn(
+          `[bridge] mDNS: transport error (non-fatal): ${err.message}`,
+        );
+        this.disabled = true;
+        this.stop();
+      });
       this.service = this.bonjour.publish({
         name: "ccpocket-bridge",
         type: "ccpocket",
