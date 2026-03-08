@@ -245,9 +245,13 @@ class _StoreSessionListRouteState extends State<_StoreSessionListRoute> {
         onToggleProvider: () {},
         onToggleNamed: () {},
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        child: const Icon(Icons.add),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: FloatingActionButton.extended(
+          onPressed: () {},
+          icon: const Icon(Icons.add),
+          label: const Text('New'),
+        ),
       ),
     );
 
@@ -657,9 +661,13 @@ class _StoreNewSessionRouteState extends State<_StoreNewSessionRoute> {
         onToggleProvider: () {},
         onToggleNamed: () {},
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showNewSessionSheet,
-        child: const Icon(Icons.add),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: FloatingActionButton.extended(
+          onPressed: _showNewSessionSheet,
+          icon: const Icon(Icons.add),
+          label: const Text('New'),
+        ),
       ),
     );
 

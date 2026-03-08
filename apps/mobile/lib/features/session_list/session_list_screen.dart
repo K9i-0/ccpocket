@@ -1149,10 +1149,14 @@ class _SessionListScreenState extends State<SessionListScreen>
                 onRefreshMachines: () => machineManagerCubit?.refreshAll(),
               ),
         floatingActionButton: showConnectedUI
-            ? FloatingActionButton(
-                key: const ValueKey('new_session_fab'),
-                onPressed: _showNewSessionDialog,
-                child: const Icon(Icons.add),
+            ? Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: FloatingActionButton.extended(
+                  key: const ValueKey('new_session_fab'),
+                  onPressed: _showNewSessionDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text('New'),
+                ),
               )
             : null,
       ),
