@@ -6,6 +6,7 @@ import '../models/messages.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
 import '../utils/command_parser.dart';
+import '../utils/request_user_input.dart';
 import 'plan_detail_sheet.dart';
 import 'session_visual_status.dart';
 
@@ -108,6 +109,8 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     final isCodexSession = session.provider == Provider.codex.value;
     final isPlanApproval =
         hasPermission && permission.toolName == 'ExitPlanMode';
+    final isRequestUserInputApproval =
+        hasPermission && permission.isRequestUserInputApproval;
     if (isPlanApproval) {
       _syncPlanApprovalState(permission);
     } else {
@@ -227,24 +230,50 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                         : _ToolApprovalArea(
                             permission: permission,
                             statusColor: statusColor,
-                            onApprove: () => widget.onApprove?.call(
-                              permission.toolUseId,
-                              clearContext: false,
-                            ),
-                            onApproveAlways: () => widget.onApproveAlways?.call(
-                              permission.toolUseId,
-                            ),
-                            onReject: () =>
-                                widget.onReject?.call(permission.toolUseId),
+                            onApprove: () {
+                              if (isRequestUserInputApproval) {
+                                widget.onAnswer?.call(
+                                  permission.toolUseId,
+                                  mcpApprovalApproveOnce,
+                                );
+                                return;
+                              }
+                              widget.onApprove?.call(
+                                permission.toolUseId,
+                                clearContext: false,
+                              );
+                            },
+                            onApproveAlways: isRequestUserInputApproval
+                                ? () => widget.onAnswer?.call(
+                                    permission.toolUseId,
+                                    mcpApprovalApproveSession,
+                                  )
+                                : () => widget.onApproveAlways?.call(
+                                    permission.toolUseId,
+                                  ),
+                            onReject: () {
+                              if (isRequestUserInputApproval) {
+                                widget.onAnswer?.call(
+                                  permission.toolUseId,
+                                  mcpApprovalDeny,
+                                );
+                                return;
+                              }
+                              widget.onReject?.call(permission.toolUseId);
+                            },
                           ))
                   : switch (permission.toolName) {
-                      'AskUserQuestion' => _AskUserArea(
-                        permission: permission,
-                        statusColor: statusColor,
-                        onAnswer: (result) =>
-                            widget.onAnswer?.call(permission.toolUseId, result),
-                        onTap: widget.onTap,
-                      ),
+                      'AskUserQuestion'
+                          when !permission.isRequestUserInputApproval =>
+                        _AskUserArea(
+                          permission: permission,
+                          statusColor: statusColor,
+                          onAnswer: (result) => widget.onAnswer?.call(
+                            permission.toolUseId,
+                            result,
+                          ),
+                          onTap: widget.onTap,
+                        ),
                       'ExitPlanMode' => _PlanApprovalArea(
                         statusColor: statusColor,
                         planFeedbackController: _planFeedbackController,
@@ -276,14 +305,37 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                       _ => _ToolApprovalArea(
                         permission: permission,
                         statusColor: statusColor,
-                        onApprove: () => widget.onApprove?.call(
-                          permission.toolUseId,
-                          clearContext: false,
-                        ),
-                        onApproveAlways: () =>
-                            widget.onApproveAlways?.call(permission.toolUseId),
-                        onReject: () =>
-                            widget.onReject?.call(permission.toolUseId),
+                        onApprove: () {
+                          if (isRequestUserInputApproval) {
+                            widget.onAnswer?.call(
+                              permission.toolUseId,
+                              mcpApprovalApproveOnce,
+                            );
+                            return;
+                          }
+                          widget.onApprove?.call(
+                            permission.toolUseId,
+                            clearContext: false,
+                          );
+                        },
+                        onApproveAlways: isRequestUserInputApproval
+                            ? () => widget.onAnswer?.call(
+                                permission.toolUseId,
+                                mcpApprovalApproveSession,
+                              )
+                            : () => widget.onApproveAlways?.call(
+                                permission.toolUseId,
+                              ),
+                        onReject: () {
+                          if (isRequestUserInputApproval) {
+                            widget.onAnswer?.call(
+                              permission.toolUseId,
+                              mcpApprovalDeny,
+                            );
+                            return;
+                          }
+                          widget.onReject?.call(permission.toolUseId);
+                        },
                       ),
                     },
             // Content (same structure as RecentSessionCard)

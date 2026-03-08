@@ -748,6 +748,35 @@ void main() {
   });
 
   group('PermissionRequestMessage.summary', () {
+    test('uses approval question text for MCP approval requestUserInput', () {
+      const perm = PermissionRequestMessage(
+        toolUseId: 'tu-mcp',
+        toolName: 'AskUserQuestion',
+        input: {
+          'questions': [
+            {
+              'header': 'Approve app tool call?',
+              'question':
+                  'The dart-mcp MCP server wants to run the tool "dart_format".',
+              'options': [
+                {'label': 'Approve Once', 'description': ''},
+                {'label': 'Approve this Session', 'description': ''},
+                {'label': 'Deny', 'description': ''},
+                {'label': 'Cancel', 'description': ''},
+              ],
+            },
+          ],
+        },
+      );
+
+      expect(perm.isRequestUserInputApproval, isTrue);
+      expect(perm.displayToolName, 'Approve app tool call?');
+      expect(
+        perm.summary,
+        'The dart-mcp MCP server wants to run the tool "dart_format".',
+      );
+    });
+
     test('extracts command from input', () {
       const perm = PermissionRequestMessage(
         toolUseId: 'tu-1',

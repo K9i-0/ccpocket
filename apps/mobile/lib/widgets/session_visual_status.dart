@@ -28,7 +28,10 @@ SessionVisualStatus sessionVisualStatusFor({
   if (pendingPermission != null) {
     final detail = switch (pendingPermission.toolName) {
       'ExitPlanMode' => 'Review plan',
-      'AskUserQuestion' => 'Answer question',
+      'AskUserQuestion' =>
+        pendingPermission.isRequestUserInputApproval
+            ? 'Approve tool call'
+            : 'Answer question',
       _ => 'Approve ${pendingPermission.toolName}',
     };
     return SessionVisualStatus(

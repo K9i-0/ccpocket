@@ -45,7 +45,7 @@ class ApprovalBar extends StatelessWidget {
         : l.toolApprovalSummary;
     final toolName = isPlanApproval
         ? l.planApproval
-        : pendingPermission?.toolName;
+        : pendingPermission?.displayToolName;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

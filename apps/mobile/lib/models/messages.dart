@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../utils/request_user_input.dart';
+
 // ---- Assistant content types ----
 
 sealed class AssistantContent {
@@ -735,8 +737,21 @@ class PermissionRequestMessage implements ServerMessage {
     required this.input,
   });
 
+  bool get isRequestUserInputApproval =>
+      toolName == 'AskUserQuestion' && isMcpApprovalRequestUserInput(input);
+
+  String get displayToolName {
+    if (isRequestUserInputApproval) {
+      return requestUserInputHeader(input) ?? 'App Tool Approval';
+    }
+    return toolName;
+  }
+
   /// Human-readable summary of the permission request input.
   String get summary {
+    if (isRequestUserInputApproval) {
+      return requestUserInputQuestionText(input) ?? displayToolName;
+    }
     final parts = <String>[];
     for (final key in ['command', 'file_path', 'path', 'pattern', 'url']) {
       if (input.containsKey(key)) {

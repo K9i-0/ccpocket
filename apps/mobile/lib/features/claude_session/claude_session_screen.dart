@@ -19,6 +19,7 @@ import '../../widgets/session_name_title.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/new_session_sheet.dart' show permissionModeFromRaw;
 import '../../widgets/approval_bar.dart';
+import '../../widgets/bubbles/ask_user_question_widget.dart';
 import '../../widgets/message_bubble.dart';
 import '../../widgets/plan_detail_sheet.dart';
 import '../../widgets/screenshot_sheet.dart';

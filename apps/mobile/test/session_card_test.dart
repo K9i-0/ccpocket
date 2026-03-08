@@ -512,6 +512,65 @@ void main() {
       await tester.pump();
       expect(answered, isNull);
     });
+
+    testWidgets('MCP approval requestUserInput uses approval UI and answers '
+        'with approval labels', (tester) async {
+      String? answered;
+      final session = SessionInfo(
+        id: 'ask-mcp-approval',
+        provider: 'codex',
+        projectPath: '/home/user/my-app',
+        status: 'waiting_approval',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        pendingPermission: const PermissionRequestMessage(
+          toolUseId: 'ask-tool-approval',
+          toolName: 'AskUserQuestion',
+          input: {
+            'questions': [
+              {
+                'header': 'Approve app tool call?',
+                'question':
+                    'The dart-mcp MCP server wants to run the tool '
+                    '"dart_format", which may modify or delete data. '
+                    'Allow this action?',
+                'options': [
+                  {'label': 'Approve Once', 'description': ''},
+                  {'label': 'Approve this Session', 'description': ''},
+                  {'label': 'Deny', 'description': ''},
+                  {'label': 'Cancel', 'description': ''},
+                ],
+              },
+            ],
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(
+            session: session,
+            onTap: () {},
+            onStop: () {},
+            onAnswer: (_, result) => answered = result,
+          ),
+        ),
+      );
+
+      expect(find.text('Approve tool call'), findsOneWidget);
+      expect(find.text('Approve'), findsOneWidget);
+      expect(find.text('Always'), findsOneWidget);
+      expect(find.text('Reject'), findsOneWidget);
+      expect(find.text('Other answer...'), findsNothing);
+
+      final alwaysButton = tester.widget<OutlinedButton>(
+        find.byType(OutlinedButton).at(1),
+      );
+      alwaysButton.onPressed!.call();
+      await tester.pump();
+
+      expect(answered, 'Approve this Session');
+    });
   });
 
   group('RecentSessionCard', () {

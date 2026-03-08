@@ -16,6 +16,7 @@ import '../../services/draft_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/session_name_title.dart';
 import '../../utils/diff_parser.dart';
+import '../../utils/request_user_input.dart';
 import '../../widgets/new_session_sheet.dart'
     show permissionModeFromRaw, sandboxModeFromRaw;
 import '../../widgets/approval_bar.dart';
@@ -673,12 +674,31 @@ class _CodexChatBody extends HookWidget {
                     ],
                   ),
                 ),
-                if (askToolUseId != null && askInput != null)
-                  AskUserQuestionWidget(
-                    toolUseId: askToolUseId,
-                    input: askInput,
-                    onAnswer: answerQuestion,
-                  ),
+                if (askToolUseId case final askId? when askInput != null)
+                  if (isMcpApprovalRequestUserInput(askInput))
+                    ApprovalBar(
+                      key: ValueKey('approval_ask_$askId'),
+                      appColors: appColors,
+                      pendingPermission: PermissionRequestMessage(
+                        toolUseId: askId,
+                        toolName: 'AskUserQuestion',
+                        input: askInput,
+                      ),
+                      isPlanApproval: false,
+                      planApprovalUiMode: PlanApprovalUiMode.codex,
+                      planFeedbackController: planFeedbackController,
+                      onApprove: () =>
+                          answerQuestion(askId, mcpApprovalApproveOnce),
+                      onReject: () => answerQuestion(askId, mcpApprovalDeny),
+                      onApproveAlways: () =>
+                          answerQuestion(askId, mcpApprovalApproveSession),
+                    )
+                  else
+                    AskUserQuestionWidget(
+                      toolUseId: askId,
+                      input: askInput,
+                      onAnswer: answerQuestion,
+                    ),
                 if (pendingToolUseId != null)
                   ApprovalBar(
                     key: ValueKey('approval_$pendingToolUseId'),
