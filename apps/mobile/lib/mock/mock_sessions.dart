@@ -556,7 +556,8 @@ List<SessionInfo> mockSessionsAllStatuses() => [
 
 /// All approval UI variants for visual confirmation.
 /// Covers: Tool (Bash), Tool (Edit), AskUser single, AskUser multi-select,
-/// AskUser multi-question, ExitPlanMode (Claude), ExitPlanMode (Codex).
+/// AskUser multi-question, ExitPlanMode (Claude), ExitPlanMode (Codex),
+/// Codex Bash, Codex FileChange, Codex MCP.
 List<SessionInfo> mockSessionsAllApprovals() => [
   // Tool approval — Bash
   SessionInfo(
@@ -612,7 +613,128 @@ List<SessionInfo> mockSessionsAllApprovals() => [
   mockSessionPlanApproval(),
   // Plan approval — Codex
   mockSessionCodexPlanApproval(),
+  // Codex — Bash approval
+  mockSessionCodexBashApproval(),
+  // Codex — FileChange approval
+  mockSessionCodexFileChangeApproval(),
+  // Codex — MCP tool approval (ApprovalBar)
+  mockSessionCodexMcpApproval(),
 ];
+
+/// Session with a Bash command pending approval for Codex.
+SessionInfo mockSessionCodexBashApproval() => SessionInfo(
+  id: 'mock-running-codex-bash',
+  provider: 'codex',
+  projectPath: '/Users/demo/Workspace/ccpocket',
+  status: 'waiting_approval',
+  createdAt: DateTime.now()
+      .subtract(const Duration(minutes: 6))
+      .toIso8601String(),
+  lastActivityAt: DateTime.now()
+      .subtract(const Duration(seconds: 10))
+      .toIso8601String(),
+  gitBranch: 'feat/codex-bash',
+  lastMessage: 'Running tests to verify the implementation.',
+  codexModel: 'o3',
+  codexSandboxMode: 'workspace-write',
+  codexApprovalPolicy: 'on-request',
+  pendingPermission: const PermissionRequestMessage(
+    toolUseId: 'tool-codex-bash-sl-1',
+    toolName: 'Bash',
+    input: {
+      'command': 'cd apps/mobile && flutter test',
+      'cwd': '/Users/demo/Workspace/ccpocket',
+    },
+  ),
+);
+
+/// Session with a FileChange pending approval for Codex.
+SessionInfo mockSessionCodexFileChangeApproval() => SessionInfo(
+  id: 'mock-running-codex-fc',
+  provider: 'codex',
+  projectPath: '/Users/demo/Workspace/my-app',
+  status: 'waiting_approval',
+  createdAt: DateTime.now()
+      .subtract(const Duration(minutes: 9))
+      .toIso8601String(),
+  lastActivityAt: DateTime.now()
+      .subtract(const Duration(seconds: 15))
+      .toIso8601String(),
+  gitBranch: 'feat/codex-fc',
+  lastMessage: 'Updating configuration files.',
+  codexModel: 'o3',
+  codexSandboxMode: 'workspace-write',
+  codexApprovalPolicy: 'on-request',
+  pendingPermission: const PermissionRequestMessage(
+    toolUseId: 'tool-codex-fc-sl-1',
+    toolName: 'FileChange',
+    input: {
+      'changes': [
+        {
+          'file': 'lib/config.dart',
+          'description': 'Update API endpoint configuration',
+        },
+        {
+          'file': 'lib/constants.dart',
+          'description': 'Add new feature flags',
+        },
+      ],
+      'reason': 'Updating configuration for new API version',
+    },
+  ),
+);
+
+/// Session with an MCP tool approval pending for Codex.
+/// Uses AskUserQuestion with MCP approval header to trigger ApprovalBar.
+SessionInfo mockSessionCodexMcpApproval() => SessionInfo(
+  id: 'mock-running-codex-mcp',
+  provider: 'codex',
+  projectPath: '/Users/demo/Workspace/cli-tool',
+  status: 'waiting_approval',
+  createdAt: DateTime.now()
+      .subtract(const Duration(minutes: 4))
+      .toIso8601String(),
+  lastActivityAt: DateTime.now()
+      .subtract(const Duration(seconds: 8))
+      .toIso8601String(),
+  gitBranch: 'feat/mcp-integration',
+  lastMessage: 'Requesting MCP tool access for database query.',
+  codexModel: 'o3',
+  codexSandboxMode: 'workspace-write',
+  codexApprovalPolicy: 'on-request',
+  pendingPermission: const PermissionRequestMessage(
+    toolUseId: 'tool-codex-mcp-sl-1',
+    toolName: 'AskUserQuestion',
+    input: {
+      'questions': [
+        {
+          'question':
+              'Tool call: postgres.query(sql: "SELECT * FROM users LIMIT 10")',
+          'header': 'Approve app tool call?',
+          'options': [
+            {
+              'label': 'Approve Once',
+              'description': 'Allow this single tool call.',
+            },
+            {
+              'label': 'Approve this Session',
+              'description': 'Allow all calls to this tool for this session.',
+            },
+            {
+              'label': 'Deny',
+              'description': 'Reject this tool call.',
+            },
+            {
+              'label': 'Cancel',
+              'description': 'Cancel and go back.',
+            },
+          ],
+          'multiSelect': false,
+        },
+      ],
+    },
+  ),
+);
 
 /// Session with an ExitPlanMode pending for Codex.
 /// Used to verify Codex-specific plan approval UI in session list.

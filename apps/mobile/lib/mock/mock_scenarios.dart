@@ -46,7 +46,7 @@ class MockScenario {
 }
 
 final List<MockScenario> mockScenarios = [
-  // Chat session scenarios
+  // Chat session scenarios — Claude
   _approvalFlow,
   _multipleApprovalFlow,
   _askUserQuestion,
@@ -59,11 +59,18 @@ final List<MockScenario> mockScenarios = [
   _markdownMixedContent,
   _thinkingBlock,
   _planMode,
-  _codexPlanApproval,
   _subagentSummary,
   _errorScenario,
   _fullConversation,
-  // Session list scenarios
+  // Chat session scenarios — Codex
+  _codexPlanApproval,
+  _codexBashApproval,
+  _codexFileChangeApproval,
+  _codexMcpApproval,
+  _codexAskUserQuestion,
+  _codexWebSearch,
+  _codexFullConversation,
+  // Session list scenarios — Claude
   _sessionListAllStatuses,
   _sessionListAllApprovals,
   _sessionListSingleQuestion,
@@ -71,7 +78,11 @@ final List<MockScenario> mockScenarios = [
   _sessionListMultiSelect,
   _sessionListBatchApproval,
   _sessionListPlanApproval,
+  // Session list scenarios — Codex
   _sessionListCodexPlanApproval,
+  _sessionListCodexBashApproval,
+  _sessionListCodexFileChangeApproval,
+  _sessionListCodexMcpApproval,
   // Store screenshot scenarios
   ...storeScreenshotScenarios,
 ];
@@ -1075,6 +1086,437 @@ final _codexPlanApproval = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
+// 6c. Codex Bash Approval
+// ---------------------------------------------------------------------------
+final _codexBashApproval = MockScenario(
+  name: 'Codex Bash Approval',
+  icon: Icons.terminal,
+  description: 'Codex command execution approval (Bash)',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 600),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-bash-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text: 'I need to run the test suite to verify the changes.',
+            ),
+            const ToolUseContent(
+              id: 'tool-codex-bash-1',
+              name: 'Bash',
+              input: {
+                'command': 'cd apps/mobile && flutter test test/widgets/',
+                'cwd': '/Users/demo/Workspace/ccpocket',
+              },
+            ),
+          ],
+          model: 'o3',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1000),
+      message: const PermissionRequestMessage(
+        toolUseId: 'tool-codex-bash-1',
+        toolName: 'Bash',
+        input: {
+          'command': 'cd apps/mobile && flutter test test/widgets/',
+          'cwd': '/Users/demo/Workspace/ccpocket',
+        },
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1200),
+      message: const StatusMessage(status: ProcessStatus.waitingApproval),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 6d. Codex FileChange Approval
+// ---------------------------------------------------------------------------
+final _codexFileChangeApproval = MockScenario(
+  name: 'Codex FileChange Approval',
+  icon: Icons.insert_drive_file_outlined,
+  description: 'Codex file change approval with changes array',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 600),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-fc-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text: 'I will update the pubspec.yaml to add the new dependency.',
+            ),
+            const ToolUseContent(
+              id: 'tool-codex-fc-1',
+              name: 'FileChange',
+              input: {
+                'changes': [
+                  {
+                    'file': 'apps/mobile/pubspec.yaml',
+                    'description': 'Add http package dependency',
+                  },
+                ],
+                'reason': 'Adding http package for API client implementation',
+              },
+            ),
+          ],
+          model: 'o3',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1000),
+      message: const PermissionRequestMessage(
+        toolUseId: 'tool-codex-fc-1',
+        toolName: 'FileChange',
+        input: {
+          'changes': [
+            {
+              'file': 'apps/mobile/pubspec.yaml',
+              'description': 'Add http package dependency',
+            },
+          ],
+          'reason': 'Adding http package for API client implementation',
+        },
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1200),
+      message: const StatusMessage(status: ProcessStatus.waitingApproval),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 6e. Codex MCP Tool Approval (AskUserQuestion → ApprovalBar)
+// ---------------------------------------------------------------------------
+final _codexMcpApproval = MockScenario(
+  name: 'Codex MCP Approval',
+  icon: Icons.extension_outlined,
+  description: 'MCP tool approval shown as ApprovalBar (not dialog)',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 600),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-mcp-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text: 'I need to use an MCP tool to read the project files.',
+            ),
+            const ToolUseContent(
+              id: 'tool-codex-mcp-1',
+              name: 'AskUserQuestion',
+              input: {
+                'questions': [
+                  {
+                    'question':
+                        'Tool call: filesystem.readFile(path: "/src/main.ts")',
+                    'header': 'Approve app tool call?',
+                    'options': [
+                      {
+                        'label': 'Approve Once',
+                        'description': 'Allow this single tool call.',
+                      },
+                      {
+                        'label': 'Approve this Session',
+                        'description':
+                            'Allow all calls to this tool for this session.',
+                      },
+                      {
+                        'label': 'Deny',
+                        'description': 'Reject this tool call.',
+                      },
+                      {
+                        'label': 'Cancel',
+                        'description': 'Cancel and go back.',
+                      },
+                    ],
+                    'multiSelect': false,
+                  },
+                ],
+              },
+            ),
+          ],
+          model: 'o3',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1000),
+      message: const PermissionRequestMessage(
+        toolUseId: 'tool-codex-mcp-1',
+        toolName: 'AskUserQuestion',
+        input: {
+          'questions': [
+            {
+              'question':
+                  'Tool call: filesystem.readFile(path: "/src/main.ts")',
+              'header': 'Approve app tool call?',
+              'options': [
+                {
+                  'label': 'Approve Once',
+                  'description': 'Allow this single tool call.',
+                },
+                {
+                  'label': 'Approve this Session',
+                  'description':
+                      'Allow all calls to this tool for this session.',
+                },
+                {
+                  'label': 'Deny',
+                  'description': 'Reject this tool call.',
+                },
+                {
+                  'label': 'Cancel',
+                  'description': 'Cancel and go back.',
+                },
+              ],
+              'multiSelect': false,
+            },
+          ],
+        },
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1200),
+      message: const StatusMessage(status: ProcessStatus.waitingApproval),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 6f. Codex AskUserQuestion (non-MCP)
+// ---------------------------------------------------------------------------
+final _codexAskUserQuestion = MockScenario(
+  name: 'Codex AskUserQuestion',
+  icon: Icons.help_center_outlined,
+  description: 'Codex question dialog (not MCP approval)',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 600),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-ask-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  'I found two possible approaches for the refactoring. '
+                  'Which one do you prefer?',
+            ),
+            const ToolUseContent(
+              id: 'tool-codex-ask-1',
+              name: 'AskUserQuestion',
+              input: {
+                'questions': [
+                  {
+                    'question':
+                        'Which refactoring approach should I use for the state management?',
+                    'header': 'Approach',
+                    'options': [
+                      {
+                        'label': 'BLoC pattern (Recommended)',
+                        'description':
+                            'Use BLoC/Cubit with Freezed states for predictable state management.',
+                      },
+                      {
+                        'label': 'Riverpod',
+                        'description':
+                            'Use Riverpod providers for a more functional approach.',
+                      },
+                      {
+                        'label': 'Keep current',
+                        'description':
+                            'Keep the existing StatefulWidget approach.',
+                      },
+                    ],
+                    'multiSelect': false,
+                  },
+                ],
+              },
+            ),
+          ],
+          model: 'o3',
+        ),
+      ),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 6g. Codex Web Search
+// ---------------------------------------------------------------------------
+final _codexWebSearch = MockScenario(
+  name: 'Codex Web Search',
+  icon: Icons.travel_explore,
+  description: 'Web search tool execution and result',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 600),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-ws-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text: 'Let me search for the latest Flutter testing best practices.',
+            ),
+            const ToolUseContent(
+              id: 'tool-codex-ws-1',
+              name: 'WebSearch',
+              input: {'query': 'Flutter widget testing best practices 2025'},
+            ),
+          ],
+          model: 'o3',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1200),
+      message: const ToolResultMessage(
+        toolUseId: 'tool-codex-ws-1',
+        toolName: 'WebSearch',
+        content:
+            '1. flutter.dev - Widget testing guide\n'
+            '2. medium.com - Advanced Flutter testing patterns\n'
+            '3. github.com/flutter - Testing cookbook examples',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1800),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-ws-2',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  'Based on the search results, here are the key testing practices:\n\n'
+                  '- Use `testWidgets` for widget tests with `WidgetTester`\n'
+                  '- Prefer `pumpWidget` + `pumpAndSettle` for async operations\n'
+                  '- Use `find.byKey` for reliable element selection',
+            ),
+          ],
+          model: 'o3',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 2200),
+      message: const ResultMessage(
+        subtype: 'success',
+        cost: 0.0085,
+        duration: 2.8,
+        sessionId: 'mock-session-codex-ws',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 2400),
+      message: const StatusMessage(status: ProcessStatus.idle),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 6h. Codex Full Conversation
+// ---------------------------------------------------------------------------
+final _codexFullConversation = MockScenario(
+  name: 'Codex Full Conversation',
+  icon: Icons.forum,
+  description: 'Complete Codex flow: init → bash approval → result',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 200),
+      message: const SystemMessage(
+        subtype: 'init',
+        sessionId: 'mock-session-codex-full',
+        model: 'o3',
+        projectPath: '/Users/demo/project',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 500),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 900),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-full-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  'I\'ll start by checking the project structure '
+                  'and running the existing tests.',
+            ),
+            const ToolUseContent(
+              id: 'tool-codex-full-bash-1',
+              name: 'Bash',
+              input: {
+                'command': 'ls -la && npm test',
+                'cwd': '/Users/demo/project',
+              },
+            ),
+          ],
+          model: 'o3',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1300),
+      message: const PermissionRequestMessage(
+        toolUseId: 'tool-codex-full-bash-1',
+        toolName: 'Bash',
+        input: {
+          'command': 'ls -la && npm test',
+          'cwd': '/Users/demo/project',
+        },
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1500),
+      message: const StatusMessage(status: ProcessStatus.waitingApproval),
+    ),
+    // After approval, the tool result and completion would follow
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // 7. Subagent Summary (tool_use_summary)
 // ---------------------------------------------------------------------------
 final _subagentSummary = MockScenario(
@@ -1458,5 +1900,42 @@ const _sessionListCodexPlanApproval = MockScenario(
   icon: Icons.task_alt_outlined,
   description: 'Codex ExitPlanMode approval with Reject/Approve actions',
   section: MockScenarioSection.sessionList,
+  provider: MockScenarioProvider.codex,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// SL-7. Codex Bash Approval
+// ---------------------------------------------------------------------------
+const _sessionListCodexBashApproval = MockScenario(
+  name: 'Codex Bash Approval',
+  icon: Icons.terminal,
+  description: 'Codex Bash command approval in session list',
+  section: MockScenarioSection.sessionList,
+  provider: MockScenarioProvider.codex,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// SL-8. Codex FileChange Approval
+// ---------------------------------------------------------------------------
+const _sessionListCodexFileChangeApproval = MockScenario(
+  name: 'Codex FileChange Approval',
+  icon: Icons.insert_drive_file_outlined,
+  description: 'Codex file change approval in session list',
+  section: MockScenarioSection.sessionList,
+  provider: MockScenarioProvider.codex,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// SL-9. Codex MCP Approval
+// ---------------------------------------------------------------------------
+const _sessionListCodexMcpApproval = MockScenario(
+  name: 'Codex MCP Approval',
+  icon: Icons.extension_outlined,
+  description: 'Codex MCP tool approval (ApprovalBar) in session list',
+  section: MockScenarioSection.sessionList,
+  provider: MockScenarioProvider.codex,
   steps: [],
 );

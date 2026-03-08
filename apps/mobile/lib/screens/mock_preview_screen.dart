@@ -205,6 +205,7 @@ class _ScenarioCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isCodex = scenario.provider == MockScenarioProvider.codex;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: InkWell(
@@ -228,12 +229,40 @@ class _ScenarioCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      scenario.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            scenario.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isCodex) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.tertiary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Codex',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: cs.tertiary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 3),
                     Text(
@@ -639,6 +668,12 @@ class _MockSessionListWrapperState extends State<_MockSessionListWrapper> {
         return [mockSessionPlanApproval()];
       case 'Codex Plan Approval':
         return [mockSessionCodexPlanApproval()];
+      case 'Codex Bash Approval':
+        return [mockSessionCodexBashApproval()];
+      case 'Codex FileChange Approval':
+        return [mockSessionCodexFileChangeApproval()];
+      case 'Codex MCP Approval':
+        return [mockSessionCodexMcpApproval()];
       default:
         return [];
     }
