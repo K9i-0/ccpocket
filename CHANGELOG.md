@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.34.0] - 2026-03-08
+
+### Added
+- Codex approval mock scenarios with improved section organization in mock preview
+
+### Changed
+- Codex MCP tool approval now displays as ApprovalBar instead of AskUserQuestion dialog
+
+### Fixed
+- Model label clipping in new session advanced section
+- FAB hidden when keyboard is visible on session list
+- Duplicate screen on session restart and rewind (sourceSessionId-based matching)
+- Usage API auto-refresh cooldown to prevent excessive requests
+- Codex permissionMode tracked as mutable state, updating correctly on restart
+- Codex permissionMode forwarded on session resume for proper mode persistence
+- Claude auth status flow improvements
+
 ## [1.33.0] - 2026-03-08
 
 ### Added
