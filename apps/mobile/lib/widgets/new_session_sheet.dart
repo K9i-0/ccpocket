@@ -1509,7 +1509,7 @@ class _AdvancedOptions extends StatelessWidget {
         shape: const Border(),
         collapsedShape: const Border(),
         tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         title: Text(
           l.advanced,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
