@@ -219,9 +219,9 @@ When SSH is enabled, CC Pocket can trigger these remote actions from the machine
 
 This flow is intended for **macOS hosts using launchd**.
 
-### launchd Setup on macOS
+### Service Setup
 
-If you want the Bridge Server to run as a managed background service, use the built-in setup command:
+The `setup` command automatically detects your OS and registers the Bridge Server as a managed background service.
 
 ```bash
 npx @ccpocket/bridge@latest setup
@@ -232,14 +232,25 @@ npx @ccpocket/bridge@latest setup --uninstall
 ccpocket-bridge setup
 ```
 
+#### macOS (launchd)
+
+On macOS, `setup` creates a launchd plist and registers it with `launchctl`. The service starts via `zsh -li -c` to inherit your shell environment (nvm, pyenv, Homebrew, etc.).
+
+#### Linux (systemd)
+
+On Linux, `setup` creates a systemd user service. It resolves the full path to `npx` at setup time so that nvm/mise/volta-managed Node.js works correctly under systemd.
+
+> **Tip:** Run `loginctl enable-linger $USER` to keep the service running after logout.
+
 ## Platform Notes
 
 - **Bridge Server**: works anywhere Node.js and your CLI provider work
+- **Service setup**: macOS (launchd) and Linux (systemd)
 - **SSH start/stop/update from the app**: macOS host with `launchd` setup
 - **Window listing and screenshot capture**: macOS-only host feature
 - **Tailscale**: optional, but strongly recommended for remote access
 
-If you want a clean always-on setup, a Mac mini is the best-supported host environment right now.
+If you want a clean always-on setup, a Mac mini or a headless Linux box is the best-supported host environment right now.
 
 ## Host Configuration for Screenshot Capture
 
