@@ -1,0 +1,71 @@
+name: Bug Report
+description: Report a bug in CC Pocket
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug!
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of CC Pocket is affected?
+      options:
+        - Mobile App (iOS)
+        - Mobile App (Android)
+        - Bridge Server
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: Tell us what went wrong
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce the bug?
+      placeholder: |
+        1. Open the app
+        2. Go to ...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Version and environment details.
+      placeholder: |
+        - App version: x.x.x
+        - Bridge version: x.x.x
+        - OS: macOS / iOS / Android
+        - Node.js version (Bridge): x.x
+      render: markdown
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Screenshots
+      description: If applicable, add logs or screenshots.
+    validations:
+      required: false
