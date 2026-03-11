@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.35.0] - 2026-03-11
+
+### Added
+- Unseen indicator for idle sessions with new activity (bold text + glow dot)
+- Expandable project history in new session sheet (show more/less toggle)
+
+### Fixed
+- White screen crash caused by BlocProvider context mismatch in unseen sessions
+- False-positive unseen indicators when sending messages or creating new sessions
+
 ## [1.34.0] - 2026-03-08
 
 ### Added
