@@ -428,6 +428,45 @@ export async function checkLaunchdService(): Promise<CheckResult> {
   }
 }
 
+export async function checkSystemdService(): Promise<CheckResult> {
+  if (process.platform !== "linux") {
+    return {
+      name: "systemd service",
+      status: "skip",
+      message: "Linux only",
+    };
+  }
+  try {
+    const out = execSync(
+      "systemctl --user is-active ccpocket-bridge.service",
+      {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+    if (out.trim() === "active") {
+      return {
+        name: "systemd service",
+        status: "pass",
+        message: "Active",
+      };
+    }
+    return {
+      name: "systemd service",
+      status: "skip",
+      message: `Status: ${out.trim()}`,
+      remediation: "Register with: ccpocket-bridge setup",
+    };
+  } catch {
+    return {
+      name: "systemd service",
+      status: "skip",
+      message: "Not registered",
+      remediation: "Register with: ccpocket-bridge setup",
+    };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // macOS permission checks
 // ---------------------------------------------------------------------------
@@ -577,6 +616,11 @@ function getAllChecks(): CheckDefinition[] {
       name: "launchd service",
       category: "optional",
       run: checkLaunchdService,
+    },
+    {
+      name: "systemd service",
+      category: "optional",
+      run: checkSystemdService,
     },
   ];
 }

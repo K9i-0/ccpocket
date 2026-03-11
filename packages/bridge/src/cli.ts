@@ -1,6 +1,6 @@
 #!/usr/bin/env node
+import { platform } from "node:os";
 import { startServer } from "./index.js";
-import { setupLaunchd, uninstallLaunchd } from "./setup-launchd.js";
 
 const args = process.argv.slice(2);
 
@@ -31,15 +31,36 @@ if (subcommand === "doctor") {
       process.exit(1);
     });
 } else if (subcommand === "setup") {
-  // launchd setup subcommand
-  if (hasFlag("uninstall")) {
-    uninstallLaunchd();
+  // Service setup subcommand (platform-specific)
+  const opts = {
+    port: parseFlag("port"),
+    host: parseFlag("host"),
+    apiKey: parseFlag("api-key"),
+  };
+
+  if (platform() === "darwin") {
+    import("./setup-launchd.js")
+      .then(({ setupLaunchd, uninstallLaunchd }) => {
+        hasFlag("uninstall") ? uninstallLaunchd() : setupLaunchd(opts);
+      })
+      .catch((err) => {
+        console.error("Setup failed:", err);
+        process.exit(1);
+      });
+  } else if (platform() === "linux") {
+    import("./setup-systemd.js")
+      .then(({ setupSystemd, uninstallSystemd }) => {
+        hasFlag("uninstall") ? uninstallSystemd() : setupSystemd(opts);
+      })
+      .catch((err) => {
+        console.error("Setup failed:", err);
+        process.exit(1);
+      });
   } else {
-    setupLaunchd({
-      port: parseFlag("port"),
-      host: parseFlag("host"),
-      apiKey: parseFlag("api-key"),
-    });
+    console.error(
+      `ERROR: 'setup' is not supported on ${platform()}. Supported: macOS (launchd), Linux (systemd).`,
+    );
+    process.exit(1);
   }
 } else {
   // Server mode: set env vars from CLI flags, then start
