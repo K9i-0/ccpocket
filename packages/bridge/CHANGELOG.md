@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.17.1] - 2026-03-12
+
+### Changed
+- Sandbox configuration now delegated to Claude Code native `.claude/settings.json` — Bridge passes only `enabled: true/false`
+- Worktree configuration uses `.gtrconfig` only (removed `.ccpocket.toml` priority logic)
+
+### Removed
+- `.ccpocket.toml` support and `smol-toml` dependency — sandbox settings should be configured via `.claude/settings.json`
+
 ## [1.17.0] - 2026-03-12
 
 ### Added
