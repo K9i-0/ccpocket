@@ -1052,6 +1052,12 @@ abstract class AppLocalizations {
   /// **'オーバーレイ'**
   String get diffCompareOverlay;
 
+  /// No description provided for @diffCompareToggle.
+  ///
+  /// In ja, this message translates to:
+  /// **'トグル'**
+  String get diffCompareToggle;
+
   /// No description provided for @diffBefore.
   ///
   /// In ja, this message translates to:

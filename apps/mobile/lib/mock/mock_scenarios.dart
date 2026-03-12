@@ -86,6 +86,8 @@ final List<MockScenario> mockScenarios = [
   sessionListNewSession20Projects,
   // Store screenshot scenarios
   ...storeScreenshotScenarios,
+  // Standalone viewers
+  imageDiffScenario,
 ];
 
 // ---------------------------------------------------------------------------
@@ -1938,5 +1940,16 @@ const sessionListNewSession20Projects = MockScenario(
   icon: Icons.folder_copy_outlined,
   description: 'New session sheet with 20 projects to test expandable history',
   section: MockScenarioSection.sessionList,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// Standalone: Image Diff Viewer
+// ---------------------------------------------------------------------------
+const imageDiffScenario = MockScenario(
+  name: 'Image Diff',
+  icon: Icons.compare,
+  description: 'Full-screen image diff viewer with Slider / Toggle / Overlay',
+  section: MockScenarioSection.chat,
   steps: [],
 );

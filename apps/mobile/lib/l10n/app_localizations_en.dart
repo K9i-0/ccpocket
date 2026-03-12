@@ -521,6 +521,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get diffCompareOverlay => 'Overlay';
 
   @override
+  String get diffCompareToggle => 'Toggle';
+
+  @override
   String get diffBefore => 'Before';
 
   @override

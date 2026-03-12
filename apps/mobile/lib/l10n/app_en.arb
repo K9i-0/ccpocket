@@ -185,6 +185,7 @@
   "diffCompareSideBySide": "Side by Side",
   "diffCompareSlider": "Slider",
   "diffCompareOverlay": "Overlay",
+  "diffCompareToggle": "Toggle",
   "diffBefore": "Before",
   "diffAfter": "After",
   "diffNewFile": "New file",

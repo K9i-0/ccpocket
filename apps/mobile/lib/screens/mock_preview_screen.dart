@@ -8,9 +8,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../features/session_list/state/session_list_cubit.dart';
 import '../features/session_list/state/session_list_state.dart';
 import '../features/session_list/widgets/home_content.dart';
+import '../features/diff/widgets/diff_image_viewer.dart';
+import '../mock/mock_image_data.dart';
 import '../mock/mock_scenarios.dart';
 import '../mock/mock_sessions.dart';
 import '../mock/store_screenshot_data.dart';
+import '../utils/diff_parser.dart';
 import '../models/messages.dart';
 import '../providers/bridge_cubits.dart';
 import '../services/bridge_service.dart';
@@ -92,6 +95,13 @@ class _ScenariosTab extends StatelessWidget {
   }
 
   void _launchScenario(BuildContext context, MockScenario scenario) {
+    if (scenario == imageDiffScenario) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const _MockImageDiffWrapper()),
+      );
+      return;
+    }
     if (scenario.section == MockScenarioSection.storeScreenshot) {
       _launchStoreScenario(context, scenario);
     } else if (scenario == sessionListNewSession20Projects) {
@@ -1521,5 +1531,64 @@ class _MockNewSession20ProjectsWrapperState
         ),
       ),
     );
+  }
+}
+
+// =============================================================================
+// Mock Image Diff Viewer
+// =============================================================================
+
+class _MockImageDiffWrapper extends StatefulWidget {
+  const _MockImageDiffWrapper();
+
+  @override
+  State<_MockImageDiffWrapper> createState() => _MockImageDiffWrapperState();
+}
+
+class _MockImageDiffWrapperState extends State<_MockImageDiffWrapper> {
+  Uint8List? _oldBytes;
+  Uint8List? _newBytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _generateImages();
+  }
+
+  Future<void> _generateImages() async {
+    final (oldBytes, newBytes) = await generateMockDiffImages();
+    if (mounted) {
+      setState(() {
+        _oldBytes = oldBytes;
+        _newBytes = newBytes;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_oldBytes == null || _newBytes == null) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final file = DiffFile(
+      filePath: 'assets/images/app_screenshot.png',
+      hunks: const [],
+      isBinary: true,
+      isImage: true,
+      imageData: DiffImageData(
+        oldBytes: _oldBytes,
+        newBytes: _newBytes,
+        oldSize: _oldBytes!.length,
+        newSize: _newBytes!.length,
+        mimeType: 'image/png',
+        loaded: true,
+      ),
+    );
+
+    return DiffImageViewer(file: file, imageData: file.imageData!);
   }
 }

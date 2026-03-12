@@ -9,7 +9,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../utils/diff_parser.dart';
 
 /// Comparison mode for the full-screen diff image viewer.
-enum DiffCompareMode { sideBySide, slider, overlay }
+enum DiffCompareMode { sideBySide, slider, overlay, toggle }
 
 /// Formats a byte count into a human-readable string.
 String _formatFileSize(int bytes) {
@@ -93,6 +93,11 @@ class DiffImageViewer extends HookWidget {
                       isSvg: imageData.isSvg,
                       opacity: overlayOpacity.value,
                       onTap: toggleChrome,
+                    ),
+                    DiffCompareMode.toggle => _ToggleContent(
+                      oldBytes: imageData.oldBytes!,
+                      newBytes: imageData.newBytes!,
+                      isSvg: imageData.isSvg,
                     ),
                   }
                 : _SingleImageContent(
@@ -215,16 +220,16 @@ class _SliderContentState extends State<_SliderContent> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Bottom layer: old image
+                  // Bottom layer: new (after) image
                   _buildMemoryImage(
-                    bytes: widget.oldBytes,
+                    bytes: widget.newBytes,
                     isSvg: widget.isSvg,
                   ),
-                  // Top layer: new image, clipped to slider position
+                  // Top layer: old (before) image, clipped to slider position
                   ClipRect(
                     clipper: _SliderClipper(_fraction),
                     child: _buildMemoryImage(
-                      bytes: widget.newBytes,
+                      bytes: widget.oldBytes,
                       isSvg: widget.isSvg,
                     ),
                   ),
@@ -294,6 +299,20 @@ class _SliderContentState extends State<_SliderContent> {
                       text: AppLocalizations.of(context).diffAfter,
                     ),
                   ),
+                  // Drag hint at bottom center
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 8,
+                    child: Center(
+                      child: _ModeLabel(
+                        text:
+                            '← ${AppLocalizations.of(context).diffBefore}'
+                            '  |  '
+                            '${AppLocalizations.of(context).diffAfter} →',
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -315,6 +334,133 @@ class _SliderClipper extends CustomClipper<Rect> {
 
   @override
   bool shouldReclip(_SliderClipper old) => old.fraction != fraction;
+}
+
+// ---------------------------------------------------------------------------
+// Toggle content (tap to flicker between Before/After)
+// ---------------------------------------------------------------------------
+
+class _ToggleContent extends StatefulWidget {
+  final Uint8List oldBytes;
+  final Uint8List newBytes;
+  final bool isSvg;
+
+  const _ToggleContent({
+    required this.oldBytes,
+    required this.newBytes,
+    required this.isSvg,
+  });
+
+  @override
+  State<_ToggleContent> createState() => _ToggleContentState();
+}
+
+class _ToggleContentState extends State<_ToggleContent>
+    with SingleTickerProviderStateMixin {
+  bool _showingBefore = false;
+  final _transformController = TransformationController();
+  late final AnimationController _animController;
+  Animation<Matrix4>? _animation;
+  TapDownDetails? _doubleTapDetails;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 250),
+        )..addListener(() {
+          if (_animation != null) {
+            _transformController.value = _animation!.value;
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    _transformController.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTap() {
+    final position = _doubleTapDetails?.localPosition ?? Offset.zero;
+    final currentScale = _transformController.value.getMaxScaleOnAxis();
+
+    Matrix4 endMatrix;
+    if (currentScale > 1.1) {
+      endMatrix = Matrix4.identity();
+    } else {
+      const scale = 2.5;
+      final dx = -position.dx * (scale - 1);
+      final dy = -position.dy * (scale - 1);
+      // ignore: deprecated_member_use
+      endMatrix = Matrix4.identity()
+        // ignore: deprecated_member_use
+        ..translate(dx, dy)
+        // ignore: deprecated_member_use
+        ..scale(scale);
+    }
+
+    _animation = Matrix4Tween(begin: _transformController.value, end: endMatrix)
+        .animate(
+          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+        );
+    _animController.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final bytes = _showingBefore ? widget.oldBytes : widget.newBytes;
+    final label = _showingBefore ? l.diffBefore : l.diffAfter;
+
+    return GestureDetector(
+      onTap: () => setState(() => _showingBefore = !_showingBefore),
+      onDoubleTapDown: (d) => _doubleTapDetails = d,
+      onDoubleTap: _handleDoubleTap,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: InteractiveViewer(
+              transformationController: _transformController,
+              minScale: 0.5,
+              maxScale: 5.0,
+              child: Center(
+                child: _buildMemoryImage(bytes: bytes, isSvg: widget.isSvg),
+              ),
+            ),
+          ),
+          // Current state label
+          Positioned(left: 8, top: 8, child: _ModeLabel(text: label)),
+          // Tap hint
+          Positioned(
+            right: 8,
+            top: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.touch_app, size: 12, color: Colors.white70),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Tap',
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -616,16 +762,25 @@ class _BottomBar extends StatelessWidget {
                   value: DiffCompareMode.sideBySide,
                   icon: const Icon(Icons.view_column_outlined, size: 18),
                   label: Text(l.diffCompareSideBySide),
+                  tooltip: l.diffCompareSideBySide,
                 ),
                 ButtonSegment(
                   value: DiffCompareMode.slider,
                   icon: const Icon(Icons.compare, size: 18),
                   label: Text(l.diffCompareSlider),
+                  tooltip: l.diffCompareSlider,
                 ),
                 ButtonSegment(
                   value: DiffCompareMode.overlay,
                   icon: const Icon(Icons.layers_outlined, size: 18),
                   label: Text(l.diffCompareOverlay),
+                  tooltip: l.diffCompareOverlay,
+                ),
+                ButtonSegment(
+                  value: DiffCompareMode.toggle,
+                  icon: const Icon(Icons.swap_horiz, size: 18),
+                  label: Text(l.diffCompareToggle),
+                  tooltip: l.diffCompareToggle,
                 ),
               ],
               selected: {mode},

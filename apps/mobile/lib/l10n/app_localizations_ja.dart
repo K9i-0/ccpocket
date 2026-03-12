@@ -516,6 +516,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get diffCompareOverlay => 'オーバーレイ';
 
   @override
+  String get diffCompareToggle => 'トグル';
+
+  @override
   String get diffBefore => '変更前';
 
   @override

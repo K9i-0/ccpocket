@@ -244,6 +244,7 @@
   "diffCompareSideBySide": "並べて比較",
   "diffCompareSlider": "スライダー",
   "diffCompareOverlay": "オーバーレイ",
+  "diffCompareToggle": "トグル",
   "diffBefore": "変更前",
   "diffAfter": "変更後",
   "diffNewFile": "新規ファイル",
