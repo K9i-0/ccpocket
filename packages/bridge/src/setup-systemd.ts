@@ -117,9 +117,23 @@ WantedBy=default.target
     );
   }
 
+  // Enable lingering so the user service persists after logout.
+  // Without this, systemd user services stop when the last session ends
+  // (e.g. SSH disconnect), which defeats the purpose of a background service.
+  try {
+    const lingerStatus = execSync("loginctl show-user $USER --property=Linger", {
+      encoding: "utf-8",
+    }).trim();
+    if (lingerStatus !== "Linger=yes") {
+      console.log("==> Enabling linger to keep service running after logout...");
+      execSync("loginctl enable-linger $USER");
+      console.log("    Linger enabled.");
+    }
+  } catch {
+    console.log(
+      "    Note: Could not enable linger. Run `loginctl enable-linger $USER` manually to keep the service running after logout.",
+    );
+  }
+
   console.log("    Done.");
-  console.log("");
-  console.log(
-    "    Tip: Run `loginctl enable-linger $USER` to keep the service running after logout.",
-  );
 }

@@ -119,6 +119,42 @@ describe("setup-systemd", () => {
       ]);
     });
 
+    it("enables linger when not already enabled", () => {
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (cmd === "command -v npx") return "/usr/bin/npx\n";
+        if (cmd.includes("show-user")) return "Linger=no\n";
+        return "";
+      });
+
+      setupSystemd({});
+
+      const allCmds = mockExecSync.mock.calls.map((c) => c[0] as string);
+      expect(allCmds).toContain("loginctl enable-linger $USER");
+    });
+
+    it("skips linger when already enabled", () => {
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (cmd === "command -v npx") return "/usr/bin/npx\n";
+        if (cmd.includes("show-user")) return "Linger=yes\n";
+        return "";
+      });
+
+      setupSystemd({});
+
+      const allCmds = mockExecSync.mock.calls.map((c) => c[0] as string);
+      expect(allCmds).not.toContain("loginctl enable-linger $USER");
+    });
+
+    it("handles linger check failure gracefully", () => {
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (cmd === "command -v npx") return "/usr/bin/npx\n";
+        if (cmd.includes("loginctl")) throw new Error("loginctl failed");
+        return "";
+      });
+
+      expect(() => setupSystemd({})).not.toThrow();
+    });
+
     it("exits with code 1 when npx is not found", () => {
       mockExecSync.mockImplementation((cmd: string) => {
         if (cmd === "command -v npx") throw new Error("not found");
