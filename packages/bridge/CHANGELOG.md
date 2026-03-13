@@ -2,6 +2,17 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.18.0] - 2026-03-13
+
+### Added
+- Include `bridgeVersion` in `session_list` messages for client-side version checks
+
+### Fixed
+- Send skill descriptions from Claude Code `supportedCommands()` — previously only skill names were forwarded, causing the mobile app to display directory names instead of descriptions
+
+### Changed
+- Update `@anthropic-ai/claude-agent-sdk` to 0.2.74
+
 ## [1.17.1] - 2026-03-12
 
 ### Changed
