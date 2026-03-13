@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.36.0] - 2026-03-13
+
+### Added
+- Codex Skills (Prompts) support with rich metadata and SkillUserInput
+- Multi-image selection with 5-image limit for attachments
+- Diff toggle compare mode with reversed slider direction
+- 3-state expandable UI for tool use commands
+- Tap-to-zoom for attached image thumbnails
+
+### Changed
+- Removed Claude auth login feature
+
+### Fixed
+- Sandbox state decoupled between Claude and Codex in new session sheet
+- Provider-aware sandbox defaults and UI presentation
+- Diff slider hint and overlay controls repositioned above mode selector
+
 ## [1.35.0] - 2026-03-11
 
 ### Added
