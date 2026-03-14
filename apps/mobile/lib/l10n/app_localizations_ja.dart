@@ -669,7 +669,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get guideLaunchdDescription =>
-      '毎回手動で Bridge Server を起動するのが面倒な場合、Mac の起動時に自動で立ち上がるよう設定できます。';
+      '毎回手動で Bridge Server を起動するのが面倒な場合、マシンの起動時に自動で立ち上がるよう設定できます。';
 
   @override
   String get guideLaunchdCommand => 'セットアップコマンド';
@@ -679,7 +679,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get guideLaunchdRecommendation =>
-      'まずは手動起動で動作確認してから、安定したら launchd 登録がおすすめです。';
+      'まずは手動起動で動作確認してから、安定したらサービス登録がおすすめです。';
+
+  @override
+  String get guideAutostartMacDescription =>
+      'launchd に登録。シェル環境（nvm、Homebrew 等）が自動で引き継がれます。';
+
+  @override
+  String get guideAutostartLinuxDescription =>
+      'systemd ユーザーサービスを作成。Raspberry Pi 等の Linux ホストに対応。';
 
   @override
   String get guideReadyTitle => '準備完了!';

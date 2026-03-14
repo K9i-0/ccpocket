@@ -678,7 +678,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get guideLaunchdDescription =>
-      'If manually starting the Bridge Server is tedious, you can configure it to start automatically when your Mac boots.';
+      'If manually starting the Bridge Server is tedious, you can configure it to start automatically when your machine boots.';
 
   @override
   String get guideLaunchdCommand => 'Setup Command';
@@ -688,7 +688,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get guideLaunchdRecommendation =>
-      'We recommend verifying with manual startup first, then registering with launchd once stable.';
+      'We recommend verifying with manual startup first, then registering as a service once stable.';
+
+  @override
+  String get guideAutostartMacDescription =>
+      'Registers with launchd. Shell environment (nvm, Homebrew, etc.) is inherited automatically.';
+
+  @override
+  String get guideAutostartLinuxDescription =>
+      'Creates a systemd user service. Works with Raspberry Pi and other Linux hosts.';
 
   @override
   String get guideReadyTitle => 'All Set!';

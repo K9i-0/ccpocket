@@ -1337,7 +1337,7 @@ abstract class AppLocalizations {
   /// No description provided for @guideLaunchdDescription.
   ///
   /// In ja, this message translates to:
-  /// **'毎回手動で Bridge Server を起動するのが面倒な場合、Mac の起動時に自動で立ち上がるよう設定できます。'**
+  /// **'毎回手動で Bridge Server を起動するのが面倒な場合、マシンの起動時に自動で立ち上がるよう設定できます。'**
   String get guideLaunchdDescription;
 
   /// No description provided for @guideLaunchdCommand.
@@ -1355,8 +1355,20 @@ abstract class AppLocalizations {
   /// No description provided for @guideLaunchdRecommendation.
   ///
   /// In ja, this message translates to:
-  /// **'まずは手動起動で動作確認してから、安定したら launchd 登録がおすすめです。'**
+  /// **'まずは手動起動で動作確認してから、安定したらサービス登録がおすすめです。'**
   String get guideLaunchdRecommendation;
+
+  /// No description provided for @guideAutostartMacDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'launchd に登録。シェル環境（nvm、Homebrew 等）が自動で引き継がれます。'**
+  String get guideAutostartMacDescription;
+
+  /// No description provided for @guideAutostartLinuxDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'systemd ユーザーサービスを作成。Raspberry Pi 等の Linux ホストに対応。'**
+  String get guideAutostartLinuxDescription;
 
   /// No description provided for @guideReadyTitle.
   ///

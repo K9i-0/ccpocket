@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../l10n/app_localizations.dart';
 import 'guide_page.dart';
 
-/// Page 5: 常時起動 (launchd 登録)
-class GuidePageLaunchd extends StatelessWidget {
-  const GuidePageLaunchd({super.key});
+/// Page 5: Auto-start setup (launchd on macOS / systemd on Linux)
+class GuidePageAutostart extends StatelessWidget {
+  const GuidePageAutostart({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +62,34 @@ class GuidePageLaunchd extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
+          // Platform details
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _PlatformRow(
+                  icon: Icons.laptop_mac,
+                  label: 'macOS',
+                  description: l.guideAutostartMacDescription,
+                  cs: cs,
+                ),
+                const SizedBox(height: 8),
+                _PlatformRow(
+                  icon: Icons.terminal,
+                  label: 'Linux',
+                  description: l.guideAutostartLinuxDescription,
+                  cs: cs,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
           // Recommendation
           Container(
             width: double.infinity,
@@ -93,6 +121,45 @@ class GuidePageLaunchd extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PlatformRow extends StatelessWidget {
+  const _PlatformRow({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.cs,
+  });
+
+  final IconData icon;
+  final String label;
+  final String description;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: cs.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                TextSpan(text: description),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

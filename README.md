@@ -16,13 +16,13 @@ AI coding agents are getting autonomous enough to write entire features on their
 
 Decisions don't need a keyboard. They need a screen and a thumb.
 
-CC Pocket is built for this workflow: start a session from your phone, let your mac's Claude Code or Codex do the heavy lifting, and make decisions from wherever you are.
+CC Pocket is built for this workflow: start a session from your phone, let your machine's Claude Code or Codex do the heavy lifting, and make decisions from wherever you are.
 
 ## Who It's For
 
 CC Pocket is for people who already rely on coding agents and want an easier way to stay in the loop when they are away from the keyboard.
 
-- **Solo developers running long agent sessions** on a Mac mini, laptop, or dev box
+- **Solo developers running long agent sessions** on a Mac mini, Raspberry Pi, Linux server, or laptop
 - **Indie hackers and founders** who want to keep shipping while commuting, walking, or away from their desk
 - **AI-native engineers** juggling multiple sessions and frequent approval requests
 - **Self-hosters** who want their code to stay on their own machine instead of a hosted IDE
@@ -39,7 +39,7 @@ If your workflow is "start an agent, let it run, step in only when needed," CC P
 - **Track multiple sessions** with project grouping, search, and approval badges
 - **Get notified when action is needed** with push notifications for approvals and task completion
 - **Connect however you prefer** with saved machines, QR codes, mDNS discovery, or manual URLs
-- **Manage a remote Mac over SSH** for start, stop, and update flows when using launchd
+- **Manage a remote host over SSH** for start, stop, and update flows
 
 ## CC Pocket vs Remote Control
 
@@ -176,7 +176,7 @@ See the [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-co
 
 ## Ideal Use Cases
 
-- **An always-on Mac mini** running the agent while you monitor from your phone
+- **An always-on host** (Mac mini, Raspberry Pi, Linux server) running the agent while you monitor from your phone
 - **A lightweight review loop on the go** where the agent codes and you approve commands or answer questions as needed
 - **Parallel sessions across projects** with one mobile inbox for pending approvals
 - **Remote personal infrastructure** over Tailscale instead of exposing ports publicly
@@ -201,7 +201,7 @@ When SSH is enabled, CC Pocket can trigger these remote actions from the machine
 - `Stop Server`
 - `Update Bridge`
 
-This flow is intended for **macOS hosts using launchd**.
+This flow supports **macOS (launchd)** and **Linux (systemd)** hosts.
 
 ### Service Setup
 
@@ -230,7 +230,7 @@ On Linux, `setup` creates a systemd user service. It resolves the full path to `
 
 - **Bridge Server**: works anywhere Node.js and your CLI provider work
 - **Service setup**: macOS (launchd) and Linux (systemd)
-- **SSH start/stop/update from the app**: macOS host with `launchd` setup
+- **SSH start/stop/update from the app**: macOS (launchd) or Linux (systemd) host
 - **Window listing and screenshot capture**: macOS-only host feature
 - **Tailscale**: optional, but strongly recommended for remote access
 
@@ -280,7 +280,7 @@ cd apps/mobile && flutter pub get && cd ../..
 | `npm run bridge:build` | Build the Bridge Server |
 | `npm run dev` | Restart Bridge and launch the Flutter app |
 | `npm run dev -- <device-id>` | Same as above, with a specific device |
-| `npm run setup` | Register the Bridge Server as a launchd service |
+| `npm run setup` | Register the Bridge Server as a background service (launchd/systemd) |
 | `npm run test:bridge` | Run Bridge Server tests |
 | `cd apps/mobile && flutter test` | Run Flutter tests |
 | `cd apps/mobile && dart analyze` | Run Dart static analysis |

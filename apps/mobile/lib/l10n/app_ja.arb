@@ -303,10 +303,12 @@
   "guideTailscaleWebsiteHint": "詳しいセットアップ方法は公式サイトをご覧ください。",
 
   "guideLaunchdTitle": "常時起動の設定",
-  "guideLaunchdDescription": "毎回手動で Bridge Server を起動するのが面倒な場合、Mac の起動時に自動で立ち上がるよう設定できます。",
+  "guideLaunchdDescription": "毎回手動で Bridge Server を起動するのが面倒な場合、マシンの起動時に自動で立ち上がるよう設定できます。",
   "guideLaunchdCommand": "セットアップコマンド",
   "guideLaunchdCommandValue": "npx @ccpocket/bridge@latest setup",
-  "guideLaunchdRecommendation": "まずは手動起動で動作確認してから、安定したら launchd 登録がおすすめです。",
+  "guideLaunchdRecommendation": "まずは手動起動で動作確認してから、安定したらサービス登録がおすすめです。",
+  "guideAutostartMacDescription": "launchd に登録。シェル環境（nvm、Homebrew 等）が自動で引き継がれます。",
+  "guideAutostartLinuxDescription": "systemd ユーザーサービスを作成。Raspberry Pi 等の Linux ホストに対応。",
 
   "guideReadyTitle": "準備完了!",
   "guideReadyDescription": "Bridge Server を起動して、\nQR コードをスキャンするところから\n始めましょう。",

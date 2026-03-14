@@ -7,7 +7,7 @@ import '../../l10n/app_localizations.dart';
 import 'widgets/guide_page_about.dart';
 import 'widgets/guide_page_bridge_setup.dart';
 import 'widgets/guide_page_connection.dart';
-import 'widgets/guide_page_launchd.dart';
+import 'widgets/guide_page_autostart.dart';
 import 'widgets/guide_page_ready.dart';
 import 'widgets/guide_page_tailscale.dart';
 
@@ -69,7 +69,7 @@ class SetupGuideScreen extends HookWidget {
                 const GuidePageBridgeSetup(),
                 const GuidePageConnection(),
                 const GuidePageTailscale(),
-                const GuidePageLaunchd(),
+                const GuidePageAutostart(),
                 GuidePageReady(onGetStarted: close),
               ],
             ),

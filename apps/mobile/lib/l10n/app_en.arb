@@ -238,10 +238,12 @@
   "guideTailscaleWebsiteHint": "Visit the official site for detailed setup instructions.",
 
   "guideLaunchdTitle": "Auto-start Setup",
-  "guideLaunchdDescription": "If manually starting the Bridge Server is tedious, you can configure it to start automatically when your Mac boots.",
+  "guideLaunchdDescription": "If manually starting the Bridge Server is tedious, you can configure it to start automatically when your machine boots.",
   "guideLaunchdCommand": "Setup Command",
   "guideLaunchdCommandValue": "npx @ccpocket/bridge@latest setup",
-  "guideLaunchdRecommendation": "We recommend verifying with manual startup first, then registering with launchd once stable.",
+  "guideLaunchdRecommendation": "We recommend verifying with manual startup first, then registering as a service once stable.",
+  "guideAutostartMacDescription": "Registers with launchd. Shell environment (nvm, Homebrew, etc.) is inherited automatically.",
+  "guideAutostartLinuxDescription": "Creates a systemd user service. Works with Raspberry Pi and other Linux hosts.",
 
   "guideReadyTitle": "All Set!",
   "guideReadyDescription": "Start the Bridge Server and\nscan the QR code to\nget started.",
