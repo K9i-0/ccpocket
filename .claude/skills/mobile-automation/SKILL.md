@@ -1,21 +1,31 @@
 ---
 name: mobile-automation
-description: MCP (dart-mcp + Marionette) を使ったFlutterアプリのE2E自動化・UI検証ガイド
+description: MCP (dart-mcp + Marionette) を使ったFlutterアプリのE2E自動化・UI検証ガイド。シミュレーターでのUI動作確認、モックプレビュー検証、Bridge経由のE2Eテスト、スクリーンショット撮影など、アプリの動作検証が必要なときに使う。「動作確認して」「UIを検証して」「E2Eテスト」「シミュレーターで確認」「モックで確認」と言われたときや、UI変更後の検証フェーズで使用すること。
 ---
 
 # Mobile Automation
 
-dart-mcp と Marionette MCP を使ったFlutterアプリのUI検証・E2E自動化の包括ガイド。
+dart-mcp と Marionette MCP を使ったFlutterアプリのUI検証・E2E自動化ガイド。
+
+## デフォルト設定
+
+特別な指示がない限り、以下をデフォルトとして使う:
+
+- **デバイス**: iOSシミュレーター（`flutter devices` で確認し、iPhone Simulator を選択）
+- **Bridge ポート**: `8766`（テスト用。本番の8765と分離してテストできる）
+- **プロジェクトルート**: リポジトリルート（`git rev-parse --show-toplevel` で取得）
+- **アプリルート**: `<プロジェクトルート>/apps/mobile`
+
+ユーザーが実機やポート8765を指定した場合はそちらに従う。
 
 ## サブエージェント活用
 
-**`e2e-verifier` サブエージェント**を使ってE2E検証を委譲できる。
+E2E検証は **`e2e-verifier` サブエージェント** に委譲すると効率的。独立したコンテキストで検証するため、実装バイアスなく客観的に動作を確認できる。
 
 ```
-Task tool で e2e-verifier サブエージェントを起動:
+Agent tool で e2e-verifier サブエージェントを起動:
 
 subagent_type: e2e-verifier
-model: opus
 
 プロンプト:
 ---
@@ -24,7 +34,7 @@ model: opus
 ## 検証内容
 [検証したい項目を記述]
 
-## 接続情報（必要に応じて）
+## 接続情報
 - VM Service URI: [wsUri]
 - PID: [pid]
 
@@ -33,14 +43,72 @@ model: opus
 ```
 
 **使い分け:**
-- 単純なUI確認（要素存在チェック等）→ 直接MCP操作
-- 包括的なE2E検証 → `e2e-verifier` サブエージェントに委譲
+- 単純なUI確認（要素の存在チェック、1-2画面の確認）→ 直接MCP操作
+- 包括的なE2E検証（複数画面のフロー、回帰テスト）→ `e2e-verifier` サブエージェントに委譲
 
-## CLI vs MCP 判断基準
+## アプリ起動ワークフロー
+
+### Step 1: デバイス確認
+
+```bash
+flutter devices
+```
+
+出力からシミュレーターのデバイスIDを確認する（例: `1A2B3C4D-5E6F-...`）。
+
+### Step 2: アプリ起動
+
+```
+mcp__dart-mcp__launch_app
+  root: <アプリルートの絶対パス>
+  target: lib/main.dart
+  device: <シミュレーターのデバイスID>
+```
+
+返り値の **pid** を控える（以降の全ステップで必要）。
+
+### Step 3: 待機
+
+**5秒待機する。** Xcodeビルド + シミュレーターへのデプロイが完了するまで待つ必要がある。初回ビルド時は10秒程度かかることもある。
+
+### Step 4: VM Service URI 取得
+
+```
+mcp__dart-mcp__get_app_logs
+  pid: <Step 2のpid>
+```
+
+ログ出力から `app.debugPort` イベントを探し、**wsUri** を抽出する:
+```json
+"params": { "wsUri": "ws://127.0.0.1:XXXXX/YYYY=/ws" }
+```
+
+wsUri が見つからない場合はビルドがまだ完了していない。5秒待って再度 `get_app_logs` を呼ぶ。
+
+### Step 5: Marionette 接続
+
+```
+mcp__marionette__connect
+  uri: <wsUri>
+```
+
+Marionette MCP は自動接続しないため、この手動 `connect` が必須。省略するとその後のUI操作が全て失敗する。
+
+### Step 6: 接続確認
+
+```
+mcp__marionette__get_interactive_elements
+```
+
+UI要素の一覧が返れば接続成功。
+
+## CLI vs MCP の使い分け
 
 **原則: DTD/VM Service接続が必要な操作はMCP、それ以外はCLI**
 
-### MCP必須（CLIで代替不可）
+MCP が必要な操作はアプリのランタイムに接続して情報を取得・操作するもの（起動、停止、ホットリロード、UI操作、ログ取得など）。一方、ビルドツールや静的解析のようにアプリのランタイムに依存しない操作はCLIの方が速くて確実。
+
+### MCP 操作一覧
 
 | 操作 | ツール | MCP名 |
 |------|--------|-------|
@@ -57,87 +125,31 @@ model: opus
 | タップ | Marionette | `tap` |
 | テキスト入力 | Marionette | `enter_text` |
 | スクロール | Marionette | `scroll_to` |
-| アプリログ (Marionette) | Marionette | `get_logs` |
+| アプリログ | Marionette | `get_logs` |
 | スクリーンショット | Marionette | `take_screenshots` |
 
-### CLI推奨（MCPより効率的）
+### CLI 操作一覧
 
-| 操作 | CLI コマンド |
-|------|-------------|
+| 操作 | コマンド |
+|------|---------|
 | デバイス一覧 | `flutter devices` |
 | テスト実行 | `cd apps/mobile && flutter test` |
 | 静的解析 | `dart analyze apps/mobile` |
 | フォーマット | `dart format apps/mobile` |
 | 依存関係 | `cd apps/mobile && flutter pub get` |
 
-## アプリ起動ワークフロー
-
-### 1. デバイス確認
-
-```bash
-flutter devices
-```
-
-### 2. アプリ起動 (Dart MCP)
-
-```
-mcp__dart-mcp__launch_app
-  root: /Users/kotahayashi/Workspace/ccpocket/apps/mobile
-  target: lib/main.dart
-  device: <デバイスID>
-```
-
-返り値の **pid** を控える（クリーンアップ用）。
-
-### 3. 待機
-
-5秒待機（Xcode build + シミュレーターデプロイの完了待ち）。
-
-### 4. VM Service URI 取得
-
-```
-mcp__dart-mcp__get_app_logs
-  pid: <起動時のpid>
-```
-
-ログから `app.debugPort` イベントの **wsUri** を探す:
-```
-"wsUri":"ws://127.0.0.1:XXXXX/YYYY=/ws"
-```
-
-### 5. Marionette接続
-
-```
-mcp__marionette__connect
-  uri: <wsUri>
-```
-
-**重要:** Marionette MCPは自動接続しない。必ず手動で `connect` が必要。
-
-### 6. 接続確認
-
-```
-mcp__marionette__get_interactive_elements
-```
-
-要素一覧が返ればOK。
-
 ## ツール優先順位
 
-UI検証時は以下の優先順位で使う:
+UI検証時は以下の順序で使う。スクリーンショットはトークンを大量に消費するため、テキストベースの検証を優先する:
 
-1. **`get_interactive_elements`** — 最優先。タップ可能なボタン・入力欄等の一覧。常にこれを最初に呼ぶ
-2. **`get_logs`** — エラー確認。"ERROR", "Exception" でフィルタ
-3. **`tap`** / **`enter_text`** / **`scroll_to`** — UI操作
-4. **`take_screenshots`** — **最後の手段**。APIトークンを大量消費する
-
-### スクリーンショット制限
-
-- 1セッションで **最大3-5枚** まで
-- `get_interactive_elements` + `get_logs` で大半の検証は可能
-- レイアウト・ビジュアル確認が本当に必要な場面のみ使う
+1. **`get_interactive_elements`** — 最優先。画面上のタップ可能なボタン・入力欄の一覧を取得。画面遷移後は必ずこれを呼んで現在の状態を確認する
+2. **`get_logs`** — エラー確認。"ERROR", "Exception" でフィルタして問題がないか確認
+3. **`tap`** / **`enter_text`** / **`scroll_to`** — UI操作。key指定を優先し、textやcoordinatesは代替手段
+4. **`take_screenshots`** — 最後の手段。レイアウトやビジュアルの確認が本当に必要な場合のみ。1セッションで3-5枚を目安に
 
 ## Widget Keys 一覧
+
+各画面のインタラクティブ要素に付与されたValueKey。`tap` や `enter_text` では key 指定が最も確実。
 
 ### Session List Screen (ホーム画面)
 - `session_list` — セッション一覧ListView
@@ -197,16 +209,17 @@ UI検証時は以下の優先順位で使う:
 
 ## Mock UI テスト (Bridge不要)
 
-AppBarの「Mock Preview」ボタンから10種のモックシナリオを利用可能。
+Bridge Server なしでUIの見た目と挙動を確認できる。AppBarの「Mock Preview」ボタンから10種のモックシナリオにアクセスできる。
 
 ### ワークフロー
 
 ```
-1. get_interactive_elements (ホーム画面確認)
-2. tap key: "mock_preview_button"
-3. tap text: "<シナリオ名>"
-4. get_interactive_elements (チャットUI確認)
-5. get_logs (エラー確認)
+1. アプリ起動 (上記ワークフロー)
+2. get_interactive_elements → ホーム画面の要素確認
+3. tap key: "mock_preview_button" → モックギャラリーを開く
+4. tap text: "<シナリオ名>" → 目的のシナリオを選択
+5. get_interactive_elements → チャットUIの要素確認
+6. get_logs → エラーがないか確認
 ```
 
 ### モックシナリオ一覧
@@ -224,49 +237,81 @@ AppBarの「Mock Preview」ボタンから10種のモックシナリオを利用
 | 9 | Error | エラーメッセージ表示 |
 | 10 | Full Conversation | System → Assistant → Tool → Result 全体 |
 
-**おすすめクイックテスト:** Approval Flow, Streaming, Plan Mode（主要UIパターンをカバー）
+**クイックテスト推奨:** Approval Flow, Streaming, Plan Mode（主要UIパターンをカバー）
 
 ## E2E テスト (Bridge必要)
 
+Bridge Server を経由して実際のClaude Code / Codexセッションでの動作を検証する。
+
+### ワークフロー
+
+```bash
+# Step 1: テスト用 Bridge 起動（ポート8766、本番8765に影響なし）
+cd <プロジェクトルート> && BRIDGE_PORT=8766 npm run bridge &
+
+# Step 2: アプリ起動（上記「アプリ起動ワークフロー」に従う）
+
+# Step 3: サーバー接続
+#   get_interactive_elements で接続フォームを確認
+#   enter_text key: "server_url_field" text: "ws://localhost:8766"
+#   tap key: "connect_button"
+
+# Step 4: セッション作成
+#   tap key: "new_session_fab"
+#   dialog_project_path でパスを選択
+#   tap key: "dialog_start_button"
+
+# Step 5: メッセージ送信 & 検証
+#   enter_text key: "message_input" text: "<テスト用プロンプト>"
+#   tap key: "send_button"
+#   get_interactive_elements で応答UIを確認
+#   承認バーが表示されたら approve/reject の動作を検証
+
+# Step 6: クリーンアップ
+#   mcp__dart-mcp__stop_app (pid指定)
+#   lsof -ti :8766 | xargs kill
 ```
-1. Bridge起動: cd /Users/kotahayashi/Workspace/ccpocket && npm run bridge &
-2. アプリ起動 (上記ワークフロー)
-3. サーバー接続 → セッション作成 → メッセージ送信 → 承認フロー検証
-4. 終了時: stop_app + Bridge停止 (lsof -ti :8765 | xargs kill)
-```
+
+### Bridge接続時の注意
+
+- テスト用Bridge（8766）を使うことで本番Bridge（8765）に接続しているiPhoneアプリに影響を与えない
+- Bridgeが起動していない状態で接続しようとすると「Connection refused」になる。Bridgeの起動を先に確認すること
 
 ## トラブルシューティング
 
 ### "Connection refused" (Marionette接続失敗)
-- **原因:** アプリが完全に起動していない
-- **対策:** launch_app 後に5秒待ってからMarionette操作を開始
+- **原因:** アプリが完全に起動していない、またはwsUriが不正
+- **対策:** launch_app 後に5秒以上待ってから get_app_logs でwsUriを再取得。wsUriが取得できない場合はビルド中なのでさらに待つ
 
 ### "Widget not found" (タップ失敗)
-- **原因:** ウィジェット未描画 or キー名の誤り
+- **原因:** ウィジェットが未描画、キー名の誤り、または画面外にある
 - **対策:**
-  1. get_interactive_elements で存在確認
-  2. キー文字列のスペル確認（上記Widget Keys一覧参照）
-  3. scroll_to で画面外のウィジェットをスクロール
+  1. `get_interactive_elements` で現在表示中の要素を確認
+  2. 上記Widget Keys一覧でキー文字列のスペルを確認
+  3. `scroll_to` で画面外のウィジェットを表示させる
 
 ### アプリクラッシュ
 - **対策:**
-  1. get_logs でスタックトレース確認
-  2. stop_app → launch_app で再起動
+  1. `get_logs` でスタックトレースを確認
+  2. `stop_app` → `launch_app` で再起動
+  3. 再起動後は Step 3 (wsUri取得) からやり直す
 
-### Marionette MCP Tips
-- `tap`: `key` > `text` > `coordinates` の優先順位で指定
-- `enter_text`: key でテキストフィールドを指定する
-- `get_logs`: Marionette接続後のログのみ取得。起動時ログは `get_app_logs` (dart-mcp) で取得
-- `hot_reload`: const定義の変更やdependency更新には非対応 (hot_restart が必要)
+### Marionette Tips
+- `tap`: `key` > `text` > `coordinates` の優先順位で指定する。keyが最も安定
+- `enter_text`: key パラメータでテキストフィールドを指定する
+- `get_logs`: Marionette接続後のログのみ取得。起動時のログは `get_app_logs` (dart-mcp) で取得
+- `hot_reload`: UIの微調整に便利。ただしconst定義の変更やdependency更新には `hot_restart` が必要
 
 ### Dart MCP Tips
-- `launch_app`: root は絶対パス。返り値のPIDを保存
+- `launch_app`: root は絶対パスで指定。返り値のPIDは必ず保存する
 - `list_devices`: 起動中のデバイスのみ表示される
 - `stop_app`: launch_app で取得したPIDを渡す
 
 ## クリーンアップ
 
+検証完了後は必ずリソースを解放する:
+
 ```
-1. mcp__dart-mcp__stop_app (pid指定)
-2. Bridge実行中なら: lsof -ti :8765 | xargs kill
+1. mcp__dart-mcp__stop_app (pid指定) → アプリ停止
+2. Bridge実行中なら: lsof -ti :8766 | xargs kill → テスト用Bridge停止
 ```
