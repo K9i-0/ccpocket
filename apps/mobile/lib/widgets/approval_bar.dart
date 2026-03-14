@@ -64,40 +64,38 @@ class ApprovalBar extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ApprovalHeader(
-                appColors: appColors,
-                isPlanApproval: isPlanApproval,
-                toolName: toolName,
-                summary: summary,
-                onViewPlan: onViewPlan,
-              ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ApprovalHeader(
+              appColors: appColors,
+              isPlanApproval: isPlanApproval,
+              toolName: toolName,
+              summary: summary,
+              onViewPlan: onViewPlan,
+            ),
+            const SizedBox(height: 6),
+            if (isPlanApproval &&
+                planApprovalUiMode == PlanApprovalUiMode.claude) ...[
               const SizedBox(height: 6),
-              if (isPlanApproval &&
-                  planApprovalUiMode == PlanApprovalUiMode.claude) ...[
-                const SizedBox(height: 6),
-                _KeepPlanningCard(
-                  appColors: appColors,
-                  planFeedbackController: planFeedbackController,
-                  onReject: onReject,
-                ),
-                const SizedBox(height: 10),
-              ] else
-                const SizedBox(height: 6),
-              _ApprovalButtons(
-                isPlanApproval: isPlanApproval,
-                planApprovalUiMode: planApprovalUiMode,
-                onApprove: onApprove,
+              _KeepPlanningCard(
+                appColors: appColors,
+                planFeedbackController: planFeedbackController,
                 onReject: onReject,
-                onApproveAlways: onApproveAlways,
-                onApproveClearContext: onApproveClearContext,
               ),
-            ],
-          ),
+              const SizedBox(height: 10),
+            ] else
+              const SizedBox(height: 6),
+            _ApprovalButtons(
+              isPlanApproval: isPlanApproval,
+              planApprovalUiMode: planApprovalUiMode,
+              onApprove: onApprove,
+              onReject: onReject,
+              onApproveAlways: onApproveAlways,
+              onApproveClearContext: onApproveClearContext,
+            ),
+          ],
         ),
       ),
     );

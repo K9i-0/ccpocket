@@ -23,10 +23,24 @@ class _BottomOverlayLayoutState extends State<BottomOverlayLayout> {
   double _overlayHeight = 0;
 
   void _syncOverlayHeight() {
+    if (!mounted) return;
     final box = _overlayKey.currentContext?.findRenderObject() as RenderBox?;
     final nextHeight = box?.size.height ?? 0;
     if ((_overlayHeight - nextHeight).abs() <= 0.5) return;
     setState(() => _overlayHeight = nextHeight);
+  }
+
+  @override
+  void didUpdateWidget(covariant BottomOverlayLayout oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reset overlay height when overlay disappears
+    if (widget.overlay == null && oldWidget.overlay != null) {
+      _overlayHeight = 0;
+    }
+    // Schedule height sync when overlay appears or changes
+    if (widget.overlay != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _syncOverlayHeight());
+    }
   }
 
   @override

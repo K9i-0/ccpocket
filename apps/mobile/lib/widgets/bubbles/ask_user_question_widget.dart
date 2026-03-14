@@ -346,129 +346,127 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
       clipBehavior: Clip.hardEdge,
       child: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: appColors.askIcon.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.help_outline,
-                      size: 18,
-                      color: appColors.askIcon,
-                    ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: appColors.askIcon.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(width: 10),
+                  child: Icon(
+                    Icons.help_outline,
+                    size: 18,
+                    color: appColors.askIcon,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  l.claudeIsAsking,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: appColors.askIcon,
+                  ),
+                ),
+                const Spacer(),
+                if (_isMultiQuestion)
                   Text(
-                    l.claudeIsAsking,
+                    '${_currentPage + 1}/$totalPages',
                     style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: appColors.askIcon,
+                      fontSize: 11,
+                      color: appColors.subtleText,
                     ),
                   ),
-                  const Spacer(),
-                  if (_isMultiQuestion)
-                    Text(
-                      '${_currentPage + 1}/$totalPages',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: appColors.subtleText,
-                      ),
-                    ),
-                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_isMultiQuestion) ...[
+              LinearProgressIndicator(
+                value: (_currentPage + 1) / totalPages,
+                minHeight: 2,
+                backgroundColor: appColors.askIcon.withValues(alpha: 0.1),
+                valueColor: AlwaysStoppedAnimation<Color>(appColors.askIcon),
               ),
-              const SizedBox(height: 8),
-              if (_isMultiQuestion) ...[
-                LinearProgressIndicator(
-                  value: (_currentPage + 1) / totalPages,
-                  minHeight: 2,
-                  backgroundColor: appColors.askIcon.withValues(alpha: 0.1),
-                  valueColor: AlwaysStoppedAnimation<Color>(appColors.askIcon),
+              const SizedBox(height: 10),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: (availableHeight - keyboardHeight) * 0.42,
                 ),
-                const SizedBox(height: 10),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: (availableHeight - keyboardHeight) * 0.42,
-                  ),
-                  child: ExpandablePageView.builder(
-                    controller: _pageController,
-                    itemCount: totalPages,
-                    onPageChanged: _onPageChanged,
-                    itemBuilder: (context, index) {
-                      if (index == questions.length) {
-                        return _AskSummaryPage(
-                          questions: questions,
-                          singleAnswers: _singleAnswers,
-                          onResetAll: _resetAll,
-                          onSubmitAll: _sendAllAnswers,
-                          onGoToPage: _goToPage,
-                        );
-                      }
-                      return _AskQuestionLayout(
-                        question: questions[index] as Map<String, dynamic>,
-                        questionIndex: index,
-                        isMultiQuestion: true,
+                child: ExpandablePageView.builder(
+                  controller: _pageController,
+                  itemCount: totalPages,
+                  onPageChanged: _onPageChanged,
+                  itemBuilder: (context, index) {
+                    if (index == questions.length) {
+                      return _AskSummaryPage(
+                        questions: questions,
                         singleAnswers: _singleAnswers,
-                        multiAnswers: _multiAnswers,
-                        customInputs: _customInputs,
-                        getOrCreateController: _getOrCreateController,
-                        onAnswerSingle: _onAnswerSingle,
-                        onToggleMultiSelectLabel: _toggleMultiSelectLabel,
-                        onConfirmMultiSelect: _confirmMultiSelect,
-                        onSubmitCustomText: _submitCustomText,
-                        onCustomTextChanged: _onCustomTextChanged,
-                        onShowCustomInput: _showCustomInput,
+                        onResetAll: _resetAll,
+                        onSubmitAll: _sendAllAnswers,
+                        onGoToPage: _goToPage,
                       );
-                    },
-                  ),
+                    }
+                    return _AskQuestionLayout(
+                      question: questions[index] as Map<String, dynamic>,
+                      questionIndex: index,
+                      isMultiQuestion: true,
+                      singleAnswers: _singleAnswers,
+                      multiAnswers: _multiAnswers,
+                      customInputs: _customInputs,
+                      getOrCreateController: _getOrCreateController,
+                      onAnswerSingle: _onAnswerSingle,
+                      onToggleMultiSelectLabel: _toggleMultiSelectLabel,
+                      onConfirmMultiSelect: _confirmMultiSelect,
+                      onSubmitCustomText: _submitCustomText,
+                      onCustomTextChanged: _onCustomTextChanged,
+                      onShowCustomInput: _showCustomInput,
+                    );
+                  },
                 ),
-              ] else ...[
-                _AskQuestionLayout(
-                  question: questions.first as Map<String, dynamic>,
-                  questionIndex: 0,
-                  isMultiQuestion: false,
-                  singleAnswers: _singleAnswers,
-                  multiAnswers: _multiAnswers,
-                  customInputs: _customInputs,
-                  getOrCreateController: _getOrCreateController,
-                  onAnswerSingle: _onAnswerSingle,
-                  onToggleMultiSelectLabel: _toggleMultiSelectLabel,
-                  onConfirmMultiSelect: _confirmMultiSelect,
-                  onSubmitCustomText: _submitCustomText,
-                  onCustomTextChanged: _onCustomTextChanged,
-                  onShowCustomInput: _showCustomInput,
-                  alwaysShowTextInput: !_singleQuestionIsMultiSelect,
-                ),
-              ],
-              if (_singleQuestionIsMultiSelect) ...[
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    key: const ValueKey('ask_submit_multi_single_button'),
-                    onPressed: _allQuestionsAnswered ? _sendAllAnswers : null,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    child: Text(
-                      _allQuestionsAnswered
-                          ? l.submitWithCount(_multiAnswers[0]?.length ?? 0)
-                          : l.selectOptionsToSubmit,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                ),
-              ],
+              ),
+            ] else ...[
+              _AskQuestionLayout(
+                question: questions.first as Map<String, dynamic>,
+                questionIndex: 0,
+                isMultiQuestion: false,
+                singleAnswers: _singleAnswers,
+                multiAnswers: _multiAnswers,
+                customInputs: _customInputs,
+                getOrCreateController: _getOrCreateController,
+                onAnswerSingle: _onAnswerSingle,
+                onToggleMultiSelectLabel: _toggleMultiSelectLabel,
+                onConfirmMultiSelect: _confirmMultiSelect,
+                onSubmitCustomText: _submitCustomText,
+                onCustomTextChanged: _onCustomTextChanged,
+                onShowCustomInput: _showCustomInput,
+                alwaysShowTextInput: !_singleQuestionIsMultiSelect,
+              ),
             ],
-          ),
+            if (_singleQuestionIsMultiSelect) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  key: const ValueKey('ask_submit_multi_single_button'),
+                  onPressed: _allQuestionsAnswered ? _sendAllAnswers : null,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  child: Text(
+                    _allQuestionsAnswered
+                        ? l.submitWithCount(_multiAnswers[0]?.length ?? 0)
+                        : l.selectOptionsToSubmit,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
