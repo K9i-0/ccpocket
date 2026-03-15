@@ -1492,6 +1492,30 @@ class RecentSession {
     if (firstPrompt.isNotEmpty) return firstPrompt;
     return '(no description)';
   }
+
+  /// Create a copy with an updated name. Use [clearName] to set name to null.
+  RecentSession copyWithName({String? name, bool clearName = false}) {
+    return RecentSession(
+      sessionId: sessionId,
+      provider: provider,
+      name: clearName ? null : (name ?? this.name),
+      summary: summary,
+      firstPrompt: firstPrompt,
+      lastPrompt: lastPrompt,
+      created: created,
+      modified: modified,
+      gitBranch: gitBranch,
+      projectPath: projectPath,
+      resumeCwd: resumeCwd,
+      isSidechain: isSidechain,
+      codexApprovalPolicy: codexApprovalPolicy,
+      codexSandboxMode: codexSandboxMode,
+      codexModel: codexModel,
+      codexModelReasoningEffort: codexModelReasoningEffort,
+      codexNetworkAccessEnabled: codexNetworkAccessEnabled,
+      codexWebSearchMode: codexWebSearchMode,
+    );
+  }
 }
 
 // ---- Session info (for multi-session) ----

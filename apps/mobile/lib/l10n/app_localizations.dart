@@ -2221,6 +2221,24 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'閉じる'**
   String get showLess;
+
+  /// No description provided for @authHelpTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'認証トラブルシューティング'**
+  String get authHelpTitle;
+
+  /// No description provided for @authHelpFetchError.
+  ///
+  /// In ja, this message translates to:
+  /// **'ヘルプガイドの取得に失敗しました'**
+  String get authHelpFetchError;
+
+  /// No description provided for @authHelpButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'ヘルプ'**
+  String get authHelpButton;
 }
 
 class _AppLocalizationsDelegate

@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
@@ -153,15 +154,24 @@ class ErrorBubble extends StatelessWidget {
         ],
         if (_isClaudeAuthError(message.errorCode)) ...[
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                context.router.navigate(const SettingsRoute());
-              },
-              icon: const Icon(Icons.settings_outlined, size: 16),
-              label: const Text('Open Settings'),
-            ),
+          Wrap(
+            spacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () {
+                  context.router.navigate(const SettingsRoute());
+                },
+                icon: const Icon(Icons.settings_outlined, size: 16),
+                label: const Text('Open Settings'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  context.router.navigate(const AuthHelpRoute());
+                },
+                icon: const Icon(Icons.help_outline, size: 16),
+                label: Text(AppLocalizations.of(context).authHelpButton),
+              ),
+            ],
           ),
         ],
       ],

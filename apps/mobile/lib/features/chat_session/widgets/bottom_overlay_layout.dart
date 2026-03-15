@@ -64,35 +64,37 @@ class _BottomOverlayLayoutState extends State<BottomOverlayLayout> {
             if (widget.overlay != null)
               Align(
                 alignment: Alignment.bottomCenter,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onVerticalDragStart: (_) => FocusScope.of(context).unfocus(),
-                  child: NotificationListener<SizeChangedLayoutNotification>(
-                    onNotification: (_) {
-                      WidgetsBinding.instance.addPostFrameCallback(
-                        (_) => _syncOverlayHeight(),
-                      );
-                      return false;
-                    },
-                    child: SizeChangedLayoutNotifier(
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: keyboardInset),
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: visibleHeight,
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: ClipRect(
-                              child: ConstrainedBox(
-                                key: _overlayKey,
-                                constraints: BoxConstraints(
-                                  maxHeight: visibleHeight,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: keyboardInset),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: visibleHeight,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onVerticalDragStart: (_) =>
+                            FocusScope.of(context).unfocus(),
+                        child:
+                            NotificationListener<SizeChangedLayoutNotification>(
+                              onNotification: (_) {
+                                WidgetsBinding.instance.addPostFrameCallback(
+                                  (_) => _syncOverlayHeight(),
+                                );
+                                return false;
+                              },
+                              child: SizeChangedLayoutNotifier(
+                                child: ClipRect(
+                                  child: ConstrainedBox(
+                                    key: _overlayKey,
+                                    constraints: BoxConstraints(
+                                      maxHeight: visibleHeight,
+                                    ),
+                                    child: widget.overlay,
+                                  ),
                                 ),
-                                child: widget.overlay,
                               ),
                             ),
-                          ),
-                        ),
                       ),
                     ),
                   ),

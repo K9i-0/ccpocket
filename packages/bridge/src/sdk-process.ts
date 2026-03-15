@@ -11,8 +11,6 @@ import {
   type PermissionMode,
 } from "./parser.js";
 import {
-  getClaudeOAuthCredentials,
-  isTokenExpired,
   getValidClaudeAccessToken,
   validateClaudeAccessToken,
 } from "./usage.js";
@@ -183,35 +181,26 @@ async function checkClaudeAuth(): Promise<AuthCheckResult> {
     return { authenticated: true };
   }
   try {
-    const creds = await getClaudeOAuthCredentials();
-    if (!creds.accessToken) {
-      return buildAuthError("no_access_token");
-    }
-    // If token is not expired, we're good
-    if (!isTokenExpired(creds.expiresAt)) {
-      const validation = await validateClaudeAccessToken();
-      if (!validation.ok) {
-        return buildAuthError("general", validation.detail);
-      }
-      return { authenticated: true };
-    }
-    // Token is expired — attempt refresh before starting the SDK
-    console.log("[sdk-process] Access token expired, attempting refresh...");
-    if (!creds.refreshToken) {
-      return buildAuthError("token_expired");
-    }
+    // getValidClaudeAccessToken() handles expiry detection + refresh + save
+    // in a single serialised flow (with mutex to prevent concurrent refreshes).
     await getValidClaudeAccessToken();
+
+    // Probe the upstream API to catch revoked tokens that haven't expired yet.
+    // validateClaudeAccessToken() re-reads the (now-fresh) credentials from
+    // disk and will attempt one more refresh if the probe returns 401/403.
     const validation = await validateClaudeAccessToken();
     if (!validation.ok) {
       return buildAuthError("general", validation.detail);
     }
-    console.log("[sdk-process] Access token refreshed successfully");
     return { authenticated: true };
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     // Distinguish between missing credentials and refresh failure
     if (detail.includes("not found")) {
       return buildAuthError("no_credentials");
+    }
+    if (detail.includes("refresh token") || detail.includes("No OAuth")) {
+      return buildAuthError("token_expired");
     }
     return buildAuthError("general", detail);
   }

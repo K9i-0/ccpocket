@@ -714,14 +714,19 @@ class _SessionListScreenState extends State<SessionListScreen>
         currentName: session.name,
       );
       if (newName == null || !mounted) return;
+      final effectiveName = newName.isEmpty ? null : newName;
+      // Optimistically update the local state for instant UI feedback
+      context
+          .read<SessionListCubit>()
+          .updateSessionName(session.sessionId, effectiveName);
       context.read<BridgeService>().renameSession(
         sessionId: session.sessionId,
-        name: newName.isEmpty ? null : newName,
+        name: effectiveName,
         provider: session.provider,
         providerSessionId: session.sessionId,
         projectPath: session.projectPath,
       );
-      // Refresh recent sessions to show updated name
+      // Also refresh from server to confirm persistence
       context.read<BridgeService>().requestRecentSessions();
       return;
     }

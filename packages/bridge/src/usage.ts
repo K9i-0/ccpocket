@@ -60,6 +60,10 @@ const CLAUDE_OAUTH_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 const CLAUDE_OAUTH_TOKEN_URL = "https://platform.claude.com/v1/oauth/token";
 const TOKEN_EXPIRY_SKEW_MS = 60_000;
 
+// Mutex to prevent concurrent token refreshes from racing and invalidating
+// each other's refresh tokens (OAuth servers may rotate refresh tokens).
+let _refreshPromise: Promise<RefreshedClaudeToken> | null = null;
+
 interface RefreshedClaudeToken {
   accessToken: string;
   refreshToken?: string;
@@ -148,7 +152,7 @@ async function saveClaudeOAuthCredentials(creds: ClaudeOAuthCredentials): Promis
   await writeFile(credPath, JSON.stringify(merged), { encoding: "utf-8", mode: 0o600 });
 }
 
-async function refreshClaudeAccessToken(refreshToken: string): Promise<RefreshedClaudeToken> {
+async function refreshClaudeAccessTokenRaw(refreshToken: string): Promise<RefreshedClaudeToken> {
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: refreshToken,
@@ -183,6 +187,22 @@ async function refreshClaudeAccessToken(refreshToken: string): Promise<Refreshed
     refreshToken: data.refresh_token,
     expiresAt,
   };
+}
+
+/**
+ * Serialised wrapper around refreshClaudeAccessTokenRaw.
+ * If a refresh is already in-flight, callers share the same Promise so
+ * only ONE refresh request hits the OAuth server.  This prevents
+ * concurrent callers from consuming a single-use refresh token twice.
+ */
+async function refreshClaudeAccessToken(refreshToken: string): Promise<RefreshedClaudeToken> {
+  if (_refreshPromise) {
+    return _refreshPromise;
+  }
+  _refreshPromise = refreshClaudeAccessTokenRaw(refreshToken).finally(() => {
+    _refreshPromise = null;
+  });
+  return _refreshPromise;
 }
 
 export async function getValidClaudeAccessToken(): Promise<{ accessToken: string; refreshToken?: string }> {
@@ -377,6 +397,17 @@ export async function fetchClaudeUsage(): Promise<UsageInfo> {
     // In both cases a fresh token resolves the issue.
     if ((res.status === 401 || res.status === 429) && auth.refreshToken) {
       const refreshed = await refreshClaudeAccessToken(auth.refreshToken);
+      // Persist the refreshed token so subsequent callers (and the SDK)
+      // pick up the new access & refresh tokens.
+      try {
+        await saveClaudeOAuthCredentials({
+          accessToken: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken ?? auth.refreshToken,
+          expiresAt: refreshed.expiresAt,
+        });
+      } catch {
+        // Best-effort save — continue with in-memory token.
+      }
       token = refreshed.accessToken;
       res = await fetch("https://api.anthropic.com/api/oauth/usage", {
         headers: {

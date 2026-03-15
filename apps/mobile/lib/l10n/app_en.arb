@@ -454,5 +454,9 @@
   "tooltipClearDiff": "Clear diff selection",
 
   "showMore": "Show more",
-  "showLess": "Show less"
+  "showLess": "Show less",
+
+  "authHelpTitle": "Auth Troubleshooting",
+  "authHelpFetchError": "Failed to load help guide",
+  "authHelpButton": "Help"
 }

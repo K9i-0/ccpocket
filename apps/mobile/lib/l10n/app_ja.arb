@@ -529,5 +529,9 @@
   "tooltipClearDiff": "Diff選択を解除",
 
   "showMore": "もっと見る",
-  "showLess": "閉じる"
+  "showLess": "閉じる",
+
+  "authHelpTitle": "認証トラブルシューティング",
+  "authHelpFetchError": "ヘルプガイドの取得に失敗しました",
+  "authHelpButton": "ヘルプ"
 }

@@ -1155,4 +1155,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get showLess => 'Show less';
+
+  @override
+  String get authHelpTitle => 'Auth Troubleshooting';
+
+  @override
+  String get authHelpFetchError => 'Failed to load help guide';
+
+  @override
+  String get authHelpButton => 'Help';
 }

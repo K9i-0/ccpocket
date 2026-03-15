@@ -156,6 +156,19 @@ class SessionListCubit extends Cubit<SessionListState> {
     );
   }
 
+  /// Optimistically update a session's name in the local state.
+  void updateSessionName(String sessionId, String? name) {
+    final updated = state.sessions.map((s) {
+      if (s.sessionId == sessionId) {
+        return name == null
+            ? s.copyWithName(clearName: true)
+            : s.copyWithName(name: name);
+      }
+      return s;
+    }).toList();
+    emit(state.copyWith(sessions: updated));
+  }
+
   // ---- Private helpers ----
 
   /// Send a re-fetch request with all current filters applied.

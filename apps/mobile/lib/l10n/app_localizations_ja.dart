@@ -1141,4 +1141,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get showLess => '閉じる';
+
+  @override
+  String get authHelpTitle => '認証トラブルシューティング';
+
+  @override
+  String get authHelpFetchError => 'ヘルプガイドの取得に失敗しました';
+
+  @override
+  String get authHelpButton => 'ヘルプ';
 }

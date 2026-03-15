@@ -62,6 +62,7 @@ final List<MockScenario> mockScenarios = [
   _planMode,
   _subagentSummary,
   _errorScenario,
+  _authErrorScenario,
   _fullConversation,
   // Chat session scenarios — Codex
   _codexPlanApproval,
@@ -1873,6 +1874,35 @@ final _errorScenario = MockScenario(
     ),
     MockStep(
       delay: const Duration(milliseconds: 2000),
+      message: const StatusMessage(status: ProcessStatus.idle),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 7b. Auth Error (structured error with Help button)
+// ---------------------------------------------------------------------------
+final _authErrorScenario = MockScenario(
+  name: 'Auth Error',
+  icon: Icons.lock_outline,
+  description: 'Authentication error with help & settings buttons',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 800),
+      message: const ErrorMessage(
+        message:
+            'Claude Code authentication failed\n\n'
+            'OAuth token refresh failed: invalid_grant\n\n'
+            'Run "claude auth login" on the Bridge machine to re-authenticate.',
+        errorCode: 'auth_login_required',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1000),
       message: const StatusMessage(status: ProcessStatus.idle),
     ),
   ],
