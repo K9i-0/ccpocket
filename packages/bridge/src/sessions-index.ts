@@ -238,6 +238,8 @@ const RE_TIMESTAMP = /"timestamp"\s*:\s*"([^"]+)"/;
 const RE_GIT_BRANCH = /"gitBranch"\s*:\s*"([^"]+)"/;
 const RE_CWD = /"cwd"\s*:\s*"([^"]+)"/;
 const RE_IS_SIDECHAIN = /"isSidechain"\s*:\s*true/;
+const RE_TYPE_CUSTOM_TITLE = /"type"\s*:\s*"custom-title"/;
+const RE_CUSTOM_TITLE = /"customTitle"\s*:\s*"([^"]+)"/;
 
 /**
  * Detect system-injected messages that should be skipped when determining
@@ -287,6 +289,7 @@ function parseFromChunks(
   let modified = "";
   let gitBranch = "";
   let projectPath = "";
+  let customTitle = "";
   let isSidechain = false;
   let hasAnyMessage = false;
   let headFoundFirstPrompt = false;
@@ -297,6 +300,13 @@ function parseFromChunks(
   const headLines = head.split("\n");
   for (const line of headLines) {
     if (!line.trim()) continue;
+
+    // Extract custom-title (typically the first line in the JSONL)
+    if (!customTitle && RE_TYPE_CUSTOM_TITLE.test(line)) {
+      const ctMatch = line.match(RE_CUSTOM_TITLE);
+      if (ctMatch) customTitle = ctMatch[1];
+      continue;
+    }
 
     const isUser = RE_TYPE_USER.test(line);
     const isAssistant = !isUser && RE_TYPE_ASSISTANT.test(line);
@@ -425,6 +435,7 @@ function parseFromChunks(
       provider: "claude",
       firstPrompt,
       ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
+      ...(customTitle ? { name: customTitle } : {}),
       created,
       modified,
       gitBranch,
