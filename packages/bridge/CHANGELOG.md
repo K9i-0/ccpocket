@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.21.0] - 2026-03-15
+
+### Added
+- Auth help screen and improved auth error UX
+
+### Fixed
+- Restore claude sessions with original cwd
+
 ## [1.20.2] - 2026-03-15
 
 ### Fixed
