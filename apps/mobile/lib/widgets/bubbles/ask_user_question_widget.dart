@@ -352,36 +352,41 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: appColors.askIcon.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+            GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(),
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: appColors.askIcon.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.help_outline,
+                      size: 18,
+                      color: appColors.askIcon,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.help_outline,
-                    size: 18,
-                    color: appColors.askIcon,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  l.claudeIsAsking,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    color: appColors.askIcon,
-                  ),
-                ),
-                const Spacer(),
-                if (_isMultiQuestion)
+                  const SizedBox(width: 10),
                   Text(
-                    '${_currentPage + 1}/$totalPages',
-                    style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                    l.claudeIsAsking,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: appColors.askIcon,
+                    ),
                   ),
-              ],
+                  const Spacer(),
+                  if (_isMultiQuestion)
+                    Text(
+                      '${_currentPage + 1}/$totalPages',
+                      style:
+                          TextStyle(fontSize: 11, color: appColors.subtleText),
+                    ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
             if (_isMultiQuestion) ...[

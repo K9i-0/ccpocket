@@ -637,11 +637,20 @@ class _CodexChatBody extends HookWidget {
                             askInput == null &&
                             pendingToolUseId == null
                         ? null
-                        : Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (askToolUseId case final askId?
-                                  when askInput != null)
+                        : NotificationListener<ScrollNotification>(
+                            onNotification: (notification) {
+                              if (notification is UserScrollNotification) {
+                                FocusScope.of(context).unfocus();
+                              }
+                              return false;
+                            },
+                            child: SingleChildScrollView(
+                              reverse: true,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (askToolUseId case final askId?
+                                      when askInput != null)
                                 if (isMcpApprovalRequestUserInput(askInput))
                                   ApprovalBar(
                                     key: ValueKey('approval_ask_$askId'),
@@ -711,8 +720,10 @@ class _CodexChatBody extends HookWidget {
                                         }
                                       : null,
                                 ),
-                            ],
+                              ],
+                            ),
                           ),
+                        ),
                     topOverlay: const Positioned(
                       top: 0,
                       left: 0,

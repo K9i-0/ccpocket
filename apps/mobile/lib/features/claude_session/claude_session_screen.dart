@@ -664,9 +664,16 @@ class _ChatScreenBody extends HookWidget {
                             askInput == null &&
                             pendingToolUseId == null
                         ? null
-                        : SingleChildScrollView(
-                            reverse: true,
-                            child: Column(
+                        : NotificationListener<ScrollNotification>(
+                            onNotification: (notification) {
+                              if (notification is UserScrollNotification) {
+                                FocusScope.of(context).unfocus();
+                              }
+                              return false;
+                            },
+                            child: SingleChildScrollView(
+                              reverse: true,
+                              child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (askToolUseId != null && askInput != null)
@@ -715,6 +722,7 @@ class _ChatScreenBody extends HookWidget {
                               ],
                             ),
                           ),
+                        ),
                     topOverlay: const Positioned(
                       top: 0,
                       left: 0,
