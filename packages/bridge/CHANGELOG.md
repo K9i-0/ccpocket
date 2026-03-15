@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.20.1] - 2026-03-15
+
+### Fixed
+- `ccpocket-bridge setup` が生成する launchd plist で `RunAtLoad` / `KeepAlive` が `false` になっていた問題を修正 (#13)
+
 ## [1.20.0] - 2026-03-14
 
 ### Added
