@@ -320,6 +320,96 @@ describe("scanJsonlDir", () => {
     expect(result[0].isSidechain).toBe(true);
   });
 
+  it("extracts projectPath via streaming fallback when first message exceeds HEAD_BYTES", async () => {
+    // Simulate the bug: a user message with large base64 image data pushes
+    // the cwd field beyond the 16KB HEAD_BYTES window of the fast parser.
+    const largePadding = "x".repeat(20000); // > 16KB
+    const lines = [
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", data: largePadding },
+            },
+            { type: "text", text: "analyze this image" },
+          ],
+        },
+        cwd: "/Users/test/big-image-project",
+        gitBranch: "feature/images",
+        sessionId: "large-msg-session",
+        timestamp: "2026-03-01T00:00:00.000Z",
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "I see the image." }],
+        },
+        sessionId: "large-msg-session",
+        timestamp: "2026-03-01T00:00:01.000Z",
+      }),
+    ];
+    writeFileSync(
+      join(testDir, "large-msg-session.jsonl"),
+      lines.join("\n"),
+    );
+
+    const result = await scanJsonlDir(testDir);
+    expect(result).toHaveLength(1);
+
+    const entry = result[0];
+    expect(entry.sessionId).toBe("large-msg-session");
+    // The critical assertion: projectPath must be extracted even when
+    // the cwd field is beyond the fast-read HEAD_BYTES window.
+    expect(entry.projectPath).toBe("/Users/test/big-image-project");
+    expect(entry.gitBranch).toBe("feature/images");
+    expect(entry.firstPrompt).toBe("analyze this image");
+  });
+
+  it("prefers the original cwd over later cwd values when first line exceeds HEAD_BYTES", async () => {
+    const largePadding = "x".repeat(20000); // > 16KB
+    const lines = [
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", data: largePadding } },
+            { type: "text", text: "restore this session correctly" },
+          ],
+        },
+        cwd: "/Users/test/original-project",
+        gitBranch: "main",
+        sessionId: "cwd-drift-session",
+        timestamp: "2026-03-01T00:00:00.000Z",
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Working..." }],
+        },
+        cwd: "/Users/test/later-project/subdir",
+        gitBranch: "feature/drift",
+        sessionId: "cwd-drift-session",
+        timestamp: "2026-03-01T00:00:01.000Z",
+      }),
+    ];
+    writeFileSync(
+      join(testDir, "cwd-drift-session.jsonl"),
+      lines.join("\n"),
+    );
+
+    const result = await scanJsonlDir(testDir);
+    expect(result).toHaveLength(1);
+    expect(result[0].projectPath).toBe("/Users/test/original-project");
+    expect(result[0].gitBranch).toBe("main");
+    expect(result[0].firstPrompt).toBe("restore this session correctly");
+  });
+
   it("skips jsonl files when sessionId is excluded", async () => {
     writeFileSync(
       join(testDir, "included.jsonl"),
@@ -957,5 +1047,73 @@ describe("claude namedOnly optimization", () => {
     });
 
     expect(result.sessions).toEqual([]);
+  });
+
+  it("repairs indexed Claude entries with missing projectPath from JSONL", async () => {
+    const projectDir = join(
+      tempHome,
+      ".claude",
+      "projects",
+      "-Users-test-big-image-project",
+    );
+    mkdirSync(projectDir, { recursive: true });
+
+    const sessionId = "indexed-missing-project-path";
+    const largeBase64 = "A".repeat(20 * 1024);
+    writeFileSync(
+      join(projectDir, `${sessionId}.jsonl`),
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [
+            { type: "text", text: "Please inspect this screenshot." },
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: "image/png",
+                data: largeBase64,
+              },
+            },
+          ],
+        },
+        cwd: "/Users/test/big-image-project",
+        gitBranch: "main",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+    writeFileSync(
+      join(projectDir, "sessions-index.json"),
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            sessionId,
+            fullPath: join(projectDir, `${sessionId}.jsonl`),
+            fileMtime: Date.now(),
+            firstPrompt: "Please inspect this screenshot.",
+            messageCount: 1,
+            created: "2026-01-01T00:00:00.000Z",
+            modified: "2026-01-01T00:00:00.000Z",
+            gitBranch: "",
+            projectPath: "",
+            isSidechain: false,
+          },
+        ],
+      }),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      projectPath: "/Users/test/big-image-project",
+      limit: 200,
+    });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0].sessionId).toBe(sessionId);
+    expect(result.sessions[0].projectPath).toBe("/Users/test/big-image-project");
+    expect(result.sessions[0].gitBranch).toBe("main");
+    expect(result.sessions[0].firstPrompt).toBe("Please inspect this screenshot.");
   });
 });

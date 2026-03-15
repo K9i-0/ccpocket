@@ -519,7 +519,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   }
 
   private startSdkQuery(projectPath: string, options?: StartOptions): void {
-    console.log(`[sdk-process] Starting SDK query (cwd: ${projectPath}, mode: ${options?.permissionMode ?? "default"})`);
+    console.log(`[sdk-process] Starting SDK query (cwd: ${projectPath}, mode: ${options?.permissionMode ?? "default"}${options?.sessionId ? `, resume: ${options.sessionId}` : ""}${options?.continueMode ? ", continue: true" : ""})`);
 
     // In -p mode with --input-format stream-json, Claude CLI won't emit
     // system/init until the first user input. Set a fallback timeout to
@@ -566,6 +566,13 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
           : options?.sandboxEnabled === false
             ? { sandbox: { enabled: false } }
             : {}),
+        stderr: (data: string) => {
+          // Capture CLI stderr for resume failure diagnostics
+          const trimmed = data.trim();
+          if (trimmed) {
+            console.error(`[sdk-process:stderr] ${trimmed}`);
+          }
+        },
       },
     });
 

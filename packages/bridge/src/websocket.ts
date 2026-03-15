@@ -1209,6 +1209,7 @@ export class BridgeWebSocketServer {
       }
 
       case "resume_session": {
+        console.log(`[ws] resume_session: sessionId=${msg.sessionId} projectPath=${msg.projectPath} provider=${msg.provider ?? "claude"}`);
         if (!this.isPathAllowed(msg.projectPath)) {
           this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
           break;

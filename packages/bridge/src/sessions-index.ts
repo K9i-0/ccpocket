@@ -269,11 +269,18 @@ function extractUserPromptText(entry: Record<string, unknown>): string {
  * Parse head and optional tail text chunks to build a SessionIndexEntry.
  * Uses regex for most fields, JSON.parse only for first/last user lines.
  */
+interface ParsedClaudeChunks {
+  entry: SessionIndexEntry | null;
+  headFoundFirstPrompt: boolean;
+  headFoundProjectPath: boolean;
+  headFoundGitBranch: boolean;
+}
+
 function parseFromChunks(
   sessionId: string,
   head: string,
   tail: string | null,
-): SessionIndexEntry | null {
+): ParsedClaudeChunks {
   let firstPrompt = "";
   let lastPrompt = "";
   let created = "";
@@ -282,6 +289,9 @@ function parseFromChunks(
   let projectPath = "";
   let isSidechain = false;
   let hasAnyMessage = false;
+  let headFoundFirstPrompt = false;
+  let headFoundProjectPath = false;
+  let headFoundGitBranch = false;
 
   // --- Scan head lines ---
   const headLines = head.split("\n");
@@ -301,12 +311,18 @@ function parseFromChunks(
 
     if (!gitBranch) {
       const gbMatch = line.match(RE_GIT_BRANCH);
-      if (gbMatch) gitBranch = gbMatch[1];
+      if (gbMatch) {
+        gitBranch = gbMatch[1];
+        headFoundGitBranch = true;
+      }
     }
 
     if (!projectPath) {
       const cwdMatch = line.match(RE_CWD);
-      if (cwdMatch) projectPath = normalizeWorktreePath(cwdMatch[1]);
+      if (cwdMatch) {
+        projectPath = normalizeWorktreePath(cwdMatch[1]);
+        headFoundProjectPath = true;
+      }
     }
 
     if (!isSidechain && RE_IS_SIDECHAIN.test(line)) {
@@ -321,6 +337,7 @@ function parseFromChunks(
         const text = extractUserPromptText(entry);
         if (text && !isSystemInjectedText(text)) {
           firstPrompt = text;
+          headFoundFirstPrompt = true;
         }
       } catch { /* skip */ }
     }
@@ -393,18 +410,30 @@ function parseFromChunks(
     }
   }
 
-  if (!hasAnyMessage) return null;
+  if (!hasAnyMessage) {
+    return {
+      entry: null,
+      headFoundFirstPrompt,
+      headFoundProjectPath,
+      headFoundGitBranch,
+    };
+  }
 
   return {
-    sessionId,
-    provider: "claude",
-    firstPrompt,
-    ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
-    created,
-    modified,
-    gitBranch,
-    projectPath,
-    isSidechain,
+    entry: {
+      sessionId,
+      provider: "claude",
+      firstPrompt,
+      ...(lastPrompt && lastPrompt !== firstPrompt ? { lastPrompt } : {}),
+      created,
+      modified,
+      gitBranch,
+      projectPath,
+      isSidechain,
+    },
+    headFoundFirstPrompt,
+    headFoundProjectPath,
+    headFoundGitBranch,
   };
 }
 
@@ -424,7 +453,7 @@ async function parseClaudeJsonlFileFast(
     return null;
   }
 
-  let result: SessionIndexEntry | null;
+  let parsedChunks: ParsedClaudeChunks;
   try {
     const fileStat = await fh.stat();
     const fileSize = fileStat.size;
@@ -434,7 +463,7 @@ async function parseClaudeJsonlFileFast(
     if (fileSize <= HEAD_BYTES + TAIL_BYTES) {
       const buf = Buffer.alloc(fileSize);
       await fh.read(buf, 0, fileSize, 0);
-      return parseFromChunks(sessionId, buf.toString("utf-8"), null);
+      return parseFromChunks(sessionId, buf.toString("utf-8"), null).entry;
     }
 
     // Head read
@@ -449,58 +478,160 @@ async function parseClaudeJsonlFileFast(
     const firstNewline = tailRaw.indexOf("\n");
     const cleanTail = firstNewline >= 0 ? tailRaw.slice(firstNewline + 1) : "";
 
-    result = parseFromChunks(sessionId, headStr, cleanTail);
+    parsedChunks = parseFromChunks(sessionId, headStr, cleanTail);
   } finally {
     await fh.close();
   }
 
-  // Fallback: if the fast head+tail read could not extract firstPrompt (e.g.
-  // the first user message line is very large due to embedded images and got
-  // truncated within HEAD_BYTES), stream the file line-by-line to find it.
-  if (result && !result.firstPrompt) {
-    result.firstPrompt = await extractFirstPromptStreaming(filePath);
+  const result = parsedChunks.entry;
+
+  // If the first large JSONL line pushed early metadata outside HEAD_BYTES,
+  // the tail supplement may incorrectly pick a later cwd/gitBranch. Stream
+  // from the start whenever head parsing missed these fields so resume uses
+  // the original session cwd rather than a later in-session directory.
+  if (
+    result
+    && (
+      !result.firstPrompt
+      || !parsedChunks.headFoundProjectPath
+      || !parsedChunks.headFoundGitBranch
+    )
+  ) {
+    const missing = await extractMissingFieldsStreaming(
+      filePath,
+      !result.firstPrompt,
+      !parsedChunks.headFoundProjectPath,
+      !parsedChunks.headFoundGitBranch,
+    );
+    if (!result.firstPrompt && missing.firstPrompt) {
+      result.firstPrompt = missing.firstPrompt;
+    }
+    if (missing.projectPath) {
+      result.projectPath = missing.projectPath;
+    }
+    if (missing.gitBranch) {
+      result.gitBranch = missing.gitBranch;
+    }
   }
 
   return result;
 }
 
+async function hydrateClaudeIndexedEntry(
+  dirPath: string,
+  entry: RawSessionEntry,
+): Promise<SessionIndexEntry> {
+  const base: SessionIndexEntry = {
+    sessionId: entry.sessionId,
+    provider: "claude",
+    ...(entry.customTitle ? { name: entry.customTitle } : {}),
+    ...(entry.summary ? { summary: entry.summary } : {}),
+    firstPrompt: entry.firstPrompt ?? "",
+    created: entry.created ?? "",
+    modified: entry.modified ?? "",
+    gitBranch: entry.gitBranch ?? "",
+    projectPath: normalizeWorktreePath(entry.projectPath ?? ""),
+    isSidechain: entry.isSidechain ?? false,
+  };
+
+  const needsJsonlRepair =
+    !base.firstPrompt ||
+    !base.projectPath ||
+    !base.gitBranch ||
+    !base.created ||
+    !base.modified;
+
+  if (!needsJsonlRepair) return base;
+
+  const fallbackPath = entry.fullPath || join(dirPath, `${entry.sessionId}.jsonl`);
+  const parsed = await parseClaudeJsonlFileFast(entry.sessionId, fallbackPath);
+  if (!parsed) return base;
+
+  return {
+    ...base,
+    firstPrompt: base.firstPrompt || parsed.firstPrompt,
+    created: base.created || parsed.created,
+    modified: base.modified || parsed.modified,
+    gitBranch: base.gitBranch || parsed.gitBranch,
+    projectPath: base.projectPath || parsed.projectPath,
+    isSidechain: base.isSidechain || parsed.isSidechain,
+    ...(base.lastPrompt || !parsed.lastPrompt ? {} : { lastPrompt: parsed.lastPrompt }),
+  };
+}
+
 /**
- * Fallback: stream a JSONL file line-by-line to find the first real user prompt.
- * Called when the fast head-read could not extract firstPrompt (e.g. the first
- * user message line is very large due to embedded images and got truncated).
- * Reads only until the first valid user prompt is found, then stops.
+ * Fallback: stream a JSONL file line-by-line to find missing fields.
+ * Called when the fast head-read could not extract firstPrompt/projectPath
+ * (e.g. the first user message line is very large due to embedded images
+ * and got truncated within HEAD_BYTES).
+ * Reads only until all needed fields are found, then stops.
  */
-async function extractFirstPromptStreaming(
+async function extractMissingFieldsStreaming(
   filePath: string,
-): Promise<string> {
+  needFirstPrompt: boolean,
+  needProjectPath: boolean,
+  needGitBranch: boolean,
+): Promise<{ firstPrompt: string; projectPath: string; gitBranch: string }> {
   return new Promise((resolve) => {
     const stream = createReadStream(filePath, { encoding: "utf-8" });
     const rl = createInterface({ input: stream, crlfDelay: Infinity });
-    let found = false;
+    let firstPrompt = "";
+    let projectPath = "";
+    let gitBranch = "";
+    let done = false;
+
+    function checkDone(): void {
+      const promptDone = !needFirstPrompt || firstPrompt !== "";
+      const pathDone = !needProjectPath || projectPath !== "";
+      const branchDone = !needGitBranch || gitBranch !== "";
+      if (promptDone && pathDone && branchDone) {
+        done = true;
+        rl.close();
+        stream.destroy();
+        resolve({ firstPrompt, projectPath, gitBranch });
+      }
+    }
 
     rl.on("line", (line) => {
-      if (found) return;
-      if (!RE_TYPE_USER.test(line)) return;
-      try {
-        const entry = JSON.parse(line) as Record<string, unknown>;
-        const text = extractUserPromptText(entry);
-        if (text && !isSystemInjectedText(text)) {
-          found = true;
-          rl.close();
-          stream.destroy();
-          resolve(text);
+      if (done) return;
+      const isUser = RE_TYPE_USER.test(line);
+      const isAssistant = !isUser && RE_TYPE_ASSISTANT.test(line);
+      if (!isUser && !isAssistant) return;
+
+      // Extract projectPath/gitBranch from cwd field (available on any user/assistant line)
+      if (needProjectPath && !projectPath) {
+        const cwdMatch = line.match(RE_CWD);
+        if (cwdMatch) {
+          projectPath = normalizeWorktreePath(cwdMatch[1]);
         }
-      } catch {
-        // Line might be malformed — skip
       }
+      if (needGitBranch && !gitBranch) {
+        const gbMatch = line.match(RE_GIT_BRANCH);
+        if (gbMatch) gitBranch = gbMatch[1];
+      }
+
+      // Extract firstPrompt from user lines
+      if (needFirstPrompt && isUser && !firstPrompt) {
+        try {
+          const entry = JSON.parse(line) as Record<string, unknown>;
+          const text = extractUserPromptText(entry);
+          if (text && !isSystemInjectedText(text)) {
+            firstPrompt = text;
+          }
+        } catch {
+          // Line might be malformed — skip
+        }
+      }
+
+      checkDone();
     });
 
     rl.on("close", () => {
-      if (!found) resolve("");
+      if (!done) resolve({ firstPrompt, projectPath, gitBranch });
     });
 
     stream.on("error", () => {
-      if (!found) resolve("");
+      if (!done) resolve({ firstPrompt, projectPath, gitBranch });
     });
   });
 }
@@ -725,18 +856,7 @@ export async function getAllRecentSessions(
             }
 
             indexedIds.add(entry.sessionId);
-            result.entries.push({
-              sessionId: entry.sessionId,
-              provider: "claude",
-              name,
-              summary: entry.summary,
-              firstPrompt: entry.firstPrompt ?? "",
-              created: entry.created ?? "",
-              modified: entry.modified ?? "",
-              gitBranch: entry.gitBranch ?? "",
-              projectPath: normalizeWorktreePath(entry.projectPath ?? ""),
-              isSidechain: entry.isSidechain ?? false,
-            });
+            result.entries.push(await hydrateClaudeIndexedEntry(dirPath, entry));
             result.indexEntries += 1;
           }
 
