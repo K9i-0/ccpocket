@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:auto_route/auto_route.dart';
+import '../../utils/platform_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -359,28 +360,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         mode: LaunchMode.externalApplication,
                       ),
                     ),
-                    Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: cs.outlineVariant,
-                    ),
-                    // Rate on Store
-                    ListTile(
-                      leading: Icon(Icons.rate_review_outlined, color: cs.primary),
-                      title: Text(
-                        Platform.isIOS ? l.rateOnStore : l.rateOnStoreAndroid,
+                    // Rate on Store (mobile only)
+                    if (isMobilePlatform) ...[
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: cs.outlineVariant,
                       ),
-                      trailing: const Icon(Icons.open_in_new, size: 18),
-                      onTap: () => launchUrl(
-                        Uri.parse(
-                          Platform.isIOS
-                              ? AppConstants.appStoreUrl
-                              : AppConstants.playStoreUrl,
+                      ListTile(
+                        leading: Icon(Icons.rate_review_outlined, color: cs.primary),
+                        title: Text(
+                          Platform.isIOS ? l.rateOnStore : l.rateOnStoreAndroid,
                         ),
-                        mode: LaunchMode.externalApplication,
+                        trailing: const Icon(Icons.open_in_new, size: 18),
+                        onTap: () => launchUrl(
+                          Uri.parse(
+                            Platform.isIOS
+                                ? AppConstants.appStoreUrl
+                                : AppConstants.playStoreUrl,
+                          ),
+                          mode: LaunchMode.externalApplication,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

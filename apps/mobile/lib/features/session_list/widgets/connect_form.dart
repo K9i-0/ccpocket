@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
 import '../../../services/server_discovery_service.dart';
+import '../../../utils/platform_helper.dart';
 import 'discovered_servers_list.dart';
 import 'machine_list.dart';
 
@@ -128,7 +129,7 @@ class ConnectForm extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Action buttons
-          if (!kIsWeb) ...[
+          if (!kIsWeb && !isDesktopPlatform) ...[
             SizedBox(
               width: double.infinity,
               height: 52,

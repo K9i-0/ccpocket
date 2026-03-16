@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import '../utils/platform_helper.dart';
+
 class VoiceInputService {
   final SpeechToText _speech = SpeechToText();
   bool _isAvailable = false;
@@ -11,7 +13,7 @@ class VoiceInputService {
   bool get isListening => _isListening;
 
   Future<bool> initialize() async {
-    if (kIsWeb) {
+    if (kIsWeb || isDesktopPlatform) {
       _isAvailable = false;
       return false;
     }

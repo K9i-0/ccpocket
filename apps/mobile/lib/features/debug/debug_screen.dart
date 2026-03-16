@@ -11,6 +11,7 @@ import '../../features/settings/widgets/app_locale_bottom_sheet.dart';
 import '../../features/settings/widgets/theme_bottom_sheet.dart';
 import '../../l10n/app_localizations.dart';
 import '../../router/app_router.dart';
+import '../../utils/platform_helper.dart';
 
 @RoutePage()
 class DebugScreen extends StatelessWidget {
@@ -54,18 +55,20 @@ class DebugScreen extends StatelessWidget {
                       context.read<SettingsCubit>().setAppLocaleId(id),
                 ),
               ),
-              ListTile(
-                key: const ValueKey('debug_update_track_button'),
-                leading: Icon(Icons.update, color: cs.primary),
-                title: Text(l.updateTrack),
-                subtitle: Text(
-                  settings.shorebirdTrack == 'staging'
-                      ? l.updateTrackStaging
-                      : l.updateTrackStable,
+              // Shorebird update track (mobile only)
+              if (isMobilePlatform)
+                ListTile(
+                  key: const ValueKey('debug_update_track_button'),
+                  leading: Icon(Icons.update, color: cs.primary),
+                  title: Text(l.updateTrack),
+                  subtitle: Text(
+                    settings.shorebirdTrack == 'staging'
+                        ? l.updateTrackStaging
+                        : l.updateTrackStable,
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showUpdateTrackSheet(context, settings),
                 ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showUpdateTrackSheet(context, settings),
-              ),
               ListTile(
                 leading: const Icon(Icons.article_outlined),
                 title: Text(l.logs),

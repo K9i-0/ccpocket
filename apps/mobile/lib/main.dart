@@ -49,6 +49,7 @@ import 'services/ssh_startup_service.dart';
 import 'theme/app_theme.dart';
 import 'services/store_screenshot_extension.dart';
 import 'theme/markdown_style.dart';
+import 'utils/platform_helper.dart';
 
 /// Top-level handler for FCM background messages.
 /// Required by firebase_messaging to process messages when app is in background.
@@ -124,7 +125,10 @@ void main() async {
   // Shorebird manual update check (auto_update is disabled in shorebird.yaml).
   // Reads the user-selected track from SharedPreferences and checks for patches
   // in the background. The patch is applied on next app restart.
-  unawaited(_checkShorebirdUpdate(prefs));
+  // Shorebird OTA is only available on mobile platforms (iOS/Android).
+  if (!kIsWeb && isMobilePlatform) {
+    unawaited(_checkShorebirdUpdate(prefs));
+  }
 
   final bridge = BridgeService();
   final draftService = DraftService(prefs);
