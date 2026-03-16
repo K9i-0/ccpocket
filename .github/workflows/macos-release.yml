@@ -1,0 +1,184 @@
+name: macOS Release
+on:
+  push:
+    tags:
+      - 'macos/v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    env:
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read Flutter version from .mise.toml
+        id: mise
+        run: echo "flutter_version=$(grep 'flutter' .mise.toml | sed 's/.*= *\"//' | sed 's/\"//')" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ steps.mise.outputs.flutter_version }}
+          cache: true
+
+      - name: Install Codemagic CLI Tools
+        run: |
+          pipx install codemagic-cli-tools
+          pipx ensurepath
+
+      - run: flutter pub get
+        working-directory: apps/mobile
+
+      - run: dart analyze .
+        working-directory: apps/mobile
+
+      - run: flutter test
+        working-directory: apps/mobile
+
+      # --- Code Signing ---
+      - name: Fetch Developer ID signing files
+        run: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type MAC_APP_DISTRIBUTION \
+            --platform MAC_OS --create
+        env:
+          BUNDLE_ID: com.k9i.ccpocket
+
+      - name: Fetch Developer ID installer certificate
+        run: |
+          app-store-connect certificates list \
+            --type DEVELOPER_ID_APPLICATION \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --save || \
+          app-store-connect certificates create \
+            --type DEVELOPER_ID_APPLICATION \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --save
+
+      - name: Setup keychain
+        run: keychain initialize
+
+      - name: Add certs to keychain
+        run: keychain add-certificates
+
+      - name: Set up code signing
+        run: xcode-project use-profiles
+
+      # --- Build ---
+      - name: Build macOS app
+        working-directory: apps/mobile
+        run: flutter build macos --release
+
+      # --- Sign the app bundle ---
+      - name: Find and sign app
+        id: sign
+        run: |
+          APP_PATH="apps/mobile/build/macos/Build/Products/Release/ccpocket.app"
+          echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
+
+          # Find Developer ID Application identity
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+
+          if [ -z "$IDENTITY" ]; then
+            echo "::warning::Developer ID Application certificate not found, using available identity"
+            IDENTITY=$(security find-identity -v -p codesigning | head -1 | awk -F'"' '{print $2}')
+          fi
+
+          echo "Signing with: $IDENTITY"
+
+          # Deep sign the app bundle
+          codesign --deep --force --options runtime \
+            --sign "$IDENTITY" \
+            --entitlements apps/mobile/macos/Runner/Release.entitlements \
+            "$APP_PATH"
+
+          # Verify
+          codesign --verify --deep --strict "$APP_PATH"
+          echo "✅ Code signing verified"
+
+      # --- Create DMG ---
+      - name: Create DMG
+        id: dmg
+        run: |
+          APP_PATH="${{ steps.sign.outputs.app_path }}"
+          DMG_NAME="ccpocket-macos.dmg"
+
+          # Create DMG with hdiutil
+          hdiutil create -volname "CC Pocket" \
+            -srcfolder "$APP_PATH" \
+            -ov -format UDZO \
+            "$DMG_NAME"
+
+          echo "dmg_path=$DMG_NAME" >> "$GITHUB_OUTPUT"
+
+          # Sign the DMG too
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          if [ -n "$IDENTITY" ]; then
+            codesign --force --sign "$IDENTITY" "$DMG_NAME"
+          fi
+
+      # --- Notarize ---
+      - name: Setup App Store Connect API key for notarization
+        run: |
+          mkdir -p ~/.private_keys
+          echo "$APP_STORE_CONNECT_PRIVATE_KEY" > ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8
+
+      - name: Notarize DMG
+        run: |
+          xcrun notarytool submit "${{ steps.dmg.outputs.dmg_path }}" \
+            --key ~/.private_keys/AuthKey_${APP_STORE_CONNECT_KEY_IDENTIFIER}.p8 \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --issuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --wait --timeout 30m
+
+          # Staple the notarization ticket
+          xcrun stapler staple "${{ steps.dmg.outputs.dmg_path }}"
+          echo "✅ Notarization complete"
+
+      # --- GitHub Release ---
+      - name: Extract version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#macos/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog section
+        if: startsWith(github.ref, 'refs/tags/')
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SEMVER="${VERSION%%+*}"
+          NOTES=$(awk "/^## \\[${SEMVER}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md)
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Rename DMG with version
+        if: startsWith(github.ref, 'refs/tags/')
+        id: rename
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SEMVER="${VERSION%%+*}"
+          VERSIONED_DMG="ccpocket-macos-v${SEMVER}.dmg"
+          mv "${{ steps.dmg.outputs.dmg_path }}" "$VERSIONED_DMG"
+          echo "dmg_path=$VERSIONED_DMG" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
+        run: |
+          printf '%s\n' "$RELEASE_NOTES" > /tmp/release_notes.md
+          gh release create "$GITHUB_REF_NAME" \
+            "${{ steps.rename.outputs.dmg_path }}" \
+            --title "macOS ${{ steps.version.outputs.version }}" \
+            --notes-file /tmp/release_notes.md
