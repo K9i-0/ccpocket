@@ -106,10 +106,10 @@ class HomeContent extends StatefulWidget {
   });
 
   @override
-  State<HomeContent> createState() => _HomeContentState();
+  State<HomeContent> createState() => HomeContentState();
 }
 
-class _HomeContentState extends State<HomeContent> {
+class HomeContentState extends State<HomeContent> {
   bool _isSearching = false;
   bool _updateBannerDismissed = false;
   final _searchController = TextEditingController();
@@ -173,6 +173,13 @@ class _HomeContentState extends State<HomeContent> {
         context.read<SessionListCubit>().setSearchQuery('');
       }
     });
+  }
+
+  /// Open search field programmatically (e.g. from keyboard shortcut).
+  void openSearch() {
+    if (!_isSearching) {
+      _toggleSearch();
+    }
   }
 
   Widget? _buildAppUpdateBanner() {

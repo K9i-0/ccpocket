@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../l10n/app_localizations.dart';
@@ -773,53 +774,86 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     );
   }
 
+  /// Desktop keyboard shortcut handler for the new session sheet.
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    // Tab: toggle provider (only when not locked and no text field focused)
+    if (event.logicalKey == LogicalKeyboardKey.tab &&
+        !HardwareKeyboard.instance.isShiftPressed &&
+        !HardwareKeyboard.instance.isMetaPressed &&
+        !widget.lockProvider) {
+      // Only toggle if no text field has focus (check for primary focus)
+      final focus = FocusManager.instance.primaryFocus;
+      final isInTextField = focus?.context?.widget is EditableText;
+      if (!isInTextField) {
+        final next =
+            _provider == Provider.claude ? Provider.codex : Provider.claude;
+        _onProviderChanged(next);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Cmd+Enter: start session
+    if (event.logicalKey == LogicalKeyboardKey.enter &&
+        HardwareKeyboard.instance.isMetaPressed) {
+      if (_hasPath) _start();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DragHandle(appColors: appColors),
-            _SheetTitle(
-              provider: _provider,
-              lockProvider: widget.lockProvider,
-              onProviderChanged: _onProviderChanged,
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: widget.lockProvider
-                    ? const NeverScrollableScrollPhysics()
-                    : null,
-                onPageChanged: (index) {
-                  setState(() {
-                    _provider = index == 0 ? Provider.claude : Provider.codex;
-                  });
-                },
-                children: [
-                  _buildPage(Provider.claude),
-                  _buildPage(Provider.codex),
-                ],
+    return Focus(
+      onKeyEvent: _handleKeyEvent,
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DragHandle(appColors: appColors),
+              _SheetTitle(
+                provider: _provider,
+                lockProvider: widget.lockProvider,
+                onProviderChanged: _onProviderChanged,
               ),
-            ),
-            const SizedBox(height: 12),
-            _SheetActions(
-              provider: _provider,
-              canStart:
-                  _hasPath &&
-                  (!_useWorktree ||
-                      _worktreeMode == _WorktreeMode.createNew ||
-                      _selectedWorktree != null),
-              onStart: _start,
-            ),
-          ],
+              const SizedBox(height: 12),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: widget.lockProvider
+                      ? const NeverScrollableScrollPhysics()
+                      : null,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _provider = index == 0 ? Provider.claude : Provider.codex;
+                    });
+                  },
+                  children: [
+                    _buildPage(Provider.claude),
+                    _buildPage(Provider.codex),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              _SheetActions(
+                provider: _provider,
+                canStart:
+                    _hasPath &&
+                    (!_useWorktree ||
+                        _worktreeMode == _WorktreeMode.createNew ||
+                        _selectedWorktree != null),
+                onStart: _start,
+              ),
+            ],
+          ),
         ),
       ),
     );

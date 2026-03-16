@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -104,6 +105,9 @@ class SessionListScreen extends StatefulWidget {
 class _SessionListScreenState extends State<SessionListScreen>
     with WidgetsBindingObserver {
   bool _isAutoConnecting = false;
+
+  /// Key to access HomeContent state for programmatic search (Cmd+K).
+  final _homeContentKey = GlobalKey<HomeContentState>();
 
   // Debug screen: 5 consecutive taps on title
   int _debugTapCount = 0;
@@ -1011,7 +1015,26 @@ class _SessionListScreenState extends State<SessionListScreen>
                   context.read<SessionListCubit>().refresh();
                 }
               },
-              child: Scaffold(
+              child: CallbackShortcuts(
+                bindings: <ShortcutActivator, VoidCallback>{
+                  // Cmd+N: New Session
+                  const SingleActivator(
+                    LogicalKeyboardKey.keyN,
+                    meta: true,
+                  ): () {
+                    if (showConnectedUI) _showNewSessionDialog();
+                  },
+                  // Cmd+K: Focus search
+                  const SingleActivator(
+                    LogicalKeyboardKey.keyK,
+                    meta: true,
+                  ): () {
+                    _homeContentKey.currentState?.openSearch();
+                  },
+                },
+                child: Focus(
+                  autofocus: true,
+                  child: Scaffold(
                 appBar: AppBar(
                   title: GestureDetector(
                     onTap: _onTitleTap,
@@ -1052,6 +1075,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                     ? RefreshIndicator(
                         onRefresh: () async => _refresh(),
                         child: HomeContent(
+                          key: _homeContentKey,
                           connectionState: connectionState,
                           bridgeVersion: context
                               .read<BridgeService>()
@@ -1198,6 +1222,8 @@ class _SessionListScreenState extends State<SessionListScreen>
                         ),
                       )
                     : null,
+              ),
+                ),
               ),
             ),
       ),

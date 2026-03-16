@@ -10,6 +10,10 @@ import 'bubbles/image_preview.dart';
 /// Bottom input bar with slash-command button, text field, and action buttons.
 ///
 /// Pure presentation — all actions are dispatched via callbacks.
+///
+/// Desktop keyboard shortcuts (handled in [_InputTextField]):
+/// - Tab: indent current line(s)
+/// - Shift+Tab: dedent current line(s)
 class ChatInputBar extends StatelessWidget {
   final TextEditingController inputController;
   final ProcessStatus status;
@@ -108,6 +112,8 @@ class ChatInputBar extends StatelessWidget {
             onSend: onSend,
             hasInputText: hasInputText,
             onPasteImage: onPasteImage,
+            onIndent: onIndent,
+            onDedent: onDedent,
           ),
           const SizedBox(height: 4),
           Row(
@@ -571,6 +577,8 @@ class _InputTextField extends StatelessWidget {
     required this.onSend,
     required this.hasInputText,
     this.onPasteImage,
+    this.onIndent,
+    this.onDedent,
   });
   final TextEditingController controller;
   final ProcessStatus status;
@@ -582,7 +590,14 @@ class _InputTextField extends StatelessWidget {
   /// to text paste if no image is found. Returns true if an image was pasted.
   final Future<bool> Function()? onPasteImage;
 
-  /// On desktop: Enter sends, Shift+Enter inserts newline.
+  /// Callback for Tab key (indent).
+  final VoidCallback? onIndent;
+
+  /// Callback for Shift+Tab key (dedent).
+  final VoidCallback? onDedent;
+
+  /// On desktop: Enter sends, Shift+Enter inserts newline,
+  /// Tab indents, Shift+Tab dedents.
   /// Cmd/Ctrl+V: attempt image paste, fall back to text paste.
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (!isDesktopPlatform) return KeyEventResult.ignored;
@@ -598,6 +613,16 @@ class _InputTextField extends StatelessWidget {
         isModifier &&
         !HardwareKeyboard.instance.isShiftPressed) {
       _handlePaste();
+      return KeyEventResult.handled;
+    }
+
+    // Tab / Shift+Tab: indent / dedent (IDE-like)
+    if (event.logicalKey == LogicalKeyboardKey.tab && !isModifier) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        onDedent?.call();
+      } else {
+        onIndent?.call();
+      }
       return KeyEventResult.handled;
     }
 

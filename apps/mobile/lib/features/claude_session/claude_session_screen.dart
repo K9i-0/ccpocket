@@ -508,6 +508,22 @@ class _ChatScreenBody extends HookWidget {
           const SingleActivator(LogicalKeyboardKey.escape): () {
             Navigator.of(context).maybePop();
           },
+          // Cmd+Shift+P: cycle permission mode
+          const SingleActivator(
+            LogicalKeyboardKey.keyP,
+            meta: true,
+            shift: true,
+          ): () {
+            final cubit = context.read<ChatSessionCubit>();
+            showPermissionModeMenu(context, cubit);
+          },
+          // Cmd+Enter: approve pending tool use
+          const SingleActivator(
+            LogicalKeyboardKey.enter,
+            meta: true,
+          ): () {
+            if (pendingToolUseId != null) approveToolUse();
+          },
         },
         child: Focus(
           autofocus: true,
