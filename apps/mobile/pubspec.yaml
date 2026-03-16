@@ -79,6 +79,7 @@ dependencies:
   syntax_highlight: ^0.5.0
   in_app_review: ^2.0.11
   flutter_slidable: ^4.0.3
+  super_drag_and_drop: ^0.9.1
 
 dependency_overrides:
   # Temporary: use 16KB page-aligned fork until irondash/irondash#77 is merged

@@ -36,6 +36,11 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback? onTapDiffPreview;
   final String? hintText;
 
+  /// Callback to paste an image from clipboard (desktop only).
+  /// When set, Cmd/Ctrl+V will attempt image paste before text paste.
+  /// Returns true if an image was found and pasted.
+  final Future<bool> Function()? onPasteImage;
+
   const ChatInputBar({
     super.key,
     required this.inputController,
@@ -62,6 +67,7 @@ class ChatInputBar extends StatelessWidget {
     this.onClearDiffSelection,
     this.onTapDiffPreview,
     this.hintText,
+    this.onPasteImage,
   });
 
   @override
@@ -101,6 +107,7 @@ class ChatInputBar extends StatelessWidget {
             hintText: hintText,
             onSend: onSend,
             hasInputText: hasInputText,
+            onPasteImage: onPasteImage,
           ),
           const SizedBox(height: 4),
           Row(
@@ -563,19 +570,35 @@ class _InputTextField extends StatelessWidget {
     this.hintText,
     required this.onSend,
     required this.hasInputText,
+    this.onPasteImage,
   });
   final TextEditingController controller;
   final ProcessStatus status;
   final String? hintText;
   final VoidCallback onSend;
   final bool hasInputText;
+  /// Callback to paste an image from clipboard.
+  /// Called on Cmd/Ctrl+V; should check clipboard for images and fall back
+  /// to text paste if no image is found. Returns true if an image was pasted.
+  final Future<bool> Function()? onPasteImage;
 
   /// On desktop: Enter sends, Shift+Enter inserts newline.
+  /// Cmd/Ctrl+V: attempt image paste, fall back to text paste.
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (!isDesktopPlatform) return KeyEventResult.ignored;
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+
+    // Cmd/Ctrl+V: try image paste, fall back to text paste
+    if (onPasteImage != null &&
+        event.logicalKey == LogicalKeyboardKey.keyV &&
+        HardwareKeyboard.instance.isMetaPressed &&
+        !HardwareKeyboard.instance.isShiftPressed) {
+      _handlePaste();
+      return KeyEventResult.handled;
+    }
+
     if (event.logicalKey != LogicalKeyboardKey.enter) {
       return KeyEventResult.ignored;
     }
@@ -589,6 +612,28 @@ class _InputTextField extends StatelessWidget {
       onSend();
     }
     return KeyEventResult.handled;
+  }
+
+  Future<void> _handlePaste() async {
+    // Try image paste first
+    final pasted = await onPasteImage!();
+    if (pasted) return;
+
+    // Fall back to text paste from system clipboard
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text != null && data!.text!.isNotEmpty) {
+      final text = controller.text;
+      final selection = controller.selection;
+      final start = selection.start < 0 ? text.length : selection.start;
+      final end = selection.end < 0 ? text.length : selection.end;
+      final newText =
+          text.substring(0, start) + data.text! + text.substring(end);
+      final newCursor = start + data.text!.length;
+      controller.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newCursor),
+      );
+    }
   }
 
   @override

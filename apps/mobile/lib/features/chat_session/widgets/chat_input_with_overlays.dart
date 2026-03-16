@@ -4,8 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:super_clipboard/super_clipboard.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../utils/platform_helper.dart';
 import '../../../hooks/use_list_auto_complete.dart';
 import '../../../hooks/use_voice_input.dart';
 import '../../../models/messages.dart';
@@ -259,6 +261,43 @@ class ChatInputWithOverlays extends HookWidget {
       );
     }
 
+    /// Add image bytes to attachment list (shared by paste and drag-and-drop).
+    void addImageBytes(Uint8List bytes, String mimeType) {
+      const maxImages = 5;
+      if (attachedImages.value.length >= maxImages) return;
+      final updated = [
+        ...attachedImages.value,
+        (bytes: bytes, mimeType: mimeType),
+      ];
+      attachedImages.value = updated;
+      if (context.mounted) {
+        context.read<DraftService>().saveImageDraft(sessionId, updated);
+      }
+    }
+
+    /// Handle items dropped via OS drag-and-drop (desktop).
+    Future<void> handleDroppedItems(PerformDropEvent event) async {
+      for (final item in event.session.items) {
+        final reader = item.dataReader;
+        if (reader == null) continue;
+        for (final format in [Formats.png, Formats.jpeg]) {
+          if (reader.canProvide(format)) {
+            reader.getFile(format, (file) async {
+              try {
+                final bytes = await file.readAll();
+                final mimeType =
+                    format == Formats.png ? 'image/png' : 'image/jpeg';
+                addImageBytes(bytes, mimeType);
+              } catch (_) {
+                // Ignore failed reads
+              }
+            });
+            break; // Only read one format per item
+          }
+        }
+      }
+    }
+
     void sendMessage() {
       final text = inputController.text.trim();
       if (text.isEmpty &&
@@ -476,6 +515,35 @@ class ChatInputWithOverlays extends HookWidget {
       }
     }
 
+    /// Try to paste an image from clipboard. Returns true if an image was
+    /// found, false if only text (or nothing) is in the clipboard.
+    /// Used by Cmd+V handler to decide whether to fall back to text paste.
+    Future<bool> tryPasteImage() async {
+      const maxImages = 5;
+      if (attachedImages.value.length >= maxImages) return false;
+      final clipboard = SystemClipboard.instance;
+      if (clipboard == null) return false;
+      try {
+        final reader = await clipboard.read();
+        for (final format in [Formats.png, Formats.jpeg]) {
+          if (reader.canProvide(format)) {
+            reader.getFile(format, (file) async {
+              try {
+                final bytes = await file.readAll();
+                final mimeType =
+                    format == Formats.png ? 'image/png' : 'image/jpeg';
+                addImageBytes(bytes, mimeType);
+              } catch (_) {}
+            });
+            return true;
+          }
+        }
+        return false;
+      } catch (_) {
+        return false;
+      }
+    }
+
     Future<bool> hasClipboardImage() async {
       final clipboard = SystemClipboard.instance;
       if (clipboard == null) return false;
@@ -626,43 +694,72 @@ class ChatInputWithOverlays extends HookWidget {
         ),
         child: CompositedTransformTarget(
           link: layerLink,
-          child: ChatInputBar(
-            inputController: inputController,
-            status: status,
-            hasInputText:
-                hasInputText.value ||
-                attachedImages.value.isNotEmpty ||
-                attachedDiffSelection.value != null,
-            isInputEmpty: isInputEmpty.value,
-            isVoiceAvailable:
-                !context.watch<SettingsCubit>().state.hideVoiceInput &&
-                voice.isAvailable,
-            isRecording: voice.isRecording,
-            onSend: sendMessage,
-            onStop: stopSession,
-            onInterrupt: interruptSession,
-            onToggleVoice: voice.toggle,
-            onIndent: indent,
-            onDedent: dedent,
-            canDedent: canDedent.value,
-            onSlashCommand: insertSlashPrefix,
-            onMention: insertMention,
-            isInMentionContext: isInMentionContext.value,
-            onShowPromptHistory: showPromptHistory,
-            onAttachImage: showAttachOptions,
-            attachedImages: attachedImages.value,
-            onClearImage: clearAttachment,
-            attachedDiffSelection: attachedDiffSelection.value,
-            onClearDiffSelection: clearDiffSelection,
-            onTapDiffPreview: onOpenDiffScreen != null
-                ? () => onOpenDiffScreen!(attachedDiffSelection.value)
-                : null,
-            hintText: hintText,
+          child: _wrapWithDropRegion(
+            enabled: isDesktopPlatform,
+            onPerformDrop: handleDroppedItems,
+            child: ChatInputBar(
+              inputController: inputController,
+              status: status,
+              hasInputText:
+                  hasInputText.value ||
+                  attachedImages.value.isNotEmpty ||
+                  attachedDiffSelection.value != null,
+              isInputEmpty: isInputEmpty.value,
+              isVoiceAvailable:
+                  !context.watch<SettingsCubit>().state.hideVoiceInput &&
+                  voice.isAvailable,
+              isRecording: voice.isRecording,
+              onSend: sendMessage,
+              onStop: stopSession,
+              onInterrupt: interruptSession,
+              onToggleVoice: voice.toggle,
+              onIndent: indent,
+              onDedent: dedent,
+              canDedent: canDedent.value,
+              onSlashCommand: insertSlashPrefix,
+              onMention: insertMention,
+              isInMentionContext: isInMentionContext.value,
+              onShowPromptHistory: showPromptHistory,
+              onAttachImage: showAttachOptions,
+              attachedImages: attachedImages.value,
+              onClearImage: clearAttachment,
+              attachedDiffSelection: attachedDiffSelection.value,
+              onClearDiffSelection: clearDiffSelection,
+              onTapDiffPreview: onOpenDiffScreen != null
+                  ? () => onOpenDiffScreen!(attachedDiffSelection.value)
+                  : null,
+              hintText: hintText,
+              onPasteImage: isDesktopPlatform ? tryPasteImage : null,
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// Wraps child with a [DropRegion] for accepting OS-level drag-and-drop
+/// of images on desktop platforms.
+Widget _wrapWithDropRegion({
+  required bool enabled,
+  required Future<void> Function(PerformDropEvent) onPerformDrop,
+  required Widget child,
+}) {
+  if (!enabled) return child;
+  return DropRegion(
+    formats: Formats.standardFormats,
+    hitTestBehavior: HitTestBehavior.opaque,
+    onDropOver: (event) {
+      // Accept copy if any item has an image
+      final hasImage = event.session.items.any(
+        (item) =>
+            item.canProvide(Formats.png) || item.canProvide(Formats.jpeg),
+      );
+      return hasImage ? DropOperation.copy : DropOperation.none;
+    },
+    onPerformDrop: onPerformDrop,
+    child: child,
+  );
 }
 
 /// Detect MIME type from image bytes using magic bytes.
