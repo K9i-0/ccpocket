@@ -83,6 +83,12 @@ npx @ccpocket/bridge@latest
 <a href="https://apps.apple.com/us/app/cc-pocket-dev-agent-remote/id6759188790"><img height="40" alt="App Storeからダウンロード" src="docs/images/app-store-badge.svg" /></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Google Play で手に入れよう" src="docs/images/google-play-badge-ja.svg" /></a>
 </div>
 
+### macOS デスクトップ版（ベータ）
+
+macOS ネイティブアプリもあります。モバイル版の UI/UX を気に入ったユーザーから「同じ体験を Mac でも使いたい」という声があり、実験的に作ったのが始まりです。
+
+まだベータ版ですが、十分に実用可能です。最新の `.dmg` は [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos) からダウンロードできます。
+
 ### 3. 接続してコーディング開始
 
 | 接続方法 | 向いているケース |

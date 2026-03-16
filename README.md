@@ -83,6 +83,12 @@ Scan the QR code in the banner above, or download directly:
 <a href="https://apps.apple.com/us/app/cc-pocket-dev-agent-remote/id6759188790"><img height="40" alt="Download on the App Store" src="docs/images/app-store-badge.svg" /></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Get it on Google Play" src="docs/images/google-play-badge-en.svg" /></a>
 </div>
 
+### macOS Desktop (Beta)
+
+A macOS native app is also available. It started as an experiment — some users liked the mobile-first UI so much that they asked for the same experience on their Mac.
+
+It's still in beta, but fully functional. Download the latest `.dmg` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos).
+
 ### 3. Connect and Start Coding
 
 | Connection Method | Best for |

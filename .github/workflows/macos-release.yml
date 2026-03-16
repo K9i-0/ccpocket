@@ -102,17 +102,26 @@ jobs:
           echo "✅ Code signing verified"
 
       # --- Create DMG ---
+      - name: Install create-dmg
+        run: brew install create-dmg
+
       - name: Create DMG
         id: dmg
         run: |
           APP_PATH="${{ steps.sign.outputs.app_path }}"
           DMG_NAME="ccpocket-macos.dmg"
 
-          # Create DMG with hdiutil
-          hdiutil create -volname "CC Pocket" \
-            -srcfolder "$APP_PATH" \
-            -ov -format UDZO \
-            "$DMG_NAME"
+          # Create DMG with Applications symlink and styled window
+          create-dmg \
+            --volname "CC Pocket" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "ccpocket.app" 150 185 \
+            --app-drop-link 450 185 \
+            --no-internet-enable \
+            "$DMG_NAME" \
+            "$APP_PATH"
 
           echo "dmg_path=$DMG_NAME" >> "$GITHUB_OUTPUT"
 
