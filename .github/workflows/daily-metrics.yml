@@ -2,8 +2,8 @@ name: Daily Metrics
 
 on:
   schedule:
-    # JST 9:00 (UTC 0:00)
-    - cron: '0 0 * * *'
+    # JST 7:00 (UTC 22:00)
+    - cron: '0 22 * * *'
   workflow_dispatch:
 
 jobs:
