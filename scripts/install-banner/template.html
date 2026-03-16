@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 900px;
+    height: 420px;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    background: #000;
+    position: relative;
+  }
+
+  /* Subtle accent glow (matching feature graphic) */
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 15% 40%, rgba(232, 120, 50, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 60%, rgba(80, 220, 180, 0.04) 0%, transparent 40%);
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    padding: 32px 48px;
+    gap: 0;
+  }
+
+  /* === Left side: Branding + QR === */
+  .left {
+    flex: 0 0 300px;
+    display: flex;
+    flex-direction: column;
+    padding-right: 20px;
+  }
+
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .logo-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .logo-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .app-name {
+    font-size: 38px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+
+  .catchphrase {
+    font-size: 21px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.35;
+    margin-bottom: 10px;
+  }
+
+  .badge-30s {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.12);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    margin-bottom: 16px;
+    width: fit-content;
+  }
+
+  .qr-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-left: 20px;
+  }
+
+  .qr-wrapper img {
+    width: 190px;
+    height: 190px;
+    border-radius: 4px;
+  }
+
+  .scan-label {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.35);
+    margin-top: 6px;
+    padding-left: 50px;
+  }
+
+  /* === Divider === */
+  .divider {
+    width: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 0 20px;
+    align-self: stretch;
+  }
+
+  /* === Right side: Steps === */
+  .right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 16px;
+    gap: 0;
+  }
+
+  .step {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .step-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    width: 28px;
+  }
+
+  .step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #e8734a;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .step-line {
+    width: 2px;
+    flex: 1;
+    background: rgba(255, 255, 255, 0.12);
+    min-height: 40px;
+  }
+
+  .step-content {
+    padding-top: 2px;
+    padding-bottom: 24px;
+  }
+
+  .step-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.4;
+  }
+
+  .step-desc {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.45;
+    margin-top: 4px;
+  }
+
+  /* Terminal box */
+  .terminal {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 14px;
+    color: #4ade80;
+  }
+
+  .copy-icon {
+    position: relative;
+    width: 14px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-left: 4px;
+  }
+
+  .copy-icon::before,
+  .copy-icon::after {
+    content: '';
+    position: absolute;
+    border: 1.5px solid rgba(255, 255, 255, 0.4);
+    border-radius: 2px;
+  }
+
+  .copy-icon::before {
+    width: 10px;
+    height: 12px;
+    top: 0;
+    right: 0;
+  }
+
+  .copy-icon::after {
+    width: 10px;
+    height: 12px;
+    bottom: 0;
+    left: 0;
+    background: #000;
+  }
+
+  /* Bottom glow (matching feature graphic) */
+  .bottom-glow {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 40px;
+    background: linear-gradient(90deg, rgba(232, 120, 50, 0.1), rgba(80, 220, 180, 0.08));
+    filter: blur(25px);
+    z-index: 0;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <!-- Left: Branding + QR -->
+    <div class="left">
+      <div class="logo-row">
+        <div class="logo-img">
+          <img src="ICON_PATH" alt="CC Pocket">
+        </div>
+        <div class="app-name">CC Pocket</div>
+      </div>
+      <div class="catchphrase">
+        From Mac to pocket in 30s.<br>
+        Code anywhere.
+      </div>
+      <div class="badge-30s">⚡ Ready in 30s</div>
+      <div class="qr-wrapper">
+        <img src="QR_PATH" alt="Scan to install">
+        <div class="scan-label">Scan to install</div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider"></div>
+
+    <!-- Right: Steps -->
+    <div class="right">
+      <div class="step">
+        <div class="step-track">
+          <div class="step-num">1</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Install the app</div>
+          <div class="step-desc">Scan the QR code, or grab it from<br>App Store / Google Play.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-track">
+          <div class="step-num">2</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Run one command on your Mac</div>
+          <div class="terminal">
+            npx @ccpocket/bridge@latest
+            <div class="copy-icon"></div>
+          </div>
+          <div class="step-desc" style="margin-top: 8px;">That's it for your Mac.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-track">
+          <div class="step-num">3</div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Open the app and you're set</div>
+          <div class="step-desc">Your sessions are already waiting.<br>Approve, review, code — all by thumb.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-glow"></div>
+</body>
+</html>
