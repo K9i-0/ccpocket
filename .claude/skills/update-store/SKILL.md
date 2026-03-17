@@ -41,17 +41,18 @@ head -80 CHANGELOG.md
 AskUserQuestion（multiSelect）で更新対象を確認する。
 変更分析結果に基づいて推奨をdescriptionに含める。
 
-**スクリーンショット（7シナリオ）:**
+**スクリーンショット（8シナリオ）:**
 
-| Key | シナリオ名 | 内容 |
-|-----|-----------|------|
-| `01_session_list` | Session List (Recent) | ホーム画面（名前付きセッション） |
-| `02_approval_list` | Session List | 承認待ち一覧（3セッション） |
-| `03_multi_question` | Multi-Question Approval | 質問UI（3問） |
-| `04_markdown_input` | Markdown Input | Markdown箇条書き入力 |
-| `05_image_attach` | Image Attach | 画像添付UI |
-| `06_git_diff` | Git Diff | Diff表示画面 |
-| `07_new_session` | New Session | 新規セッションシート |
+| Key | シナリオ名 | 内容 | テーマ |
+|-----|-----------|------|--------|
+| `01_session_list` | Session List (Recent) | ホーム画面（名前付きセッション） | ライト |
+| `02_approval_list` | Session List | 承認待ち一覧（3セッション） | ライト |
+| `03_multi_question` | Multi-Question Approval | 質問UI（3問） | ライト |
+| `04_markdown_input` | Markdown Input | Markdown箇条書き入力 | ライト |
+| `05_image_attach` | Image Attach | 画像添付UI | ライト |
+| `06_git_diff` | Git Diff | Diff表示画面 | ライト |
+| `07_new_session` | New Session | 新規セッションシート | ライト |
+| `08_dark_theme` | Session List | 承認待ち一覧（ダークモード訴求） | ダーク |
 
 **メタデータテキスト:**
 
@@ -92,13 +93,11 @@ defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool true
 ```
 これによりソフトウェアキーボードが表示されなくなり、日本語キーボードがスクショに映り込む問題を防止する。
 
-iPhone 17 Proシミュレーターを起動し、ダークモードに設定:
+iPhone 17 Proシミュレーターを起動し、ライトモードに設定:
 ```bash
 xcrun simctl boot "iPhone 17 Pro" 2>/dev/null || true
-xcrun simctl ui booted appearance dark
+xcrun simctl ui booted appearance light
 ```
-
-**重要**: アプリは `ThemeMode.system` がデフォルトのため、シミュレーターの外観をダークに設定するだけでダークテーマが適用される。
 
 #### 4-2. アプリ起動 & Marionette接続
 
@@ -114,6 +113,10 @@ dart-mcp `get_app_logs` でVM Service URIを取得し、marionette `connect` で
 
 #### 4-3. 各シナリオのスクショ撮影
 
+**テーマ設定**: アプリ起動後、設定画面からテーマを「Light」に変更する（01〜07はライトテーマ）。
+アプリの `ThemeMode` は SharedPreferences に永続化されるため、シミュレーターの外観設定だけでは不十分。
+必ずアプリ内の設定画面（テーマ → Light）で切り替えること。
+
 選択された各シナリオに対して:
 
 1. **遷移**: marionette `call_custom_extension`
@@ -127,10 +130,12 @@ dart-mcp `get_app_logs` でVM Service URIを取得し、marionette `connect` で
    xcrun simctl io booted screenshot apps/mobile/fastlane/screenshots/en-US/<key>.png
    ```
 
-5. **戻る**: marionette `call_custom_extension`
+4. **戻る**: marionette `call_custom_extension`
    - extension: `ccpocket.popToRoot`
 
-6. **待機**: 1秒（ルートへの遷移完了）
+5. **待機**: 1秒（ルートへの遷移完了）
+
+**08_dark_theme の撮影**: 01〜07撮影後、設定画面からテーマを「Dark」に戻し、Session List シナリオを撮影する。
 
 #### 4-4. アプリ停止
 
@@ -219,15 +224,16 @@ git diff --stat
 
 ## シナリオ名 ↔ ファイルキー対応表
 
-| シナリオ名（extension引数） | ファイルキー（スクショファイル名） |
-|---------------------------|-------------------------------|
-| Session List (Recent) | `01_session_list` |
-| Session List | `02_approval_list` |
-| Multi-Question Approval | `03_multi_question` |
-| Markdown Input | `04_markdown_input` |
-| Image Attach | `05_image_attach` |
-| Git Diff | `06_git_diff` |
-| New Session | `07_new_session` |
+| シナリオ名（extension引数） | ファイルキー（スクショファイル名） | テーマ |
+|---------------------------|-------------------------------|--------|
+| Session List (Recent) | `01_session_list` | ライト |
+| Session List | `02_approval_list` | ライト |
+| Multi-Question Approval | `03_multi_question` | ライト |
+| Markdown Input | `04_markdown_input` | ライト |
+| Image Attach | `05_image_attach` | ライト |
+| Git Diff | `06_git_diff` | ライト |
+| New Session | `07_new_session` | ライト |
+| Session List | `08_dark_theme` | ダーク |
 
 ## 注意事項
 

@@ -34,12 +34,17 @@ SCREENSHOTS=(
   "05_image_attach|Attach images|From clipboard or gallery|画像を添付|クリップボードから貼り付け"
   "06_git_diff|Review diffs|See every change at once|差分を確認|変更を一覧表示"
   "07_new_session|Just your phone|Open the app, pick a project, go|スマホだけでOK|アプリを開いて、すぐ開発"
+  "08_dark_theme|Dark mode|Easy on the eyes|ダークモード|目に優しいダークテーマ"
 )
 
 compose_screenshot() {
   local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6"
   local input="${SCRIPT_DIR}/${lang_dir}/${key}.png"
   local output="${SCRIPT_DIR}/${lang_dir}/${key}_framed.png"
+
+  # Dark theme variant: dark background + white text
+  local is_dark=false
+  case "$key" in 08_dark_theme) is_dark=true ;; esac
 
   if [ ! -f "$input" ]; then
     echo "SKIP: $input not found"
@@ -96,13 +101,24 @@ compose_screenshot() {
   # Combine screenshot and bezel
   magick /tmp/ss_$$.png /tmp/bezel_$$.png -composite /tmp/framed_ss_$$.png
 
-  # Compose final image with gradient background (Clean White style)
-  magick -size "${CANVAS_W}x${CANVAS_H}" gradient:"#FFFFFF-#F4F4F5" \
+  # Compose final image with gradient background
+  local bg_gradient text_fill subtitle_fill
+  if [ "$is_dark" = true ]; then
+    bg_gradient="gradient:#1C1C1E-#111113"
+    text_fill="#F5F5F5"
+    subtitle_fill="rgba(245,245,245,0.75)"
+  else
+    bg_gradient="gradient:#FFFFFF-#F4F4F5"
+    text_fill="#111111"
+    subtitle_fill="rgba(17,17,17,0.75)"
+  fi
+
+  magick -size "${CANVAS_W}x${CANVAS_H}" "$bg_gradient" \
     /tmp/framed_ss_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
     -gravity North \
-    -font "$font_bold" -pointsize 110 -fill "#111111" \
+    -font "$font_bold" -pointsize 110 -fill "$text_fill" \
     -annotate +0+180 "$keyword" \
-    -font "$font_reg" -pointsize 72 -fill "rgba(17,17,17,0.75)" \
+    -font "$font_reg" -pointsize 72 -fill "$subtitle_fill" \
     -annotate +0+320 "$title" \
     -depth 8 $PNG_STRIP "$output"
 
