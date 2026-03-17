@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { setupProxy } from "./proxy.js";
 import { BridgeWebSocketServer } from "./websocket.js";
 import { ImageStore } from "./image-store.js";
 import { GalleryStore } from "./gallery-store.js";
@@ -177,6 +178,7 @@ const isDirectExecution =
   fileURLToPath(import.meta.url) === process.argv[1];
 
 if (isDirectExecution) {
+  setupProxy();
   startServer().catch((err) => {
     console.error("[bridge] Failed to start:", err);
     process.exit(1);

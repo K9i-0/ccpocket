@@ -1,6 +1,10 @@
 #!/usr/bin/env node
+import { setupProxy } from "./proxy.js";
 import { platform } from "node:os";
 import { startServer } from "./index.js";
+
+// Configure global fetch proxy before any network calls
+setupProxy();
 
 const args = process.argv.slice(2);
 
