@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../hooks/use_app_resume_callback.dart';
 import '../../hooks/use_scroll_tracking.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
@@ -38,7 +39,7 @@ import '../chat_session/widgets/bottom_overlay_layout.dart';
 import '../chat_session/widgets/chat_message_list.dart';
 import '../chat_session/widgets/reconnect_banner.dart';
 import '../chat_session/widgets/session_mode_bar.dart';
-import '../chat_session/widgets/status_line.dart';
+import '../chat_session/widgets/status_line_flexible_space.dart';
 import '../../router/app_router.dart';
 import '../claude_session/widgets/rewind_message_list_sheet.dart'
     show UserMessageHistorySheet;
@@ -398,16 +399,13 @@ class _CodexChatBody extends HookWidget {
     }, [sessionId]);
 
     // --- App resume: verify WebSocket health + refresh history ---
-    useEffect(() {
-      if (lifecycleState == AppLifecycleState.resumed) {
-        final bridge = context.read<BridgeService>();
-        bridge.ensureConnected();
-        if (bridge.isConnected) {
-          context.read<ChatSessionCubit>().refreshHistory();
-        }
+    useAppResumeCallback(lifecycleState, () {
+      final bridge = context.read<BridgeService>();
+      bridge.ensureConnected();
+      if (bridge.isConnected) {
+        context.read<ChatSessionCubit>().refreshHistory();
       }
-      return null;
-    }, [lifecycleState]);
+    });
 
     // --- Destructure state ---
     final status = sessionState.status;
@@ -531,15 +529,9 @@ class _CodexChatBody extends HookWidget {
                 sessionId: sessionId,
                 projectPath: projectPath,
               ),
-              flexibleSpace: Stack(
-                children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: MediaQuery.of(context).padding.top,
-                    child: StatusLine(status: status, inPlanMode: inPlanMode),
-                  ),
-                ],
+              flexibleSpace: StatusLineFlexibleSpace(
+                status: status,
+                inPlanMode: inPlanMode,
               ),
               actions: [
                 // View Changes button

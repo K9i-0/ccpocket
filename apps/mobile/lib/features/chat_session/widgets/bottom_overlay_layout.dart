@@ -45,7 +45,7 @@ class _BottomOverlayLayoutState extends State<BottomOverlayLayout> {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return LayoutBuilder(
       builder: (context, constraints) {
