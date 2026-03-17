@@ -82,6 +82,26 @@ class ChatStateUpdate {
   });
 }
 
+/// How the app reacts when the Bridge returns `unsupported_message` for a
+/// client message type it does not recognise.
+enum UnsupportedAction {
+  /// Silently log — no UI impact (default for background / auto features).
+  suppress,
+
+  /// Show an amber "Bridge update required" warning bubble.
+  showUpdateHint,
+}
+
+/// Per-message-type overrides.  Types **not** listed here default to
+/// [UnsupportedAction.suppress].
+const _unsupportedActions = <String, UnsupportedAction>{
+  // User-initiated actions that visibly fail if unsupported:
+  'rewind': UnsupportedAction.showUpdateHint,
+  'rewind_dry_run': UnsupportedAction.showUpdateHint,
+  'take_screenshot': UnsupportedAction.showUpdateHint,
+  'archive_session': UnsupportedAction.showUpdateHint,
+};
+
 /// Processes [ServerMessage]s into [ChatStateUpdate]s.
 ///
 /// Pure logic — no Flutter dependencies. Tracks streaming and thinking state
@@ -206,13 +226,15 @@ class ChatMessageHandler {
         if (errorCode == 'git_not_available' && _gitTipShown) {
           return const ChatStateUpdate();
         }
-        // Suppress "Invalid message format" — bridge is simply older than
-        // the app and doesn't recognise a newer message type.  No user
-        // impact, so just log it.
+        // New Bridge (≥ 1.23.0): includes errorCode + original message type
+        if (errorCode == 'unsupported_message') {
+          return _handleUnsupportedMessage(message);
+        }
+        // Old Bridge (< 1.23.0): no errorCode, string match fallback.
+        // Type is unknown so always suppress.
         if (message == 'Invalid message format') {
           logger.warning(
-            '[handler] bridge returned "Invalid message format" '
-            '(bridge may need updating)',
+            '[handler] old bridge: unsupported message (type unknown)',
           );
           return const ChatStateUpdate();
         }
@@ -220,6 +242,31 @@ class ChatMessageHandler {
         return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
       default:
         return ChatStateUpdate(entriesToAdd: [ServerChatEntry(msg)]);
+    }
+  }
+
+  /// Decide whether to suppress or show a hint for a message type the Bridge
+  /// does not support.
+  ChatStateUpdate _handleUnsupportedMessage(String messageType) {
+    final action =
+        _unsupportedActions[messageType] ?? UnsupportedAction.suppress;
+    switch (action) {
+      case UnsupportedAction.suppress:
+        logger.info('[handler] suppressed unsupported: $messageType');
+        return const ChatStateUpdate();
+      case UnsupportedAction.showUpdateHint:
+        logger.warning('[handler] unsupported (needs update): $messageType');
+        return ChatStateUpdate(
+          entriesToAdd: [
+            ServerChatEntry(
+              ErrorMessage(
+                message: 'This feature requires a newer Bridge server.\n'
+                    'Run: npm update -g @ccpocket/bridge',
+                errorCode: 'bridge_update_required',
+              ),
+            ),
+          ],
+        );
     }
   }
 

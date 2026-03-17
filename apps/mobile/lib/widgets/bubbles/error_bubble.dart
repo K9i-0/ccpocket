@@ -18,6 +18,7 @@ String? _errorTitle(String? errorCode) {
     'codex_auth_required' => 'Codex Authentication Error',
     'path_not_allowed' => 'Path Not Allowed',
     'git_not_available' => 'Git Not Available',
+    'bridge_update_required' => 'Bridge Update Required',
     _ => null,
   };
 }
@@ -32,6 +33,7 @@ String? _errorHint(String? errorCode) {
     'path_not_allowed' => 'Update BRIDGE_ALLOWED_DIRS on the Bridge server',
     'git_not_available' =>
       'Git features (diff, file list) are not available for this project',
+    'bridge_update_required' => 'npm update -g @ccpocket/bridge',
     _ => null,
   };
 }
@@ -42,6 +44,7 @@ String? _copyableCommand(String? errorCode) {
     'auth_login_required' ||
     'auth_token_expired' ||
     'auth_api_error' => 'claude auth login',
+    'bridge_update_required' => 'npm update -g @ccpocket/bridge',
     _ => null,
   };
 }
@@ -54,7 +57,8 @@ bool _isClaudeAuthError(String? errorCode) {
 
 /// Whether the errorCode represents a non-critical warning (amber style).
 bool _isWarning(String? errorCode) {
-  return errorCode == 'git_not_available';
+  return errorCode == 'git_not_available' ||
+      errorCode == 'bridge_update_required';
 }
 
 class ErrorBubble extends StatelessWidget {

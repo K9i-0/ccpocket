@@ -227,8 +227,16 @@ export class BridgeWebSocketServer {
       const msg = parseClientMessage(raw);
 
       if (!msg) {
-        console.error("[ws] Invalid message:", raw.slice(0, 200));
-        this.send(ws, { type: "error", message: "Invalid message format" });
+        // Try to extract the message type so the client can decide how to
+        // handle the unsupported message (suppress vs show update hint).
+        let rawType: string | undefined;
+        try { rawType = (JSON.parse(raw) as Record<string, unknown>)?.type as string; } catch { /* ignore */ }
+        console.error("[ws] Unsupported message:", rawType ?? raw.slice(0, 200));
+        this.send(ws, {
+          type: "error",
+          errorCode: "unsupported_message",
+          message: rawType ?? "unknown",
+        });
         return;
       }
 
