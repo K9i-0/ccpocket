@@ -32,6 +32,7 @@ ccpocket-bridge
 | `BRIDGE_API_KEY` | (none) | API key authentication (enabled when set) |
 | `BRIDGE_DEMO_MODE` | (none) | Demo mode: hide Tailscale IPs and API key from QR code / logs |
 | `BRIDGE_RECORDING` | (none) | Enable session recording for debugging (enabled when set) |
+| `HTTPS_PROXY` | (none) | Proxy for outgoing fetch requests (`http://`, `socks5://`) |
 
 ```bash
 # Example: custom port with API key
