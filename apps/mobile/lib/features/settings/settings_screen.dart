@@ -340,9 +340,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: Text(l.shareApp),
                       subtitle: Text(l.shareAppSubtitle),
                       onTap: () => SharePlus.instance.share(
-                        ShareParams(
-                          text: l.shareText(AppConstants.shareUrl),
-                        ),
+                        ShareParams(text: l.shareText(AppConstants.shareUrl)),
                       ),
                     ),
                     Divider(
@@ -370,7 +368,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         color: cs.outlineVariant,
                       ),
                       ListTile(
-                        leading: Icon(Icons.rate_review_outlined, color: cs.primary),
+                        leading: Icon(
+                          Icons.rate_review_outlined,
+                          color: cs.primary,
+                        ),
                         title: Text(
                           Platform.isIOS ? l.rateOnStore : l.rateOnStoreAndroid,
                         ),

@@ -518,10 +518,7 @@ class _CodexChatBody extends HookWidget {
             showPermissionModeMenu(context, cubit);
           },
           // Cmd+Enter: approve pending tool use
-          const SingleActivator(
-            LogicalKeyboardKey.enter,
-            meta: true,
-          ): () {
+          const SingleActivator(LogicalKeyboardKey.enter, meta: true): () {
             if (pendingToolUseId != null) approveToolUse();
           },
         },

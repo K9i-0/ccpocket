@@ -719,7 +719,7 @@ class _PlanApprovalArea extends StatelessWidget {
                   minLines: 1,
                   maxLines: 3,
                   keyboardType: TextInputType.multiline,
-                  onSubmitted: (_) => onKeepPlanning(),
+                  textInputAction: TextInputAction.newline,
                 ),
               ),
               const SizedBox(width: 4),

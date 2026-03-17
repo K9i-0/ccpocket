@@ -1254,10 +1254,7 @@ class ArchiveResultMessage implements ServerMessage {
 class BranchUpdateMessage implements ServerMessage {
   final String sessionId;
   final String branch;
-  const BranchUpdateMessage({
-    required this.sessionId,
-    required this.branch,
-  });
+  const BranchUpdateMessage({required this.sessionId, required this.branch});
 }
 
 class PromptHistoryBackupResultMessage implements ServerMessage {

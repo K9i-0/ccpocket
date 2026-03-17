@@ -11,11 +11,7 @@ class AppUpdateBanner extends StatelessWidget {
   final AppUpdateInfo updateInfo;
   final VoidCallback? onDismiss;
 
-  const AppUpdateBanner({
-    super.key,
-    required this.updateInfo,
-    this.onDismiss,
-  });
+  const AppUpdateBanner({super.key, required this.updateInfo, this.onDismiss});
 
   @override
   Widget build(BuildContext context) {

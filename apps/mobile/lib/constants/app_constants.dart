@@ -16,8 +16,7 @@ class AppConstants {
   // ── External links ──
 
   /// Install landing page (redirects to App Store / Play Store on mobile)
-  static const String installUrl =
-      'https://k9i-0.github.io/ccpocket/install';
+  static const String installUrl = 'https://k9i-0.github.io/ccpocket/install';
 
   /// Primary share URL — uses install page for better mobile conversion
   static const String shareUrl = installUrl;

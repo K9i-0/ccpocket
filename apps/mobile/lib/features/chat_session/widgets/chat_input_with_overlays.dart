@@ -285,8 +285,9 @@ class ChatInputWithOverlays extends HookWidget {
             reader.getFile(format, (file) async {
               try {
                 final bytes = await file.readAll();
-                final mimeType =
-                    format == Formats.png ? 'image/png' : 'image/jpeg';
+                final mimeType = format == Formats.png
+                    ? 'image/png'
+                    : 'image/jpeg';
                 addImageBytes(bytes, mimeType);
               } catch (e) {
                 debugPrint('[drop] Failed to read dropped image: $e');
@@ -530,8 +531,9 @@ class ChatInputWithOverlays extends HookWidget {
             reader.getFile(format, (file) async {
               try {
                 final bytes = await file.readAll();
-                final mimeType =
-                    format == Formats.png ? 'image/png' : 'image/jpeg';
+                final mimeType = format == Formats.png
+                    ? 'image/png'
+                    : 'image/jpeg';
                 addImageBytes(bytes, mimeType);
               } catch (e) {
                 debugPrint('[paste] Failed to read clipboard image: $e');
@@ -755,8 +757,7 @@ Widget _wrapWithDropRegion({
     onDropOver: (event) {
       // Accept copy if any item has an image
       final hasImage = event.session.items.any(
-        (item) =>
-            item.canProvide(Formats.png) || item.canProvide(Formats.jpeg),
+        (item) => item.canProvide(Formats.png) || item.canProvide(Formats.jpeg),
       );
       return hasImage ? DropOperation.copy : DropOperation.none;
     },

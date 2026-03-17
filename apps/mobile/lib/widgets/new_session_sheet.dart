@@ -787,8 +787,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       final focus = FocusManager.instance.primaryFocus;
       final isInTextField = focus?.context?.widget is EditableText;
       if (!isInTextField) {
-        final next =
-            _provider == Provider.claude ? Provider.codex : Provider.claude;
+        final next = _provider == Provider.claude
+            ? Provider.codex
+            : Provider.claude;
         _onProviderChanged(next);
         return KeyEventResult.handled;
       }

@@ -75,10 +75,7 @@ class AppUpdateService {
       if (latestVersion == null) return null;
 
       // Save check timestamp
-      await prefs.setInt(
-        _lastCheckKey,
-        DateTime.now().millisecondsSinceEpoch,
-      );
+      await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
 
       // Compare versions
       if (_isNewer(latestVersion, currentVersion)) {
@@ -114,10 +111,7 @@ class AppUpdateService {
     _isDismissed = true;
     if (_cachedUpdate != null) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        _dismissedVersionKey,
-        _cachedUpdate!.latestVersion,
-      );
+      await prefs.setString(_dismissedVersionKey, _cachedUpdate!.latestVersion);
     }
   }
 

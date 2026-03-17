@@ -585,6 +585,7 @@ class _InputTextField extends StatelessWidget {
   final String? hintText;
   final VoidCallback onSend;
   final bool hasInputText;
+
   /// Callback to paste an image from clipboard.
   /// Called on Cmd/Ctrl+V; should check clipboard for images and fall back
   /// to text paste if no image is found. Returns true if an image was pasted.
@@ -606,7 +607,8 @@ class _InputTextField extends StatelessWidget {
     }
 
     // Cmd+V (macOS) or Ctrl+V (Windows/Linux): try image paste first
-    final isModifier = HardwareKeyboard.instance.isMetaPressed ||
+    final isModifier =
+        HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
     if (onPasteImage != null &&
         event.logicalKey == LogicalKeyboardKey.keyV &&
@@ -627,6 +629,10 @@ class _InputTextField extends StatelessWidget {
     }
 
     if (event.logicalKey != LogicalKeyboardKey.enter) {
+      return KeyEventResult.ignored;
+    }
+    // IME変換中はEnterを無視（変換確定に使われるため）
+    if (controller.value.composing.isValid) {
       return KeyEventResult.ignored;
     }
     final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
