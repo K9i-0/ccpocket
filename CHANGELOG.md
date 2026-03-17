@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.41.1] - 2026-03-17
+
+### Fixed
+- Japanese IME composing Enter no longer sends message (was triggering send during kanji conversion)
+- macOS app name changed from "ccpocket" to "CC Pocket" (Dock, menu bar, title bar)
+- macOS app icon replaced from Flutter default to CC Pocket icon
+- Keep planning input field on session card now correctly allows newlines on desktop
+- Git branch display not refreshing when opening session or tapping branch chip
+
 ## [1.41.0] - 2026-03-17
 
 ### Added
