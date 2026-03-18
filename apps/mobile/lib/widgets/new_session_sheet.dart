@@ -220,6 +220,7 @@ enum _WorktreeMode {
 /// Fallback Codex models when Bridge hasn't delivered a list yet.
 const _defaultCodexModels = <String>[
   'gpt-5.4',
+  'gpt-5.4-mini',
   'gpt-5.3-codex',
   'gpt-5.3-codex-spark',
   'gpt-5.2-codex',
