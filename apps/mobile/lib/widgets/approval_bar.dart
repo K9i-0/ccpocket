@@ -338,6 +338,7 @@ class _ApprovalButtons extends StatelessWidget {
       );
     }
 
+    final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
         Expanded(
@@ -352,6 +353,21 @@ class _ApprovalButtons extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Expanded(
+          child: OutlinedButton(
+            key: const ValueKey('approve_always_button'),
+            onPressed: onApproveAlways,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              foregroundColor: cs.error,
+              side: BorderSide(
+                color: cs.error.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Text(l.always, style: const TextStyle(fontSize: 13)),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
           child: FilledButton(
             key: const ValueKey('approve_button'),
             onPressed: onApprove,
@@ -359,17 +375,6 @@ class _ApprovalButtons extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 10),
             ),
             child: Text(l.approve, style: const TextStyle(fontSize: 13)),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: FilledButton.tonal(
-            key: const ValueKey('approve_always_button'),
-            onPressed: onApproveAlways,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-            ),
-            child: Text(l.always, style: const TextStyle(fontSize: 13)),
           ),
         ),
       ],

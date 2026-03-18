@@ -573,7 +573,20 @@ class _ToolApprovalArea extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onReject,
                   icon: const Icon(Icons.close, size: 14),
-                  label: const Text('Reject'),
+                  label: Text(AppLocalizations.of(context).reject),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 28,
+                child: OutlinedButton.icon(
+                  onPressed: onApproveAlways,
+                  icon: const Icon(Icons.done_all, size: 14),
+                  label: Text(AppLocalizations.of(context).always),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     textStyle: const TextStyle(fontSize: 12),
@@ -589,25 +602,10 @@ class _ToolApprovalArea extends StatelessWidget {
               const SizedBox(width: 8),
               SizedBox(
                 height: 28,
-                child: OutlinedButton.icon(
-                  onPressed: onApproveAlways,
-                  icon: const Icon(Icons.done_all, size: 14),
-                  label: const Text('Always'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    textStyle: const TextStyle(fontSize: 12),
-                    foregroundColor: statusColor,
-                    side: BorderSide(color: statusColor.withValues(alpha: 0.5)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                height: 28,
                 child: FilledButton.tonalIcon(
                   onPressed: onApprove,
                   icon: const Icon(Icons.check, size: 14),
-                  label: const Text('Approve'),
+                  label: Text(AppLocalizations.of(context).approve),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     textStyle: const TextStyle(fontSize: 12),
