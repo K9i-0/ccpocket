@@ -10,6 +10,8 @@ final class DoctorViewModel: ObservableObject {
 
     #if DEBUG
     @Published var mockScenario: MockDoctorScenario?
+    /// Commands that have been "completed" (copied) during mock testing.
+    var completedCommands: Set<String> = []
     #endif
 
     private let doctorRunner = DoctorRunner()
@@ -48,7 +50,7 @@ final class DoctorViewModel: ObservableObject {
         Task {
             #if DEBUG
             if let mockScenario {
-                report = mockScenario.buildReport()
+                report = applyCompletedCommands(to: mockScenario.buildReport())
                 isRunning = false
                 return
             }
@@ -65,7 +67,49 @@ final class DoctorViewModel: ObservableObject {
     #if DEBUG
     func setMockScenario(_ scenario: MockDoctorScenario?) {
         mockScenario = scenario
+        completedCommands.removeAll()
         report = scenario?.buildReport()
+    }
+
+    func markCommandCompleted(_ command: String) {
+        completedCommands.insert(command)
+    }
+
+    /// Flip checks to pass if all their commands have been copied.
+    private func applyCompletedCommands(to report: DoctorReport) -> DoctorReport {
+        guard !completedCommands.isEmpty else { return report }
+
+        let updatedResults = report.results.map { check -> CheckResult in
+            let commands = setupCommands(for: check)
+            guard !commands.isEmpty else { return check }
+
+            let allDone = commands.allSatisfy { completedCommands.contains($0.command) }
+            guard allDone else { return check }
+
+            return CheckResult(
+                name: check.name,
+                status: "pass",
+                message: "Installed",
+                category: check.category,
+                remediation: nil,
+                providers: check.providers?.map { provider in
+                    ProviderResult(
+                        name: provider.name,
+                        installed: true,
+                        version: provider.version ?? "latest",
+                        authenticated: true,
+                        authMessage: "Authenticated",
+                        remediation: nil
+                    )
+                }
+            )
+        }
+
+        let allRequiredPassed = updatedResults
+            .filter { $0.category == "required" }
+            .allSatisfy { $0.status == "pass" }
+
+        return DoctorReport(results: updatedResults, allRequiredPassed: allRequiredPassed)
     }
     #endif
 

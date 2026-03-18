@@ -171,7 +171,11 @@ struct OnboardingView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
 
-                CommandRow(command: command)
+                CommandRow(command: command) {
+                    #if DEBUG
+                    doctorVM.markCommandCompleted(command)
+                    #endif
+                }
             }
         }
     }
@@ -310,6 +314,7 @@ struct OnboardingView: View {
 
 struct CommandRow: View {
     let command: String
+    var onCopied: (() -> Void)?
 
     @State private var copied = false
 
@@ -326,6 +331,7 @@ struct CommandRow: View {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(command, forType: .string)
                 copied = true
+                onCopied?()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                     copied = false
                 }
