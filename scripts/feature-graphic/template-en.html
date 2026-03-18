@@ -10,19 +10,8 @@
     height: 500px;
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-    background: #000;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F4F4F5 100%);
     position: relative;
-  }
-
-  /* Subtle accent glow */
-  body::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(ellipse at 15% 50%, rgba(232, 120, 50, 0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at 90% 50%, rgba(80, 220, 180, 0.04) 0%, transparent 40%);
-    z-index: 0;
   }
 
   .container {
@@ -53,10 +42,11 @@
   }
 
   .logo-img {
-    width: 72px;
-    height: 72px;
-    border-radius: 16px;
+    width: 64px;
+    height: 64px;
+    border-radius: 14px;
     overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   }
 
   .logo-img img {
@@ -68,7 +58,7 @@
   .app-name {
     font-size: 42px;
     font-weight: 800;
-    color: #fff;
+    color: #111;
     letter-spacing: -0.5px;
     line-height: 1;
   }
@@ -76,7 +66,7 @@
   .tagline {
     font-size: 28px;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.95);
+    color: #111;
     margin-top: 4px;
     line-height: 1.2;
   }
@@ -84,7 +74,7 @@
   .subtitle {
     font-size: 15px;
     font-weight: 400;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(17, 17, 17, 0.55);
     margin-top: 8px;
     line-height: 1.4;
   }
@@ -104,15 +94,15 @@
   }
 
   .badge-claude {
-    background: linear-gradient(135deg, rgba(232, 120, 50, 0.25), rgba(232, 120, 50, 0.1));
-    color: #e87832;
+    background: rgba(232, 120, 50, 0.12);
+    color: #c45a1a;
     border: 1px solid rgba(232, 120, 50, 0.3);
   }
 
   .badge-codex {
-    background: linear-gradient(135deg, rgba(80, 220, 180, 0.2), rgba(80, 220, 180, 0.08));
-    color: #50dcb4;
-    border: 1px solid rgba(80, 220, 180, 0.3);
+    background: rgba(40, 160, 120, 0.1);
+    color: #1a8a5c;
+    border: 1px solid rgba(40, 160, 120, 0.3);
   }
 
   /* Right side: Screenshots — intentionally overflow for dynamic look */
@@ -127,8 +117,8 @@
     position: absolute;
     border-radius: 28px;
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.08);
   }
 
   .phone-frame img {
@@ -154,20 +144,7 @@
     left: 240px;
     transform: perspective(800px) rotateY(-8deg);
     z-index: 1;
-    opacity: 0.8;
-  }
-
-  /* Glow accent at bottom */
-  .bottom-glow {
-    position: absolute;
-    bottom: -20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80%;
-    height: 60px;
-    background: linear-gradient(90deg, rgba(232, 120, 50, 0.15), rgba(80, 220, 180, 0.1));
-    filter: blur(30px);
-    z-index: 0;
+    opacity: 0.85;
   }
 </style>
 </head>
@@ -196,6 +173,5 @@
       </div>
     </div>
   </div>
-  <div class="bottom-glow"></div>
 </body>
 </html>

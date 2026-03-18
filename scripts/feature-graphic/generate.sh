@@ -7,8 +7,8 @@ ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ANDROID_META="$ROOT/apps/mobile/fastlane/metadata/android"
 SCREENSHOTS_ROOT="$ROOT/apps/mobile/fastlane/screenshots"
 
-# Use Android foreground icon (highest resolution)
-ICON="$ROOT/apps/mobile/android/app/src/main/res/drawable-xxxhdpi/ic_launcher_foreground.png"
+# Use iOS app icon (1024x1024, with background — iOS-style rounded corners applied via CSS)
+ICON="$ROOT/apps/mobile/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png"
 
 generate() {
   local lang="$1"
