@@ -246,7 +246,7 @@ final class DoctorViewModel: ObservableObject {
 
     private func nodeCommands() -> [(comment: String, command: String)] {
         [
-            (String(localized: "Install Homebrew (skip if already installed)"), "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""),
+            (String(localized: "Install Homebrew"), "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""),
             (String(localized: "Install Node.js"), "brew install node"),
         ]
     }

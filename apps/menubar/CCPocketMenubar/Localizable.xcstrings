@@ -448,9 +448,9 @@
       }
     },
 
-    "Install Homebrew (skip if already installed)" : {
+    "Install Homebrew" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Homebrewをインストール（インストール済みならスキップ）" } }
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Homebrewをインストール" } }
       }
     },
     "Install Node.js" : {
