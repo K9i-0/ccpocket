@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.23.0] - 2026-03-18
+
+### Added
+- Add `gpt-5.4-mini` to available Codex model list
+- Graceful degradation for unsupported Bridge message types with per-action client fallback handling
+
+### Changed
+- Doctor check no longer requires unused `codex-sdk`, and skips `systemd` checks on macOS
+
 ## [1.22.1] - 2026-03-17
 
 ### Fixed
