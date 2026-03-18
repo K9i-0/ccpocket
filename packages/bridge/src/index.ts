@@ -10,6 +10,8 @@ import { printStartupInfo } from "./startup-info.js";
 import { MdnsAdvertiser } from "./mdns.js";
 import { ProjectHistory } from "./project-history.js";
 import { getVersionInfo } from "./version.js";
+import { fetchAllUsage } from "./usage.js";
+import { runDoctor } from "./doctor.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
 import { RecordingStore } from "./recording-store.js";
 import { FirebaseAuthClient } from "./firebase-auth.js";
@@ -119,6 +121,34 @@ export async function startServer() {
       const body = JSON.stringify(getVersionInfo(startedAt));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(body);
+      return;
+    }
+
+    // Usage endpoint
+    if (req.url === "/usage" && req.method === "GET") {
+      fetchAllUsage()
+        .then((providers) => {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ providers }));
+        })
+        .catch((err) => {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: String(err) }));
+        });
+      return;
+    }
+
+    // Doctor endpoint
+    if (req.url === "/doctor" && req.method === "GET") {
+      runDoctor()
+        .then((report) => {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(report));
+        })
+        .catch((err) => {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: String(err) }));
+        });
       return;
     }
 

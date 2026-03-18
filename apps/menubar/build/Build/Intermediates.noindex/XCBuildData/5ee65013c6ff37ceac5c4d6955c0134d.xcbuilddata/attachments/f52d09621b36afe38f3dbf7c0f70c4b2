@@ -1,0 +1,259 @@
+{
+  "" : {
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CCPocketMenubar-primary.dia",
+    "emit-module-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CCPocketMenubar-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CCPocketMenubar-primary-emit-module.dia",
+    "pch" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CCPocketMenubar-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CCPocketMenubar-primary.swiftdeps"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/App/AppDelegate.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppDelegate.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppDelegate.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppDelegate.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppDelegate.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppDelegate.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppDelegate.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppDelegate.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppDelegate~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/App/MenuBarApp.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/MenuBarApp.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/MenuBarApp.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/MenuBarApp.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/MenuBarApp.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/MenuBarApp.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/MenuBarApp.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/MenuBarApp.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/MenuBarApp~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Models/BridgeHealth.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Models/BridgeVersion.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Models/ConnectionInfo.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Models/DoctorReport.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Models/UsageInfo.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageInfo.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageInfo.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageInfo.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageInfo.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageInfo.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageInfo.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageInfo.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageInfo~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Services/BridgeClient.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Services/BridgeProcessManager.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Services/DoctorRunner.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Services/NetworkDiscovery.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/NetworkDiscovery.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/NetworkDiscovery.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/NetworkDiscovery.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/NetworkDiscovery.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/NetworkDiscovery.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/NetworkDiscovery.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/NetworkDiscovery.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/NetworkDiscovery~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Services/QRCodeGenerator.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeGenerator.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeGenerator.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeGenerator.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeGenerator.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeGenerator.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeGenerator.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeGenerator.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeGenerator~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/ViewModels/AppViewModel.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppViewModel.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppViewModel.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppViewModel.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppViewModel.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppViewModel.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppViewModel.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppViewModel.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AppViewModel~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/ViewModels/DoctorViewModel.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorViewModel.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorViewModel.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorViewModel.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorViewModel.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorViewModel.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorViewModel.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorViewModel.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorViewModel~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/ViewModels/QRCodeViewModel.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeViewModel.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeViewModel.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeViewModel.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeViewModel.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeViewModel.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeViewModel.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeViewModel.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodeViewModel~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/ViewModels/UsageViewModel.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageViewModel.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageViewModel.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageViewModel.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageViewModel.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageViewModel.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageViewModel.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageViewModel.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageViewModel~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Views/DoctorPage/CheckResultRow.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Views/DoctorPage/DoctorPageView.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Views/HeaderView.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/HeaderView.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/HeaderView.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/HeaderView.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/HeaderView.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/HeaderView.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/HeaderView.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/HeaderView.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/HeaderView~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Views/PopoverContentView.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/PopoverContentView.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/PopoverContentView.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/PopoverContentView.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/PopoverContentView.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/PopoverContentView.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/PopoverContentView.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/PopoverContentView.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/PopoverContentView~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Views/QRCodePage/AddressRow.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AddressRow.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AddressRow.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AddressRow.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AddressRow.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AddressRow.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AddressRow.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AddressRow.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/AddressRow~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Views/QRCodePage/QRCodePageView.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodePageView.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodePageView.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodePageView.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodePageView.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodePageView.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodePageView.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodePageView.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/QRCodePageView~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Views/UsagePage/UsageGaugeView.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageGaugeView.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageGaugeView.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageGaugeView.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageGaugeView.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageGaugeView.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageGaugeView.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageGaugeView.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsageGaugeView~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Views/UsagePage/UsagePageView.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsagePageView.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsagePageView.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsagePageView.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsagePageView.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsagePageView.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsagePageView.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsagePageView.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/UsagePageView~partial.swiftmodule"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}

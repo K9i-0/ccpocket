@@ -1,0 +1,23 @@
+{
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Models/DoctorReport.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.dia",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorReport.swiftdeps"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Services/DoctorRunner.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.dia",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorRunner.swiftdeps"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Views/DoctorPage/DoctorPageView.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.dia",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/DoctorPageView.swiftdeps"
+  }
+}

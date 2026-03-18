@@ -1,0 +1,23 @@
+{
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Models/BridgeHealth.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.dia",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeHealth.swiftdeps"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Services/BridgeClient.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.dia",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeClient.swiftdeps"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Services/BridgeProcessManager.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.dia",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeProcessManager.swiftdeps"
+  }
+}

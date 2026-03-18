@@ -23,10 +23,15 @@ function hasFlag(name: string): boolean {
 
 if (subcommand === "doctor") {
   // Doctor subcommand: check environment health
+  const jsonOutput = hasFlag("json");
   import("./doctor.js")
     .then(({ runDoctor, printReport }) =>
       runDoctor().then((report) => {
-        printReport(report);
+        if (jsonOutput) {
+          console.log(JSON.stringify(report));
+        } else {
+          printReport(report);
+        }
         process.exit(report.allRequiredPassed ? 0 : 1);
       }),
     )

@@ -1,0 +1,23 @@
+{
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Models/BridgeVersion.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.dia",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/BridgeVersion.swiftdeps"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Models/ConnectionInfo.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.dia",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/ConnectionInfo.swiftdeps"
+  },
+  "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/CCPocketMenubar/Views/DoctorPage/CheckResultRow.swift" : {
+    "const-values" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.swiftconstvalues",
+    "dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.d",
+    "diagnostics" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.dia",
+    "object" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.o",
+    "swift-dependencies" : "/Users/k9i-mini/Workspace/ccpocket/apps/menubar/build/Build/Intermediates.noindex/CCPocketMenubar.build/Debug/CCPocketMenubar.build/Objects-normal/arm64/CheckResultRow.swiftdeps"
+  }
+}

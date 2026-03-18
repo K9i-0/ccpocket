@@ -1,0 +1,475 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0882D7D2A84198AC66E43C85 /* QRCodeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E40A1516D800B52B693BEC2 /* QRCodeViewModel.swift */; };
+		0E6869D3A91A9B8EC833A218 /* BridgeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 660EFDE63E46DB3D442BEC2C /* BridgeClient.swift */; };
+		10C8A59D69B09DB25230CCA5 /* AddressRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A7700A6EFBA3924929D3AC /* AddressRow.swift */; };
+		17B7FFF3744584C69D8D865E /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F28FE1882F709B59896A80 /* AppViewModel.swift */; };
+		1D8AE90E4814BA34E47AF3D5 /* QRCodePageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D031B5A2881D47BD812AC8 /* QRCodePageView.swift */; };
+		22BEF1B22F4476974EFB3C6A /* BridgeVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F6D9EEF9A4E409D751F651 /* BridgeVersion.swift */; };
+		3FF665F7FC4EC145E180D9B7 /* DoctorReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9811360475EEBE560AAFB78D /* DoctorReport.swift */; };
+		40C89AE541CB62C2E52B528F /* PopoverContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E5F81F39B8F73A99FA9939D /* PopoverContentView.swift */; };
+		438F20D1D87D9360E1292BDC /* DoctorPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF0E8CEC707F78422335AEE7 /* DoctorPageView.swift */; };
+		56E1B7C4400C711E2B86A0B0 /* NetworkDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F8950F2CC3D55E777965D7 /* NetworkDiscovery.swift */; };
+		609035DDED7F99FD81B8A76F /* BridgeHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1067826AF18FF36F61BF867B /* BridgeHealth.swift */; };
+		63CAE352DEAE68DDF250B591 /* HeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C24596276E2677B95F21427 /* HeaderView.swift */; };
+		66716FF5169422740D206D28 /* QRCodeGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD8DE1EDA1A4027DB2BA1A1D /* QRCodeGenerator.swift */; };
+		72F30352A41524BAC2BE5CF3 /* ConnectionInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE8ACC5D95AE60F0DEB8F54B /* ConnectionInfo.swift */; };
+		75ABF40A3AFAAAA96BF2FA92 /* DoctorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2926B2C2BE985058CF7B0F /* DoctorViewModel.swift */; };
+		766611FD52CFBFB38861753D /* CheckResultRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 254DA0E8CC4A9A4FC0DFC5A7 /* CheckResultRow.swift */; };
+		95A2815828723543B1798BA8 /* MenuBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45501A00EBD380D292B98A6E /* MenuBarApp.swift */; };
+		A0E1B0735E07D6716BD84D4D /* UsageInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66E0D41CC90215322F044514 /* UsageInfo.swift */; };
+		A770CD6DA58DD613A35EFCC6 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56315030AA6325DDED41BC36 /* AppDelegate.swift */; };
+		C14D35E82B2FAD707FD15969 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4563583B0148D3FB4854BCA9 /* Assets.xcassets */; };
+		D554B7D25530CD6C939E8DF8 /* UsageGaugeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C748631AB63CF4DC4596ACD /* UsageGaugeView.swift */; };
+		EC411AEBD2E9BF91F33A57E2 /* DoctorRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C4227159686B17FEDEE3A9A /* DoctorRunner.swift */; };
+		EDC198DD897E51355B2E4EA3 /* UsagePageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B7E4A21C72BCF1C12F4FA53 /* UsagePageView.swift */; };
+		F3D2061BDBDF9570DE07F96D /* UsageViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 936425EFA8842888C2FAF5F1 /* UsageViewModel.swift */; };
+		F6B2EEEAC4CA4159D547EBED /* BridgeProcessManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D01522C085AFBE48627A6F20 /* BridgeProcessManager.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0C748631AB63CF4DC4596ACD /* UsageGaugeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageGaugeView.swift; sourceTree = "<group>"; };
+		1067826AF18FF36F61BF867B /* BridgeHealth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeHealth.swift; sourceTree = "<group>"; };
+		1E5F81F39B8F73A99FA9939D /* PopoverContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverContentView.swift; sourceTree = "<group>"; };
+		254DA0E8CC4A9A4FC0DFC5A7 /* CheckResultRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckResultRow.swift; sourceTree = "<group>"; };
+		3B7E4A21C72BCF1C12F4FA53 /* UsagePageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsagePageView.swift; sourceTree = "<group>"; };
+		3C4227159686B17FEDEE3A9A /* DoctorRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoctorRunner.swift; sourceTree = "<group>"; };
+		3D7121A0BC7EBB3F47385B7A /* CCPocketMenubar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CCPocketMenubar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		45501A00EBD380D292B98A6E /* MenuBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarApp.swift; sourceTree = "<group>"; };
+		4563583B0148D3FB4854BCA9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		4C24596276E2677B95F21427 /* HeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderView.swift; sourceTree = "<group>"; };
+		4E40A1516D800B52B693BEC2 /* QRCodeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeViewModel.swift; sourceTree = "<group>"; };
+		55D031B5A2881D47BD812AC8 /* QRCodePageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodePageView.swift; sourceTree = "<group>"; };
+		56315030AA6325DDED41BC36 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		660EFDE63E46DB3D442BEC2C /* BridgeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeClient.swift; sourceTree = "<group>"; };
+		66E0D41CC90215322F044514 /* UsageInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageInfo.swift; sourceTree = "<group>"; };
+		76F28FE1882F709B59896A80 /* AppViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModel.swift; sourceTree = "<group>"; };
+		85F8950F2CC3D55E777965D7 /* NetworkDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDiscovery.swift; sourceTree = "<group>"; };
+		936425EFA8842888C2FAF5F1 /* UsageViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageViewModel.swift; sourceTree = "<group>"; };
+		9811360475EEBE560AAFB78D /* DoctorReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoctorReport.swift; sourceTree = "<group>"; };
+		B166330BE9C9D32E7DA0457F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		BB2926B2C2BE985058CF7B0F /* DoctorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoctorViewModel.swift; sourceTree = "<group>"; };
+		D01522C085AFBE48627A6F20 /* BridgeProcessManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeProcessManager.swift; sourceTree = "<group>"; };
+		DD8DE1EDA1A4027DB2BA1A1D /* QRCodeGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeGenerator.swift; sourceTree = "<group>"; };
+		DF0E8CEC707F78422335AEE7 /* DoctorPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoctorPageView.swift; sourceTree = "<group>"; };
+		E8A7700A6EFBA3924929D3AC /* AddressRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressRow.swift; sourceTree = "<group>"; };
+		EE8ACC5D95AE60F0DEB8F54B /* ConnectionInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionInfo.swift; sourceTree = "<group>"; };
+		F9F6D9EEF9A4E409D751F651 /* BridgeVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeVersion.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		29518A4499545D2DC446C766 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				76F28FE1882F709B59896A80 /* AppViewModel.swift */,
+				BB2926B2C2BE985058CF7B0F /* DoctorViewModel.swift */,
+				4E40A1516D800B52B693BEC2 /* QRCodeViewModel.swift */,
+				936425EFA8842888C2FAF5F1 /* UsageViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		2AD49A8EB8103CF7A883E8E0 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				4563583B0148D3FB4854BCA9 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		2F98B0597C8724EC6B61597D /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				660EFDE63E46DB3D442BEC2C /* BridgeClient.swift */,
+				D01522C085AFBE48627A6F20 /* BridgeProcessManager.swift */,
+				3C4227159686B17FEDEE3A9A /* DoctorRunner.swift */,
+				85F8950F2CC3D55E777965D7 /* NetworkDiscovery.swift */,
+				DD8DE1EDA1A4027DB2BA1A1D /* QRCodeGenerator.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		3477BC92DE25D5F4C71CFC52 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3D7121A0BC7EBB3F47385B7A /* CCPocketMenubar.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7FCD78B9E7FF92EBF7309269 /* CCPocketMenubar */ = {
+			isa = PBXGroup;
+			children = (
+				B166330BE9C9D32E7DA0457F /* Info.plist */,
+				D79F5BFA8018B62F77ECCC5A /* App */,
+				B6B084B77FF2B5A0E1A2D0AD /* Models */,
+				2AD49A8EB8103CF7A883E8E0 /* Resources */,
+				2F98B0597C8724EC6B61597D /* Services */,
+				29518A4499545D2DC446C766 /* ViewModels */,
+				C022FF70A1496DEDCE4FC798 /* Views */,
+			);
+			path = CCPocketMenubar;
+			sourceTree = "<group>";
+		};
+		9716F82D5E2C6CE80569D6A9 = {
+			isa = PBXGroup;
+			children = (
+				7FCD78B9E7FF92EBF7309269 /* CCPocketMenubar */,
+				3477BC92DE25D5F4C71CFC52 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B6B084B77FF2B5A0E1A2D0AD /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				1067826AF18FF36F61BF867B /* BridgeHealth.swift */,
+				F9F6D9EEF9A4E409D751F651 /* BridgeVersion.swift */,
+				EE8ACC5D95AE60F0DEB8F54B /* ConnectionInfo.swift */,
+				9811360475EEBE560AAFB78D /* DoctorReport.swift */,
+				66E0D41CC90215322F044514 /* UsageInfo.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		C022FF70A1496DEDCE4FC798 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				4C24596276E2677B95F21427 /* HeaderView.swift */,
+				1E5F81F39B8F73A99FA9939D /* PopoverContentView.swift */,
+				DA7943B31C5A67322CF4D294 /* DoctorPage */,
+				D4E0C9CC159BC9C2B40E5E3D /* QRCodePage */,
+				DD58ED0C95260448DA4DEDB0 /* UsagePage */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		D4E0C9CC159BC9C2B40E5E3D /* QRCodePage */ = {
+			isa = PBXGroup;
+			children = (
+				E8A7700A6EFBA3924929D3AC /* AddressRow.swift */,
+				55D031B5A2881D47BD812AC8 /* QRCodePageView.swift */,
+			);
+			path = QRCodePage;
+			sourceTree = "<group>";
+		};
+		D79F5BFA8018B62F77ECCC5A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				56315030AA6325DDED41BC36 /* AppDelegate.swift */,
+				45501A00EBD380D292B98A6E /* MenuBarApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		DA7943B31C5A67322CF4D294 /* DoctorPage */ = {
+			isa = PBXGroup;
+			children = (
+				254DA0E8CC4A9A4FC0DFC5A7 /* CheckResultRow.swift */,
+				DF0E8CEC707F78422335AEE7 /* DoctorPageView.swift */,
+			);
+			path = DoctorPage;
+			sourceTree = "<group>";
+		};
+		DD58ED0C95260448DA4DEDB0 /* UsagePage */ = {
+			isa = PBXGroup;
+			children = (
+				0C748631AB63CF4DC4596ACD /* UsageGaugeView.swift */,
+				3B7E4A21C72BCF1C12F4FA53 /* UsagePageView.swift */,
+			);
+			path = UsagePage;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AC672086C1C931EB0341D469 /* CCPocketMenubar */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 19400A45359D1B56EFB5D9C4 /* Build configuration list for PBXNativeTarget "CCPocketMenubar" */;
+			buildPhases = (
+				F2489273D8A6D83B2554FF98 /* Sources */,
+				C1917150D44F0203A4E6E007 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CCPocketMenubar;
+			packageProductDependencies = (
+			);
+			productName = CCPocketMenubar;
+			productReference = 3D7121A0BC7EBB3F47385B7A /* CCPocketMenubar.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		71BE60435444C50CBA6F6EA8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					AC672086C1C931EB0341D469 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = DFAAAD9B5C63696646C7F00B /* Build configuration list for PBXProject "CCPocketMenubar" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 9716F82D5E2C6CE80569D6A9;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AC672086C1C931EB0341D469 /* CCPocketMenubar */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C1917150D44F0203A4E6E007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C14D35E82B2FAD707FD15969 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F2489273D8A6D83B2554FF98 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10C8A59D69B09DB25230CCA5 /* AddressRow.swift in Sources */,
+				A770CD6DA58DD613A35EFCC6 /* AppDelegate.swift in Sources */,
+				17B7FFF3744584C69D8D865E /* AppViewModel.swift in Sources */,
+				0E6869D3A91A9B8EC833A218 /* BridgeClient.swift in Sources */,
+				609035DDED7F99FD81B8A76F /* BridgeHealth.swift in Sources */,
+				F6B2EEEAC4CA4159D547EBED /* BridgeProcessManager.swift in Sources */,
+				22BEF1B22F4476974EFB3C6A /* BridgeVersion.swift in Sources */,
+				766611FD52CFBFB38861753D /* CheckResultRow.swift in Sources */,
+				72F30352A41524BAC2BE5CF3 /* ConnectionInfo.swift in Sources */,
+				438F20D1D87D9360E1292BDC /* DoctorPageView.swift in Sources */,
+				3FF665F7FC4EC145E180D9B7 /* DoctorReport.swift in Sources */,
+				EC411AEBD2E9BF91F33A57E2 /* DoctorRunner.swift in Sources */,
+				75ABF40A3AFAAAA96BF2FA92 /* DoctorViewModel.swift in Sources */,
+				63CAE352DEAE68DDF250B591 /* HeaderView.swift in Sources */,
+				95A2815828723543B1798BA8 /* MenuBarApp.swift in Sources */,
+				56E1B7C4400C711E2B86A0B0 /* NetworkDiscovery.swift in Sources */,
+				40C89AE541CB62C2E52B528F /* PopoverContentView.swift in Sources */,
+				66716FF5169422740D206D28 /* QRCodeGenerator.swift in Sources */,
+				1D8AE90E4814BA34E47AF3D5 /* QRCodePageView.swift in Sources */,
+				0882D7D2A84198AC66E43C85 /* QRCodeViewModel.swift in Sources */,
+				D554B7D25530CD6C939E8DF8 /* UsageGaugeView.swift in Sources */,
+				A0E1B0735E07D6716BD84D4D /* UsageInfo.swift in Sources */,
+				EDC198DD897E51355B2E4EA3 /* UsagePageView.swift in Sources */,
+				F3D2061BDBDF9570DE07F96D /* UsageViewModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		14DCDA38475DF5070E2E6907 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = CCPocketMenubar/CCPocketMenubar.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = CCPocketMenubar/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.k9i.ccpocket.menubar;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		21222A58A62D5214AB399DF1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.2;
+			};
+			name = Release;
+		};
+		45A94CEC7583D00407318ABC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = CCPocketMenubar/CCPocketMenubar.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = CCPocketMenubar/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.k9i.ccpocket.menubar;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		F8B98CE18DE69D58787036B0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.2;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		19400A45359D1B56EFB5D9C4 /* Build configuration list for PBXNativeTarget "CCPocketMenubar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				45A94CEC7583D00407318ABC /* Debug */,
+				14DCDA38475DF5070E2E6907 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DFAAAD9B5C63696646C7F00B /* Build configuration list for PBXProject "CCPocketMenubar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F8B98CE18DE69D58787036B0 /* Debug */,
+				21222A58A62D5214AB399DF1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 71BE60435444C50CBA6F6EA8 /* Project object */;
+}
