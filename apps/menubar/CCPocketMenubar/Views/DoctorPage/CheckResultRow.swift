@@ -5,8 +5,7 @@ struct CheckResultRow: View {
     let onAction: (() -> Void)?
     var onProviderLogin: ((String) -> Void)?
     var onProviderInstall: ((String) -> Void)?
-    var onCopyCommands: (() -> Void)?
-    var onOpenTerminal: (() -> Void)?
+    var commands: [(comment: String, command: String)] = []
 
     private var statusColor: Color {
         switch check.status {
@@ -83,44 +82,11 @@ struct CheckResultRow: View {
                 }
             }
 
-            // Remediation with terminal guide
-            if check.status == "fail" || check.status == "warn" {
-                VStack(alignment: .leading, spacing: 6) {
-                    if let remediation = check.remediation {
-                        Text(remediation)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    HStack(spacing: 6) {
-                        if let onCopyCommands {
-                            Button {
-                                onCopyCommands()
-                            } label: {
-                                Label(String(localized: "Copy"), systemImage: "doc.on.doc")
-                                    .font(.caption2)
-                            }
-                            .controlSize(.mini)
-                            .buttonStyle(.bordered)
-                        }
-
-                        if let onOpenTerminal {
-                            Button {
-                                onOpenTerminal()
-                            } label: {
-                                Label(String(localized: "Terminal"), systemImage: "terminal")
-                                    .font(.caption2)
-                            }
-                            .controlSize(.mini)
-                            .buttonStyle(.borderedProminent)
-                        }
-
-                        if let action = onAction {
-                            Button("Fix", action: action)
-                                .controlSize(.mini)
-                                .buttonStyle(.borderedProminent)
-                                .tint(.accentColor)
-                        }
+            // Command rows with copy buttons
+            if !commands.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(commands.enumerated()), id: \.offset) { _, entry in
+                        CommandRow(comment: entry.comment, command: entry.command)
                     }
                 }
                 .padding(.leading, 24)

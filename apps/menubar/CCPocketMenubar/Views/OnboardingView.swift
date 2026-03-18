@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct OnboardingView: View {
@@ -167,15 +168,6 @@ struct OnboardingView: View {
 
                         HStack(spacing: 8) {
                             Button {
-                                doctorVM.copySetupCommands()
-                            } label: {
-                                Label(String(localized: "Copy All"), systemImage: "doc.on.doc")
-                                    .font(.caption)
-                            }
-                            .controlSize(.small)
-                            .buttonStyle(.bordered)
-
-                            Button {
                                 doctorVM.openSetupTerminal()
                             } label: {
                                 Label(String(localized: "Open Terminal"), systemImage: "terminal")
@@ -253,35 +245,11 @@ private struct OnboardingCheckRow: View {
 
             // Expanded command block
             if isExpanded && hasCommands {
-                VStack(alignment: .leading, spacing: 4) {
-                    // Provider sub-items (for CLI providers)
-                    if let providers = check.providers {
-                        ForEach(providers) { provider in
-                            providerRow(provider)
-                        }
+                VStack(alignment: .leading, spacing: 6) {
+                    let commands = doctorVM.setupCommands(for: check)
+                    ForEach(Array(commands.enumerated()), id: \.offset) { _, entry in
+                        CommandRow(comment: entry.comment, command: entry.command)
                     }
-
-                    // Per-check action buttons
-                    HStack(spacing: 6) {
-                        Button {
-                            doctorVM.copySetupCommands(for: check)
-                        } label: {
-                            Label(String(localized: "Copy"), systemImage: "doc.on.doc")
-                                .font(.caption2)
-                        }
-                        .controlSize(.mini)
-                        .buttonStyle(.bordered)
-
-                        Button {
-                            doctorVM.openSetupTerminal(for: check)
-                        } label: {
-                            Label(String(localized: "Terminal"), systemImage: "terminal")
-                                .font(.caption2)
-                        }
-                        .controlSize(.mini)
-                        .buttonStyle(.borderedProminent)
-                    }
-                    .padding(.top, 2)
                 }
                 .padding(.leading, 22)
                 .padding(.top, 6)
@@ -297,24 +265,6 @@ private struct OnboardingCheckRow: View {
         }
     }
 
-    @ViewBuilder
-    private func providerRow(_ provider: ProviderResult) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: providerIcon(provider))
-                .foregroundStyle(providerColor(provider))
-                .font(.caption2)
-
-            Text(provider.name)
-                .font(.caption2)
-
-            Spacer()
-
-            Text(providerStatusText(provider))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-    }
-
     private var statusColor: Color {
         switch check.status {
         case "pass": return .green
@@ -323,22 +273,49 @@ private struct OnboardingCheckRow: View {
         default: return .secondary
         }
     }
+}
 
-    private func providerIcon(_ p: ProviderResult) -> String {
-        if !p.installed { return "minus.circle" }
-        if !p.authenticated { return "exclamationmark.triangle.fill" }
-        return "checkmark.circle.fill"
-    }
+// MARK: - Command Row (reusable)
 
-    private func providerColor(_ p: ProviderResult) -> Color {
-        if !p.installed { return .secondary }
-        if !p.authenticated { return .orange }
-        return .green
-    }
+struct CommandRow: View {
+    let comment: String
+    let command: String
 
-    private func providerStatusText(_ p: ProviderResult) -> String {
-        if !p.installed { return String(localized: "Not installed") }
-        if !p.authenticated { return p.authMessage ?? String(localized: "Not authenticated") }
-        return p.version ?? String(localized: "Installed")
+    @State private var copied = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(comment)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 4) {
+                Text(command)
+                    .font(.system(.caption2, design: .monospaced))
+                    .textSelection(.enabled)
+                    .lineLimit(2)
+
+                Spacer(minLength: 4)
+
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(command, forType: .string)
+                    copied = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        copied = false
+                    }
+                } label: {
+                    Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                        .font(.caption2)
+                        .frame(width: 16, height: 16)
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(copied ? .green : .secondary)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(.black.opacity(0.2), in: .rect(cornerRadius: 6))
+        }
     }
 }

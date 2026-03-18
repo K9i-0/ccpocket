@@ -169,7 +169,7 @@ final class DoctorViewModel: ObservableObject {
         NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
     }
 
-    private func setupCommands(for check: CheckResult) -> [(comment: String, command: String)] {
+    func setupCommands(for check: CheckResult) -> [(comment: String, command: String)] {
         switch check.name {
         case "Node.js" where check.status == "fail":
             return [
