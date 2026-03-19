@@ -45,6 +45,18 @@ export interface CodexSkillMetadata {
   brandColor?: string;
 }
 
+export interface CodexThreadSummary {
+  id: string;
+  preview: string;
+  createdAt: number;
+  updatedAt: number;
+  cwd: string;
+  agentNickname: string | null;
+  agentRole: string | null;
+  gitBranch: string | null;
+  name: string | null;
+}
+
 interface PendingApproval {
   requestId: string | number;
   toolUseId: string;
@@ -216,6 +228,30 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
    */
   async archiveThread(threadId: string): Promise<void> {
     await this.request("thread/archive", { threadId });
+  }
+
+  async listThreads(params: {
+    limit?: number;
+    cursor?: string | null;
+    cwd?: string;
+    searchTerm?: string;
+  } = {}): Promise<{ data: CodexThreadSummary[]; nextCursor: string | null }> {
+    const result = await this.request("thread/list", {
+      sortKey: "updated_at",
+      archived: false,
+      ...(params.limit != null ? { limit: params.limit } : {}),
+      ...(params.cursor !== undefined ? { cursor: params.cursor } : {}),
+      ...(params.cwd ? { cwd: params.cwd } : {}),
+      ...(params.searchTerm ? { searchTerm: params.searchTerm } : {}),
+    }) as { data?: unknown[]; nextCursor?: unknown };
+
+    const data = Array.isArray(result.data)
+      ? result.data.map((entry) => toCodexThreadSummary(entry))
+      : [];
+    return {
+      data,
+      nextCursor: typeof result.nextCursor === "string" ? result.nextCursor : null,
+    };
   }
 
   start(projectPath: string, options?: CodexStartOptions): void {
@@ -1715,6 +1751,26 @@ function formatDynamicToolResult(item: Record<string, unknown>): string {
   }
 
   return parts.join("\n");
+}
+
+function toCodexThreadSummary(entry: unknown): CodexThreadSummary {
+  const record = entry && typeof entry === "object"
+    ? entry as Record<string, unknown>
+    : {};
+  const gitInfo = record.gitInfo && typeof record.gitInfo === "object"
+    ? record.gitInfo as Record<string, unknown>
+    : {};
+  return {
+    id: typeof record.id === "string" ? record.id : "",
+    preview: typeof record.preview === "string" ? record.preview : "",
+    createdAt: numberOrUndefined(record.createdAt) ?? 0,
+    updatedAt: numberOrUndefined(record.updatedAt) ?? 0,
+    cwd: typeof record.cwd === "string" ? record.cwd : "",
+    agentNickname: stringOrNull(record.agentNickname),
+    agentRole: stringOrNull(record.agentRole),
+    gitBranch: stringOrNull(gitInfo.branch),
+    name: stringOrNull(record.name),
+  };
 }
 
 /**

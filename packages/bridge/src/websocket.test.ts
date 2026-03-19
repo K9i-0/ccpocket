@@ -62,6 +62,7 @@ vi.mock("./session.js", () => ({
         setPermissionMode: vi.fn(async () => {}),
         setApprovalPolicy: vi.fn(),
         setCollaborationMode: vi.fn(),
+        listThreads: vi.fn(async () => ({ data: [], nextCursor: null })),
         sendInput: vi.fn(() => false),
         sendInputWithImage: vi.fn(),
         sendInputWithImages: vi.fn(() => false),
@@ -134,6 +135,7 @@ vi.mock("./session.js", () => ({
         setPermissionMode: vi.fn(async () => {}),
         setApprovalPolicy: vi.fn(),
         setCollaborationMode: vi.fn(),
+        listThreads: vi.fn(async () => ({ data: [], nextCursor: null })),
         sendInput: vi.fn(() => false),
         sendInputWithImage: vi.fn(),
         sendInputWithImages: vi.fn(() => false),
@@ -958,6 +960,84 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     );
     expect(rewindCreated).toBeDefined();
     expect(rewindCreated.sourceSessionId).toBe(sessionId);
+
+    bridge.close();
+  });
+
+  it("uses active codex thread/list for codex recent sessions", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const session = (bridge as any).sessionManager.get(created.sessionId);
+    session.process.listThreads.mockResolvedValue({
+      data: [
+        {
+          id: "thr_codex_1",
+          preview: "Investigate crash",
+          createdAt: 1771492643,
+          updatedAt: 1771496243,
+          cwd: "/tmp/project-codex",
+          agentNickname: "Atlas",
+          agentRole: "explorer",
+          gitBranch: "feat/protocol",
+          name: "Crash triage",
+        },
+      ],
+      nextCursor: null,
+    });
+
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "list_recent_sessions",
+        provider: "codex",
+        projectPath: "/tmp/project-codex",
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(session.process.listThreads).toHaveBeenCalledWith({
+      limit: 20,
+      cwd: "/tmp/project-codex",
+      searchTerm: undefined,
+    });
+    expect(getAllRecentSessionsMock).not.toHaveBeenCalled();
+
+    const payload = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "recent_sessions");
+    expect(payload).toBeDefined();
+    expect(payload.sessions).toHaveLength(1);
+    expect(payload.sessions[0]).toMatchObject({
+      provider: "codex",
+      sessionId: "thr_codex_1",
+      name: "Crash triage",
+      agentNickname: "Atlas",
+      agentRole: "explorer",
+      gitBranch: "feat/protocol",
+      projectPath: "/tmp/project-codex",
+    });
 
     bridge.close();
   });
