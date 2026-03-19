@@ -6,13 +6,14 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/markdown_style.dart';
 
-enum _AuthHelpLanguage { ja, en }
+enum _AuthHelpLanguage { ja, en, zhHans }
 
 extension on _AuthHelpLanguage {
   String get assetPath {
     return switch (this) {
       _AuthHelpLanguage.ja => 'assets/docs/auth-troubleshooting.ja.md',
       _AuthHelpLanguage.en => 'assets/docs/auth-troubleshooting.en.md',
+      _AuthHelpLanguage.zhHans => 'assets/docs/auth-troubleshooting.zh-CN.md',
     };
   }
 }
@@ -40,9 +41,11 @@ class _AuthHelpScreenState extends State<AuthHelpScreen> {
   }
 
   _AuthHelpLanguage _preferredLanguage(Locale locale) {
-    return locale.languageCode == 'ja'
-        ? _AuthHelpLanguage.ja
-        : _AuthHelpLanguage.en;
+    return switch (locale.languageCode) {
+      'ja' => _AuthHelpLanguage.ja,
+      'zh' => _AuthHelpLanguage.zhHans,
+      _ => _AuthHelpLanguage.en,
+    };
   }
 
   Future<void> _loadMarkdown() async {
@@ -54,11 +57,15 @@ class _AuthHelpScreenState extends State<AuthHelpScreen> {
     try {
       final ja = await rootBundle.loadString(_AuthHelpLanguage.ja.assetPath);
       final en = await rootBundle.loadString(_AuthHelpLanguage.en.assetPath);
+      final zhHans = await rootBundle.loadString(
+        _AuthHelpLanguage.zhHans.assetPath,
+      );
       if (!mounted) return;
       setState(() {
         _markdownByLanguage = {
           _AuthHelpLanguage.ja: ja,
           _AuthHelpLanguage.en: en,
+          _AuthHelpLanguage.zhHans: zhHans,
         };
         _loading = false;
       });
@@ -173,6 +180,10 @@ class _AuthHelpLanguageSwitcher extends StatelessWidget {
             ButtonSegment<_AuthHelpLanguage>(
               value: _AuthHelpLanguage.en,
               label: Text(l.authHelpLanguageEn),
+            ),
+            ButtonSegment<_AuthHelpLanguage>(
+              value: _AuthHelpLanguage.zhHans,
+              label: Text(l.authHelpLanguageZhHans),
             ),
           ],
           selected: {selectedLanguage},

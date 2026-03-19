@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 
@@ -24,6 +25,7 @@ class UserMessageHistorySheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final colorScheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
@@ -56,14 +58,14 @@ class UserMessageHistorySheet extends StatelessWidget {
                   Icon(Icons.history, size: 20, color: colorScheme.primary),
                   const SizedBox(width: 8),
                   Text(
-                    'Message History',
+                    l.messageHistory,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const Spacer(),
                   Text(
-                    '${messages.length} message${messages.length == 1 ? '' : 's'}',
+                    l.messageHistoryCount(messages.length),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: appColors.subtleText,
                     ),
@@ -88,14 +90,14 @@ class UserMessageHistorySheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'No messages yet',
+                        l.noMessagesYet,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: appColors.subtleText,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Messages will appear here after Claude processes them',
+                        l.messagesAppearAfterProcessing,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: appColors.subtleText,
                         ),

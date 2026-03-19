@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 
@@ -22,6 +23,7 @@ class StatusIndicator extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final l = AppLocalizations.of(context);
 
     // Track elapsed time when running/starting
     final isActive =
@@ -58,17 +60,23 @@ class StatusIndicator extends HookWidget {
     }, [isActive, startTime.value]);
 
     final (color, label) = switch (status) {
-      ProcessStatus.starting => (appColors.statusStarting, 'Starting'),
+      ProcessStatus.starting => (appColors.statusStarting, l.statusStarting),
       ProcessStatus.idle =>
         inPlanMode
-            ? (appColors.statusPlan, 'Plan')
-            : (appColors.statusIdle, 'Idle'),
+            ? (appColors.statusPlan, l.permissionPlanMode)
+            : (appColors.statusIdle, l.statusIdle),
       ProcessStatus.running =>
         inPlanMode
-            ? (appColors.statusPlan, 'Plan')
-            : (appColors.statusOnline, 'Running'),
-      ProcessStatus.waitingApproval => (appColors.statusApproval, 'Approval'),
-      ProcessStatus.compacting => (appColors.statusCompacting, 'Compacting'),
+            ? (appColors.statusPlan, l.permissionPlanMode)
+            : (appColors.statusOnline, l.statusRunning),
+      ProcessStatus.waitingApproval => (
+        appColors.statusApproval,
+        l.statusApproval,
+      ),
+      ProcessStatus.compacting => (
+        appColors.statusCompacting,
+        l.statusCompacting,
+      ),
     };
 
     // Format elapsed time

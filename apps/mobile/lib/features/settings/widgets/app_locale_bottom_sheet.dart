@@ -4,11 +4,12 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
 
 /// Available app display locales.
-/// id is empty string for system default, otherwise a language code (e.g. 'ja', 'en').
+/// id is empty string for system default, otherwise a language code (e.g. 'ja', 'en', 'zh').
 const appLocales = <(String id, String label, String? subtitle)>[
   ('', '', null), // System default — label resolved via l10n
   ('ja', '日本語', 'Japanese'),
   ('en', 'English', null),
+  ('zh', '简体中文', 'Simplified Chinese'),
 ];
 
 /// Shows a bottom sheet for selecting the app display locale.

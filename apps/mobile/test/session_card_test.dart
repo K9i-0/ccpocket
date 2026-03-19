@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/l10n/app_localizations_en.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:ccpocket/widgets/session_card.dart';
@@ -70,7 +71,9 @@ void main() {
 
   group('RunningSessionCard', () {
     test('maps visual status for running plan session', () {
+      final l = AppLocalizationsEn();
       final visual = sessionVisualStatusFor(
+        l: l,
         rawStatus: 'running',
         permissionMode: PermissionMode.plan.value,
       );
@@ -81,7 +84,9 @@ void main() {
     });
 
     test('maps visual status for plan approval', () {
+      final l = AppLocalizationsEn();
       final visual = sessionVisualStatusFor(
+        l: l,
         rawStatus: 'waiting_approval',
         permissionMode: PermissionMode.plan.value,
         pendingPermission: const PermissionRequestMessage(

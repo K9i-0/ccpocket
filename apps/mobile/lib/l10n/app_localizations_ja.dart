@@ -259,6 +259,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get offline => 'オフライン';
 
   @override
+  String get disconnected => '切断されました';
+
+  @override
+  String get reconnecting => '再接続中...';
+
+  @override
   String get unreachable => '接続不可';
 
   @override
@@ -283,10 +289,57 @@ class AppLocalizationsJa extends AppLocalizations {
   String get approval => '承認';
 
   @override
-  String get worktree => 'Worktree';
+  String get worktree => 'ワークツリー';
+
+  @override
+  String get worktreeTooltip => 'このセッション用に独立した git worktree を作成します。';
 
   @override
   String get advanced => '詳細設定';
+
+  @override
+  String get environmentSection => '環境';
+
+  @override
+  String get permissionDefaultMode => 'デフォルト';
+
+  @override
+  String get permissionAcceptEditsMode => '編集を自動承認';
+
+  @override
+  String get permissionPlanMode => '計画';
+
+  @override
+  String get permissionBypassMode => 'すべてバイパス';
+
+  @override
+  String get permissionDefaultDescription => '標準の権限確認';
+
+  @override
+  String get permissionAcceptEditsDescription => 'ファイル編集を自動承認';
+
+  @override
+  String get permissionPlanDescription => '実行せずに分析と計画を行う';
+
+  @override
+  String get permissionBypassDescription => 'すべての権限確認をスキップ';
+
+  @override
+  String get permissionModeTitle => '権限モード';
+
+  @override
+  String get changePermissionModeTitle => '権限モードを変更';
+
+  @override
+  String changePermissionModeBody(String mode) {
+    return '$mode に切り替えるとセッションが再起動します。会話は保持されます。';
+  }
+
+  @override
+  String get permissionChipAcceptEdits => '編集';
+
+  @override
+  String get permissionChipBypass => 'バイパス';
 
   @override
   String get modelOptional => 'モデル（任意）';
@@ -328,7 +381,42 @@ class AppLocalizationsJa extends AppLocalizations {
   String get model => 'モデル';
 
   @override
-  String get sandbox => 'Sandbox';
+  String get sandbox => 'サンドボックス';
+
+  @override
+  String get sandboxModeTitle => 'サンドボックスモード';
+
+  @override
+  String get sandboxSafeMode => 'Sandbox（セーフモード）';
+
+  @override
+  String get sandboxStandard => '標準';
+
+  @override
+  String get sandboxOnLabel => 'サンドボックス ON';
+
+  @override
+  String get sandboxOffLabel => 'サンドボックス OFF';
+
+  @override
+  String get sandboxRestrictedDescription => '制限された環境でコマンドを実行';
+
+  @override
+  String get sandboxNativeDescription => 'ネイティブ環境でコマンドを実行';
+
+  @override
+  String get sandboxNativeCautionDescription => 'ネイティブ環境でコマンドを実行（注意）';
+
+  @override
+  String get changeSandboxModeTitle => 'サンドボックスモードを変更';
+
+  @override
+  String changeSandboxModeBody(String mode) {
+    return '$mode に切り替えるとセッションが再起動します。会話は保持されます。';
+  }
+
+  @override
+  String get sandboxChipOff => 'No SB';
 
   @override
   String get reasoning => 'Reasoning';
@@ -399,7 +487,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get always => '常に許可';
 
   @override
+  String get restart => '再起動';
+
+  @override
   String get messagePlaceholder => 'Claude にメッセージ...';
+
+  @override
+  String messageProviderPlaceholder(String provider) {
+    return '$provider にメッセージ...';
+  }
 
   @override
   String filesMentioned(int count) {
@@ -438,6 +534,27 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get claudeIsAsking => 'Claude が質問しています';
+
+  @override
+  String get codexIsAsking => 'Codex が質問しています';
+
+  @override
+  String get questionNeedsYourAnswer => '質問への回答が必要です';
+
+  @override
+  String get toolApprovalNeeded => 'ツール承認が必要です';
+
+  @override
+  String get codexToolApprovalNeeded => 'Codex のツール承認が必要です';
+
+  @override
+  String get sessionCompleteTitle => 'セッション完了';
+
+  @override
+  String get sessionDone => 'セッションが完了しました';
+
+  @override
+  String get codexSessionDone => 'Codex セッションが完了しました';
 
   @override
   String get submitAllAnswers => 'すべての回答を送信';
@@ -706,6 +823,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get creatingSession => 'セッション作成中...';
 
   @override
+  String startWithProvider(String provider) {
+    return '$provider で開始';
+  }
+
+  @override
   String get copyForAgent => 'エージェント用にコピー';
 
   @override
@@ -716,6 +838,21 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get screenshot => 'スクリーンショット';
+
+  @override
+  String get screenshotSaved => 'スクリーンショットを保存しました';
+
+  @override
+  String get screenshotFailed => 'スクリーンショットに失敗しました';
+
+  @override
+  String get fullScreen => 'フルスクリーン';
+
+  @override
+  String get captureEntireDesktop => 'デスクトップ全体をキャプチャ';
+
+  @override
+  String get noWindowsFound => 'ウィンドウが見つかりません';
 
   @override
   String get debug => 'デバッグ';
@@ -757,7 +894,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get recent => '新しい順';
 
   @override
+  String get newShort => '新規';
+
+  @override
   String get searchHint => '検索...';
+
+  @override
+  String get searchSessionsHint => 'セッションを検索...';
 
   @override
   String get noMatchingPrompts => '一致するプロンプトがありません';
@@ -813,6 +956,71 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get working => '処理中...';
+
+  @override
+  String get runningSessions => '実行中';
+
+  @override
+  String get recentSessions => '最近のセッション';
+
+  @override
+  String get displayFirst => '先頭';
+
+  @override
+  String get displayLast => '最新';
+
+  @override
+  String get displaySummary => '要約';
+
+  @override
+  String get filterAllAiTools => 'すべてのAIツール';
+
+  @override
+  String get filterAllProjects => 'すべてのプロジェクト';
+
+  @override
+  String get filterNamed => '名前付き';
+
+  @override
+  String get statusStarting => '起動中';
+
+  @override
+  String get statusIdle => '待機中';
+
+  @override
+  String get statusRunning => '実行中';
+
+  @override
+  String get statusApproval => '承認待ち';
+
+  @override
+  String get statusCompacting => '圧縮中';
+
+  @override
+  String get statusWorking => '作業中';
+
+  @override
+  String get statusNeedsYou => '対応待ち';
+
+  @override
+  String get statusReady => '準備完了';
+
+  @override
+  String get statusCleaningContext => 'コンテキスト整理中';
+
+  @override
+  String get statusReviewPlan => 'プランを確認';
+
+  @override
+  String get statusApproveToolCall => 'ツール呼び出しを承認';
+
+  @override
+  String get statusAnswerQuestion => '質問に回答';
+
+  @override
+  String statusApproveTool(String toolName) {
+    return '$toolName を承認';
+  }
 
   @override
   String get waitingForApprovalRequests => 'エージェントからの承認リクエストを待っています。';
@@ -879,6 +1087,73 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get setupGuideSubtitle => '初めての方はこちら';
+
+  @override
+  String get machineSectionTitle => 'マシン';
+
+  @override
+  String get machineRefreshStatus => '状態を更新';
+
+  @override
+  String get machineNoSavedDescription =>
+      '保存済みのマシンはありません。\nマシンを追加すると、すばやく接続したり、オフライン時に Bridge Server をリモート起動できます。';
+
+  @override
+  String get addMachine => 'マシンを追加';
+
+  @override
+  String get editMachine => 'マシンを編集';
+
+  @override
+  String get machineBasicInfo => '基本情報';
+
+  @override
+  String get machineNameLabel => '名前';
+
+  @override
+  String get machineNameHint => '自宅の Mac';
+
+  @override
+  String get machineHostLabel => 'ホスト（IP またはホスト名）';
+
+  @override
+  String get portLabel => 'ポート';
+
+  @override
+  String get sshConfiguration => 'SSH 設定';
+
+  @override
+  String get sshEnableRemoteStartup => 'SSH リモート起動を有効化';
+
+  @override
+  String get sshRemoteStartupSubtitle => 'オフライン時に Bridge Server をリモート起動';
+
+  @override
+  String get sshUsernameLabel => 'SSH ユーザー名';
+
+  @override
+  String get sshPortLabel => 'SSH ポート';
+
+  @override
+  String get sshPrivateKeyLabel => 'SSH 秘密鍵（PEM）';
+
+  @override
+  String get sshPrivateKeyHint => '-----BEGIN OPENSSH PRIVATE KEY-----';
+
+  @override
+  String get testConnection => '接続テスト';
+
+  @override
+  String get testingConnection => 'テスト中...';
+
+  @override
+  String get sshCredentialsRequired => 'SSH 認証情報を入力してください';
+
+  @override
+  String get connectionSuccessful => '接続に成功しました！';
+
+  @override
+  String get addAndConnect => '追加して接続';
 
   @override
   String get openSourceLicenses => 'オープンソースライセンス';
@@ -1143,10 +1418,31 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tooltipClearDiff => 'Diff選択を解除';
 
   @override
+  String messageHistoryCount(int count) {
+    return '$count 件のメッセージ';
+  }
+
+  @override
+  String get noMessagesYet => 'まだメッセージはありません';
+
+  @override
+  String get messagesAppearAfterProcessing => 'メッセージはエージェントが処理した後にここに表示されます';
+
+  @override
   String get showMore => 'もっと見る';
 
   @override
   String get showLess => '閉じる';
+
+  @override
+  String sessionStarted(String model) {
+    return 'セッション開始 ($model)';
+  }
+
+  @override
+  String systemSubtypeLabel(String subtype) {
+    return 'System: $subtype';
+  }
 
   @override
   String get authErrorTitle => 'Claude Codeの再ログインが必要です';
@@ -1177,6 +1473,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get authHelpLanguageEn => 'English';
+
+  @override
+  String get authHelpLanguageZhHans => '简体中文';
 
   @override
   String get terminalApp => 'ターミナルアプリ';

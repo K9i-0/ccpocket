@@ -52,7 +52,9 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.k9i.ccpocket"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Align with the highest NDK required by native plugins to avoid
+    // repeated side-by-side NDK resolution during local Android builds.
+    ndkVersion = "29.0.13846066"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true

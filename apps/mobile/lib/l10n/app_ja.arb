@@ -119,6 +119,8 @@
   "stopServer": "サーバーを停止",
   "update": "更新",
   "offline": "オフライン",
+  "disconnected": "切断されました",
+  "reconnecting": "再接続中...",
   "unreachable": "接続不可",
   "checking": "確認中...",
 
@@ -128,8 +130,28 @@
   "projectPathHint": "/path/to/your/project",
   "permission": "パーミッション",
   "approval": "承認",
-  "worktree": "Worktree",
+  "worktree": "ワークツリー",
+  "worktreeTooltip": "このセッション用に独立した git worktree を作成します。",
   "advanced": "詳細設定",
+  "environmentSection": "環境",
+  "permissionDefaultMode": "デフォルト",
+  "permissionAcceptEditsMode": "編集を自動承認",
+  "permissionPlanMode": "計画",
+  "permissionBypassMode": "すべてバイパス",
+  "permissionDefaultDescription": "標準の権限確認",
+  "permissionAcceptEditsDescription": "ファイル編集を自動承認",
+  "permissionPlanDescription": "実行せずに分析と計画を行う",
+  "permissionBypassDescription": "すべての権限確認をスキップ",
+  "permissionModeTitle": "権限モード",
+  "changePermissionModeTitle": "権限モードを変更",
+  "changePermissionModeBody": "{mode} に切り替えるとセッションが再起動します。会話は保持されます。",
+  "@changePermissionModeBody": {
+    "placeholders": {
+      "mode": { "type": "String" }
+    }
+  },
+  "permissionChipAcceptEdits": "編集",
+  "permissionChipBypass": "バイパス",
   "modelOptional": "モデル（任意）",
   "effort": "Effort",
   "defaultLabel": "デフォルト",
@@ -143,7 +165,23 @@
   "forkSessionOnResume": "再開時にセッションを分岐",
   "persistSessionHistory": "セッション履歴を保持",
   "model": "モデル",
-  "sandbox": "Sandbox",
+  "sandbox": "サンドボックス",
+  "sandboxModeTitle": "サンドボックスモード",
+  "sandboxSafeMode": "Sandbox（セーフモード）",
+  "sandboxStandard": "標準",
+  "sandboxOnLabel": "サンドボックス ON",
+  "sandboxOffLabel": "サンドボックス OFF",
+  "sandboxRestrictedDescription": "制限された環境でコマンドを実行",
+  "sandboxNativeDescription": "ネイティブ環境でコマンドを実行",
+  "sandboxNativeCautionDescription": "ネイティブ環境でコマンドを実行（注意）",
+  "changeSandboxModeTitle": "サンドボックスモードを変更",
+  "changeSandboxModeBody": "{mode} に切り替えるとセッションが再起動します。会話は保持されます。",
+  "@changeSandboxModeBody": {
+    "placeholders": {
+      "mode": { "type": "String" }
+    }
+  },
+  "sandboxChipOff": "No SB",
   "reasoning": "Reasoning",
   "webSearch": "Web Search",
   "networkAccess": "ネットワークアクセス",
@@ -172,8 +210,15 @@
   "reject": "拒否",
   "approve": "承認",
   "always": "常に許可",
+  "restart": "再起動",
 
   "messagePlaceholder": "Claude にメッセージ...",
+  "messageProviderPlaceholder": "{provider} にメッセージ...",
+  "@messageProviderPlaceholder": {
+    "placeholders": {
+      "provider": { "type": "String" }
+    }
+  },
   "filesMentioned": "{count} ファイルを @メンション中",
   "@filesMentioned": {
     "placeholders": {
@@ -208,6 +253,13 @@
 
   "answered": "回答済み",
   "claudeIsAsking": "Claude が質問しています",
+  "codexIsAsking": "Codex が質問しています",
+  "questionNeedsYourAnswer": "質問への回答が必要です",
+  "toolApprovalNeeded": "ツール承認が必要です",
+  "codexToolApprovalNeeded": "Codex のツール承認が必要です",
+  "sessionCompleteTitle": "セッション完了",
+  "sessionDone": "セッションが完了しました",
+  "codexSessionDone": "Codex セッションが完了しました",
   "submitAllAnswers": "すべての回答を送信",
   "submitWithCount": "送信 ({count} 件選択)",
   "@submitWithCount": {
@@ -316,10 +368,21 @@
   "guideReadyHint": "このガイドは設定画面からいつでも確認できます",
 
   "creatingSession": "セッション作成中...",
+  "startWithProvider": "{provider} で開始",
+  "@startWithProvider": {
+    "placeholders": {
+      "provider": { "type": "String" }
+    }
+  },
   "copyForAgent": "エージェント用にコピー",
   "messageHistory": "メッセージ履歴",
   "viewChanges": "変更を確認",
   "screenshot": "スクリーンショット",
+  "screenshotSaved": "スクリーンショットを保存しました",
+  "screenshotFailed": "スクリーンショットに失敗しました",
+  "fullScreen": "フルスクリーン",
+  "captureEntireDesktop": "デスクトップ全体をキャプチャ",
+  "noWindowsFound": "ウィンドウが見つかりません",
 
   "debug": "デバッグ",
   "logs": "ログ",
@@ -335,7 +398,9 @@
   "promptHistory": "プロンプト履歴",
   "frequent": "頻度順",
   "recent": "新しい順",
+  "newShort": "新規",
   "searchHint": "検索...",
+  "searchSessionsHint": "セッションを検索...",
   "noMatchingPrompts": "一致するプロンプトがありません",
   "noPromptHistoryYet": "プロンプト履歴はまだありません",
 
@@ -364,6 +429,32 @@
   "agentReadyForPrompt": "エージェントは次のプロンプトを待っています。",
   "backToSessions": "セッション一覧に戻る",
   "working": "処理中...",
+  "runningSessions": "実行中",
+  "recentSessions": "最近のセッション",
+  "displayFirst": "先頭",
+  "displayLast": "最新",
+  "displaySummary": "要約",
+  "filterAllAiTools": "すべてのAIツール",
+  "filterAllProjects": "すべてのプロジェクト",
+  "filterNamed": "名前付き",
+  "statusStarting": "起動中",
+  "statusIdle": "待機中",
+  "statusRunning": "実行中",
+  "statusApproval": "承認待ち",
+  "statusCompacting": "圧縮中",
+  "statusWorking": "作業中",
+  "statusNeedsYou": "対応待ち",
+  "statusReady": "準備完了",
+  "statusCleaningContext": "コンテキスト整理中",
+  "statusReviewPlan": "プランを確認",
+  "statusApproveToolCall": "ツール呼び出しを承認",
+  "statusAnswerQuestion": "質問に回答",
+  "statusApproveTool": "{toolName} を承認",
+  "@statusApproveTool": {
+    "placeholders": {
+      "toolName": { "type": "String" }
+    }
+  },
   "waitingForApprovalRequests": "エージェントからの承認リクエストを待っています。",
   "noActiveSessions": "アクティブなセッションがありません",
   "startSessionToBegin": "セッションを開始して承認リクエストの受信を始めましょう。",
@@ -387,6 +478,28 @@
   "version": "バージョン",
   "loading": "読み込み中...",
   "setupGuideSubtitle": "初めての方はこちら",
+  "machineSectionTitle": "マシン",
+  "machineRefreshStatus": "状態を更新",
+  "machineNoSavedDescription": "保存済みのマシンはありません。\nマシンを追加すると、すばやく接続したり、オフライン時に Bridge Server をリモート起動できます。",
+  "addMachine": "マシンを追加",
+  "editMachine": "マシンを編集",
+  "machineBasicInfo": "基本情報",
+  "machineNameLabel": "名前",
+  "machineNameHint": "自宅の Mac",
+  "machineHostLabel": "ホスト（IP またはホスト名）",
+  "portLabel": "ポート",
+  "sshConfiguration": "SSH 設定",
+  "sshEnableRemoteStartup": "SSH リモート起動を有効化",
+  "sshRemoteStartupSubtitle": "オフライン時に Bridge Server をリモート起動",
+  "sshUsernameLabel": "SSH ユーザー名",
+  "sshPortLabel": "SSH ポート",
+  "sshPrivateKeyLabel": "SSH 秘密鍵（PEM）",
+  "sshPrivateKeyHint": "-----BEGIN OPENSSH PRIVATE KEY-----",
+  "testConnection": "接続テスト",
+  "testingConnection": "テスト中...",
+  "sshCredentialsRequired": "SSH 認証情報を入力してください",
+  "connectionSuccessful": "接続に成功しました！",
+  "addAndConnect": "追加して接続",
   "openSourceLicenses": "オープンソースライセンス",
   "githubRepository": "GitHub リポジトリ",
   "changelog": "変更履歴",
@@ -529,9 +642,29 @@
   "tooltipSendMessage": "メッセージを送信",
   "tooltipRemoveImage": "画像を削除",
   "tooltipClearDiff": "Diff選択を解除",
+  "messageHistoryCount": "{count} 件のメッセージ",
+  "@messageHistoryCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "noMessagesYet": "まだメッセージはありません",
+  "messagesAppearAfterProcessing": "メッセージはエージェントが処理した後にここに表示されます",
 
   "showMore": "もっと見る",
   "showLess": "閉じる",
+  "sessionStarted": "セッション開始 ({model})",
+  "@sessionStarted": {
+    "placeholders": {
+      "model": { "type": "String" }
+    }
+  },
+  "systemSubtypeLabel": "System: {subtype}",
+  "@systemSubtypeLabel": {
+    "placeholders": {
+      "subtype": { "type": "String" }
+    }
+  },
 
   "authErrorTitle": "Claude Codeの再ログインが必要です",
   "authErrorBody": "BridgeマシンでClaude Codeを起動し、再ログインしてください。",
@@ -543,6 +676,7 @@
   "authHelpButton": "手順を見る",
   "authHelpLanguageJa": "日本語",
   "authHelpLanguageEn": "English",
+  "authHelpLanguageZhHans": "简体中文",
 
   "terminalApp": "ターミナルアプリ",
   "terminalAppSubtitle": "外部ターミナルアプリでプロジェクトを開く",

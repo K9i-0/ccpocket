@@ -1225,7 +1225,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                               key: const ValueKey('new_session_fab'),
                               onPressed: _showNewSessionDialog,
                               icon: const Icon(Icons.add),
-                              label: const Text('New'),
+                              label: Text(l.newShort),
                             ),
                           )
                         : null,

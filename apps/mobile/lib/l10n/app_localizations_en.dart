@@ -260,6 +260,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get offline => 'Offline';
 
   @override
+  String get disconnected => 'Disconnected';
+
+  @override
+  String get reconnecting => 'Reconnecting...';
+
+  @override
   String get unreachable => 'Unreachable';
 
   @override
@@ -287,7 +293,55 @@ class AppLocalizationsEn extends AppLocalizations {
   String get worktree => 'Worktree';
 
   @override
+  String get worktreeTooltip =>
+      'Creates an isolated git working tree for this session.';
+
+  @override
   String get advanced => 'Advanced';
+
+  @override
+  String get environmentSection => 'Environment';
+
+  @override
+  String get permissionDefaultMode => 'Default';
+
+  @override
+  String get permissionAcceptEditsMode => 'Accept Edits';
+
+  @override
+  String get permissionPlanMode => 'Plan';
+
+  @override
+  String get permissionBypassMode => 'Bypass All';
+
+  @override
+  String get permissionDefaultDescription => 'Standard permission prompts';
+
+  @override
+  String get permissionAcceptEditsDescription => 'Auto-approve file edits';
+
+  @override
+  String get permissionPlanDescription => 'Analyze and plan without executing';
+
+  @override
+  String get permissionBypassDescription => 'Skip all permission prompts';
+
+  @override
+  String get permissionModeTitle => 'Permission Mode';
+
+  @override
+  String get changePermissionModeTitle => 'Change Permission Mode';
+
+  @override
+  String changePermissionModeBody(String mode) {
+    return 'Switching to $mode will restart the session. Your conversation will be preserved.';
+  }
+
+  @override
+  String get permissionChipAcceptEdits => 'Edits';
+
+  @override
+  String get permissionChipBypass => 'Bypass';
 
   @override
   String get modelOptional => 'Model (optional)';
@@ -330,6 +384,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sandbox => 'Sandbox';
+
+  @override
+  String get sandboxModeTitle => 'Sandbox Mode';
+
+  @override
+  String get sandboxSafeMode => 'Sandbox (Safe Mode)';
+
+  @override
+  String get sandboxStandard => 'Standard';
+
+  @override
+  String get sandboxOnLabel => 'Sandbox On';
+
+  @override
+  String get sandboxOffLabel => 'Sandbox Off';
+
+  @override
+  String get sandboxRestrictedDescription =>
+      'Run commands in restricted environment';
+
+  @override
+  String get sandboxNativeDescription => 'Run commands natively';
+
+  @override
+  String get sandboxNativeCautionDescription =>
+      'Run commands natively (CAUTION)';
+
+  @override
+  String get changeSandboxModeTitle => 'Change Sandbox Mode';
+
+  @override
+  String changeSandboxModeBody(String mode) {
+    return 'Switching to $mode will restart the session. Your conversation will be preserved.';
+  }
+
+  @override
+  String get sandboxChipOff => 'No SB';
 
   @override
   String get reasoning => 'Reasoning';
@@ -402,7 +493,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get always => 'Always';
 
   @override
+  String get restart => 'Restart';
+
+  @override
   String get messagePlaceholder => 'Message Claude...';
+
+  @override
+  String messageProviderPlaceholder(String provider) {
+    return 'Message $provider...';
+  }
 
   @override
   String filesMentioned(int count) {
@@ -441,6 +540,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get claudeIsAsking => 'Claude is asking';
+
+  @override
+  String get codexIsAsking => 'Codex is asking';
+
+  @override
+  String get questionNeedsYourAnswer => 'Question needs your answer';
+
+  @override
+  String get toolApprovalNeeded => 'Tool approval needed';
+
+  @override
+  String get codexToolApprovalNeeded => 'Codex tool approval needed';
+
+  @override
+  String get sessionCompleteTitle => 'Session Complete';
+
+  @override
+  String get sessionDone => 'Session done';
+
+  @override
+  String get codexSessionDone => 'Codex session done';
 
   @override
   String get submitAllAnswers => 'Submit All Answers';
@@ -716,6 +836,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get creatingSession => 'Creating session...';
 
   @override
+  String startWithProvider(String provider) {
+    return 'Start with $provider';
+  }
+
+  @override
   String get copyForAgent => 'Copy for Agent';
 
   @override
@@ -726,6 +851,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get screenshot => 'Screenshot';
+
+  @override
+  String get screenshotSaved => 'Screenshot saved';
+
+  @override
+  String get screenshotFailed => 'Screenshot failed';
+
+  @override
+  String get fullScreen => 'Full Screen';
+
+  @override
+  String get captureEntireDesktop => 'Capture entire desktop';
+
+  @override
+  String get noWindowsFound => 'No windows found';
 
   @override
   String get debug => 'Debug';
@@ -767,7 +907,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recent => 'Recent';
 
   @override
+  String get newShort => 'New';
+
+  @override
   String get searchHint => 'Search...';
+
+  @override
+  String get searchSessionsHint => 'Search sessions...';
 
   @override
   String get noMatchingPrompts => 'No matching prompts';
@@ -823,6 +969,71 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get working => 'Working...';
+
+  @override
+  String get runningSessions => 'Running';
+
+  @override
+  String get recentSessions => 'Recent Sessions';
+
+  @override
+  String get displayFirst => 'First';
+
+  @override
+  String get displayLast => 'Last';
+
+  @override
+  String get displaySummary => 'Summary';
+
+  @override
+  String get filterAllAiTools => 'All AI Tools';
+
+  @override
+  String get filterAllProjects => 'All Projects';
+
+  @override
+  String get filterNamed => 'Named';
+
+  @override
+  String get statusStarting => 'Starting';
+
+  @override
+  String get statusIdle => 'Idle';
+
+  @override
+  String get statusRunning => 'Running';
+
+  @override
+  String get statusApproval => 'Approval';
+
+  @override
+  String get statusCompacting => 'Compacting';
+
+  @override
+  String get statusWorking => 'Working';
+
+  @override
+  String get statusNeedsYou => 'Needs You';
+
+  @override
+  String get statusReady => 'Ready';
+
+  @override
+  String get statusCleaningContext => 'Cleaning up context';
+
+  @override
+  String get statusReviewPlan => 'Review plan';
+
+  @override
+  String get statusApproveToolCall => 'Approve tool call';
+
+  @override
+  String get statusAnswerQuestion => 'Answer question';
+
+  @override
+  String statusApproveTool(String toolName) {
+    return 'Approve $toolName';
+  }
 
   @override
   String get waitingForApprovalRequests =>
@@ -892,6 +1103,74 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get setupGuideSubtitle => 'New here? Start with this';
+
+  @override
+  String get machineSectionTitle => 'Machines';
+
+  @override
+  String get machineRefreshStatus => 'Refresh status';
+
+  @override
+  String get machineNoSavedDescription =>
+      'No saved machines.\nAdd one to quickly connect or remotely start the Bridge Server.';
+
+  @override
+  String get addMachine => 'Add Machine';
+
+  @override
+  String get editMachine => 'Edit Machine';
+
+  @override
+  String get machineBasicInfo => 'Basic Info';
+
+  @override
+  String get machineNameLabel => 'Name';
+
+  @override
+  String get machineNameHint => 'Home Mac';
+
+  @override
+  String get machineHostLabel => 'Host (IP or hostname)';
+
+  @override
+  String get portLabel => 'Port';
+
+  @override
+  String get sshConfiguration => 'SSH Configuration';
+
+  @override
+  String get sshEnableRemoteStartup => 'Enable SSH remote startup';
+
+  @override
+  String get sshRemoteStartupSubtitle =>
+      'Remotely start Bridge Server when offline';
+
+  @override
+  String get sshUsernameLabel => 'SSH Username';
+
+  @override
+  String get sshPortLabel => 'SSH Port';
+
+  @override
+  String get sshPrivateKeyLabel => 'SSH Private Key (PEM)';
+
+  @override
+  String get sshPrivateKeyHint => '-----BEGIN OPENSSH PRIVATE KEY-----';
+
+  @override
+  String get testConnection => 'Test Connection';
+
+  @override
+  String get testingConnection => 'Testing...';
+
+  @override
+  String get sshCredentialsRequired => 'Please fill in SSH credentials';
+
+  @override
+  String get connectionSuccessful => 'Connection successful!';
+
+  @override
+  String get addAndConnect => 'Add & Connect';
 
   @override
   String get openSourceLicenses => 'Open Source Licenses';
@@ -1158,10 +1437,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tooltipClearDiff => 'Clear diff selection';
 
   @override
+  String messageHistoryCount(int count) {
+    return '$count messages';
+  }
+
+  @override
+  String get noMessagesYet => 'No messages yet';
+
+  @override
+  String get messagesAppearAfterProcessing =>
+      'Messages will appear here after the agent processes them';
+
+  @override
   String get showMore => 'Show more';
 
   @override
   String get showLess => 'Show less';
+
+  @override
+  String sessionStarted(String model) {
+    return 'Session started ($model)';
+  }
+
+  @override
+  String systemSubtypeLabel(String subtype) {
+    return 'System: $subtype';
+  }
 
   @override
   String get authErrorTitle => 'Claude login required';
@@ -1193,6 +1494,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authHelpLanguageEn => 'English';
+
+  @override
+  String get authHelpLanguageZhHans => '简体中文';
 
   @override
   String get terminalApp => 'Terminal App';

@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 
 enum SessionPrimaryStatus { working, needsYou, ready }
@@ -19,6 +20,7 @@ class SessionVisualStatus {
 }
 
 SessionVisualStatus sessionVisualStatusFor({
+  required AppLocalizations l,
   required String rawStatus,
   String? permissionMode,
   PermissionRequestMessage? pendingPermission,
@@ -27,16 +29,16 @@ SessionVisualStatus sessionVisualStatusFor({
 
   if (pendingPermission != null) {
     final detail = switch (pendingPermission.toolName) {
-      'ExitPlanMode' => 'Review plan',
+      'ExitPlanMode' => l.statusReviewPlan,
       'AskUserQuestion' =>
         pendingPermission.isRequestUserInputApproval
-            ? 'Approve tool call'
-            : 'Answer question',
-      _ => 'Approve ${pendingPermission.toolName}',
+            ? l.statusApproveToolCall
+            : l.statusAnswerQuestion,
+      _ => l.statusApproveTool(pendingPermission.toolName),
     };
     return SessionVisualStatus(
       primary: SessionPrimaryStatus.needsYou,
-      label: 'Needs You',
+      label: l.statusNeedsYou,
       detail: detail,
       showPlanBadge: showPlanBadge,
       animate: true,
@@ -46,26 +48,26 @@ SessionVisualStatus sessionVisualStatusFor({
   return switch (rawStatus) {
     'starting' || 'running' => SessionVisualStatus(
       primary: SessionPrimaryStatus.working,
-      label: 'Working',
+      label: l.statusWorking,
       showPlanBadge: showPlanBadge,
       animate: true,
     ),
     'compacting' => SessionVisualStatus(
       primary: SessionPrimaryStatus.working,
-      label: 'Working',
-      detail: 'Cleaning up context',
+      label: l.statusWorking,
+      detail: l.statusCleaningContext,
       showPlanBadge: showPlanBadge,
       animate: true,
     ),
     'waiting_approval' => SessionVisualStatus(
       primary: SessionPrimaryStatus.needsYou,
-      label: 'Needs You',
+      label: l.statusNeedsYou,
       showPlanBadge: showPlanBadge,
       animate: true,
     ),
     _ => SessionVisualStatus(
       primary: SessionPrimaryStatus.ready,
-      label: 'Ready',
+      label: l.statusReady,
       showPlanBadge: showPlanBadge,
       animate: false,
     ),

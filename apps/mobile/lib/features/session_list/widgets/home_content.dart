@@ -262,7 +262,7 @@ class HomeContentState extends State<HomeContent> {
             ?appUpdateBanner,
             SectionHeader(
               icon: Icons.history,
-              label: 'Recent Sessions',
+              label: l.recentSessions,
               color: appColors.subtleText,
             ),
             const SizedBox(height: 8),
@@ -294,7 +294,7 @@ class HomeContentState extends State<HomeContent> {
         if (hasRunningSessions) ...[
           SectionHeader(
             icon: Icons.play_circle_filled,
-            label: 'Running',
+            label: l.runningSessions,
             color: appColors.statusOnline,
           ),
           const SizedBox(height: 4),
@@ -370,7 +370,7 @@ class HomeContentState extends State<HomeContent> {
             hasActiveFilter) ...[
           SectionHeader(
             icon: Icons.history,
-            label: 'Recent Sessions',
+            label: l.recentSessions,
             color: appColors.subtleText,
             trailing: IconButton(
               key: const ValueKey('search_button'),
@@ -380,7 +380,7 @@ class HomeContentState extends State<HomeContent> {
                 color: appColors.subtleText,
               ),
               onPressed: _toggleSearch,
-              tooltip: 'Search',
+              tooltip: l.searchHint,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               visualDensity: VisualDensity.compact,
@@ -394,7 +394,7 @@ class HomeContentState extends State<HomeContent> {
               autofocus: true,
               onTapOutside: (_) => FocusScope.of(context).unfocus(),
               decoration: InputDecoration(
-                hintText: 'Search sessions...',
+                hintText: l.searchSessionsHint,
                 prefixIcon: Icon(
                   Icons.search,
                   size: 18,
@@ -505,7 +505,7 @@ class HomeContentState extends State<HomeContent> {
                         key: const ValueKey('load_more_button'),
                         onPressed: widget.onLoadMore,
                         icon: const Icon(Icons.expand_more, size: 18),
-                        label: const Text('Load More'),
+                        label: Text(l.showMore),
                       ),
               ),
               const SizedBox(height: 8),

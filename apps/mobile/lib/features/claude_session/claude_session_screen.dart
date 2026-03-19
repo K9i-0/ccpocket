@@ -376,6 +376,7 @@ class _ChatScreenBody extends HookWidget {
       final sub = context.read<ChatSessionCubit>().sideEffects.listen(
         (effects) => _executeSideEffects(
           effects,
+          l: l,
           sessionId: sessionId,
           isBackground: isBackground,
           collapseToolResults: collapseToolResults,
@@ -875,6 +876,7 @@ Future<void> _openDiffScreen(
 
 void _executeSideEffects(
   Set<ChatSideEffect> effects, {
+  required AppLocalizations l,
   required String sessionId,
   required bool isBackground,
   required ValueNotifier<int> collapseToolResults,
@@ -896,8 +898,8 @@ void _executeSideEffects(
       case ChatSideEffect.notifyApprovalRequired:
         if (isBackground) {
           NotificationService.instance.show(
-            title: 'Approval Required',
-            body: 'Tool approval needed',
+            title: l.approvalRequired,
+            body: l.toolApprovalNeeded,
             id: 1,
             payload: sessionId,
           );
@@ -905,8 +907,8 @@ void _executeSideEffects(
       case ChatSideEffect.notifyAskQuestion:
         if (isBackground) {
           NotificationService.instance.show(
-            title: 'Claude is asking',
-            body: 'Question needs your answer',
+            title: l.claudeIsAsking,
+            body: l.questionNeedsYourAnswer,
             id: 2,
             payload: sessionId,
           );
@@ -914,8 +916,8 @@ void _executeSideEffects(
       case ChatSideEffect.notifySessionComplete:
         if (isBackground) {
           NotificationService.instance.show(
-            title: 'Session Complete',
-            body: 'Session done',
+            title: l.sessionCompleteTitle,
+            body: l.sessionDone,
             id: 3,
             payload: sessionId,
           );

@@ -2,7 +2,7 @@
 
 CC Pocket lets you start and run Claude Code and Codex sessions entirely from your phone. No laptop needed — just open the app, pick a project, and code from anywhere.
 
-[日本語版 README](README.ja.md)
+[日本語版 README](README.ja.md) | [简体中文版 README](README.zh-CN.md)
 
 <p align="center">
   <img src="docs/images/screenshots.png" alt="CC Pocket screenshots" width="800">

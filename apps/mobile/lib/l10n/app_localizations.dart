@@ -7,6 +7,7 @@ import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_en.dart';
 import 'app_localizations_ja.dart';
+import 'app_localizations_zh.dart';
 
 // ignore_for_file: type=lint
 
@@ -96,6 +97,7 @@ abstract class AppLocalizations {
   static const List<Locale> supportedLocales = <Locale>[
     Locale('ja'),
     Locale('en'),
+    Locale('zh'),
   ];
 
   /// No description provided for @appTitle.
@@ -566,6 +568,18 @@ abstract class AppLocalizations {
   /// **'オフライン'**
   String get offline;
 
+  /// No description provided for @disconnected.
+  ///
+  /// In ja, this message translates to:
+  /// **'切断されました'**
+  String get disconnected;
+
+  /// No description provided for @reconnecting.
+  ///
+  /// In ja, this message translates to:
+  /// **'再接続中...'**
+  String get reconnecting;
+
   /// No description provided for @unreachable.
   ///
   /// In ja, this message translates to:
@@ -617,14 +631,104 @@ abstract class AppLocalizations {
   /// No description provided for @worktree.
   ///
   /// In ja, this message translates to:
-  /// **'Worktree'**
+  /// **'ワークツリー'**
   String get worktree;
+
+  /// No description provided for @worktreeTooltip.
+  ///
+  /// In ja, this message translates to:
+  /// **'このセッション用に独立した git worktree を作成します。'**
+  String get worktreeTooltip;
 
   /// No description provided for @advanced.
   ///
   /// In ja, this message translates to:
   /// **'詳細設定'**
   String get advanced;
+
+  /// No description provided for @environmentSection.
+  ///
+  /// In ja, this message translates to:
+  /// **'環境'**
+  String get environmentSection;
+
+  /// No description provided for @permissionDefaultMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'デフォルト'**
+  String get permissionDefaultMode;
+
+  /// No description provided for @permissionAcceptEditsMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'編集を自動承認'**
+  String get permissionAcceptEditsMode;
+
+  /// No description provided for @permissionPlanMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'計画'**
+  String get permissionPlanMode;
+
+  /// No description provided for @permissionBypassMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべてバイパス'**
+  String get permissionBypassMode;
+
+  /// No description provided for @permissionDefaultDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'標準の権限確認'**
+  String get permissionDefaultDescription;
+
+  /// No description provided for @permissionAcceptEditsDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイル編集を自動承認'**
+  String get permissionAcceptEditsDescription;
+
+  /// No description provided for @permissionPlanDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'実行せずに分析と計画を行う'**
+  String get permissionPlanDescription;
+
+  /// No description provided for @permissionBypassDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべての権限確認をスキップ'**
+  String get permissionBypassDescription;
+
+  /// No description provided for @permissionModeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'権限モード'**
+  String get permissionModeTitle;
+
+  /// No description provided for @changePermissionModeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'権限モードを変更'**
+  String get changePermissionModeTitle;
+
+  /// No description provided for @changePermissionModeBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'{mode} に切り替えるとセッションが再起動します。会話は保持されます。'**
+  String changePermissionModeBody(String mode);
+
+  /// No description provided for @permissionChipAcceptEdits.
+  ///
+  /// In ja, this message translates to:
+  /// **'編集'**
+  String get permissionChipAcceptEdits;
+
+  /// No description provided for @permissionChipBypass.
+  ///
+  /// In ja, this message translates to:
+  /// **'バイパス'**
+  String get permissionChipBypass;
 
   /// No description provided for @modelOptional.
   ///
@@ -707,8 +811,74 @@ abstract class AppLocalizations {
   /// No description provided for @sandbox.
   ///
   /// In ja, this message translates to:
-  /// **'Sandbox'**
+  /// **'サンドボックス'**
   String get sandbox;
+
+  /// No description provided for @sandboxModeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'サンドボックスモード'**
+  String get sandboxModeTitle;
+
+  /// No description provided for @sandboxSafeMode.
+  ///
+  /// In ja, this message translates to:
+  /// **'Sandbox（セーフモード）'**
+  String get sandboxSafeMode;
+
+  /// No description provided for @sandboxStandard.
+  ///
+  /// In ja, this message translates to:
+  /// **'標準'**
+  String get sandboxStandard;
+
+  /// No description provided for @sandboxOnLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'サンドボックス ON'**
+  String get sandboxOnLabel;
+
+  /// No description provided for @sandboxOffLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'サンドボックス OFF'**
+  String get sandboxOffLabel;
+
+  /// No description provided for @sandboxRestrictedDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'制限された環境でコマンドを実行'**
+  String get sandboxRestrictedDescription;
+
+  /// No description provided for @sandboxNativeDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'ネイティブ環境でコマンドを実行'**
+  String get sandboxNativeDescription;
+
+  /// No description provided for @sandboxNativeCautionDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'ネイティブ環境でコマンドを実行（注意）'**
+  String get sandboxNativeCautionDescription;
+
+  /// No description provided for @changeSandboxModeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'サンドボックスモードを変更'**
+  String get changeSandboxModeTitle;
+
+  /// No description provided for @changeSandboxModeBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'{mode} に切り替えるとセッションが再起動します。会話は保持されます。'**
+  String changeSandboxModeBody(String mode);
+
+  /// No description provided for @sandboxChipOff.
+  ///
+  /// In ja, this message translates to:
+  /// **'No SB'**
+  String get sandboxChipOff;
 
   /// No description provided for @reasoning.
   ///
@@ -842,11 +1012,23 @@ abstract class AppLocalizations {
   /// **'常に許可'**
   String get always;
 
+  /// No description provided for @restart.
+  ///
+  /// In ja, this message translates to:
+  /// **'再起動'**
+  String get restart;
+
   /// No description provided for @messagePlaceholder.
   ///
   /// In ja, this message translates to:
   /// **'Claude にメッセージ...'**
   String get messagePlaceholder;
+
+  /// No description provided for @messageProviderPlaceholder.
+  ///
+  /// In ja, this message translates to:
+  /// **'{provider} にメッセージ...'**
+  String messageProviderPlaceholder(String provider);
 
   /// No description provided for @filesMentioned.
   ///
@@ -907,6 +1089,48 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'Claude が質問しています'**
   String get claudeIsAsking;
+
+  /// No description provided for @codexIsAsking.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex が質問しています'**
+  String get codexIsAsking;
+
+  /// No description provided for @questionNeedsYourAnswer.
+  ///
+  /// In ja, this message translates to:
+  /// **'質問への回答が必要です'**
+  String get questionNeedsYourAnswer;
+
+  /// No description provided for @toolApprovalNeeded.
+  ///
+  /// In ja, this message translates to:
+  /// **'ツール承認が必要です'**
+  String get toolApprovalNeeded;
+
+  /// No description provided for @codexToolApprovalNeeded.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex のツール承認が必要です'**
+  String get codexToolApprovalNeeded;
+
+  /// No description provided for @sessionCompleteTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション完了'**
+  String get sessionCompleteTitle;
+
+  /// No description provided for @sessionDone.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッションが完了しました'**
+  String get sessionDone;
+
+  /// No description provided for @codexSessionDone.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex セッションが完了しました'**
+  String get codexSessionDone;
 
   /// No description provided for @submitAllAnswers.
   ///
@@ -1400,6 +1624,12 @@ abstract class AppLocalizations {
   /// **'セッション作成中...'**
   String get creatingSession;
 
+  /// No description provided for @startWithProvider.
+  ///
+  /// In ja, this message translates to:
+  /// **'{provider} で開始'**
+  String startWithProvider(String provider);
+
   /// No description provided for @copyForAgent.
   ///
   /// In ja, this message translates to:
@@ -1423,6 +1653,36 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'スクリーンショット'**
   String get screenshot;
+
+  /// No description provided for @screenshotSaved.
+  ///
+  /// In ja, this message translates to:
+  /// **'スクリーンショットを保存しました'**
+  String get screenshotSaved;
+
+  /// No description provided for @screenshotFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'スクリーンショットに失敗しました'**
+  String get screenshotFailed;
+
+  /// No description provided for @fullScreen.
+  ///
+  /// In ja, this message translates to:
+  /// **'フルスクリーン'**
+  String get fullScreen;
+
+  /// No description provided for @captureEntireDesktop.
+  ///
+  /// In ja, this message translates to:
+  /// **'デスクトップ全体をキャプチャ'**
+  String get captureEntireDesktop;
+
+  /// No description provided for @noWindowsFound.
+  ///
+  /// In ja, this message translates to:
+  /// **'ウィンドウが見つかりません'**
+  String get noWindowsFound;
 
   /// No description provided for @debug.
   ///
@@ -1502,11 +1762,23 @@ abstract class AppLocalizations {
   /// **'新しい順'**
   String get recent;
 
+  /// No description provided for @newShort.
+  ///
+  /// In ja, this message translates to:
+  /// **'新規'**
+  String get newShort;
+
   /// No description provided for @searchHint.
   ///
   /// In ja, this message translates to:
   /// **'検索...'**
   String get searchHint;
+
+  /// No description provided for @searchSessionsHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッションを検索...'**
+  String get searchSessionsHint;
 
   /// No description provided for @noMatchingPrompts.
   ///
@@ -1609,6 +1881,132 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'処理中...'**
   String get working;
+
+  /// No description provided for @runningSessions.
+  ///
+  /// In ja, this message translates to:
+  /// **'実行中'**
+  String get runningSessions;
+
+  /// No description provided for @recentSessions.
+  ///
+  /// In ja, this message translates to:
+  /// **'最近のセッション'**
+  String get recentSessions;
+
+  /// No description provided for @displayFirst.
+  ///
+  /// In ja, this message translates to:
+  /// **'先頭'**
+  String get displayFirst;
+
+  /// No description provided for @displayLast.
+  ///
+  /// In ja, this message translates to:
+  /// **'最新'**
+  String get displayLast;
+
+  /// No description provided for @displaySummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'要約'**
+  String get displaySummary;
+
+  /// No description provided for @filterAllAiTools.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべてのAIツール'**
+  String get filterAllAiTools;
+
+  /// No description provided for @filterAllProjects.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべてのプロジェクト'**
+  String get filterAllProjects;
+
+  /// No description provided for @filterNamed.
+  ///
+  /// In ja, this message translates to:
+  /// **'名前付き'**
+  String get filterNamed;
+
+  /// No description provided for @statusStarting.
+  ///
+  /// In ja, this message translates to:
+  /// **'起動中'**
+  String get statusStarting;
+
+  /// No description provided for @statusIdle.
+  ///
+  /// In ja, this message translates to:
+  /// **'待機中'**
+  String get statusIdle;
+
+  /// No description provided for @statusRunning.
+  ///
+  /// In ja, this message translates to:
+  /// **'実行中'**
+  String get statusRunning;
+
+  /// No description provided for @statusApproval.
+  ///
+  /// In ja, this message translates to:
+  /// **'承認待ち'**
+  String get statusApproval;
+
+  /// No description provided for @statusCompacting.
+  ///
+  /// In ja, this message translates to:
+  /// **'圧縮中'**
+  String get statusCompacting;
+
+  /// No description provided for @statusWorking.
+  ///
+  /// In ja, this message translates to:
+  /// **'作業中'**
+  String get statusWorking;
+
+  /// No description provided for @statusNeedsYou.
+  ///
+  /// In ja, this message translates to:
+  /// **'対応待ち'**
+  String get statusNeedsYou;
+
+  /// No description provided for @statusReady.
+  ///
+  /// In ja, this message translates to:
+  /// **'準備完了'**
+  String get statusReady;
+
+  /// No description provided for @statusCleaningContext.
+  ///
+  /// In ja, this message translates to:
+  /// **'コンテキスト整理中'**
+  String get statusCleaningContext;
+
+  /// No description provided for @statusReviewPlan.
+  ///
+  /// In ja, this message translates to:
+  /// **'プランを確認'**
+  String get statusReviewPlan;
+
+  /// No description provided for @statusApproveToolCall.
+  ///
+  /// In ja, this message translates to:
+  /// **'ツール呼び出しを承認'**
+  String get statusApproveToolCall;
+
+  /// No description provided for @statusAnswerQuestion.
+  ///
+  /// In ja, this message translates to:
+  /// **'質問に回答'**
+  String get statusAnswerQuestion;
+
+  /// No description provided for @statusApproveTool.
+  ///
+  /// In ja, this message translates to:
+  /// **'{toolName} を承認'**
+  String statusApproveTool(String toolName);
 
   /// No description provided for @waitingForApprovalRequests.
   ///
@@ -1741,6 +2139,138 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'初めての方はこちら'**
   String get setupGuideSubtitle;
+
+  /// No description provided for @machineSectionTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'マシン'**
+  String get machineSectionTitle;
+
+  /// No description provided for @machineRefreshStatus.
+  ///
+  /// In ja, this message translates to:
+  /// **'状態を更新'**
+  String get machineRefreshStatus;
+
+  /// No description provided for @machineNoSavedDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存済みのマシンはありません。\nマシンを追加すると、すばやく接続したり、オフライン時に Bridge Server をリモート起動できます。'**
+  String get machineNoSavedDescription;
+
+  /// No description provided for @addMachine.
+  ///
+  /// In ja, this message translates to:
+  /// **'マシンを追加'**
+  String get addMachine;
+
+  /// No description provided for @editMachine.
+  ///
+  /// In ja, this message translates to:
+  /// **'マシンを編集'**
+  String get editMachine;
+
+  /// No description provided for @machineBasicInfo.
+  ///
+  /// In ja, this message translates to:
+  /// **'基本情報'**
+  String get machineBasicInfo;
+
+  /// No description provided for @machineNameLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'名前'**
+  String get machineNameLabel;
+
+  /// No description provided for @machineNameHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'自宅の Mac'**
+  String get machineNameHint;
+
+  /// No description provided for @machineHostLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'ホスト（IP またはホスト名）'**
+  String get machineHostLabel;
+
+  /// No description provided for @portLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'ポート'**
+  String get portLabel;
+
+  /// No description provided for @sshConfiguration.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH 設定'**
+  String get sshConfiguration;
+
+  /// No description provided for @sshEnableRemoteStartup.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH リモート起動を有効化'**
+  String get sshEnableRemoteStartup;
+
+  /// No description provided for @sshRemoteStartupSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'オフライン時に Bridge Server をリモート起動'**
+  String get sshRemoteStartupSubtitle;
+
+  /// No description provided for @sshUsernameLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH ユーザー名'**
+  String get sshUsernameLabel;
+
+  /// No description provided for @sshPortLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH ポート'**
+  String get sshPortLabel;
+
+  /// No description provided for @sshPrivateKeyLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH 秘密鍵（PEM）'**
+  String get sshPrivateKeyLabel;
+
+  /// No description provided for @sshPrivateKeyHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'-----BEGIN OPENSSH PRIVATE KEY-----'**
+  String get sshPrivateKeyHint;
+
+  /// No description provided for @testConnection.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続テスト'**
+  String get testConnection;
+
+  /// No description provided for @testingConnection.
+  ///
+  /// In ja, this message translates to:
+  /// **'テスト中...'**
+  String get testingConnection;
+
+  /// No description provided for @sshCredentialsRequired.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH 認証情報を入力してください'**
+  String get sshCredentialsRequired;
+
+  /// No description provided for @connectionSuccessful.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続に成功しました！'**
+  String get connectionSuccessful;
+
+  /// No description provided for @addAndConnect.
+  ///
+  /// In ja, this message translates to:
+  /// **'追加して接続'**
+  String get addAndConnect;
 
   /// No description provided for @openSourceLicenses.
   ///
@@ -2222,6 +2752,24 @@ abstract class AppLocalizations {
   /// **'Diff選択を解除'**
   String get tooltipClearDiff;
 
+  /// No description provided for @messageHistoryCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'{count} 件のメッセージ'**
+  String messageHistoryCount(int count);
+
+  /// No description provided for @noMessagesYet.
+  ///
+  /// In ja, this message translates to:
+  /// **'まだメッセージはありません'**
+  String get noMessagesYet;
+
+  /// No description provided for @messagesAppearAfterProcessing.
+  ///
+  /// In ja, this message translates to:
+  /// **'メッセージはエージェントが処理した後にここに表示されます'**
+  String get messagesAppearAfterProcessing;
+
   /// No description provided for @showMore.
   ///
   /// In ja, this message translates to:
@@ -2233,6 +2781,18 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'閉じる'**
   String get showLess;
+
+  /// No description provided for @sessionStarted.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッション開始 ({model})'**
+  String sessionStarted(String model);
+
+  /// No description provided for @systemSubtypeLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'System: {subtype}'**
+  String systemSubtypeLabel(String subtype);
 
   /// No description provided for @authErrorTitle.
   ///
@@ -2293,6 +2853,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'English'**
   String get authHelpLanguageEn;
+
+  /// No description provided for @authHelpLanguageZhHans.
+  ///
+  /// In ja, this message translates to:
+  /// **'简体中文'**
+  String get authHelpLanguageZhHans;
 
   /// No description provided for @terminalApp.
   ///
@@ -2426,7 +2992,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['en', 'ja'].contains(locale.languageCode);
+      <String>['en', 'ja', 'zh'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -2439,6 +3005,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsEn();
     case 'ja':
       return AppLocalizationsJa();
+    case 'zh':
+      return AppLocalizationsZh();
   }
 
   throw FlutterError(

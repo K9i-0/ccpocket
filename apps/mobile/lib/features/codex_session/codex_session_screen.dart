@@ -301,6 +301,7 @@ class _CodexChatBody extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final l = AppLocalizations.of(context);
     // Mutable branch state (refreshed from Bridge)
     final currentBranch = useState(gitBranch);
 
@@ -367,6 +368,7 @@ class _CodexChatBody extends HookWidget {
       final sub = context.read<ChatSessionCubit>().sideEffects.listen(
         (effects) => _executeSideEffects(
           effects,
+          l: l,
           sessionId: sessionId,
           isBackground: isBackground,
           collapseToolResults: collapseToolResults,
@@ -614,43 +616,43 @@ class _CodexChatBody extends HookWidget {
                         .terminalApp;
                     final l = AppLocalizations.of(context);
                     return [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         key: ValueKey('menu_rename'),
                         value: 'rename',
                         child: ListTile(
                           leading: Icon(Icons.edit_outlined, size: 20),
-                          title: Text('Rename'),
+                          title: Text(l.rename),
                           dense: true,
                           contentPadding: EdgeInsets.zero,
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         key: ValueKey('menu_message_history'),
                         value: 'history',
                         child: ListTile(
                           leading: Icon(Icons.chat_outlined, size: 20),
-                          title: Text('Message History'),
+                          title: Text(l.messageHistory),
                           dense: true,
                           contentPadding: EdgeInsets.zero,
                         ),
                       ),
                       if (projectPath != null)
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           key: ValueKey('menu_screenshot'),
                           value: 'screenshot',
                           child: ListTile(
                             leading: Icon(Icons.screenshot_monitor, size: 20),
-                            title: Text('Screenshot'),
+                            title: Text(l.screenshot),
                             dense: true,
                             contentPadding: EdgeInsets.zero,
                           ),
                         ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         key: ValueKey('menu_gallery'),
                         value: 'gallery',
                         child: ListTile(
                           leading: Icon(Icons.collections, size: 20),
-                          title: Text('Gallery'),
+                          title: Text(l.gallery),
                           dense: true,
                           contentPadding: EdgeInsets.zero,
                         ),
@@ -826,7 +828,9 @@ class _CodexChatBody extends HookWidget {
                     status: status,
                     onScrollToBottom: scroll.scrollToBottom,
                     inputController: chatInputController,
-                    hintText: 'Message Codex...',
+                    hintText: AppLocalizations.of(
+                      context,
+                    ).messageProviderPlaceholder('Codex'),
                     initialDiffSelection: diffSelectionFromNav.value,
                     onDiffSelectionConsumed: () {},
                     onDiffSelectionCleared: () =>
@@ -874,6 +878,7 @@ Future<void> _openDiffScreen(
 
 void _executeSideEffects(
   Set<ChatSideEffect> effects, {
+  required AppLocalizations l,
   required String sessionId,
   required bool isBackground,
   required TextEditingController planFeedbackController,
@@ -895,8 +900,8 @@ void _executeSideEffects(
       case ChatSideEffect.notifyApprovalRequired:
         if (isBackground) {
           NotificationService.instance.show(
-            title: 'Approval Required',
-            body: 'Codex tool approval needed',
+            title: l.approvalRequired,
+            body: l.codexToolApprovalNeeded,
             id: 1,
             payload: sessionId,
           );
@@ -904,8 +909,8 @@ void _executeSideEffects(
       case ChatSideEffect.notifyAskQuestion:
         if (isBackground) {
           NotificationService.instance.show(
-            title: 'Codex is asking',
-            body: 'Question needs your answer',
+            title: l.codexIsAsking,
+            body: l.questionNeedsYourAnswer,
             id: 2,
             payload: sessionId,
           );
@@ -913,8 +918,8 @@ void _executeSideEffects(
       case ChatSideEffect.notifySessionComplete:
         if (isBackground) {
           NotificationService.instance.show(
-            title: 'Session Complete',
-            body: 'Codex session done',
+            title: l.sessionCompleteTitle,
+            body: l.codexSessionDone,
             id: 3,
             payload: sessionId,
           );

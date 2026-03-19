@@ -94,7 +94,9 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final l = AppLocalizations.of(context);
     final visualStatus = sessionVisualStatusFor(
+      l: l,
       rawStatus: session.status,
       permissionMode: session.permissionMode,
       pendingPermission: session.pendingPermission,

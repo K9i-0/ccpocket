@@ -2,7 +2,7 @@
 
 CC Pocket は、Claude Code / Codex のセッションをスマホだけで開始・完結できるアプリです。ラップトップを開く必要なし。アプリを開いて、プロジェクトを選んで、どこからでもコーディング。
 
-[English README](README.md)
+[English README](README.md) | [简体中文版 README](README.zh-CN.md)
 
 <p align="center">
   <img src="docs/images/screenshots-ja.png" alt="CC Pocket screenshots" width="800">

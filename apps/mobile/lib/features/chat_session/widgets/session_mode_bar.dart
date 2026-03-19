@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 import '../state/chat_session_cubit.dart';
@@ -246,6 +247,7 @@ class _RotatingBorderPainter extends CustomPainter {
 void showPermissionModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
   final currentMode = chatCubit.state.permissionMode;
   final appColors = Theme.of(context).extension<AppColors>()!;
+  final l = AppLocalizations.of(context);
 
   const purple = Color(0xFFBB86FC);
 
@@ -253,22 +255,22 @@ void showPermissionModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
       <PermissionMode, ({IconData icon, String description, Color color})>{
         PermissionMode.defaultMode: (
           icon: Icons.tune,
-          description: 'Standard permission prompts',
+          description: l.permissionDefaultDescription,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         PermissionMode.acceptEdits: (
           icon: Icons.edit_note,
-          description: 'Auto-approve file edits',
+          description: l.permissionAcceptEditsDescription,
           color: purple,
         ),
         PermissionMode.plan: (
           icon: Icons.assignment,
-          description: 'Analyze & plan without executing',
+          description: l.permissionPlanDescription,
           color: appColors.statusPlan,
         ),
         PermissionMode.bypassPermissions: (
           icon: Icons.flash_on,
-          description: 'Skip all permission prompts',
+          description: l.permissionBypassDescription,
           color: Theme.of(context).colorScheme.error,
         ),
       };
@@ -286,7 +288,7 @@ void showPermissionModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Permission Mode',
+                  l.permissionModeTitle,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -303,7 +305,7 @@ void showPermissionModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
                       ? modeDetails[mode]!.color
                       : sheetCs.onSurfaceVariant,
                 ),
-                title: Text(mode.label),
+                title: Text(_permissionModeLabel(l, mode)),
                 subtitle: Text(
                   modeDetails[mode]!.description,
                   style: const TextStyle(fontSize: 12),
@@ -341,27 +343,27 @@ Future<void> _confirmPermissionModeChange(
   ChatSessionCubit chatCubit,
   PermissionMode mode,
 ) async {
+  final l = AppLocalizations.of(context);
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) {
       final cs = Theme.of(dialogContext).colorScheme;
       return AlertDialog(
-        title: const Text('Change Permission Mode'),
+        title: Text(l.changePermissionModeTitle),
         content: Text(
-          'Switching to ${mode.label} will restart the session. '
-          'Your conversation will be preserved.',
+          l.changePermissionModeBody(_permissionModeLabel(l, mode)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: mode == PermissionMode.bypassPermissions
                 ? FilledButton.styleFrom(backgroundColor: cs.error)
                 : null,
-            child: const Text('Restart'),
+            child: Text(l.restart),
           ),
         ],
       );
@@ -375,6 +377,7 @@ Future<void> _confirmPermissionModeChange(
 void showSandboxModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
   final currentMode = chatCubit.state.sandboxMode;
   final isClaude = chatCubit.provider != Provider.codex;
+  final l = AppLocalizations.of(context);
 
   showModalBottomSheet(
     context: context,
@@ -389,7 +392,7 @@ void showSandboxModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Sandbox Mode',
+                  l.sandboxModeTitle,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -408,7 +411,7 @@ void showSandboxModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
                       : _sandboxMenuIconColor(mode, isClaude, sheetCs),
                 ),
                 title: Text(
-                  _sandboxMenuTitle(mode, isClaude),
+                  _sandboxMenuTitle(l, mode, isClaude),
                   style: TextStyle(
                     color:
                         !isClaude &&
@@ -419,7 +422,7 @@ void showSandboxModeMenu(BuildContext context, ChatSessionCubit chatCubit) {
                   ),
                 ),
                 subtitle: Text(
-                  _sandboxMenuSubtitle(mode, isClaude),
+                  _sandboxMenuSubtitle(l, mode, isClaude),
                   style: const TextStyle(fontSize: 12),
                 ),
                 trailing: mode == currentMode
@@ -455,22 +458,26 @@ Color _sandboxMenuIconColor(SandboxMode mode, bool isClaude, ColorScheme cs) {
   return cs.onSurfaceVariant;
 }
 
-String _sandboxMenuTitle(SandboxMode mode, bool isClaude) {
+String _sandboxMenuTitle(AppLocalizations l, SandboxMode mode, bool isClaude) {
   if (isClaude) {
-    return mode == SandboxMode.on ? 'Sandbox (Safe Mode)' : 'Standard';
+    return mode == SandboxMode.on ? l.sandboxSafeMode : l.sandboxStandard;
   }
-  return mode == SandboxMode.on ? 'Sandbox On' : 'Sandbox Off';
+  return mode == SandboxMode.on ? l.sandboxOnLabel : l.sandboxOffLabel;
 }
 
-String _sandboxMenuSubtitle(SandboxMode mode, bool isClaude) {
+String _sandboxMenuSubtitle(
+  AppLocalizations l,
+  SandboxMode mode,
+  bool isClaude,
+) {
   if (isClaude) {
     return mode == SandboxMode.on
-        ? 'Run commands in restricted environment'
-        : 'Run commands natively';
+        ? l.sandboxRestrictedDescription
+        : l.sandboxNativeDescription;
   }
   return mode == SandboxMode.on
-      ? 'Run commands in restricted environment'
-      : 'Run commands natively (CAUTION)';
+      ? l.sandboxRestrictedDescription
+      : l.sandboxNativeCautionDescription;
 }
 
 /// Show confirmation dialog before changing sandbox mode, because
@@ -481,9 +488,10 @@ Future<void> _confirmSandboxModeChange(
   SandboxMode mode, {
   bool isClaude = false,
 }) async {
+  final l = AppLocalizations.of(context);
   final modeLabel = isClaude
-      ? (mode == SandboxMode.on ? 'Sandbox (Safe Mode)' : 'Standard')
-      : mode.label;
+      ? (mode == SandboxMode.on ? l.sandboxSafeMode : l.sandboxStandard)
+      : (mode == SandboxMode.on ? l.sandboxOnLabel : l.sandboxOffLabel);
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) {
@@ -492,22 +500,19 @@ Future<void> _confirmSandboxModeChange(
       // For Claude, turning off is standard — no red.
       final useErrorStyle = mode == SandboxMode.off && !isClaude;
       return AlertDialog(
-        title: const Text('Change Sandbox Mode'),
-        content: Text(
-          'Switching to $modeLabel will restart the session. '
-          'Your conversation will be preserved.',
-        ),
+        title: Text(l.changeSandboxModeTitle),
+        content: Text(l.changeSandboxModeBody(modeLabel)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: useErrorStyle
                 ? FilledButton.styleFrom(backgroundColor: cs.error)
                 : null,
-            child: const Text('Restart'),
+            child: Text(l.restart),
           ),
         ],
       );
@@ -532,6 +537,7 @@ class PermissionModeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final l = AppLocalizations.of(context);
 
     // Colors aligned with Claude Code CLI
     const purple = Color(0xFFBB86FC);
@@ -539,12 +545,24 @@ class PermissionModeChip extends StatelessWidget {
     final (IconData icon, String label, Color fg) = switch (currentMode) {
       PermissionMode.defaultMode => (
         Icons.tune,
-        'Default',
+        l.defaultLabel,
         cs.onSurfaceVariant,
       ),
-      PermissionMode.acceptEdits => (Icons.edit_note, 'Edits', purple),
-      PermissionMode.plan => (Icons.assignment, 'Plan', appColors.statusPlan),
-      PermissionMode.bypassPermissions => (Icons.flash_on, 'Bypass', cs.error),
+      PermissionMode.acceptEdits => (
+        Icons.edit_note,
+        l.permissionChipAcceptEdits,
+        purple,
+      ),
+      PermissionMode.plan => (
+        Icons.assignment,
+        l.permissionPlanMode,
+        appColors.statusPlan,
+      ),
+      PermissionMode.bypassPermissions => (
+        Icons.flash_on,
+        l.permissionChipBypass,
+        cs.error,
+      ),
     };
 
     return Material(
@@ -597,13 +615,14 @@ class SandboxModeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isClaude = provider != Provider.codex;
+    final l = AppLocalizations.of(context);
 
     final (IconData icon, String label, Color fg) = switch (currentMode) {
-      SandboxMode.on => (Icons.shield_outlined, 'Sandbox', cs.tertiary),
+      SandboxMode.on => (Icons.shield_outlined, l.sandbox, cs.tertiary),
       SandboxMode.off =>
         isClaude
-            ? (Icons.code, 'Standard', cs.onSurfaceVariant)
-            : (Icons.warning_amber, 'No SB', cs.error),
+            ? (Icons.code, l.sandboxStandard, cs.onSurfaceVariant)
+            : (Icons.warning_amber, l.sandboxChipOff, cs.error),
     };
 
     return Material(
@@ -638,4 +657,13 @@ class SandboxModeChip extends StatelessWidget {
       ),
     );
   }
+}
+
+String _permissionModeLabel(AppLocalizations l, PermissionMode mode) {
+  return switch (mode) {
+    PermissionMode.defaultMode => l.permissionDefaultMode,
+    PermissionMode.acceptEdits => l.permissionAcceptEditsMode,
+    PermissionMode.plan => l.permissionPlanMode,
+    PermissionMode.bypassPermissions => l.permissionBypassMode,
+  };
 }

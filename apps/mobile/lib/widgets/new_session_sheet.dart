@@ -1325,7 +1325,7 @@ class _OptionsSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
-              'Environment',
+              l.environmentSection,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -1354,7 +1354,10 @@ class _OptionsSection extends StatelessWidget {
                           PermissionMode.bypassPermissions => Icons.flash_on,
                         }, size: 16),
                         const SizedBox(width: 8),
-                        Text(m.label, style: const TextStyle(fontSize: 13)),
+                        Text(
+                          _localizedPermissionModeLabel(l, m),
+                          style: const TextStyle(fontSize: 13),
+                        ),
                       ],
                     ),
                   ),
@@ -1384,11 +1387,11 @@ class _OptionsSection extends StatelessWidget {
                       final icon = m == SandboxMode.on
                           ? Icons.shield_outlined
                           : (isClaude ? Icons.code : Icons.warning_amber);
-                      final label = isClaude
-                          ? (m == SandboxMode.on
-                                ? 'Sandbox (Safe Mode)'
-                                : 'Standard')
-                          : m.label;
+                      final label = _localizedSandboxLabel(
+                        l,
+                        m,
+                        isClaude: isClaude,
+                      );
                       return DropdownMenuItem(
                         value: m,
                         child: Row(
@@ -1438,8 +1441,7 @@ class _OptionsSection extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Tooltip(
-                  message:
-                      'Creates an isolated git working tree for this session.',
+                  message: l.worktreeTooltip,
                   child: Icon(
                     Icons.info_outline,
                     size: 16,
@@ -2217,12 +2219,16 @@ class _SheetActions extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: SizedBox(
-              height: 48,
+              height: 54,
               child: FilledButton(
                 key: const ValueKey('dialog_start_button'),
                 style: FilledButton.styleFrom(
                   backgroundColor: canStart ? providerStyle.background : null,
                   foregroundColor: canStart ? providerStyle.foreground : null,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -2233,10 +2239,11 @@ class _SheetActions extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Start with ${provider.label}',
+                      l.startWithProvider(provider.label),
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
+                        height: 1.2,
                       ),
                     ),
                   ],
@@ -2301,4 +2308,24 @@ class _ProviderToggleButton extends StatelessWidget {
       ),
     );
   }
+}
+
+String _localizedPermissionModeLabel(AppLocalizations l, PermissionMode mode) {
+  return switch (mode) {
+    PermissionMode.defaultMode => l.permissionDefaultMode,
+    PermissionMode.acceptEdits => l.permissionAcceptEditsMode,
+    PermissionMode.plan => l.permissionPlanMode,
+    PermissionMode.bypassPermissions => l.permissionBypassMode,
+  };
+}
+
+String _localizedSandboxLabel(
+  AppLocalizations l,
+  SandboxMode mode, {
+  required bool isClaude,
+}) {
+  if (isClaude) {
+    return mode == SandboxMode.on ? l.sandboxSafeMode : l.sandboxStandard;
+  }
+  return mode == SandboxMode.on ? l.sandboxOnLabel : l.sandboxOffLabel;
 }

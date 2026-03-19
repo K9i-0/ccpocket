@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
 import 'machine_card.dart';
 
@@ -38,6 +39,7 @@ class MachineList extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,7 +50,7 @@ class MachineList extends StatelessWidget {
             Icon(Icons.dns, size: 18, color: colorScheme.primary),
             const SizedBox(width: 8),
             Text(
-              'Machines',
+              l.machineSectionTitle,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: colorScheme.primary,
@@ -59,13 +61,13 @@ class MachineList extends StatelessWidget {
               IconButton(
                 onPressed: onRefresh,
                 icon: const Icon(Icons.refresh, size: 20),
-                tooltip: 'Refresh status',
+                tooltip: l.machineRefreshStatus,
                 visualDensity: VisualDensity.compact,
               ),
             TextButton.icon(
               onPressed: onAddMachine,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add'),
+              label: Text(l.addMachine),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -107,7 +109,7 @@ class MachineList extends StatelessWidget {
                     const SizedBox(width: 16),
                     Expanded(
                       child: Text(
-                        'No saved machines.\nAdd one to quickly connect or remotely start the Bridge Server.',
+                        l.machineNoSavedDescription,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                           height: 1.5,
@@ -122,7 +124,7 @@ class MachineList extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: onAddMachine,
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Machine'),
+                    label: Text(l.addMachine),
                     style: FilledButton.styleFrom(
                       backgroundColor: colorScheme.primary,
                       foregroundColor: colorScheme.onPrimary,

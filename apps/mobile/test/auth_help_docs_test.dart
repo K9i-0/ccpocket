@@ -28,5 +28,16 @@ void main() {
       expect(content, contains('`claude`'));
       expect(content, contains('`/login`'));
     });
+
+    test('Simplified Chinese markdown exists with localized guidance', () {
+      final file = File('assets/docs/auth-troubleshooting.zh-CN.md');
+
+      expect(file.existsSync(), isTrue);
+      final content = file.readAsStringSync();
+      expect(content, contains('当你不在 Bridge 机器旁边时'));
+      expect(content, contains('用终端应用连接到 Bridge 机器'));
+      expect(content, contains('`claude`'));
+      expect(content, contains('`/login`'));
+    });
   });
 }

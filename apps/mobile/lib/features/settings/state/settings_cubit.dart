@@ -316,13 +316,14 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   /// Resolve the push notification locale from app settings or system locale.
-  /// Returns a BCP-47 language subtag (e.g. "en", "ja").
+  /// Returns a BCP-47 language subtag (e.g. "en", "ja", "zh").
   String _resolvePushLocale() {
     // Use explicit app locale if set
     final appLocale = state.appLocaleId;
     if (appLocale.isNotEmpty) {
       final lang = appLocale.split(RegExp(r'[-_]')).first.toLowerCase();
       if (lang == 'ja') return 'ja';
+      if (lang == 'zh') return 'zh';
       return 'en';
     }
     // Fall back to system locale
@@ -330,6 +331,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       try {
         final systemLocale = Platform.localeName;
         if (systemLocale.startsWith('ja')) return 'ja';
+        if (systemLocale.startsWith('zh')) return 'zh';
       } catch (_) {
         // Platform.localeName may throw on some platforms
       }

@@ -1,5 +1,7 @@
 # Claude Authentication Troubleshooting
 
+[日本語版](auth-troubleshooting.ja.md) | [简体中文版](auth-troubleshooting.zh-CN.md)
+
 CC Pocket uses the Claude Code login state stored on your Bridge machine.
 If authentication fails, sign in to Claude Code again on that machine.
 

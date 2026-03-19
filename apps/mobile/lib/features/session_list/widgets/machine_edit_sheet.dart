@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
 import '../../../services/ssh_startup_service.dart';
 import '../../../theme/app_theme.dart';
@@ -127,9 +128,10 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
   }
 
   Future<void> _testConnection() async {
+    final l = AppLocalizations.of(context);
     if (!_sshConfigValid) {
       setState(() {
-        _testResult = 'Please fill in SSH credentials';
+        _testResult = l.sshCredentialsRequired;
         _testSuccess = false;
       });
       return;
@@ -155,7 +157,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
       );
 
       setState(() {
-        _testResult = result.success ? 'Connection successful!' : result.error;
+        _testResult = result.success ? l.connectionSuccessful : result.error;
         _testSuccess = result.success;
       });
     } catch (e) {
@@ -218,6 +220,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final appColors = theme.extension<AppColors>()!;
+    final l = AppLocalizations.of(context);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
@@ -251,7 +254,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                 child: Row(
                   children: [
                     Text(
-                      isEditing ? 'Edit Machine' : 'Add Machine',
+                      isEditing ? l.editMachine : l.addMachine,
                       style: theme.textTheme.titleLarge,
                     ),
                     const Spacer(),
@@ -272,14 +275,14 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                   padding: const EdgeInsets.all(16),
                   children: [
                     // Basic Info
-                    _SectionHeader(title: 'Basic Info'),
+                    _SectionHeader(title: l.machineBasicInfo),
                     const SizedBox(height: 12),
 
                     TextField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Name',
-                        hintText: 'Home Mac',
+                      decoration: InputDecoration(
+                        labelText: l.machineNameLabel,
+                        hintText: l.machineNameHint,
                         prefixIcon: Icon(Icons.label),
                         border: OutlineInputBorder(),
                       ),
@@ -288,8 +291,8 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
 
                     TextField(
                       controller: _hostController,
-                      decoration: const InputDecoration(
-                        labelText: 'Host (IP or hostname)',
+                      decoration: InputDecoration(
+                        labelText: l.machineHostLabel,
                         hintText: '100.64.1.2',
                         prefixIcon: Icon(Icons.computer),
                         border: OutlineInputBorder(),
@@ -302,8 +305,8 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                         Expanded(
                           child: TextField(
                             controller: _portController,
-                            decoration: const InputDecoration(
-                              labelText: 'Port',
+                            decoration: InputDecoration(
+                              labelText: l.portLabel,
                               hintText: '8765',
                               prefixIcon: Icon(Icons.numbers),
                               border: OutlineInputBorder(),
@@ -315,9 +318,9 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                         Expanded(
                           child: TextField(
                             controller: _apiKeyController,
-                            decoration: const InputDecoration(
-                              labelText: 'API Key',
-                              hintText: 'Optional',
+                            decoration: InputDecoration(
+                              labelText: l.apiKeyOptional,
+                              hintText: l.apiKeyHint,
                               prefixIcon: Icon(Icons.key),
                               border: OutlineInputBorder(),
                             ),
@@ -330,7 +333,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                     const SizedBox(height: 24),
 
                     // SSH Configuration
-                    _SectionHeader(title: 'SSH Configuration'),
+                    _SectionHeader(title: l.sshConfiguration),
                     const SizedBox(height: 12),
 
                     Container(
@@ -347,12 +350,12 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           SwitchListTile(
-                            title: const Text(
-                              'Enable SSH remote startup',
+                            title: Text(
+                              l.sshEnableRemoteStartup,
                               style: TextStyle(fontWeight: FontWeight.w500),
                             ),
                             subtitle: Text(
-                              'Remotely start Bridge Server when offline',
+                              l.sshRemoteStartupSubtitle,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
@@ -376,8 +379,8 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                             flex: 2,
                             child: TextField(
                               controller: _sshUsernameController,
-                              decoration: const InputDecoration(
-                                labelText: 'SSH Username',
+                              decoration: InputDecoration(
+                                labelText: l.sshUsernameLabel,
                                 hintText: 'myuser',
                                 prefixIcon: Icon(Icons.person),
                                 border: OutlineInputBorder(),
@@ -388,8 +391,8 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                           Expanded(
                             child: TextField(
                               controller: _sshPortController,
-                              decoration: const InputDecoration(
-                                labelText: 'SSH Port',
+                              decoration: InputDecoration(
+                                labelText: l.sshPortLabel,
                                 hintText: '22',
                                 border: OutlineInputBorder(),
                               ),
@@ -402,16 +405,16 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
 
                       // Auth type selector
                       SegmentedButton<SshAuthType>(
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: SshAuthType.password,
-                            label: Text('Password'),
-                            icon: Icon(Icons.password),
+                            label: Text(l.password),
+                            icon: const Icon(Icons.password),
                           ),
                           ButtonSegment(
                             value: SshAuthType.privateKey,
-                            label: Text('Private Key'),
-                            icon: Icon(Icons.vpn_key),
+                            label: Text(l.sshPrivateKeyLabel),
+                            icon: const Icon(Icons.vpn_key),
                           ),
                         ],
                         selected: {_sshAuthType},
@@ -424,8 +427,8 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                       if (_sshAuthType == SshAuthType.password)
                         TextField(
                           controller: _sshPasswordController,
-                          decoration: const InputDecoration(
-                            labelText: 'SSH Password',
+                          decoration: InputDecoration(
+                            labelText: l.sshPassword,
                             prefixIcon: Icon(Icons.lock),
                             border: OutlineInputBorder(),
                           ),
@@ -434,9 +437,9 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                       else
                         TextField(
                           controller: _sshPrivateKeyController,
-                          decoration: const InputDecoration(
-                            labelText: 'SSH Private Key (PEM)',
-                            hintText: '-----BEGIN OPENSSH PRIVATE KEY-----',
+                          decoration: InputDecoration(
+                            labelText: l.sshPrivateKeyLabel,
+                            hintText: l.sshPrivateKeyHint,
                             prefixIcon: Icon(Icons.vpn_key),
                             border: OutlineInputBorder(),
                           ),
@@ -460,7 +463,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                                 )
                               : const Icon(Icons.wifi_find),
                           label: Text(
-                            _isTesting ? 'Testing...' : 'Test Connection',
+                            _isTesting ? l.testingConnection : l.testConnection,
                           ),
                         ),
                       ),
@@ -532,7 +535,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                         style: TextButton.styleFrom(
                           foregroundColor: colorScheme.onSurfaceVariant,
                         ),
-                        child: const Text('Cancel'),
+                        child: Text(l.cancel),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -552,10 +555,10 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                               )
                             : Text(
                                 isEditing
-                                    ? 'Save'
+                                    ? l.save
                                     : widget.onSaveAndConnect != null
-                                    ? 'Add & Connect'
-                                    : 'Add',
+                                    ? l.addAndConnect
+                                    : l.addMachine,
                               ),
                       ),
                     ),

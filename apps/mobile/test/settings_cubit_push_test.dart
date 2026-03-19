@@ -308,5 +308,38 @@ void main() {
       await fcm.disposeFake();
       bridge.dispose();
     });
+
+    test(
+      'uses zh push locale when app language is simplified Chinese',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'settings_app_locale': 'zh',
+          'machines_v2':
+              '[{"id":"$_testMachineId","host":"$_testHost","port":$_testPort}]',
+        });
+        final prefs = await SharedPreferences.getInstance();
+        final manager = await _createMachineManager(prefs);
+        await manager.init();
+        final bridge = FakeBridgeService()
+          ..emitConnection(BridgeConnectionState.connected, url: _testUrl);
+        final fcm = FakeFcmService(available: true, token: 'token-zh');
+        final cubit = SettingsCubit(
+          prefs,
+          bridgeService: bridge,
+          machineManager: manager,
+          fcmService: fcm,
+        );
+
+        await _flushAsync();
+        await cubit.toggleFcm(true);
+
+        expect(bridge.registerCalls, isNotEmpty);
+        expect(bridge.registerCalls.last.locale, 'zh');
+
+        await cubit.close();
+        await fcm.disposeFake();
+        bridge.dispose();
+      },
+    );
   });
 }
