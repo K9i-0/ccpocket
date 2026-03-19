@@ -57,8 +57,17 @@ function permissionModeToApprovalPolicy(
 /** Map simplified SandboxMode (on/off) to Codex internal sandbox mode. */
 function sandboxModeToInternal(
   mode?: string,
-): "workspace-write" | "danger-full-access" {
-  return mode === "off" ? "danger-full-access" : "workspace-write";
+): "read-only" | "workspace-write" | "danger-full-access" {
+  switch (mode) {
+    case "danger-full-access":
+    case "workspace-write":
+    case "read-only":
+      return mode;
+    case "off":
+      return "danger-full-access";
+    default:
+      return "workspace-write";
+  }
 }
 
 /** Map Codex internal sandbox mode back to simplified on/off for clients. */

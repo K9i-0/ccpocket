@@ -55,6 +55,7 @@ vi.mock("./session.js", () => ({
       pastMessages?: unknown[],
       _worktreeOptions?: unknown,
       provider: "claude" | "codex" = "claude",
+      codexOptions?: unknown,
     ): string {
       const id = `s-${++this.seq}`;
       const process = {
@@ -79,6 +80,8 @@ vi.mock("./session.js", () => ({
         startOptions: options,
         claudeSessionId: options?.sessionId,
         pastMessages,
+        codexOptions,
+        codexSettings: codexOptions,
         history: [],
         status: "idle",
         provider,
@@ -266,6 +269,44 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
     expect(created).toBeDefined();
     expect(created.provider).toBe("codex");
+
+    bridge.close();
+  });
+
+  it("preserves internal codex sandbox mode on resume_session", async () => {
+    getCodexSessionHistoryMock.mockResolvedValue([
+      {
+        role: "user",
+        content: [{ type: "text", text: "restored codex question" }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "codex-thread-danger",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        sandboxMode: "danger-full-access",
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const session = (bridge as any).sessionManager.get("s-1");
+    expect(session.codexOptions?.sandboxMode).toBe("danger-full-access");
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(created?.sandboxMode).toBe("off");
 
     bridge.close();
   });
