@@ -1199,7 +1199,7 @@ abstract class AppLocalizations {
   /// No description provided for @guideBridgePrereq2.
   ///
   /// In ja, this message translates to:
-  /// **'Claude Code CLI または Codex CLI\n（使いたい方だけでOK）'**
+  /// **'Codex CLI または Claude Code CLI\n（使いたい方だけでOK）'**
   String get guideBridgePrereq2;
 
   /// No description provided for @guideBridgeStep1.

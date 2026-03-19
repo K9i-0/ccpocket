@@ -1,1 +1,1 @@
-Codex,Claude Code,Tailscale,happy,coding,agent,remote,AI,terminal,diff,developer,SSH,CLI,mobile
+Codex,Claude Code,AI agent,remote coding,Tailscale,terminal,diff,developer,SSH,CLI,mobile

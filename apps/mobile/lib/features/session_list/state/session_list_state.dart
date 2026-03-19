@@ -4,7 +4,7 @@ import '../../../models/messages.dart';
 
 part 'session_list_state.freezed.dart';
 
-/// Provider filter for recent sessions (toggles: All → Claude → Codex → All).
+/// Provider filter for recent sessions (toggles: All → Codex → Claude → All).
 enum ProviderFilter { all, claude, codex }
 
 /// Core state for the session list screen.

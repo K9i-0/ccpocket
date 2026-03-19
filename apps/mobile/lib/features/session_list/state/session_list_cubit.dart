@@ -101,12 +101,12 @@ class SessionListCubit extends Cubit<SessionListState> {
     });
   }
 
-  /// Toggle provider filter: All → Claude → Codex → All.
+  /// Toggle provider filter: All → Codex → Claude → All.
   void toggleProviderFilter() async {
     final next = switch (state.providerFilter) {
-      ProviderFilter.all => ProviderFilter.claude,
-      ProviderFilter.claude => ProviderFilter.codex,
-      ProviderFilter.codex => ProviderFilter.all,
+      ProviderFilter.all => ProviderFilter.codex,
+      ProviderFilter.codex => ProviderFilter.claude,
+      ProviderFilter.claude => ProviderFilter.all,
     };
     emit(state.copyWith(providerFilter: next, isInitialLoading: true));
     _requestWithCurrentFilters();

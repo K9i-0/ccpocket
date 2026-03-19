@@ -593,7 +593,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get guideBridgePrereq2 =>
-      'Claude Code CLI または Codex CLI\n（使いたい方だけでOK）';
+      'Codex CLI または Claude Code CLI\n（使いたい方だけでOK）';
 
   @override
   String get guideBridgeStep1 => 'npx で実行（推奨）';

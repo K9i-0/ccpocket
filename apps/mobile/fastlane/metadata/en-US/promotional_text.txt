@@ -1,1 +1,1 @@
-Start a Claude Code or Codex session right from your phone — no laptop needed. Approve tools, review diffs, and ship code from anywhere.
+Start a Codex or Claude Code session right from your phone — no laptop needed. Approve tools, review diffs, and ship code from anywhere.

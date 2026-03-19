@@ -344,6 +344,45 @@ void main() {
       );
     });
 
+    testWidgets('defaults to Codex on open', (tester) async {
+      NewSessionParams? result;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          theme: AppTheme.darkTheme,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  result = await showNewSessionSheet(
+                    context: context,
+                    recentProjects: [(path: '/test/proj', name: 'proj')],
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('proj'));
+      await tester.pumpAndSettle();
+
+      final startButton = find.byKey(const ValueKey('dialog_start_button'));
+      await tester.ensureVisible(startButton);
+      await tester.tap(startButton);
+      await tester.pumpAndSettle();
+
+      expect(result, isNotNull);
+      expect(result!.provider, Provider.codex);
+    });
+
     testWidgets('initialParams are applied to the sheet', (tester) async {
       NewSessionParams? result;
 

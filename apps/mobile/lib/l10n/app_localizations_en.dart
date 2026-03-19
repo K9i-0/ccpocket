@@ -599,7 +599,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get guideBridgePrereq2 =>
-      'Claude Code CLI or Codex CLI\n(either one is fine)';
+      'Codex CLI or Claude Code CLI\n(either one is fine)';
 
   @override
   String get guideBridgeStep1 => 'Run with npx (recommended)';

@@ -277,7 +277,7 @@
   "guideBridgeDescription": "PC で Bridge Server を起動しましょう。",
   "guideBridgePrerequisites": "必要なもの",
   "guideBridgePrereq1": "Node.js がインストールされた Mac / PC",
-  "guideBridgePrereq2": "Claude Code CLI または Codex CLI\n（使いたい方だけでOK）",
+  "guideBridgePrereq2": "Codex CLI または Claude Code CLI\n（使いたい方だけでOK）",
   "guideBridgeStep1": "npx で実行（推奨）",
   "guideBridgeStep1Command": "npx @ccpocket/bridge@latest",
   "guideBridgeStep2": "またはグローバルインストール",

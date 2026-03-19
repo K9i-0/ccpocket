@@ -1,6 +1,6 @@
 # CC Pocket
 
-CC Pocket lets you start and run Claude Code and Codex sessions entirely from your phone. No laptop needed — just open the app, pick a project, and code from anywhere.
+CC Pocket lets you start and run Codex and Claude Code sessions entirely from your phone. No laptop needed — just open the app, pick a project, and code from anywhere.
 
 [日本語版 README](README.ja.md)
 
@@ -16,7 +16,7 @@ AI coding agents are getting autonomous enough to write entire features on their
 
 Decisions don't need a keyboard. They need a screen and a thumb.
 
-CC Pocket is built for this workflow: start a session from your phone, let your machine's Claude Code or Codex do the heavy lifting, and make decisions from wherever you are.
+CC Pocket is built for this workflow: start a session from your phone, let your machine's Codex or Claude Code do the heavy lifting, and make decisions from wherever you are.
 
 ## Who It's For
 
@@ -67,7 +67,7 @@ CC Pocket takes a different approach: **sessions start on your phone and run to 
 
 ### 1. Start the Bridge Server
 
-Install [Node.js](https://nodejs.org/) 18+ and at least one CLI provider ([Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Codex](https://github.com/openai/codex)) on your host machine, then run:
+Install [Node.js](https://nodejs.org/) 18+ and at least one CLI provider ([Codex](https://github.com/openai/codex) or [Claude Code](https://docs.anthropic.com/en/docs/claude-code)) on your host machine, then run:
 
 ```bash
 npx @ccpocket/bridge@latest

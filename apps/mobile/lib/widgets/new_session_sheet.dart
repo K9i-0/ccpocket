@@ -35,7 +35,7 @@ class NewSessionParams {
 
   const NewSessionParams({
     required this.projectPath,
-    this.provider = Provider.claude,
+    this.provider = Provider.codex,
     required this.permissionMode,
     this.useWorktree = false,
     this.worktreeBranch,
@@ -80,7 +80,7 @@ WebSearchMode? webSearchModeFromRaw(String? raw) =>
     enumByValue(WebSearchMode.values, raw, (v) => v.value);
 
 Provider _providerFromRaw(String? raw) =>
-    enumByValue(Provider.values, raw, (v) => v.value) ?? Provider.claude;
+    enumByValue(Provider.values, raw, (v) => v.value) ?? Provider.codex;
 
 PermissionMode? permissionModeFromRaw(String? raw) =>
     enumByValue(PermissionMode.values, raw, (v) => v.value);
@@ -240,7 +240,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _claudeMaxTurnsController = TextEditingController();
   final _claudeMaxBudgetController = TextEditingController();
   late final PageController _pageController;
-  var _provider = Provider.claude;
+  var _provider = Provider.codex;
   var _permissionMode = PermissionMode.acceptEdits;
   var _useWorktree = false;
   var _worktreeMode = _WorktreeMode.createNew;
@@ -341,7 +341,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   void initState() {
     super.initState();
     _pageController = PageController(
-      initialPage: widget.initialParams?.provider == Provider.codex ? 1 : 0,
+      initialPage: widget.initialParams?.provider == Provider.claude ? 1 : 0,
     );
     // Use the latest cached recent sessions from BridgeService if available,
     // because the broadcast stream may have already fired before this listener
@@ -767,7 +767,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
 
   void _onProviderChanged(Provider p) {
     setState(() => _provider = p);
-    final page = p == Provider.claude ? 0 : 1;
+    final page = p == Provider.codex ? 0 : 1;
     _pageController.animateToPage(
       page,
       duration: const Duration(milliseconds: 300),
@@ -835,12 +835,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                       : null,
                   onPageChanged: (index) {
                     setState(() {
-                      _provider = index == 0 ? Provider.claude : Provider.codex;
+                      _provider = index == 0 ? Provider.codex : Provider.claude;
                     });
                   },
                   children: [
-                    _buildPage(Provider.claude),
                     _buildPage(Provider.codex),
+                    _buildPage(Provider.claude),
                   ],
                 ),
               ),
@@ -928,24 +928,24 @@ class _SheetTitle extends StatelessWidget {
               children: [
                 Expanded(
                   child: _ProviderToggleButton(
-                    provider: Provider.claude,
-                    isSelected: provider == Provider.claude,
-                    isLocked: lockProvider,
-                    onTap: () {
-                      if (!lockProvider) {
-                        onProviderChanged(Provider.claude);
-                      }
-                    },
-                  ),
-                ),
-                Expanded(
-                  child: _ProviderToggleButton(
                     provider: Provider.codex,
                     isSelected: provider == Provider.codex,
                     isLocked: lockProvider,
                     onTap: () {
                       if (!lockProvider) {
                         onProviderChanged(Provider.codex);
+                      }
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: _ProviderToggleButton(
+                    provider: Provider.claude,
+                    isSelected: provider == Provider.claude,
+                    isLocked: lockProvider,
+                    onTap: () {
+                      if (!lockProvider) {
+                        onProviderChanged(Provider.claude);
                       }
                     },
                   ),

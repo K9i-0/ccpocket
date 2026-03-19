@@ -6,20 +6,20 @@
 
 ## Short Description (80 chars)
 
-**EN**: Mobile client for Claude Code and Codex coding agents
-**JA**: Claude Code / Codex対応のモバイルクライアント
+**EN**: Mobile client for Codex and Claude Code coding agents
+**JA**: Codex / Claude Code対応のモバイルクライアント
 
 ## Full Description
 
 ### English
 
-Control Claude Code and Codex from your phone.
+Control Codex and Claude Code from your phone.
 
 ccpocket connects to a self-hosted Bridge Server running on your Mac or PC, giving you full control over coding agent sessions from anywhere.
 
 **Key Features**
 
-- Real-time chat with Claude Code and Codex (streaming)
+- Real-time chat with Codex and Claude Code (streaming)
 - Create, switch, and resume multiple sessions
 - Approve or reject file edits and command execution
 - View git diffs with syntax highlighting
@@ -33,24 +33,24 @@ ccpocket connects to a self-hosted Bridge Server running on your Mac or PC, givi
 
 1. Install the Bridge Server on your Mac/PC: `npx @ccpocket/bridge@latest`
 2. Open ccpocket on your phone and scan the QR code
-3. Start coding with Claude Code or Codex from your phone
+3. Start coding with Codex or Claude Code from your phone
 
 **Requirements**
 
 - A Mac or PC running the Bridge Server (Node.js v18+)
-- Claude Code CLI and/or Codex CLI installed on the server
+- Codex CLI and/or Claude Code CLI installed on the server
 
 Source code available at https://github.com/K9i-0/ccpocket
 
 ### Japanese (日本語)
 
-Claude CodeとCodexをスマホから操作。
+CodexとClaude Codeをスマホから操作。
 
 ccpocketは、MacやPC上で動作するセルフホストのBridge Serverに接続し、コーディングエージェントのセッションをどこからでも完全にコントロールできます。
 
 **主な機能**
 
-- Claude Code / Codexとリアルタイムチャット（ストリーミング対応）
+- Codex / Claude Codeとリアルタイムチャット（ストリーミング対応）
 - 複数セッションの作成・切替・再開
 - ファイル編集やコマンド実行の承認/拒否
 - シンタックスハイライト付きgit diff表示
@@ -64,12 +64,12 @@ ccpocketは、MacやPC上で動作するセルフホストのBridge Serverに接
 
 1. Mac/PCにBridge Serverをインストール: `npx @ccpocket/bridge@latest`
 2. ccpocketを開いてQRコードをスキャン
-3. スマホからClaude CodeやCodexでコーディング開始
+3. スマホからCodexやClaude Codeでコーディング開始
 
 **必要なもの**
 
 - Bridge Serverを動かすMacまたはPC（Node.js v18以上）
-- サーバーにClaude Code CLIおよび/またはCodex CLIがインストール済み
+- サーバーにCodex CLIおよび/またはClaude Code CLIがインストール済み
 
 ソースコードは https://github.com/K9i-0/ccpocket で公開しています。
 
@@ -80,7 +80,7 @@ ccpocketは、MacやPC上で動作するセルフホストのBridge Serverに接
 
 ## Keywords (iOS, 100 chars max)
 
-claude,code,codex,ai,coding,agent,mobile,bridge,ssh,remote
+codex,claude,code,ai,coding,agent,mobile,bridge,ssh,remote
 
 ## Content Rating
 

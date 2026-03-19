@@ -212,7 +212,7 @@
   "guideBridgeDescription": "Let's start the Bridge Server on your PC.",
   "guideBridgePrerequisites": "Prerequisites",
   "guideBridgePrereq1": "Mac / PC with Node.js installed",
-  "guideBridgePrereq2": "Claude Code CLI or Codex CLI\n(either one is fine)",
+  "guideBridgePrereq2": "Codex CLI or Claude Code CLI\n(either one is fine)",
   "guideBridgeStep1": "Run with npx (recommended)",
   "guideBridgeStep1Command": "npx @ccpocket/bridge@latest",
   "guideBridgeStep2": "Or install globally",

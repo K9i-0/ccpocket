@@ -1,1 +1,1 @@
-Codex,Claude Code,Tailscale,happy,コーディング,リモート,AI,ターミナル,開発,SSH,CLI,通知
+Codex,Claude Code,AIエージェント,リモート開発,Tailscale,コーディング,ターミナル,SSH,CLI,通知
