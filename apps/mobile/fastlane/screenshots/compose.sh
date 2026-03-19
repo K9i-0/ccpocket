@@ -153,6 +153,10 @@ compose_ipad_screenshot() {
   local input="${SCRIPT_DIR}/${src_dir}/ipad_${key}.png"
   local output="${SCRIPT_DIR}/${lang_dir}/ipad_${key}_framed.png"
 
+  # Dark theme variant: dark background + white text
+  local is_dark=false
+  case "$key" in 08_dark_theme) is_dark=true ;; esac
+
   if [ ! -f "$input" ]; then
     echo "SKIP: $input not found"
     return
@@ -217,13 +221,24 @@ compose_ipad_screenshot() {
     /tmp/outline_$$.png
   magick "$tmp_device" /tmp/outline_$$.png -composite "$tmp_device"
 
-  # Compose final image with gradient background (Clean White style)
-  magick -size "${IPAD_CANVAS_W}x${IPAD_CANVAS_H}" gradient:"#FFFFFF-#F4F4F5" \
+  # Compose final image with gradient background
+  local bg_gradient text_fill subtitle_fill
+  if [ "$is_dark" = true ]; then
+    bg_gradient="gradient:#1C1C1E-#111113"
+    text_fill="#F5F5F5"
+    subtitle_fill="rgba(245,245,245,0.75)"
+  else
+    bg_gradient="gradient:#FFFFFF-#F4F4F5"
+    text_fill="#111111"
+    subtitle_fill="rgba(17,17,17,0.75)"
+  fi
+
+  magick -size "${IPAD_CANVAS_W}x${IPAD_CANVAS_H}" "$bg_gradient" \
     "$tmp_device" -geometry "+${ss_x}+${ss_y}" -composite \
     -gravity North \
-    -font "$font_bold" -pointsize 100 -fill "#111111" \
+    -font "$font_bold" -pointsize 100 -fill "$text_fill" \
     -annotate +0+150 "$keyword" \
-    -font "$font_reg" -pointsize 64 -fill "rgba(17,17,17,0.75)" \
+    -font "$font_reg" -pointsize 64 -fill "$subtitle_fill" \
     -annotate +0+280 "$title" \
     -depth 8 $PNG_STRIP "$output"
 

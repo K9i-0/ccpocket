@@ -1,6 +1,5 @@
-- Claude sandbox mode support for safer code execution
-- Codex Skills (Prompts): browse and run skills with rich metadata
-- Multi-image attachment: select up to 5 images at once
-- Diff compare mode: toggle between original and modified views
-- iOS-style swipe actions for session management
-- Tap-to-zoom for attached image thumbnails
+- Codex is now prioritized as the default entry point
+- Many small fixes and improvements for Codex sessions
+- Simplified Chinese language support
+- Model and permission mode are now easier to access from the new session sheet
+- Expandable approval commands for long tool calls
