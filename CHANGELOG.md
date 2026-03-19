@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.44.0] - 2026-03-19
+
+### Added
+- Simplified Chinese (简体中文) language support
+- Copy resume command from recent sessions for quick continuation
+- Surface primary session settings (model, permission mode) in session view
+- Codex approval amendment details display
+- Codex sub-agent session metadata display
+- Dedicated API key required error card with clear guidance
+- Codex as the default entry point
+- "More" button positioned inline at bottom-right with gradient fade
+
+### Changed
+- Upgraded Flutter to 3.41.5
+- Softened scroll-to-bottom button appearance
+- Improved worktree section layout in new session sheet
+- Removed prefixIcon from model dropdowns in new session sheet
+- Removed copy button from API key required card
+- Hidden terminal integration behind feature flag
+
+### Fixed
+- Chat scroll adjustment when keyboard appears
+- Unseen session buffering stabilization
+- Restart drafts preserved across session switch
+- MCP images restored in Codex session history
+- Codex app-server approval protocol alignment
+
 ## [1.43.0] - 2026-03-19
 
 ### Added
