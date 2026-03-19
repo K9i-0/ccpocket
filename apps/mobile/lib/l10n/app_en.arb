@@ -475,6 +475,7 @@
   "authHelpButton": "View steps",
   "authHelpLanguageJa": "日本語",
   "authHelpLanguageEn": "English",
+  "authHelpLanguageZhHans": "Simplified Chinese",
 
   "terminalApp": "Terminal App",
   "terminalAppSubtitle": "Open projects in an external terminal app",

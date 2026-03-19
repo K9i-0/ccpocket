@@ -550,6 +550,7 @@
   "authHelpButton": "手順を見る",
   "authHelpLanguageJa": "日本語",
   "authHelpLanguageEn": "English",
+  "authHelpLanguageZhHans": "简体中文",
 
   "terminalApp": "ターミナルアプリ",
   "terminalAppSubtitle": "外部ターミナルアプリでプロジェクトを開く",

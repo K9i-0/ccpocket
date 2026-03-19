@@ -1,5 +1,7 @@
 # Claude 認証トラブルシューティング
 
+[English](auth-troubleshooting.md) | [简体中文版](auth-troubleshooting.zh-CN.md)
+
 CC Pocket は Bridge マシン上に保存された Claude Code のログイン状態を使います。
 認証エラーが出たら、そのマシンで Claude Code に再ログインしてください。
 

@@ -1,4 +1,4 @@
-export type PushLocale = "en" | "ja";
+export type PushLocale = "en" | "ja" | "zh";
 
 const translations: Record<PushLocale, Record<string, string>> = {
   en: {
@@ -35,9 +35,26 @@ const translations: Record<PushLocale, Record<string, string>> = {
     result_success_body_private: "セッション完了",
     result_error_body_private: "セッションが失敗しました",
   },
+  zh: {
+    approval_title: "需要批准",
+    ask_title: "需要回复",
+    plan_ready_title: "计划已准备好",
+    approval_body: "请批准执行 {toolName}",
+    plan_ready_body: "计划已准备好，请查看",
+    ask_default_body: "Claude 正在提问",
+    task_completed: "任务已完成",
+    error_occurred: "发生错误",
+    session_completed: "会话已完成",
+    session_failed: "会话失败",
+    // Privacy mode
+    approval_body_private: "请批准工具执行",
+    ask_body_private: "请回答一个问题",
+    result_success_body_private: "会话已完成",
+    result_error_body_private: "会话失败",
+  },
 };
 
-const SUPPORTED_LOCALES = new Set<string>(["en", "ja"]);
+const SUPPORTED_LOCALES = new Set<string>(["en", "ja", "zh"]);
 
 export function normalizePushLocale(locale: string | undefined): PushLocale {
   if (!locale) return "en";

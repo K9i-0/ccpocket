@@ -1198,6 +1198,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authHelpLanguageEn => 'English';
 
   @override
+  String get authHelpLanguageZhHans => '简体中文';
+
+  @override
   String get terminalApp => 'ターミナルアプリ';
 
   @override

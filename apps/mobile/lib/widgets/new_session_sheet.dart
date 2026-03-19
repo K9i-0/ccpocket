@@ -2249,12 +2249,16 @@ class _SheetActions extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: SizedBox(
-              height: 48,
+              height: 54,
               child: FilledButton(
                 key: const ValueKey('dialog_start_button'),
                 style: FilledButton.styleFrom(
                   backgroundColor: canStart ? providerStyle.background : null,
                   foregroundColor: canStart ? providerStyle.foreground : null,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -2269,6 +2273,7 @@ class _SheetActions extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
+                        height: 1.2,
                       ),
                     ),
                   ],
