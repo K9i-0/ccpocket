@@ -53,6 +53,9 @@
   "stopSessionConfirm": "このセッションを停止しますか？ Claude プロセスが終了します。",
 
   "startNewWithSameSettings": "同じ設定で新規開始",
+  "copyResumeCommand": "再開コマンドをコピー",
+  "copyResumeCommandSubtitle": "mac / Linuxに引き継ぎ",
+  "resumeCommandCopied": "再開コマンドをコピーしました",
   "editSettingsThenStart": "設定を変更して開始",
 
   "serverRequiresApiKey": "このサーバーには API キーが必要です",

@@ -55,6 +55,9 @@
   "stopSessionConfirm": "Stop this session? The Claude process will be terminated.",
 
   "startNewWithSameSettings": "Start New with Same Settings",
+  "copyResumeCommand": "Copy Resume Command",
+  "copyResumeCommandSubtitle": "Hand off to macOS / Linux",
+  "resumeCommandCopied": "Resume command copied",
   "editSettingsThenStart": "Edit Settings Then Start",
 
   "serverRequiresApiKey": "This server requires an API key",

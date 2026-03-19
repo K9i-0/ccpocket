@@ -144,6 +144,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get startNewWithSameSettings => 'Start New with Same Settings';
 
   @override
+  String get copyResumeCommand => 'Copy Resume Command';
+
+  @override
+  String get copyResumeCommandSubtitle => 'Hand off to macOS / Linux';
+
+  @override
+  String get resumeCommandCopied => 'Resume command copied';
+
+  @override
   String get editSettingsThenStart => 'Edit Settings Then Start';
 
   @override

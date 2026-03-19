@@ -143,6 +143,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get startNewWithSameSettings => '同じ設定で新規開始';
 
   @override
+  String get copyResumeCommand => '再開コマンドをコピー';
+
+  @override
+  String get copyResumeCommandSubtitle => 'mac / Linuxに引き継ぎ';
+
+  @override
+  String get resumeCommandCopied => '再開コマンドをコピーしました';
+
+  @override
   String get editSettingsThenStart => '設定を変更して開始';
 
   @override

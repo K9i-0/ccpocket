@@ -101,6 +101,51 @@ void main() {
     });
   });
 
+  group('buildResumeCommand', () {
+    test('builds Claude resume command with quoted project path', () {
+      final session = _session(
+        projectPath: "/home/user/My Project",
+        sessionId: 'claude-session-1',
+      );
+
+      expect(
+        buildResumeCommand(session),
+        "cd '/home/user/My Project' && claude --resume 'claude-session-1'",
+      );
+    });
+
+    test('prefers resumeCwd for Codex sessions', () {
+      final session = RecentSession(
+        sessionId: 'codex-thread-1',
+        provider: Provider.codex.value,
+        firstPrompt: 'Resume me',
+        created: '2025-01-01T00:00:00Z',
+        modified: '2025-01-01T00:00:00Z',
+        gitBranch: 'feature/worktree',
+        projectPath: '/home/user/project',
+        resumeCwd: '/home/user/project-worktrees/feature-worktree',
+        isSidechain: false,
+      );
+
+      expect(
+        buildResumeCommand(session),
+        "cd '/home/user/project-worktrees/feature-worktree' && codex resume 'codex-thread-1'",
+      );
+    });
+
+    test('escapes single quotes for shell paste', () {
+      final session = _session(
+        projectPath: "/tmp/it's/project",
+        sessionId: "session'42",
+      );
+
+      expect(
+        buildResumeCommand(session),
+        "cd '/tmp/it'\\''s/project' && claude --resume 'session'\\''42'",
+      );
+    });
+  });
+
   group('filterByQuery', () {
     final querySessions = [
       _session(

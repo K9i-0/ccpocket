@@ -71,6 +71,25 @@ String shortenPath(String path) {
   return path;
 }
 
+/// Quote a shell argument so it can be pasted safely into POSIX shells.
+String shellQuote(String value) {
+  return "'${value.replaceAll("'", r"'\''")}'";
+}
+
+/// Build a provider-specific CLI resume command for handoff to another machine.
+String buildResumeCommand(RecentSession session) {
+  final cwd = (session.resumeCwd?.isNotEmpty ?? false)
+      ? session.resumeCwd!
+      : session.projectPath;
+  final provider = session.provider == Provider.codex.value
+      ? Provider.codex
+      : Provider.claude;
+  final resumeCommand = provider == Provider.codex
+      ? 'codex resume ${shellQuote(session.sessionId)}'
+      : 'claude --resume ${shellQuote(session.sessionId)}';
+  return 'cd ${shellQuote(cwd)} && $resumeCommand';
+}
+
 /// Filter sessions by text query (matches name, firstPrompt, lastPrompt and summary).
 List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
   if (query.isEmpty) return sessions;
@@ -709,6 +728,12 @@ class _SessionListScreenState extends State<SessionListScreen>
               onTap: () => Navigator.pop(ctx, 'start_same'),
             ),
             ListTile(
+              leading: const Icon(Icons.terminal),
+              title: Text(l.copyResumeCommand),
+              subtitle: Text(l.copyResumeCommandSubtitle),
+              onTap: () => Navigator.pop(ctx, 'copy_resume_command'),
+            ),
+            ListTile(
               leading: const Icon(Icons.tune),
               title: Text(l.editSettingsThenStart),
               onTap: () => Navigator.pop(ctx, 'start_edit'),
@@ -761,6 +786,15 @@ class _SessionListScreenState extends State<SessionListScreen>
       // Don't save as defaults — these are session-specific settings from a
       // recent session, not user-chosen defaults for future sessions.
       _startNewSession(params);
+      return;
+    }
+
+    if (action == 'copy_resume_command') {
+      await Clipboard.setData(ClipboardData(text: buildResumeCommand(session)));
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l.resumeCommandCopied)));
       return;
     }
 

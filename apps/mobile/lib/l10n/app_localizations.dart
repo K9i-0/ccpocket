@@ -356,6 +356,24 @@ abstract class AppLocalizations {
   /// **'同じ設定で新規開始'**
   String get startNewWithSameSettings;
 
+  /// No description provided for @copyResumeCommand.
+  ///
+  /// In ja, this message translates to:
+  /// **'再開コマンドをコピー'**
+  String get copyResumeCommand;
+
+  /// No description provided for @copyResumeCommandSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'mac / Linuxに引き継ぎ'**
+  String get copyResumeCommandSubtitle;
+
+  /// No description provided for @resumeCommandCopied.
+  ///
+  /// In ja, this message translates to:
+  /// **'再開コマンドをコピーしました'**
+  String get resumeCommandCopied;
+
   /// No description provided for @editSettingsThenStart.
   ///
   /// In ja, this message translates to:
