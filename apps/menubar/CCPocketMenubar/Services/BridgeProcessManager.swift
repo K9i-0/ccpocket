@@ -145,8 +145,7 @@ final class BridgeProcessManager: Sendable {
             // claude auth login opens the browser and waits for OAuth callback
             try await shell("claude auth login", timeout: 120)
         case "Codex CLI":
-            // codex auth login (if available), otherwise guide user
-            try await shell("codex auth login", timeout: 120)
+            try await shell("codex --login", timeout: 120)
         default:
             throw ProcessError.nonZeroExit(status: 1, output: "Unknown provider: \(providerName)")
         }

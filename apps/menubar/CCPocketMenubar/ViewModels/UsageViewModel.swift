@@ -17,7 +17,9 @@ final class UsageViewModel: ObservableObject {
         Task {
             do {
                 let response = try await bridgeClient.usage()
-                providers = response.providers
+                providers = response.providers.sorted { lhs, rhs in
+                    rank(for: lhs.provider) < rank(for: rhs.provider)
+                }
                 error = nil
             } catch {
                 // Only show error if we had no previous data
@@ -26,6 +28,14 @@ final class UsageViewModel: ObservableObject {
                 }
             }
             isLoading = false
+        }
+    }
+
+    private func rank(for provider: String) -> Int {
+        switch provider {
+        case "codex": return 0
+        case "claude": return 1
+        default: return 2
         }
     }
 }

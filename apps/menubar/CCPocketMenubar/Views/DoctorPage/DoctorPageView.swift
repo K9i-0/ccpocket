@@ -20,6 +20,7 @@ struct DoctorPageView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
                         codexCallout
+                        codexAppGuide
 
                         // Bridge update banner
                         if let newVersion = bridgeUpdateAvailable {
@@ -222,9 +223,7 @@ struct DoctorPageView: View {
                          : String(localized: "Codex recommended"))
                         .font(.subheadline.weight(.semibold))
 
-                    Text(viewModel.isCodexReady
-                         ? String(localized: "Your Mac is ready for a phone-first Codex workflow.")
-                         : String(localized: "If you already have ChatGPT Plus or above, Codex is the smoothest way to start with CC Pocket."))
+                    Text(viewModel.codexStatusSummary)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -259,5 +258,38 @@ struct DoctorPageView: View {
             in: .rect(cornerRadius: 16)
         )
         .glassEffect(.regular.tint(.white.opacity(0.08)), in: .rect(cornerRadius: 16))
+    }
+
+    private var codexAppGuide: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "macwindow.and.cursorarrow")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
+                    .background(.white.opacity(0.08), in: .circle)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(localized: "Using Codex on your Mac too?"))
+                        .font(.subheadline.weight(.semibold))
+                    Text(String(localized: "Codex App is great when you're at your desk. CC Pocket is the companion for approvals, status checks, and quick follow-up from your phone."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+            }
+
+            Link(destination: URL(string: "https://openai.com/codex")!) {
+                Label(String(localized: "See Codex App guide"), systemImage: "arrow.up.right.square")
+                    .font(.caption.weight(.semibold))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(14)
+        .background(.white.opacity(0.05), in: .rect(cornerRadius: 16))
+        .glassEffect(.regular.tint(.white.opacity(0.06)), in: .rect(cornerRadius: 16))
     }
 }

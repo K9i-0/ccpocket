@@ -293,6 +293,16 @@
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "スマホ接続の準備完了" } }
       }
     },
+    "Codex usage first" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Codex の使用状況を先頭に表示" } }
+      }
+    },
+    "Your Codex usage appears at the top so you can quickly check limits before starting from your phone." : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "スマホから始める前に上限をすぐ確認できるよう、Codex の使用状況を先頭に表示します。" } }
+      }
+    },
     "Scan this QR code in CC Pocket to connect to your Mac." : {
       "localizations" : {
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "CC Pocket でこの QR コードを読み取り、Mac に接続します。" } }
@@ -383,6 +393,21 @@
     "Opening browser for login…" : {
       "localizations" : {
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "ブラウザでログイン中…" } }
+      }
+    },
+    "Codex CLI is installed and signed in." : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Codex CLI はインストール済みで、ログインも完了しています。" } }
+      }
+    },
+    "Codex CLI is installed. Sign in with your ChatGPT account to finish setup." : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Codex CLI はインストール済みです。セットアップ完了には ChatGPT アカウントでログインしてください。" } }
+      }
+    },
+    "Install Codex CLI first, then sign in with your ChatGPT account." : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "まず Codex CLI をインストールし、その後 ChatGPT アカウントでログインしてください。" } }
       }
     },
 
@@ -597,6 +622,21 @@
     "Codex recommended" : {
       "localizations" : {
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "Codex 推奨" } }
+      }
+    },
+    "Using Codex on your Mac too?" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Mac でも Codex を使いますか？" } }
+      }
+    },
+    "Codex App is great when you're at your desk. CC Pocket is the companion for approvals, status checks, and quick follow-up from your phone." : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "デスクでは Codex App が便利です。CC Pocket は、スマホからの承認、状況確認、ちょっとした追記に向いた companion です。" } }
+      }
+    },
+    "See Codex App guide" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "Codex App の案内を見る" } }
       }
     },
     "If you already have ChatGPT Plus or above, Codex is the smoothest way to start with CC Pocket." : {

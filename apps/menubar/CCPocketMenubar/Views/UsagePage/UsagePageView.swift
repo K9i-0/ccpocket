@@ -29,6 +29,8 @@ struct UsagePageView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 14) {
+                        codexUsageCallout
+
                         ForEach(viewModel.providers) { provider in
                             ProviderUsageCard(provider: provider)
                         }
@@ -37,6 +39,41 @@ struct UsagePageView: View {
                 }
             }
         }
+    }
+
+    private var codexUsageCallout: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.cyan.opacity(0.9), Color.blue.opacity(0.72)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 36, height: 36)
+
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Codex usage first")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Your Codex usage appears at the top so you can quickly check limits before starting from your phone.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+            }
+        }
+        .padding(16)
+        .background(.white.opacity(0.07), in: .rect(cornerRadius: 18))
+        .glassEffect(.regular.tint(.white.opacity(0.08)), in: .rect(cornerRadius: 18))
     }
 }
 

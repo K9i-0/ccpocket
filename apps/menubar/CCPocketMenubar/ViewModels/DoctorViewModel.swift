@@ -83,6 +83,16 @@ final class DoctorViewModel: ObservableObject {
             : String(localized: "Finish Codex setup to continue. Claude Code stays available in Doctor.")
     }
 
+    var codexStatusSummary: String {
+        if isCodexReady {
+            return String(localized: "Codex CLI is installed and signed in.")
+        }
+        if isCodexInstalled {
+            return String(localized: "Codex CLI is installed. Sign in with your ChatGPT account to finish setup.")
+        }
+        return String(localized: "Install Codex CLI first, then sign in with your ChatGPT account.")
+    }
+
     func runDoctor() {
         guard !isRunning else { return }
         isRunning = true
@@ -347,7 +357,7 @@ final class DoctorViewModel: ObservableObject {
                 case "Claude Code CLI":
                     commands.append((String(localized: "Login to Claude Code"), "claude login"))
                 case "Codex CLI":
-                    commands.append((String(localized: "Login to Codex"), "codex login"))
+                    commands.append((String(localized: "Login to Codex"), "codex --login"))
                 default:
                     break
                 }
