@@ -579,6 +579,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       pendingPermissions.remove(id);
     }
 
+    final resolvedPermissionMode = exitPlanModeResolved
+        ? legacyPermissionModeFromModes(
+            provider ?? Provider.claude,
+            executionMode: state.executionMode,
+            planMode: false,
+          )
+        : state.permissionMode;
+
     if (pendingPermissions.isNotEmpty) {
       final next = pendingPermissions.values.first;
       emit(
@@ -587,6 +595,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             toolUseId: next.toolUseId,
             request: next,
           ),
+          permissionMode: resolvedPermissionMode,
+          planMode: next.toolName == 'ExitPlanMode'
+              ? true
+              : (exitPlanModeResolved ? false : state.planMode),
           inPlanMode: next.toolName == 'ExitPlanMode'
               ? true
               : (exitPlanModeResolved ? false : state.inPlanMode),
@@ -596,6 +608,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       emit(
         state.copyWith(
           approval: const ApprovalState.none(),
+          permissionMode: resolvedPermissionMode,
+          planMode: exitPlanModeResolved ? false : state.planMode,
           inPlanMode: exitPlanModeResolved ? false : state.inPlanMode,
         ),
       );

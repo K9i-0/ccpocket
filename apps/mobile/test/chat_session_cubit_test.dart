@@ -233,6 +233,41 @@ void main() {
       expect(mockBridge.sentMessages, hasLength(1));
     });
 
+    test('approving ExitPlanMode also clears plan mode state', () async {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const SystemMessage(
+          subtype: 'set_permission_mode',
+          provider: 'codex',
+          permissionMode: 'plan',
+          executionMode: 'default',
+          planMode: true,
+        ),
+        sessionId: 's1',
+      );
+      mockBridge.emitMessage(
+        const PermissionRequestMessage(
+          toolUseId: 'tool-plan',
+          toolName: 'ExitPlanMode',
+          input: {'plan': 'Test plan'},
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.state.planMode, isTrue);
+      expect(cubit.state.approval, isA<ApprovalPermission>());
+      cubit.approve('tool-plan');
+
+      expect(cubit.state.planMode, isFalse);
+      expect(cubit.state.inPlanMode, isFalse);
+      expect(cubit.state.permissionMode, PermissionMode.acceptEdits);
+    });
+
     test('approving ExitPlanMode clears inPlanMode immediately', () async {
       final cubit = createCubit('s1');
       addTearDown(cubit.close);
