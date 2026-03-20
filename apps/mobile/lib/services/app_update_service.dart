@@ -29,12 +29,32 @@ class AppUpdateService {
   static const _repo = 'ccpocket';
   static const _dismissedVersionKey = 'app_update_dismissed_version';
   static const _lastCheckKey = 'app_update_last_check';
+  static const _gitHubApiBase = 'https://api.github.com/repos/$_owner/$_repo';
 
   /// Minimum interval between checks (1 hour).
   static const _checkInterval = Duration(hours: 1);
 
-  AppUpdateService._();
+  AppUpdateService._({
+    http.Client? httpClient,
+    Future<PackageInfo> Function()? packageInfoLoader,
+  }) : _httpClient = httpClient ?? http.Client(),
+       _packageInfoLoader = packageInfoLoader ?? PackageInfo.fromPlatform;
+
   static final instance = AppUpdateService._();
+
+  @visibleForTesting
+  factory AppUpdateService.test({
+    http.Client? httpClient,
+    Future<PackageInfo> Function()? packageInfoLoader,
+  }) {
+    return AppUpdateService._(
+      httpClient: httpClient,
+      packageInfoLoader: packageInfoLoader,
+    );
+  }
+
+  final http.Client _httpClient;
+  final Future<PackageInfo> Function() _packageInfoLoader;
 
   AppUpdateInfo? _cachedUpdate;
 
@@ -67,33 +87,28 @@ class AppUpdateService {
     }
 
     try {
-      final info = await PackageInfo.fromPlatform();
+      final info = await _packageInfoLoader();
       final currentVersion = info.version; // e.g. "1.40.0"
 
-      // Fetch latest macOS release tag
-      final latestVersion = await _fetchLatestMacOSVersion();
-      if (latestVersion == null) return null;
+      // Fetch latest macOS release details
+      final release = await _fetchLatestMacOSRelease();
+      if (release == null) return null;
 
       // Save check timestamp
       await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
 
       // Compare versions
-      if (_isNewer(latestVersion, currentVersion)) {
-        final tagName = 'macos/v$latestVersion';
-        // URL-encode the + in the tag name
-        final encodedTag = Uri.encodeComponent(tagName);
+      if (_isNewer(release.version, currentVersion)) {
         _cachedUpdate = AppUpdateInfo(
-          latestVersion: latestVersion,
+          latestVersion: release.version,
           currentVersion: currentVersion,
-          downloadUrl:
-              'https://github.com/$_owner/$_repo/releases/download/$encodedTag/ccpocket-macos-v$latestVersion.dmg',
-          releaseUrl:
-              'https://github.com/$_owner/$_repo/releases/tag/$encodedTag',
+          downloadUrl: release.downloadUrl,
+          releaseUrl: release.releaseUrl,
         );
 
         // Check if user dismissed this specific version
         final dismissedVersion = prefs.getString(_dismissedVersionKey);
-        _isDismissed = dismissedVersion == latestVersion;
+        _isDismissed = dismissedVersion == release.version;
 
         return _cachedUpdate;
       }
@@ -115,35 +130,53 @@ class AppUpdateService {
     }
   }
 
-  /// Fetch the latest macOS release version from GitHub tags.
-  Future<String?> _fetchLatestMacOSVersion() async {
-    // Use the tags API to find the latest macos/v* tag
-    final uri = Uri.parse(
-      'https://api.github.com/repos/$_owner/$_repo/tags?per_page=20',
-    );
-    final response = await http.get(
+  /// Fetch the latest macOS release details from GitHub Releases.
+  Future<_MacOSRelease?> _fetchLatestMacOSRelease() async {
+    final uri = Uri.parse('$_gitHubApiBase/releases?per_page=20');
+    final response = await _httpClient.get(
       uri,
-      headers: {'Accept': 'application/vnd.github.v3+json'},
+      headers: {'Accept': 'application/vnd.github+json'},
     );
 
     if (response.statusCode != 200) return null;
 
-    final tags = jsonDecode(response.body) as List<dynamic>;
-    String? latestVersion;
+    final releases = jsonDecode(response.body) as List<dynamic>;
+    _MacOSRelease? latestRelease;
 
-    for (final tag in tags) {
-      final name = tag['name'] as String;
-      if (name.startsWith('macos/v')) {
-        // Extract version: "macos/v1.40.0+67" → "1.40.0"
-        final fullVersion = name.substring('macos/v'.length);
-        final version = fullVersion.split('+').first;
-        if (latestVersion == null || _isNewer(version, latestVersion)) {
-          latestVersion = version;
-        }
+    for (final release in releases) {
+      if (release is! Map<String, dynamic>) continue;
+      final tagName = release['tag_name'] as String?;
+      final htmlUrl = release['html_url'] as String?;
+      if (tagName == null ||
+          htmlUrl == null ||
+          !tagName.startsWith('macos/v')) {
+        continue;
+      }
+
+      final fullVersion = tagName.substring('macos/v'.length);
+      final version = fullVersion.split('+').first;
+      final assets = release['assets'] as List<dynamic>? ?? const [];
+      final expectedAssetName = 'CC-Pocket-macos-v$version.dmg';
+      final asset = assets.cast<Map<String, dynamic>?>().firstWhere(
+        (candidate) => candidate?['name'] == expectedAssetName,
+        orElse: () => null,
+      );
+      final downloadUrl = asset?['browser_download_url'] as String?;
+      if (downloadUrl == null) continue;
+
+      final candidate = _MacOSRelease(
+        version: version,
+        downloadUrl: downloadUrl,
+        releaseUrl: htmlUrl,
+      );
+
+      if (latestRelease == null ||
+          _isNewer(candidate.version, latestRelease.version)) {
+        latestRelease = candidate;
       }
     }
 
-    return latestVersion;
+    return latestRelease;
   }
 
   /// Returns true if [a] is newer than [b] (simple semver comparison).
@@ -159,4 +192,16 @@ class AppUpdateService {
     }
     return false;
   }
+}
+
+class _MacOSRelease {
+  const _MacOSRelease({
+    required this.version,
+    required this.downloadUrl,
+    required this.releaseUrl,
+  });
+
+  final String version;
+  final String downloadUrl;
+  final String releaseUrl;
 }
