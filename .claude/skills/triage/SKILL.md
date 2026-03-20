@@ -212,3 +212,23 @@ Issue/PRのタイトル・本文・コメントから投稿者の言語を判定
 Thank you for the suggestion! This feature has been implemented in v1.5.0.
 You'll see unread indicators on the session list screen.
 ```
+
+## コメント投稿時の注意
+
+- `gh issue comment` / `gh pr comment` で複数段落の本文を投稿する場合は、シェルクォートで本文を直接 `--body` に埋め込まない
+- 改行・バッククォート・引用記号が崩れやすいため、**必ず一時ファイルを作って `--body-file` で渡す**
+- 既存コメントを修正する場合も同様に、本文ファイルを作ってから API 経由で更新する
+- 投稿後は `gh issue view` / `gh pr view` で最新コメントを取得し、改行や Markdown が崩れていないか確認する
+
+例:
+
+```bash
+cat <<'EOF' >/tmp/comment.md
+First paragraph.
+
+- bullet 1
+- bullet 2
+EOF
+
+gh pr comment <number> --body-file /tmp/comment.md
+```
