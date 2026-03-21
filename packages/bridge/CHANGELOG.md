@@ -2,6 +2,17 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.27.0] - 2026-03-21
+
+### Added
+- Codex plan mode toggle without restart when idle
+- Redesigned modes for Codex execution and plan
+
+### Fixed
+- Ignore placeholder model name on Codex session resume
+- Show resolved environment on Codex init
+- Rollback mode changes on bridge error
+
 ## [1.26.0] - 2026-03-19
 
 ### Added
