@@ -1366,6 +1366,16 @@ class _OptionsSection extends StatelessWidget {
       planMode: planMode,
     );
 
+    // -- Description helpers --
+
+    String executionDescription(ExecutionMode mode) {
+      return switch (mode) {
+        ExecutionMode.defaultMode => l.executionDefaultDescription,
+        ExecutionMode.acceptEdits => l.executionAcceptEditsDescription,
+        ExecutionMode.fullAccess => l.executionFullAccessDescription,
+      };
+    }
+
     String permissionDescription(PermissionMode mode) {
       return switch (mode) {
         PermissionMode.defaultMode => l.permissionDefaultDescription,
@@ -1375,18 +1385,166 @@ class _OptionsSection extends StatelessWidget {
       };
     }
 
-    Widget selectedFieldContent({
+    String sandboxDescription(SandboxMode mode) {
+      final isClaude = provider == Provider.claude;
+      if (isClaude) {
+        return mode == SandboxMode.on
+            ? l.sandboxRestrictedDescription
+            : l.sandboxNativeDescription;
+      }
+      return mode == SandboxMode.on
+          ? l.sandboxRestrictedDescription
+          : l.sandboxNativeCautionDescription;
+    }
+
+    // -- Icon helpers --
+
+    IconData executionIcon(ExecutionMode mode) => switch (mode) {
+      ExecutionMode.defaultMode => Icons.tune,
+      ExecutionMode.acceptEdits => Icons.edit_note,
+      ExecutionMode.fullAccess => Icons.flash_on,
+    };
+
+    String executionLabel(ExecutionMode mode) => switch (mode) {
+      ExecutionMode.fullAccess => 'Full Access',
+      _ => mode.label,
+    };
+
+    IconData permissionIcon(PermissionMode mode) => switch (mode) {
+      PermissionMode.defaultMode => Icons.tune,
+      PermissionMode.acceptEdits => Icons.edit_note,
+      PermissionMode.plan => Icons.assignment_outlined,
+      PermissionMode.bypassPermissions => Icons.flash_on,
+    };
+
+    final isClaude = provider == Provider.claude;
+
+    IconData sandboxIcon(SandboxMode mode) =>
+        mode == SandboxMode.on
+            ? Icons.shield_outlined
+            : (isClaude ? Icons.code : Icons.warning_amber);
+
+    String sandboxLabel(SandboxMode mode) => isClaude
+        ? (mode == SandboxMode.on ? 'Sandbox (Safe Mode)' : 'Standard')
+        : mode.label;
+
+    // -- Selector field widget (shows current selection with description) --
+
+    Widget modeSelectorField({
+      required String label,
       required IconData icon,
       required String title,
+      required String subtitle,
+      required VoidCallback onTap,
+      Key? key,
     }) {
-      return Row(
-        children: [
-          Icon(icon, size: 16),
-          const SizedBox(width: 8),
-          Text(title, style: const TextStyle(fontSize: 13)),
-        ],
+      final cs = Theme.of(context).colorScheme;
+      return InkWell(
+        key: key,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: InputDecorator(
+          decoration: buildInputDecoration(label).copyWith(
+            suffixIcon: Icon(
+              Icons.arrow_drop_down,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 13)),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
+
+    // -- BottomSheet helpers --
+
+    void showModeSheet<T>({
+      required String title,
+      required List<T> modes,
+      required T currentMode,
+      required IconData Function(T) iconFor,
+      required String Function(T) labelFor,
+      required String Function(T) descriptionFor,
+      required ValueChanged<T> onSelected,
+      Color Function(T, ColorScheme)? colorFor,
+    }) {
+      showModalBottomSheet(
+        context: context,
+        builder: (sheetContext) {
+          final sheetCs = Theme.of(sheetContext).colorScheme;
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: sheetCs.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+                for (final mode in modes)
+                  ListTile(
+                    leading: Icon(
+                      iconFor(mode),
+                      color: mode == currentMode
+                          ? (colorFor?.call(mode, sheetCs) ?? sheetCs.primary)
+                          : sheetCs.onSurfaceVariant,
+                    ),
+                    title: Text(labelFor(mode)),
+                    subtitle: Text(
+                      descriptionFor(mode),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    trailing: mode == currentMode
+                        ? Icon(Icons.check, color: sheetCs.primary, size: 20)
+                        : null,
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      onSelected(mode);
+                    },
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
+    // -- Execution mode (Codex) effective value --
+    final effectiveExecutionMode = executionMode == ExecutionMode.acceptEdits
+        ? ExecutionMode.defaultMode
+        : executionMode;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1406,197 +1564,86 @@ class _OptionsSection extends StatelessWidget {
             ),
           ),
           provider == Provider.codex
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DropdownButtonFormField<ExecutionMode>(
-                      key: const ValueKey('dialog_codex_execution_mode'),
-                      initialValue: executionMode,
-                      isExpanded: true,
-                      decoration: buildInputDecoration(l.approval),
-                      selectedItemBuilder: (context) =>
-                          const [
-                                ExecutionMode.defaultMode,
-                                ExecutionMode.fullAccess,
-                              ]
-                              .map(
-                                (mode) => selectedFieldContent(
-                                  icon: switch (mode) {
-                                    ExecutionMode.defaultMode => Icons.tune,
-                                    ExecutionMode.acceptEdits =>
-                                      Icons.edit_note,
-                                    ExecutionMode.fullAccess => Icons.flash_on,
-                                  },
-                                  title: switch (mode) {
-                                    ExecutionMode.fullAccess => 'Full Access',
-                                    _ => mode.label,
-                                  },
-
-                                ),
-                              )
-                              .toList(),
-                      items:
-                          const [
-                                ExecutionMode.defaultMode,
-                                ExecutionMode.fullAccess,
-                              ]
-                              .map(
-                                (mode) => DropdownMenuItem(
-                                  value: mode,
-                                  child: Row(
-                                    children: [
-                                      Icon(switch (mode) {
-                                        ExecutionMode.defaultMode => Icons.tune,
-                                        ExecutionMode.acceptEdits =>
-                                          Icons.edit_note,
-                                        ExecutionMode.fullAccess =>
-                                          Icons.flash_on,
-                                      }, size: 16),
-                                      const SizedBox(width: 8),
-                                      Text(switch (mode) {
-                                        ExecutionMode.fullAccess =>
-                                          'Full Access',
-                                        _ => mode.label,
-                                      }, style: const TextStyle(fontSize: 13)),
-                                    ],
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          onExecutionModeChanged(value);
-                        }
-                      },
-                    ),
-                  ],
+              ? modeSelectorField(
+                  key: const ValueKey('dialog_codex_execution_mode'),
+                  label: l.approval,
+                  icon: executionIcon(effectiveExecutionMode),
+                  title: executionLabel(effectiveExecutionMode),
+                  subtitle: executionDescription(effectiveExecutionMode),
+                  onTap: () => showModeSheet<ExecutionMode>(
+                    title: l.approval,
+                    modes: const [
+                      ExecutionMode.defaultMode,
+                      ExecutionMode.fullAccess,
+                    ],
+                    currentMode: effectiveExecutionMode,
+                    iconFor: executionIcon,
+                    labelFor: executionLabel,
+                    descriptionFor: executionDescription,
+                    onSelected: onExecutionModeChanged,
+                    colorFor: (mode, cs) => switch (mode) {
+                      ExecutionMode.fullAccess => cs.error,
+                      _ => cs.primary,
+                    },
+                  ),
                 )
-              : DropdownButtonFormField<PermissionMode>(
+              : modeSelectorField(
                   key: const ValueKey('dialog_permission_mode'),
-                  initialValue: selectedPermissionMode,
-                  isExpanded: true,
-                  decoration: buildInputDecoration(l.approval),
-                  selectedItemBuilder: (context) => PermissionMode.values
-                      .map(
-                        (mode) => selectedFieldContent(
-                          icon: switch (mode) {
-                            PermissionMode.defaultMode => Icons.tune,
-                            PermissionMode.acceptEdits => Icons.edit_note,
-                            PermissionMode.plan => Icons.assignment_outlined,
-                            PermissionMode.bypassPermissions => Icons.flash_on,
-                          },
-                          title: mode.label,
-
-                        ),
-                      )
-                      .toList(),
-                  items: PermissionMode.values.map((mode) {
-                    final description = permissionDescription(mode);
-                    return DropdownMenuItem(
-                      value: mode,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            mode.label,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          Text(
-                            description,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    switch (value) {
-                      case PermissionMode.defaultMode:
-                        onExecutionModeChanged(ExecutionMode.defaultMode);
-                        onPlanModeChanged(false);
-                        return;
-                      case PermissionMode.acceptEdits:
-                        onExecutionModeChanged(ExecutionMode.acceptEdits);
-                        onPlanModeChanged(false);
-                        return;
-                      case PermissionMode.plan:
-                        onExecutionModeChanged(ExecutionMode.defaultMode);
-                        onPlanModeChanged(true);
-                        return;
-                      case PermissionMode.bypassPermissions:
-                        onExecutionModeChanged(ExecutionMode.fullAccess);
-                        onPlanModeChanged(false);
-                        return;
-                    }
-                  },
+                  label: l.approval,
+                  icon: permissionIcon(selectedPermissionMode),
+                  title: selectedPermissionMode.label,
+                  subtitle: permissionDescription(selectedPermissionMode),
+                  onTap: () => showModeSheet<PermissionMode>(
+                    title: l.approval,
+                    modes: PermissionMode.values,
+                    currentMode: selectedPermissionMode,
+                    iconFor: permissionIcon,
+                    labelFor: (m) => m.label,
+                    descriptionFor: permissionDescription,
+                    onSelected: (value) {
+                      switch (value) {
+                        case PermissionMode.defaultMode:
+                          onExecutionModeChanged(ExecutionMode.defaultMode);
+                          onPlanModeChanged(false);
+                        case PermissionMode.acceptEdits:
+                          onExecutionModeChanged(ExecutionMode.acceptEdits);
+                          onPlanModeChanged(false);
+                        case PermissionMode.plan:
+                          onExecutionModeChanged(ExecutionMode.defaultMode);
+                          onPlanModeChanged(true);
+                        case PermissionMode.bypassPermissions:
+                          onExecutionModeChanged(ExecutionMode.fullAccess);
+                          onPlanModeChanged(false);
+                      }
+                    },
+                    colorFor: (mode, cs) => switch (mode) {
+                      PermissionMode.bypassPermissions => cs.error,
+                      _ => cs.primary,
+                    },
+                  ),
                 ),
           const SizedBox(height: 8),
-          DropdownButtonFormField<SandboxMode>(
+          modeSelectorField(
             key: const ValueKey('dialog_sandbox'),
-            initialValue: sandboxMode,
-            isExpanded: true,
-            decoration: buildInputDecoration(l.sandbox),
-            selectedItemBuilder: (context) =>
-                (provider == Provider.claude
-                        ? SandboxMode.values.reversed
-                        : SandboxMode.values)
-                    .map((m) {
-                      final isClaude = provider == Provider.claude;
-                      final icon = m == SandboxMode.on
-                          ? Icons.shield_outlined
-                          : (isClaude ? Icons.code : Icons.warning_amber);
-                      final label = isClaude
-                          ? (m == SandboxMode.on
-                                ? 'Sandbox (Safe Mode)'
-                                : 'Standard')
-                          : m.label;
-                      return selectedFieldContent(
-                        icon: icon,
-                        title: label,
-
-                      );
-                    })
-                    .toList(),
-            style: TextStyle(
-              fontSize: 13,
-              color: Theme.of(context).colorScheme.onSurface,
+            label: l.sandbox,
+            icon: sandboxIcon(sandboxMode),
+            title: sandboxLabel(sandboxMode),
+            subtitle: sandboxDescription(sandboxMode),
+            onTap: () => showModeSheet<SandboxMode>(
+              title: l.sandbox,
+              modes: isClaude
+                  ? SandboxMode.values.reversed.toList()
+                  : SandboxMode.values,
+              currentMode: sandboxMode,
+              iconFor: sandboxIcon,
+              labelFor: sandboxLabel,
+              descriptionFor: sandboxDescription,
+              onSelected: onSandboxModeChanged,
+              colorFor: (mode, cs) {
+                if (!isClaude && mode == SandboxMode.off) return cs.error;
+                return cs.primary;
+              },
             ),
-            items:
-                (provider == Provider.claude
-                        ? SandboxMode.values.reversed
-                        : SandboxMode.values)
-                    .map((m) {
-                      final isClaude = provider == Provider.claude;
-                      final icon = m == SandboxMode.on
-                          ? Icons.shield_outlined
-                          : (isClaude ? Icons.code : Icons.warning_amber);
-                      final label = isClaude
-                          ? (m == SandboxMode.on
-                                ? 'Sandbox (Safe Mode)'
-                                : 'Standard')
-                          : m.label;
-                      return DropdownMenuItem(
-                        value: m,
-                        child: Row(
-                          children: [
-                            Icon(icon, size: 16),
-                            const SizedBox(width: 8),
-                            Text(label, style: const TextStyle(fontSize: 13)),
-                          ],
-                        ),
-                      );
-                    })
-                    .toList(),
-            onChanged: (value) {
-              if (value != null) onSandboxModeChanged(value);
-            },
           ),
           const SizedBox(height: 8),
           provider == Provider.claude
