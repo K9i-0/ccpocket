@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.47.2] - 2026-03-21
+
+### Fixed
+- Approval buttons styling and localization refinements
+- Plan mode glow effect unified for Codex to match Claude
+- iPad screenshots retaken with correct themes
+
 ## [1.47.1] - 2026-03-21
 
 ### Fixed
