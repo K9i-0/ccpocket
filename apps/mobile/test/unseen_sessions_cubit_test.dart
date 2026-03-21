@@ -252,7 +252,7 @@ void main() {
 
           // Activity far in the future (beyond +1 day buffer) → unseen.
           cubit.updateSessions([
-            _session(id: 's1', lastActivityAt: '2026-03-20T10:00:00Z'),
+            _session(id: 's1', lastActivityAt: '2026-03-25T10:00:00Z'),
           ]);
           expect(
             cubit.isUnseen('s1'),

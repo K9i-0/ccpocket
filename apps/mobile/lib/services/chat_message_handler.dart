@@ -446,6 +446,13 @@ class ChatMessageHandler {
     Map<String, dynamic>? lastAskInput;
     String? claudeSessionId;
 
+    // Track last known timestamp from user messages so server entries
+    // (which don't carry timestamps) inherit a realistic time instead of
+    // DateTime.now(). Without this, the time gap between a user entry
+    // (original timestamp) and a server entry (DateTime.now()) triggers
+    // spurious timestamp labels in the chat UI.
+    DateTime? lastKnownTs;
+
     for (final m in messages) {
       if (m is StatusMessage) {
         lastStatus = m.status;
@@ -456,6 +463,7 @@ class ChatMessageHandler {
         final ts = m.timestamp != null
             ? DateTime.tryParse(m.timestamp!)?.toLocal()
             : null;
+        if (ts != null) lastKnownTs = ts;
         entries.add(
           UserChatEntry(
             m.text,
@@ -471,7 +479,7 @@ class ChatMessageHandler {
         if (m is! SystemMessage ||
             (m.subtype != 'supported_commands' &&
                 m.subtype != 'session_created')) {
-          entries.add(ServerChatEntry(m));
+          entries.add(ServerChatEntry(m, timestamp: lastKnownTs));
         }
         // Restore slash commands from history (init, supported_commands, or
         // session_created with cached commands)
