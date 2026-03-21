@@ -102,14 +102,26 @@ It's still in beta, but fully functional. Download the latest `.dmg` from [GitHu
 | **mDNS Auto-Discovery** | Same-network discovery without typing IPs |
 | **Manual Input** | Tailscale, remote hosts, or custom ports |
 
-In the app, choose a project and permission mode, then start a session.
+In the app, choose a project, pick your AI tool, and configure session modes.
+
+**Claude Code** uses a single **Permission Mode** that controls both approval scope and planning:
 
 | Permission Mode | Behavior |
 |----------------|----------|
 | `Default` | Standard interactive mode |
 | `Accept Edits` | Auto-approve file edits, ask for everything else |
-| `Plan` | Stay in planning mode until you approve execution |
+| `Plan` | Draft a plan first, then wait for your approval before executing |
 | `Bypass All` | Auto-approve everything |
+
+**Codex** separates concerns into independent controls:
+
+| Setting | Options | Description |
+|---------|---------|-------------|
+| **Execution** | `Default` / `Full Access` | Controls which operations require approval |
+| **Plan** | On / Off | Toggle planning mode independently of execution mode |
+| **Sandbox** | On (default) / Off | Run in a restricted environment for safety |
+
+> Codex defaults to Sandbox On for safety. Claude Code defaults to Sandbox Off.
 
 You can also enable **Worktree** to isolate a session in its own git worktree.
 

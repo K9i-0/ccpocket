@@ -98,14 +98,26 @@ npx @ccpocket/bridge@latest
 | **mDNS 自动发现** | 同一局域网中免输 IP |
 | **手动输入** | Tailscale、远程主机或自定义端口 |
 
-在 App 中选择项目和 permission mode，然后就可以启动会话。
+在 App 中选择项目和 AI 工具，然后配置会话模式并启动。
+
+**Claude Code** 使用单一的 **Permission Mode** 来控制审批范围和规划：
 
 | Permission Mode | 行为 |
 |----------------|------|
 | `Default` | 标准交互模式 |
-| `Accept Edits` | 自动批准文件编辑，其他操作仍然询问 |
-| `Plan` | 保持在规划模式，直到你批准执行 |
+| `Accept Edits` | 自动批准文件编辑，其他操作仍需确认 |
+| `Plan` | 先制定计划，等你批准后再执行 |
 | `Bypass All` | 自动批准所有操作 |
+
+**Codex** 将关注点分离为独立的设置：
+
+| 设置 | 选项 | 说明 |
+|------|------|------|
+| **Execution** | `Default` / `Full Access` | 控制哪些操作需要审批 |
+| **Plan** | 开 / 关 | 独立于 Execution 模式切换规划模式 |
+| **Sandbox** | 开（默认）/ 关 | 在受限环境中运行，确保安全 |
+
+> Codex 默认开启 Sandbox（偏向安全）。Claude Code 默认关闭 Sandbox。
 
 你也可以启用 **Worktree**，把每个会话隔离到独立的 git worktree 中。
 
