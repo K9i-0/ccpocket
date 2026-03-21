@@ -75,6 +75,12 @@ npx @ccpocket/bridge@latest
 
 服务启动后会在终端中打印一个二维码，你可以直接在 App 里扫描并快速连接。
 
+> Warning
+> `@ccpocket/bridge` `1.25.0` 之前的版本因潜在的 Anthropic 政策问题（基于 OAuth 的使用方式）已不建议新安装使用。
+> 请使用 `>=1.25.0` 版本，并配置 `ANTHROPIC_API_KEY` 替代 OAuth。
+>
+> **重要提示：** 请通过 `ANTHROPIC_API_KEY` 环境变量设置 API 密钥，而不要通过 Claude CLI 中的 `/login` 设置。通过 `/login` 设置的密钥无法与订阅计划的凭证区分开来，可能会导致问题。
+
 ### 2. 安装移动端 App
 
 扫描上方横幅中的二维码，或者直接从应用商店下载：

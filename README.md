@@ -78,6 +78,8 @@ The server prints a QR code you can scan from the app to connect instantly.
 > Warning
 > `@ccpocket/bridge` versions older than `1.25.0` are deprecated for new installs due to potential Anthropic policy concerns around OAuth-based usage.
 > Use `>=1.25.0` and configure `ANTHROPIC_API_KEY` instead of OAuth.
+>
+> **Important:** Set your API key via the `ANTHROPIC_API_KEY` environment variable, not through `/login` in the Claude CLI. Keys configured via `/login` are indistinguishable from subscription-plan credentials, which may cause issues.
 
 ### 2. Install the Mobile App
 
