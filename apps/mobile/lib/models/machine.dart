@@ -27,6 +27,16 @@ enum SshAuthType {
   privateKey,
 }
 
+/// Connection mode for a machine
+enum ConnectionMode {
+  /// Connect via Bridge Server (WebSocket) — requires Bridge Server running
+  bridge,
+
+  /// Connect directly via SSH — runs Claude CLI on the remote machine
+  /// This mode is ToS-compliant and works with Pro/Max subscriptions
+  sshDirect,
+}
+
 /// Bridge Server version information from /version endpoint
 @freezed
 abstract class BridgeVersionInfo with _$BridgeVersionInfo {
@@ -130,6 +140,10 @@ abstract class Machine with _$Machine {
 
   /// Whether this machine can be started remotely (SSH configured)
   bool get canStartRemotely => sshEnabled && sshUsername != null;
+
+  /// Whether SSH Direct mode can be used (SSH must be configured)
+  bool get canUseSshDirect =>
+      sshEnabled && sshUsername != null && hasCredentials;
 }
 
 /// Runtime state wrapper for Machine with status and version information.
