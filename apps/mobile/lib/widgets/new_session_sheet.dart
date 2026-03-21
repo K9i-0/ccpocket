@@ -1366,14 +1366,6 @@ class _OptionsSection extends StatelessWidget {
       planMode: planMode,
     );
 
-    String executionDescription(ExecutionMode mode) {
-      return switch (mode) {
-        ExecutionMode.defaultMode => l.executionDefaultDescription,
-        ExecutionMode.acceptEdits => l.executionAcceptEditsDescription,
-        ExecutionMode.fullAccess => l.executionFullAccessDescription,
-      };
-    }
-
     String permissionDescription(PermissionMode mode) {
       return switch (mode) {
         PermissionMode.defaultMode => l.permissionDefaultDescription,
@@ -1383,44 +1375,15 @@ class _OptionsSection extends StatelessWidget {
       };
     }
 
-    String sandboxDescription(SandboxMode mode) {
-      if (provider == Provider.claude) {
-        return mode == SandboxMode.on
-            ? l.sandboxRestrictedDescription
-            : l.sandboxNativeDescription;
-      }
-      return mode == SandboxMode.on
-          ? l.sandboxRestrictedDescription
-          : l.sandboxNativeCautionDescription;
-    }
-
     Widget selectedFieldContent({
       required IconData icon,
       required String title,
-      required String subtitle,
     }) {
       return Row(
         children: [
           Icon(icon, size: 16),
           const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 13)),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
+          Text(title, style: const TextStyle(fontSize: 13)),
         ],
       );
     }
@@ -1468,7 +1431,7 @@ class _OptionsSection extends StatelessWidget {
                                     ExecutionMode.fullAccess => 'Full Access',
                                     _ => mode.label,
                                   },
-                                  subtitle: executionDescription(mode),
+
                                 ),
                               )
                               .toList(),
@@ -1523,7 +1486,7 @@ class _OptionsSection extends StatelessWidget {
                             PermissionMode.bypassPermissions => Icons.flash_on,
                           },
                           title: mode.label,
-                          subtitle: permissionDescription(mode),
+
                         ),
                       )
                       .toList(),
@@ -1597,7 +1560,7 @@ class _OptionsSection extends StatelessWidget {
                       return selectedFieldContent(
                         icon: icon,
                         title: label,
-                        subtitle: sandboxDescription(m),
+
                       );
                     })
                     .toList(),

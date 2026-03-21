@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/features/chat_session/state/chat_session_cubit.dart';
 import 'package:ccpocket/features/chat_session/state/streaming_state_cubit.dart';
 import 'package:ccpocket/features/chat_session/widgets/session_mode_bar.dart';
@@ -62,6 +63,9 @@ class _MockBridgeService extends BridgeService {
 
 Widget _wrap(ChatSessionCubit cubit) {
   return MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    locale: const Locale('en'),
     theme: AppTheme.darkTheme,
     home: Scaffold(
       body: BlocProvider<ChatSessionCubit>.value(
@@ -121,7 +125,7 @@ void main() {
     );
 
     await tester.pumpWidget(_wrap(claudeCubit));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Plan Off'), findsNothing);
     expect(find.text('Plan On'), findsNothing);
@@ -134,7 +138,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(_wrap(cubit));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     final plan = tester.getCenter(find.text('Plan Off')).dx;
     final execution = tester.getCenter(find.text('Default')).dx;
@@ -162,7 +166,7 @@ void main() {
       sessionId: 'codex-session',
     );
     await tester.pumpWidget(_wrap(cubit));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.byKey(const ValueKey('plan_mode_chip_glow')), findsOneWidget);
     expect(find.byKey(const ValueKey('session_mode_bar_glow')), findsNothing);
@@ -176,10 +180,10 @@ void main() {
       sessionId: 'codex-session',
     );
     await tester.pumpWidget(_wrap(cubit));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     await tester.tap(find.text('Plan Off'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Enable Plan Mode'), findsNothing);
     expect(bridge.sentMessages, isNotEmpty);
@@ -193,12 +197,14 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(_wrap(cubit));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     await tester.tap(find.text('Default'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('Full Access'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Change Execution Mode'), findsOneWidget);
     expect(find.textContaining('will restart the session'), findsOneWidget);
@@ -208,12 +214,14 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(_wrap(cubit));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     await tester.tap(find.text('Sandbox'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('Sandbox Off'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Change Sandbox Mode'), findsOneWidget);
     expect(find.textContaining('will restart the session'), findsOneWidget);

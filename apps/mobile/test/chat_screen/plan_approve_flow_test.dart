@@ -69,7 +69,9 @@ void main() {
       // ExitPlanMode approval should stop plan-mode UI immediately.
       final statusLine2 = $.tester.widget<StatusLine>(find.byType(StatusLine));
       expect(statusLine2.inPlanMode, isFalse);
-      expect(find.text('Plan Off'), findsOneWidget);
+      // Claude sessions show PermissionModeChip (not PlanModeChip),
+      // so after ExitPlanMode approval the chip reverts to "Default".
+      expect(find.text('Default'), findsOneWidget);
     });
 
     patrolWidgetTest('J2: Plan reject with feedback triggers re-plan cycle', (

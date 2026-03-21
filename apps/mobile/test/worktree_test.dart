@@ -16,6 +16,16 @@ Widget _wrap(Widget child) {
   );
 }
 
+/// Enlarge the test viewport so the sheet content does not overflow.
+void _enlargeViewport(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1080, 1920);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+}
+
 void main() {
   group('WorktreeInfo', () {
     test('fromJson parses all fields', () {
@@ -148,6 +158,7 @@ void main() {
 
   group('NewSessionSheet - worktree UI', () {
     testWidgets('Worktree FilterChip toggles', (tester) async {
+      _enlargeViewport(tester);
       await tester.pumpWidget(
         _wrap(
           Builder(
@@ -188,6 +199,7 @@ void main() {
     testWidgets('Branch input disappears when worktree deselected', (
       tester,
     ) async {
+      _enlargeViewport(tester);
       await tester.pumpWidget(
         _wrap(
           Builder(
@@ -226,6 +238,7 @@ void main() {
     });
 
     testWidgets('Start returns params with worktree enabled', (tester) async {
+      _enlargeViewport(tester);
       NewSessionParams? result;
 
       await tester.pumpWidget(
@@ -279,6 +292,7 @@ void main() {
     });
 
     testWidgets('Start returns params without worktree', (tester) async {
+      _enlargeViewport(tester);
       NewSessionParams? result;
 
       await tester.pumpWidget(
@@ -320,6 +334,7 @@ void main() {
     });
 
     testWidgets('Codex provider can also enable worktree', (tester) async {
+      _enlargeViewport(tester);
       await tester.pumpWidget(
         _wrap(
           Builder(
@@ -353,6 +368,7 @@ void main() {
     });
 
     testWidgets('defaults to Codex on open', (tester) async {
+      _enlargeViewport(tester);
       NewSessionParams? result;
 
       await tester.pumpWidget(
@@ -392,6 +408,7 @@ void main() {
     });
 
     testWidgets('initialParams are applied to the sheet', (tester) async {
+      _enlargeViewport(tester);
       NewSessionParams? result;
 
       await tester.pumpWidget(
@@ -449,6 +466,7 @@ void main() {
     testWidgets(
       'primary model controls stay visible without opening advanced',
       (tester) async {
+        _enlargeViewport(tester);
         await tester.pumpWidget(
           _wrap(
             Builder(
