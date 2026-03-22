@@ -56,27 +56,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: BlocBuilder<SettingsCubit, SettingsState>(
         builder: (context, state) {
           final machine = _activeMachine(context, state.activeMachineId);
+          final isConnected = state.activeMachineId != null;
           return ListView(
             key: const PageStorageKey('settings_list'),
             controller: _scrollController,
             children: [
-              const _SectionHeader(title: 'Connection & Accounts'),
-              Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: Icon(Icons.computer_outlined, color: cs.primary),
-                      title: const Text('Bridge machine'),
-                      subtitle: Text(
-                        machine?.displayName ??
-                            (bridge.lastUrl ?? 'Not connected'),
+              if (isConnected) ...[
+                const _SectionHeader(title: 'Connection & Accounts'),
+                Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading:
+                            Icon(Icons.computer_outlined, color: cs.primary),
+                        title: const Text('Bridge machine'),
+                        subtitle: Text(
+                          machine?.displayName ??
+                              (bridge.lastUrl ?? 'Not connected'),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
+              ],
 
               // ── General ──
               _SectionHeader(title: l.sectionGeneral),
@@ -321,79 +325,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 8),
 
-              // ── Usage ──
-              UsageSection(bridgeService: bridge),
-              const SizedBox(height: 8),
+              if (isConnected) ...[
+                // ── Usage ──
+                UsageSection(bridgeService: bridge),
+                const SizedBox(height: 8),
 
-              // ── Backup ──
-              BackupSection(
-                bridgeService: bridge,
-                databaseService: context.read<DatabaseService>(),
-              ),
-              const SizedBox(height: 8),
+                // ── Backup ──
+                BackupSection(
+                  bridgeService: bridge,
+                  databaseService: context.read<DatabaseService>(),
+                ),
+                const SizedBox(height: 8),
 
-              // ── Spread ──
-              _SectionHeader(title: l.sectionSpread),
-              Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    // Share on SNS
-                    ListTile(
-                      leading: Icon(Icons.share, color: cs.primary),
-                      title: Text(l.shareApp),
-                      subtitle: Text(l.shareAppSubtitle),
-                      onTap: () => SharePlus.instance.share(
-                        ShareParams(text: l.shareText(AppConstants.shareUrl)),
+                // ── Spread ──
+                _SectionHeader(title: l.sectionSpread),
+                Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      // Share on SNS
+                      ListTile(
+                        leading: Icon(Icons.share, color: cs.primary),
+                        title: Text(l.shareApp),
+                        subtitle: Text(l.shareAppSubtitle),
+                        onTap: () => SharePlus.instance.share(
+                          ShareParams(text: l.shareText(AppConstants.shareUrl)),
+                        ),
                       ),
-                    ),
-                    Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: cs.outlineVariant,
-                    ),
-                    // Star on GitHub
-                    ListTile(
-                      leading: Icon(Icons.star_border, color: cs.primary),
-                      title: Text(l.starOnGithub),
-                      trailing: const Icon(Icons.open_in_new, size: 18),
-                      onTap: () => launchUrl(
-                        Uri.parse(AppConstants.githubUrl),
-                        mode: LaunchMode.externalApplication,
-                      ),
-                    ),
-                    // Rate on Store (mobile only)
-                    if (isMobilePlatform) ...[
                       Divider(
                         height: 1,
                         indent: 16,
                         endIndent: 16,
                         color: cs.outlineVariant,
                       ),
+                      // Star on GitHub
                       ListTile(
-                        leading: Icon(
-                          Icons.rate_review_outlined,
-                          color: cs.primary,
-                        ),
-                        title: Text(
-                          Platform.isIOS ? l.rateOnStore : l.rateOnStoreAndroid,
-                        ),
+                        leading: Icon(Icons.star_border, color: cs.primary),
+                        title: Text(l.starOnGithub),
                         trailing: const Icon(Icons.open_in_new, size: 18),
                         onTap: () => launchUrl(
-                          Uri.parse(
-                            Platform.isIOS
-                                ? AppConstants.appStoreUrl
-                                : AppConstants.playStoreUrl,
-                          ),
+                          Uri.parse(AppConstants.githubUrl),
                           mode: LaunchMode.externalApplication,
                         ),
                       ),
+                      // Rate on Store (mobile only)
+                      if (isMobilePlatform) ...[
+                        Divider(
+                          height: 1,
+                          indent: 16,
+                          endIndent: 16,
+                          color: cs.outlineVariant,
+                        ),
+                        ListTile(
+                          leading: Icon(
+                            Icons.rate_review_outlined,
+                            color: cs.primary,
+                          ),
+                          title: Text(
+                            Platform.isIOS
+                                ? l.rateOnStore
+                                : l.rateOnStoreAndroid,
+                          ),
+                          trailing: const Icon(Icons.open_in_new, size: 18),
+                          onTap: () => launchUrl(
+                            Uri.parse(
+                              Platform.isIOS
+                                  ? AppConstants.appStoreUrl
+                                  : AppConstants.playStoreUrl,
+                            ),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
+              ],
 
               // ── About ──
               _SectionHeader(title: l.sectionAbout),
