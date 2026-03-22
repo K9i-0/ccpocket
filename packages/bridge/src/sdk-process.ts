@@ -735,6 +735,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this.sessionAllowRules.add(rule);
     console.log(`[sdk-process] Added session allow rule: ${rule}`);
 
+    // When a file-edit tool is always-approved, the effective mode is
+    // "acceptEdits" — mirror the CLI behaviour by notifying clients.
+    if (isFileEditToolName(pending.toolName) && this._permissionMode !== "acceptEdits") {
+      console.log(`[sdk-process] Permission mode changed: ${this._permissionMode} → acceptEdits (file-edit always-approved)`);
+      this._permissionMode = "acceptEdits";
+      this.emitMessage({
+        type: "system",
+        subtype: "set_permission_mode",
+        permissionMode: "acceptEdits",
+        sessionId: this._sessionId ?? undefined,
+      });
+    }
+
     this.pendingPermissions.delete(id!);
     pending.resolve({
       behavior: "allow",

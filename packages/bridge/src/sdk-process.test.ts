@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   parseRule,
   matchesSessionRule,
@@ -8,7 +8,9 @@ import {
   isFileEditToolName,
   sdkMessageToServerMessage,
   buildAuthError,
+  SdkProcess,
 } from "./sdk-process.js";
+import type { ServerMessage } from "./parser.js";
 
 // ---- buildAuthError ----
 
@@ -617,5 +619,104 @@ describe("sdkMessageToServerMessage", () => {
         userMessageUuid: "usr-mix-000",
       });
     });
+  });
+});
+
+// ---- SdkProcess.approveAlways permission mode transition ----
+
+describe("SdkProcess.approveAlways", () => {
+  /** Create a SdkProcess and inject a pending permission via private fields. */
+  function setupApproveAlways(toolName: string, initialMode?: string) {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._permissionMode = initialMode ?? "default";
+    internal._sessionId = "test-session";
+
+    const resolve = vi.fn();
+    internal.pendingPermissions.set("tool-1", {
+      resolve,
+      toolName,
+      input: { file_path: "/test/file.ts" },
+    });
+
+    const messages: ServerMessage[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    return { proc, resolve, messages };
+  }
+
+  it("emits set_permission_mode when file-edit tool is always-approved", () => {
+    const { proc, resolve, messages } = setupApproveAlways("Edit");
+
+    proc.approveAlways("tool-1");
+
+    // Should emit set_permission_mode with acceptEdits
+    const modeMsg = messages.find(
+      (m) => m.type === "system" && (m as any).subtype === "set_permission_mode"
+    );
+    expect(modeMsg).toBeDefined();
+    expect((modeMsg as any).permissionMode).toBe("acceptEdits");
+    expect((modeMsg as any).sessionId).toBe("test-session");
+
+    // Internal state should be updated
+    expect(proc.permissionMode).toBe("acceptEdits");
+
+    // Resolve should have been called with allow + updatedPermissions
+    expect(resolve).toHaveBeenCalledWith(
+      expect.objectContaining({
+        behavior: "allow",
+        updatedPermissions: expect.arrayContaining([
+          expect.objectContaining({ type: "addRules", destination: "session" }),
+        ]),
+      })
+    );
+  });
+
+  it("emits set_permission_mode for Write tool", () => {
+    const { proc, messages } = setupApproveAlways("Write");
+
+    proc.approveAlways("tool-1");
+
+    const modeMsg = messages.find(
+      (m) => m.type === "system" && (m as any).subtype === "set_permission_mode"
+    );
+    expect(modeMsg).toBeDefined();
+    expect(proc.permissionMode).toBe("acceptEdits");
+  });
+
+  it("does NOT emit set_permission_mode for non-file-edit tool (Bash)", () => {
+    const { proc, messages } = setupApproveAlways("Bash");
+
+    proc.approveAlways("tool-1");
+
+    const modeMsg = messages.find(
+      (m) => m.type === "system" && (m as any).subtype === "set_permission_mode"
+    );
+    expect(modeMsg).toBeUndefined();
+    expect(proc.permissionMode).toBe("default");
+  });
+
+  it("does NOT emit set_permission_mode for non-file-edit tool (Read)", () => {
+    const { proc, messages } = setupApproveAlways("Read");
+
+    proc.approveAlways("tool-1");
+
+    const modeMsg = messages.find(
+      (m) => m.type === "system" && (m as any).subtype === "set_permission_mode"
+    );
+    expect(modeMsg).toBeUndefined();
+    expect(proc.permissionMode).toBe("default");
+  });
+
+  it("does NOT re-emit when already in acceptEdits mode", () => {
+    const { proc, messages } = setupApproveAlways("Edit", "acceptEdits");
+
+    proc.approveAlways("tool-1");
+
+    const modeMsg = messages.find(
+      (m) => m.type === "system" && (m as any).subtype === "set_permission_mode"
+    );
+    expect(modeMsg).toBeUndefined();
+    expect(proc.permissionMode).toBe("acceptEdits");
   });
 });
