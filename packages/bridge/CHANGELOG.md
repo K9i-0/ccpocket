@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.27.1] - 2026-03-24
+
+### Changed
+- Swap default Claude model order: opus 4.6 before opus 4.6[1m]
+
 ## [1.27.0] - 2026-03-21
 
 ### Added
