@@ -27,9 +27,7 @@ void main() {
   }
 
   group('ExpandableSummaryText', () {
-    testWidgets('shows full text when it fits within maxLines', (
-      tester,
-    ) async {
+    testWidgets('shows full text when it fits within maxLines', (tester) async {
       await tester.pumpWidget(buildSubject(shortText));
 
       // Text is shown
@@ -48,8 +46,9 @@ void main() {
       expect(find.text('more'), findsOneWidget);
     });
 
-    testWidgets('collapsed text uses clip overflow (no ellipsis)',
-        (tester) async {
+    testWidgets('collapsed text uses clip overflow (no ellipsis)', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildSubject(longText));
       await tester.pumpAndSettle();
 
@@ -110,8 +109,9 @@ void main() {
       expect(find.text('more'), findsNothing);
     });
 
-    testWidgets('"more" is positioned at bottom-right via Stack',
-        (tester) async {
+    testWidgets('"more" is positioned at bottom-right via Stack', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildSubject(longText));
       await tester.pumpAndSettle();
 

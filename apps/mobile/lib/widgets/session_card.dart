@@ -601,10 +601,12 @@ class _ToolApprovalArea extends StatelessWidget {
               final isWide = constraints.maxWidth >= 400;
               final l = AppLocalizations.of(context);
               final cs = Theme.of(context).colorScheme;
-              final alwaysMain =
-                  isCodex ? l.approveSessionMain : l.approveAlways;
-              final alwaysSub =
-                  isCodex ? l.approveSessionSub : l.approveAlwaysSub;
+              final alwaysMain = isCodex
+                  ? l.approveSessionMain
+                  : l.approveAlways;
+              final alwaysSub = isCodex
+                  ? l.approveSessionSub
+                  : l.approveAlwaysSub;
               return Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [

@@ -104,11 +104,7 @@ class _ExpandableSummaryTextState extends State<ExpandableSummaryText> {
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [
-                        bgColor.withValues(alpha: 0),
-                        bgColor,
-                        bgColor,
-                      ],
+                      colors: [bgColor.withValues(alpha: 0), bgColor, bgColor],
                       stops: const [0.0, 0.3, 1.0],
                     ),
                   ),

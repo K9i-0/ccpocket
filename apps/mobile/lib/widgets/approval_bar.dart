@@ -379,8 +379,7 @@ class _ApprovalButtons extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
-                child:
-                    Text(l.reject, style: const TextStyle(fontSize: 13)),
+                child: Text(l.reject, style: const TextStyle(fontSize: 13)),
               ),
             ),
             const SizedBox(width: 8),
@@ -389,9 +388,7 @@ class _ApprovalButtons extends StatelessWidget {
                 key: const ValueKey('approve_always_button'),
                 onPressed: onApproveAlways,
                 style: OutlinedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(
-                    vertical: isWide ? 8 : 5,
-                  ),
+                  padding: EdgeInsets.symmetric(vertical: isWide ? 8 : 5),
                   foregroundColor: cs.error,
                   side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
                 ),

@@ -148,9 +148,7 @@ void main() {
     expect(execution, lessThan(sandbox));
   });
 
-  testWidgets('shows bar-level glow when running in plan mode', (
-    tester,
-  ) async {
+  testWidgets('shows bar-level glow when running in plan mode', (tester) async {
     bridge.emitMessage(
       const SystemMessage(
         subtype: 'set_permission_mode',

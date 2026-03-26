@@ -41,8 +41,7 @@ String? _errorHint(String? errorCode) {
 /// Copyable command for the hint tap action.
 String? _copyableCommand(String? errorCode) {
   return switch (errorCode) {
-    'auth_login_required' ||
-    'auth_token_expired' => 'claude auth login',
+    'auth_login_required' || 'auth_token_expired' => 'claude auth login',
     'bridge_update_required' => 'npm update -g @ccpocket/bridge',
     _ => null,
   };
@@ -113,7 +112,7 @@ class ErrorBubble extends StatelessWidget {
                     alternativeCommand: 'claude auth login',
                     helpLabel: l.authHelpButton,
                   )
-              : _isApiKeyRequired(resolvedErrorCode)
+                : _isApiKeyRequired(resolvedErrorCode)
                 ? _ApiKeyRequiredCard(textColor: textColor)
                 : _buildStructured(context, title, hint, textColor, isWarn)
           : _buildSimple(textColor),

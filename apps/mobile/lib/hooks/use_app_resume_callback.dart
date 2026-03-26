@@ -14,7 +14,7 @@ void useAppResumeCallback(
 
     if (lifecycleState == AppLifecycleState.resumed &&
         (prev == AppLifecycleState.paused ||
-         prev == AppLifecycleState.detached)) {
+            prev == AppLifecycleState.detached)) {
       onResume();
     }
     return null;
