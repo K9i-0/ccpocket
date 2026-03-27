@@ -1,3 +1,4 @@
-- Session list now hides the header on scroll for a more immersive experience
-- Improved chat rendering stability and performance
-- Minor UI refinements and bug fixes
+- Expanded localization coverage
+- Added untracked files and relevance scoring to @mention file list
+- Improved new session sheet (tool-colored project tiles, customizable tool order)
+- Improved resume command for mac / Linux
