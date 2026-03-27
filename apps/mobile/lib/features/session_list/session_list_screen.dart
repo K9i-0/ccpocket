@@ -93,7 +93,9 @@ String buildResumeCommand(RecentSession session) {
   if (provider == Provider.codex) {
     resumeCommand = 'codex resume ${shellQuote(session.sessionId)}';
   } else {
-    final buf = StringBuffer('claude --resume ${shellQuote(session.sessionId)}');
+    final buf = StringBuffer(
+      'claude --resume ${shellQuote(session.sessionId)}',
+    );
     final pm = session.permissionMode;
     if (pm == PermissionMode.bypassPermissions.value) {
       buf.write(' --dangerously-skip-permissions');
