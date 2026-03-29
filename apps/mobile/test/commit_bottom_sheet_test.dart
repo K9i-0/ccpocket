@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/features/diff/state/commit_cubit.dart';
-import 'package:ccpocket/features/diff/state/commit_state.dart';
 import 'package:ccpocket/features/diff/widgets/commit_bottom_sheet.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
