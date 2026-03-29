@@ -487,6 +487,7 @@ class _DiffBottomBar extends StatelessWidget {
                       label: state.commitsBehind > 0
                           ? 'Pull (${state.commitsBehind})'
                           : 'Pull',
+                      loading: state.pulling,
                       onPressed: _isBusy || !state.hasUpstream || state.commitsBehind == 0
                           ? null
                           : onPull,
@@ -510,6 +511,7 @@ class _DiffBottomBar extends StatelessWidget {
                       label: state.commitsAhead > 0
                           ? 'Push (${state.commitsAhead})'
                           : 'Push',
+                      loading: state.pushing,
                       onPressed: _isBusy || state.commitsAhead == 0
                           ? null
                           : onPush,
@@ -524,7 +526,7 @@ class _DiffBottomBar extends StatelessWidget {
     );
   }
 
-  bool get _isBusy => state.staging || state.pulling;
+  bool get _isBusy => state.staging || state.pulling || state.pushing;
 }
 
 /// Small badge showing ↑N or ↓N for remote ahead/behind.
@@ -567,18 +569,20 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onPressed;
+  final bool loading;
 
   const _ActionButton({
     super.key,
     required this.icon,
     required this.label,
     this.onPressed,
+    this.loading = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return OutlinedButton(
-      onPressed: onPressed,
+      onPressed: loading ? null : onPressed,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       ),
@@ -586,7 +590,14 @@ class _ActionButton extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16),
+          if (loading)
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Icon(icon, size: 16),
           const SizedBox(width: 4),
           Text(label, style: const TextStyle(fontSize: 13)),
         ],

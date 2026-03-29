@@ -22,6 +22,8 @@ class DiffViewCubit extends Cubit<DiffViewState> {
   StreamSubscription<GitUnstageResultMessage>? _unstageSub;
   StreamSubscription<GitFetchResultMessage>? _fetchSub;
   StreamSubscription<GitPullResultMessage>? _pullSub;
+  StreamSubscription<GitPushResultMessage>? _pushResultSub;
+  StreamSubscription<GitCommitResultMessage>? _commitResultSub;
   StreamSubscription<GitRemoteStatusResultMessage>? _remoteStatusSub;
   final String? _projectPath;
 
@@ -40,6 +42,8 @@ class DiffViewCubit extends Cubit<DiffViewState> {
       _unstageSub = _bridge.gitUnstageResults.listen(_onUnstageResult);
       _fetchSub = _bridge.gitFetchResults.listen(_onFetchResult);
       _pullSub = _bridge.gitPullResults.listen(_onPullResult);
+      _pushResultSub = _bridge.gitPushResults.listen(_onPushResult);
+      _commitResultSub = _bridge.gitCommitResults.listen(_onCommitResult);
       _remoteStatusSub = _bridge.gitRemoteStatusResults.listen(_onRemoteStatus);
       // Fetch on init to get fresh remote state
       _fetchAndUpdateStatus();
@@ -585,7 +589,23 @@ class DiffViewCubit extends Cubit<DiffViewState> {
   void push() {
     final projectPath = _projectPath;
     if (projectPath == null) return;
+    emit(state.copyWith(pushing: true));
     _bridge.send(ClientMessage.gitPush(projectPath));
+  }
+
+  void _onPushResult(GitPushResultMessage result) {
+    emit(state.copyWith(pushing: false));
+    if (result.success) {
+      refresh();
+    } else {
+      emit(state.copyWith(error: result.error));
+    }
+  }
+
+  void _onCommitResult(GitCommitResultMessage result) {
+    if (result.success) {
+      refresh();
+    }
   }
 
   @override
@@ -596,6 +616,8 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     _unstageSub?.cancel();
     _fetchSub?.cancel();
     _pullSub?.cancel();
+    _pushResultSub?.cancel();
+    _commitResultSub?.cancel();
     _remoteStatusSub?.cancel();
     return super.close();
   }

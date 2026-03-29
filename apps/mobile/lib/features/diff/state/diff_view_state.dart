@@ -58,5 +58,8 @@ abstract class DiffViewState with _$DiffViewState {
 
     /// Whether a pull is in progress.
     @Default(false) bool pulling,
+
+    /// Whether a push is in progress.
+    @Default(false) bool pushing,
   }) = _DiffViewState;
 }
