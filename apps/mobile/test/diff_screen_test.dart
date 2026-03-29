@@ -92,14 +92,14 @@ void main() {
   });
 
   group('DiffScreen - multi-file diff', () {
-    testWidgets('shows filter button for multi-file diffs', (tester) async {
+    testWidgets('shows overflow menu for multi-file diffs', (tester) async {
       await tester.pumpWidget(
         _wrap(const DiffScreen(initialDiff: _multiFileDiff)),
       );
       await tester.pumpAndSettle();
 
-      // Filter icon should be present
-      expect(find.byIcon(Icons.filter_list), findsOneWidget);
+      // Overflow menu (more_vert) should be present
+      expect(find.byIcon(Icons.more_vert), findsOneWidget);
     });
 
     testWidgets('shows file header with stats', (tester) async {

@@ -22,12 +22,10 @@ class DiffContentList extends StatelessWidget {
   final bool Function(int fileIdx)? isFilePartiallySelected;
   final ValueChanged<int>? onLoadImage;
   final Set<int> loadingImageIndices;
-
-  /// Swipe-to-stage callback (file index). Null disables swipe.
   final ValueChanged<int>? onSwipeStage;
-
-  /// Swipe-to-unstage callback (file index). Null disables swipe.
   final ValueChanged<int>? onSwipeUnstage;
+  final ValueChanged<int>? onLongPressFile;
+  final Set<String> stagedFilePaths;
 
   const DiffContentList({
     super.key,
@@ -46,7 +44,16 @@ class DiffContentList extends StatelessWidget {
     this.loadingImageIndices = const {},
     this.onSwipeStage,
     this.onSwipeUnstage,
+    this.onLongPressFile,
+    this.stagedFilePaths = const {},
   });
+
+  FileStageStatus _stageStatusFor(DiffFile file) {
+    if (stagedFilePaths.isEmpty) return FileStageStatus.unknown;
+    return stagedFilePaths.contains(file.filePath)
+        ? FileStageStatus.staged
+        : FileStageStatus.unstaged;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,27 +81,7 @@ class DiffContentList extends StatelessWidget {
         itemCount: 1 + hunkCount,
         itemBuilder: (context, index) {
           if (index == 0) {
-            final header = DiffFileHeader(
-              file: file,
-              collapsed: collapsed,
-              onToggleCollapse: () => onToggleCollapse(0),
-              selectionMode: selectionMode,
-              selected: isFileFullySelected?.call(0) ?? false,
-              partiallySelected: isFilePartiallySelected?.call(0) ?? false,
-              onToggleSelection: onToggleFileSelection != null
-                  ? () => onToggleFileSelection!(0)
-                  : null,
-            );
-            if (onSwipeStage != null || onSwipeUnstage != null) {
-              return _SwipeStageDismissible(
-                fileIdx: 0,
-                filePath: file.filePath,
-                onSwipeStage: onSwipeStage,
-                onSwipeUnstage: onSwipeUnstage,
-                child: header,
-              );
-            }
-            return header;
+            return _buildFileHeader(0, file, collapsed);
           }
           final hunkIdx = index - 1;
           return DiffHunkWidget(
@@ -135,8 +122,6 @@ class DiffContentList extends StatelessWidget {
       );
     }
 
-    // Pre-compute line-number widths per file to avoid recalculating in
-    // each itemBuilder call.
     final lineNumberWidths = {
       for (final i in visibleFiles) i: calcLineNumberWidth(files[i]),
     };
@@ -161,8 +146,38 @@ class DiffContentList extends StatelessWidget {
         loadingImageIndices: loadingImageIndices,
         onSwipeStage: onSwipeStage,
         onSwipeUnstage: onSwipeUnstage,
+        onLongPressFile: onLongPressFile,
+        stagedFilePaths: stagedFilePaths,
       ),
     );
+  }
+
+  Widget _buildFileHeader(int fileIdx, DiffFile file, bool collapsed) {
+    final header = DiffFileHeader(
+      file: file,
+      collapsed: collapsed,
+      onToggleCollapse: () => onToggleCollapse(fileIdx),
+      selectionMode: selectionMode,
+      selected: isFileFullySelected?.call(fileIdx) ?? false,
+      partiallySelected: isFilePartiallySelected?.call(fileIdx) ?? false,
+      onToggleSelection: onToggleFileSelection != null
+          ? () => onToggleFileSelection!(fileIdx)
+          : null,
+      stageStatus: _stageStatusFor(file),
+      onLongPress: onLongPressFile != null
+          ? () => onLongPressFile!(fileIdx)
+          : null,
+    );
+    if (onSwipeStage != null || onSwipeUnstage != null) {
+      return _SwipeStageDismissible(
+        fileIdx: fileIdx,
+        filePath: file.filePath,
+        onSwipeStage: onSwipeStage,
+        onSwipeUnstage: onSwipeUnstage,
+        child: header,
+      );
+    }
+    return header;
   }
 
   int _countListItems(List<int> visibleFiles) {
@@ -198,6 +213,8 @@ class _DiffListItem extends StatelessWidget {
   final Set<int> loadingImageIndices;
   final ValueChanged<int>? onSwipeStage;
   final ValueChanged<int>? onSwipeUnstage;
+  final ValueChanged<int>? onLongPressFile;
+  final Set<String> stagedFilePaths;
 
   const _DiffListItem({
     required this.index,
@@ -216,7 +233,16 @@ class _DiffListItem extends StatelessWidget {
     this.loadingImageIndices = const {},
     this.onSwipeStage,
     this.onSwipeUnstage,
+    this.onLongPressFile,
+    this.stagedFilePaths = const {},
   });
+
+  FileStageStatus _stageStatusFor(DiffFile file) {
+    if (stagedFilePaths.isEmpty) return FileStageStatus.unknown;
+    return stagedFilePaths.contains(file.filePath)
+        ? FileStageStatus.staged
+        : FileStageStatus.unstaged;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -244,8 +270,11 @@ class _DiffListItem extends StatelessWidget {
             onToggleSelection: onToggleFileSelection != null
                 ? () => onToggleFileSelection!(fileIdx)
                 : null,
+            stageStatus: _stageStatusFor(file),
+            onLongPress: onLongPressFile != null
+                ? () => onLongPressFile!(fileIdx)
+                : null,
           );
-          // Wrap with swipe-to-stage/unstage when callbacks are provided
           if (onSwipeStage != null || onSwipeUnstage != null) {
             return _SwipeStageDismissible(
               fileIdx: fileIdx,
@@ -297,7 +326,6 @@ class _DiffListItem extends StatelessWidget {
 }
 
 /// Wraps a file header with swipe-to-stage (right) / swipe-to-unstage (left).
-/// Like swiping emails in Mail.app.
 class _SwipeStageDismissible extends StatelessWidget {
   final int fileIdx;
   final String filePath;
@@ -325,7 +353,6 @@ class _SwipeStageDismissible extends StatelessWidget {
         } else {
           onSwipeUnstage?.call(fileIdx);
         }
-        // Always return false to prevent removal from the list
         return false;
       },
       background: Container(

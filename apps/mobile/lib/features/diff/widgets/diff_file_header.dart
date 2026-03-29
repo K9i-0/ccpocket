@@ -4,6 +4,9 @@ import '../../../theme/app_theme.dart';
 import '../../../utils/diff_parser.dart';
 import 'diff_file_path_text.dart';
 
+/// Whether a file is staged, unstaged, or unknown.
+enum FileStageStatus { staged, unstaged, unknown }
+
 class DiffFileHeader extends StatelessWidget {
   final DiffFile file;
   final bool collapsed;
@@ -12,6 +15,8 @@ class DiffFileHeader extends StatelessWidget {
   final bool selected;
   final bool partiallySelected;
   final VoidCallback? onToggleSelection;
+  final FileStageStatus stageStatus;
+  final VoidCallback? onLongPress;
 
   const DiffFileHeader({
     super.key,
@@ -22,6 +27,8 @@ class DiffFileHeader extends StatelessWidget {
     this.selected = false,
     this.partiallySelected = false,
     this.onToggleSelection,
+    this.stageStatus = FileStageStatus.unknown,
+    this.onLongPress,
   });
 
   @override
@@ -33,6 +40,7 @@ class DiffFileHeader extends StatelessWidget {
     // In normal mode: tap anywhere toggles collapse.
     return GestureDetector(
       onTap: selectionMode ? onToggleSelection : onToggleCollapse,
+      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -57,15 +65,7 @@ class DiffFileHeader extends StatelessWidget {
                 ),
               )
             else
-              Icon(
-                file.isNewFile
-                    ? Icons.add_circle_outline
-                    : file.isDeleted
-                    ? Icons.remove_circle_outline
-                    : Icons.edit_note,
-                size: 16,
-                color: appColors.subtleText,
-              ),
+              _buildLeadingIcon(appColors),
             const SizedBox(width: 8),
             Expanded(
               child: DiffFilePathText(
@@ -118,6 +118,28 @@ class DiffFileHeader extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLeadingIcon(AppColors appColors) {
+    // Stage status badge takes priority
+    if (stageStatus == FileStageStatus.staged) {
+      return Icon(
+        Icons.check_circle,
+        size: 16,
+        color: appColors.diffAdditionText,
+      );
+    }
+
+    // Default: file type icon
+    return Icon(
+      file.isNewFile
+          ? Icons.add_circle_outline
+          : file.isDeleted
+          ? Icons.remove_circle_outline
+          : Icons.edit_note,
+      size: 16,
+      color: appColors.subtleText,
     );
   }
 }

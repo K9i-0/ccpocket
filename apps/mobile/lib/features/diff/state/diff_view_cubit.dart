@@ -87,11 +87,7 @@ class DiffViewCubit extends Cubit<DiffViewState> {
         );
       }
     });
-    final staged = switch (state.viewMode) {
-      DiffViewMode.staged => true,
-      DiffViewMode.unstaged => false,
-      DiffViewMode.all => null,
-    };
+    final staged = state.viewMode == DiffViewMode.staged ? true : null;
     _bridge.send(ClientMessage.getDiff(projectPath, staged: staged));
   }
 
@@ -103,11 +99,7 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     final projectPath = _projectPath;
     if (projectPath == null) return;
     emit(state.copyWith(loading: true, error: null));
-    final staged = switch (state.viewMode) {
-      DiffViewMode.staged => true,
-      DiffViewMode.unstaged => false,
-      DiffViewMode.all => null,
-    };
+    final staged = state.viewMode == DiffViewMode.staged ? true : null;
     _bridge.send(ClientMessage.getDiff(projectPath, staged: staged));
   }
 

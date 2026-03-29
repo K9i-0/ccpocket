@@ -4,8 +4,8 @@ import '../../../utils/diff_parser.dart';
 
 part 'diff_view_state.freezed.dart';
 
-/// Which diff to display: working-tree changes, staged (index) changes, or all.
-enum DiffViewMode { unstaged, staged, all }
+/// Which diff to display: all changes (vs HEAD) or staged only (index).
+enum DiffViewMode { all, staged }
 
 /// State for the diff viewer screen.
 @freezed

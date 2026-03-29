@@ -18,7 +18,7 @@ class DiffEmptyState extends StatelessWidget {
         Icons.inbox_outlined,
         'No staged files',
       ),
-      DiffViewMode.unstaged || DiffViewMode.all => (
+      DiffViewMode.all => (
         Icons.check_circle_outline,
         AppLocalizations.of(context).noChanges,
       ),

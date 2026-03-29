@@ -102,46 +102,64 @@ class _DiffScreenBody extends StatelessWidget {
               )
             : null,
         actions: [
-          // Selection mode toggle
-          if (state.files.isNotEmpty)
-            IconButton(
-              icon: Icon(
-                Icons.alternate_email,
-                color: state.selectionMode
-                    ? Theme.of(context).colorScheme.primary
-                    : null,
-              ),
-              tooltip: state.selectionMode
-                  ? l.cancelSelection
-                  : l.selectAndAttach,
-              onPressed: cubit.toggleSelectionMode,
-            ),
-          // Filter (hidden during selection mode)
-          if (state.files.length > 1 && !state.selectionMode)
-            IconButton(
-              icon: const Icon(Icons.filter_list),
-              tooltip: l.filterFiles,
-              onPressed: () =>
-                  _showFilterBottomSheet(context, appColors, cubit),
-            ),
-          // Refresh (projectPath mode only, hidden during selection/loading)
+          // Refresh (projectPath mode only)
           if (cubit.canRefresh && !state.selectionMode && !state.loading)
             IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: l.refresh,
               onPressed: cubit.refresh,
             ),
-          // Commit (projectPath mode, staged tab only)
-          if (isProjectMode && !state.selectionMode)
-            IconButton(
-              key: const ValueKey('commit_button'),
-              icon: const Icon(Icons.check_circle_outline),
-              tooltip: 'Commit',
-              onPressed: () => showCommitBottomSheet(context),
+          // Overflow menu for secondary actions
+          if (state.files.isNotEmpty)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) => _handleMenuAction(
+                value,
+                context,
+                cubit,
+                appColors,
+              ),
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'select',
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.alternate_email,
+                      color: state.selectionMode
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    title: Text(
+                      state.selectionMode
+                          ? l.cancelSelection
+                          : l.selectAndAttach,
+                    ),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                if (state.files.length > 1 && !state.selectionMode)
+                  PopupMenuItem(
+                    value: 'filter',
+                    child: ListTile(
+                      leading: const Icon(Icons.filter_list),
+                      title: Text(l.filterFiles),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+              ],
             ),
         ],
       ),
       floatingActionButton: _buildFab(context, state, cubit, l),
+      bottomNavigationBar: isProjectMode
+          ? _DiffBottomBar(
+              state: state,
+              cubit: cubit,
+              onCommit: () => showCommitBottomSheet(context),
+            )
+          : null,
       body: state.loading
           ? const Center(child: CircularProgressIndicator())
           : state.error != null
@@ -164,8 +182,29 @@ class _DiffScreenBody extends StatelessWidget {
               loadingImageIndices: state.loadingImageIndices,
               onSwipeStage: isProjectMode ? cubit.stageFile : null,
               onSwipeUnstage: isProjectMode ? cubit.unstageFile : null,
+              // Long-press to enter selection mode
+              onLongPressFile: isProjectMode && !state.selectionMode
+                  ? (fileIdx) {
+                      cubit.toggleSelectionMode();
+                      cubit.toggleFileSelection(fileIdx);
+                    }
+                  : null,
             ),
     );
+  }
+
+  void _handleMenuAction(
+    String action,
+    BuildContext context,
+    DiffViewCubit cubit,
+    AppColors appColors,
+  ) {
+    switch (action) {
+      case 'select':
+        cubit.toggleSelectionMode();
+      case 'filter':
+        _showFilterBottomSheet(context, appColors, cubit);
+    }
   }
 
   Widget? _buildFab(
@@ -192,47 +231,6 @@ class _DiffScreenBody extends StatelessWidget {
             cubit.selectionSummary.hunks,
           ),
         ),
-      );
-    }
-
-    // Stage/Unstage FAB (project mode, selection mode, has selection)
-    if (isProjectMode && state.selectionMode && cubit.hasAnySelection) {
-      final isStaged = state.viewMode == DiffViewMode.staged;
-      return FloatingActionButton.extended(
-        key: const ValueKey('stage_fab'),
-        onPressed: state.staging
-            ? null
-            : isStaged
-                ? cubit.unstageSelectedHunks
-                : cubit.stageSelectedHunks,
-        icon: state.staging
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Icon(isStaged ? Icons.remove_circle_outline : Icons.add_circle_outline),
-        label: Text(isStaged ? 'Unstage' : 'Stage'),
-      );
-    }
-
-    // Stage All FAB (project mode, unstaged/all tab, not in selection, has files)
-    if (isProjectMode &&
-        !state.selectionMode &&
-        state.files.isNotEmpty &&
-        (state.viewMode == DiffViewMode.unstaged ||
-         state.viewMode == DiffViewMode.all)) {
-      return FloatingActionButton.extended(
-        key: const ValueKey('stage_all_fab'),
-        onPressed: state.staging ? null : cubit.stageAll,
-        icon: state.staging
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.add_circle_outline),
-        label: const Text('Stage All'),
       );
     }
 
@@ -320,7 +318,7 @@ class _DiffScreenBody extends StatelessWidget {
   }
 }
 
-/// Segmented button for switching between Unstaged / Staged view modes.
+/// 2-tab segment: Changes (all) / Staged
 class _DiffViewModeSegment extends StatelessWidget {
   final DiffViewMode viewMode;
   final ValueChanged<DiffViewMode> onChanged;
@@ -338,11 +336,7 @@ class _DiffViewModeSegment extends StatelessWidget {
         segments: const [
           ButtonSegment(
             value: DiffViewMode.all,
-            label: Text('All'),
-          ),
-          ButtonSegment(
-            value: DiffViewMode.unstaged,
-            label: Text('Unstaged'),
+            label: Text('Changes'),
           ),
           ButtonSegment(
             value: DiffViewMode.staged,
@@ -356,6 +350,170 @@ class _DiffViewModeSegment extends StatelessWidget {
           visualDensity: VisualDensity.compact,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
+      ),
+    );
+  }
+}
+
+/// Bottom bar with diff summary stats and git action buttons (Pull / Commit / Push).
+class _DiffBottomBar extends StatelessWidget {
+  final DiffViewState state;
+  final DiffViewCubit cubit;
+  final VoidCallback onCommit;
+
+  const _DiffBottomBar({
+    required this.state,
+    required this.cubit,
+    required this.onCommit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    // Calculate stats from visible files
+    final files = state.files;
+    var additions = 0;
+    var deletions = 0;
+    for (final f in files) {
+      final s = f.stats;
+      additions += s.added;
+      deletions += s.removed;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        border: Border(top: BorderSide(color: cs.outlineVariant, width: 0.5)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Stats row
+              if (files.isNotEmpty || state.loading)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${files.length} files',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      if (additions > 0)
+                        Text(
+                          '+$additions',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: cs.primary,
+                          ),
+                        ),
+                      if (additions > 0 && deletions > 0)
+                        const SizedBox(width: 6),
+                      if (deletions > 0)
+                        Text(
+                          '-$deletions',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: cs.error,
+                          ),
+                        ),
+                      if (state.staging) ...[
+                        const Spacer(),
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: cs.primary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              // Action buttons row
+              Row(
+                children: [
+                  Expanded(
+                    child: _ActionButton(
+                      key: const ValueKey('pull_button'),
+                      icon: Icons.download,
+                      label: 'Pull',
+                      onPressed: state.staging ? null : () {
+                        // TODO: implement pull
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      key: const ValueKey('commit_button'),
+                      onPressed: state.staging ? null : onCommit,
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Commit'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _ActionButton(
+                      key: const ValueKey('push_button'),
+                      icon: Icons.upload,
+                      label: 'Push',
+                      onPressed: state.staging ? null : () {
+                        // TODO: implement direct push
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Outlined action button used in the bottom bar.
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  const _ActionButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(fontSize: 13)),
+        ],
       ),
     );
   }
