@@ -51,6 +51,25 @@ class BridgeService implements BridgeServiceBase {
       StreamController<PromptHistoryBackupInfoMessage>.broadcast();
   final _fileContentController =
       StreamController<FileContentMessage>.broadcast();
+  // ---- Git Operations (Phase 1-3) ----
+  final _gitStageResultController =
+      StreamController<GitStageResultMessage>.broadcast();
+  final _gitUnstageResultController =
+      StreamController<GitUnstageResultMessage>.broadcast();
+  final _gitCommitResultController =
+      StreamController<GitCommitResultMessage>.broadcast();
+  final _gitPushResultController =
+      StreamController<GitPushResultMessage>.broadcast();
+  final _ghPrResultController =
+      StreamController<GhPrResultMessage>.broadcast();
+  final _gitStatusResultController =
+      StreamController<GitStatusResultMessage>.broadcast();
+  final _gitBranchesResultController =
+      StreamController<GitBranchesResultMessage>.broadcast();
+  final _gitCreateBranchResultController =
+      StreamController<GitCreateBranchResultMessage>.broadcast();
+  final _gitCheckoutBranchResultController =
+      StreamController<GitCheckoutBranchResultMessage>.broadcast();
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
   List<SessionInfo> _sessions = [];
@@ -117,6 +136,25 @@ class BridgeService implements BridgeServiceBase {
       _restoreResultController.stream;
   Stream<PromptHistoryBackupInfoMessage> get backupInfo =>
       _backupInfoController.stream;
+  // Git Operations
+  Stream<GitStageResultMessage> get gitStageResults =>
+      _gitStageResultController.stream;
+  Stream<GitUnstageResultMessage> get gitUnstageResults =>
+      _gitUnstageResultController.stream;
+  Stream<GitCommitResultMessage> get gitCommitResults =>
+      _gitCommitResultController.stream;
+  Stream<GitPushResultMessage> get gitPushResults =>
+      _gitPushResultController.stream;
+  Stream<GhPrResultMessage> get ghPrResults =>
+      _ghPrResultController.stream;
+  Stream<GitStatusResultMessage> get gitStatusResults =>
+      _gitStatusResultController.stream;
+  Stream<GitBranchesResultMessage> get gitBranchesResults =>
+      _gitBranchesResultController.stream;
+  Stream<GitCreateBranchResultMessage> get gitCreateBranchResults =>
+      _gitCreateBranchResultController.stream;
+  Stream<GitCheckoutBranchResultMessage> get gitCheckoutBranchResults =>
+      _gitCheckoutBranchResultController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
@@ -243,6 +281,25 @@ class BridgeService implements BridgeServiceBase {
                 _restoreResultController.add(msg);
               case PromptHistoryBackupInfoMessage():
                 _backupInfoController.add(msg);
+              // Git Operations
+              case GitStageResultMessage():
+                _gitStageResultController.add(msg);
+              case GitUnstageResultMessage():
+                _gitUnstageResultController.add(msg);
+              case GitCommitResultMessage():
+                _gitCommitResultController.add(msg);
+              case GitPushResultMessage():
+                _gitPushResultController.add(msg);
+              case GhPrResultMessage():
+                _ghPrResultController.add(msg);
+              case GitStatusResultMessage():
+                _gitStatusResultController.add(msg);
+              case GitBranchesResultMessage():
+                _gitBranchesResultController.add(msg);
+              case GitCreateBranchResultMessage():
+                _gitCreateBranchResultController.add(msg);
+              case GitCheckoutBranchResultMessage():
+                _gitCheckoutBranchResultController.add(msg);
               case ArchiveResultMessage(:final success):
                 if (success) {
                   // Refresh the recent sessions list to reflect the archived session
@@ -1032,6 +1089,16 @@ class BridgeService implements BridgeServiceBase {
     _backupResultController.close();
     _restoreResultController.close();
     _backupInfoController.close();
+    // Git Operations
+    _gitStageResultController.close();
+    _gitUnstageResultController.close();
+    _gitCommitResultController.close();
+    _gitPushResultController.close();
+    _ghPrResultController.close();
+    _gitStatusResultController.close();
+    _gitBranchesResultController.close();
+    _gitCreateBranchResultController.close();
+    _gitCheckoutBranchResultController.close();
     clearDiffImageCache();
   }
 }

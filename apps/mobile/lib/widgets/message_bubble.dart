@@ -239,6 +239,16 @@ class ServerMessageWidget extends StatelessWidget {
       RenameResultMessage() => const SizedBox.shrink(),
       ArchiveResultMessage() => const SizedBox.shrink(),
       BranchUpdateMessage() => const SizedBox.shrink(),
+      // Git Operations (Phase 1-3) — routed via BridgeService streams
+      GitStageResultMessage() => const SizedBox.shrink(),
+      GitUnstageResultMessage() => const SizedBox.shrink(),
+      GitCommitResultMessage() => const SizedBox.shrink(),
+      GitPushResultMessage() => const SizedBox.shrink(),
+      GhPrResultMessage() => const SizedBox.shrink(),
+      GitStatusResultMessage() => const SizedBox.shrink(),
+      GitBranchesResultMessage() => const SizedBox.shrink(),
+      GitCreateBranchResultMessage() => const SizedBox.shrink(),
+      GitCheckoutBranchResultMessage() => const SizedBox.shrink(),
     };
   }
 }

@@ -688,6 +688,51 @@ sealed class ServerMessage {
         sessionId: json['sessionId'] as String? ?? '',
         branch: json['branch'] as String? ?? '',
       ),
+      // ---- Git Operations (Phase 1-3) ----
+      'git_stage_result' => GitStageResultMessage(
+        success: json['success'] as bool? ?? false,
+        error: json['error'] as String?,
+      ),
+      'git_unstage_result' => GitUnstageResultMessage(
+        success: json['success'] as bool? ?? false,
+        error: json['error'] as String?,
+      ),
+      'git_commit_result' => GitCommitResultMessage(
+        success: json['success'] as bool? ?? false,
+        commitHash: json['commitHash'] as String?,
+        message: json['message'] as String?,
+        error: json['error'] as String?,
+      ),
+      'git_push_result' => GitPushResultMessage(
+        success: json['success'] as bool? ?? false,
+        remote: json['remote'] as String?,
+        branch: json['branch'] as String?,
+        error: json['error'] as String?,
+      ),
+      'gh_pr_result' => GhPrResultMessage(
+        success: json['success'] as bool? ?? false,
+        prNumber: json['prNumber'] as int?,
+        url: json['url'] as String?,
+        error: json['error'] as String?,
+      ),
+      'git_status_result' => GitStatusResultMessage(
+        staged: (json['staged'] as List?)?.cast<String>() ?? const [],
+        unstaged: (json['unstaged'] as List?)?.cast<String>() ?? const [],
+        untracked: (json['untracked'] as List?)?.cast<String>() ?? const [],
+      ),
+      'git_branches_result' => GitBranchesResultMessage(
+        current: json['current'] as String? ?? '',
+        branches: (json['branches'] as List?)?.cast<String>() ?? const [],
+        error: json['error'] as String?,
+      ),
+      'git_create_branch_result' => GitCreateBranchResultMessage(
+        success: json['success'] as bool? ?? false,
+        error: json['error'] as String?,
+      ),
+      'git_checkout_branch_result' => GitCheckoutBranchResultMessage(
+        success: json['success'] as bool? ?? false,
+        error: json['error'] as String?,
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -1557,6 +1602,93 @@ class MessageImagesResultMessage implements ServerMessage {
   });
 }
 
+// ---- Git Operations (Phase 1-3) ----
+
+class GitStageResultMessage implements ServerMessage {
+  final bool success;
+  final String? error;
+  const GitStageResultMessage({required this.success, this.error});
+}
+
+class GitUnstageResultMessage implements ServerMessage {
+  final bool success;
+  final String? error;
+  const GitUnstageResultMessage({required this.success, this.error});
+}
+
+class GitCommitResultMessage implements ServerMessage {
+  final bool success;
+  final String? commitHash;
+  final String? message;
+  final String? error;
+  const GitCommitResultMessage({
+    required this.success,
+    this.commitHash,
+    this.message,
+    this.error,
+  });
+}
+
+class GitPushResultMessage implements ServerMessage {
+  final bool success;
+  final String? remote;
+  final String? branch;
+  final String? error;
+  const GitPushResultMessage({
+    required this.success,
+    this.remote,
+    this.branch,
+    this.error,
+  });
+}
+
+class GhPrResultMessage implements ServerMessage {
+  final bool success;
+  final int? prNumber;
+  final String? url;
+  final String? error;
+  const GhPrResultMessage({
+    required this.success,
+    this.prNumber,
+    this.url,
+    this.error,
+  });
+}
+
+class GitStatusResultMessage implements ServerMessage {
+  final List<String> staged;
+  final List<String> unstaged;
+  final List<String> untracked;
+  const GitStatusResultMessage({
+    required this.staged,
+    required this.unstaged,
+    required this.untracked,
+  });
+}
+
+class GitBranchesResultMessage implements ServerMessage {
+  final String current;
+  final List<String> branches;
+  final String? error;
+  const GitBranchesResultMessage({
+    required this.current,
+    required this.branches,
+    this.error,
+  });
+}
+
+class GitCreateBranchResultMessage implements ServerMessage {
+  final bool success;
+  final String? error;
+  const GitCreateBranchResultMessage({required this.success, this.error});
+}
+
+class GitCheckoutBranchResultMessage implements ServerMessage {
+  final bool success;
+  final String? error;
+  const GitCheckoutBranchResultMessage({required this.success, this.error});
+}
+
 class RecordingInfo {
   final String name;
   final String modified;
@@ -2286,8 +2418,12 @@ class ClientMessage {
   factory ClientMessage.listFiles(String projectPath) =>
       ClientMessage._({'type': 'list_files', 'projectPath': projectPath});
 
-  factory ClientMessage.getDiff(String projectPath) =>
-      ClientMessage._({'type': 'get_diff', 'projectPath': projectPath});
+  factory ClientMessage.getDiff(String projectPath, {bool? staged}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'get_diff',
+        'projectPath': projectPath,
+        'staged': ?staged,
+      });
 
   factory ClientMessage.getDiffImage(
     String projectPath,
@@ -2405,6 +2541,87 @@ class ClientMessage {
       'projectPath': projectPath,
     });
   }
+
+  // ---- Git Operations (Phase 1-3) ----
+
+  factory ClientMessage.gitStage(
+    String projectPath, {
+    List<String>? files,
+    List<Map<String, dynamic>>? hunks,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'git_stage',
+    'projectPath': projectPath,
+    'files': ?files,
+    'hunks': ?hunks,
+  });
+
+  factory ClientMessage.gitUnstage(String projectPath, {List<String>? files}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'git_unstage',
+        'projectPath': projectPath,
+        'files': ?files,
+      });
+
+  factory ClientMessage.gitCommit(
+    String projectPath, {
+    String? message,
+    bool? autoGenerate,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'git_commit',
+    'projectPath': projectPath,
+    'message': ?message,
+    'autoGenerate': ?autoGenerate,
+  });
+
+  factory ClientMessage.gitPush(String projectPath, {bool? forceLease}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'git_push',
+        'projectPath': projectPath,
+        'forceLease': ?forceLease,
+      });
+
+  factory ClientMessage.ghPrCreate(
+    String projectPath, {
+    String? title,
+    String? body,
+    bool? draft,
+    bool? autoGenerate,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'gh_pr_create',
+    'projectPath': projectPath,
+    'title': ?title,
+    'body': ?body,
+    'draft': ?draft,
+    'autoGenerate': ?autoGenerate,
+  });
+
+  factory ClientMessage.gitStatus(String projectPath) =>
+      ClientMessage._({'type': 'git_status', 'projectPath': projectPath});
+
+  factory ClientMessage.gitBranches(String projectPath, {String? query}) =>
+      ClientMessage._(<String, dynamic>{
+        'type': 'git_branches',
+        'projectPath': projectPath,
+        'query': ?query,
+      });
+
+  factory ClientMessage.gitCreateBranch(
+    String projectPath,
+    String name, {
+    bool? checkout,
+  }) => ClientMessage._(<String, dynamic>{
+    'type': 'git_create_branch',
+    'projectPath': projectPath,
+    'name': name,
+    'checkout': ?checkout,
+  });
+
+  factory ClientMessage.gitCheckoutBranch(String projectPath, String branch) =>
+      ClientMessage._({
+        'type': 'git_checkout_branch',
+        'projectPath': projectPath,
+        'branch': branch,
+      });
 
   String toJson() => jsonEncode(_json);
 }
