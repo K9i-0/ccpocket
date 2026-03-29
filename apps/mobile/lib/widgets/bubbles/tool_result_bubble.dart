@@ -189,15 +189,15 @@ class ToolResultBubbleState extends State<ToolResultBubble> {
     return match?.group(1);
   }
 
-  void _openDiffScreen() {
+  void _openGitScreen() {
     context.router.push(
-      DiffRoute(initialDiff: widget.message.content, title: _extractFilePath()),
+      GitRoute(initialDiff: widget.message.content, title: _extractFilePath()),
     );
   }
 
   void _onTap() {
     if (_isDiffContent) {
-      _openDiffScreen();
+      _openGitScreen();
     } else {
       _cycleExpansion();
     }

@@ -2,15 +2,15 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../utils/diff_parser.dart';
 
-part 'diff_view_state.freezed.dart';
+part 'git_view_state.freezed.dart';
 
 /// Which diff to display: all changes (vs HEAD) or staged only (index).
-enum DiffViewMode { all, staged }
+enum GitViewMode { all, staged }
 
 /// State for the diff viewer screen.
 @freezed
-abstract class DiffViewState with _$DiffViewState {
-  const factory DiffViewState({
+abstract class GitViewState with _$GitViewState {
+  const factory GitViewState({
     /// Parsed diff files.
     @Default([]) List<DiffFile> files,
 
@@ -39,7 +39,7 @@ abstract class DiffViewState with _$DiffViewState {
     @Default({}) Set<int> loadingImageIndices,
 
     /// Current diff view mode: unstaged (working-tree) or staged (index).
-    @Default(DiffViewMode.all) DiffViewMode viewMode,
+    @Default(GitViewMode.all) GitViewMode viewMode,
 
     /// Whether a stage/unstage operation is in progress.
     @Default(false) bool staging,
@@ -61,5 +61,5 @@ abstract class DiffViewState with _$DiffViewState {
 
     /// Whether a push is in progress.
     @Default(false) bool pushing,
-  }) = _DiffViewState;
+  }) = _GitViewState;
 }

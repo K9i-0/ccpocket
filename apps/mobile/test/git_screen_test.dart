@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ccpocket/features/diff/diff_screen.dart';
+import 'package:ccpocket/features/git/git_screen.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
@@ -51,10 +51,10 @@ diff --git a/file_b.dart b/file_b.dart
 ''';
 
 void main() {
-  group('DiffScreen - individual diff mode', () {
+  group('GitScreen - individual diff mode', () {
     testWidgets('displays diff content with color coding', (tester) async {
       await tester.pumpWidget(
-        _wrap(const DiffScreen(initialDiff: _sampleDiff)),
+        _wrap(const GitScreen(initialDiff: _sampleDiff)),
       );
       await tester.pumpAndSettle();
 
@@ -75,7 +75,7 @@ void main() {
     testWidgets('displays title when provided', (tester) async {
       await tester.pumpWidget(
         _wrap(
-          const DiffScreen(initialDiff: _sampleDiff, title: 'Custom Title'),
+          const GitScreen(initialDiff: _sampleDiff, title: 'Custom Title'),
         ),
       );
       await tester.pumpAndSettle();
@@ -84,17 +84,17 @@ void main() {
     });
 
     testWidgets('shows empty state when no changes', (tester) async {
-      await tester.pumpWidget(_wrap(const DiffScreen(initialDiff: '')));
+      await tester.pumpWidget(_wrap(const GitScreen(initialDiff: '')));
       await tester.pumpAndSettle();
 
       expect(find.text('No changes'), findsOneWidget);
     });
   });
 
-  group('DiffScreen - multi-file diff', () {
+  group('GitScreen - multi-file diff', () {
     testWidgets('shows overflow menu for multi-file diffs', (tester) async {
       await tester.pumpWidget(
-        _wrap(const DiffScreen(initialDiff: _multiFileDiff)),
+        _wrap(const GitScreen(initialDiff: _multiFileDiff)),
       );
       await tester.pumpAndSettle();
 
@@ -104,7 +104,7 @@ void main() {
 
     testWidgets('shows file header with stats', (tester) async {
       await tester.pumpWidget(
-        _wrap(const DiffScreen(initialDiff: _multiFileDiff)),
+        _wrap(const GitScreen(initialDiff: _multiFileDiff)),
       );
       await tester.pumpAndSettle();
 
@@ -113,10 +113,10 @@ void main() {
     });
   });
 
-  group('DiffScreen - line numbers', () {
+  group('GitScreen - line numbers', () {
     testWidgets('displays line numbers for context lines', (tester) async {
       await tester.pumpWidget(
-        _wrap(const DiffScreen(initialDiff: _sampleDiff)),
+        _wrap(const GitScreen(initialDiff: _sampleDiff)),
       );
       await tester.pumpAndSettle();
 

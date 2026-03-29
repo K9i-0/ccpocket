@@ -8,7 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../features/session_list/state/session_list_cubit.dart';
 import '../features/session_list/state/session_list_state.dart';
 import '../features/session_list/widgets/home_content.dart';
-import '../features/diff/widgets/diff_image_viewer.dart';
+import '../features/git/widgets/diff_image_viewer.dart';
 import '../mock/mock_image_data.dart';
 import '../mock/mock_scenarios.dart';
 import '../mock/mock_sessions.dart';
@@ -25,7 +25,7 @@ import '../widgets/session_card.dart';
 import '../widgets/new_session_sheet.dart';
 import '../features/claude_session/claude_session_screen.dart';
 import '../features/codex_session/codex_session_screen.dart';
-import '../features/diff/diff_screen.dart';
+import '../features/git/git_screen.dart';
 
 @RoutePage()
 class MockPreviewScreen extends StatelessWidget {
@@ -1326,7 +1326,7 @@ class _StoreDiffWrapperState extends State<_StoreDiffWrapper> {
   Widget build(BuildContext context) {
     return RepositoryProvider<BridgeService>.value(
       value: _mockBridge,
-      child: const DiffScreen(
+      child: const GitScreen(
         projectPath: '/mock/shopify-app',
         title: 'shopify-app',
       ),
@@ -1366,7 +1366,7 @@ class _StoreLineNumberDiffWrapperState
   Widget build(BuildContext context) {
     return RepositoryProvider<BridgeService>.value(
       value: _mockBridge,
-      child: const DiffScreen(
+      child: const GitScreen(
         projectPath: '/mock/line-number-test',
         title: 'line-number-test',
       ),

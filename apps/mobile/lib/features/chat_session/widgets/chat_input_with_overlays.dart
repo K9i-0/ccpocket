@@ -36,7 +36,7 @@ class ChatInputWithOverlays extends HookWidget {
   final VoidCallback onScrollToBottom;
   final TextEditingController inputController;
 
-  /// Diff selection to attach (set by parent when returning from DiffScreen).
+  /// Diff selection to attach (set by parent when returning from GitScreen).
   final DiffSelection? initialDiffSelection;
 
   /// Called after the diff selection is consumed into local state.
@@ -46,7 +46,7 @@ class ChatInputWithOverlays extends HookWidget {
   final VoidCallback? onDiffSelectionCleared;
 
   /// Opens the diff screen with current selection state.
-  final void Function(DiffSelection? currentSelection)? onOpenDiffScreen;
+  final void Function(DiffSelection? currentSelection)? onOpenGitScreen;
 
   /// Custom hint text for the input field (e.g. provider-specific).
   final String? hintText;
@@ -60,7 +60,7 @@ class ChatInputWithOverlays extends HookWidget {
     this.initialDiffSelection,
     this.onDiffSelectionConsumed,
     this.onDiffSelectionCleared,
-    this.onOpenDiffScreen,
+    this.onOpenGitScreen,
     this.hintText,
   });
 
@@ -738,8 +738,8 @@ class ChatInputWithOverlays extends HookWidget {
               onClearImage: clearAttachment,
               attachedDiffSelection: attachedDiffSelection.value,
               onClearDiffSelection: clearDiffSelection,
-              onTapDiffPreview: onOpenDiffScreen != null
-                  ? () => onOpenDiffScreen!(attachedDiffSelection.value)
+              onTapDiffPreview: onOpenGitScreen != null
+                  ? () => onOpenGitScreen!(attachedDiffSelection.value)
                   : null,
               hintText: hintText,
               onPasteImage: isDesktopPlatform ? tryPasteImage : null,

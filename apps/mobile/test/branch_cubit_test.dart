@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ccpocket/features/diff/state/branch_cubit.dart';
-import 'package:ccpocket/features/diff/state/branch_state.dart';
+import 'package:ccpocket/features/git/state/branch_cubit.dart';
+import 'package:ccpocket/features/git/state/branch_state.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 

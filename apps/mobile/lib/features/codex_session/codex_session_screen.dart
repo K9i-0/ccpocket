@@ -364,7 +364,7 @@ class _CodexChatBody extends HookWidget {
     );
     useEffect(() => scrollToUserEntry.dispose, const []);
 
-    // Diff selection from DiffScreen navigation
+    // Diff selection from GitScreen navigation
     final diffSelectionFromNav = useState<DiffSelection?>(null);
 
     // --- Bloc state ---
@@ -560,7 +560,7 @@ class _CodexChatBody extends HookWidget {
                       minHeight: 32,
                     ),
                     onPressed: () {
-                      _openDiffScreen(
+                      _openGitScreen(
                         context,
                         worktreePath ?? projectPath!,
                         diffSelectionFromNav,
@@ -852,8 +852,8 @@ class _CodexChatBody extends HookWidget {
                     onDiffSelectionConsumed: () {},
                     onDiffSelectionCleared: () =>
                         diffSelectionFromNav.value = null,
-                    onOpenDiffScreen: projectPath != null
-                        ? (currentSelection) => _openDiffScreen(
+                    onOpenGitScreen: projectPath != null
+                        ? (currentSelection) => _openGitScreen(
                             context,
                             worktreePath ?? projectPath!,
                             diffSelectionFromNav,
@@ -874,14 +874,14 @@ class _CodexChatBody extends HookWidget {
 // Helpers
 // ---------------------------------------------------------------------------
 
-Future<void> _openDiffScreen(
+Future<void> _openGitScreen(
   BuildContext context,
   String projectPath,
   ValueNotifier<DiffSelection?> diffSelectionNotifier, {
   DiffSelection? existingSelection,
 }) async {
   final selection = await context.router.push<DiffSelection>(
-    DiffRoute(
+    GitRoute(
       projectPath: projectPath,
       initialSelectedHunkKeys: existingSelection?.selectedHunkKeys,
     ),

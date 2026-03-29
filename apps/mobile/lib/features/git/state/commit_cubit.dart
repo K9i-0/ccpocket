@@ -36,7 +36,7 @@ class CommitCubit extends Cubit<CommitState> {
   void toggleAutoGenerate() =>
       emit(state.copyWith(autoGenerate: !state.autoGenerate));
 
-  /// Update staged file summary from DiffViewCubit.
+  /// Update staged file summary from GitViewCubit.
   void updateStagedSummary({
     required int fileCount,
     required int insertions,

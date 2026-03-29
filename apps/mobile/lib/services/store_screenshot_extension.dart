@@ -19,7 +19,7 @@ import 'package:marionette_flutter/marionette_flutter.dart';
 import '../features/claude_session/claude_session_screen.dart';
 import '../features/settings/state/settings_cubit.dart';
 import '../features/codex_session/codex_session_screen.dart';
-import '../features/diff/diff_screen.dart';
+import '../features/git/git_screen.dart';
 import '../features/session_list/state/session_list_cubit.dart';
 import '../features/session_list/state/session_list_state.dart';
 import '../features/session_list/widgets/home_content.dart';
@@ -254,7 +254,7 @@ void _pushStoreScenario(NavigatorState navigator, String scenarioName) {
       );
     case 'Git Diff':
       navigator.push(
-        MaterialPageRoute(builder: (_) => const _StoreDiffRoute()),
+        MaterialPageRoute(builder: (_) => const _StoreGitRoute()),
       );
   }
 }
@@ -642,14 +642,14 @@ class _StoreImageAttachRouteState extends State<_StoreImageAttachRoute> {
 }
 
 /// Diff route for store screenshots.
-class _StoreDiffRoute extends StatefulWidget {
-  const _StoreDiffRoute();
+class _StoreGitRoute extends StatefulWidget {
+  const _StoreGitRoute();
 
   @override
-  State<_StoreDiffRoute> createState() => _StoreDiffRouteState();
+  State<_StoreGitRoute> createState() => _StoreGitRouteState();
 }
 
-class _StoreDiffRouteState extends State<_StoreDiffRoute> {
+class _StoreGitRouteState extends State<_StoreGitRoute> {
   late final MockBridgeService _mockBridge;
 
   @override
@@ -668,7 +668,7 @@ class _StoreDiffRouteState extends State<_StoreDiffRoute> {
   Widget build(BuildContext context) {
     return RepositoryProvider<BridgeService>.value(
       value: _mockBridge,
-      child: const DiffScreen(
+      child: const GitScreen(
         projectPath: '/mock/shopify-app',
         title: 'shopify-app',
       ),

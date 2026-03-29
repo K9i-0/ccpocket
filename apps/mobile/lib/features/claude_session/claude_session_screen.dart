@@ -371,7 +371,7 @@ class _ChatScreenBody extends HookWidget {
     useEffect(() => editedPlanText.dispose, const []);
     final activePlanApprovalToolUseId = useRef<String?>(null);
 
-    // Diff selection from DiffScreen navigation
+    // Diff selection from GitScreen navigation
     final diffSelectionFromNav = useState<DiffSelection?>(null);
 
     // --- Bloc state ---
@@ -574,7 +574,7 @@ class _ChatScreenBody extends HookWidget {
                       minHeight: 32,
                     ),
                     onPressed: () {
-                      _openDiffScreen(
+                      _openGitScreen(
                         context,
                         worktreePath ?? projectPath!,
                         diffSelectionFromNav,
@@ -848,8 +848,8 @@ class _ChatScreenBody extends HookWidget {
                     },
                     onDiffSelectionCleared: () =>
                         diffSelectionFromNav.value = null,
-                    onOpenDiffScreen: projectPath != null
-                        ? (currentSelection) => _openDiffScreen(
+                    onOpenGitScreen: projectPath != null
+                        ? (currentSelection) => _openGitScreen(
                             context,
                             worktreePath ?? projectPath!,
                             diffSelectionFromNav,
@@ -870,14 +870,14 @@ class _ChatScreenBody extends HookWidget {
 // Navigation helpers
 // ---------------------------------------------------------------------------
 
-Future<void> _openDiffScreen(
+Future<void> _openGitScreen(
   BuildContext context,
   String projectPath,
   ValueNotifier<DiffSelection?> diffSelectionNotifier, {
   DiffSelection? existingSelection,
 }) async {
   final selection = await context.router.push<DiffSelection>(
-    DiffRoute(
+    GitRoute(
       projectPath: projectPath,
       initialSelectedHunkKeys: existingSelection?.selectedHunkKeys,
     ),

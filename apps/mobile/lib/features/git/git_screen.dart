@@ -7,8 +7,8 @@ import '../../services/bridge_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/diff_parser.dart';
 import 'state/commit_cubit.dart';
-import 'state/diff_view_cubit.dart';
-import 'state/diff_view_state.dart';
+import 'state/git_view_cubit.dart';
+import 'state/git_view_state.dart';
 import 'widgets/commit_bottom_sheet.dart';
 import 'widgets/diff_content_list.dart';
 import 'widgets/diff_empty_state.dart';
@@ -25,7 +25,7 @@ import 'widgets/diff_stats_badge.dart';
 /// Returns a [String] (reconstructed diff) via [Navigator.pop] when the user
 /// selects hunks and taps the send-to-chat FAB.
 @RoutePage()
-class DiffScreen extends StatelessWidget {
+class GitScreen extends StatelessWidget {
   /// Raw diff text for immediate display (individual tool result).
   final String? initialDiff;
 
@@ -38,7 +38,7 @@ class DiffScreen extends StatelessWidget {
   /// Pre-selected hunk keys to restore selection state.
   final Set<String>? initialSelectedHunkKeys;
 
-  const DiffScreen({
+  const GitScreen({
     super.key,
     this.initialDiff,
     this.projectPath,
@@ -54,7 +54,7 @@ class DiffScreen extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (_) => DiffViewCubit(
+          create: (_) => GitViewCubit(
             bridge: bridge,
             initialDiff: initialDiff,
             projectPath: projectPath,
@@ -69,21 +69,21 @@ class DiffScreen extends StatelessWidget {
             ),
           ),
       ],
-      child: _DiffScreenBody(title: title, isProjectMode: isProjectMode),
+      child: _GitScreenBody(title: title, isProjectMode: isProjectMode),
     );
   }
 }
 
-class _DiffScreenBody extends StatelessWidget {
+class _GitScreenBody extends StatelessWidget {
   final String? title;
   final bool isProjectMode;
 
-  const _DiffScreenBody({this.title, this.isProjectMode = false});
+  const _GitScreenBody({this.title, this.isProjectMode = false});
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<DiffViewCubit>().state;
-    final cubit = context.read<DiffViewCubit>();
+    final state = context.watch<GitViewCubit>().state;
+    final cubit = context.read<GitViewCubit>();
     final appColors = Theme.of(context).extension<AppColors>()!;
     final l = AppLocalizations.of(context);
 
@@ -95,7 +95,7 @@ class _DiffScreenBody extends StatelessWidget {
         bottom: isProjectMode
             ? PreferredSize(
                 preferredSize: const Size.fromHeight(40),
-                child: _DiffViewModeSegment(
+                child: _GitViewModeSegment(
                   viewMode: state.viewMode,
                   onChanged: cubit.switchMode,
                 ),
@@ -198,7 +198,7 @@ class _DiffScreenBody extends StatelessWidget {
   void _handleMenuAction(
     String action,
     BuildContext context,
-    DiffViewCubit cubit,
+    GitViewCubit cubit,
     AppColors appColors,
   ) {
     switch (action) {
@@ -211,8 +211,8 @@ class _DiffScreenBody extends StatelessWidget {
 
   Widget? _buildFab(
     BuildContext context,
-    DiffViewState state,
-    DiffViewCubit cubit,
+    GitViewState state,
+    GitViewCubit cubit,
     AppLocalizations l,
   ) {
     // Send-to-chat FAB (selection mode)
@@ -242,12 +242,12 @@ class _DiffScreenBody extends StatelessWidget {
   void _showFilterBottomSheet(
     BuildContext context,
     AppColors appColors,
-    DiffViewCubit cubit,
+    GitViewCubit cubit,
   ) {
     showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) {
-        return BlocBuilder<DiffViewCubit, DiffViewState>(
+        return BlocBuilder<GitViewCubit, GitViewState>(
           bloc: cubit,
           builder: (context, state) {
             final l = AppLocalizations.of(context);
@@ -321,11 +321,11 @@ class _DiffScreenBody extends StatelessWidget {
 }
 
 /// 2-tab segment: Changes (all) / Staged
-class _DiffViewModeSegment extends StatelessWidget {
-  final DiffViewMode viewMode;
-  final ValueChanged<DiffViewMode> onChanged;
+class _GitViewModeSegment extends StatelessWidget {
+  final GitViewMode viewMode;
+  final ValueChanged<GitViewMode> onChanged;
 
-  const _DiffViewModeSegment({
+  const _GitViewModeSegment({
     required this.viewMode,
     required this.onChanged,
   });
@@ -334,14 +334,14 @@ class _DiffViewModeSegment extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: SegmentedButton<DiffViewMode>(
+      child: SegmentedButton<GitViewMode>(
         segments: const [
           ButtonSegment(
-            value: DiffViewMode.all,
+            value: GitViewMode.all,
             label: Text('Changes'),
           ),
           ButtonSegment(
-            value: DiffViewMode.staged,
+            value: GitViewMode.staged,
             label: Text('Staged'),
           ),
         ],
@@ -359,8 +359,8 @@ class _DiffViewModeSegment extends StatelessWidget {
 
 /// Bottom bar with diff summary stats and git action buttons (Pull / Commit / Push).
 class _DiffBottomBar extends StatelessWidget {
-  final DiffViewState state;
-  final DiffViewCubit cubit;
+  final GitViewState state;
+  final GitViewCubit cubit;
   final VoidCallback onCommit;
   final VoidCallback onPull;
   final VoidCallback onPush;

@@ -289,94 +289,6 @@ class DebugRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
-/// [DiffScreen]
-class DiffRoute extends PageRouteInfo<DiffRouteArgs> {
-  DiffRoute({
-    Key? key,
-    String? initialDiff,
-    String? projectPath,
-    String? title,
-    Set<String>? initialSelectedHunkKeys,
-    List<PageRouteInfo>? children,
-  }) : super(
-         DiffRoute.name,
-         args: DiffRouteArgs(
-           key: key,
-           initialDiff: initialDiff,
-           projectPath: projectPath,
-           title: title,
-           initialSelectedHunkKeys: initialSelectedHunkKeys,
-         ),
-         initialChildren: children,
-       );
-
-  static const String name = 'DiffRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      final args = data.argsAs<DiffRouteArgs>(
-        orElse: () => const DiffRouteArgs(),
-      );
-      return DiffScreen(
-        key: args.key,
-        initialDiff: args.initialDiff,
-        projectPath: args.projectPath,
-        title: args.title,
-        initialSelectedHunkKeys: args.initialSelectedHunkKeys,
-      );
-    },
-  );
-}
-
-class DiffRouteArgs {
-  const DiffRouteArgs({
-    this.key,
-    this.initialDiff,
-    this.projectPath,
-    this.title,
-    this.initialSelectedHunkKeys,
-  });
-
-  final Key? key;
-
-  final String? initialDiff;
-
-  final String? projectPath;
-
-  final String? title;
-
-  final Set<String>? initialSelectedHunkKeys;
-
-  @override
-  String toString() {
-    return 'DiffRouteArgs{key: $key, initialDiff: $initialDiff, projectPath: $projectPath, title: $title, initialSelectedHunkKeys: $initialSelectedHunkKeys}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! DiffRouteArgs) return false;
-    return key == other.key &&
-        initialDiff == other.initialDiff &&
-        projectPath == other.projectPath &&
-        title == other.title &&
-        const SetEquality<String>().equals(
-          initialSelectedHunkKeys,
-          other.initialSelectedHunkKeys,
-        );
-  }
-
-  @override
-  int get hashCode =>
-      key.hashCode ^
-      initialDiff.hashCode ^
-      projectPath.hashCode ^
-      title.hashCode ^
-      const SetEquality<String>().hash(initialSelectedHunkKeys);
-}
-
-/// generated route for
 /// [GalleryScreen]
 class GalleryRoute extends PageRouteInfo<GalleryRouteArgs> {
   GalleryRoute({Key? key, String? sessionId, List<PageRouteInfo>? children})
@@ -420,6 +332,94 @@ class GalleryRouteArgs {
 
   @override
   int get hashCode => key.hashCode ^ sessionId.hashCode;
+}
+
+/// generated route for
+/// [GitScreen]
+class GitRoute extends PageRouteInfo<GitRouteArgs> {
+  GitRoute({
+    Key? key,
+    String? initialDiff,
+    String? projectPath,
+    String? title,
+    Set<String>? initialSelectedHunkKeys,
+    List<PageRouteInfo>? children,
+  }) : super(
+         GitRoute.name,
+         args: GitRouteArgs(
+           key: key,
+           initialDiff: initialDiff,
+           projectPath: projectPath,
+           title: title,
+           initialSelectedHunkKeys: initialSelectedHunkKeys,
+         ),
+         initialChildren: children,
+       );
+
+  static const String name = 'GitRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<GitRouteArgs>(
+        orElse: () => const GitRouteArgs(),
+      );
+      return GitScreen(
+        key: args.key,
+        initialDiff: args.initialDiff,
+        projectPath: args.projectPath,
+        title: args.title,
+        initialSelectedHunkKeys: args.initialSelectedHunkKeys,
+      );
+    },
+  );
+}
+
+class GitRouteArgs {
+  const GitRouteArgs({
+    this.key,
+    this.initialDiff,
+    this.projectPath,
+    this.title,
+    this.initialSelectedHunkKeys,
+  });
+
+  final Key? key;
+
+  final String? initialDiff;
+
+  final String? projectPath;
+
+  final String? title;
+
+  final Set<String>? initialSelectedHunkKeys;
+
+  @override
+  String toString() {
+    return 'GitRouteArgs{key: $key, initialDiff: $initialDiff, projectPath: $projectPath, title: $title, initialSelectedHunkKeys: $initialSelectedHunkKeys}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! GitRouteArgs) return false;
+    return key == other.key &&
+        initialDiff == other.initialDiff &&
+        projectPath == other.projectPath &&
+        title == other.title &&
+        const SetEquality<String>().equals(
+          initialSelectedHunkKeys,
+          other.initialSelectedHunkKeys,
+        );
+  }
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      initialDiff.hashCode ^
+      projectPath.hashCode ^
+      title.hashCode ^
+      const SetEquality<String>().hash(initialSelectedHunkKeys);
 }
 
 /// generated route for

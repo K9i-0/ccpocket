@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../features/claude_session/claude_session_screen.dart';
 import '../features/debug/debug_screen.dart';
 import '../features/codex_session/codex_session_screen.dart';
-import '../features/diff/diff_screen.dart';
+import '../features/git/git_screen.dart';
 import '../features/gallery/gallery_screen.dart';
 import '../features/session_list/session_list_screen.dart';
 import '../features/settings/auth_help_screen.dart';
@@ -28,7 +28,7 @@ class AppRouter extends RootStackRouter {
     AutoRoute(page: ClaudeSessionRoute.page, path: '/session/:sessionId'),
     AutoRoute(page: CodexSessionRoute.page, path: '/codex-session/:sessionId'),
     AutoRoute(page: GalleryRoute.page, path: '/gallery'),
-    AutoRoute(page: DiffRoute.page, path: '/diff'),
+    AutoRoute(page: GitRoute.page, path: '/git'),
     AutoRoute(page: SettingsRoute.page, path: '/settings'),
     AutoRoute(page: LicensesRoute.page, path: '/licenses'),
     AutoRoute(page: ChangelogRoute.page, path: '/changelog'),

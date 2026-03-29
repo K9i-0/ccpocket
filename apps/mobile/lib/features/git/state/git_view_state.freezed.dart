@@ -3,7 +3,7 @@
 // ignore_for_file: type=lint
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
-part of 'diff_view_state.dart';
+part of 'git_view_state.dart';
 
 // **************************************************************************
 // FreezedGenerator
@@ -12,7 +12,7 @@ part of 'diff_view_state.dart';
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
-mixin _$DiffViewState {
+mixin _$GitViewState {
 
 /// Parsed diff files.
  List<DiffFile> get files;/// Indices of files hidden by the filter.
@@ -24,7 +24,7 @@ mixin _$DiffViewState {
  bool get selectionMode;/// Selected hunk keys in the format "$fileIdx:$hunkIdx".
  Set<String> get selectedHunkKeys;/// Indices of image files currently loading on demand.
  Set<int> get loadingImageIndices;/// Current diff view mode: unstaged (working-tree) or staged (index).
- DiffViewMode get viewMode;/// Whether a stage/unstage operation is in progress.
+ GitViewMode get viewMode;/// Whether a stage/unstage operation is in progress.
  bool get staging;/// Commits ahead of upstream (pushable).
  int get commitsAhead;/// Commits behind upstream (pullable).
  int get commitsBehind;/// Whether the branch has a configured upstream.
@@ -32,17 +32,17 @@ mixin _$DiffViewState {
  bool get fetching;/// Whether a pull is in progress.
  bool get pulling;/// Whether a push is in progress.
  bool get pushing;
-/// Create a copy of DiffViewState
+/// Create a copy of GitViewState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-$DiffViewStateCopyWith<DiffViewState> get copyWith => _$DiffViewStateCopyWithImpl<DiffViewState>(this as DiffViewState, _$identity);
+$GitViewStateCopyWith<GitViewState> get copyWith => _$GitViewStateCopyWithImpl<GitViewState>(this as GitViewState, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DiffViewState&&const DeepCollectionEquality().equals(other.files, files)&&const DeepCollectionEquality().equals(other.hiddenFileIndices, hiddenFileIndices)&&const DeepCollectionEquality().equals(other.collapsedFileIndices, collapsedFileIndices)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.error, error) || other.error == error)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.selectionMode, selectionMode) || other.selectionMode == selectionMode)&&const DeepCollectionEquality().equals(other.selectedHunkKeys, selectedHunkKeys)&&const DeepCollectionEquality().equals(other.loadingImageIndices, loadingImageIndices)&&(identical(other.viewMode, viewMode) || other.viewMode == viewMode)&&(identical(other.staging, staging) || other.staging == staging)&&(identical(other.commitsAhead, commitsAhead) || other.commitsAhead == commitsAhead)&&(identical(other.commitsBehind, commitsBehind) || other.commitsBehind == commitsBehind)&&(identical(other.hasUpstream, hasUpstream) || other.hasUpstream == hasUpstream)&&(identical(other.fetching, fetching) || other.fetching == fetching)&&(identical(other.pulling, pulling) || other.pulling == pulling)&&(identical(other.pushing, pushing) || other.pushing == pushing));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is GitViewState&&const DeepCollectionEquality().equals(other.files, files)&&const DeepCollectionEquality().equals(other.hiddenFileIndices, hiddenFileIndices)&&const DeepCollectionEquality().equals(other.collapsedFileIndices, collapsedFileIndices)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.error, error) || other.error == error)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.selectionMode, selectionMode) || other.selectionMode == selectionMode)&&const DeepCollectionEquality().equals(other.selectedHunkKeys, selectedHunkKeys)&&const DeepCollectionEquality().equals(other.loadingImageIndices, loadingImageIndices)&&(identical(other.viewMode, viewMode) || other.viewMode == viewMode)&&(identical(other.staging, staging) || other.staging == staging)&&(identical(other.commitsAhead, commitsAhead) || other.commitsAhead == commitsAhead)&&(identical(other.commitsBehind, commitsBehind) || other.commitsBehind == commitsBehind)&&(identical(other.hasUpstream, hasUpstream) || other.hasUpstream == hasUpstream)&&(identical(other.fetching, fetching) || other.fetching == fetching)&&(identical(other.pulling, pulling) || other.pulling == pulling)&&(identical(other.pushing, pushing) || other.pushing == pushing));
 }
 
 
@@ -51,18 +51,18 @@ int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(
 
 @override
 String toString() {
-  return 'DiffViewState(files: $files, hiddenFileIndices: $hiddenFileIndices, collapsedFileIndices: $collapsedFileIndices, loading: $loading, error: $error, errorCode: $errorCode, selectionMode: $selectionMode, selectedHunkKeys: $selectedHunkKeys, loadingImageIndices: $loadingImageIndices, viewMode: $viewMode, staging: $staging, commitsAhead: $commitsAhead, commitsBehind: $commitsBehind, hasUpstream: $hasUpstream, fetching: $fetching, pulling: $pulling, pushing: $pushing)';
+  return 'GitViewState(files: $files, hiddenFileIndices: $hiddenFileIndices, collapsedFileIndices: $collapsedFileIndices, loading: $loading, error: $error, errorCode: $errorCode, selectionMode: $selectionMode, selectedHunkKeys: $selectedHunkKeys, loadingImageIndices: $loadingImageIndices, viewMode: $viewMode, staging: $staging, commitsAhead: $commitsAhead, commitsBehind: $commitsBehind, hasUpstream: $hasUpstream, fetching: $fetching, pulling: $pulling, pushing: $pushing)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class $DiffViewStateCopyWith<$Res>  {
-  factory $DiffViewStateCopyWith(DiffViewState value, $Res Function(DiffViewState) _then) = _$DiffViewStateCopyWithImpl;
+abstract mixin class $GitViewStateCopyWith<$Res>  {
+  factory $GitViewStateCopyWith(GitViewState value, $Res Function(GitViewState) _then) = _$GitViewStateCopyWithImpl;
 @useResult
 $Res call({
- List<DiffFile> files, Set<int> hiddenFileIndices, Set<int> collapsedFileIndices, bool loading, String? error, String? errorCode, bool selectionMode, Set<String> selectedHunkKeys, Set<int> loadingImageIndices, DiffViewMode viewMode, bool staging, int commitsAhead, int commitsBehind, bool hasUpstream, bool fetching, bool pulling, bool pushing
+ List<DiffFile> files, Set<int> hiddenFileIndices, Set<int> collapsedFileIndices, bool loading, String? error, String? errorCode, bool selectionMode, Set<String> selectedHunkKeys, Set<int> loadingImageIndices, GitViewMode viewMode, bool staging, int commitsAhead, int commitsBehind, bool hasUpstream, bool fetching, bool pulling, bool pushing
 });
 
 
@@ -70,14 +70,14 @@ $Res call({
 
 }
 /// @nodoc
-class _$DiffViewStateCopyWithImpl<$Res>
-    implements $DiffViewStateCopyWith<$Res> {
-  _$DiffViewStateCopyWithImpl(this._self, this._then);
+class _$GitViewStateCopyWithImpl<$Res>
+    implements $GitViewStateCopyWith<$Res> {
+  _$GitViewStateCopyWithImpl(this._self, this._then);
 
-  final DiffViewState _self;
-  final $Res Function(DiffViewState) _then;
+  final GitViewState _self;
+  final $Res Function(GitViewState) _then;
 
-/// Create a copy of DiffViewState
+/// Create a copy of GitViewState
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? files = null,Object? hiddenFileIndices = null,Object? collapsedFileIndices = null,Object? loading = null,Object? error = freezed,Object? errorCode = freezed,Object? selectionMode = null,Object? selectedHunkKeys = null,Object? loadingImageIndices = null,Object? viewMode = null,Object? staging = null,Object? commitsAhead = null,Object? commitsBehind = null,Object? hasUpstream = null,Object? fetching = null,Object? pulling = null,Object? pushing = null,}) {
   return _then(_self.copyWith(
@@ -91,7 +91,7 @@ as String?,selectionMode: null == selectionMode ? _self.selectionMode : selectio
 as bool,selectedHunkKeys: null == selectedHunkKeys ? _self.selectedHunkKeys : selectedHunkKeys // ignore: cast_nullable_to_non_nullable
 as Set<String>,loadingImageIndices: null == loadingImageIndices ? _self.loadingImageIndices : loadingImageIndices // ignore: cast_nullable_to_non_nullable
 as Set<int>,viewMode: null == viewMode ? _self.viewMode : viewMode // ignore: cast_nullable_to_non_nullable
-as DiffViewMode,staging: null == staging ? _self.staging : staging // ignore: cast_nullable_to_non_nullable
+as GitViewMode,staging: null == staging ? _self.staging : staging // ignore: cast_nullable_to_non_nullable
 as bool,commitsAhead: null == commitsAhead ? _self.commitsAhead : commitsAhead // ignore: cast_nullable_to_non_nullable
 as int,commitsBehind: null == commitsBehind ? _self.commitsBehind : commitsBehind // ignore: cast_nullable_to_non_nullable
 as int,hasUpstream: null == hasUpstream ? _self.hasUpstream : hasUpstream // ignore: cast_nullable_to_non_nullable
@@ -105,8 +105,8 @@ as bool,
 }
 
 
-/// Adds pattern-matching-related methods to [DiffViewState].
-extension DiffViewStatePatterns on DiffViewState {
+/// Adds pattern-matching-related methods to [GitViewState].
+extension GitViewStatePatterns on GitViewState {
 /// A variant of `map` that fallback to returning `orElse`.
 ///
 /// It is equivalent to doing:
@@ -119,10 +119,10 @@ extension DiffViewStatePatterns on DiffViewState {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _DiffViewState value)?  $default,{required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _GitViewState value)?  $default,{required TResult orElse(),}){
 final _that = this;
 switch (_that) {
-case _DiffViewState() when $default != null:
+case _GitViewState() when $default != null:
 return $default(_that);case _:
   return orElse();
 
@@ -141,10 +141,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _DiffViewState value)  $default,){
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _GitViewState value)  $default,){
 final _that = this;
 switch (_that) {
-case _DiffViewState():
+case _GitViewState():
 return $default(_that);case _:
   throw StateError('Unexpected subclass');
 
@@ -162,10 +162,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _DiffViewState value)?  $default,){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _GitViewState value)?  $default,){
 final _that = this;
 switch (_that) {
-case _DiffViewState() when $default != null:
+case _GitViewState() when $default != null:
 return $default(_that);case _:
   return null;
 
@@ -183,9 +183,9 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<DiffFile> files,  Set<int> hiddenFileIndices,  Set<int> collapsedFileIndices,  bool loading,  String? error,  String? errorCode,  bool selectionMode,  Set<String> selectedHunkKeys,  Set<int> loadingImageIndices,  DiffViewMode viewMode,  bool staging,  int commitsAhead,  int commitsBehind,  bool hasUpstream,  bool fetching,  bool pulling,  bool pushing)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<DiffFile> files,  Set<int> hiddenFileIndices,  Set<int> collapsedFileIndices,  bool loading,  String? error,  String? errorCode,  bool selectionMode,  Set<String> selectedHunkKeys,  Set<int> loadingImageIndices,  GitViewMode viewMode,  bool staging,  int commitsAhead,  int commitsBehind,  bool hasUpstream,  bool fetching,  bool pulling,  bool pushing)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
-case _DiffViewState() when $default != null:
+case _GitViewState() when $default != null:
 return $default(_that.files,_that.hiddenFileIndices,_that.collapsedFileIndices,_that.loading,_that.error,_that.errorCode,_that.selectionMode,_that.selectedHunkKeys,_that.loadingImageIndices,_that.viewMode,_that.staging,_that.commitsAhead,_that.commitsBehind,_that.hasUpstream,_that.fetching,_that.pulling,_that.pushing);case _:
   return orElse();
 
@@ -204,9 +204,9 @@ return $default(_that.files,_that.hiddenFileIndices,_that.collapsedFileIndices,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<DiffFile> files,  Set<int> hiddenFileIndices,  Set<int> collapsedFileIndices,  bool loading,  String? error,  String? errorCode,  bool selectionMode,  Set<String> selectedHunkKeys,  Set<int> loadingImageIndices,  DiffViewMode viewMode,  bool staging,  int commitsAhead,  int commitsBehind,  bool hasUpstream,  bool fetching,  bool pulling,  bool pushing)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<DiffFile> files,  Set<int> hiddenFileIndices,  Set<int> collapsedFileIndices,  bool loading,  String? error,  String? errorCode,  bool selectionMode,  Set<String> selectedHunkKeys,  Set<int> loadingImageIndices,  GitViewMode viewMode,  bool staging,  int commitsAhead,  int commitsBehind,  bool hasUpstream,  bool fetching,  bool pulling,  bool pushing)  $default,) {final _that = this;
 switch (_that) {
-case _DiffViewState():
+case _GitViewState():
 return $default(_that.files,_that.hiddenFileIndices,_that.collapsedFileIndices,_that.loading,_that.error,_that.errorCode,_that.selectionMode,_that.selectedHunkKeys,_that.loadingImageIndices,_that.viewMode,_that.staging,_that.commitsAhead,_that.commitsBehind,_that.hasUpstream,_that.fetching,_that.pulling,_that.pushing);case _:
   throw StateError('Unexpected subclass');
 
@@ -224,9 +224,9 @@ return $default(_that.files,_that.hiddenFileIndices,_that.collapsedFileIndices,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<DiffFile> files,  Set<int> hiddenFileIndices,  Set<int> collapsedFileIndices,  bool loading,  String? error,  String? errorCode,  bool selectionMode,  Set<String> selectedHunkKeys,  Set<int> loadingImageIndices,  DiffViewMode viewMode,  bool staging,  int commitsAhead,  int commitsBehind,  bool hasUpstream,  bool fetching,  bool pulling,  bool pushing)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<DiffFile> files,  Set<int> hiddenFileIndices,  Set<int> collapsedFileIndices,  bool loading,  String? error,  String? errorCode,  bool selectionMode,  Set<String> selectedHunkKeys,  Set<int> loadingImageIndices,  GitViewMode viewMode,  bool staging,  int commitsAhead,  int commitsBehind,  bool hasUpstream,  bool fetching,  bool pulling,  bool pushing)?  $default,) {final _that = this;
 switch (_that) {
-case _DiffViewState() when $default != null:
+case _GitViewState() when $default != null:
 return $default(_that.files,_that.hiddenFileIndices,_that.collapsedFileIndices,_that.loading,_that.error,_that.errorCode,_that.selectionMode,_that.selectedHunkKeys,_that.loadingImageIndices,_that.viewMode,_that.staging,_that.commitsAhead,_that.commitsBehind,_that.hasUpstream,_that.fetching,_that.pulling,_that.pushing);case _:
   return null;
 
@@ -238,8 +238,8 @@ return $default(_that.files,_that.hiddenFileIndices,_that.collapsedFileIndices,_
 /// @nodoc
 
 
-class _DiffViewState implements DiffViewState {
-  const _DiffViewState({final  List<DiffFile> files = const [], final  Set<int> hiddenFileIndices = const {}, final  Set<int> collapsedFileIndices = const {}, this.loading = false, this.error, this.errorCode, this.selectionMode = false, final  Set<String> selectedHunkKeys = const {}, final  Set<int> loadingImageIndices = const {}, this.viewMode = DiffViewMode.all, this.staging = false, this.commitsAhead = 0, this.commitsBehind = 0, this.hasUpstream = false, this.fetching = false, this.pulling = false, this.pushing = false}): _files = files,_hiddenFileIndices = hiddenFileIndices,_collapsedFileIndices = collapsedFileIndices,_selectedHunkKeys = selectedHunkKeys,_loadingImageIndices = loadingImageIndices;
+class _GitViewState implements GitViewState {
+  const _GitViewState({final  List<DiffFile> files = const [], final  Set<int> hiddenFileIndices = const {}, final  Set<int> collapsedFileIndices = const {}, this.loading = false, this.error, this.errorCode, this.selectionMode = false, final  Set<String> selectedHunkKeys = const {}, final  Set<int> loadingImageIndices = const {}, this.viewMode = GitViewMode.all, this.staging = false, this.commitsAhead = 0, this.commitsBehind = 0, this.hasUpstream = false, this.fetching = false, this.pulling = false, this.pushing = false}): _files = files,_hiddenFileIndices = hiddenFileIndices,_collapsedFileIndices = collapsedFileIndices,_selectedHunkKeys = selectedHunkKeys,_loadingImageIndices = loadingImageIndices;
   
 
 /// Parsed diff files.
@@ -296,7 +296,7 @@ class _DiffViewState implements DiffViewState {
 }
 
 /// Current diff view mode: unstaged (working-tree) or staged (index).
-@override@JsonKey() final  DiffViewMode viewMode;
+@override@JsonKey() final  GitViewMode viewMode;
 /// Whether a stage/unstage operation is in progress.
 @override@JsonKey() final  bool staging;
 /// Commits ahead of upstream (pushable).
@@ -312,17 +312,17 @@ class _DiffViewState implements DiffViewState {
 /// Whether a push is in progress.
 @override@JsonKey() final  bool pushing;
 
-/// Create a copy of DiffViewState
+/// Create a copy of GitViewState
 /// with the given fields replaced by the non-null parameter values.
 @override @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-_$DiffViewStateCopyWith<_DiffViewState> get copyWith => __$DiffViewStateCopyWithImpl<_DiffViewState>(this, _$identity);
+_$GitViewStateCopyWith<_GitViewState> get copyWith => __$GitViewStateCopyWithImpl<_GitViewState>(this, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DiffViewState&&const DeepCollectionEquality().equals(other._files, _files)&&const DeepCollectionEquality().equals(other._hiddenFileIndices, _hiddenFileIndices)&&const DeepCollectionEquality().equals(other._collapsedFileIndices, _collapsedFileIndices)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.error, error) || other.error == error)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.selectionMode, selectionMode) || other.selectionMode == selectionMode)&&const DeepCollectionEquality().equals(other._selectedHunkKeys, _selectedHunkKeys)&&const DeepCollectionEquality().equals(other._loadingImageIndices, _loadingImageIndices)&&(identical(other.viewMode, viewMode) || other.viewMode == viewMode)&&(identical(other.staging, staging) || other.staging == staging)&&(identical(other.commitsAhead, commitsAhead) || other.commitsAhead == commitsAhead)&&(identical(other.commitsBehind, commitsBehind) || other.commitsBehind == commitsBehind)&&(identical(other.hasUpstream, hasUpstream) || other.hasUpstream == hasUpstream)&&(identical(other.fetching, fetching) || other.fetching == fetching)&&(identical(other.pulling, pulling) || other.pulling == pulling)&&(identical(other.pushing, pushing) || other.pushing == pushing));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _GitViewState&&const DeepCollectionEquality().equals(other._files, _files)&&const DeepCollectionEquality().equals(other._hiddenFileIndices, _hiddenFileIndices)&&const DeepCollectionEquality().equals(other._collapsedFileIndices, _collapsedFileIndices)&&(identical(other.loading, loading) || other.loading == loading)&&(identical(other.error, error) || other.error == error)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.selectionMode, selectionMode) || other.selectionMode == selectionMode)&&const DeepCollectionEquality().equals(other._selectedHunkKeys, _selectedHunkKeys)&&const DeepCollectionEquality().equals(other._loadingImageIndices, _loadingImageIndices)&&(identical(other.viewMode, viewMode) || other.viewMode == viewMode)&&(identical(other.staging, staging) || other.staging == staging)&&(identical(other.commitsAhead, commitsAhead) || other.commitsAhead == commitsAhead)&&(identical(other.commitsBehind, commitsBehind) || other.commitsBehind == commitsBehind)&&(identical(other.hasUpstream, hasUpstream) || other.hasUpstream == hasUpstream)&&(identical(other.fetching, fetching) || other.fetching == fetching)&&(identical(other.pulling, pulling) || other.pulling == pulling)&&(identical(other.pushing, pushing) || other.pushing == pushing));
 }
 
 
@@ -331,18 +331,18 @@ int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(
 
 @override
 String toString() {
-  return 'DiffViewState(files: $files, hiddenFileIndices: $hiddenFileIndices, collapsedFileIndices: $collapsedFileIndices, loading: $loading, error: $error, errorCode: $errorCode, selectionMode: $selectionMode, selectedHunkKeys: $selectedHunkKeys, loadingImageIndices: $loadingImageIndices, viewMode: $viewMode, staging: $staging, commitsAhead: $commitsAhead, commitsBehind: $commitsBehind, hasUpstream: $hasUpstream, fetching: $fetching, pulling: $pulling, pushing: $pushing)';
+  return 'GitViewState(files: $files, hiddenFileIndices: $hiddenFileIndices, collapsedFileIndices: $collapsedFileIndices, loading: $loading, error: $error, errorCode: $errorCode, selectionMode: $selectionMode, selectedHunkKeys: $selectedHunkKeys, loadingImageIndices: $loadingImageIndices, viewMode: $viewMode, staging: $staging, commitsAhead: $commitsAhead, commitsBehind: $commitsBehind, hasUpstream: $hasUpstream, fetching: $fetching, pulling: $pulling, pushing: $pushing)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class _$DiffViewStateCopyWith<$Res> implements $DiffViewStateCopyWith<$Res> {
-  factory _$DiffViewStateCopyWith(_DiffViewState value, $Res Function(_DiffViewState) _then) = __$DiffViewStateCopyWithImpl;
+abstract mixin class _$GitViewStateCopyWith<$Res> implements $GitViewStateCopyWith<$Res> {
+  factory _$GitViewStateCopyWith(_GitViewState value, $Res Function(_GitViewState) _then) = __$GitViewStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<DiffFile> files, Set<int> hiddenFileIndices, Set<int> collapsedFileIndices, bool loading, String? error, String? errorCode, bool selectionMode, Set<String> selectedHunkKeys, Set<int> loadingImageIndices, DiffViewMode viewMode, bool staging, int commitsAhead, int commitsBehind, bool hasUpstream, bool fetching, bool pulling, bool pushing
+ List<DiffFile> files, Set<int> hiddenFileIndices, Set<int> collapsedFileIndices, bool loading, String? error, String? errorCode, bool selectionMode, Set<String> selectedHunkKeys, Set<int> loadingImageIndices, GitViewMode viewMode, bool staging, int commitsAhead, int commitsBehind, bool hasUpstream, bool fetching, bool pulling, bool pushing
 });
 
 
@@ -350,17 +350,17 @@ $Res call({
 
 }
 /// @nodoc
-class __$DiffViewStateCopyWithImpl<$Res>
-    implements _$DiffViewStateCopyWith<$Res> {
-  __$DiffViewStateCopyWithImpl(this._self, this._then);
+class __$GitViewStateCopyWithImpl<$Res>
+    implements _$GitViewStateCopyWith<$Res> {
+  __$GitViewStateCopyWithImpl(this._self, this._then);
 
-  final _DiffViewState _self;
-  final $Res Function(_DiffViewState) _then;
+  final _GitViewState _self;
+  final $Res Function(_GitViewState) _then;
 
-/// Create a copy of DiffViewState
+/// Create a copy of GitViewState
 /// with the given fields replaced by the non-null parameter values.
 @override @pragma('vm:prefer-inline') $Res call({Object? files = null,Object? hiddenFileIndices = null,Object? collapsedFileIndices = null,Object? loading = null,Object? error = freezed,Object? errorCode = freezed,Object? selectionMode = null,Object? selectedHunkKeys = null,Object? loadingImageIndices = null,Object? viewMode = null,Object? staging = null,Object? commitsAhead = null,Object? commitsBehind = null,Object? hasUpstream = null,Object? fetching = null,Object? pulling = null,Object? pushing = null,}) {
-  return _then(_DiffViewState(
+  return _then(_GitViewState(
 files: null == files ? _self._files : files // ignore: cast_nullable_to_non_nullable
 as List<DiffFile>,hiddenFileIndices: null == hiddenFileIndices ? _self._hiddenFileIndices : hiddenFileIndices // ignore: cast_nullable_to_non_nullable
 as Set<int>,collapsedFileIndices: null == collapsedFileIndices ? _self._collapsedFileIndices : collapsedFileIndices // ignore: cast_nullable_to_non_nullable
@@ -371,7 +371,7 @@ as String?,selectionMode: null == selectionMode ? _self.selectionMode : selectio
 as bool,selectedHunkKeys: null == selectedHunkKeys ? _self._selectedHunkKeys : selectedHunkKeys // ignore: cast_nullable_to_non_nullable
 as Set<String>,loadingImageIndices: null == loadingImageIndices ? _self._loadingImageIndices : loadingImageIndices // ignore: cast_nullable_to_non_nullable
 as Set<int>,viewMode: null == viewMode ? _self.viewMode : viewMode // ignore: cast_nullable_to_non_nullable
-as DiffViewMode,staging: null == staging ? _self.staging : staging // ignore: cast_nullable_to_non_nullable
+as GitViewMode,staging: null == staging ? _self.staging : staging // ignore: cast_nullable_to_non_nullable
 as bool,commitsAhead: null == commitsAhead ? _self.commitsAhead : commitsAhead // ignore: cast_nullable_to_non_nullable
 as int,commitsBehind: null == commitsBehind ? _self.commitsBehind : commitsBehind // ignore: cast_nullable_to_non_nullable
 as int,hasUpstream: null == hasUpstream ? _self.hasUpstream : hasUpstream // ignore: cast_nullable_to_non_nullable

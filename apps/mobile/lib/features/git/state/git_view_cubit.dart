@@ -7,14 +7,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../../../utils/diff_parser.dart';
-import 'diff_view_state.dart';
+import 'git_view_state.dart';
 
 /// Manages diff viewer state: file parsing, collapse/expand, and filtering.
 ///
 /// Two modes controlled by constructor parameters:
 /// - [initialDiff] provided → parse immediately (individual tool result).
 /// - [projectPath] provided → request `git diff` from Bridge and subscribe.
-class DiffViewCubit extends Cubit<DiffViewState> {
+class GitViewCubit extends Cubit<GitViewState> {
   final BridgeService _bridge;
   StreamSubscription<DiffResultMessage>? _diffSub;
   StreamSubscription<DiffImageResultMessage>? _diffImageSub;
@@ -27,7 +27,7 @@ class DiffViewCubit extends Cubit<DiffViewState> {
   StreamSubscription<GitRemoteStatusResultMessage>? _remoteStatusSub;
   final String? _projectPath;
 
-  DiffViewCubit({
+  GitViewCubit({
     required BridgeService bridge,
     String? initialDiff,
     String? projectPath,
@@ -50,7 +50,7 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     }
   }
 
-  static DiffViewState _initialState(
+  static GitViewState _initialState(
     String? initialDiff,
     String? projectPath,
     Set<String>? initialSelectedHunkKeys,
@@ -58,16 +58,16 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     final hasSelection =
         initialSelectedHunkKeys != null && initialSelectedHunkKeys.isNotEmpty;
     if (initialDiff != null) {
-      return DiffViewState(
+      return GitViewState(
         files: parseDiff(initialDiff),
         selectionMode: hasSelection,
         selectedHunkKeys: initialSelectedHunkKeys ?? const {},
       );
     }
     if (projectPath != null) {
-      return const DiffViewState(loading: true);
+      return const GitViewState(loading: true);
     }
-    return const DiffViewState();
+    return const GitViewState();
   }
 
   void _requestDiff(String projectPath, Set<String>? initialSelectedHunkKeys) {
@@ -99,7 +99,7 @@ class DiffViewCubit extends Cubit<DiffViewState> {
         );
       }
     });
-    final staged = state.viewMode == DiffViewMode.staged ? true : null;
+    final staged = state.viewMode == GitViewMode.staged ? true : null;
     _bridge.send(ClientMessage.getDiff(projectPath, staged: staged));
   }
 
@@ -111,7 +111,7 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     final projectPath = _projectPath;
     if (projectPath == null) return;
     emit(state.copyWith(loading: true, error: null));
-    final staged = state.viewMode == DiffViewMode.staged ? true : null;
+    final staged = state.viewMode == GitViewMode.staged ? true : null;
     _bridge.send(ClientMessage.getDiff(projectPath, staged: staged));
     // Also fetch + update remote status on refresh
     _fetchAndUpdateStatus();
@@ -417,12 +417,12 @@ class DiffViewCubit extends Cubit<DiffViewState> {
   // ---------------------------------------------------------------------------
 
   /// Switch between unstaged (working-tree) and staged (index) diff view.
-  void switchMode(DiffViewMode mode) {
+  void switchMode(GitViewMode mode) {
     if (mode == state.viewMode) return;
     emit(state.copyWith(viewMode: mode, loading: true, error: null, files: []));
     final projectPath = _projectPath;
     if (projectPath != null) {
-      final staged = mode == DiffViewMode.staged ? true : null;
+      final staged = mode == GitViewMode.staged ? true : null;
       _bridge.send(ClientMessage.getDiff(projectPath, staged: staged));
     }
   }

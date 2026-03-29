@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ccpocket/features/diff/state/diff_view_cubit.dart';
-import 'package:ccpocket/features/diff/state/diff_view_state.dart';
+import 'package:ccpocket/features/git/state/git_view_cubit.dart';
+import 'package:ccpocket/features/git/state/git_view_state.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 
@@ -134,12 +134,12 @@ class MockDiffBridgeService extends BridgeService {
   }
 }
 
-DiffViewCubit _createCubit({String? initialDiff}) {
-  return DiffViewCubit(bridge: BridgeService(), initialDiff: initialDiff);
+GitViewCubit _createCubit({String? initialDiff}) {
+  return GitViewCubit(bridge: BridgeService(), initialDiff: initialDiff);
 }
 
 void main() {
-  group('DiffViewCubit - initialDiff mode', () {
+  group('GitViewCubit - initialDiff mode', () {
     test('parses initial diff on build', () {
       final cubit = _createCubit(initialDiff: _sampleDiff);
       addTearDown(cubit.close);
@@ -159,7 +159,7 @@ void main() {
     });
   });
 
-  group('DiffViewCubit - toggleCollapse', () {
+  group('GitViewCubit - toggleCollapse', () {
     test('adds fileIdx to collapsedFileIndices', () {
       final cubit = _createCubit(initialDiff: _multiFileDiff);
       addTearDown(cubit.close);
@@ -191,7 +191,7 @@ void main() {
     });
   });
 
-  group('DiffViewCubit - hidden file management', () {
+  group('GitViewCubit - hidden file management', () {
     test('setHiddenFiles replaces all hidden indices', () {
       final cubit = _createCubit(initialDiff: _multiFileDiff);
       addTearDown(cubit.close);
@@ -224,19 +224,19 @@ void main() {
     });
   });
 
-  group('DiffViewCubit - default state', () {
+  group('GitViewCubit - default state', () {
     test('returns empty state when no params provided', () {
-      final cubit = DiffViewCubit(bridge: BridgeService());
+      final cubit = GitViewCubit(bridge: BridgeService());
       addTearDown(cubit.close);
 
-      expect(cubit.state, const DiffViewState());
+      expect(cubit.state, const GitViewState());
       expect(cubit.state.files, isEmpty);
       expect(cubit.state.loading, false);
       expect(cubit.state.error, isNull);
     });
   });
 
-  group('DiffViewCubit - initialDiff edge cases', () {
+  group('GitViewCubit - initialDiff edge cases', () {
     test('parses whitespace-only diff as empty', () {
       final cubit = _createCubit(initialDiff: '   \n\n  ');
       addTearDown(cubit.close);
@@ -264,10 +264,10 @@ void main() {
     });
   });
 
-  group('DiffViewCubit - projectPath mode', () {
+  group('GitViewCubit - projectPath mode', () {
     test('starts in loading state when projectPath provided', () {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -282,7 +282,7 @@ void main() {
 
     test('sends getDiff and gitFetch messages to bridge', () {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -299,7 +299,7 @@ void main() {
 
     test('updates state when diff result arrives', () async {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -318,7 +318,7 @@ void main() {
 
     test('handles error in diff result', () async {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -338,7 +338,7 @@ void main() {
 
     test('handles empty diff result', () async {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -357,7 +357,7 @@ void main() {
 
     test('handles whitespace-only diff result', () async {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -374,7 +374,7 @@ void main() {
     });
   });
 
-  group('DiffViewCubit - collapse and visibility combined', () {
+  group('GitViewCubit - collapse and visibility combined', () {
     test('collapsed and hidden states are independent', () {
       final cubit = _createCubit(initialDiff: _multiFileDiff);
       addTearDown(cubit.close);
@@ -399,10 +399,10 @@ void main() {
     });
   });
 
-  group('DiffViewCubit - staging mode', () {
+  group('GitViewCubit - staging mode', () {
     test('switchMode emits viewMode change and requests staged diff', () async {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -414,9 +414,9 @@ void main() {
       // Initial: getDiff + gitFetch
       final initCount = mockBridge.sentMessages.length;
 
-      cubit.switchMode(DiffViewMode.staged);
+      cubit.switchMode(GitViewMode.staged);
 
-      expect(cubit.state.viewMode, DiffViewMode.staged);
+      expect(cubit.state.viewMode, GitViewMode.staged);
       expect(cubit.state.loading, isTrue);
       // Should send getDiff(staged) + gitFetch
       final newMessages = mockBridge.sentMessages.sublist(initCount);
@@ -427,7 +427,7 @@ void main() {
 
     test('switchMode to same mode is a no-op', () {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -437,14 +437,14 @@ void main() {
       });
 
       final initCount = mockBridge.sentMessages.length;
-      cubit.switchMode(DiffViewMode.all); // same as default
+      cubit.switchMode(GitViewMode.all); // same as default
       // Should not send additional messages
       expect(mockBridge.sentMessages.length, initCount);
     });
 
     test('stageFile sends git_stage with file path', () async {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -468,7 +468,7 @@ void main() {
 
     test('stageAll sends git_stage with all file paths', () async {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -494,7 +494,7 @@ void main() {
 
     test('stageSelectedHunks sends git_stage with selected hunks', () async {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -521,7 +521,7 @@ void main() {
 
     test('successful stage result triggers refresh', () async {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -550,7 +550,7 @@ void main() {
 
     test('failed stage result shows error', () async {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );
@@ -574,7 +574,7 @@ void main() {
 
     test('unstageAll sends git_unstage with all file paths', () async {
       final mockBridge = MockDiffBridgeService();
-      final cubit = DiffViewCubit(
+      final cubit = GitViewCubit(
         bridge: mockBridge,
         projectPath: '/home/user/project',
       );

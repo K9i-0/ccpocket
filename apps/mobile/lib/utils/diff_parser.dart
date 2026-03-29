@@ -613,7 +613,7 @@ DiffHunk _buildHunkFromStrings(String oldString, String newString) {
 
 /// Reconstruct unified diff text from a [DiffFile].
 ///
-/// Used to pass synthesized diff data to [DiffScreen].
+/// Used to pass synthesized diff data to [GitScreen].
 String reconstructUnifiedDiff(DiffFile file) {
   final buffer = StringBuffer();
   if (file.isNewFile) {

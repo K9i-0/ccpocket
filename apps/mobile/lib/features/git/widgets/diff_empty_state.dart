@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
-import '../state/diff_view_state.dart';
+import '../state/git_view_state.dart';
 
 class DiffEmptyState extends StatelessWidget {
-  final DiffViewMode? viewMode;
+  final GitViewMode? viewMode;
 
   const DiffEmptyState({super.key, this.viewMode});
 
@@ -14,11 +14,11 @@ class DiffEmptyState extends StatelessWidget {
     final appColors = Theme.of(context).extension<AppColors>()!;
 
     final (icon, message) = switch (viewMode) {
-      DiffViewMode.staged => (
+      GitViewMode.staged => (
         Icons.inbox_outlined,
         'No staged files',
       ),
-      DiffViewMode.all => (
+      GitViewMode.all => (
         Icons.check_circle_outline,
         AppLocalizations.of(context).noChanges,
       ),

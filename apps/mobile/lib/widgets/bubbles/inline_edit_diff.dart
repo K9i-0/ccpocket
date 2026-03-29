@@ -17,7 +17,7 @@ const _codeHeight = 1.4;
 class InlineEditDiff extends StatelessWidget {
   final DiffFile diffFile;
 
-  /// Called when the user taps to open the full [DiffScreen].
+  /// Called when the user taps to open the full [GitScreen].
   final VoidCallback? onTapFullDiff;
 
   const InlineEditDiff({super.key, required this.diffFile, this.onTapFullDiff});

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../services/bridge_service.dart';
-import '../../diff/state/branch_cubit.dart';
-import '../../diff/state/branch_state.dart';
+import '../state/branch_cubit.dart';
+import '../state/branch_state.dart';
 
 /// Shows the branch selector bottom sheet.
 void showBranchSelectorSheet(BuildContext context, String projectPath) {

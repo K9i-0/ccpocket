@@ -13,7 +13,7 @@ class MockBridgeService extends BridgeService {
   String? _mockDiff;
   final Set<String> _stagedFiles = {};
 
-  /// Set mock diff data for projectPath-mode DiffScreen previews.
+  /// Set mock diff data for projectPath-mode GitScreen previews.
   set mockDiff(String value) {
     _mockDiff = value;
     _stagedFiles.clear();

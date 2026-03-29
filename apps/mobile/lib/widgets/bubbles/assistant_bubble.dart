@@ -413,16 +413,16 @@ class _ToolUseTileState extends State<ToolUseTile> {
       expansion: _expansion,
       onTap: _cycleExpansion,
       onLongPress: _copyContent,
-      onOpenDiffScreen: _openDiffScreen,
+      onOpenGitScreen: _openGitScreen,
     );
   }
 
-  void _openDiffScreen() {
+  void _openGitScreen() {
     final diff = _editDiff;
     if (diff == null) return;
     final diffText = reconstructUnifiedDiff(diff);
     final filePath = diff.filePath.split('/').lastOrNull ?? diff.filePath;
-    context.router.push(DiffRoute(initialDiff: diffText, title: filePath));
+    context.router.push(GitRoute(initialDiff: diffText, title: filePath));
   }
 
   String get _storageKey {
@@ -514,7 +514,7 @@ class _ToolUseCard extends StatelessWidget {
   final ToolUseExpansion expansion;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-  final VoidCallback onOpenDiffScreen;
+  final VoidCallback onOpenGitScreen;
 
   static const _previewLines = 5;
 
@@ -527,7 +527,7 @@ class _ToolUseCard extends StatelessWidget {
     required this.expansion,
     required this.onTap,
     required this.onLongPress,
-    required this.onOpenDiffScreen,
+    required this.onOpenGitScreen,
   });
 
   @override
@@ -594,7 +594,7 @@ class _ToolUseCard extends StatelessWidget {
               if (diffFile != null)
                 InlineEditDiff(
                   diffFile: diffFile,
-                  onTapFullDiff: onOpenDiffScreen,
+                  onTapFullDiff: onOpenGitScreen,
                 )
               else
                 _buildInputBody(appColors),
