@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
@@ -257,6 +258,38 @@ class _FilePeekContentState extends State<_FilePeekContent> {
     );
   }
 
+  void _copyContent() {
+    if (_result == null) return;
+    Clipboard.setData(ClipboardData(text: _result!.content));
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(AppLocalizations.of(context).copied),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _shareContent() {
+    if (_result == null) return;
+    SharePlus.instance.share(ShareParams(text: _result!.content));
+  }
+
+  Widget _actionIcon({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Icon(icon, size: 18, color: color),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
@@ -288,47 +321,15 @@ class _FilePeekContentState extends State<_FilePeekContent> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      fileName,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (widget.filePath != fileName)
-                      Text(
-                        widget.filePath,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: appColors.subtleText,
-                          fontFamily: 'monospace',
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
-                ),
-              ),
-              if (isMarkdown && !_loading && _result?.error == null)
-                IconButton(
-                  icon: Icon(
-                    _showRaw ? Icons.article_outlined : Icons.code,
-                    size: 18,
+                child: Text(
+                  fileName,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
-                  onPressed: () => setState(() => _showRaw = !_showRaw),
-                  tooltip: _showRaw ? 'Preview' : 'Raw',
-                  visualDensity: VisualDensity.compact,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              IconButton(
-                icon: const Icon(Icons.copy, size: 18),
-                onPressed: _copyPath,
-                tooltip: 'Copy path',
-                visualDensity: VisualDensity.compact,
               ),
               IconButton(
                 icon: const Icon(Icons.close, size: 20),
@@ -338,9 +339,39 @@ class _FilePeekContentState extends State<_FilePeekContent> {
             ],
           ),
         ),
+        // Full path with inline copy
+        if (widget.filePath != fileName)
+          Padding(
+            padding: const EdgeInsets.only(left: 42, right: 16),
+            child: GestureDetector(
+              onTap: _copyPath,
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      widget.filePath,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: appColors.subtleText,
+                        fontFamily: 'monospace',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.content_copy,
+                    size: 12,
+                    color: appColors.subtleText.withValues(alpha: 0.6),
+                  ),
+                ],
+              ),
+            ),
+          ),
         if (_result != null && _result!.totalLines != null)
           Padding(
-            padding: const EdgeInsets.only(left: 42, bottom: 4),
+            padding: const EdgeInsets.only(left: 42, top: 2, bottom: 4),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -363,6 +394,35 @@ class _FilePeekContentState extends State<_FilePeekContent> {
                       ? _buildMarkdownPreview()
                       : _buildCodeContent(appColors),
         ),
+        // Action bar (same style as MessageActionBar)
+        if (!_loading && _result?.error == null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                _actionIcon(
+                  icon: Icons.content_copy,
+                  color: appColors.subtleText,
+                  onTap: _copyContent,
+                ),
+                const SizedBox(width: 16),
+                if (isMarkdown)
+                  _actionIcon(
+                    icon: Icons.text_fields,
+                    color: _showRaw
+                        ? Theme.of(context).colorScheme.primary
+                        : appColors.subtleText,
+                    onTap: () => setState(() => _showRaw = !_showRaw),
+                  ),
+                if (isMarkdown) const SizedBox(width: 16),
+                _actionIcon(
+                  icon: Icons.share,
+                  color: appColors.subtleText,
+                  onTap: _shareContent,
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
