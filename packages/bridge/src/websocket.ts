@@ -1927,7 +1927,7 @@ export class BridgeWebSocketServer {
               this.send(ws, { type: "diff_result", diff });
             }
           });
-        }, msg.staged ? { staged: true } : undefined);
+        }, msg.staged === true ? { staged: true } : msg.staged === false ? { unstaged: true } : undefined);
         break;
       }
 
@@ -2802,11 +2802,11 @@ export class BridgeWebSocketServer {
   private collectGitDiff(
     cwd: string,
     callback: (result: { diff: string; error?: string }) => void,
-    options?: { staged?: boolean },
+    options?: { staged?: boolean; unstaged?: boolean },
   ): void {
     const execOpts = { cwd, maxBuffer: 10 * 1024 * 1024 };
 
-    // For staged diffs, just run git diff --cached (no untracked file handling needed)
+    // Staged only: git diff --cached
     if (options?.staged) {
       execFile("git", ["diff", "--cached", "--no-color"], execOpts, (err, stdout) => {
         if (err) {
@@ -2818,7 +2818,9 @@ export class BridgeWebSocketServer {
       return;
     }
 
-    // Collect untracked files so they appear in the diff.
+    // Unstaged only: git diff (working tree vs index) — original behavior
+    if (options?.unstaged) {
+      // Collect untracked files so they appear in the diff.
     let untrackedFiles: string[] = [];
     try {
       const out = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd }).toString().trim();
@@ -2843,6 +2845,41 @@ export class BridgeWebSocketServer {
           execFileSync("git", ["reset", "--", ...untrackedFiles], { cwd });
         } catch {
           // Ignore reset errors.
+        }
+      }
+
+      if (err) {
+        callback({ diff: "", error: err.message });
+        return;
+      }
+      callback({ diff: stdout });
+    });
+      return;
+    }
+
+    // All mode (no options): git diff HEAD — shows both staged and unstaged vs HEAD
+    let untrackedFilesAll: string[] = [];
+    try {
+      const out = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd }).toString().trim();
+      untrackedFilesAll = out ? out.split("\n") : [];
+    } catch {
+      // Ignore
+    }
+
+    if (untrackedFilesAll.length > 0) {
+      try {
+        execFileSync("git", ["add", "--intent-to-add", ...untrackedFilesAll], { cwd });
+      } catch {
+        // Ignore
+      }
+    }
+
+    execFile("git", ["diff", "HEAD", "--no-color"], execOpts, (err, stdout) => {
+      if (untrackedFilesAll.length > 0) {
+        try {
+          execFileSync("git", ["reset", "--", ...untrackedFilesAll], { cwd });
+        } catch {
+          // Ignore
         }
       }
 
