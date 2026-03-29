@@ -733,6 +733,21 @@ sealed class ServerMessage {
         success: json['success'] as bool? ?? false,
         error: json['error'] as String?,
       ),
+      'git_fetch_result' => GitFetchResultMessage(
+        success: json['success'] as bool? ?? false,
+        error: json['error'] as String?,
+      ),
+      'git_pull_result' => GitPullResultMessage(
+        success: json['success'] as bool? ?? false,
+        message: json['message'] as String?,
+        error: json['error'] as String?,
+      ),
+      'git_remote_status_result' => GitRemoteStatusResultMessage(
+        ahead: json['ahead'] as int? ?? 0,
+        behind: json['behind'] as int? ?? 0,
+        branch: json['branch'] as String? ?? '',
+        hasUpstream: json['hasUpstream'] as bool? ?? false,
+      ),
       _ => ErrorMessage(message: 'Unknown message type: ${json['type']}'),
     };
   }
@@ -1689,6 +1704,32 @@ class GitCheckoutBranchResultMessage implements ServerMessage {
   const GitCheckoutBranchResultMessage({required this.success, this.error});
 }
 
+class GitFetchResultMessage implements ServerMessage {
+  final bool success;
+  final String? error;
+  const GitFetchResultMessage({required this.success, this.error});
+}
+
+class GitPullResultMessage implements ServerMessage {
+  final bool success;
+  final String? message;
+  final String? error;
+  const GitPullResultMessage({required this.success, this.message, this.error});
+}
+
+class GitRemoteStatusResultMessage implements ServerMessage {
+  final int ahead;
+  final int behind;
+  final String branch;
+  final bool hasUpstream;
+  const GitRemoteStatusResultMessage({
+    required this.ahead,
+    required this.behind,
+    required this.branch,
+    required this.hasUpstream,
+  });
+}
+
 class RecordingInfo {
   final String name;
   final String modified;
@@ -2622,6 +2663,15 @@ class ClientMessage {
         'projectPath': projectPath,
         'branch': branch,
       });
+
+  factory ClientMessage.gitFetch(String projectPath) =>
+      ClientMessage._({'type': 'git_fetch', 'projectPath': projectPath});
+
+  factory ClientMessage.gitPull(String projectPath) =>
+      ClientMessage._({'type': 'git_pull', 'projectPath': projectPath});
+
+  factory ClientMessage.gitRemoteStatus(String projectPath) =>
+      ClientMessage._({'type': 'git_remote_status', 'projectPath': projectPath});
 
   String toJson() => jsonEncode(_json);
 }

@@ -238,3 +238,57 @@ export function checkoutBranch(projectPath: string, branch: string): void {
   const cwd = resolveProject(projectPath);
   execFileSync("git", ["checkout", branch], { cwd, encoding: "utf-8" });
 }
+
+// ---- Remote Operations ----
+
+export interface RemoteStatusResult {
+  ahead: number;
+  behind: number;
+  branch: string;
+  hasUpstream: boolean;
+}
+
+/** Fetch from remote (non-blocking, returns when done). */
+export function gitFetch(projectPath: string): void {
+  const cwd = resolveProject(projectPath);
+  execFileSync("git", ["fetch", "--quiet"], { cwd, encoding: "utf-8", timeout: 30000 });
+}
+
+/** Get ahead/behind counts relative to upstream. */
+export function gitRemoteStatus(projectPath: string): RemoteStatusResult {
+  const cwd = resolveProject(projectPath);
+  const branch = git(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+
+  // Check if upstream is configured
+  let hasUpstream = false;
+  try {
+    git(["rev-parse", "--abbrev-ref", `${branch}@{upstream}`], cwd);
+    hasUpstream = true;
+  } catch {
+    return { ahead: 0, behind: 0, branch, hasUpstream: false };
+  }
+
+  let ahead = 0;
+  let behind = 0;
+  try {
+    const aheadStr = git(["rev-list", "--count", `@{upstream}..HEAD`], cwd);
+    ahead = parseInt(aheadStr, 10) || 0;
+  } catch { /* ignore */ }
+  try {
+    const behindStr = git(["rev-list", "--count", `HEAD..@{upstream}`], cwd);
+    behind = parseInt(behindStr, 10) || 0;
+  } catch { /* ignore */ }
+
+  return { ahead, behind, branch, hasUpstream };
+}
+
+/** Pull from remote (fetch + merge). */
+export function gitPull(projectPath: string): { success: boolean; message: string } {
+  const cwd = resolveProject(projectPath);
+  try {
+    const output = execFileSync("git", ["pull"], { cwd, encoding: "utf-8" }).trim();
+    return { success: true, message: output };
+  } catch (err) {
+    return { success: false, message: String(err) };
+  }
+}

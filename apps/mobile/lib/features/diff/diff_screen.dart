@@ -158,6 +158,8 @@ class _DiffScreenBody extends StatelessWidget {
               state: state,
               cubit: cubit,
               onCommit: () => showCommitBottomSheet(context),
+              onPull: cubit.pull,
+              onPush: cubit.push,
             )
           : null,
       body: state.loading
@@ -360,11 +362,15 @@ class _DiffBottomBar extends StatelessWidget {
   final DiffViewState state;
   final DiffViewCubit cubit;
   final VoidCallback onCommit;
+  final VoidCallback onPull;
+  final VoidCallback onPush;
 
   const _DiffBottomBar({
     required this.state,
     required this.cubit,
     required this.onCommit,
+    required this.onPull,
+    required this.onPush,
   });
 
   @override
@@ -394,11 +400,11 @@ class _DiffBottomBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Stats row
-              if (files.isNotEmpty || state.loading)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    if (files.isNotEmpty) ...[
                       Text(
                         '${files.length} files',
                         style: TextStyle(
@@ -407,7 +413,7 @@ class _DiffBottomBar extends StatelessWidget {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       if (additions > 0)
                         Text(
                           '+$additions',
@@ -418,7 +424,7 @@ class _DiffBottomBar extends StatelessWidget {
                           ),
                         ),
                       if (additions > 0 && deletions > 0)
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                       if (deletions > 0)
                         Text(
                           '-$deletions',
@@ -428,20 +434,49 @@ class _DiffBottomBar extends StatelessWidget {
                             color: cs.error,
                           ),
                         ),
-                      if (state.staging) ...[
-                        const Spacer(),
-                        SizedBox(
-                          width: 14,
-                          height: 14,
+                    ],
+                    const Spacer(),
+                    // Remote status badges
+                    if (state.fetching)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: SizedBox(
+                          width: 12,
+                          height: 12,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: cs.primary,
+                            strokeWidth: 1.5,
+                            color: cs.onSurfaceVariant,
                           ),
                         ),
-                      ],
-                    ],
-                  ),
+                      ),
+                    if (state.hasUpstream && state.commitsBehind > 0)
+                      _RemoteBadge(
+                        icon: Icons.arrow_downward,
+                        count: state.commitsBehind,
+                        color: cs.tertiary,
+                      ),
+                    if (state.hasUpstream && state.commitsAhead > 0)
+                      _RemoteBadge(
+                        icon: Icons.arrow_upward,
+                        count: state.commitsAhead,
+                        color: cs.primary,
+                      ),
+                    if (state.hasUpstream &&
+                        state.commitsAhead == 0 &&
+                        state.commitsBehind == 0 &&
+                        !state.fetching)
+                      Icon(Icons.check, size: 14, color: cs.onSurfaceVariant),
+                    if (!state.hasUpstream && !state.fetching)
+                      Text(
+                        'No upstream',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
                 ),
+              ),
               // Action buttons row
               Row(
                 children: [
@@ -449,10 +484,12 @@ class _DiffBottomBar extends StatelessWidget {
                     child: _ActionButton(
                       key: const ValueKey('pull_button'),
                       icon: Icons.download,
-                      label: 'Pull',
-                      onPressed: state.staging ? null : () {
-                        // TODO: implement pull
-                      },
+                      label: state.commitsBehind > 0
+                          ? 'Pull (${state.commitsBehind})'
+                          : 'Pull',
+                      onPressed: _isBusy || !state.hasUpstream || state.commitsBehind == 0
+                          ? null
+                          : onPull,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -460,7 +497,7 @@ class _DiffBottomBar extends StatelessWidget {
                     flex: 2,
                     child: FilledButton.icon(
                       key: const ValueKey('commit_button'),
-                      onPressed: state.staging ? null : onCommit,
+                      onPressed: _isBusy ? null : onCommit,
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Commit'),
                     ),
@@ -470,10 +507,12 @@ class _DiffBottomBar extends StatelessWidget {
                     child: _ActionButton(
                       key: const ValueKey('push_button'),
                       icon: Icons.upload,
-                      label: 'Push',
-                      onPressed: state.staging ? null : () {
-                        // TODO: implement direct push
-                      },
+                      label: state.commitsAhead > 0
+                          ? 'Push (${state.commitsAhead})'
+                          : 'Push',
+                      onPressed: _isBusy || state.commitsAhead == 0
+                          ? null
+                          : onPush,
                     ),
                   ),
                 ],
@@ -481,6 +520,43 @@ class _DiffBottomBar extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  bool get _isBusy => state.staging || state.pulling;
+}
+
+/// Small badge showing ↑N or ↓N for remote ahead/behind.
+class _RemoteBadge extends StatelessWidget {
+  final IconData icon;
+  final int count;
+  final Color color;
+
+  const _RemoteBadge({
+    required this.icon,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 1),
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }

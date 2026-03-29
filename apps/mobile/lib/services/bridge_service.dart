@@ -70,6 +70,12 @@ class BridgeService implements BridgeServiceBase {
       StreamController<GitCreateBranchResultMessage>.broadcast();
   final _gitCheckoutBranchResultController =
       StreamController<GitCheckoutBranchResultMessage>.broadcast();
+  final _gitFetchResultController =
+      StreamController<GitFetchResultMessage>.broadcast();
+  final _gitPullResultController =
+      StreamController<GitPullResultMessage>.broadcast();
+  final _gitRemoteStatusResultController =
+      StreamController<GitRemoteStatusResultMessage>.broadcast();
   BridgeConnectionState _connectionState = BridgeConnectionState.disconnected;
   final List<ClientMessage> _messageQueue = [];
   List<SessionInfo> _sessions = [];
@@ -155,6 +161,12 @@ class BridgeService implements BridgeServiceBase {
       _gitCreateBranchResultController.stream;
   Stream<GitCheckoutBranchResultMessage> get gitCheckoutBranchResults =>
       _gitCheckoutBranchResultController.stream;
+  Stream<GitFetchResultMessage> get gitFetchResults =>
+      _gitFetchResultController.stream;
+  Stream<GitPullResultMessage> get gitPullResults =>
+      _gitPullResultController.stream;
+  Stream<GitRemoteStatusResultMessage> get gitRemoteStatusResults =>
+      _gitRemoteStatusResultController.stream;
   BridgeConnectionState get currentBridgeConnectionState => _connectionState;
   @override
   bool get isConnected => _connectionState == BridgeConnectionState.connected;
@@ -300,6 +312,12 @@ class BridgeService implements BridgeServiceBase {
                 _gitCreateBranchResultController.add(msg);
               case GitCheckoutBranchResultMessage():
                 _gitCheckoutBranchResultController.add(msg);
+              case GitFetchResultMessage():
+                _gitFetchResultController.add(msg);
+              case GitPullResultMessage():
+                _gitPullResultController.add(msg);
+              case GitRemoteStatusResultMessage():
+                _gitRemoteStatusResultController.add(msg);
               case ArchiveResultMessage(:final success):
                 if (success) {
                   // Refresh the recent sessions list to reflect the archived session
@@ -1099,6 +1117,9 @@ class BridgeService implements BridgeServiceBase {
     _gitBranchesResultController.close();
     _gitCreateBranchResultController.close();
     _gitCheckoutBranchResultController.close();
+    _gitFetchResultController.close();
+    _gitPullResultController.close();
+    _gitRemoteStatusResultController.close();
     clearDiffImageCache();
   }
 }

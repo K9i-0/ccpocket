@@ -145,7 +145,10 @@ export type ClientMessage =
   | { type: "git_status"; projectPath: string }
   | { type: "git_branches"; projectPath: string; query?: string }
   | { type: "git_create_branch"; projectPath: string; name: string; checkout?: boolean }
-  | { type: "git_checkout_branch"; projectPath: string; branch: string };
+  | { type: "git_checkout_branch"; projectPath: string; branch: string }
+  | { type: "git_fetch"; projectPath: string }
+  | { type: "git_pull"; projectPath: string }
+  | { type: "git_remote_status"; projectPath: string };
 
 /** Image change detected in a git diff (binary image file). */
 export interface ImageChange {
@@ -295,7 +298,10 @@ export type ServerMessage =
   | { type: "git_status_result"; staged: string[]; unstaged: string[]; untracked: string[] }
   | { type: "git_branches_result"; current: string; branches: string[]; error?: string }
   | { type: "git_create_branch_result"; success: boolean; error?: string }
-  | { type: "git_checkout_branch_result"; success: boolean; error?: string };
+  | { type: "git_checkout_branch_result"; success: boolean; error?: string }
+  | { type: "git_fetch_result"; success: boolean; error?: string }
+  | { type: "git_pull_result"; success: boolean; message?: string; error?: string }
+  | { type: "git_remote_status_result"; ahead: number; behind: number; branch: string; hasUpstream: boolean };
 
 export interface UsageWindowPayload {
   utilization: number;
@@ -568,6 +574,15 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "git_checkout_branch":
         if (typeof msg.projectPath !== "string") return null;
         if (typeof msg.branch !== "string") return null;
+        break;
+      case "git_fetch":
+        if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "git_pull":
+        if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "git_remote_status":
+        if (typeof msg.projectPath !== "string") return null;
         break;
       case "archive_session":
         if (typeof msg.sessionId !== "string") return null;

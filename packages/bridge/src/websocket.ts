@@ -20,6 +20,7 @@ import {
   stageFiles, stageHunks, unstageFiles,
   gitCommit, gitPush, ghPrCreate, gitStatus,
   listBranches, createBranch, checkoutBranch,
+  gitFetch, gitPull, gitRemoteStatus,
 } from "./git-operations.js";
 import { listWindows, takeScreenshot } from "./screenshot.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
@@ -2154,6 +2155,58 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "git_checkout_branch_result", success: true });
         } catch (err) {
           this.send(ws, { type: "git_checkout_branch_result", success: false, error: String(err) });
+        }
+        break;
+      }
+
+      case "git_fetch": {
+        if (!this.isPathAllowed(msg.projectPath)) {
+          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          break;
+        }
+        try {
+          gitFetch(msg.projectPath);
+          this.send(ws, { type: "git_fetch_result", success: true });
+        } catch (err) {
+          this.send(ws, { type: "git_fetch_result", success: false, error: String(err) });
+        }
+        break;
+      }
+
+      case "git_pull": {
+        if (!this.isPathAllowed(msg.projectPath)) {
+          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          break;
+        }
+        try {
+          const result = gitPull(msg.projectPath);
+          if (result.success) {
+            this.send(ws, { type: "git_pull_result", success: true, message: result.message });
+          } else {
+            this.send(ws, { type: "git_pull_result", success: false, error: result.message });
+          }
+        } catch (err) {
+          this.send(ws, { type: "git_pull_result", success: false, error: String(err) });
+        }
+        break;
+      }
+
+      case "git_remote_status": {
+        if (!this.isPathAllowed(msg.projectPath)) {
+          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          break;
+        }
+        try {
+          const result = gitRemoteStatus(msg.projectPath);
+          this.send(ws, {
+            type: "git_remote_status_result",
+            ahead: result.ahead,
+            behind: result.behind,
+            branch: result.branch,
+            hasUpstream: result.hasUpstream,
+          });
+        } catch (err) {
+          this.send(ws, { type: "git_remote_status_result", ahead: 0, behind: 0, branch: "", hasUpstream: false });
         }
         break;
       }

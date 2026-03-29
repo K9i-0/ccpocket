@@ -43,5 +43,20 @@ abstract class DiffViewState with _$DiffViewState {
 
     /// Whether a stage/unstage operation is in progress.
     @Default(false) bool staging,
+
+    /// Commits ahead of upstream (pushable).
+    @Default(0) int commitsAhead,
+
+    /// Commits behind upstream (pullable).
+    @Default(0) int commitsBehind,
+
+    /// Whether the branch has a configured upstream.
+    @Default(false) bool hasUpstream,
+
+    /// Whether a fetch is in progress.
+    @Default(false) bool fetching,
+
+    /// Whether a pull is in progress.
+    @Default(false) bool pulling,
   }) = _DiffViewState;
 }

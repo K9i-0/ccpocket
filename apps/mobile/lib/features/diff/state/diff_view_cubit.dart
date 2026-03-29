@@ -20,6 +20,9 @@ class DiffViewCubit extends Cubit<DiffViewState> {
   StreamSubscription<DiffImageResultMessage>? _diffImageSub;
   StreamSubscription<GitStageResultMessage>? _stageSub;
   StreamSubscription<GitUnstageResultMessage>? _unstageSub;
+  StreamSubscription<GitFetchResultMessage>? _fetchSub;
+  StreamSubscription<GitPullResultMessage>? _pullSub;
+  StreamSubscription<GitRemoteStatusResultMessage>? _remoteStatusSub;
   final String? _projectPath;
 
   DiffViewCubit({
@@ -35,6 +38,11 @@ class DiffViewCubit extends Cubit<DiffViewState> {
       _diffImageSub = _bridge.diffImageResults.listen(_onDiffImageResult);
       _stageSub = _bridge.gitStageResults.listen(_onStageResult);
       _unstageSub = _bridge.gitUnstageResults.listen(_onUnstageResult);
+      _fetchSub = _bridge.gitFetchResults.listen(_onFetchResult);
+      _pullSub = _bridge.gitPullResults.listen(_onPullResult);
+      _remoteStatusSub = _bridge.gitRemoteStatusResults.listen(_onRemoteStatus);
+      // Fetch on init to get fresh remote state
+      _fetchAndUpdateStatus();
     }
   }
 
@@ -101,6 +109,8 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     emit(state.copyWith(loading: true, error: null));
     final staged = state.viewMode == DiffViewMode.staged ? true : null;
     _bridge.send(ClientMessage.getDiff(projectPath, staged: staged));
+    // Also fetch + update remote status on refresh
+    _fetchAndUpdateStatus();
   }
 
   /// Merge image change data from the server into parsed diff files.
@@ -526,12 +536,67 @@ class DiffViewCubit extends Cubit<DiffViewState> {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Remote operations (fetch / pull / push)
+  // ---------------------------------------------------------------------------
+
+  void _fetchAndUpdateStatus() {
+    final projectPath = _projectPath;
+    if (projectPath == null) return;
+    emit(state.copyWith(fetching: true));
+    _bridge.send(ClientMessage.gitFetch(projectPath));
+  }
+
+  void _onFetchResult(GitFetchResultMessage result) {
+    emit(state.copyWith(fetching: false));
+    // After fetch, request remote status to get ahead/behind counts
+    final projectPath = _projectPath;
+    if (projectPath != null) {
+      _bridge.send(ClientMessage.gitRemoteStatus(projectPath));
+    }
+  }
+
+  void _onRemoteStatus(GitRemoteStatusResultMessage result) {
+    emit(state.copyWith(
+      commitsAhead: result.ahead,
+      commitsBehind: result.behind,
+      hasUpstream: result.hasUpstream,
+    ));
+  }
+
+  /// Pull from remote.
+  void pull() {
+    final projectPath = _projectPath;
+    if (projectPath == null) return;
+    emit(state.copyWith(pulling: true));
+    _bridge.send(ClientMessage.gitPull(projectPath));
+  }
+
+  void _onPullResult(GitPullResultMessage result) {
+    emit(state.copyWith(pulling: false));
+    if (result.success) {
+      refresh(); // refresh diff + remote status
+    } else {
+      emit(state.copyWith(error: result.error));
+    }
+  }
+
+  /// Push to remote.
+  void push() {
+    final projectPath = _projectPath;
+    if (projectPath == null) return;
+    _bridge.send(ClientMessage.gitPush(projectPath));
+  }
+
   @override
   Future<void> close() {
     _diffSub?.cancel();
     _diffImageSub?.cancel();
     _stageSub?.cancel();
     _unstageSub?.cancel();
+    _fetchSub?.cancel();
+    _pullSub?.cancel();
+    _remoteStatusSub?.cancel();
     return super.close();
   }
 }

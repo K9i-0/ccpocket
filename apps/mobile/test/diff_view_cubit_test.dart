@@ -79,24 +79,35 @@ diff --git a/e.dart b/e.dart
 +ee
 ''';
 
-/// Mock BridgeService that exposes controllable streams for diff + staging.
+/// Mock BridgeService that exposes controllable streams for diff + staging + remote.
 class MockDiffBridgeService extends BridgeService {
   final _diffController = StreamController<DiffResultMessage>.broadcast();
   final _stageController = StreamController<GitStageResultMessage>.broadcast();
   final _unstageController =
       StreamController<GitUnstageResultMessage>.broadcast();
+  final _fetchController = StreamController<GitFetchResultMessage>.broadcast();
+  final _pullController = StreamController<GitPullResultMessage>.broadcast();
+  final _remoteStatusController =
+      StreamController<GitRemoteStatusResultMessage>.broadcast();
   final sentMessages = <ClientMessage>[];
 
   @override
   Stream<DiffResultMessage> get diffResults => _diffController.stream;
-
   @override
   Stream<GitStageResultMessage> get gitStageResults =>
       _stageController.stream;
-
   @override
   Stream<GitUnstageResultMessage> get gitUnstageResults =>
       _unstageController.stream;
+  @override
+  Stream<GitFetchResultMessage> get gitFetchResults =>
+      _fetchController.stream;
+  @override
+  Stream<GitPullResultMessage> get gitPullResults =>
+      _pullController.stream;
+  @override
+  Stream<GitRemoteStatusResultMessage> get gitRemoteStatusResults =>
+      _remoteStatusController.stream;
 
   @override
   void send(ClientMessage message) {
@@ -107,12 +118,19 @@ class MockDiffBridgeService extends BridgeService {
   void emitStageResult(GitStageResultMessage msg) => _stageController.add(msg);
   void emitUnstageResult(GitUnstageResultMessage msg) =>
       _unstageController.add(msg);
+  void emitFetchResult(GitFetchResultMessage msg) =>
+      _fetchController.add(msg);
+  void emitRemoteStatus(GitRemoteStatusResultMessage msg) =>
+      _remoteStatusController.add(msg);
 
   @override
   void dispose() {
     _diffController.close();
     _stageController.close();
     _unstageController.close();
+    _fetchController.close();
+    _pullController.close();
+    _remoteStatusController.close();
   }
 }
 
@@ -262,7 +280,7 @@ void main() {
       expect(cubit.state.files, isEmpty);
     });
 
-    test('sends getDiff message to bridge', () {
+    test('sends getDiff and gitFetch messages to bridge', () {
       final mockBridge = MockDiffBridgeService();
       final cubit = DiffViewCubit(
         bridge: mockBridge,
@@ -273,7 +291,10 @@ void main() {
         mockBridge.dispose();
       });
 
-      expect(mockBridge.sentMessages, hasLength(1));
+      // getDiff + gitFetch on init
+      expect(mockBridge.sentMessages, hasLength(2));
+      expect(mockBridge.sentMessages[0].type, 'get_diff');
+      expect(mockBridge.sentMessages[1].type, 'git_fetch');
     });
 
     test('updates state when diff result arrives', () async {
@@ -390,17 +411,17 @@ void main() {
         mockBridge.dispose();
       });
 
-      // Initial getDiff for unstaged
-      expect(mockBridge.sentMessages, hasLength(1));
+      // Initial: getDiff + gitFetch
+      final initCount = mockBridge.sentMessages.length;
 
       cubit.switchMode(DiffViewMode.staged);
 
       expect(cubit.state.viewMode, DiffViewMode.staged);
       expect(cubit.state.loading, isTrue);
-      // Should send a second getDiff with staged
-      expect(mockBridge.sentMessages, hasLength(2));
-      final json = jsonDecode(mockBridge.sentMessages.last.toJson())
-          as Map<String, dynamic>;
+      // Should send getDiff(staged) + gitFetch
+      final newMessages = mockBridge.sentMessages.sublist(initCount);
+      final getDiffMsg = newMessages.firstWhere((m) => m.type == 'get_diff');
+      final json = jsonDecode(getDiffMsg.toJson()) as Map<String, dynamic>;
       expect(json['staged'], isTrue);
     });
 
@@ -415,9 +436,10 @@ void main() {
         mockBridge.dispose();
       });
 
+      final initCount = mockBridge.sentMessages.length;
       cubit.switchMode(DiffViewMode.all); // same as default
-      // Should not send additional message
-      expect(mockBridge.sentMessages, hasLength(1));
+      // Should not send additional messages
+      expect(mockBridge.sentMessages.length, initCount);
     });
 
     test('stageFile sends git_stage with file path', () async {
