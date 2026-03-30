@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.51.0] - 2026-03-30
+
+### Added
+- Git Operations UI: stage/unstage, commit, branch checkout, fetch/pull/push from the app
+- Swipe-to-stage/unstage and swipe-to-revert (discard) on file headers
+- Long-press context menu on file headers with Request Change flow
+- Branch indicator chip with branch selector in Git Screen
+- Remote status display with fetch/pull/push in bottom bar
+- Revert (discard changes) support via swipe and bridge handler
+
+### Changed
+- Rename DiffScreen → GitScreen to reflect expanded scope
+- Wrapped diff is now the default view
+- Auto-refresh UI after push/commit operations
+
+### Fixed
+- Dismissible assertion error on Staged tab
+- Mock loading, bottom bar layout, single line numbers, swipe control
+- Clarify request change diff preview
+- Unify hunk long-press actions
+
 ## [1.50.0] - 2026-03-29
 
 ### Added
