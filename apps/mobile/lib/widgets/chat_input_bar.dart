@@ -485,8 +485,36 @@ class _DiffPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    final summary = l.diffLines(selection.diffText.split('\n').length);
-    final preview = selection.diffText.split('\n').take(2).join('\n');
+    final previewSummary = summarizeDiffSelection(selection.diffText);
+    final summaryParts = <String>[];
+    if (previewSummary.changedLineCount > 0) {
+      summaryParts.add(l.changedLines(previewSummary.changedLineCount));
+    }
+    if (previewSummary.hunkCount > 0) {
+      summaryParts.add(l.hunkCount(previewSummary.hunkCount));
+    } else if (previewSummary.fileCount > 0) {
+      summaryParts.add(l.fileCount(previewSummary.fileCount));
+    }
+
+    final summary = summaryParts.isNotEmpty
+        ? summaryParts.join(' · ')
+        : l.fileCount(
+            previewSummary.fileCount > 0 ? previewSummary.fileCount : 1,
+          );
+
+    final previewLines = <String>[];
+    final filePath = previewSummary.primaryFilePath;
+    if (filePath != null && filePath.isNotEmpty) {
+      previewLines.add(filePath);
+    }
+    final hunkHeader = previewSummary.primaryHunkHeader;
+    if (hunkHeader != null && hunkHeader.isNotEmpty) {
+      previewLines.add(hunkHeader);
+    }
+    if (previewLines.isEmpty) {
+      previewLines.add(summary);
+    }
+    final preview = previewLines.join('\n');
 
     return GestureDetector(
       onTap: onTap,

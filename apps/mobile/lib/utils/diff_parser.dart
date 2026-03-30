@@ -434,6 +434,73 @@ class DiffSelection {
   bool get isEmpty => diffText.isEmpty;
 }
 
+class DiffSelectionPreviewSummary {
+  final int fileCount;
+  final int hunkCount;
+  final int changedLineCount;
+  final String? primaryFilePath;
+  final String? primaryHunkHeader;
+
+  const DiffSelectionPreviewSummary({
+    required this.fileCount,
+    required this.hunkCount,
+    required this.changedLineCount,
+    this.primaryFilePath,
+    this.primaryHunkHeader,
+  });
+
+  bool get isSingleFile => fileCount == 1;
+
+  bool get isSingleHunk => hunkCount == 1;
+}
+
+DiffSelectionPreviewSummary summarizeDiffSelection(String diffText) {
+  if (diffText.trim().isEmpty) {
+    return const DiffSelectionPreviewSummary(
+      fileCount: 0,
+      hunkCount: 0,
+      changedLineCount: 0,
+    );
+  }
+
+  final files = parseDiff(diffText);
+  var hunkCount = 0;
+  var changedLineCount = 0;
+  String? primaryFilePath;
+  String? primaryHunkHeader;
+
+  for (final file in files) {
+    if ((primaryFilePath == null || primaryFilePath.isEmpty) &&
+        file.filePath.isNotEmpty) {
+      primaryFilePath = file.filePath;
+    }
+
+    hunkCount += file.hunks.length;
+
+    for (final hunk in file.hunks) {
+      if ((primaryHunkHeader == null || primaryHunkHeader.isEmpty) &&
+          hunk.header.isNotEmpty) {
+        primaryHunkHeader = hunk.header;
+      }
+
+      for (final line in hunk.lines) {
+        if (line.type == DiffLineType.addition ||
+            line.type == DiffLineType.deletion) {
+          changedLineCount++;
+        }
+      }
+    }
+  }
+
+  return DiffSelectionPreviewSummary(
+    fileCount: files.length,
+    hunkCount: hunkCount,
+    changedLineCount: changedLineCount,
+    primaryFilePath: primaryFilePath,
+    primaryHunkHeader: primaryHunkHeader,
+  );
+}
+
 DiffSelection reconstructDiff(
   List<DiffFile> files,
   Set<String> selectedHunkKeys,

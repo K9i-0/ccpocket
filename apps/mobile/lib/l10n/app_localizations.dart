@@ -1126,6 +1126,24 @@ abstract class AppLocalizations {
   /// **'{count} 行の diff'**
   String diffLines(int count);
 
+  /// No description provided for @changedLines.
+  ///
+  /// In ja, this message translates to:
+  /// **'変更{count}行'**
+  String changedLines(int count);
+
+  /// No description provided for @hunkCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'{count}ハンク'**
+  String hunkCount(int count);
+
+  /// No description provided for @fileCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'{count}ファイル'**
+  String fileCount(int count);
+
   /// No description provided for @tapInterruptHoldStop.
   ///
   /// In ja, this message translates to:

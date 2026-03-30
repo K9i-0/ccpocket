@@ -234,6 +234,30 @@
     }
   },
   "diffLines": "{count} 行 diff",
+  "changedLines": "{count} 行变更",
+  "@changedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hunkCount": "{count} 个 hunk",
+  "@hunkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileCount": "{count} 个文件",
+  "@fileCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tapInterruptHoldStop": "点按：中断，长按：停止",
 
   "rewindToHere": "回退到这里",

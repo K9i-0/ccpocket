@@ -217,6 +217,30 @@
 
   "messagePlaceholder": "Message Claude...",
   "diffLines": "{count} diff lines",
+  "changedLines": "{count, plural, =1{{count} changed line} other{{count} changed lines}}",
+  "@changedLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "hunkCount": "{count, plural, =1{{count} hunk} other{{count} hunks}}",
+  "@hunkCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fileCount": "{count, plural, =1{{count} file} other{{count} files}}",
+  "@fileCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "tapInterruptHoldStop": "Tap: interrupt, Hold: stop",
 
   "rewindToHere": "Rewind to here",

@@ -546,6 +546,21 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String changedLines(int count) {
+    return '$count 行变更';
+  }
+
+  @override
+  String hunkCount(int count) {
+    return '$count 个 hunk';
+  }
+
+  @override
+  String fileCount(int count) {
+    return '$count 个文件';
+  }
+
+  @override
   String get tapInterruptHoldStop => '点按：中断，长按：停止';
 
   @override

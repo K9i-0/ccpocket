@@ -250,6 +250,24 @@
       "count": { "type": "int" }
     }
   },
+  "changedLines": "変更{count}行",
+  "@changedLines": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "hunkCount": "{count}ハンク",
+  "@hunkCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "fileCount": "{count}ファイル",
+  "@fileCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "tapInterruptHoldStop": "タップ: 中断, 長押し: 停止",
 
   "rewindToHere": "ここまで巻き戻す",

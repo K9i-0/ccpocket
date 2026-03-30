@@ -298,6 +298,77 @@ diff --git a/file_a.dart b/file_a.dart
       expect(selection.diffText, isNot(contains('@file_a.dart')));
     });
 
+    test(
+      'summarizeDiffSelection counts only changed lines for a single hunk',
+      () {
+        const diff = '''
+diff --git a/lib/todo_list.dart b/lib/todo_list.dart
+--- a/lib/todo_list.dart
++++ b/lib/todo_list.dart
+@@ -5,7 +5,7 @@ class TodoList {
+ List<Todo> get items => List.unmodifiable(_items);
+-void add(String title) {
++void add(String title, {Priority priority = Priority.medium}) {
+   final id = DateTime.now().millisecondsSinceEpoch.toString();
+   _items.add(Todo(id: id, title: title));
+ }
+''';
+        final summary = summarizeDiffSelection(diff);
+
+        expect(summary.fileCount, 1);
+        expect(summary.hunkCount, 1);
+        expect(summary.changedLineCount, 2);
+        expect(summary.primaryFilePath, 'lib/todo_list.dart');
+        expect(summary.primaryHunkHeader, '@@ -5,7 +5,7 @@ class TodoList {');
+        expect(summary.isSingleFile, isTrue);
+        expect(summary.isSingleHunk, isTrue);
+      },
+    );
+
+    test('summarizeDiffSelection counts hunks and files across a diff', () {
+      const diff = '''
+diff --git a/lib/a.dart b/lib/a.dart
+--- a/lib/a.dart
++++ b/lib/a.dart
+@@ -1,2 +1,2 @@
+-old
++new
+ same
+@@ -10,2 +10,2 @@
+-old2
++new2
+ same2
+diff --git a/lib/b.dart b/lib/b.dart
+--- a/lib/b.dart
++++ b/lib/b.dart
+@@ -3,2 +3,2 @@
+-left
++right
+ same
+''';
+      final summary = summarizeDiffSelection(diff);
+
+      expect(summary.fileCount, 2);
+      expect(summary.hunkCount, 3);
+      expect(summary.changedLineCount, 6);
+      expect(summary.primaryFilePath, 'lib/a.dart');
+      expect(summary.primaryHunkHeader, '@@ -1,2 +1,2 @@');
+    });
+
+    test('summarizeDiffSelection handles binary diffs', () {
+      const diff = '''
+diff --git a/image.png b/image.png
+Binary files a/image.png and b/image.png differ
+''';
+      final summary = summarizeDiffSelection(diff);
+
+      expect(summary.fileCount, 1);
+      expect(summary.hunkCount, 0);
+      expect(summary.changedLineCount, 0);
+      expect(summary.primaryFilePath, 'image.png');
+      expect(summary.primaryHunkHeader, isNull);
+    });
+
     test('reconstructUnifiedDiff includes binary file headers', () {
       const diff = '''
 diff --git a/image.png b/image.png

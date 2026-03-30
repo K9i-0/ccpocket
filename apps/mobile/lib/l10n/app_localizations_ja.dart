@@ -550,6 +550,21 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String changedLines(int count) {
+    return '変更$count行';
+  }
+
+  @override
+  String hunkCount(int count) {
+    return '$countハンク';
+  }
+
+  @override
+  String fileCount(int count) {
+    return '$countファイル';
+  }
+
+  @override
   String get tapInterruptHoldStop => 'タップ: 中断, 長押し: 停止';
 
   @override

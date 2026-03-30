@@ -563,6 +563,39 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String changedLines(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count changed lines',
+      one: '$count changed line',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String hunkCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count hunks',
+      one: '$count hunk',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String fileCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '$count file',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get tapInterruptHoldStop => 'Tap: interrupt, Hold: stop';
 
   @override
