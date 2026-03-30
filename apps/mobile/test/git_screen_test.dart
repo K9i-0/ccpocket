@@ -130,6 +130,23 @@ void main() {
       expect(find.text('Stage'), findsWidgets);
     });
 
+    testWidgets('shows hunk action sheet on line long press', (tester) async {
+      final bridge = MockBridgeService()..mockDiff = _multiFileDiff;
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        _wrap(const GitScreen(projectPath: '/tmp/project'), bridge: bridge),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('new').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Request Change'), findsOneWidget);
+      expect(find.text('Revert'), findsOneWidget);
+      expect(find.text('Line copied'), findsNothing);
+    });
+
     testWidgets('shows file action sheet on file header long press', (
       tester,
     ) async {

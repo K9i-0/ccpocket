@@ -1,7 +1,6 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../../utils/diff_parser.dart';
@@ -69,7 +68,7 @@ class DiffHunkWidget extends StatefulWidget {
   final double lineNumberWidth;
   final bool lineWrapEnabled;
   final String dismissKey;
-  final VoidCallback? onLongPressHeader;
+  final VoidCallback? onLongPress;
   final VoidCallback? onSwipeStage;
   final VoidCallback? onSwipeUnstage;
   final VoidCallback? onSwipeRevert;
@@ -80,7 +79,7 @@ class DiffHunkWidget extends StatefulWidget {
     required this.lineNumberWidth,
     required this.dismissKey,
     this.lineWrapEnabled = false,
-    this.onLongPressHeader,
+    this.onLongPress,
     this.onSwipeStage,
     this.onSwipeUnstage,
     this.onSwipeRevert,
@@ -127,7 +126,7 @@ class _DiffHunkWidgetState extends State<DiffHunkWidget> {
         if (widget.hunk.header.isNotEmpty)
           _DiffHunkHeader(
             header: widget.hunk.header,
-            onLongPress: widget.onLongPressHeader,
+            onLongPress: widget.onLongPress,
           ),
         if (widget.hunk.lines.isNotEmpty)
           _DiffHunkBody(
@@ -135,6 +134,7 @@ class _DiffHunkWidgetState extends State<DiffHunkWidget> {
             maxContentWidth: _maxContentWidth,
             lineNumberWidth: widget.lineNumberWidth,
             lineWrapEnabled: widget.lineWrapEnabled,
+            onLongPress: widget.onLongPress,
           ),
         const SizedBox(height: 4),
       ],
@@ -196,12 +196,14 @@ class _DiffHunkBody extends StatelessWidget {
   final double maxContentWidth;
   final double lineNumberWidth;
   final bool lineWrapEnabled;
+  final VoidCallback? onLongPress;
 
   const _DiffHunkBody({
     required this.lines,
     required this.maxContentWidth,
     required this.lineNumberWidth,
     required this.lineWrapEnabled,
+    this.onLongPress,
   });
 
   @override
@@ -225,6 +227,7 @@ class _DiffHunkBody extends StatelessWidget {
                     line: line,
                     appColors: appColors,
                     wrap: true,
+                    onLongPress: onLongPress,
                   ),
                 ),
               ],
@@ -267,6 +270,7 @@ class _DiffHunkBody extends StatelessWidget {
                         appColors: appColors,
                         wrap: false,
                         contentWidth: effectiveWidth,
+                        onLongPress: onLongPress,
                       ),
                   ],
                 ),
@@ -339,12 +343,14 @@ class _DiffCodeRow extends StatelessWidget {
   final AppColors appColors;
   final bool wrap;
   final double? contentWidth;
+  final VoidCallback? onLongPress;
 
   const _DiffCodeRow({
     required this.line,
     required this.appColors,
     required this.wrap,
     this.contentWidth,
+    this.onLongPress,
   });
 
   @override
@@ -358,15 +364,7 @@ class _DiffCodeRow extends StatelessWidget {
     );
 
     return GestureDetector(
-      onLongPress: () {
-        Clipboard.setData(ClipboardData(text: line.content));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Line copied'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      },
+      onLongPress: onLongPress,
       child: Container(
         color: bgColor,
         padding: const EdgeInsets.symmetric(vertical: 1),

@@ -143,7 +143,7 @@ class DiffContentList extends StatelessWidget {
           lineNumberWidth: lineNumberWidth,
           dismissKey: '${file.filePath}:$hunkIdx',
           lineWrapEnabled: lineWrapEnabled,
-          onLongPressHeader: onLongPressHunk != null
+          onLongPress: onLongPressHunk != null
               ? () => onLongPressHunk!(fileIdx, hunkIdx)
               : null,
           onSwipeStage: onSwipeStageHunk != null
