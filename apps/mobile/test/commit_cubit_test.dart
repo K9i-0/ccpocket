@@ -9,9 +9,9 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 
 class MockCommitBridgeService extends BridgeService {
-  final _commitController = StreamController<GitCommitResultMessage>.broadcast();
+  final _commitController =
+      StreamController<GitCommitResultMessage>.broadcast();
   final _pushController = StreamController<GitPushResultMessage>.broadcast();
-  final _prController = StreamController<GhPrResultMessage>.broadcast();
   final sentMessages = <ClientMessage>[];
 
   @override
@@ -22,22 +22,17 @@ class MockCommitBridgeService extends BridgeService {
   Stream<GitPushResultMessage> get gitPushResults => _pushController.stream;
 
   @override
-  Stream<GhPrResultMessage> get ghPrResults => _prController.stream;
-
-  @override
   void send(ClientMessage message) {
     sentMessages.add(message);
   }
 
   void emitCommit(GitCommitResultMessage msg) => _commitController.add(msg);
   void emitPush(GitPushResultMessage msg) => _pushController.add(msg);
-  void emitPr(GhPrResultMessage msg) => _prController.add(msg);
 
   @override
   void dispose() {
     _commitController.close();
     _pushController.close();
-    _prController.close();
   }
 }
 
@@ -59,7 +54,7 @@ void main() {
     test('initial state is idle', () {
       expect(cubit.state.status, CommitStatus.idle);
       expect(cubit.state.message, '');
-      expect(cubit.state.autoGenerate, isFalse);
+      expect(cubit.state.autoGenerate, isTrue);
     });
 
     test('setMessage updates message', () {
@@ -69,39 +64,43 @@ void main() {
 
     test('toggleAutoGenerate toggles flag', () {
       cubit.toggleAutoGenerate();
-      expect(cubit.state.autoGenerate, isTrue);
-      cubit.toggleAutoGenerate();
       expect(cubit.state.autoGenerate, isFalse);
+      cubit.toggleAutoGenerate();
+      expect(cubit.state.autoGenerate, isTrue);
     });
 
     test('commit sends git_commit with message', () {
+      cubit.toggleAutoGenerate();
       cubit.setMessage('feat: add x');
       cubit.commit();
 
       expect(cubit.state.status, CommitStatus.committing);
-      final json = jsonDecode(mockBridge.sentMessages.last.toJson())
-          as Map<String, dynamic>;
+      final json =
+          jsonDecode(mockBridge.sentMessages.last.toJson())
+              as Map<String, dynamic>;
       expect(json['type'], 'git_commit');
       expect(json['message'], 'feat: add x');
     });
 
     test('commit with autoGenerate sends autoGenerate: true', () {
-      cubit.toggleAutoGenerate();
       cubit.commit();
 
-      final json = jsonDecode(mockBridge.sentMessages.last.toJson())
-          as Map<String, dynamic>;
+      final json =
+          jsonDecode(mockBridge.sentMessages.last.toJson())
+              as Map<String, dynamic>;
       expect(json['autoGenerate'], isTrue);
       expect(json.containsKey('message'), isFalse);
     });
 
     test('successful commit sets success status', () async {
       cubit.commit();
-      mockBridge.emitCommit(const GitCommitResultMessage(
-        success: true,
-        commitHash: 'abc123',
-        message: 'feat: add x',
-      ));
+      mockBridge.emitCommit(
+        const GitCommitResultMessage(
+          success: true,
+          commitHash: 'abc123',
+          message: 'feat: add x',
+        ),
+      );
       await Future.microtask(() {});
 
       expect(cubit.state.status, CommitStatus.success);
@@ -110,10 +109,12 @@ void main() {
 
     test('failed commit sets error status', () async {
       cubit.commit();
-      mockBridge.emitCommit(const GitCommitResultMessage(
-        success: false,
-        error: 'Nothing to commit',
-      ));
+      mockBridge.emitCommit(
+        const GitCommitResultMessage(
+          success: false,
+          error: 'Nothing to commit',
+        ),
+      );
       await Future.microtask(() {});
 
       expect(cubit.state.status, CommitStatus.error);
@@ -121,27 +122,30 @@ void main() {
     });
 
     test('commitAndPush chains commit then push', () async {
+      cubit.toggleAutoGenerate();
       cubit.setMessage('feat: x');
       cubit.commitAndPush();
 
       expect(cubit.state.status, CommitStatus.committing);
 
-      mockBridge.emitCommit(const GitCommitResultMessage(
-        success: true,
-        commitHash: 'abc',
-      ));
+      mockBridge.emitCommit(
+        const GitCommitResultMessage(success: true, commitHash: 'abc'),
+      );
       await Future.microtask(() {});
 
       expect(cubit.state.status, CommitStatus.pushing);
-      final pushJson = jsonDecode(mockBridge.sentMessages.last.toJson())
-          as Map<String, dynamic>;
+      final pushJson =
+          jsonDecode(mockBridge.sentMessages.last.toJson())
+              as Map<String, dynamic>;
       expect(pushJson['type'], 'git_push');
 
-      mockBridge.emitPush(const GitPushResultMessage(
-        success: true,
-        remote: 'origin',
-        branch: 'feat/x',
-      ));
+      mockBridge.emitPush(
+        const GitPushResultMessage(
+          success: true,
+          remote: 'origin',
+          branch: 'feat/x',
+        ),
+      );
       await Future.microtask(() {});
 
       expect(cubit.state.status, CommitStatus.success);
@@ -150,10 +154,9 @@ void main() {
     test('commitAndPush stops on commit failure', () async {
       cubit.commitAndPush();
 
-      mockBridge.emitCommit(const GitCommitResultMessage(
-        success: false,
-        error: 'staging empty',
-      ));
+      mockBridge.emitCommit(
+        const GitCommitResultMessage(success: false, error: 'staging empty'),
+      );
       await Future.microtask(() {});
 
       expect(cubit.state.status, CommitStatus.error);
@@ -165,46 +168,8 @@ void main() {
       );
     });
 
-    test('commitAndCreatePr chains commit → push → PR', () async {
-      cubit.setMessage('feat: x');
-      cubit.commitAndCreatePr();
-
-      mockBridge.emitCommit(const GitCommitResultMessage(
-        success: true,
-        commitHash: 'abc',
-      ));
-      await Future.microtask(() {});
-      expect(cubit.state.status, CommitStatus.pushing);
-
-      mockBridge.emitPush(const GitPushResultMessage(
-        success: true,
-        remote: 'origin',
-        branch: 'feat/x',
-      ));
-      await Future.microtask(() {});
-      expect(cubit.state.status, CommitStatus.creatingPr);
-
-      final prJson = jsonDecode(mockBridge.sentMessages.last.toJson())
-          as Map<String, dynamic>;
-      expect(prJson['type'], 'gh_pr_create');
-
-      mockBridge.emitPr(const GhPrResultMessage(
-        success: true,
-        prNumber: 42,
-        url: 'https://github.com/user/repo/pull/42',
-      ));
-      await Future.microtask(() {});
-
-      expect(cubit.state.status, CommitStatus.success);
-      expect(cubit.state.prUrl, 'https://github.com/user/repo/pull/42');
-    });
-
     test('updateStagedSummary updates counts', () {
-      cubit.updateStagedSummary(
-        fileCount: 3,
-        insertions: 42,
-        deletions: 8,
-      );
+      cubit.updateStagedSummary(fileCount: 3, insertions: 42, deletions: 8);
 
       expect(cubit.state.stagedFileCount, 3);
       expect(cubit.state.insertions, 42);
@@ -213,10 +178,9 @@ void main() {
 
     test('reset returns to idle state', () async {
       cubit.commit();
-      mockBridge.emitCommit(const GitCommitResultMessage(
-        success: true,
-        commitHash: 'abc',
-      ));
+      mockBridge.emitCommit(
+        const GitCommitResultMessage(success: true, commitHash: 'abc'),
+      );
       await Future.microtask(() {});
 
       cubit.reset();

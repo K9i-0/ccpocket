@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../../models/messages.dart';
+
 part 'branch_state.freezed.dart';
 
 /// State for the branch selector sheet.
@@ -26,5 +28,8 @@ abstract class BranchState with _$BranchState {
 
     /// Branches checked out by main repo or worktrees (cannot switch to).
     @Default([]) List<String> checkedOutBranches,
+
+    /// Ahead/behind information keyed by branch name.
+    @Default({}) Map<String, GitBranchRemoteStatus> remoteStatusByBranch,
   }) = _BranchState;
 }

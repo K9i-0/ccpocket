@@ -635,33 +635,6 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage('{"type":"git_push"}')).toBeNull();
   });
 
-  // gh_pr_create
-  it("parses gh_pr_create with all fields", () => {
-    const msg = parseClientMessage(
-      '{"type":"gh_pr_create","projectPath":"/p","title":"feat: x","body":"desc","draft":true}',
-    );
-    expect(msg).toEqual({
-      type: "gh_pr_create",
-      projectPath: "/p",
-      title: "feat: x",
-      body: "desc",
-      draft: true,
-    });
-  });
-
-  it("parses gh_pr_create minimal", () => {
-    const msg = parseClientMessage(
-      '{"type":"gh_pr_create","projectPath":"/p"}',
-    );
-    expect(msg).toEqual({ type: "gh_pr_create", projectPath: "/p" });
-  });
-
-  it("rejects gh_pr_create without projectPath", () => {
-    expect(
-      parseClientMessage('{"type":"gh_pr_create","title":"x"}'),
-    ).toBeNull();
-  });
-
   // git_status
   it("parses git_status", () => {
     const msg = parseClientMessage('{"type":"git_status","projectPath":"/p"}');

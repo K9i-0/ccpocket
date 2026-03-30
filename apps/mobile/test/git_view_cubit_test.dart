@@ -549,6 +549,34 @@ void main() {
       });
     });
 
+    test('revertAll sends git_revert_file with all file paths', () async {
+      final mockBridge = MockDiffBridgeService();
+      final cubit = GitViewCubit(
+        bridge: mockBridge,
+        projectPath: '/home/user/project',
+      );
+      addTearDown(() {
+        cubit.close();
+        mockBridge.dispose();
+      });
+
+      mockBridge.emitDiff(const DiffResultMessage(diff: _multiFileDiff));
+      await Future.microtask(() {});
+
+      cubit.revertAll();
+      expect(cubit.state.staging, isTrue);
+
+      final json =
+          jsonDecode(mockBridge.sentMessages.last.toJson())
+              as Map<String, dynamic>;
+      expect(json['type'], 'git_revert_file');
+      expect((json['files'] as List).cast<String>().toSet(), {
+        'file_a.dart',
+        'file_b.dart',
+        'file_c.dart',
+      });
+    });
+
     test('switchMode to unstaged requests unstaged diff explicitly', () async {
       final mockBridge = MockDiffBridgeService();
       final cubit = GitViewCubit(

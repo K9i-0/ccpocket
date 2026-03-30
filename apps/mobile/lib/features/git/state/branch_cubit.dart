@@ -15,12 +15,10 @@ class BranchCubit extends Cubit<BranchState> {
   StreamSubscription<GitCreateBranchResultMessage>? _createSub;
   StreamSubscription<GitCheckoutBranchResultMessage>? _checkoutSub;
 
-  BranchCubit({
-    required BridgeService bridge,
-    required String projectPath,
-  })  : _bridge = bridge,
-        _projectPath = projectPath,
-        super(const BranchState()) {
+  BranchCubit({required BridgeService bridge, required String projectPath})
+    : _bridge = bridge,
+      _projectPath = projectPath,
+      super(const BranchState()) {
     _branchesSub = _bridge.gitBranchesResults.listen(_onBranchesResult);
     _createSub = _bridge.gitCreateBranchResults.listen(_onCreateResult);
     _checkoutSub = _bridge.gitCheckoutBranchResults.listen(_onCheckoutResult);
@@ -49,7 +47,9 @@ class BranchCubit extends Cubit<BranchState> {
   /// Create a new branch and optionally check it out.
   void createBranch(String name, {bool checkout = true}) {
     emit(state.copyWith(creating: true, error: null));
-    _bridge.send(ClientMessage.gitCreateBranch(_projectPath, name, checkout: checkout));
+    _bridge.send(
+      ClientMessage.gitCreateBranch(_projectPath, name, checkout: checkout),
+    );
   }
 
   /// Checkout an existing branch.
@@ -65,12 +65,15 @@ class BranchCubit extends Cubit<BranchState> {
       emit(state.copyWith(loading: false, error: result.error));
       return;
     }
-    emit(state.copyWith(
-      loading: false,
-      current: result.current,
-      branches: result.branches,
-      checkedOutBranches: result.checkedOutBranches,
-    ));
+    emit(
+      state.copyWith(
+        loading: false,
+        current: result.current,
+        branches: result.branches,
+        checkedOutBranches: result.checkedOutBranches,
+        remoteStatusByBranch: result.remoteStatusByBranch,
+      ),
+    );
   }
 
   void _onCreateResult(GitCreateBranchResultMessage result) {

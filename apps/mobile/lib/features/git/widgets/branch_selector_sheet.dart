@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
 import '../state/branch_cubit.dart';
 import '../state/branch_state.dart';
@@ -73,7 +74,8 @@ class _BranchSelectorContentState extends State<_BranchSelectorContent> {
                           key: const ValueKey('create_branch_button'),
                           icon: const Icon(Icons.add),
                           tooltip: 'New Branch',
-                          onPressed: () => _showCreateBranchDialog(context, cubit),
+                          onPressed: () =>
+                              _showCreateBranchDialog(context, cubit),
                         ),
                       ],
                     ),
@@ -119,9 +121,12 @@ class _BranchSelectorContentState extends State<_BranchSelectorContent> {
                         itemBuilder: (context, index) {
                           final branch = filtered[index];
                           final isCurrent = branch == state.current;
-                          final isCheckedOut = !isCurrent &&
+                          final isCheckedOut =
+                              !isCurrent &&
                               state.checkedOutBranches.contains(branch);
                           final isDisabled = isCurrent || isCheckedOut;
+                          final remoteStatus =
+                              state.remoteStatusByBranch[branch];
 
                           return ListTile(
                             key: ValueKey('branch_$branch'),
@@ -129,13 +134,13 @@ class _BranchSelectorContentState extends State<_BranchSelectorContent> {
                               isCurrent
                                   ? Icons.check_circle
                                   : isCheckedOut
-                                      ? Icons.lock_outline
-                                      : Icons.circle_outlined,
+                                  ? Icons.lock_outline
+                                  : Icons.circle_outlined,
                               color: isCurrent
                                   ? cs.primary
                                   : isCheckedOut
-                                      ? cs.outlineVariant
-                                      : cs.outline,
+                                  ? cs.outlineVariant
+                                  : cs.outline,
                               size: 20,
                             ),
                             title: Text(
@@ -143,8 +148,9 @@ class _BranchSelectorContentState extends State<_BranchSelectorContent> {
                               style: TextStyle(
                                 fontFamily: 'monospace',
                                 fontSize: 13,
-                                fontWeight:
-                                    isCurrent ? FontWeight.w600 : FontWeight.normal,
+                                fontWeight: isCurrent
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
                                 color: isDisabled
                                     ? cs.onSurfaceVariant
                                     : cs.onSurface,
@@ -159,6 +165,9 @@ class _BranchSelectorContentState extends State<_BranchSelectorContent> {
                                     ),
                                   )
                                 : null,
+                            trailing: _BranchRemoteStatusIndicator(
+                              status: remoteStatus,
+                            ),
                             dense: true,
                             onTap: isDisabled
                                 ? null
@@ -214,6 +223,66 @@ class _BranchSelectorContentState extends State<_BranchSelectorContent> {
           ],
         );
       },
+    );
+  }
+}
+
+class _BranchRemoteStatusIndicator extends StatelessWidget {
+  final GitBranchRemoteStatus? status;
+
+  const _BranchRemoteStatusIndicator({this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final status = this.status;
+    if (status == null || !status.hasUpstream) {
+      return Text(
+        'No upstream',
+        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+      );
+    }
+
+    if (status.ahead == 0 && status.behind == 0) {
+      return Icon(Icons.check, size: 16, color: cs.onSurfaceVariant);
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (status.ahead > 0)
+          _BranchDeltaBadge(label: '↑${status.ahead}', color: cs.primary),
+        if (status.behind > 0) ...[
+          if (status.ahead > 0) const SizedBox(width: 4),
+          _BranchDeltaBadge(label: '↓${status.behind}', color: cs.tertiary),
+        ],
+      ],
+    );
+  }
+}
+
+class _BranchDeltaBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _BranchDeltaBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
     );
   }
 }

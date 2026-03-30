@@ -46,7 +46,6 @@ import {
   unstageHunks,
   gitCommit,
   gitPush,
-  ghPrCreate,
   gitStatus,
   listBranches,
   createBranch,
@@ -2672,33 +2671,6 @@ export class BridgeWebSocketServer {
         break;
       }
 
-      case "gh_pr_create": {
-        if (!this.isPathAllowed(msg.projectPath)) {
-          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
-          break;
-        }
-        try {
-          const result = ghPrCreate(msg.projectPath, {
-            title: msg.title,
-            body: msg.body,
-            draft: msg.draft,
-          });
-          this.send(ws, {
-            type: "gh_pr_result",
-            success: true,
-            prNumber: result.prNumber,
-            url: result.url,
-          });
-        } catch (err) {
-          this.send(ws, {
-            type: "gh_pr_result",
-            success: false,
-            error: String(err),
-          });
-        }
-        break;
-      }
-
       case "git_status": {
         if (!this.isPathAllowed(msg.projectPath)) {
           this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
@@ -2733,12 +2705,14 @@ export class BridgeWebSocketServer {
             current: result.current,
             branches: result.branches,
             checkedOutBranches: result.checkedOutBranches,
+            remoteStatusByBranch: result.remoteStatusByBranch,
           });
         } catch (err) {
           this.send(ws, {
             type: "git_branches_result",
             current: "",
             branches: [],
+            remoteStatusByBranch: {},
             error: String(err),
           });
         }

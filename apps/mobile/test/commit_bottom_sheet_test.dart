@@ -10,9 +10,9 @@ import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 
 class MockCommitBridgeService extends BridgeService {
-  final _commitController = StreamController<GitCommitResultMessage>.broadcast();
+  final _commitController =
+      StreamController<GitCommitResultMessage>.broadcast();
   final _pushController = StreamController<GitPushResultMessage>.broadcast();
-  final _prController = StreamController<GhPrResultMessage>.broadcast();
   final sentMessages = <ClientMessage>[];
 
   @override
@@ -20,8 +20,6 @@ class MockCommitBridgeService extends BridgeService {
       _commitController.stream;
   @override
   Stream<GitPushResultMessage> get gitPushResults => _pushController.stream;
-  @override
-  Stream<GhPrResultMessage> get ghPrResults => _prController.stream;
 
   @override
   void send(ClientMessage message) => sentMessages.add(message);
@@ -32,7 +30,6 @@ class MockCommitBridgeService extends BridgeService {
   void dispose() {
     _commitController.close();
     _pushController.close();
-    _prController.close();
   }
 }
 
@@ -72,7 +69,10 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('commit_message_field')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('commit_message_field')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('renders action buttons', (tester) async {
@@ -80,27 +80,45 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('commit_button_action')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('commit_button_action')),
+        findsOneWidget,
+      );
       expect(find.byKey(const ValueKey('commit_push_button')), findsOneWidget);
-      expect(find.byKey(const ValueKey('commit_pr_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('commit_pr_button')), findsNothing);
     });
 
-    testWidgets('commit button disabled when message empty', (tester) async {
+    testWidgets('auto-generate is enabled by default', (tester) async {
       await tester.pumpWidget(_buildTestApp(cubit));
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // Commit button should be disabled (onPressed is null)
+      final autoGenerate = tester.widget<Switch>(
+        find.byKey(const ValueKey('auto_generate_switch')),
+      );
+      expect(autoGenerate.value, isTrue);
+    });
+
+    testWidgets('commit button enabled when message empty', (tester) async {
+      await tester.pumpWidget(_buildTestApp(cubit));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
       final commitButton = tester.widget<FilledButton>(
         find.byKey(const ValueKey('commit_button_action')),
       );
-      expect(commitButton.onPressed, isNull);
+      expect(commitButton.onPressed, isNotNull);
     });
 
-    testWidgets('commit button enabled after entering message', (tester) async {
+    testWidgets('manual entry is available when auto-generate is off', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildTestApp(cubit));
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('auto_generate_switch')));
+      await tester.pump();
 
       await tester.enterText(
         find.byKey(const ValueKey('commit_message_field')),
@@ -114,32 +132,24 @@ void main() {
       expect(commitButton.onPressed, isNotNull);
     });
 
-    testWidgets('auto-generate enables commit without message', (tester) async {
+    testWidgets('text field is disabled while auto-generate is enabled', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildTestApp(cubit));
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // Toggle auto-generate switch
-      await tester.tap(find.byKey(const ValueKey('auto_generate_switch')));
-      await tester.pump();
-
-      final commitButton = tester.widget<FilledButton>(
-        find.byKey(const ValueKey('commit_button_action')),
+      final textField = tester.widget<TextField>(
+        find.byKey(const ValueKey('commit_message_field')),
       );
-      expect(commitButton.onPressed, isNotNull);
+      expect(textField.enabled, isFalse);
+      expect(textField.decoration?.hintText, 'Auto-generate with AI');
     });
 
     testWidgets('shows progress during commit', (tester) async {
       await tester.pumpWidget(_buildTestApp(cubit));
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
-
-      // Enter message in the text field
-      await tester.enterText(
-        find.byKey(const ValueKey('commit_message_field')),
-        'feat: x',
-      );
-      await tester.pump();
 
       // Tap commit button
       await tester.tap(find.byKey(const ValueKey('commit_button_action')));
@@ -156,10 +166,9 @@ void main() {
 
       cubit.setMessage('feat: x');
       cubit.commit();
-      mockBridge.emitCommit(const GitCommitResultMessage(
-        success: true,
-        commitHash: 'abc1234',
-      ));
+      mockBridge.emitCommit(
+        const GitCommitResultMessage(success: true, commitHash: 'abc1234'),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Committed: abc1234'), findsOneWidget);

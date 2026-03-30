@@ -75,15 +75,37 @@ void main() {
       await tester.pump();
 
       // Emit branches
-      mockBridge.emitBranches(const GitBranchesResultMessage(
-        current: 'main',
-        branches: ['main', 'feat/login', 'fix/bug'],
-      ));
+      mockBridge.emitBranches(
+        const GitBranchesResultMessage(
+          current: 'main',
+          branches: ['main', 'feat/login', 'fix/bug'],
+          remoteStatusByBranch: {
+            'main': GitBranchRemoteStatus(
+              ahead: 0,
+              behind: 0,
+              hasUpstream: true,
+            ),
+            'feat/login': GitBranchRemoteStatus(
+              ahead: 2,
+              behind: 1,
+              hasUpstream: true,
+            ),
+            'fix/bug': GitBranchRemoteStatus(
+              ahead: 0,
+              behind: 0,
+              hasUpstream: false,
+            ),
+          },
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('main'), findsOneWidget);
       expect(find.text('feat/login'), findsOneWidget);
       expect(find.text('fix/bug'), findsOneWidget);
+      expect(find.text('↑2'), findsOneWidget);
+      expect(find.text('↓1'), findsOneWidget);
+      expect(find.text('No upstream'), findsOneWidget);
     });
 
     testWidgets('search filters displayed branches', (tester) async {
@@ -91,10 +113,29 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pump();
 
-      mockBridge.emitBranches(const GitBranchesResultMessage(
-        current: 'main',
-        branches: ['main', 'feat/login', 'feat/signup', 'fix/bug'],
-      ));
+      mockBridge.emitBranches(
+        const GitBranchesResultMessage(
+          current: 'main',
+          branches: ['main', 'feat/login', 'feat/signup', 'fix/bug'],
+          remoteStatusByBranch: {
+            'feat/login': GitBranchRemoteStatus(
+              ahead: 1,
+              behind: 0,
+              hasUpstream: true,
+            ),
+            'feat/signup': GitBranchRemoteStatus(
+              ahead: 0,
+              behind: 2,
+              hasUpstream: true,
+            ),
+            'fix/bug': GitBranchRemoteStatus(
+              ahead: 0,
+              behind: 0,
+              hasUpstream: false,
+            ),
+          },
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Type in search
@@ -114,10 +155,19 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pump();
 
-      mockBridge.emitBranches(const GitBranchesResultMessage(
-        current: 'main',
-        branches: ['main', 'feat/login'],
-      ));
+      mockBridge.emitBranches(
+        const GitBranchesResultMessage(
+          current: 'main',
+          branches: ['main', 'feat/login'],
+          remoteStatusByBranch: {
+            'feat/login': GitBranchRemoteStatus(
+              ahead: 0,
+              behind: 0,
+              hasUpstream: true,
+            ),
+          },
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Tap non-current branch
@@ -136,10 +186,19 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pump();
 
-      mockBridge.emitBranches(const GitBranchesResultMessage(
-        current: 'main',
-        branches: ['main'],
-      ));
+      mockBridge.emitBranches(
+        const GitBranchesResultMessage(
+          current: 'main',
+          branches: ['main'],
+          remoteStatusByBranch: {
+            'main': GitBranchRemoteStatus(
+              ahead: 0,
+              behind: 0,
+              hasUpstream: true,
+            ),
+          },
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('create_branch_button')));

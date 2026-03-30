@@ -122,6 +122,34 @@ class _GitScreenBody extends StatelessWidget {
               tooltip: l.refresh,
               onPressed: cubit.refresh,
             ),
+          if (isProjectMode)
+            PopupMenuButton<_BulkGitAction>(
+              key: const ValueKey('git_bulk_actions_button'),
+              icon: const Icon(Icons.more_vert),
+              onSelected: (action) =>
+                  _handleBulkAction(context, cubit, state, action),
+              itemBuilder: (_) => switch (state.viewMode) {
+                GitViewMode.unstaged => [
+                  PopupMenuItem<_BulkGitAction>(
+                    value: _BulkGitAction.stageAll,
+                    enabled: !_isBusy(state) && state.files.isNotEmpty,
+                    child: const Text('Stage All'),
+                  ),
+                  PopupMenuItem<_BulkGitAction>(
+                    value: _BulkGitAction.revertAll,
+                    enabled: !_isBusy(state) && state.files.isNotEmpty,
+                    child: const Text('Revert All'),
+                  ),
+                ],
+                GitViewMode.staged => [
+                  PopupMenuItem<_BulkGitAction>(
+                    value: _BulkGitAction.unstageAll,
+                    enabled: !_isBusy(state) && state.files.isNotEmpty,
+                    child: const Text('Unstage All'),
+                  ),
+                ],
+              },
+            ),
         ],
       ),
       bottomNavigationBar: isProjectMode
@@ -196,6 +224,33 @@ class _GitScreenBody extends StatelessWidget {
               lineWrapEnabled: state.lineWrapEnabled,
             ),
     );
+  }
+
+  bool _isBusy(GitViewState state) =>
+      state.staging || state.pulling || state.pushing;
+
+  Future<void> _handleBulkAction(
+    BuildContext context,
+    GitViewCubit cubit,
+    GitViewState state,
+    _BulkGitAction action,
+  ) async {
+    switch (action) {
+      case _BulkGitAction.stageAll:
+        cubit.stageAll();
+        return;
+      case _BulkGitAction.unstageAll:
+        cubit.unstageAll();
+        return;
+      case _BulkGitAction.revertAll:
+        await _confirmRevert(
+          context,
+          title: 'すべての変更を破棄しますか',
+          message: '表示中の未ステージ変更をすべて破棄します。',
+          onConfirm: cubit.revertAll,
+        );
+        return;
+    }
   }
 
   void _showFileActionSheet(
@@ -406,6 +461,8 @@ class _GitScreenBody extends StatelessWidget {
   }
 }
 
+enum _BulkGitAction { stageAll, unstageAll, revertAll }
+
 /// 2-tab segment: Changes (all) / Staged
 class _GitViewModeSegment extends StatelessWidget {
   final GitViewMode viewMode;
@@ -434,7 +491,7 @@ class _GitViewModeSegment extends StatelessWidget {
   }
 }
 
-/// Bottom bar with diff summary stats and git action buttons (Pull / Commit / Push).
+/// Bottom bar with diff summary stats and git action buttons.
 class _DiffBottomBar extends StatelessWidget {
   final GitViewState state;
   final GitViewCubit cubit;
@@ -513,7 +570,6 @@ class _DiffBottomBar extends StatelessWidget {
                         ),
                     ],
                     const Spacer(),
-                    // Remote status badges
                     if (state.fetching)
                       Padding(
                         padding: const EdgeInsets.only(right: 4),
@@ -526,23 +582,6 @@ class _DiffBottomBar extends StatelessWidget {
                           ),
                         ),
                       ),
-                    if (state.hasUpstream && state.commitsBehind > 0)
-                      _RemoteBadge(
-                        icon: Icons.arrow_downward,
-                        count: state.commitsBehind,
-                        color: cs.tertiary,
-                      ),
-                    if (state.hasUpstream && state.commitsAhead > 0)
-                      _RemoteBadge(
-                        icon: Icons.arrow_upward,
-                        count: state.commitsAhead,
-                        color: cs.primary,
-                      ),
-                    if (state.hasUpstream &&
-                        state.commitsAhead == 0 &&
-                        state.commitsBehind == 0 &&
-                        !state.fetching)
-                      Icon(Icons.check, size: 14, color: cs.onSurfaceVariant),
                     if (!state.hasUpstream && !state.fetching)
                       Text(
                         'No upstream',
@@ -557,35 +596,37 @@ class _DiffBottomBar extends StatelessWidget {
               // Action buttons row: Pull | Push | Commit
               Row(
                 children: [
-                  Expanded(
-                    child: _ActionButton(
-                      key: const ValueKey('pull_button'),
-                      icon: Icons.download,
-                      label: state.commitsBehind > 0
-                          ? 'Pull (${state.commitsBehind})'
-                          : 'Pull',
-                      loading: state.pulling,
-                      onPressed:
-                          _isBusy ||
-                              !state.hasUpstream ||
-                              state.commitsBehind == 0
-                          ? null
-                          : onPull,
-                    ),
+                  _CompactCountActionButton(
+                    key: const ValueKey('pull_button'),
+                    icon: Icons.download,
+                    countLabel: state.hasUpstream
+                        ? '${state.commitsBehind}'
+                        : '-',
+                    accessibilityLabel: state.hasUpstream
+                        ? 'Pull ${state.commitsBehind} commits'
+                        : 'Pull unavailable without upstream',
+                    loading: state.pulling,
+                    onPressed:
+                        _isBusy ||
+                            !state.hasUpstream ||
+                            state.commitsBehind == 0
+                        ? null
+                        : onPull,
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: _ActionButton(
-                      key: const ValueKey('push_button'),
-                      icon: Icons.upload,
-                      label: state.commitsAhead > 0
-                          ? 'Push (${state.commitsAhead})'
-                          : 'Push',
-                      loading: state.pushing,
-                      onPressed: _isBusy || state.commitsAhead == 0
-                          ? null
-                          : onPush,
-                    ),
+                  _CompactCountActionButton(
+                    key: const ValueKey('push_button'),
+                    icon: Icons.upload,
+                    countLabel: state.hasUpstream
+                        ? '${state.commitsAhead}'
+                        : '-',
+                    accessibilityLabel: state.hasUpstream
+                        ? 'Push ${state.commitsAhead} commits'
+                        : 'Push unavailable without upstream',
+                    loading: state.pushing,
+                    onPressed: _isBusy || state.commitsAhead == 0
+                        ? null
+                        : onPush,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -609,47 +650,11 @@ class _DiffBottomBar extends StatelessWidget {
   bool get _isBusy => state.staging || state.pulling || state.pushing;
 }
 
-/// Small badge showing ↑N or ↓N for remote ahead/behind.
-class _RemoteBadge extends StatelessWidget {
-  final IconData icon;
-  final int count;
-  final Color color;
-
-  const _RemoteBadge({
-    required this.icon,
-    required this.count,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 6),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 1),
-          Text(
-            '$count',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Outlined action button used in the bottom bar.
 class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onPressed;
-  final bool loading;
   final bool primary;
 
   const _ActionButton({
@@ -657,7 +662,6 @@ class _ActionButton extends StatelessWidget {
     required this.icon,
     required this.label,
     this.onPressed,
-    this.loading = false,
     this.primary = false,
   });
 
@@ -667,33 +671,78 @@ class _ActionButton extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (loading)
-          const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        else
-          Icon(icon, size: 16),
+        Icon(icon, size: 16),
         const SizedBox(width: 4),
         Text(label, style: const TextStyle(fontSize: 13)),
       ],
     );
 
-    final effectiveOnPressed = loading ? null : onPressed;
     const padding = EdgeInsets.symmetric(horizontal: 8, vertical: 10);
 
     if (primary) {
       return FilledButton(
-        onPressed: effectiveOnPressed,
+        onPressed: onPressed,
         style: FilledButton.styleFrom(padding: padding),
         child: child,
       );
     }
     return OutlinedButton(
-      onPressed: effectiveOnPressed,
+      onPressed: onPressed,
       style: OutlinedButton.styleFrom(padding: padding),
       child: child,
+    );
+  }
+}
+
+class _CompactCountActionButton extends StatelessWidget {
+  final IconData icon;
+  final String countLabel;
+  final String accessibilityLabel;
+  final VoidCallback? onPressed;
+  final bool loading;
+
+  const _CompactCountActionButton({
+    super.key,
+    required this.icon,
+    required this.countLabel,
+    required this.accessibilityLabel,
+    this.onPressed,
+    this.loading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final child = SizedBox(
+      width: 72,
+      child: OutlinedButton(
+        onPressed: loading ? null : onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (loading)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Icon(icon, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              countLabel,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return Tooltip(
+      message: accessibilityLabel,
+      child: Semantics(button: true, label: accessibilityLabel, child: child),
     );
   }
 }

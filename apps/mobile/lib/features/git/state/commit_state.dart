@@ -3,14 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'commit_state.freezed.dart';
 
 /// Status of the commit flow.
-enum CommitStatus {
-  idle,
-  committing,
-  pushing,
-  creatingPr,
-  success,
-  error,
-}
+enum CommitStatus { idle, committing, pushing, success, error }
 
 /// State for the commit flow bottom sheet.
 @freezed
@@ -20,7 +13,7 @@ abstract class CommitState with _$CommitState {
     @Default('') String message,
 
     /// Whether to auto-generate the commit message.
-    @Default(false) bool autoGenerate,
+    @Default(true) bool autoGenerate,
 
     /// Current status of the multi-step commit flow.
     @Default(CommitStatus.idle) CommitStatus status,
@@ -30,9 +23,6 @@ abstract class CommitState with _$CommitState {
 
     /// Commit hash after successful commit.
     String? commitHash,
-
-    /// PR URL after successful PR creation.
-    String? prUrl,
 
     /// Number of staged files.
     @Default(0) int stagedFileCount,

@@ -74,11 +74,6 @@ class MockBridgeService extends BridgeService {
       .cast<GitPushResultMessage>();
 
   @override
-  Stream<GhPrResultMessage> get ghPrResults => _mockMessageController.stream
-      .where((m) => m is GhPrResultMessage)
-      .cast<GhPrResultMessage>();
-
-  @override
   Stream<GitStatusResultMessage> get gitStatusResults => _mockMessageController
       .stream
       .where((m) => m is GitStatusResultMessage)
@@ -286,15 +281,6 @@ class MockBridgeService extends BridgeService {
             branch: 'feat/mock',
           ),
         );
-      case 'gh_pr_create':
-        _scheduleMessage(
-          const Duration(milliseconds: 800),
-          const GhPrResultMessage(
-            success: true,
-            prNumber: 42,
-            url: 'https://github.com/user/repo/pull/42',
-          ),
-        );
       case 'git_status':
         _scheduleMessage(
           const Duration(milliseconds: 200),
@@ -310,6 +296,28 @@ class MockBridgeService extends BridgeService {
           const GitBranchesResultMessage(
             current: 'feat/mock',
             branches: ['main', 'feat/mock', 'feat/login', 'fix/bug-123'],
+            remoteStatusByBranch: {
+              'main': GitBranchRemoteStatus(
+                ahead: 0,
+                behind: 0,
+                hasUpstream: true,
+              ),
+              'feat/mock': GitBranchRemoteStatus(
+                ahead: 2,
+                behind: 1,
+                hasUpstream: true,
+              ),
+              'feat/login': GitBranchRemoteStatus(
+                ahead: 0,
+                behind: 3,
+                hasUpstream: true,
+              ),
+              'fix/bug-123': GitBranchRemoteStatus(
+                ahead: 0,
+                behind: 0,
+                hasUpstream: false,
+              ),
+            },
           ),
         );
       case 'git_create_branch':

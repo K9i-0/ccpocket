@@ -327,32 +327,6 @@ void main() {
     });
   });
 
-  group('GhPrResultMessage', () {
-    test('parses success with PR details', () {
-      final msg = ServerMessage.fromJson({
-        'type': 'gh_pr_result',
-        'success': true,
-        'prNumber': 42,
-        'url': 'https://github.com/user/repo/pull/42',
-      });
-      final r = msg as GhPrResultMessage;
-      expect(r.success, isTrue);
-      expect(r.prNumber, 42);
-      expect(r.url, 'https://github.com/user/repo/pull/42');
-    });
-
-    test('parses failure', () {
-      final msg = ServerMessage.fromJson({
-        'type': 'gh_pr_result',
-        'success': false,
-        'error': 'gh not installed',
-      });
-      final r = msg as GhPrResultMessage;
-      expect(r.success, isFalse);
-      expect(r.error, 'gh not installed');
-    });
-  });
-
   group('GitStatusResultMessage', () {
     test('parses status with all categories', () {
       final msg = ServerMessage.fromJson({
@@ -382,10 +356,14 @@ void main() {
         'type': 'git_branches_result',
         'current': 'main',
         'branches': ['main', 'feat/login', 'fix/bug'],
+        'remoteStatusByBranch': {
+          'feat/login': {'ahead': 2, 'behind': 1, 'hasUpstream': true},
+        },
       });
       final r = msg as GitBranchesResultMessage;
       expect(r.current, 'main');
       expect(r.branches, ['main', 'feat/login', 'fix/bug']);
+      expect(r.remoteStatusByBranch['feat/login']?.ahead, 2);
       expect(r.error, isNull);
     });
 
@@ -508,20 +486,6 @@ void main() {
       final msg = ClientMessage.gitPush('/p', forceLease: true);
       final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
       expect(json['forceLease'], isTrue);
-    });
-
-    test('ghPrCreate', () {
-      final msg = ClientMessage.ghPrCreate(
-        '/p',
-        title: 'feat: x',
-        body: 'description',
-        draft: true,
-      );
-      final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
-      expect(json['type'], 'gh_pr_create');
-      expect(json['title'], 'feat: x');
-      expect(json['body'], 'description');
-      expect(json['draft'], isTrue);
     });
 
     test('gitStatus', () {

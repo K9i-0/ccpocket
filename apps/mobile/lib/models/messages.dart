@@ -713,12 +713,6 @@ sealed class ServerMessage {
         branch: json['branch'] as String?,
         error: json['error'] as String?,
       ),
-      'gh_pr_result' => GhPrResultMessage(
-        success: json['success'] as bool? ?? false,
-        prNumber: json['prNumber'] as int?,
-        url: json['url'] as String?,
-        error: json['error'] as String?,
-      ),
       'git_status_result' => GitStatusResultMessage(
         staged: (json['staged'] as List?)?.cast<String>() ?? const [],
         unstaged: (json['unstaged'] as List?)?.cast<String>() ?? const [],
@@ -729,6 +723,16 @@ sealed class ServerMessage {
         branches: (json['branches'] as List?)?.cast<String>() ?? const [],
         checkedOutBranches:
             (json['checkedOutBranches'] as List?)?.cast<String>() ?? const [],
+        remoteStatusByBranch:
+            (json['remoteStatusByBranch'] as Map?)?.map(
+              (key, value) => MapEntry(
+                key as String,
+                GitBranchRemoteStatus.fromJson(
+                  Map<String, dynamic>.from(value as Map),
+                ),
+              ),
+            ) ??
+            const {},
         error: json['error'] as String?,
       ),
       'git_create_branch_result' => GitCreateBranchResultMessage(
@@ -1677,17 +1681,24 @@ class GitPushResultMessage implements ServerMessage {
   });
 }
 
-class GhPrResultMessage implements ServerMessage {
-  final bool success;
-  final int? prNumber;
-  final String? url;
-  final String? error;
-  const GhPrResultMessage({
-    required this.success,
-    this.prNumber,
-    this.url,
-    this.error,
+class GitBranchRemoteStatus {
+  final int ahead;
+  final int behind;
+  final bool hasUpstream;
+
+  const GitBranchRemoteStatus({
+    required this.ahead,
+    required this.behind,
+    required this.hasUpstream,
   });
+
+  factory GitBranchRemoteStatus.fromJson(Map<String, dynamic> json) {
+    return GitBranchRemoteStatus(
+      ahead: json['ahead'] as int? ?? 0,
+      behind: json['behind'] as int? ?? 0,
+      hasUpstream: json['hasUpstream'] as bool? ?? false,
+    );
+  }
 }
 
 class GitStatusResultMessage implements ServerMessage {
@@ -1705,11 +1716,13 @@ class GitBranchesResultMessage implements ServerMessage {
   final String current;
   final List<String> branches;
   final List<String> checkedOutBranches;
+  final Map<String, GitBranchRemoteStatus> remoteStatusByBranch;
   final String? error;
   const GitBranchesResultMessage({
     required this.current,
     required this.branches,
     this.checkedOutBranches = const [],
+    this.remoteStatusByBranch = const {},
     this.error,
   });
 }
@@ -2666,21 +2679,6 @@ class ClientMessage {
         'projectPath': projectPath,
         'forceLease': ?forceLease,
       });
-
-  factory ClientMessage.ghPrCreate(
-    String projectPath, {
-    String? title,
-    String? body,
-    bool? draft,
-    bool? autoGenerate,
-  }) => ClientMessage._(<String, dynamic>{
-    'type': 'gh_pr_create',
-    'projectPath': projectPath,
-    'title': ?title,
-    'body': ?body,
-    'draft': ?draft,
-    'autoGenerate': ?autoGenerate,
-  });
 
   factory ClientMessage.gitStatus(String projectPath) =>
       ClientMessage._({'type': 'git_status', 'projectPath': projectPath});

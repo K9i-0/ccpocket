@@ -439,6 +439,19 @@ class GitViewCubit extends Cubit<GitViewState> {
     );
   }
 
+  /// Revert all visible files.
+  void revertAll() {
+    final projectPath = _projectPath;
+    if (projectPath == null || state.files.isEmpty) return;
+    emit(state.copyWith(staging: true));
+    _bridge.send(
+      ClientMessage.gitRevertFile(
+        projectPath,
+        state.files.map((f) => f.filePath).toList(),
+      ),
+    );
+  }
+
   void _onStageResult(GitStageResultMessage result) {
     if (result.success) {
       emit(state.copyWith(staging: false));

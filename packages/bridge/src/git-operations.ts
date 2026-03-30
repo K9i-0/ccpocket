@@ -19,15 +19,16 @@ export interface PushResult {
   branch: string;
 }
 
-export interface PrResult {
-  prNumber: number;
-  url: string;
-}
-
 export interface GitStatusResult {
   staged: string[];
   unstaged: string[];
   untracked: string[];
+}
+
+export interface BranchRemoteStatus {
+  ahead: number;
+  behind: number;
+  hasUpstream: boolean;
 }
 
 export interface BranchListResult {
@@ -35,6 +36,7 @@ export interface BranchListResult {
   branches: string[];
   /** Branches currently checked out by main repo or worktrees (cannot switch to). */
   checkedOutBranches: string[];
+  remoteStatusByBranch: Record<string, BranchRemoteStatus>;
 }
 
 // ---- Helpers ----
@@ -150,7 +152,7 @@ export function unstageHunks(projectPath: string, hunks: HunkRef[]): void {
   });
 }
 
-// ---- Phase 2: Commit / Push / PR ----
+// ---- Phase 2: Commit / Push ----
 
 /** Create a commit with the given message. Throws if nothing is staged. */
 export function gitCommit(projectPath: string, message: string): CommitResult {
@@ -180,30 +182,6 @@ export function gitPush(projectPath: string, forceLease?: boolean): PushResult {
 
   execFileSync("git", args, { cwd, encoding: "utf-8" });
   return { remote: "origin", branch };
-}
-
-/** Create a PR via `gh` CLI. */
-export function ghPrCreate(
-  projectPath: string,
-  opts: { title?: string; body?: string; draft?: boolean },
-): PrResult {
-  const cwd = resolveProject(projectPath);
-
-  const args = ["pr", "create"];
-  if (opts.title) args.push("--title", opts.title);
-  if (opts.body) args.push("--body", opts.body);
-  if (opts.draft) args.push("--draft");
-
-  const output = execFileSync("gh", args, { cwd, encoding: "utf-8" }).trim();
-
-  // gh pr create outputs the PR URL as the last line
-  const url = output.split("\n").pop() ?? output;
-
-  // Extract PR number from URL (e.g., https://github.com/user/repo/pull/42)
-  const match = url.match(/\/pull\/(\d+)/);
-  const prNumber = match ? parseInt(match[1], 10) : 0;
-
-  return { prNumber, url };
 }
 
 /** Get git status categorized into staged, unstaged, and untracked files. */
@@ -276,7 +254,45 @@ export function listBranches(
     branches = branches.filter((b) => b.toLowerCase().includes(q));
   }
 
-  return { current, branches, checkedOutBranches };
+  const remoteStatusByBranch = Object.fromEntries(
+    branches.map((branch) => [branch, getBranchRemoteStatus(cwd, branch)]),
+  );
+
+  return { current, branches, checkedOutBranches, remoteStatusByBranch };
+}
+
+function getBranchRemoteStatus(
+  cwd: string,
+  branch: string,
+): BranchRemoteStatus {
+  const upstream = execFileSync(
+    "git",
+    ["for-each-ref", "--format=%(upstream:short)", `refs/heads/${branch}`],
+    { cwd, encoding: "utf-8" },
+  ).trim();
+
+  if (!upstream) {
+    return { ahead: 0, behind: 0, hasUpstream: false };
+  }
+
+  let ahead = 0;
+  let behind = 0;
+
+  try {
+    ahead =
+      parseInt(git(["rev-list", "--count", `${upstream}..${branch}`], cwd), 10) || 0;
+  } catch {
+    ahead = 0;
+  }
+
+  try {
+    behind =
+      parseInt(git(["rev-list", "--count", `${branch}..${upstream}`], cwd), 10) || 0;
+  } catch {
+    behind = 0;
+  }
+
+  return { ahead, behind, hasUpstream: true };
 }
 
 /** Create a new branch, optionally checking it out. */

@@ -231,14 +231,6 @@ export type ClientMessage =
       autoGenerate?: boolean;
     }
   | { type: "git_push"; projectPath: string; forceLease?: boolean }
-  | {
-      type: "gh_pr_create";
-      projectPath: string;
-      title?: string;
-      body?: string;
-      draft?: boolean;
-      autoGenerate?: boolean;
-    }
   | { type: "git_status"; projectPath: string }
   | { type: "git_branches"; projectPath: string; query?: string }
   | {
@@ -502,13 +494,6 @@ export type ServerMessage =
       error?: string;
     }
   | {
-      type: "gh_pr_result";
-      success: boolean;
-      prNumber?: number;
-      url?: string;
-      error?: string;
-    }
-  | {
       type: "git_status_result";
       staged: string[];
       unstaged: string[];
@@ -519,6 +504,10 @@ export type ServerMessage =
       current: string;
       branches: string[];
       checkedOutBranches?: string[];
+      remoteStatusByBranch?: Record<
+        string,
+        { ahead: number; behind: number; hasUpstream: boolean }
+      >;
       error?: string;
     }
   | { type: "git_create_branch_result"; success: boolean; error?: string }
@@ -944,19 +933,6 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "git_push":
         if (typeof msg.projectPath !== "string") return null;
         if (msg.forceLease !== undefined && typeof msg.forceLease !== "boolean")
-          return null;
-        break;
-      case "gh_pr_create":
-        if (typeof msg.projectPath !== "string") return null;
-        if (msg.title !== undefined && typeof msg.title !== "string")
-          return null;
-        if (msg.body !== undefined && typeof msg.body !== "string") return null;
-        if (msg.draft !== undefined && typeof msg.draft !== "boolean")
-          return null;
-        if (
-          msg.autoGenerate !== undefined &&
-          typeof msg.autoGenerate !== "boolean"
-        )
           return null;
         break;
       case "git_status":

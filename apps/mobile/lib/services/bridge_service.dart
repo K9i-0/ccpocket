@@ -62,7 +62,6 @@ class BridgeService implements BridgeServiceBase {
       StreamController<GitCommitResultMessage>.broadcast();
   final _gitPushResultController =
       StreamController<GitPushResultMessage>.broadcast();
-  final _ghPrResultController = StreamController<GhPrResultMessage>.broadcast();
   final _gitStatusResultController =
       StreamController<GitStatusResultMessage>.broadcast();
   final _gitBranchesResultController =
@@ -158,7 +157,6 @@ class BridgeService implements BridgeServiceBase {
       _gitCommitResultController.stream;
   Stream<GitPushResultMessage> get gitPushResults =>
       _gitPushResultController.stream;
-  Stream<GhPrResultMessage> get ghPrResults => _ghPrResultController.stream;
   Stream<GitStatusResultMessage> get gitStatusResults =>
       _gitStatusResultController.stream;
   Stream<GitBranchesResultMessage> get gitBranchesResults =>
@@ -314,8 +312,6 @@ class BridgeService implements BridgeServiceBase {
                 _gitCommitResultController.add(msg);
               case GitPushResultMessage():
                 _gitPushResultController.add(msg);
-              case GhPrResultMessage():
-                _ghPrResultController.add(msg);
               case GitStatusResultMessage():
                 _gitStatusResultController.add(msg);
               case GitBranchesResultMessage():
@@ -1129,7 +1125,6 @@ class BridgeService implements BridgeServiceBase {
     _gitUnstageHunksResultController.close();
     _gitCommitResultController.close();
     _gitPushResultController.close();
-    _ghPrResultController.close();
     _gitStatusResultController.close();
     _gitBranchesResultController.close();
     _gitCreateBranchResultController.close();

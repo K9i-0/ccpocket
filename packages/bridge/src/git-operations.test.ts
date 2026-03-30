@@ -36,6 +36,13 @@ function gitCmd(args: string[], cwd: string): string {
   return execFileSync("git", args, { cwd, encoding: "utf-8" }).trim();
 }
 
+function createBareRemote(): string {
+  const dir = join(tmpdir(), `git-ops-remote-${randomUUID().slice(0, 8)}`);
+  mkdirSync(dir, { recursive: true });
+  execFileSync("git", ["init", "--bare"], { cwd: dir });
+  return dir;
+}
+
 // ---- Phase 1: Staging ----
 
 describe("stageFiles", () => {
@@ -370,6 +377,40 @@ describe("listBranches", () => {
     const result = listBranches(repo, "nonexistent");
 
     expect(result.branches).toEqual([]);
+  });
+
+  it("includes ahead/behind status for branches with upstream", () => {
+    const remote = createBareRemote();
+    try {
+      execFileSync("git", ["remote", "add", "origin", remote], { cwd: repo });
+      const current = gitCmd(["rev-parse", "--abbrev-ref", "HEAD"], repo);
+      execFileSync("git", ["push", "-u", "origin", current], { cwd: repo });
+
+      execFileSync("git", ["checkout", "feat/login"], { cwd: repo });
+      execFileSync("git", ["push", "-u", "origin", "feat/login"], { cwd: repo });
+
+      writeFileSync(join(repo, "ahead.txt"), "ahead\n");
+      execFileSync("git", ["add", "ahead.txt"], { cwd: repo });
+      execFileSync("git", ["commit", "-m", "ahead commit"], { cwd: repo });
+
+      const result = listBranches(repo);
+      expect(result.remoteStatusByBranch["feat/login"]).toMatchObject({
+        ahead: 1,
+        behind: 0,
+        hasUpstream: true,
+      });
+    } finally {
+      rmSync(remote, { recursive: true, force: true });
+    }
+  });
+
+  it("reports no upstream for branches without tracking", () => {
+    const result = listBranches(repo);
+    expect(result.remoteStatusByBranch["feat/login"]).toMatchObject({
+      ahead: 0,
+      behind: 0,
+      hasUpstream: false,
+    });
   });
 });
 

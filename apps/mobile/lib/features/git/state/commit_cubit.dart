@@ -13,20 +13,16 @@ class CommitCubit extends Cubit<CommitState> {
 
   StreamSubscription<GitCommitResultMessage>? _commitSub;
   StreamSubscription<GitPushResultMessage>? _pushSub;
-  StreamSubscription<GhPrResultMessage>? _prSub;
 
   /// What to do after a successful commit.
   _PostCommitAction _postCommitAction = _PostCommitAction.none;
 
-  CommitCubit({
-    required BridgeService bridge,
-    required String projectPath,
-  })  : _bridge = bridge,
-        _projectPath = projectPath,
-        super(const CommitState()) {
+  CommitCubit({required BridgeService bridge, required String projectPath})
+    : _bridge = bridge,
+      _projectPath = projectPath,
+      super(const CommitState()) {
     _commitSub = _bridge.gitCommitResults.listen(_onCommitResult);
     _pushSub = _bridge.gitPushResults.listen(_onPushResult);
-    _prSub = _bridge.ghPrResults.listen(_onPrResult);
   }
 
   // ---- Public API ----
@@ -42,11 +38,13 @@ class CommitCubit extends Cubit<CommitState> {
     required int insertions,
     required int deletions,
   }) {
-    emit(state.copyWith(
-      stagedFileCount: fileCount,
-      insertions: insertions,
-      deletions: deletions,
-    ));
+    emit(
+      state.copyWith(
+        stagedFileCount: fileCount,
+        insertions: insertions,
+        deletions: deletions,
+      ),
+    );
   }
 
   /// Commit only.
@@ -61,12 +59,6 @@ class CommitCubit extends Cubit<CommitState> {
     _doCommit();
   }
 
-  /// Commit then push then create PR.
-  void commitAndCreatePr() {
-    _postCommitAction = _PostCommitAction.pushAndPr;
-    _doCommit();
-  }
-
   /// Reset to idle state (e.g. after dismissing success/error).
   void reset() => emit(const CommitState());
 
@@ -74,11 +66,13 @@ class CommitCubit extends Cubit<CommitState> {
 
   void _doCommit() {
     emit(state.copyWith(status: CommitStatus.committing, error: null));
-    _bridge.send(ClientMessage.gitCommit(
-      _projectPath,
-      message: state.autoGenerate ? null : state.message,
-      autoGenerate: state.autoGenerate ? true : null,
-    ));
+    _bridge.send(
+      ClientMessage.gitCommit(
+        _projectPath,
+        message: state.autoGenerate ? null : state.message,
+        autoGenerate: state.autoGenerate ? true : null,
+      ),
+    );
   }
 
   void _onCommitResult(GitCommitResultMessage result) {
@@ -89,8 +83,7 @@ class CommitCubit extends Cubit<CommitState> {
 
     emit(state.copyWith(commitHash: result.commitHash));
 
-    if (_postCommitAction == _PostCommitAction.push ||
-        _postCommitAction == _PostCommitAction.pushAndPr) {
+    if (_postCommitAction == _PostCommitAction.push) {
       emit(state.copyWith(status: CommitStatus.pushing));
       _bridge.send(ClientMessage.gitPush(_projectPath));
     } else {
@@ -104,30 +97,15 @@ class CommitCubit extends Cubit<CommitState> {
       return;
     }
 
-    if (_postCommitAction == _PostCommitAction.pushAndPr) {
-      emit(state.copyWith(status: CommitStatus.creatingPr));
-      _bridge.send(ClientMessage.ghPrCreate(_projectPath));
-    } else {
-      emit(state.copyWith(status: CommitStatus.success));
-    }
-  }
-
-  void _onPrResult(GhPrResultMessage result) {
-    if (!result.success) {
-      emit(state.copyWith(status: CommitStatus.error, error: result.error));
-      return;
-    }
-
-    emit(state.copyWith(status: CommitStatus.success, prUrl: result.url));
+    emit(state.copyWith(status: CommitStatus.success));
   }
 
   @override
   Future<void> close() {
     _commitSub?.cancel();
     _pushSub?.cancel();
-    _prSub?.cancel();
     return super.close();
   }
 }
 
-enum _PostCommitAction { none, push, pushAndPr }
+enum _PostCommitAction { none, push }

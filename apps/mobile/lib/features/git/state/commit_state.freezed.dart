@@ -19,8 +19,7 @@ mixin _$CommitState {
  bool get autoGenerate;/// Current status of the multi-step commit flow.
  CommitStatus get status;/// Error message if any step fails.
  String? get error;/// Commit hash after successful commit.
- String? get commitHash;/// PR URL after successful PR creation.
- String? get prUrl;/// Number of staged files.
+ String? get commitHash;/// Number of staged files.
  int get stagedFileCount;/// Number of insertions across staged files.
  int get insertions;/// Number of deletions across staged files.
  int get deletions;
@@ -34,16 +33,16 @@ $CommitStateCopyWith<CommitState> get copyWith => _$CommitStateCopyWithImpl<Comm
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CommitState&&(identical(other.message, message) || other.message == message)&&(identical(other.autoGenerate, autoGenerate) || other.autoGenerate == autoGenerate)&&(identical(other.status, status) || other.status == status)&&(identical(other.error, error) || other.error == error)&&(identical(other.commitHash, commitHash) || other.commitHash == commitHash)&&(identical(other.prUrl, prUrl) || other.prUrl == prUrl)&&(identical(other.stagedFileCount, stagedFileCount) || other.stagedFileCount == stagedFileCount)&&(identical(other.insertions, insertions) || other.insertions == insertions)&&(identical(other.deletions, deletions) || other.deletions == deletions));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CommitState&&(identical(other.message, message) || other.message == message)&&(identical(other.autoGenerate, autoGenerate) || other.autoGenerate == autoGenerate)&&(identical(other.status, status) || other.status == status)&&(identical(other.error, error) || other.error == error)&&(identical(other.commitHash, commitHash) || other.commitHash == commitHash)&&(identical(other.stagedFileCount, stagedFileCount) || other.stagedFileCount == stagedFileCount)&&(identical(other.insertions, insertions) || other.insertions == insertions)&&(identical(other.deletions, deletions) || other.deletions == deletions));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,message,autoGenerate,status,error,commitHash,prUrl,stagedFileCount,insertions,deletions);
+int get hashCode => Object.hash(runtimeType,message,autoGenerate,status,error,commitHash,stagedFileCount,insertions,deletions);
 
 @override
 String toString() {
-  return 'CommitState(message: $message, autoGenerate: $autoGenerate, status: $status, error: $error, commitHash: $commitHash, prUrl: $prUrl, stagedFileCount: $stagedFileCount, insertions: $insertions, deletions: $deletions)';
+  return 'CommitState(message: $message, autoGenerate: $autoGenerate, status: $status, error: $error, commitHash: $commitHash, stagedFileCount: $stagedFileCount, insertions: $insertions, deletions: $deletions)';
 }
 
 
@@ -54,7 +53,7 @@ abstract mixin class $CommitStateCopyWith<$Res>  {
   factory $CommitStateCopyWith(CommitState value, $Res Function(CommitState) _then) = _$CommitStateCopyWithImpl;
 @useResult
 $Res call({
- String message, bool autoGenerate, CommitStatus status, String? error, String? commitHash, String? prUrl, int stagedFileCount, int insertions, int deletions
+ String message, bool autoGenerate, CommitStatus status, String? error, String? commitHash, int stagedFileCount, int insertions, int deletions
 });
 
 
@@ -71,14 +70,13 @@ class _$CommitStateCopyWithImpl<$Res>
 
 /// Create a copy of CommitState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? message = null,Object? autoGenerate = null,Object? status = null,Object? error = freezed,Object? commitHash = freezed,Object? prUrl = freezed,Object? stagedFileCount = null,Object? insertions = null,Object? deletions = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? message = null,Object? autoGenerate = null,Object? status = null,Object? error = freezed,Object? commitHash = freezed,Object? stagedFileCount = null,Object? insertions = null,Object? deletions = null,}) {
   return _then(_self.copyWith(
 message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String,autoGenerate: null == autoGenerate ? _self.autoGenerate : autoGenerate // ignore: cast_nullable_to_non_nullable
 as bool,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as CommitStatus,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
 as String?,commitHash: freezed == commitHash ? _self.commitHash : commitHash // ignore: cast_nullable_to_non_nullable
-as String?,prUrl: freezed == prUrl ? _self.prUrl : prUrl // ignore: cast_nullable_to_non_nullable
 as String?,stagedFileCount: null == stagedFileCount ? _self.stagedFileCount : stagedFileCount // ignore: cast_nullable_to_non_nullable
 as int,insertions: null == insertions ? _self.insertions : insertions // ignore: cast_nullable_to_non_nullable
 as int,deletions: null == deletions ? _self.deletions : deletions // ignore: cast_nullable_to_non_nullable
@@ -167,10 +165,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String message,  bool autoGenerate,  CommitStatus status,  String? error,  String? commitHash,  String? prUrl,  int stagedFileCount,  int insertions,  int deletions)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String message,  bool autoGenerate,  CommitStatus status,  String? error,  String? commitHash,  int stagedFileCount,  int insertions,  int deletions)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CommitState() when $default != null:
-return $default(_that.message,_that.autoGenerate,_that.status,_that.error,_that.commitHash,_that.prUrl,_that.stagedFileCount,_that.insertions,_that.deletions);case _:
+return $default(_that.message,_that.autoGenerate,_that.status,_that.error,_that.commitHash,_that.stagedFileCount,_that.insertions,_that.deletions);case _:
   return orElse();
 
 }
@@ -188,10 +186,10 @@ return $default(_that.message,_that.autoGenerate,_that.status,_that.error,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String message,  bool autoGenerate,  CommitStatus status,  String? error,  String? commitHash,  String? prUrl,  int stagedFileCount,  int insertions,  int deletions)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String message,  bool autoGenerate,  CommitStatus status,  String? error,  String? commitHash,  int stagedFileCount,  int insertions,  int deletions)  $default,) {final _that = this;
 switch (_that) {
 case _CommitState():
-return $default(_that.message,_that.autoGenerate,_that.status,_that.error,_that.commitHash,_that.prUrl,_that.stagedFileCount,_that.insertions,_that.deletions);case _:
+return $default(_that.message,_that.autoGenerate,_that.status,_that.error,_that.commitHash,_that.stagedFileCount,_that.insertions,_that.deletions);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -208,10 +206,10 @@ return $default(_that.message,_that.autoGenerate,_that.status,_that.error,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String message,  bool autoGenerate,  CommitStatus status,  String? error,  String? commitHash,  String? prUrl,  int stagedFileCount,  int insertions,  int deletions)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String message,  bool autoGenerate,  CommitStatus status,  String? error,  String? commitHash,  int stagedFileCount,  int insertions,  int deletions)?  $default,) {final _that = this;
 switch (_that) {
 case _CommitState() when $default != null:
-return $default(_that.message,_that.autoGenerate,_that.status,_that.error,_that.commitHash,_that.prUrl,_that.stagedFileCount,_that.insertions,_that.deletions);case _:
+return $default(_that.message,_that.autoGenerate,_that.status,_that.error,_that.commitHash,_that.stagedFileCount,_that.insertions,_that.deletions);case _:
   return null;
 
 }
@@ -223,7 +221,7 @@ return $default(_that.message,_that.autoGenerate,_that.status,_that.error,_that.
 
 
 class _CommitState implements CommitState {
-  const _CommitState({this.message = '', this.autoGenerate = false, this.status = CommitStatus.idle, this.error, this.commitHash, this.prUrl, this.stagedFileCount = 0, this.insertions = 0, this.deletions = 0});
+  const _CommitState({this.message = '', this.autoGenerate = true, this.status = CommitStatus.idle, this.error, this.commitHash, this.stagedFileCount = 0, this.insertions = 0, this.deletions = 0});
   
 
 /// Commit message entered by the user.
@@ -236,8 +234,6 @@ class _CommitState implements CommitState {
 @override final  String? error;
 /// Commit hash after successful commit.
 @override final  String? commitHash;
-/// PR URL after successful PR creation.
-@override final  String? prUrl;
 /// Number of staged files.
 @override@JsonKey() final  int stagedFileCount;
 /// Number of insertions across staged files.
@@ -255,16 +251,16 @@ _$CommitStateCopyWith<_CommitState> get copyWith => __$CommitStateCopyWithImpl<_
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CommitState&&(identical(other.message, message) || other.message == message)&&(identical(other.autoGenerate, autoGenerate) || other.autoGenerate == autoGenerate)&&(identical(other.status, status) || other.status == status)&&(identical(other.error, error) || other.error == error)&&(identical(other.commitHash, commitHash) || other.commitHash == commitHash)&&(identical(other.prUrl, prUrl) || other.prUrl == prUrl)&&(identical(other.stagedFileCount, stagedFileCount) || other.stagedFileCount == stagedFileCount)&&(identical(other.insertions, insertions) || other.insertions == insertions)&&(identical(other.deletions, deletions) || other.deletions == deletions));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CommitState&&(identical(other.message, message) || other.message == message)&&(identical(other.autoGenerate, autoGenerate) || other.autoGenerate == autoGenerate)&&(identical(other.status, status) || other.status == status)&&(identical(other.error, error) || other.error == error)&&(identical(other.commitHash, commitHash) || other.commitHash == commitHash)&&(identical(other.stagedFileCount, stagedFileCount) || other.stagedFileCount == stagedFileCount)&&(identical(other.insertions, insertions) || other.insertions == insertions)&&(identical(other.deletions, deletions) || other.deletions == deletions));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,message,autoGenerate,status,error,commitHash,prUrl,stagedFileCount,insertions,deletions);
+int get hashCode => Object.hash(runtimeType,message,autoGenerate,status,error,commitHash,stagedFileCount,insertions,deletions);
 
 @override
 String toString() {
-  return 'CommitState(message: $message, autoGenerate: $autoGenerate, status: $status, error: $error, commitHash: $commitHash, prUrl: $prUrl, stagedFileCount: $stagedFileCount, insertions: $insertions, deletions: $deletions)';
+  return 'CommitState(message: $message, autoGenerate: $autoGenerate, status: $status, error: $error, commitHash: $commitHash, stagedFileCount: $stagedFileCount, insertions: $insertions, deletions: $deletions)';
 }
 
 
@@ -275,7 +271,7 @@ abstract mixin class _$CommitStateCopyWith<$Res> implements $CommitStateCopyWith
   factory _$CommitStateCopyWith(_CommitState value, $Res Function(_CommitState) _then) = __$CommitStateCopyWithImpl;
 @override @useResult
 $Res call({
- String message, bool autoGenerate, CommitStatus status, String? error, String? commitHash, String? prUrl, int stagedFileCount, int insertions, int deletions
+ String message, bool autoGenerate, CommitStatus status, String? error, String? commitHash, int stagedFileCount, int insertions, int deletions
 });
 
 
@@ -292,14 +288,13 @@ class __$CommitStateCopyWithImpl<$Res>
 
 /// Create a copy of CommitState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? message = null,Object? autoGenerate = null,Object? status = null,Object? error = freezed,Object? commitHash = freezed,Object? prUrl = freezed,Object? stagedFileCount = null,Object? insertions = null,Object? deletions = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? message = null,Object? autoGenerate = null,Object? status = null,Object? error = freezed,Object? commitHash = freezed,Object? stagedFileCount = null,Object? insertions = null,Object? deletions = null,}) {
   return _then(_CommitState(
 message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String,autoGenerate: null == autoGenerate ? _self.autoGenerate : autoGenerate // ignore: cast_nullable_to_non_nullable
 as bool,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as CommitStatus,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
 as String?,commitHash: freezed == commitHash ? _self.commitHash : commitHash // ignore: cast_nullable_to_non_nullable
-as String?,prUrl: freezed == prUrl ? _self.prUrl : prUrl // ignore: cast_nullable_to_non_nullable
 as String?,stagedFileCount: null == stagedFileCount ? _self.stagedFileCount : stagedFileCount // ignore: cast_nullable_to_non_nullable
 as int,insertions: null == insertions ? _self.insertions : insertions // ignore: cast_nullable_to_non_nullable
 as int,deletions: null == deletions ? _self.deletions : deletions // ignore: cast_nullable_to_non_nullable
