@@ -74,10 +74,8 @@ class GitScreen extends StatelessWidget {
         ),
         if (isProjectMode)
           BlocProvider(
-            create: (_) => CommitCubit(
-              bridge: bridge,
-              projectPath: projectPath!,
-            ),
+            create: (_) =>
+                CommitCubit(bridge: bridge, projectPath: projectPath!),
           ),
       ],
       child: _GitScreenBody(title: title, isProjectMode: isProjectMode),
@@ -125,6 +123,19 @@ class _GitScreenBody extends StatelessWidget {
               )
             : null,
         actions: [
+          if (state.files.isNotEmpty && !state.selectionMode)
+            TextButton(
+              key: const ValueKey('toggle_wrap_button'),
+              onPressed: cubit.toggleLineWrap,
+              child: Text(
+                'Wrap',
+                style: TextStyle(
+                  color: state.lineWrapEnabled
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+              ),
+            ),
           // Refresh (projectPath mode only)
           if (cubit.canRefresh && !state.selectionMode && !state.loading)
             IconButton(
@@ -136,12 +147,8 @@ class _GitScreenBody extends StatelessWidget {
           if (state.files.isNotEmpty)
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
-              onSelected: (value) => _handleMenuAction(
-                value,
-                context,
-                cubit,
-                appColors,
-              ),
+              onSelected: (value) =>
+                  _handleMenuAction(value, context, cubit, appColors),
               itemBuilder: (context) => [
                 PopupMenuItem(
                   value: 'select',
@@ -206,21 +213,54 @@ class _GitScreenBody extends StatelessWidget {
               onLoadImage: cubit.loadImage,
               loadingImageIndices: state.loadingImageIndices,
               // Staged tab: only unstage swipe. Changes tab: stage + revert.
-              onSwipeStage: isProjectMode && state.viewMode != GitViewMode.staged
+              onSwipeStage:
+                  isProjectMode && state.viewMode != GitViewMode.staged
                   ? cubit.stageFile
                   : null,
-              onSwipeUnstage: isProjectMode && state.viewMode == GitViewMode.staged
+              onSwipeUnstage:
+                  isProjectMode && state.viewMode == GitViewMode.staged
                   ? cubit.unstageFile
                   : null,
-              onSwipeRevert: isProjectMode && state.viewMode != GitViewMode.staged
-                  ? cubit.revertFile
+              onSwipeRevert:
+                  isProjectMode && state.viewMode != GitViewMode.staged
+                  ? (fileIdx) => _confirmRevert(
+                      context,
+                      title: 'この変更を破棄しますか',
+                      message: 'このファイルの未ステージ変更をすべて破棄します。',
+                      onConfirm: () => cubit.revertFile(fileIdx),
+                    )
                   : null,
-              // Long-press to enter selection mode
+              onSwipeStageHunk:
+                  isProjectMode && state.viewMode == GitViewMode.unstaged
+                  ? cubit.stageHunk
+                  : null,
+              onSwipeUnstageHunk:
+                  isProjectMode && state.viewMode == GitViewMode.staged
+                  ? cubit.unstageHunk
+                  : null,
+              onSwipeRevertHunk:
+                  isProjectMode && state.viewMode == GitViewMode.unstaged
+                  ? (fileIdx, hunkIdx) => _confirmRevert(
+                      context,
+                      title: 'この変更を破棄しますか',
+                      message: 'このハンクの未ステージ変更を破棄します。',
+                      onConfirm: () => cubit.revertHunk(fileIdx, hunkIdx),
+                    )
+                  : null,
               onLongPressFile: isProjectMode
-                  ? (fileIdx) => _showFileActionSheet(
-                        context, cubit, state, fileIdx)
-
+                  ? (fileIdx) =>
+                        _showFileActionSheet(context, cubit, state, fileIdx)
                   : null,
+              onLongPressHunk: isProjectMode
+                  ? (fileIdx, hunkIdx) => _showHunkActionSheet(
+                      context,
+                      cubit,
+                      state,
+                      fileIdx,
+                      hunkIdx,
+                    )
+                  : null,
+              lineWrapEnabled: state.lineWrapEnabled,
             ),
     );
   }
@@ -283,7 +323,12 @@ class _GitScreenBody extends StatelessWidget {
                 subtitle: const Text('Discard all changes in this file'),
                 onTap: () {
                   Navigator.pop(context);
-                  cubit.revertFile(fileIdx);
+                  _confirmRevert(
+                    context,
+                    title: 'この変更を破棄しますか',
+                    message: 'このファイルの未ステージ変更をすべて破棄します。',
+                    onConfirm: () => cubit.revertFile(fileIdx),
+                  );
                 },
               ),
             // Request Change (always available)
@@ -297,16 +342,146 @@ class _GitScreenBody extends StatelessWidget {
                   List.generate(file.hunks.length, (i) => '$fileIdx:$i'),
                 );
                 final selection = reconstructDiff(state.files, hunkKeys);
-                context.router.maybePop(DiffSelection.forRequestChange(
-                  diff: selection.diffText,
-                  selectedHunkKeys: hunkKeys,
-                ));
+                context.router.maybePop(
+                  DiffSelection.forRequestChange(
+                    diff: selection.diffText,
+                    selectedHunkKeys: hunkKeys,
+                  ),
+                );
               },
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _showHunkActionSheet(
+    BuildContext context,
+    GitViewCubit cubit,
+    GitViewState state,
+    int fileIdx,
+    int hunkIdx,
+  ) {
+    if (fileIdx >= state.files.length) return;
+    final file = state.files[fileIdx];
+    if (hunkIdx >= file.hunks.length) return;
+    final hunk = file.hunks[hunkIdx];
+    final cs = Theme.of(context).colorScheme;
+    final isStaged = state.viewMode == GitViewMode.staged;
+
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+              child: Text(
+                file.filePath,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                hunk.header,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  color: Theme.of(context).extension<AppColors>()!.subtleText,
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            if (!isStaged)
+              ListTile(
+                leading: Icon(Icons.add_circle_outline, color: cs.primary),
+                title: const Text('Stage'),
+                onTap: () {
+                  Navigator.pop(context);
+                  cubit.stageHunk(fileIdx, hunkIdx);
+                },
+              ),
+            if (isStaged)
+              ListTile(
+                leading: Icon(Icons.remove_circle_outline, color: cs.tertiary),
+                title: const Text('Unstage'),
+                onTap: () {
+                  Navigator.pop(context);
+                  cubit.unstageHunk(fileIdx, hunkIdx);
+                },
+              ),
+            if (!isStaged)
+              ListTile(
+                leading: Icon(Icons.undo, color: cs.error),
+                title: const Text('Revert'),
+                subtitle: const Text('Discard changes in this hunk'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmRevert(
+                    context,
+                    title: 'この変更を破棄しますか',
+                    message: 'このハンクの未ステージ変更を破棄します。',
+                    onConfirm: () => cubit.revertHunk(fileIdx, hunkIdx),
+                  );
+                },
+              ),
+            ListTile(
+              leading: Icon(Icons.rate_review_outlined, color: cs.secondary),
+              title: const Text('Request Change'),
+              subtitle: const Text('Send this hunk back to AI with feedback'),
+              onTap: () {
+                Navigator.pop(context);
+                final hunkKeys = {'$fileIdx:$hunkIdx'};
+                final selection = reconstructDiff(state.files, hunkKeys);
+                context.router.maybePop(
+                  DiffSelection.forRequestChange(
+                    diff: selection.diffText,
+                    selectedHunkKeys: hunkKeys,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmRevert(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required VoidCallback onConfirm,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Revert'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      onConfirm();
+    }
   }
 
   void _handleMenuAction(
@@ -439,10 +614,7 @@ class _GitViewModeSegment extends StatelessWidget {
   final GitViewMode viewMode;
   final ValueChanged<GitViewMode> onChanged;
 
-  const _GitViewModeSegment({
-    required this.viewMode,
-    required this.onChanged,
-  });
+  const _GitViewModeSegment({required this.viewMode, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -450,14 +622,8 @@ class _GitViewModeSegment extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: SegmentedButton<GitViewMode>(
         segments: const [
-          ButtonSegment(
-            value: GitViewMode.all,
-            label: Text('Changes'),
-          ),
-          ButtonSegment(
-            value: GitViewMode.staged,
-            label: Text('Staged'),
-          ),
+          ButtonSegment(value: GitViewMode.unstaged, label: Text('Unstaged')),
+          ButtonSegment(value: GitViewMode.staged, label: Text('Staged')),
         ],
         selected: {viewMode},
         onSelectionChanged: (s) => onChanged(s.first),
@@ -602,7 +768,10 @@ class _DiffBottomBar extends StatelessWidget {
                           ? 'Pull (${state.commitsBehind})'
                           : 'Pull',
                       loading: state.pulling,
-                      onPressed: _isBusy || !state.hasUpstream || state.commitsBehind == 0
+                      onPressed:
+                          _isBusy ||
+                              !state.hasUpstream ||
+                              state.commitsBehind == 0
                           ? null
                           : onPull,
                     ),
@@ -796,11 +965,7 @@ class _BranchIndicator extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 2),
-            Icon(
-              Icons.arrow_drop_down,
-              size: 16,
-              color: cs.onSurfaceVariant,
-            ),
+            Icon(Icons.arrow_drop_down, size: 16, color: cs.onSurfaceVariant),
           ],
         ),
       ),

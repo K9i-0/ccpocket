@@ -273,6 +273,17 @@ void main() {
     });
   });
 
+  group('GitUnstageHunksResultMessage', () {
+    test('parses success', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'git_unstage_hunks_result',
+        'success': true,
+      });
+      expect(msg, isA<GitUnstageHunksResultMessage>());
+      expect((msg as GitUnstageHunksResultMessage).success, isTrue);
+    });
+  });
+
   group('GitCommitResultMessage', () {
     test('parses success with hash and message', () {
       final msg = ServerMessage.fromJson({
@@ -357,9 +368,7 @@ void main() {
     });
 
     test('handles missing arrays', () {
-      final msg = ServerMessage.fromJson({
-        'type': 'git_status_result',
-      });
+      final msg = ServerMessage.fromJson({'type': 'git_status_result'});
       final r = msg as GitStatusResultMessage;
       expect(r.staged, isEmpty);
       expect(r.unstaged, isEmpty);
@@ -446,11 +455,15 @@ void main() {
     test('gitStage with hunks', () {
       final msg = ClientMessage.gitStage(
         '/p',
-        hunks: [{'file': 'a.txt', 'hunkIndex': 0}],
+        hunks: [
+          {'file': 'a.txt', 'hunkIndex': 0},
+        ],
       );
       final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
       expect(json['type'], 'git_stage');
-      expect(json['hunks'], [{'file': 'a.txt', 'hunkIndex': 0}]);
+      expect(json['hunks'], [
+        {'file': 'a.txt', 'hunkIndex': 0},
+      ]);
     });
 
     test('gitUnstage', () {
@@ -458,6 +471,17 @@ void main() {
       final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
       expect(json['type'], 'git_unstage');
       expect(json['files'], ['a.txt']);
+    });
+
+    test('gitUnstageHunks', () {
+      final msg = ClientMessage.gitUnstageHunks('/p', [
+        {'file': 'a.txt', 'hunkIndex': 0},
+      ]);
+      final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(json['type'], 'git_unstage_hunks');
+      expect(json['hunks'], [
+        {'file': 'a.txt', 'hunkIndex': 0},
+      ]);
     });
 
     test('gitCommit with message', () {
@@ -527,6 +551,17 @@ void main() {
       final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
       expect(json['type'], 'git_checkout_branch');
       expect(json['branch'], 'main');
+    });
+
+    test('gitRevertHunks', () {
+      final msg = ClientMessage.gitRevertHunks('/p', [
+        {'file': 'a.txt', 'hunkIndex': 1},
+      ]);
+      final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(json['type'], 'git_revert_hunks');
+      expect(json['hunks'], [
+        {'file': 'a.txt', 'hunkIndex': 1},
+      ]);
     });
 
     test('getDiff with staged', () {

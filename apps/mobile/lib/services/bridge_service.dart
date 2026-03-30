@@ -56,12 +56,13 @@ class BridgeService implements BridgeServiceBase {
       StreamController<GitStageResultMessage>.broadcast();
   final _gitUnstageResultController =
       StreamController<GitUnstageResultMessage>.broadcast();
+  final _gitUnstageHunksResultController =
+      StreamController<GitUnstageHunksResultMessage>.broadcast();
   final _gitCommitResultController =
       StreamController<GitCommitResultMessage>.broadcast();
   final _gitPushResultController =
       StreamController<GitPushResultMessage>.broadcast();
-  final _ghPrResultController =
-      StreamController<GhPrResultMessage>.broadcast();
+  final _ghPrResultController = StreamController<GhPrResultMessage>.broadcast();
   final _gitStatusResultController =
       StreamController<GitStatusResultMessage>.broadcast();
   final _gitBranchesResultController =
@@ -72,6 +73,8 @@ class BridgeService implements BridgeServiceBase {
       StreamController<GitCheckoutBranchResultMessage>.broadcast();
   final _gitRevertFileResultController =
       StreamController<GitRevertFileResultMessage>.broadcast();
+  final _gitRevertHunksResultController =
+      StreamController<GitRevertHunksResultMessage>.broadcast();
   final _gitFetchResultController =
       StreamController<GitFetchResultMessage>.broadcast();
   final _gitPullResultController =
@@ -149,12 +152,13 @@ class BridgeService implements BridgeServiceBase {
       _gitStageResultController.stream;
   Stream<GitUnstageResultMessage> get gitUnstageResults =>
       _gitUnstageResultController.stream;
+  Stream<GitUnstageHunksResultMessage> get gitUnstageHunksResults =>
+      _gitUnstageHunksResultController.stream;
   Stream<GitCommitResultMessage> get gitCommitResults =>
       _gitCommitResultController.stream;
   Stream<GitPushResultMessage> get gitPushResults =>
       _gitPushResultController.stream;
-  Stream<GhPrResultMessage> get ghPrResults =>
-      _ghPrResultController.stream;
+  Stream<GhPrResultMessage> get ghPrResults => _ghPrResultController.stream;
   Stream<GitStatusResultMessage> get gitStatusResults =>
       _gitStatusResultController.stream;
   Stream<GitBranchesResultMessage> get gitBranchesResults =>
@@ -165,6 +169,8 @@ class BridgeService implements BridgeServiceBase {
       _gitCheckoutBranchResultController.stream;
   Stream<GitRevertFileResultMessage> get gitRevertFileResults =>
       _gitRevertFileResultController.stream;
+  Stream<GitRevertHunksResultMessage> get gitRevertHunksResults =>
+      _gitRevertHunksResultController.stream;
   Stream<GitFetchResultMessage> get gitFetchResults =>
       _gitFetchResultController.stream;
   Stream<GitPullResultMessage> get gitPullResults =>
@@ -302,6 +308,8 @@ class BridgeService implements BridgeServiceBase {
                 _gitStageResultController.add(msg);
               case GitUnstageResultMessage():
                 _gitUnstageResultController.add(msg);
+              case GitUnstageHunksResultMessage():
+                _gitUnstageHunksResultController.add(msg);
               case GitCommitResultMessage():
                 _gitCommitResultController.add(msg);
               case GitPushResultMessage():
@@ -318,6 +326,8 @@ class BridgeService implements BridgeServiceBase {
                 _gitCheckoutBranchResultController.add(msg);
               case GitRevertFileResultMessage():
                 _gitRevertFileResultController.add(msg);
+              case GitRevertHunksResultMessage():
+                _gitRevertHunksResultController.add(msg);
               case GitFetchResultMessage():
                 _gitFetchResultController.add(msg);
               case GitPullResultMessage():
@@ -1116,6 +1126,7 @@ class BridgeService implements BridgeServiceBase {
     // Git Operations
     _gitStageResultController.close();
     _gitUnstageResultController.close();
+    _gitUnstageHunksResultController.close();
     _gitCommitResultController.close();
     _gitPushResultController.close();
     _ghPrResultController.close();
@@ -1124,6 +1135,7 @@ class BridgeService implements BridgeServiceBase {
     _gitCreateBranchResultController.close();
     _gitCheckoutBranchResultController.close();
     _gitRevertFileResultController.close();
+    _gitRevertHunksResultController.close();
     _gitFetchResultController.close();
     _gitPullResultController.close();
     _gitRemoteStatusResultController.close();

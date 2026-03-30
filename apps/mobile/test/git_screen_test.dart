@@ -4,12 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/features/git/git_screen.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
+import 'package:ccpocket/services/mock_bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 
-Widget _wrap(Widget child) {
+Widget _wrap(Widget child, {BridgeService? bridge}) {
   return RepositoryProvider<BridgeService>.value(
-    value: BridgeService(),
+    value: bridge ?? BridgeService(),
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -53,9 +55,7 @@ diff --git a/file_b.dart b/file_b.dart
 void main() {
   group('GitScreen - individual diff mode', () {
     testWidgets('displays diff content with color coding', (tester) async {
-      await tester.pumpWidget(
-        _wrap(const GitScreen(initialDiff: _sampleDiff)),
-      );
+      await tester.pumpWidget(_wrap(const GitScreen(initialDiff: _sampleDiff)));
       await tester.pumpAndSettle();
 
       // AppBar title should show "Changes" (not file path)
@@ -74,9 +74,7 @@ void main() {
 
     testWidgets('displays title when provided', (tester) async {
       await tester.pumpWidget(
-        _wrap(
-          const GitScreen(initialDiff: _sampleDiff, title: 'Custom Title'),
-        ),
+        _wrap(const GitScreen(initialDiff: _sampleDiff, title: 'Custom Title')),
       );
       await tester.pumpAndSettle();
 
@@ -113,11 +111,110 @@ void main() {
     });
   });
 
+  group('GitScreen - project mode hunk actions', () {
+    testWidgets('shows Wrap toggle in project mode', (tester) async {
+      final bridge = MockBridgeService()..mockDiff = _multiFileDiff;
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        _wrap(const GitScreen(projectPath: '/tmp/project'), bridge: bridge),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('toggle_wrap_button')), findsOneWidget);
+      expect(find.text('Wrap'), findsOneWidget);
+    });
+
+    testWidgets('shows hunk action sheet on header long press', (tester) async {
+      final bridge = MockBridgeService()..mockDiff = _multiFileDiff;
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        _wrap(const GitScreen(projectPath: '/tmp/project'), bridge: bridge),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('@@ -1,2 +1,2 @@').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Request Change'), findsOneWidget);
+      expect(find.text('Stage'), findsWidgets);
+    });
+
+    testWidgets('enables hunk swipe only when Wrap is on', (tester) async {
+      final bridge = MockBridgeService()..mockDiff = _multiFileDiff;
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        _wrap(const GitScreen(projectPath: '/tmp/project'), bridge: bridge),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('hunk_swipe_file_a.dart:0')),
+        findsNothing,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('toggle_wrap_button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('hunk_swipe_file_a.dart:0')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows confirmation dialog before reverting a hunk', (
+      tester,
+    ) async {
+      final bridge = MockBridgeService()..mockDiff = _multiFileDiff;
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        _wrap(const GitScreen(projectPath: '/tmp/project'), bridge: bridge),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('@@ -1,2 +1,2 @@').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Revert'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('この変更を破棄しますか'), findsOneWidget);
+      expect(find.text('このハンクの未ステージ変更を破棄します。'), findsOneWidget);
+    });
+
+    testWidgets('does not throw when Wrap is on and staged tab is selected', (
+      tester,
+    ) async {
+      final bridge = MockBridgeService()..mockDiff = _multiFileDiff;
+      bridge.send(
+        ClientMessage.gitStage('/tmp/project', files: ['file_a.dart']),
+      );
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        _wrap(const GitScreen(projectPath: '/tmp/project'), bridge: bridge),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('toggle_wrap_button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Staged'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('hunk_swipe_file_a.dart:0')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('GitScreen - line numbers', () {
     testWidgets('displays line numbers for context lines', (tester) async {
-      await tester.pumpWidget(
-        _wrap(const GitScreen(initialDiff: _sampleDiff)),
-      );
+      await tester.pumpWidget(_wrap(const GitScreen(initialDiff: _sampleDiff)));
       await tester.pumpAndSettle();
 
       // Line number 1 should appear (context line "void main() {")

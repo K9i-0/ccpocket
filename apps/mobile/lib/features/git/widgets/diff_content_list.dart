@@ -26,6 +26,11 @@ class DiffContentList extends StatelessWidget {
   final ValueChanged<int>? onSwipeUnstage;
   final ValueChanged<int>? onSwipeRevert;
   final ValueChanged<int>? onLongPressFile;
+  final void Function(int fileIdx, int hunkIdx)? onSwipeStageHunk;
+  final void Function(int fileIdx, int hunkIdx)? onSwipeUnstageHunk;
+  final void Function(int fileIdx, int hunkIdx)? onSwipeRevertHunk;
+  final void Function(int fileIdx, int hunkIdx)? onLongPressHunk;
+  final bool lineWrapEnabled;
   final Set<String> stagedFilePaths;
 
   const DiffContentList({
@@ -47,6 +52,11 @@ class DiffContentList extends StatelessWidget {
     this.onSwipeUnstage,
     this.onSwipeRevert,
     this.onLongPressFile,
+    this.onSwipeStageHunk,
+    this.onSwipeUnstageHunk,
+    this.onSwipeRevertHunk,
+    this.onLongPressHunk,
+    this.lineWrapEnabled = false,
     this.stagedFilePaths = const {},
   });
 
@@ -89,10 +99,24 @@ class DiffContentList extends StatelessWidget {
           return DiffHunkWidget(
             hunk: file.hunks[hunkIdx],
             lineNumberWidth: lineNumberWidth,
+            dismissKey: '${file.filePath}:$hunkIdx',
             selectionMode: selectionMode,
             selected: selectedHunkKeys.contains('0:$hunkIdx'),
+            lineWrapEnabled: lineWrapEnabled,
             onToggleSelection: onToggleHunkSelection != null
                 ? () => onToggleHunkSelection!(0, hunkIdx)
+                : null,
+            onLongPressHeader: !selectionMode && onLongPressHunk != null
+                ? () => onLongPressHunk!(0, hunkIdx)
+                : null,
+            onSwipeStage: !selectionMode && onSwipeStageHunk != null
+                ? () => onSwipeStageHunk!(0, hunkIdx)
+                : null,
+            onSwipeUnstage: !selectionMode && onSwipeUnstageHunk != null
+                ? () => onSwipeUnstageHunk!(0, hunkIdx)
+                : null,
+            onSwipeRevert: !selectionMode && onSwipeRevertHunk != null
+                ? () => onSwipeRevertHunk!(0, hunkIdx)
                 : null,
           );
         },
@@ -150,6 +174,11 @@ class DiffContentList extends StatelessWidget {
         onSwipeUnstage: onSwipeUnstage,
         onSwipeRevert: onSwipeRevert,
         onLongPressFile: onLongPressFile,
+        onSwipeStageHunk: onSwipeStageHunk,
+        onSwipeUnstageHunk: onSwipeUnstageHunk,
+        onSwipeRevertHunk: onSwipeRevertHunk,
+        onLongPressHunk: onLongPressHunk,
+        lineWrapEnabled: lineWrapEnabled,
         stagedFilePaths: stagedFilePaths,
       ),
     );
@@ -171,7 +200,9 @@ class DiffContentList extends StatelessWidget {
           ? () => onLongPressFile!(fileIdx)
           : null,
     );
-    if (onSwipeStage != null || onSwipeUnstage != null || onSwipeRevert != null) {
+    if (onSwipeStage != null ||
+        onSwipeUnstage != null ||
+        onSwipeRevert != null) {
       return _SwipeStageDismissible(
         fileIdx: fileIdx,
         filePath: file.filePath,
@@ -219,6 +250,11 @@ class _DiffListItem extends StatelessWidget {
   final ValueChanged<int>? onSwipeUnstage;
   final ValueChanged<int>? onSwipeRevert;
   final ValueChanged<int>? onLongPressFile;
+  final void Function(int fileIdx, int hunkIdx)? onSwipeStageHunk;
+  final void Function(int fileIdx, int hunkIdx)? onSwipeUnstageHunk;
+  final void Function(int fileIdx, int hunkIdx)? onSwipeRevertHunk;
+  final void Function(int fileIdx, int hunkIdx)? onLongPressHunk;
+  final bool lineWrapEnabled;
   final Set<String> stagedFilePaths;
 
   const _DiffListItem({
@@ -240,6 +276,11 @@ class _DiffListItem extends StatelessWidget {
     this.onSwipeUnstage,
     this.onSwipeRevert,
     this.onLongPressFile,
+    this.onSwipeStageHunk,
+    this.onSwipeUnstageHunk,
+    this.onSwipeRevertHunk,
+    this.onLongPressHunk,
+    this.lineWrapEnabled = false,
     this.stagedFilePaths = const {},
   });
 
@@ -281,7 +322,9 @@ class _DiffListItem extends StatelessWidget {
                 ? () => onLongPressFile!(fileIdx)
                 : null,
           );
-          if (onSwipeStage != null || onSwipeUnstage != null || onSwipeRevert != null) {
+          if (onSwipeStage != null ||
+              onSwipeUnstage != null ||
+              onSwipeRevert != null) {
             return _SwipeStageDismissible(
               fileIdx: fileIdx,
               filePath: file.filePath,
@@ -310,10 +353,24 @@ class _DiffListItem extends StatelessWidget {
         return DiffHunkWidget(
           hunk: file.hunks[hunkIdx],
           lineNumberWidth: lineNumberWidths[fileIdx]!,
+          dismissKey: '${file.filePath}:$hunkIdx',
           selectionMode: selectionMode,
           selected: selectedHunkKeys.contains('$fileIdx:$hunkIdx'),
+          lineWrapEnabled: lineWrapEnabled,
           onToggleSelection: onToggleHunkSelection != null
               ? () => onToggleHunkSelection!(fileIdx, hunkIdx)
+              : null,
+          onLongPressHeader: !selectionMode && onLongPressHunk != null
+              ? () => onLongPressHunk!(fileIdx, hunkIdx)
+              : null,
+          onSwipeStage: !selectionMode && onSwipeStageHunk != null
+              ? () => onSwipeStageHunk!(fileIdx, hunkIdx)
+              : null,
+          onSwipeUnstage: !selectionMode && onSwipeUnstageHunk != null
+              ? () => onSwipeUnstageHunk!(fileIdx, hunkIdx)
+              : null,
+          onSwipeRevert: !selectionMode && onSwipeRevertHunk != null
+              ? () => onSwipeRevertHunk!(fileIdx, hunkIdx)
               : null,
         );
       }
@@ -367,10 +424,10 @@ class _SwipeStageDismissible extends StatelessWidget {
     final direction = onSwipeStage != null && hasLeftAction
         ? DismissDirection.horizontal
         : onSwipeStage != null
-            ? DismissDirection.startToEnd
-            : hasLeftAction
-                ? DismissDirection.endToStart
-                : DismissDirection.none;
+        ? DismissDirection.startToEnd
+        : hasLeftAction
+        ? DismissDirection.endToStart
+        : DismissDirection.none;
 
     return Dismissible(
       key: ValueKey('swipe_stage_$filePath'),
@@ -409,8 +466,8 @@ class _SwipeStageDismissible extends StatelessWidget {
               ),
             )
           : hasLeftAction
-              ? const SizedBox.shrink()
-              : null,
+          ? const SizedBox.shrink()
+          : null,
       secondaryBackground: hasLeftAction
           ? Container(
               alignment: Alignment.centerRight,

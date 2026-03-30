@@ -20,12 +20,14 @@ class GitViewCubit extends Cubit<GitViewState> {
   StreamSubscription<DiffImageResultMessage>? _diffImageSub;
   StreamSubscription<GitStageResultMessage>? _stageSub;
   StreamSubscription<GitUnstageResultMessage>? _unstageSub;
+  StreamSubscription<GitUnstageHunksResultMessage>? _unstageHunksSub;
   StreamSubscription<GitFetchResultMessage>? _fetchSub;
   StreamSubscription<GitPullResultMessage>? _pullSub;
   StreamSubscription<GitPushResultMessage>? _pushResultSub;
   StreamSubscription<GitCommitResultMessage>? _commitResultSub;
   StreamSubscription<GitRemoteStatusResultMessage>? _remoteStatusSub;
   StreamSubscription<GitRevertFileResultMessage>? _revertSub;
+  StreamSubscription<GitRevertHunksResultMessage>? _revertHunksSub;
   StreamSubscription<GitBranchesResultMessage>? _branchesSub;
   StreamSubscription<GitCheckoutBranchResultMessage>? _checkoutSub;
   final String? _projectPath;
@@ -41,20 +43,30 @@ class GitViewCubit extends Cubit<GitViewState> {
   }) : _bridge = bridge,
        _projectPath = projectPath,
        _sessionId = sessionId,
-       super(_initialState(
-         initialDiff, projectPath, initialSelectedHunkKeys,
-         isWorktree: worktreePath != null,
-       )) {
+       super(
+         _initialState(
+           initialDiff,
+           projectPath,
+           initialSelectedHunkKeys,
+           isWorktree: worktreePath != null,
+         ),
+       ) {
     if (projectPath != null) {
       _requestDiff(projectPath, initialSelectedHunkKeys);
       _diffImageSub = _bridge.diffImageResults.listen(_onDiffImageResult);
       _stageSub = _bridge.gitStageResults.listen(_onStageResult);
       _unstageSub = _bridge.gitUnstageResults.listen(_onUnstageResult);
+      _unstageHunksSub = _bridge.gitUnstageHunksResults.listen(
+        _onUnstageHunksResult,
+      );
       _fetchSub = _bridge.gitFetchResults.listen(_onFetchResult);
       _pullSub = _bridge.gitPullResults.listen(_onPullResult);
       _pushResultSub = _bridge.gitPushResults.listen(_onPushResult);
       _commitResultSub = _bridge.gitCommitResults.listen(_onCommitResult);
       _revertSub = _bridge.gitRevertFileResults.listen(_onRevertResult);
+      _revertHunksSub = _bridge.gitRevertHunksResults.listen(
+        _onRevertHunksResult,
+      );
       _remoteStatusSub = _bridge.gitRemoteStatusResults.listen(_onRemoteStatus);
       _branchesSub = _bridge.gitBranchesResults.listen(_onBranchesResult);
       _checkoutSub = _bridge.gitCheckoutBranchResults.listen(_onCheckoutResult);
@@ -114,8 +126,9 @@ class GitViewCubit extends Cubit<GitViewState> {
         );
       }
     });
-    final staged = state.viewMode == GitViewMode.staged ? true : null;
-    _bridge.send(ClientMessage.getDiff(projectPath, staged: staged));
+    _bridge.send(
+      ClientMessage.getDiff(projectPath, staged: _stagedParamForMode),
+    );
   }
 
   /// Whether this cubit supports refresh (projectPath mode).
@@ -126,14 +139,22 @@ class GitViewCubit extends Cubit<GitViewState> {
 
   /// Re-request `git diff` from Bridge (e.g. for manual refresh).
   void refresh() {
-    final projectPath = _projectPath;
-    if (projectPath == null) return;
-    emit(state.copyWith(loading: true, error: null));
-    final staged = state.viewMode == GitViewMode.staged ? true : null;
-    _bridge.send(ClientMessage.getDiff(projectPath, staged: staged));
+    refreshDiffOnly();
     // Also fetch + update remote status on refresh
     _fetchAndUpdateStatus();
   }
+
+  /// Re-request `git diff` from Bridge without fetching remote status.
+  void refreshDiffOnly() {
+    final projectPath = _projectPath;
+    if (projectPath == null) return;
+    emit(state.copyWith(loading: true, error: null));
+    _bridge.send(
+      ClientMessage.getDiff(projectPath, staged: _stagedParamForMode),
+    );
+  }
+
+  bool get _stagedParamForMode => state.viewMode == GitViewMode.staged;
 
   /// Merge image change data from the server into parsed diff files.
   ///
@@ -340,6 +361,10 @@ class GitViewCubit extends Cubit<GitViewState> {
     emit(state.copyWith(hiddenFileIndices: const {}));
   }
 
+  void toggleLineWrap() {
+    emit(state.copyWith(lineWrapEnabled: !state.lineWrapEnabled));
+  }
+
   // ---------------------------------------------------------------------------
   // Selection mode
   // ---------------------------------------------------------------------------
@@ -440,58 +465,26 @@ class GitViewCubit extends Cubit<GitViewState> {
     emit(state.copyWith(viewMode: mode, loading: true, error: null, files: []));
     final projectPath = _projectPath;
     if (projectPath != null) {
-      final staged = mode == GitViewMode.staged ? true : null;
-      _bridge.send(ClientMessage.getDiff(projectPath, staged: staged));
+      _bridge.send(
+        ClientMessage.getDiff(projectPath, staged: mode == GitViewMode.staged),
+      );
     }
   }
 
   /// Stage the currently selected hunks.
   void stageSelectedHunks() {
-    final projectPath = _projectPath;
-    if (projectPath == null || state.selectedHunkKeys.isEmpty) return;
-
-    emit(state.copyWith(staging: true));
-
-    // Group selected hunk keys by file
-    final fileHunks = <String, List<int>>{};
-    for (final key in state.selectedHunkKeys) {
-      final parts = key.split(':');
-      if (parts.length != 2) continue;
-      final fileIdx = int.tryParse(parts[0]);
-      final hunkIdx = int.tryParse(parts[1]);
-      if (fileIdx == null || hunkIdx == null) continue;
-      if (fileIdx >= state.files.length) continue;
-      final filePath = state.files[fileIdx].filePath;
-      (fileHunks[filePath] ??= []).add(hunkIdx);
-    }
-
-    final hunks = <Map<String, dynamic>>[];
-    for (final entry in fileHunks.entries) {
-      for (final idx in entry.value) {
-        hunks.add({'file': entry.key, 'hunkIndex': idx});
-      }
-    }
-
-    _bridge.send(ClientMessage.gitStage(projectPath, hunks: hunks));
+    _sendHunkOperation(
+      (projectPath, hunks) =>
+          _bridge.send(ClientMessage.gitStage(projectPath, hunks: hunks)),
+    );
   }
 
-  /// Unstage the currently selected hunks (unstage files).
+  /// Unstage the currently selected hunks.
   void unstageSelectedHunks() {
-    final projectPath = _projectPath;
-    if (projectPath == null || state.selectedHunkKeys.isEmpty) return;
-
-    emit(state.copyWith(staging: true));
-
-    // Collect unique file paths from selection
-    final filePaths = <String>{};
-    for (final key in state.selectedHunkKeys) {
-      final fileIdx = int.tryParse(key.split(':').first);
-      if (fileIdx != null && fileIdx < state.files.length) {
-        filePaths.add(state.files[fileIdx].filePath);
-      }
-    }
-
-    _bridge.send(ClientMessage.gitUnstage(projectPath, files: filePaths.toList()));
+    _sendHunkOperation(
+      (projectPath, hunks) =>
+          _bridge.send(ClientMessage.gitUnstageHunks(projectPath, hunks)),
+    );
   }
 
   /// Stage a single file by index.
@@ -500,7 +493,10 @@ class GitViewCubit extends Cubit<GitViewState> {
     if (projectPath == null || fileIdx >= state.files.length) return;
     emit(state.copyWith(staging: true));
     _bridge.send(
-      ClientMessage.gitStage(projectPath, files: [state.files[fileIdx].filePath]),
+      ClientMessage.gitStage(
+        projectPath,
+        files: [state.files[fileIdx].filePath],
+      ),
     );
   }
 
@@ -510,7 +506,35 @@ class GitViewCubit extends Cubit<GitViewState> {
     if (projectPath == null || fileIdx >= state.files.length) return;
     emit(state.copyWith(staging: true));
     _bridge.send(
-      ClientMessage.gitUnstage(projectPath, files: [state.files[fileIdx].filePath]),
+      ClientMessage.gitUnstage(
+        projectPath,
+        files: [state.files[fileIdx].filePath],
+      ),
+    );
+  }
+
+  void stageHunk(int fileIdx, int hunkIdx) {
+    final projectPath = _projectPath;
+    if (projectPath == null || fileIdx >= state.files.length) return;
+    emit(state.copyWith(staging: true));
+    _bridge.send(
+      ClientMessage.gitStage(
+        projectPath,
+        hunks: [
+          {'file': state.files[fileIdx].filePath, 'hunkIndex': hunkIdx},
+        ],
+      ),
+    );
+  }
+
+  void unstageHunk(int fileIdx, int hunkIdx) {
+    final projectPath = _projectPath;
+    if (projectPath == null || fileIdx >= state.files.length) return;
+    emit(state.copyWith(staging: true));
+    _bridge.send(
+      ClientMessage.gitUnstageHunks(projectPath, [
+        {'file': state.files[fileIdx].filePath, 'hunkIndex': hunkIdx},
+      ]),
     );
   }
 
@@ -521,6 +545,17 @@ class GitViewCubit extends Cubit<GitViewState> {
     emit(state.copyWith(staging: true));
     _bridge.send(
       ClientMessage.gitRevertFile(projectPath, [state.files[fileIdx].filePath]),
+    );
+  }
+
+  void revertHunk(int fileIdx, int hunkIdx) {
+    final projectPath = _projectPath;
+    if (projectPath == null || fileIdx >= state.files.length) return;
+    emit(state.copyWith(staging: true));
+    _bridge.send(
+      ClientMessage.gitRevertHunks(projectPath, [
+        {'file': state.files[fileIdx].filePath, 'hunkIndex': hunkIdx},
+      ]),
     );
   }
 
@@ -553,7 +588,7 @@ class GitViewCubit extends Cubit<GitViewState> {
   void _onStageResult(GitStageResultMessage result) {
     if (result.success) {
       emit(state.copyWith(staging: false, selectedHunkKeys: const {}));
-      refresh();
+      refreshDiffOnly();
     } else {
       emit(state.copyWith(staging: false, error: result.error));
     }
@@ -562,7 +597,16 @@ class GitViewCubit extends Cubit<GitViewState> {
   void _onRevertResult(GitRevertFileResultMessage result) {
     if (result.success) {
       emit(state.copyWith(staging: false));
-      refresh();
+      refreshDiffOnly();
+    } else {
+      emit(state.copyWith(staging: false, error: result.error));
+    }
+  }
+
+  void _onRevertHunksResult(GitRevertHunksResultMessage result) {
+    if (result.success) {
+      emit(state.copyWith(staging: false));
+      refreshDiffOnly();
     } else {
       emit(state.copyWith(staging: false, error: result.error));
     }
@@ -571,10 +615,51 @@ class GitViewCubit extends Cubit<GitViewState> {
   void _onUnstageResult(GitUnstageResultMessage result) {
     if (result.success) {
       emit(state.copyWith(staging: false, selectedHunkKeys: const {}));
-      refresh();
+      refreshDiffOnly();
     } else {
       emit(state.copyWith(staging: false, error: result.error));
     }
+  }
+
+  void _onUnstageHunksResult(GitUnstageHunksResultMessage result) {
+    if (result.success) {
+      emit(state.copyWith(staging: false, selectedHunkKeys: const {}));
+      refreshDiffOnly();
+    } else {
+      emit(state.copyWith(staging: false, error: result.error));
+    }
+  }
+
+  void _sendHunkOperation(
+    void Function(String projectPath, List<Map<String, dynamic>> hunks) send,
+  ) {
+    final projectPath = _projectPath;
+    if (projectPath == null || state.selectedHunkKeys.isEmpty) return;
+
+    emit(state.copyWith(staging: true));
+    send(projectPath, _selectedHunksPayload());
+  }
+
+  List<Map<String, dynamic>> _selectedHunksPayload() {
+    final fileHunks = <String, List<int>>{};
+    for (final key in state.selectedHunkKeys) {
+      final parts = key.split(':');
+      if (parts.length != 2) continue;
+      final fileIdx = int.tryParse(parts[0]);
+      final hunkIdx = int.tryParse(parts[1]);
+      if (fileIdx == null || hunkIdx == null) continue;
+      if (fileIdx >= state.files.length) continue;
+      final filePath = state.files[fileIdx].filePath;
+      (fileHunks[filePath] ??= []).add(hunkIdx);
+    }
+
+    final hunks = <Map<String, dynamic>>[];
+    for (final entry in fileHunks.entries) {
+      for (final idx in entry.value) {
+        hunks.add({'file': entry.key, 'hunkIndex': idx});
+      }
+    }
+    return hunks;
   }
 
   // ---------------------------------------------------------------------------
@@ -598,11 +683,13 @@ class GitViewCubit extends Cubit<GitViewState> {
   }
 
   void _onRemoteStatus(GitRemoteStatusResultMessage result) {
-    emit(state.copyWith(
-      commitsAhead: result.ahead,
-      commitsBehind: result.behind,
-      hasUpstream: result.hasUpstream,
-    ));
+    emit(
+      state.copyWith(
+        commitsAhead: result.ahead,
+        commitsBehind: result.behind,
+        hasUpstream: result.hasUpstream,
+      ),
+    );
   }
 
   /// Pull from remote.
@@ -676,7 +763,9 @@ class GitViewCubit extends Cubit<GitViewState> {
     _diffImageSub?.cancel();
     _stageSub?.cancel();
     _unstageSub?.cancel();
+    _unstageHunksSub?.cancel();
     _revertSub?.cancel();
+    _revertHunksSub?.cancel();
     _fetchSub?.cancel();
     _pullSub?.cancel();
     _pushResultSub?.cancel();

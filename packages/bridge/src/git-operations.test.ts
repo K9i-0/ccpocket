@@ -8,11 +8,13 @@ import {
   stageFiles,
   stageHunks,
   unstageFiles,
+  unstageHunks,
   gitCommit,
   gitStatus,
   listBranches,
   createBranch,
   checkoutBranch,
+  revertHunks,
 } from "./git-operations.js";
 
 // ---- Test Helpers ----
@@ -39,8 +41,12 @@ function gitCmd(args: string[], cwd: string): string {
 describe("stageFiles", () => {
   let repo: string;
 
-  beforeEach(() => { repo = createTempRepo(); });
-  afterEach(() => { rmSync(repo, { recursive: true, force: true }); });
+  beforeEach(() => {
+    repo = createTempRepo();
+  });
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
 
   it("stages specified files into the index", () => {
     writeFileSync(join(repo, "a.txt"), "aaa\n");
@@ -70,8 +76,12 @@ describe("stageFiles", () => {
 describe("stageHunks", () => {
   let repo: string;
 
-  beforeEach(() => { repo = createTempRepo(); });
-  afterEach(() => { rmSync(repo, { recursive: true, force: true }); });
+  beforeEach(() => {
+    repo = createTempRepo();
+  });
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
 
   it("stages only the specified hunk from a multi-hunk file", () => {
     // Create a file with multiple separated regions
@@ -130,15 +140,21 @@ describe("stageHunks", () => {
     execFileSync("git", ["commit", "-m", "add a"], { cwd: repo });
     writeFileSync(join(repo, "a.txt"), "modified\n");
 
-    expect(() => stageHunks(repo, [{ file: "a.txt", hunkIndex: 5 }])).toThrow(/out of range/);
+    expect(() => stageHunks(repo, [{ file: "a.txt", hunkIndex: 5 }])).toThrow(
+      /out of range/,
+    );
   });
 });
 
 describe("unstageFiles", () => {
   let repo: string;
 
-  beforeEach(() => { repo = createTempRepo(); });
-  afterEach(() => { rmSync(repo, { recursive: true, force: true }); });
+  beforeEach(() => {
+    repo = createTempRepo();
+  });
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
 
   it("removes staged files from the index", () => {
     writeFileSync(join(repo, "a.txt"), "aaa\n");
@@ -156,13 +172,105 @@ describe("unstageFiles", () => {
   });
 });
 
+describe("unstageHunks", () => {
+  let repo: string;
+
+  beforeEach(() => {
+    repo = createTempRepo();
+  });
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  it("unstages only the specified hunk", () => {
+    const lines: string[] = [];
+    for (let i = 0; i < 20; i++) lines.push(`line ${i}`);
+    writeFileSync(join(repo, "multi.txt"), lines.join("\n") + "\n");
+    execFileSync("git", ["add", "multi.txt"], { cwd: repo });
+    execFileSync("git", ["commit", "-m", "add multi"], { cwd: repo });
+
+    const modified = [...lines];
+    modified[2] = "CHANGED line 2";
+    modified[17] = "CHANGED line 17";
+    writeFileSync(join(repo, "multi.txt"), modified.join("\n") + "\n");
+    execFileSync("git", ["add", "multi.txt"], { cwd: repo });
+
+    unstageHunks(repo, [{ file: "multi.txt", hunkIndex: 0 }]);
+
+    const cachedDiff = gitCmd(["diff", "--cached"], repo);
+    expect(cachedDiff).not.toContain("CHANGED line 2");
+    expect(cachedDiff).toContain("CHANGED line 17");
+
+    const workDiff = gitCmd(["diff"], repo);
+    expect(workDiff).toContain("CHANGED line 2");
+    expect(workDiff).not.toContain("CHANGED line 17");
+  });
+
+  it("throws for out-of-range hunk index", () => {
+    writeFileSync(join(repo, "a.txt"), "changed\n");
+    execFileSync("git", ["add", "a.txt"], { cwd: repo });
+    execFileSync("git", ["commit", "-m", "add a"], { cwd: repo });
+    writeFileSync(join(repo, "a.txt"), "modified\n");
+    execFileSync("git", ["add", "a.txt"], { cwd: repo });
+
+    expect(() => unstageHunks(repo, [{ file: "a.txt", hunkIndex: 5 }])).toThrow(
+      /out of range/,
+    );
+  });
+});
+
+describe("revertHunks", () => {
+  let repo: string;
+
+  beforeEach(() => {
+    repo = createTempRepo();
+  });
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  it("reverts only the specified working-tree hunk", () => {
+    const lines: string[] = [];
+    for (let i = 0; i < 20; i++) lines.push(`line ${i}`);
+    writeFileSync(join(repo, "multi.txt"), lines.join("\n") + "\n");
+    execFileSync("git", ["add", "multi.txt"], { cwd: repo });
+    execFileSync("git", ["commit", "-m", "add multi"], { cwd: repo });
+
+    const modified = [...lines];
+    modified[2] = "CHANGED line 2";
+    modified[17] = "CHANGED line 17";
+    writeFileSync(join(repo, "multi.txt"), modified.join("\n") + "\n");
+
+    revertHunks(repo, [{ file: "multi.txt", hunkIndex: 1 }]);
+
+    const workDiff = gitCmd(["diff"], repo);
+    expect(workDiff).toContain("CHANGED line 2");
+    expect(workDiff).not.toContain("CHANGED line 17");
+  });
+
+  it("throws for out-of-range hunk index", () => {
+    writeFileSync(join(repo, "a.txt"), "changed\n");
+    execFileSync("git", ["add", "a.txt"], { cwd: repo });
+    execFileSync("git", ["commit", "-m", "add a"], { cwd: repo });
+    writeFileSync(join(repo, "a.txt"), "modified\n");
+
+    expect(() => revertHunks(repo, [{ file: "a.txt", hunkIndex: 5 }])).toThrow(
+      /out of range/,
+    );
+  });
+});
+
 // ---- Phase 2: Commit / Status ----
 
 describe("gitCommit", () => {
   let repo: string;
 
-  beforeEach(() => { repo = createTempRepo(); });
-  afterEach(() => { rmSync(repo, { recursive: true, force: true }); });
+  beforeEach(() => {
+    repo = createTempRepo();
+  });
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
 
   it("creates a commit and returns hash + message", () => {
     writeFileSync(join(repo, "new.txt"), "hello\n");
@@ -186,8 +294,12 @@ describe("gitCommit", () => {
 describe("gitStatus", () => {
   let repo: string;
 
-  beforeEach(() => { repo = createTempRepo(); });
-  afterEach(() => { rmSync(repo, { recursive: true, force: true }); });
+  beforeEach(() => {
+    repo = createTempRepo();
+  });
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
 
   it("categorizes files correctly", () => {
     // Create staged, unstaged, and untracked files
@@ -225,7 +337,9 @@ describe("listBranches", () => {
     execFileSync("git", ["branch", "feat/signup"], { cwd: repo });
     execFileSync("git", ["branch", "fix/bug"], { cwd: repo });
   });
-  afterEach(() => { rmSync(repo, { recursive: true, force: true }); });
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
 
   it("returns current branch and all branches", () => {
     const result = listBranches(repo);
@@ -262,8 +376,12 @@ describe("listBranches", () => {
 describe("createBranch", () => {
   let repo: string;
 
-  beforeEach(() => { repo = createTempRepo(); });
-  afterEach(() => { rmSync(repo, { recursive: true, force: true }); });
+  beforeEach(() => {
+    repo = createTempRepo();
+  });
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
 
   it("creates a branch without checkout", () => {
     createBranch(repo, "new-branch", false);
@@ -296,7 +414,9 @@ describe("checkoutBranch", () => {
     repo = createTempRepo();
     execFileSync("git", ["branch", "other"], { cwd: repo });
   });
-  afterEach(() => { rmSync(repo, { recursive: true, force: true }); });
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
 
   it("switches to the specified branch", () => {
     checkoutBranch(repo, "other");

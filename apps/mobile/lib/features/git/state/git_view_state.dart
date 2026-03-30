@@ -4,8 +4,8 @@ import '../../../utils/diff_parser.dart';
 
 part 'git_view_state.freezed.dart';
 
-/// Which diff to display: all changes (vs HEAD) or staged only (index).
-enum GitViewMode { all, staged }
+/// Which diff to display: unstaged (working-tree) or staged (index).
+enum GitViewMode { unstaged, staged }
 
 /// State for the diff viewer screen.
 @freezed
@@ -39,7 +39,10 @@ abstract class GitViewState with _$GitViewState {
     @Default({}) Set<int> loadingImageIndices,
 
     /// Current diff view mode: unstaged (working-tree) or staged (index).
-    @Default(GitViewMode.all) GitViewMode viewMode,
+    @Default(GitViewMode.unstaged) GitViewMode viewMode,
+
+    /// Whether long diff lines should wrap instead of horizontal scrolling.
+    @Default(false) bool lineWrapEnabled,
 
     /// Whether a stage/unstage operation is in progress.
     @Default(false) bool staging,

@@ -242,6 +242,7 @@ class ServerMessageWidget extends StatelessWidget {
       // Git Operations (Phase 1-3) — routed via BridgeService streams
       GitStageResultMessage() => const SizedBox.shrink(),
       GitUnstageResultMessage() => const SizedBox.shrink(),
+      GitUnstageHunksResultMessage() => const SizedBox.shrink(),
       GitCommitResultMessage() => const SizedBox.shrink(),
       GitPushResultMessage() => const SizedBox.shrink(),
       GhPrResultMessage() => const SizedBox.shrink(),
@@ -250,6 +251,7 @@ class ServerMessageWidget extends StatelessWidget {
       GitCreateBranchResultMessage() => const SizedBox.shrink(),
       GitCheckoutBranchResultMessage() => const SizedBox.shrink(),
       GitRevertFileResultMessage() => const SizedBox.shrink(),
+      GitRevertHunksResultMessage() => const SizedBox.shrink(),
       GitFetchResultMessage() => const SizedBox.shrink(),
       GitPullResultMessage() => const SizedBox.shrink(),
       GitRemoteStatusResultMessage() => const SizedBox.shrink(),

@@ -8,19 +8,54 @@ import { WebSocketServer, WebSocket } from "ws";
 import { SessionManager, type SessionInfo } from "./session.js";
 import { SdkProcess } from "./sdk-process.js";
 import { CodexProcess, type CodexThreadSummary } from "./codex-process.js";
-import { parseClientMessage, type ClientMessage, type DebugTraceEvent, type ImageChange, type Provider, type ServerMessage } from "./parser.js";
-import { getAllRecentSessions, getCodexSessionHistory, getSessionHistory, findSessionsByClaudeIds, extractMessageImages, getClaudeSessionName, loadCodexSessionNames, renameClaudeSession, renameCodexSession } from "./sessions-index.js";
+import {
+  parseClientMessage,
+  type ClientMessage,
+  type DebugTraceEvent,
+  type ImageChange,
+  type Provider,
+  type ServerMessage,
+} from "./parser.js";
+import {
+  getAllRecentSessions,
+  getCodexSessionHistory,
+  getSessionHistory,
+  findSessionsByClaudeIds,
+  extractMessageImages,
+  getClaudeSessionName,
+  loadCodexSessionNames,
+  renameClaudeSession,
+  renameCodexSession,
+} from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
 import { ArchiveStore } from "./archive-store.js";
 import { WorktreeStore } from "./worktree-store.js";
-import { listWorktrees, removeWorktree, createWorktree, worktreeExists, getMainBranch } from "./worktree.js";
 import {
-  stageFiles, stageHunks, unstageFiles,
-  gitCommit, gitPush, ghPrCreate, gitStatus,
-  listBranches, createBranch, checkoutBranch,
-  revertFiles, gitFetch, gitPull, gitRemoteStatus,
+  listWorktrees,
+  removeWorktree,
+  createWorktree,
+  worktreeExists,
+  getMainBranch,
+} from "./worktree.js";
+import {
+  stageFiles,
+  stageHunks,
+  unstageFiles,
+  unstageHunks,
+  gitCommit,
+  gitPush,
+  ghPrCreate,
+  gitStatus,
+  listBranches,
+  createBranch,
+  checkoutBranch,
+  revertFiles,
+  revertHunks,
+  gitFetch,
+  gitPull,
+  gitRemoteStatus,
 } from "./git-operations.js";
 import { listWindows, takeScreenshot } from "./screenshot.js";
 import { DebugTraceStore } from "./debug-trace-store.js";
@@ -55,9 +90,7 @@ const CODEX_MODELS: string[] = [
 
 /** Map unified PermissionMode to Codex approval_policy.
  *  Only "bypassPermissions" maps to "never"; all others use "on-request". */
-function permissionModeToApprovalPolicy(
-  mode?: string,
-): "never" | "on-request" {
+function permissionModeToApprovalPolicy(mode?: string): "never" | "on-request" {
   return mode === "bypassPermissions" ? "never" : "on-request";
 }
 
@@ -67,13 +100,17 @@ function deriveExecutionMode(params: {
   approvalPolicy?: string;
   provider?: Provider;
 }): "default" | "acceptEdits" | "fullAccess" {
-  if (params.executionMode === "default" ||
-      params.executionMode === "acceptEdits" ||
-      params.executionMode === "fullAccess") {
+  if (
+    params.executionMode === "default" ||
+    params.executionMode === "acceptEdits" ||
+    params.executionMode === "fullAccess"
+  ) {
     return params.executionMode;
   }
-  if (params.permissionMode === "bypassPermissions" ||
-      params.approvalPolicy === "never") {
+  if (
+    params.permissionMode === "bypassPermissions" ||
+    params.approvalPolicy === "never"
+  ) {
     return "fullAccess";
   }
   if (params.permissionMode === "acceptEdits") {
@@ -87,9 +124,10 @@ function derivePlanMode(params: {
   planMode?: boolean;
   collaborationMode?: "plan" | "default";
 }): boolean {
-  return params.planMode ??
-      ((params.permissionMode === "plan") ||
-          (params.collaborationMode === "plan"));
+  return (
+    params.planMode ??
+    (params.permissionMode === "plan" || params.collaborationMode === "plan")
+  );
 }
 
 function modesToLegacyPermissionMode(
@@ -126,9 +164,7 @@ function sandboxModeToInternal(
 }
 
 /** Map Codex internal sandbox mode back to simplified on/off for clients. */
-function sandboxModeToExternal(
-  mode?: string,
-): "on" | "off" {
+function sandboxModeToExternal(mode?: string): "on" | "off" {
   return mode === "danger-full-access" ? "off" : "on";
 }
 
@@ -200,11 +236,24 @@ export class BridgeWebSocketServer {
   /** FCM token → push notification locale */
   private tokenLocales = new Map<string, PushLocale>();
   private tokenPrivacyMode = new Map<string, boolean>();
-  private failSetPermissionMode = envFlagEnabled("BRIDGE_FAIL_SET_PERMISSION_MODE");
+  private failSetPermissionMode = envFlagEnabled(
+    "BRIDGE_FAIL_SET_PERMISSION_MODE",
+  );
   private failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
 
   constructor(options: BridgeServerOptions) {
-    const { server, apiKey, allowedDirs, imageStore, galleryStore, projectHistory, debugTraceStore, recordingStore, firebaseAuth, promptHistoryBackup } = options;
+    const {
+      server,
+      apiKey,
+      allowedDirs,
+      imageStore,
+      galleryStore,
+      projectHistory,
+      debugTraceStore,
+      recordingStore,
+      firebaseAuth,
+      promptHistoryBackup,
+    } = options;
     this.apiKey = apiKey ?? null;
     this.allowedDirs = allowedDirs ?? [];
     this.imageStore = imageStore ?? null;
@@ -233,7 +282,6 @@ export class BridgeWebSocketServer {
     } else {
       console.log("[ws] Push relay enabled (Firebase Anonymous Auth)");
     }
-
 
     this.wss = new WebSocketServer({ server });
 
@@ -332,49 +380,58 @@ export class BridgeWebSocketServer {
       sessionId,
       provider,
       projectPath,
-      ...(permissionMode ? { permissionMode: permissionMode as "default" | "acceptEdits" | "bypassPermissions" | "plan" } : {}),
-      ...((executionMode ?? (session?.process instanceof SdkProcess
-              ? session.process.permissionMode === "bypassPermissions"
-                ? "fullAccess"
-                : session.process.permissionMode === "acceptEdits"
-                  ? "acceptEdits"
-                  : "default"
-              : session?.process instanceof CodexProcess
-                ? session.process.approvalPolicy === "never"
-                  ? "fullAccess"
-                  : "default"
-                : undefined))
-          ? {
-              executionMode: (executionMode ?? (session?.process instanceof SdkProcess
-                      ? session.process.permissionMode === "bypassPermissions"
-                        ? "fullAccess"
-                        : session.process.permissionMode === "acceptEdits"
-                          ? "acceptEdits"
-                          : "default"
-                      : session?.process instanceof CodexProcess
-                        ? session.process.approvalPolicy === "never"
-                          ? "fullAccess"
-                          : "default"
-                        : undefined)) as "default" | "acceptEdits" | "fullAccess",
-            }
-          : {}),
-      ...((planMode ??
+      ...(permissionMode
+        ? {
+            permissionMode: permissionMode as
+              | "default"
+              | "acceptEdits"
+              | "bypassPermissions"
+              | "plan",
+          }
+        : {}),
+      ...((executionMode ??
+      (session?.process instanceof SdkProcess
+        ? session.process.permissionMode === "bypassPermissions"
+          ? "fullAccess"
+          : session.process.permissionMode === "acceptEdits"
+            ? "acceptEdits"
+            : "default"
+        : session?.process instanceof CodexProcess
+          ? session.process.approvalPolicy === "never"
+            ? "fullAccess"
+            : "default"
+          : undefined))
+        ? {
+            executionMode: (executionMode ??
               (session?.process instanceof SdkProcess
-                  ? session.process.permissionMode === "plan"
-                  : session?.process instanceof CodexProcess
-                    ? session.process.collaborationMode === "plan"
-                    : undefined)) !=
-          null
-          ? {
-              planMode:
-                  planMode ??
-                  (session?.process instanceof SdkProcess
-                      ? session.process.permissionMode === "plan"
-                      : session?.process instanceof CodexProcess
-                        ? session.process.collaborationMode === "plan"
-                        : false),
-            }
-          : {}),
+                ? session.process.permissionMode === "bypassPermissions"
+                  ? "fullAccess"
+                  : session.process.permissionMode === "acceptEdits"
+                    ? "acceptEdits"
+                    : "default"
+                : session?.process instanceof CodexProcess
+                  ? session.process.approvalPolicy === "never"
+                    ? "fullAccess"
+                    : "default"
+                  : undefined)) as "default" | "acceptEdits" | "fullAccess",
+          }
+        : {}),
+      ...((planMode ??
+        (session?.process instanceof SdkProcess
+          ? session.process.permissionMode === "plan"
+          : session?.process instanceof CodexProcess
+            ? session.process.collaborationMode === "plan"
+            : undefined)) != null
+        ? {
+            planMode:
+              planMode ??
+              (session?.process instanceof SdkProcess
+                ? session.process.permissionMode === "plan"
+                : session?.process instanceof CodexProcess
+                  ? session.process.collaborationMode === "plan"
+                  : false),
+          }
+        : {}),
       ...(sandboxMode ? { sandboxMode } : {}),
       ...(slashCommands ? { slashCommands } : {}),
       ...(skills ? { skills } : {}),
@@ -445,8 +502,16 @@ export class BridgeWebSocketServer {
         // Try to extract the message type so the client can decide how to
         // handle the unsupported message (suppress vs show update hint).
         let rawType: string | undefined;
-        try { rawType = (JSON.parse(raw) as Record<string, unknown>)?.type as string; } catch { /* ignore */ }
-        console.error("[ws] Unsupported message:", rawType ?? raw.slice(0, 200));
+        try {
+          rawType = (JSON.parse(raw) as Record<string, unknown>)
+            ?.type as string;
+        } catch {
+          /* ignore */
+        }
+        console.error(
+          "[ws] Unsupported message:",
+          rawType ?? raw.slice(0, 200),
+        );
         this.send(ws, {
           type: "error",
           errorCode: "unsupported_message",
@@ -468,10 +533,14 @@ export class BridgeWebSocketServer {
     });
   }
 
-  private async handleClientMessage(msg: ClientMessage, ws: WebSocket): Promise<void> {
+  private async handleClientMessage(
+    msg: ClientMessage,
+    ws: WebSocket,
+  ): Promise<void> {
     const incomingSessionId = this.extractSessionIdFromClientMessage(msg);
     const isActiveRuntimeSession =
-      incomingSessionId != null && this.sessionManager.get(incomingSessionId) != null;
+      incomingSessionId != null &&
+      this.sessionManager.get(incomingSessionId) != null;
     if (incomingSessionId && isActiveRuntimeSession) {
       this.recordDebugEvent(incomingSessionId, {
         direction: "incoming",
@@ -505,9 +574,14 @@ export class BridgeWebSocketServer {
             planMode,
           );
           if (provider === "codex") {
-            console.log(`[ws] start(codex): execution=${executionMode} plan=${planMode}`);
+            console.log(
+              `[ws] start(codex): execution=${executionMode} plan=${planMode}`,
+            );
           }
-          const cached = provider === "claude" ? this.sessionManager.getCachedCommands(msg.projectPath) : undefined;
+          const cached =
+            provider === "claude"
+              ? this.sessionManager.getCachedCommands(msg.projectPath)
+              : undefined;
           const sessionId = this.sessionManager.create(
             msg.projectPath,
             {
@@ -535,21 +609,37 @@ export class BridgeWebSocketServer {
             provider,
             provider === "codex"
               ? {
-                  approvalPolicy: executionMode === "fullAccess" ? "never" : "on-request",
+                  approvalPolicy:
+                    executionMode === "fullAccess" ? "never" : "on-request",
                   sandboxMode: sandboxModeToInternal(msg.sandboxMode),
                   model: msg.model,
-                  modelReasoningEffort: (msg.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
+                  modelReasoningEffort:
+                    (msg.modelReasoningEffort as
+                      | "minimal"
+                      | "low"
+                      | "medium"
+                      | "high"
+                      | "xhigh") ?? undefined,
                   networkAccessEnabled: msg.networkAccessEnabled,
-                  webSearchMode: (msg.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
+                  webSearchMode:
+                    (msg.webSearchMode as "disabled" | "cached" | "live") ??
+                    undefined,
                   threadId: msg.sessionId,
-                  collaborationMode: planMode ? "plan" as const : "default" as const,
+                  collaborationMode: planMode
+                    ? ("plan" as const)
+                    : ("default" as const),
                 }
               : undefined,
           );
           const createdSession = this.sessionManager.get(sessionId);
 
           // Load saved session name from CLI storage (for resumed sessions)
-          void this.loadAndSetSessionName(createdSession, provider, msg.projectPath, msg.sessionId).then(() => {
+          void this.loadAndSetSessionName(
+            createdSession,
+            provider,
+            msg.projectPath,
+            msg.sessionId,
+          ).then(() => {
             this.send(
               ws,
               this.buildSessionCreatedMessage({
@@ -600,7 +690,10 @@ export class BridgeWebSocketServer {
           this.projectHistory?.addProject(msg.projectPath);
         } catch (err) {
           console.error(`[ws] Failed to start session:`, err);
-          this.send(ws, { type: "error", message: `Failed to start session: ${(err as Error).message}` });
+          this.send(ws, {
+            type: "error",
+            message: `Failed to start session: ${(err as Error).message}`,
+          });
         }
         break;
       }
@@ -608,21 +701,32 @@ export class BridgeWebSocketServer {
       case "input": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "error", message: "No active session. Send 'start' first." });
+          this.send(ws, {
+            type: "error",
+            message: "No active session. Send 'start' first.",
+          });
           return;
         }
         const text = msg.text;
 
         // Codex: reject if the process is not waiting for input (turn-based, no internal queue)
-        if (session.provider === "codex" && !session.process.isWaitingForInput) {
-          this.send(ws, { type: "input_rejected", sessionId: session.id, reason: "Process is busy" });
+        if (
+          session.provider === "codex" &&
+          !session.process.isWaitingForInput
+        ) {
+          this.send(ws, {
+            type: "input_rejected",
+            sessionId: session.id,
+            reason: "Process is busy",
+          });
           break;
         }
 
         // Snapshot busy state before dispatch. We prefer the actual enqueue
         // result returned by SdkProcess sendInput* below, but keep this as a
         // fallback for test doubles and async paths.
-        const isAgentBusySnapshot = session.provider === "claude" && !session.process.isWaitingForInput;
+        const isAgentBusySnapshot =
+          session.provider === "claude" && !session.process.isWaitingForInput;
 
         // Normalize images: support new `images` array and legacy single-image fields
         let images: Array<{ base64: string; mimeType: string }> = [];
@@ -641,11 +745,16 @@ export class BridgeWebSocketServer {
         //
         // Register images in the image store so they can be served via HTTP
         // when the client re-enters the session and loads history.
-        let imageRefs: Array<{ id: string; url: string; mimeType: string }> | undefined;
+        let imageRefs:
+          | Array<{ id: string; url: string; mimeType: string }>
+          | undefined;
         if (images.length > 0 && this.imageStore) {
           imageRefs = [];
           for (const img of images) {
-            const ref = this.imageStore.registerFromBase64(img.base64, img.mimeType);
+            const ref = this.imageStore.registerFromBase64(
+              img.base64,
+              img.mimeType,
+            );
             if (ref) imageRefs.push(ref);
           }
           if (imageRefs.length === 0) imageRefs = undefined;
@@ -661,35 +770,44 @@ export class BridgeWebSocketServer {
         // Persist images to Gallery Store asynchronously (fire-and-forget)
         if (images.length > 0 && this.galleryStore && session.projectPath) {
           for (const img of images) {
-            this.galleryStore.addImageFromBase64(
-              img.base64,
-              img.mimeType,
-              session.projectPath,
-              msg.sessionId,
-            ).catch((err) => {
-              console.warn(`[ws] Failed to persist image to gallery: ${err}`);
-            });
+            this.galleryStore
+              .addImageFromBase64(
+                img.base64,
+                img.mimeType,
+                session.projectPath,
+                msg.sessionId,
+              )
+              .catch((err) => {
+                console.warn(`[ws] Failed to persist image to gallery: ${err}`);
+              });
           }
         }
 
         // Codex input path
         if (session.provider === "codex") {
-          this.send(ws, { type: "input_ack", sessionId: session.id, queued: false });
+          this.send(ws, {
+            type: "input_ack",
+            sessionId: session.id,
+            queued: false,
+          });
           const codexProc = session.process as CodexProcess;
           if (images.length > 0) {
             codexProc.sendInputWithImages(text, images);
           } else if (msg.imageId && this.galleryStore) {
-            this.galleryStore.getImageAsBase64(msg.imageId).then((imageData) => {
-              if (imageData) {
-                codexProc.sendInputWithImages(text, [imageData]);
-              } else {
-                console.warn(`[ws] Image not found: ${msg.imageId}`);
+            this.galleryStore
+              .getImageAsBase64(msg.imageId)
+              .then((imageData) => {
+                if (imageData) {
+                  codexProc.sendInputWithImages(text, [imageData]);
+                } else {
+                  console.warn(`[ws] Image not found: ${msg.imageId}`);
+                  codexProc.sendInput(text);
+                }
+              })
+              .catch((err) => {
+                console.error(`[ws] Failed to load image: ${err}`);
                 codexProc.sendInput(text);
-              }
-            }).catch((err) => {
-              console.error(`[ws] Failed to load image: ${err}`);
-              codexProc.sendInput(text);
-            });
+              });
           } else if (msg.skill) {
             codexProc.sendInputWithSkill(text, msg.skill);
           } else {
@@ -702,9 +820,12 @@ export class BridgeWebSocketServer {
         const claudeProc = session.process as SdkProcess;
         let wasQueued = false;
         if (images.length > 0) {
-          console.log(`[ws] Sending message with ${images.length} inline Base64 image(s)`);
+          console.log(
+            `[ws] Sending message with ${images.length} inline Base64 image(s)`,
+          );
           const result = claudeProc.sendInputWithImages(text, images);
-          wasQueued = typeof result === "boolean" ? result : isAgentBusySnapshot;
+          wasQueued =
+            typeof result === "boolean" ? result : isAgentBusySnapshot;
         }
         // Legacy imageId mode (backward compatibility)
         else if (msg.imageId && this.galleryStore) {
@@ -713,44 +834,63 @@ export class BridgeWebSocketServer {
             sessionId: session.id,
             queued: isAgentBusySnapshot,
           });
-          this.galleryStore.getImageAsBase64(msg.imageId).then((imageData) => {
-            let queuedAfterResolve = false;
-            if (imageData) {
-              const result = claudeProc.sendInputWithImages(text, [imageData]);
-              queuedAfterResolve = typeof result === "boolean" ? result : isAgentBusySnapshot;
-            } else {
-              console.warn(`[ws] Image not found: ${msg.imageId}`);
+          this.galleryStore
+            .getImageAsBase64(msg.imageId)
+            .then((imageData) => {
+              let queuedAfterResolve = false;
+              if (imageData) {
+                const result = claudeProc.sendInputWithImages(text, [
+                  imageData,
+                ]);
+                queuedAfterResolve =
+                  typeof result === "boolean" ? result : isAgentBusySnapshot;
+              } else {
+                console.warn(`[ws] Image not found: ${msg.imageId}`);
+                const result = session.process.sendInput(text);
+                queuedAfterResolve =
+                  typeof result === "boolean" ? result : isAgentBusySnapshot;
+              }
+              if (queuedAfterResolve) {
+                console.log(
+                  `[ws] Agent is busy — will queue input and interrupt current turn`,
+                );
+                claudeProc.interrupt();
+              }
+            })
+            .catch((err) => {
+              console.error(`[ws] Failed to load image: ${err}`);
               const result = session.process.sendInput(text);
-              queuedAfterResolve = typeof result === "boolean" ? result : isAgentBusySnapshot;
-            }
-            if (queuedAfterResolve) {
-              console.log(`[ws] Agent is busy — will queue input and interrupt current turn`);
-              claudeProc.interrupt();
-            }
-          }).catch((err) => {
-            console.error(`[ws] Failed to load image: ${err}`);
-            const result = session.process.sendInput(text);
-            const queuedAfterResolve = typeof result === "boolean" ? result : isAgentBusySnapshot;
-            if (queuedAfterResolve) {
-              console.log(`[ws] Agent is busy — will queue input and interrupt current turn`);
-              claudeProc.interrupt();
-            }
-          });
+              const queuedAfterResolve =
+                typeof result === "boolean" ? result : isAgentBusySnapshot;
+              if (queuedAfterResolve) {
+                console.log(
+                  `[ws] Agent is busy — will queue input and interrupt current turn`,
+                );
+                claudeProc.interrupt();
+              }
+            });
           break;
         }
         // Text-only message
         else {
           const result = session.process.sendInput(text);
-          wasQueued = typeof result === "boolean" ? result : isAgentBusySnapshot;
+          wasQueued =
+            typeof result === "boolean" ? result : isAgentBusySnapshot;
         }
 
         // Acknowledge receipt so the client can mark the message state.
         // queued=true means the input was enqueued instead of being consumed
         // immediately by the SDK stream.
-        this.send(ws, { type: "input_ack", sessionId: session.id, queued: wasQueued });
+        this.send(ws, {
+          type: "input_ack",
+          sessionId: session.id,
+          queued: wasQueued,
+        });
 
         if (wasQueued) {
-          console.log(`[ws] Agent is busy — will queue input and interrupt current turn`);
+          console.log(
+            `[ws] Agent is busy — will queue input and interrupt current turn`,
+          );
           claudeProc.interrupt();
         }
         break;
@@ -759,38 +899,60 @@ export class BridgeWebSocketServer {
       case "push_register": {
         const locale = normalizePushLocale(msg.locale);
         const privacyMode = msg.privacyMode === true;
-        console.log(`[ws] push_register received (platform: ${msg.platform}, locale: ${locale}, privacy: ${privacyMode}, configured: ${this.pushRelay.isConfigured})`);
+        console.log(
+          `[ws] push_register received (platform: ${msg.platform}, locale: ${locale}, privacy: ${privacyMode}, configured: ${this.pushRelay.isConfigured})`,
+        );
         if (!this.pushRelay.isConfigured) {
-          this.send(ws, { type: "error", message: "Push relay is not configured on bridge" });
+          this.send(ws, {
+            type: "error",
+            message: "Push relay is not configured on bridge",
+          });
           return;
         }
         this.tokenLocales.set(msg.token, locale);
         this.tokenPrivacyMode.set(msg.token, privacyMode);
-        this.pushRelay.registerToken(msg.token, msg.platform, locale).then(() => {
-          console.log("[ws] push_register: token registered successfully");
-        }).catch((err) => {
-          const detail = err instanceof Error ? err.message : String(err);
-          console.error(`[ws] push_register failed: ${detail}`);
-          this.send(ws, { type: "error", message: `Failed to register push token: ${detail}` });
-        });
+        this.pushRelay
+          .registerToken(msg.token, msg.platform, locale)
+          .then(() => {
+            console.log("[ws] push_register: token registered successfully");
+          })
+          .catch((err) => {
+            const detail = err instanceof Error ? err.message : String(err);
+            console.error(`[ws] push_register failed: ${detail}`);
+            this.send(ws, {
+              type: "error",
+              message: `Failed to register push token: ${detail}`,
+            });
+          });
         break;
       }
 
       case "push_unregister": {
         console.log("[ws] push_unregister received");
         if (!this.pushRelay.isConfigured) {
-          this.send(ws, { type: "error", message: "Push relay is not configured on bridge" });
+          this.send(ws, {
+            type: "error",
+            message: "Push relay is not configured on bridge",
+          });
           return;
         }
         this.tokenLocales.delete(msg.token);
         this.tokenPrivacyMode.delete(msg.token);
-        this.pushRelay.unregisterToken(msg.token).then(() => {
-          console.log("[ws] push_unregister: token unregistered successfully");
-        }).catch((err) => {
-          const detail = err instanceof Error ? err.message : String(err);
-          console.error(`[ws] push_unregister failed: ${detail}`);
-          this.send(ws, { type: "error", message: `Failed to unregister push token: ${detail}` });
-        });
+        this.pushRelay
+          .unregisterToken(msg.token)
+          .then(() => {
+            console.log(
+              "[ws] push_unregister: token unregistered successfully",
+            );
+          })
+          .catch((err) => {
+            const detail = err instanceof Error ? err.message : String(err);
+            console.error(`[ws] push_unregister failed: ${detail}`);
+            this.send(ws, {
+              type: "error",
+              message: `Failed to unregister push token: ${detail}`,
+            });
+          });
         break;
       }
 
@@ -828,10 +990,17 @@ export class BridgeWebSocketServer {
           );
           const newApproval: "never" | "on-request" =
             executionMode === "fullAccess" ? "never" : "on-request";
-          const newCollaboration: "plan" | "default" = planMode ? "plan" : "default";
-          const currentApproval = (session.process as CodexProcess).approvalPolicy;
-          const currentCollaboration = (session.process as CodexProcess).collaborationMode;
-          if (newApproval === currentApproval && newCollaboration === currentCollaboration) {
+          const newCollaboration: "plan" | "default" = planMode
+            ? "plan"
+            : "default";
+          const currentApproval = (session.process as CodexProcess)
+            .approvalPolicy;
+          const currentCollaboration = (session.process as CodexProcess)
+            .collaborationMode;
+          if (
+            newApproval === currentApproval &&
+            newCollaboration === currentCollaboration
+          ) {
             break; // No change needed
           }
           const canApplyModeInPlace = session.status === "idle";
@@ -865,7 +1034,9 @@ export class BridgeWebSocketServer {
             );
             break;
           }
-          console.log(`[ws] set_permission_mode(codex): execution=${executionMode} plan=${planMode} → approval=${newApproval}, collaboration=${newCollaboration} (restart)`);
+          console.log(
+            `[ws] set_permission_mode(codex): execution=${executionMode} plan=${planMode} → approval=${newApproval}, collaboration=${newCollaboration} (restart)`,
+          );
 
           const oldSessionId = session.id;
           const threadId = session.claudeSessionId;
@@ -876,25 +1047,47 @@ export class BridgeWebSocketServer {
           const sessionName = session.name;
 
           this.sessionManager.destroy(oldSessionId);
-          console.log(`[ws] Permission mode change: destroyed session ${oldSessionId}`);
+          console.log(
+            `[ws] Permission mode change: destroyed session ${oldSessionId}`,
+          );
 
-          const hasUserMessages = session.history?.some(
-            (m: Record<string, unknown>) => m.type === "user_input" || m.type === "assistant",
-          ) || (session.pastMessages && session.pastMessages.length > 0);
+          const hasUserMessages =
+            session.history?.some(
+              (m: Record<string, unknown>) =>
+                m.type === "user_input" || m.type === "assistant",
+            ) ||
+            (session.pastMessages && session.pastMessages.length > 0);
           if (!threadId || !hasUserMessages) {
             const newId = this.sessionManager.create(
               projectPath,
               undefined,
               undefined,
-              worktreePath ? { existingWorktreePath: worktreePath, worktreeBranch } : undefined,
+              worktreePath
+                ? { existingWorktreePath: worktreePath, worktreeBranch }
+                : undefined,
               "codex",
               {
                 approvalPolicy: newApproval,
-                sandboxMode: oldSettings.sandboxMode as "workspace-write" | "danger-full-access" | undefined,
+                sandboxMode: oldSettings.sandboxMode as
+                  | "workspace-write"
+                  | "danger-full-access"
+                  | undefined,
                 model: oldSettings.model,
-                modelReasoningEffort: oldSettings.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh" | undefined,
-                networkAccessEnabled: oldSettings.networkAccessEnabled as boolean | undefined,
-                webSearchMode: oldSettings.webSearchMode as "disabled" | "cached" | "live" | undefined,
+                modelReasoningEffort: oldSettings.modelReasoningEffort as
+                  | "minimal"
+                  | "low"
+                  | "medium"
+                  | "high"
+                  | "xhigh"
+                  | undefined,
+                networkAccessEnabled: oldSettings.networkAccessEnabled as
+                  | boolean
+                  | undefined,
+                webSearchMode: oldSettings.webSearchMode as
+                  | "disabled"
+                  | "cached"
+                  | "live"
+                  | undefined,
                 collaborationMode: newCollaboration,
               },
             );
@@ -916,86 +1109,132 @@ export class BridgeWebSocketServer {
               }),
             );
             this.broadcastSessionList();
-            console.log(`[ws] Permission mode change (no thread): created new session ${newId} (mode=${msg.mode})`);
+            console.log(
+              `[ws] Permission mode change (no thread): created new session ${newId} (mode=${msg.mode})`,
+            );
             break;
           }
 
           // Worktree resolution
           const wtMapping = this.worktreeStore.get(threadId);
           const effectiveProjectPath = wtMapping?.projectPath ?? projectPath;
-          let worktreeOpts: { useWorktree?: boolean; worktreeBranch?: string; existingWorktreePath?: string } | undefined;
+          let worktreeOpts:
+            | {
+                useWorktree?: boolean;
+                worktreeBranch?: string;
+                existingWorktreePath?: string;
+              }
+            | undefined;
           if (wtMapping) {
             if (worktreeExists(wtMapping.worktreePath)) {
-              worktreeOpts = { existingWorktreePath: wtMapping.worktreePath, worktreeBranch: wtMapping.worktreeBranch };
+              worktreeOpts = {
+                existingWorktreePath: wtMapping.worktreePath,
+                worktreeBranch: wtMapping.worktreeBranch,
+              };
             } else {
-              worktreeOpts = { useWorktree: true, worktreeBranch: wtMapping.worktreeBranch };
+              worktreeOpts = {
+                useWorktree: true,
+                worktreeBranch: wtMapping.worktreeBranch,
+              };
             }
           } else if (worktreePath) {
-            worktreeOpts = { existingWorktreePath: worktreePath, worktreeBranch };
+            worktreeOpts = {
+              existingWorktreePath: worktreePath,
+              worktreeBranch,
+            };
           }
 
-          getCodexSessionHistory(threadId).then((pastMessages) => {
-            const newId = this.sessionManager.create(
-              effectiveProjectPath,
-              undefined,
-              pastMessages,
-              worktreeOpts,
-              "codex",
-              {
-                threadId,
-                approvalPolicy: newApproval,
-                sandboxMode: oldSettings.sandboxMode as "workspace-write" | "danger-full-access" | undefined,
-                model: oldSettings.model,
-                modelReasoningEffort: oldSettings.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh" | undefined,
-                networkAccessEnabled: oldSettings.networkAccessEnabled as boolean | undefined,
-                webSearchMode: oldSettings.webSearchMode as "disabled" | "cached" | "live" | undefined,
-                collaborationMode: newCollaboration,
-              },
-            );
-
-            const newSession = this.sessionManager.get(newId);
-            if (newSession && sessionName) {
-              newSession.name = sessionName;
-            }
-
-            void this.loadAndSetSessionName(newSession, "codex", effectiveProjectPath, threadId).then(() => {
-              this.broadcast(
-                this.buildSessionCreatedMessage({
-                  sessionId: newId,
-                  provider: "codex",
-                  projectPath: effectiveProjectPath,
-                  session: newSession,
-                  permissionMode: legacyPermissionMode,
-                  executionMode,
-                  planMode,
-                  sandboxMode: oldSettings.sandboxMode
-                    ? sandboxModeToExternal(oldSettings.sandboxMode)
-                    : undefined,
-                  sourceSessionId: oldSessionId,
-                }),
+          getCodexSessionHistory(threadId)
+            .then((pastMessages) => {
+              const newId = this.sessionManager.create(
+                effectiveProjectPath,
+                undefined,
+                pastMessages,
+                worktreeOpts,
+                "codex",
+                {
+                  threadId,
+                  approvalPolicy: newApproval,
+                  sandboxMode: oldSettings.sandboxMode as
+                    | "workspace-write"
+                    | "danger-full-access"
+                    | undefined,
+                  model: oldSettings.model,
+                  modelReasoningEffort: oldSettings.modelReasoningEffort as
+                    | "minimal"
+                    | "low"
+                    | "medium"
+                    | "high"
+                    | "xhigh"
+                    | undefined,
+                  networkAccessEnabled: oldSettings.networkAccessEnabled as
+                    | boolean
+                    | undefined,
+                  webSearchMode: oldSettings.webSearchMode as
+                    | "disabled"
+                    | "cached"
+                    | "live"
+                    | undefined,
+                  collaborationMode: newCollaboration,
+                },
               );
-              this.broadcastSessionList();
-            });
 
-            this.debugEvents.set(newId, []);
-            this.recordDebugEvent(newId, {
-              direction: "internal" as const,
-              channel: "bridge" as const,
-              type: "permission_mode_changed",
-              detail: `mode=${msg.mode} approval=${newApproval} collaboration=${newCollaboration} thread=${threadId} oldSession=${oldSessionId}`,
+              const newSession = this.sessionManager.get(newId);
+              if (newSession && sessionName) {
+                newSession.name = sessionName;
+              }
+
+              void this.loadAndSetSessionName(
+                newSession,
+                "codex",
+                effectiveProjectPath,
+                threadId,
+              ).then(() => {
+                this.broadcast(
+                  this.buildSessionCreatedMessage({
+                    sessionId: newId,
+                    provider: "codex",
+                    projectPath: effectiveProjectPath,
+                    session: newSession,
+                    permissionMode: legacyPermissionMode,
+                    executionMode,
+                    planMode,
+                    sandboxMode: oldSettings.sandboxMode
+                      ? sandboxModeToExternal(oldSettings.sandboxMode)
+                      : undefined,
+                    sourceSessionId: oldSessionId,
+                  }),
+                );
+                this.broadcastSessionList();
+              });
+
+              this.debugEvents.set(newId, []);
+              this.recordDebugEvent(newId, {
+                direction: "internal" as const,
+                channel: "bridge" as const,
+                type: "permission_mode_changed",
+                detail: `mode=${msg.mode} approval=${newApproval} collaboration=${newCollaboration} thread=${threadId} oldSession=${oldSessionId}`,
+              });
+              console.log(
+                `[ws] Permission mode change: created new session ${newId} (thread=${threadId}, mode=${msg.mode})`,
+              );
+            })
+            .catch((err) => {
+              this.send(ws, {
+                type: "error",
+                message: `Failed to restart session for permission mode change: ${err}`,
+              });
             });
-            console.log(`[ws] Permission mode change: created new session ${newId} (thread=${threadId}, mode=${msg.mode})`);
-          }).catch((err) => {
-            this.send(ws, { type: "error", message: `Failed to restart session for permission mode change: ${err}` });
-          });
           break;
         }
-        (session.process as SdkProcess).setPermissionMode(msg.mode).catch((err) => {
-          this.send(ws, {
-            type: "error",
-            message: `Failed to set permission mode: ${err instanceof Error ? err.message : String(err)}`,
+        (session.process as SdkProcess)
+          .setPermissionMode(msg.mode)
+          .catch((err) => {
+            this.send(ws, {
+              type: "error",
+              message: `Failed to set permission mode: ${err instanceof Error ? err.message : String(err)}`,
+            });
           });
-        });
         break;
       }
 
@@ -1014,7 +1253,10 @@ export class BridgeWebSocketServer {
           return;
         }
         if (msg.sandboxMode !== "on" && msg.sandboxMode !== "off") {
-          this.send(ws, { type: "error", message: `Invalid sandbox mode: ${msg.sandboxMode}` });
+          this.send(ws, {
+            type: "error",
+            message: `Invalid sandbox mode: ${msg.sandboxMode}`,
+          });
           return;
         }
 
@@ -1036,7 +1278,9 @@ export class BridgeWebSocketServer {
           const model = (session.process as SdkProcess).model;
 
           this.sessionManager.destroy(oldSessionId);
-          console.log(`[ws] Claude sandbox change: destroyed session ${oldSessionId}`);
+          console.log(
+            `[ws] Claude sandbox change: destroyed session ${oldSessionId}`,
+          );
 
           const newId = this.sessionManager.create(
             projectPath,
@@ -1047,14 +1291,21 @@ export class BridgeWebSocketServer {
               sandboxEnabled: newEnabled,
             },
             undefined,
-            worktreePath ? { existingWorktreePath: worktreePath, worktreeBranch } : undefined,
+            worktreePath
+              ? { existingWorktreePath: worktreePath, worktreeBranch }
+              : undefined,
             "claude",
           );
 
           const newSession = this.sessionManager.get(newId);
           if (newSession && sessionName) newSession.name = sessionName;
 
-          void this.loadAndSetSessionName(newSession, "claude", projectPath, claudeSessionId).then(() => {
+          void this.loadAndSetSessionName(
+            newSession,
+            "claude",
+            projectPath,
+            claudeSessionId,
+          ).then(() => {
             this.broadcast(
               this.buildSessionCreatedMessage({
                 sessionId: newId,
@@ -1075,13 +1326,16 @@ export class BridgeWebSocketServer {
             type: "sandbox_mode_changed",
             detail: `sandbox=${newEnabled} claude=${claudeSessionId} oldSession=${oldSessionId}`,
           });
-          console.log(`[ws] Claude sandbox change: created new session ${newId} (sandbox=${newEnabled})`);
+          console.log(
+            `[ws] Claude sandbox change: created new session ${newId} (sandbox=${newEnabled})`,
+          );
           break;
         }
 
         // ---- Codex sandbox toggle ----
         const newSandboxMode = sandboxModeToInternal(msg.sandboxMode);
-        const currentSandboxMode = session.codexSettings?.sandboxMode ?? "workspace-write";
+        const currentSandboxMode =
+          session.codexSettings?.sandboxMode ?? "workspace-write";
         if (newSandboxMode === currentSandboxMode) {
           break; // No change needed
         }
@@ -1097,8 +1351,10 @@ export class BridgeWebSocketServer {
         const worktreePath = session.worktreePath;
         const worktreeBranch = session.worktreeBranch;
         const sessionName = session.name;
-        const collaborationMode = (session.process as CodexProcess).collaborationMode;
-        const executionMode = oldSettings.approvalPolicy === "never" ? "fullAccess" : "default";
+        const collaborationMode = (session.process as CodexProcess)
+          .collaborationMode;
+        const executionMode =
+          oldSettings.approvalPolicy === "never" ? "fullAccess" : "default";
         const planMode = collaborationMode === "plan";
         const legacyPermissionMode = modesToLegacyPermissionMode(
           "codex",
@@ -1107,15 +1363,20 @@ export class BridgeWebSocketServer {
         );
 
         this.sessionManager.destroy(oldSessionId);
-        console.log(`[ws] Sandbox mode change: destroyed session ${oldSessionId}`);
+        console.log(
+          `[ws] Sandbox mode change: destroyed session ${oldSessionId}`,
+        );
 
         // Check if the user actually exchanged messages in this session.
         // session.history always contains system events (init, status, etc.)
         // even before the first user turn, so we check for user_input/assistant
         // messages specifically.
-        const hasUserMessages = session.history?.some(
-          (m: Record<string, unknown>) => m.type === "user_input" || m.type === "assistant",
-        ) || (session.pastMessages && session.pastMessages.length > 0);
+        const hasUserMessages =
+          session.history?.some(
+            (m: Record<string, unknown>) =>
+              m.type === "user_input" || m.type === "assistant",
+          ) ||
+          (session.pastMessages && session.pastMessages.length > 0);
         if (!threadId || !hasUserMessages) {
           // Session has no thread yet, or has a thread but no messages exchanged.
           // Create a fresh session with the new sandbox — no resume needed.
@@ -1125,15 +1386,32 @@ export class BridgeWebSocketServer {
             projectPath,
             undefined,
             undefined,
-            worktreePath ? { existingWorktreePath: worktreePath, worktreeBranch } : undefined,
+            worktreePath
+              ? { existingWorktreePath: worktreePath, worktreeBranch }
+              : undefined,
             "codex",
             {
-              approvalPolicy: oldSettings.approvalPolicy as "never" | "on-request" | undefined,
+              approvalPolicy: oldSettings.approvalPolicy as
+                | "never"
+                | "on-request"
+                | undefined,
               sandboxMode: newSandboxMode,
               model: oldSettings.model,
-              modelReasoningEffort: oldSettings.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh" | undefined,
-              networkAccessEnabled: oldSettings.networkAccessEnabled as boolean | undefined,
-              webSearchMode: oldSettings.webSearchMode as "disabled" | "cached" | "live" | undefined,
+              modelReasoningEffort: oldSettings.modelReasoningEffort as
+                | "minimal"
+                | "low"
+                | "medium"
+                | "high"
+                | "xhigh"
+                | undefined,
+              networkAccessEnabled: oldSettings.networkAccessEnabled as
+                | boolean
+                | undefined,
+              webSearchMode: oldSettings.webSearchMode as
+                | "disabled"
+                | "cached"
+                | "live"
+                | undefined,
               collaborationMode,
             },
           );
@@ -1153,77 +1431,118 @@ export class BridgeWebSocketServer {
             }),
           );
           this.broadcastSessionList();
-          console.log(`[ws] Sandbox mode change (no thread): created new session ${newId} (sandbox=${newSandboxMode})`);
+          console.log(
+            `[ws] Sandbox mode change (no thread): created new session ${newId} (sandbox=${newSandboxMode})`,
+          );
           break;
         }
 
         // Worktree resolution (same as resume_session)
         const wtMapping = this.worktreeStore.get(threadId);
         const effectiveProjectPath = wtMapping?.projectPath ?? projectPath;
-        let worktreeOpts: { useWorktree?: boolean; worktreeBranch?: string; existingWorktreePath?: string } | undefined;
+        let worktreeOpts:
+          | {
+              useWorktree?: boolean;
+              worktreeBranch?: string;
+              existingWorktreePath?: string;
+            }
+          | undefined;
         if (wtMapping) {
           if (worktreeExists(wtMapping.worktreePath)) {
-            worktreeOpts = { existingWorktreePath: wtMapping.worktreePath, worktreeBranch: wtMapping.worktreeBranch };
+            worktreeOpts = {
+              existingWorktreePath: wtMapping.worktreePath,
+              worktreeBranch: wtMapping.worktreeBranch,
+            };
           } else {
-            worktreeOpts = { useWorktree: true, worktreeBranch: wtMapping.worktreeBranch };
+            worktreeOpts = {
+              useWorktree: true,
+              worktreeBranch: wtMapping.worktreeBranch,
+            };
           }
         } else if (worktreePath) {
           worktreeOpts = { existingWorktreePath: worktreePath, worktreeBranch };
         }
 
-        getCodexSessionHistory(threadId).then((pastMessages) => {
-          const newId = this.sessionManager.create(
-            effectiveProjectPath,
-            undefined,
-            pastMessages,
-            worktreeOpts,
-            "codex",
-            {
-              threadId,
-              approvalPolicy: oldSettings.approvalPolicy as "never" | "on-request" | undefined,
-              sandboxMode: newSandboxMode,
-              model: oldSettings.model,
-              modelReasoningEffort: oldSettings.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh" | undefined,
-              networkAccessEnabled: oldSettings.networkAccessEnabled as boolean | undefined,
-              webSearchMode: oldSettings.webSearchMode as "disabled" | "cached" | "live" | undefined,
-              collaborationMode,
-            },
-          );
-
-          // Restore session name
-          const newSession = this.sessionManager.get(newId);
-          if (newSession && sessionName) {
-            newSession.name = sessionName;
-          }
-
-          void this.loadAndSetSessionName(newSession, "codex", effectiveProjectPath, threadId).then(() => {
-            this.broadcast(
-              this.buildSessionCreatedMessage({
-                sessionId: newId,
-                provider: "codex",
-                projectPath: effectiveProjectPath,
-                session: newSession,
-                permissionMode: legacyPermissionMode,
-                executionMode,
-                planMode,
-                sandboxMode: sandboxModeToExternal(newSandboxMode),
-                sourceSessionId: oldSessionId,
-              }),
+        getCodexSessionHistory(threadId)
+          .then((pastMessages) => {
+            const newId = this.sessionManager.create(
+              effectiveProjectPath,
+              undefined,
+              pastMessages,
+              worktreeOpts,
+              "codex",
+              {
+                threadId,
+                approvalPolicy: oldSettings.approvalPolicy as
+                  | "never"
+                  | "on-request"
+                  | undefined,
+                sandboxMode: newSandboxMode,
+                model: oldSettings.model,
+                modelReasoningEffort: oldSettings.modelReasoningEffort as
+                  | "minimal"
+                  | "low"
+                  | "medium"
+                  | "high"
+                  | "xhigh"
+                  | undefined,
+                networkAccessEnabled: oldSettings.networkAccessEnabled as
+                  | boolean
+                  | undefined,
+                webSearchMode: oldSettings.webSearchMode as
+                  | "disabled"
+                  | "cached"
+                  | "live"
+                  | undefined,
+                collaborationMode,
+              },
             );
-            this.broadcastSessionList();
-          });
 
-          this.debugEvents.set(newId, []);
-          this.recordDebugEvent(newId, {
-            direction: "internal" as const,
-            channel: "bridge" as const,
-            type: "sandbox_mode_changed",
-            detail: `sandbox=${newSandboxMode} thread=${threadId} oldSession=${oldSessionId}`,
+            // Restore session name
+            const newSession = this.sessionManager.get(newId);
+            if (newSession && sessionName) {
+              newSession.name = sessionName;
+            }
+
+            void this.loadAndSetSessionName(
+              newSession,
+              "codex",
+              effectiveProjectPath,
+              threadId,
+            ).then(() => {
+              this.broadcast(
+                this.buildSessionCreatedMessage({
+                  sessionId: newId,
+                  provider: "codex",
+                  projectPath: effectiveProjectPath,
+                  session: newSession,
+                  permissionMode: legacyPermissionMode,
+                  executionMode,
+                  planMode,
+                  sandboxMode: sandboxModeToExternal(newSandboxMode),
+                  sourceSessionId: oldSessionId,
+                }),
+              );
+              this.broadcastSessionList();
+            });
+
+            this.debugEvents.set(newId, []);
+            this.recordDebugEvent(newId, {
+              direction: "internal" as const,
+              channel: "bridge" as const,
+              type: "sandbox_mode_changed",
+              detail: `sandbox=${newSandboxMode} thread=${threadId} oldSession=${oldSessionId}`,
+            });
+            console.log(
+              `[ws] Sandbox mode change: created new session ${newId} (thread=${threadId}, sandbox=${newSandboxMode})`,
+            );
+          })
+          .catch((err) => {
+            this.send(ws, {
+              type: "error",
+              message: `Failed to restart session for sandbox mode change: ${err}`,
+            });
           });
-          console.log(`[ws] Sandbox mode change: created new session ${newId} (thread=${threadId}, sandbox=${newSandboxMode})`);
-        }).catch((err) => {
-          this.send(ws, { type: "error", message: `Failed to restart session for sandbox mode change: ${err}` });
-        });
         break;
       }
 
@@ -1248,7 +1567,8 @@ export class BridgeWebSocketServer {
             ...(pending?.input ?? {}),
             ...(msg.updatedInput ?? {}),
           };
-          const planText = typeof mergedInput.plan === "string" ? mergedInput.plan : "";
+          const planText =
+            typeof mergedInput.plan === "string" ? mergedInput.plan : "";
 
           // Use session.id (always present) instead of msg.sessionId.
           const sessionId = session.id;
@@ -1276,9 +1596,13 @@ export class BridgeWebSocketServer {
               initialInput: planText || undefined,
             },
             undefined,
-            worktreePath ? { existingWorktreePath: worktreePath, worktreeBranch } : undefined,
+            worktreePath
+              ? { existingWorktreePath: worktreePath, worktreeBranch }
+              : undefined,
           );
-          console.log(`[ws] Clear context: created new session ${newId} (CLI session: ${claudeSessionId ?? "new"})`);
+          console.log(
+            `[ws] Clear context: created new session ${newId} (CLI session: ${claudeSessionId ?? "new"})`,
+          );
 
           // Notify all clients. Broadcast is used so reconnecting clients also receive it.
           const newSession = this.sessionManager.get(newId);
@@ -1364,7 +1688,10 @@ export class BridgeWebSocketServer {
           this.notifiedPermissionToolUses.delete(msg.sessionId);
           this.sendSessionList(ws);
         } else {
-          this.send(ws, { type: "error", message: `Session ${msg.sessionId} not found` });
+          this.send(ws, {
+            type: "error",
+            message: `Session ${msg.sessionId} not found`,
+          });
         }
         break;
       }
@@ -1381,13 +1708,23 @@ export class BridgeWebSocketServer {
               messages: session.pastMessages,
             } as Record<string, unknown>);
           }
-          this.send(ws, { type: "history", messages: session.history, sessionId: msg.sessionId } as Record<string, unknown>);
-          this.send(ws, { type: "status", status: session.status, sessionId: msg.sessionId } as Record<string, unknown>);
+          this.send(ws, {
+            type: "history",
+            messages: session.history,
+            sessionId: msg.sessionId,
+          } as Record<string, unknown>);
+          this.send(ws, {
+            type: "status",
+            status: session.status,
+            sessionId: msg.sessionId,
+          } as Record<string, unknown>);
 
           // Send cached slash commands so the client can restore them even when
           // the original init/supported_commands message was evicted from the
           // in-memory history (MAX_HISTORY_PER_SESSION overflow).
-          const cached = this.sessionManager.getCachedCommands(session.projectPath);
+          const cached = this.sessionManager.getCachedCommands(
+            session.projectPath,
+          );
           if (cached && cached.slashCommands.length > 0) {
             this.send(ws, {
               type: "system",
@@ -1395,11 +1732,16 @@ export class BridgeWebSocketServer {
               sessionId: msg.sessionId,
               slashCommands: cached.slashCommands,
               skills: cached.skills,
-              ...(cached.skillMetadata ? { skillMetadata: cached.skillMetadata } : {}),
+              ...(cached.skillMetadata
+                ? { skillMetadata: cached.skillMetadata }
+                : {}),
             });
           }
         } else {
-          this.send(ws, { type: "error", message: `Session ${msg.sessionId} not found` });
+          this.send(ws, {
+            type: "error",
+            message: `Session ${msg.sessionId} not found`,
+          });
         }
         break;
       }
@@ -1410,10 +1752,17 @@ export class BridgeWebSocketServer {
           const cwd = session.worktreePath ?? session.projectPath;
           let branch = "";
           try {
-            branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
-              cwd, encoding: "utf-8",
-            }).trim();
-          } catch { /* not a git repo */ }
+            branch = execFileSync(
+              "git",
+              ["rev-parse", "--abbrev-ref", "HEAD"],
+              {
+                cwd,
+                encoding: "utf-8",
+              },
+            ).trim();
+          } catch {
+            /* not a git repo */
+          }
           // Update stored branch so future session_list responses are also current
           session.gitBranch = branch;
           this.send(ws, {
@@ -1422,7 +1771,10 @@ export class BridgeWebSocketServer {
             branch,
           });
         } else {
-          this.send(ws, { type: "error", message: `Session ${msg.sessionId} not found` });
+          this.send(ws, {
+            type: "error",
+            message: `Session ${msg.sessionId} not found`,
+          });
         }
         break;
       }
@@ -1430,12 +1782,16 @@ export class BridgeWebSocketServer {
       case "get_debug_bundle": {
         const session = this.sessionManager.get(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "error", message: `Session ${msg.sessionId} not found` });
+          this.send(ws, {
+            type: "error",
+            message: `Session ${msg.sessionId} not found`,
+          });
           return;
         }
 
         const emitBundle = (diff: string, diffError?: string): void => {
-          const traceLimit = msg.traceLimit ?? BridgeWebSocketServer.MAX_DEBUG_EVENTS;
+          const traceLimit =
+            msg.traceLimit ?? BridgeWebSocketServer.MAX_DEBUG_EVENTS;
           const trace = this.getDebugEvents(msg.sessionId, traceLimit);
           const generatedAt = new Date().toISOString();
           const includeDiff = msg.includeDiff !== false;
@@ -1489,62 +1845,90 @@ export class BridgeWebSocketServer {
       }
 
       case "get_usage": {
-        fetchAllUsage().then((providers) => {
-          this.send(ws, { type: "usage_result", providers } as Record<string, unknown>);
-        }).catch((err) => {
-          this.send(ws, { type: "error", message: `Failed to fetch usage: ${err}` });
-        });
+        fetchAllUsage()
+          .then((providers) => {
+            this.send(ws, { type: "usage_result", providers } as Record<
+              string,
+              unknown
+            >);
+          })
+          .catch((err) => {
+            this.send(ws, {
+              type: "error",
+              message: `Failed to fetch usage: ${err}`,
+            });
+          });
         break;
       }
 
       case "list_recent_sessions": {
         const requestId = ++this.recentSessionsRequestId;
-        this.listRecentSessions(msg).then(({ sessions, hasMore }) => {
-          // Drop stale responses when rapid filter switches cause out-of-order completion
-          if (requestId !== this.recentSessionsRequestId) return;
-          this.send(ws, { type: "recent_sessions", sessions, hasMore } as Record<string, unknown>);
-        }).catch((err) => {
-          if (requestId !== this.recentSessionsRequestId) return;
-          this.send(ws, { type: "error", message: `Failed to list recent sessions: ${err}` });
-        });
+        this.listRecentSessions(msg)
+          .then(({ sessions, hasMore }) => {
+            // Drop stale responses when rapid filter switches cause out-of-order completion
+            if (requestId !== this.recentSessionsRequestId) return;
+            this.send(ws, {
+              type: "recent_sessions",
+              sessions,
+              hasMore,
+            } as Record<string, unknown>);
+          })
+          .catch((err) => {
+            if (requestId !== this.recentSessionsRequestId) return;
+            this.send(ws, {
+              type: "error",
+              message: `Failed to list recent sessions: ${err}`,
+            });
+          });
         break;
       }
 
       case "archive_session": {
         const { sessionId, provider, projectPath } = msg;
-        this.archiveStore.archive(sessionId, provider, projectPath).then(() => {
-          // For Codex sessions, also call thread/archive RPC (best-effort).
-          // Requires a running Codex app-server process; skip if none active.
-          if (provider === "codex") {
-            const activeSessions = this.sessionManager.list();
-            const codexSession = activeSessions.find((s) => s.provider === "codex");
-            if (codexSession) {
-              const session = this.sessionManager.get(codexSession.id);
-              if (session) {
-                (session.process as CodexProcess).archiveThread(sessionId).catch((err) => {
-                  console.warn(`[ws] Codex thread/archive failed (non-fatal): ${err}`);
-                });
+        this.archiveStore
+          .archive(sessionId, provider, projectPath)
+          .then(() => {
+            // For Codex sessions, also call thread/archive RPC (best-effort).
+            // Requires a running Codex app-server process; skip if none active.
+            if (provider === "codex") {
+              const activeSessions = this.sessionManager.list();
+              const codexSession = activeSessions.find(
+                (s) => s.provider === "codex",
+              );
+              if (codexSession) {
+                const session = this.sessionManager.get(codexSession.id);
+                if (session) {
+                  (session.process as CodexProcess)
+                    .archiveThread(sessionId)
+                    .catch((err) => {
+                      console.warn(
+                        `[ws] Codex thread/archive failed (non-fatal): ${err}`,
+                      );
+                    });
+                }
               }
             }
-          }
-          this.send(ws, {
-            type: "archive_result",
-            sessionId,
-            success: true,
-          } as Record<string, unknown>);
-        }).catch((err) => {
-          this.send(ws, {
-            type: "archive_result",
-            sessionId,
-            success: false,
-            error: String(err),
-          } as Record<string, unknown>);
-        });
+            this.send(ws, {
+              type: "archive_result",
+              sessionId,
+              success: true,
+            } as Record<string, unknown>);
+          })
+          .catch((err) => {
+            this.send(ws, {
+              type: "archive_result",
+              sessionId,
+              success: false,
+              error: String(err),
+            } as Record<string, unknown>);
+          });
         break;
       }
 
       case "resume_session": {
-        console.log(`[ws] resume_session: sessionId=${msg.sessionId} projectPath=${msg.projectPath} provider=${msg.provider ?? "claude"}`);
+        console.log(
+          `[ws] resume_session: sessionId=${msg.sessionId} projectPath=${msg.projectPath} provider=${msg.provider ?? "claude"}`,
+        );
         if (!this.isPathAllowed(msg.projectPath)) {
           this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
           break;
@@ -1569,8 +1953,15 @@ export class BridgeWebSocketServer {
         // via get_history(sessionId) to avoid duplicate/missed replay races.
         if (provider === "codex") {
           const wtMapping = this.worktreeStore.get(sessionRefId);
-          const effectiveProjectPath = wtMapping?.projectPath ?? msg.projectPath;
-          let worktreeOpts: { useWorktree?: boolean; worktreeBranch?: string; existingWorktreePath?: string } | undefined;
+          const effectiveProjectPath =
+            wtMapping?.projectPath ?? msg.projectPath;
+          let worktreeOpts:
+            | {
+                useWorktree?: boolean;
+                worktreeBranch?: string;
+                existingWorktreePath?: string;
+              }
+            | undefined;
           if (wtMapping) {
             if (worktreeExists(wtMapping.worktreePath)) {
               worktreeOpts = {
@@ -1585,54 +1976,77 @@ export class BridgeWebSocketServer {
             }
           }
 
-          getCodexSessionHistory(sessionRefId).then((pastMessages) => {
-            const sessionId = this.sessionManager.create(
-              effectiveProjectPath,
-              undefined,
-              pastMessages,
-              worktreeOpts,
-              "codex",
-              {
-                threadId: sessionRefId,
-                approvalPolicy: executionMode === "fullAccess" ? "never" : "on-request",
-                sandboxMode: sandboxModeToInternal(msg.sandboxMode),
-                model: msg.model,
-                modelReasoningEffort: (msg.modelReasoningEffort as "minimal" | "low" | "medium" | "high" | "xhigh") ?? undefined,
-                networkAccessEnabled: msg.networkAccessEnabled,
-                webSearchMode: (msg.webSearchMode as "disabled" | "cached" | "live") ?? undefined,
-                collaborationMode: planMode ? "plan" as const : "default" as const,
-              },
-            );
-            const createdSession = this.sessionManager.get(sessionId);
-            void this.loadAndSetSessionName(createdSession, "codex", effectiveProjectPath, sessionRefId).then(() => {
-              this.send(
-                ws,
-                this.buildSessionCreatedMessage({
-                  sessionId,
-                  provider: "codex",
-                  projectPath: effectiveProjectPath,
-                  session: createdSession,
-                  sandboxMode: createdSession?.codexSettings?.sandboxMode
-                    ? sandboxModeToExternal(createdSession.codexSettings.sandboxMode)
-                    : undefined,
-                  permissionMode: legacyPermissionMode,
-                  executionMode,
-                  planMode,
-                }),
+          getCodexSessionHistory(sessionRefId)
+            .then((pastMessages) => {
+              const sessionId = this.sessionManager.create(
+                effectiveProjectPath,
+                undefined,
+                pastMessages,
+                worktreeOpts,
+                "codex",
+                {
+                  threadId: sessionRefId,
+                  approvalPolicy:
+                    executionMode === "fullAccess" ? "never" : "on-request",
+                  sandboxMode: sandboxModeToInternal(msg.sandboxMode),
+                  model: msg.model,
+                  modelReasoningEffort:
+                    (msg.modelReasoningEffort as
+                      | "minimal"
+                      | "low"
+                      | "medium"
+                      | "high"
+                      | "xhigh") ?? undefined,
+                  networkAccessEnabled: msg.networkAccessEnabled,
+                  webSearchMode:
+                    (msg.webSearchMode as "disabled" | "cached" | "live") ??
+                    undefined,
+                  collaborationMode: planMode
+                    ? ("plan" as const)
+                    : ("default" as const),
+                },
               );
-              this.broadcastSessionList();
+              const createdSession = this.sessionManager.get(sessionId);
+              void this.loadAndSetSessionName(
+                createdSession,
+                "codex",
+                effectiveProjectPath,
+                sessionRefId,
+              ).then(() => {
+                this.send(
+                  ws,
+                  this.buildSessionCreatedMessage({
+                    sessionId,
+                    provider: "codex",
+                    projectPath: effectiveProjectPath,
+                    session: createdSession,
+                    sandboxMode: createdSession?.codexSettings?.sandboxMode
+                      ? sandboxModeToExternal(
+                          createdSession.codexSettings.sandboxMode,
+                        )
+                      : undefined,
+                    permissionMode: legacyPermissionMode,
+                    executionMode,
+                    planMode,
+                  }),
+                );
+                this.broadcastSessionList();
+              });
+              this.debugEvents.set(sessionId, []);
+              this.recordDebugEvent(sessionId, {
+                direction: "internal",
+                channel: "bridge",
+                type: "session_resumed",
+                detail: `provider=codex thread=${sessionRefId}`,
+              });
+              this.projectHistory?.addProject(effectiveProjectPath);
+            })
+            .catch((err) => {
+              this.send(ws, {
+                type: "error",
+                message: `Failed to load Codex session history: ${err}`,
+              });
             });
-            this.debugEvents.set(sessionId, []);
-            this.recordDebugEvent(sessionId, {
-              direction: "internal",
-              channel: "bridge",
-              type: "session_resumed",
-              detail: `provider=codex thread=${sessionRefId}`,
-            });
-            this.projectHistory?.addProject(effectiveProjectPath);
-          }).catch((err) => {
-            this.send(ws, { type: "error", message: `Failed to load Codex session history: ${err}` });
-          });
           break;
         }
 
@@ -1641,7 +2055,13 @@ export class BridgeWebSocketServer {
 
         // Look up worktree mapping for this Claude session
         const wtMapping = this.worktreeStore.get(claudeSessionId);
-        let worktreeOpts: { useWorktree?: boolean; worktreeBranch?: string; existingWorktreePath?: string } | undefined;
+        let worktreeOpts:
+          | {
+              useWorktree?: boolean;
+              worktreeBranch?: string;
+              existingWorktreePath?: string;
+            }
+          | undefined;
         if (wtMapping) {
           if (worktreeExists(wtMapping.worktreePath)) {
             // Worktree exists — reuse it directly
@@ -1651,65 +2071,80 @@ export class BridgeWebSocketServer {
             };
           } else {
             // Worktree was deleted — recreate on the same branch
-            worktreeOpts = { useWorktree: true, worktreeBranch: wtMapping.worktreeBranch };
+            worktreeOpts = {
+              useWorktree: true,
+              worktreeBranch: wtMapping.worktreeBranch,
+            };
           }
         }
 
-        getSessionHistory(claudeSessionId).then((pastMessages) => {
-          const sessionId = this.sessionManager.create(
-            msg.projectPath,
-            {
-              sessionId: claudeSessionId,
-              permissionMode: legacyPermissionMode,
-              model: msg.model,
-              effort: msg.effort,
-              maxTurns: msg.maxTurns,
-              maxBudgetUsd: msg.maxBudgetUsd,
-              fallbackModel: msg.fallbackModel,
-              forkSession: msg.forkSession,
-              persistSession: msg.persistSession,
-              ...(msg.sandboxMode ? { sandboxEnabled: msg.sandboxMode === "on" } : {}),
-            },
-            pastMessages,
-            worktreeOpts,
-          );
-          const createdSession = this.sessionManager.get(sessionId);
-          void this.loadAndSetSessionName(createdSession, "claude", msg.projectPath, claudeSessionId).then(() => {
-            this.send(ws, {
-              ...this.buildSessionCreatedMessage({
-                sessionId,
-                provider: "claude",
-                projectPath: msg.projectPath,
-                session: createdSession,
+        getSessionHistory(claudeSessionId)
+          .then((pastMessages) => {
+            const sessionId = this.sessionManager.create(
+              msg.projectPath,
+              {
+                sessionId: claudeSessionId,
                 permissionMode: legacyPermissionMode,
-                executionMode,
-                planMode,
-                sandboxMode: msg.sandboxMode,
-                ...(cached
-                  ? {
-                      slashCommands: cached.slashCommands,
-                      skills: cached.skills,
-                      ...(cached.skillMetadata
-                        ? { skillMetadata: cached.skillMetadata }
-                        : {}),
-                    }
+                model: msg.model,
+                effort: msg.effort,
+                maxTurns: msg.maxTurns,
+                maxBudgetUsd: msg.maxBudgetUsd,
+                fallbackModel: msg.fallbackModel,
+                forkSession: msg.forkSession,
+                persistSession: msg.persistSession,
+                ...(msg.sandboxMode
+                  ? { sandboxEnabled: msg.sandboxMode === "on" }
                   : {}),
-              }),
+              },
+              pastMessages,
+              worktreeOpts,
+            );
+            const createdSession = this.sessionManager.get(sessionId);
+            void this.loadAndSetSessionName(
+              createdSession,
+              "claude",
+              msg.projectPath,
               claudeSessionId,
+            ).then(() => {
+              this.send(ws, {
+                ...this.buildSessionCreatedMessage({
+                  sessionId,
+                  provider: "claude",
+                  projectPath: msg.projectPath,
+                  session: createdSession,
+                  permissionMode: legacyPermissionMode,
+                  executionMode,
+                  planMode,
+                  sandboxMode: msg.sandboxMode,
+                  ...(cached
+                    ? {
+                        slashCommands: cached.slashCommands,
+                        skills: cached.skills,
+                        ...(cached.skillMetadata
+                          ? { skillMetadata: cached.skillMetadata }
+                          : {}),
+                      }
+                    : {}),
+                }),
+                claudeSessionId,
+              });
+              this.broadcastSessionList();
             });
-            this.broadcastSessionList();
+            this.debugEvents.set(sessionId, []);
+            this.recordDebugEvent(sessionId, {
+              direction: "internal",
+              channel: "bridge",
+              type: "session_resumed",
+              detail: `provider=claude session=${claudeSessionId}`,
+            });
+            this.projectHistory?.addProject(msg.projectPath);
+          })
+          .catch((err) => {
+            this.send(ws, {
+              type: "error",
+              message: `Failed to load session history: ${err}`,
+            });
           });
-          this.debugEvents.set(sessionId, []);
-          this.recordDebugEvent(sessionId, {
-            direction: "internal",
-            channel: "bridge",
-            type: "session_resumed",
-            detail: `provider=claude session=${claudeSessionId}`,
-          });
-          this.projectHistory?.addProject(msg.projectPath);
-        }).catch((err) => {
-          this.send(ws, { type: "error", message: `Failed to load session history: ${err}` });
-        });
         break;
       }
 
@@ -1719,27 +2154,47 @@ export class BridgeWebSocketServer {
             projectPath: msg.project,
             sessionId: msg.sessionId,
           });
-          this.send(ws, { type: "gallery_list", images } as Record<string, unknown>);
+          this.send(ws, { type: "gallery_list", images } as Record<
+            string,
+            unknown
+          >);
         } else {
-          this.send(ws, { type: "gallery_list", images: [] } as Record<string, unknown>);
+          this.send(ws, { type: "gallery_list", images: [] } as Record<
+            string,
+            unknown
+          >);
         }
         break;
       }
 
       case "get_message_images": {
-        void extractMessageImages(msg.claudeSessionId, msg.messageUuid).then((images) => {
-          const refs: Array<{ id: string; url: string; mimeType: string }> = [];
-          if (this.imageStore) {
-            for (const img of images) {
-              const ref = this.imageStore.registerFromBase64(img.base64, img.mimeType);
-              if (ref) refs.push(ref);
+        void extractMessageImages(msg.claudeSessionId, msg.messageUuid)
+          .then((images) => {
+            const refs: Array<{ id: string; url: string; mimeType: string }> =
+              [];
+            if (this.imageStore) {
+              for (const img of images) {
+                const ref = this.imageStore.registerFromBase64(
+                  img.base64,
+                  img.mimeType,
+                );
+                if (ref) refs.push(ref);
+              }
             }
-          }
-          this.send(ws, { type: "message_images_result", messageUuid: msg.messageUuid, images: refs });
-        }).catch((err) => {
-          console.error("[ws] Failed to extract message images:", err);
-          this.send(ws, { type: "message_images_result", messageUuid: msg.messageUuid, images: [] });
-        });
+            this.send(ws, {
+              type: "message_images_result",
+              messageUuid: msg.messageUuid,
+              images: refs,
+            });
+          })
+          .catch((err) => {
+            console.error("[ws] Failed to extract message images:", err);
+            this.send(ws, {
+              type: "message_images_result",
+              messageUuid: msg.messageUuid,
+              images: [],
+            });
+          });
         break;
       }
 
@@ -1769,32 +2224,71 @@ export class BridgeWebSocketServer {
       case "read_file": {
         const absPath = resolve(msg.projectPath, msg.filePath);
         if (!this.isPathAllowed(absPath)) {
-          this.send(ws, { type: "file_content", filePath: msg.filePath, content: "", error: "Path not allowed" });
+          this.send(ws, {
+            type: "file_content",
+            filePath: msg.filePath,
+            content: "",
+            error: "Path not allowed",
+          });
           break;
         }
         void (async () => {
           try {
             if (!existsSync(absPath)) {
-              this.send(ws, { type: "file_content", filePath: msg.filePath, content: "", error: "File not found" });
+              this.send(ws, {
+                type: "file_content",
+                filePath: msg.filePath,
+                content: "",
+                error: "File not found",
+              });
               return;
             }
-            const maxLines = typeof msg.maxLines === "number" && msg.maxLines > 0 ? msg.maxLines : 5000;
+            const maxLines =
+              typeof msg.maxLines === "number" && msg.maxLines > 0
+                ? msg.maxLines
+                : 5000;
             const raw = await readFile(absPath, "utf-8");
             const ext = extname(absPath).replace(/^\./, "").toLowerCase();
             const languageMap: Record<string, string> = {
-              ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
-              py: "python", rb: "ruby", rs: "rust", go: "go", java: "java",
-              kt: "kotlin", swift: "swift", dart: "dart", c: "c", cpp: "cpp",
-              h: "c", hpp: "cpp", cs: "csharp", sh: "bash", zsh: "bash",
-              yml: "yaml", yaml: "yaml", json: "json", toml: "toml",
-              md: "markdown", html: "html", css: "css", scss: "css",
-              sql: "sql", xml: "xml", dockerfile: "dockerfile",
-              makefile: "makefile", gradle: "groovy",
+              ts: "typescript",
+              tsx: "typescript",
+              js: "javascript",
+              jsx: "javascript",
+              py: "python",
+              rb: "ruby",
+              rs: "rust",
+              go: "go",
+              java: "java",
+              kt: "kotlin",
+              swift: "swift",
+              dart: "dart",
+              c: "c",
+              cpp: "cpp",
+              h: "c",
+              hpp: "cpp",
+              cs: "csharp",
+              sh: "bash",
+              zsh: "bash",
+              yml: "yaml",
+              yaml: "yaml",
+              json: "json",
+              toml: "toml",
+              md: "markdown",
+              html: "html",
+              css: "css",
+              scss: "css",
+              sql: "sql",
+              xml: "xml",
+              dockerfile: "dockerfile",
+              makefile: "makefile",
+              gradle: "groovy",
             };
             const language = languageMap[ext] ?? (ext || undefined);
             const lines = raw.split("\n");
             const truncated = lines.length > maxLines;
-            const content = truncated ? lines.slice(0, maxLines).join("\n") : raw;
+            const content = truncated
+              ? lines.slice(0, maxLines).join("\n")
+              : raw;
             this.send(ws, {
               type: "file_content",
               filePath: msg.filePath,
@@ -1804,7 +2298,12 @@ export class BridgeWebSocketServer {
               truncated,
             });
           } catch (err) {
-            this.send(ws, { type: "file_content", filePath: msg.filePath, content: "", error: `Failed to read file: ${err}` });
+            this.send(ws, {
+              type: "file_content",
+              filePath: msg.filePath,
+              content: "",
+              error: `Failed to read file: ${err}`,
+            });
           }
         })();
         break;
@@ -1815,25 +2314,39 @@ export class BridgeWebSocketServer {
           this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
           break;
         }
-        execFile("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { cwd: msg.projectPath, maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
-          if (err) {
-            if (/not a git repository/i.test(err.message)) {
-              // Non-git project: silently return empty list (file listing is auxiliary)
-              this.send(ws, { type: "file_list", files: [] });
-            } else {
-              this.send(ws, { type: "error", message: `Failed to list files: ${err.message}` });
+        execFile(
+          "git",
+          ["ls-files", "--cached", "--others", "--exclude-standard"],
+          { cwd: msg.projectPath, maxBuffer: 10 * 1024 * 1024 },
+          (err, stdout) => {
+            if (err) {
+              if (/not a git repository/i.test(err.message)) {
+                // Non-git project: silently return empty list (file listing is auxiliary)
+                this.send(ws, { type: "file_list", files: [] });
+              } else {
+                this.send(ws, {
+                  type: "error",
+                  message: `Failed to list files: ${err.message}`,
+                });
+              }
+              return;
             }
-            return;
-          }
-          const files = stdout.trim().split("\n").filter(Boolean);
-          this.send(ws, { type: "file_list", files } as Record<string, unknown>);
-        });
+            const files = stdout.trim().split("\n").filter(Boolean);
+            this.send(ws, { type: "file_list", files } as Record<
+              string,
+              unknown
+            >);
+          },
+        );
         break;
       }
 
       case "list_recordings": {
         if (!this.recordingStore) {
-          this.send(ws, { type: "recording_list", recordings: [] } as Record<string, unknown>);
+          this.send(ws, { type: "recording_list", recordings: [] } as Record<
+            string,
+            unknown
+          >);
           break;
         }
         const store = this.recordingStore;
@@ -1843,8 +2356,10 @@ export class BridgeWebSocketServer {
           await Promise.all(
             recordings.map(async (rec) => {
               const info = await store.extractInfoFromJsonl(rec.name);
-              if (info.firstPrompt && !rec.firstPrompt) rec.firstPrompt = info.firstPrompt;
-              if (info.lastPrompt && !rec.lastPrompt) rec.lastPrompt = info.lastPrompt;
+              if (info.firstPrompt && !rec.firstPrompt)
+                rec.firstPrompt = info.firstPrompt;
+              if (info.lastPrompt && !rec.lastPrompt)
+                rec.lastPrompt = info.lastPrompt;
               // Backfill meta for legacy recordings
               if (!rec.meta && (info.claudeSessionId || info.projectPath)) {
                 rec.meta = {
@@ -1876,29 +2391,46 @@ export class BridgeWebSocketServer {
               const indices = idToIdx.get(cid) ?? [];
               for (const idx of indices) {
                 if (info.summary) recordings[idx].summary = info.summary;
-                if (info.firstPrompt) recordings[idx].firstPrompt = info.firstPrompt;
-                if (info.lastPrompt) recordings[idx].lastPrompt = info.lastPrompt;
+                if (info.firstPrompt)
+                  recordings[idx].firstPrompt = info.firstPrompt;
+                if (info.lastPrompt)
+                  recordings[idx].lastPrompt = info.lastPrompt;
               }
             }
           }
 
-          this.send(ws, { type: "recording_list", recordings } as Record<string, unknown>);
+          this.send(ws, { type: "recording_list", recordings } as Record<
+            string,
+            unknown
+          >);
         });
         break;
       }
 
       case "get_recording": {
         if (!this.recordingStore) {
-          this.send(ws, { type: "error", message: "Recording is not enabled on this server" });
+          this.send(ws, {
+            type: "error",
+            message: "Recording is not enabled on this server",
+          });
           break;
         }
-        void this.recordingStore.getRecordingContent(msg.sessionId).then((content) => {
-          if (content !== null) {
-            this.send(ws, { type: "recording_content", sessionId: msg.sessionId, content } as Record<string, unknown>);
-          } else {
-            this.send(ws, { type: "error", message: `Recording ${msg.sessionId} not found` });
-          }
-        });
+        void this.recordingStore
+          .getRecordingContent(msg.sessionId)
+          .then((content) => {
+            if (content !== null) {
+              this.send(ws, {
+                type: "recording_content",
+                sessionId: msg.sessionId,
+                content,
+              } as Record<string, unknown>);
+            } else {
+              this.send(ws, {
+                type: "error",
+                message: `Recording ${msg.sessionId} not found`,
+              });
+            }
+          });
         break;
       }
 
@@ -1907,33 +2439,50 @@ export class BridgeWebSocketServer {
           this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
           break;
         }
-        this.collectGitDiff(msg.projectPath, ({ diff, error }) => {
-          if (error) {
-            if (/not a git repository/i.test(error)) {
-              this.send(ws, {
-                type: "diff_result",
-                diff: "",
-                error: "This project is not a git repository",
-                errorCode: "git_not_available",
-              });
-            } else {
-              this.send(ws, { type: "diff_result", diff: "", error: `Failed to get diff: ${error}` });
+        this.collectGitDiff(
+          msg.projectPath,
+          ({ diff, error }) => {
+            if (error) {
+              if (/not a git repository/i.test(error)) {
+                this.send(ws, {
+                  type: "diff_result",
+                  diff: "",
+                  error: "This project is not a git repository",
+                  errorCode: "git_not_available",
+                });
+              } else {
+                this.send(ws, {
+                  type: "diff_result",
+                  diff: "",
+                  error: `Failed to get diff: ${error}`,
+                });
+              }
+              return;
             }
-            return;
-          }
-          void this.collectImageChanges(msg.projectPath, diff).then((imageChanges) => {
-            if (imageChanges.length > 0) {
-              this.send(ws, { type: "diff_result", diff, imageChanges });
-            } else {
-              this.send(ws, { type: "diff_result", diff });
-            }
-          });
-        }, msg.staged === true ? { staged: true } : msg.staged === false ? { unstaged: true } : undefined);
+            void this.collectImageChanges(msg.projectPath, diff).then(
+              (imageChanges) => {
+                if (imageChanges.length > 0) {
+                  this.send(ws, { type: "diff_result", diff, imageChanges });
+                } else {
+                  this.send(ws, { type: "diff_result", diff });
+                }
+              },
+            );
+          },
+          msg.staged === true
+            ? { staged: true }
+            : msg.staged === false
+              ? { unstaged: true }
+              : undefined,
+        );
         break;
       }
 
       case "get_diff_image": {
-        if (!this.isPathAllowed(msg.projectPath) || !this.isPathAllowed(resolve(msg.projectPath, msg.filePath))) {
+        if (
+          !this.isPathAllowed(msg.projectPath) ||
+          !this.isPathAllowed(resolve(msg.projectPath, msg.filePath))
+        ) {
           this.send(ws, { type: "error", message: `Path not allowed` });
           break;
         }
@@ -1962,8 +2511,17 @@ export class BridgeWebSocketServer {
           const version = msg.version as "old" | "new";
           void (async () => {
             try {
-              const result = await this.loadDiffImageAsync(msg.projectPath, msg.filePath, version);
-              this.send(ws, { type: "diff_image_result", filePath: msg.filePath, version, ...result });
+              const result = await this.loadDiffImageAsync(
+                msg.projectPath,
+                msg.filePath,
+                version,
+              );
+              this.send(ws, {
+                type: "diff_image_result",
+                filePath: msg.filePath,
+                version,
+                ...result,
+              });
             } catch {
               // WebSocket may have closed; ignore send errors.
             }
@@ -1982,7 +2540,10 @@ export class BridgeWebSocketServer {
           const mainBranch = getMainBranch(msg.projectPath);
           this.send(ws, { type: "worktree_list", worktrees, mainBranch });
         } catch (err) {
-          this.send(ws, { type: "error", message: `Failed to list worktrees: ${err}` });
+          this.send(ws, {
+            type: "error",
+            message: `Failed to list worktrees: ${err}`,
+          });
         }
         break;
       }
@@ -1995,9 +2556,15 @@ export class BridgeWebSocketServer {
         try {
           removeWorktree(msg.projectPath, msg.worktreePath);
           this.worktreeStore.deleteByWorktreePath(msg.worktreePath);
-          this.send(ws, { type: "worktree_removed", worktreePath: msg.worktreePath });
+          this.send(ws, {
+            type: "worktree_removed",
+            worktreePath: msg.worktreePath,
+          });
         } catch (err) {
-          this.send(ws, { type: "error", message: `Failed to remove worktree: ${err}` });
+          this.send(ws, {
+            type: "error",
+            message: `Failed to remove worktree: ${err}`,
+          });
         }
         break;
       }
@@ -2014,7 +2581,11 @@ export class BridgeWebSocketServer {
           if (msg.hunks?.length) stageHunks(msg.projectPath, msg.hunks);
           this.send(ws, { type: "git_stage_result", success: true });
         } catch (err) {
-          this.send(ws, { type: "git_stage_result", success: false, error: String(err) });
+          this.send(ws, {
+            type: "git_stage_result",
+            success: false,
+            error: String(err),
+          });
         }
         break;
       }
@@ -2028,7 +2599,29 @@ export class BridgeWebSocketServer {
           unstageFiles(msg.projectPath, msg.files ?? []);
           this.send(ws, { type: "git_unstage_result", success: true });
         } catch (err) {
-          this.send(ws, { type: "git_unstage_result", success: false, error: String(err) });
+          this.send(ws, {
+            type: "git_unstage_result",
+            success: false,
+            error: String(err),
+          });
+        }
+        break;
+      }
+
+      case "git_unstage_hunks": {
+        if (!this.isPathAllowed(msg.projectPath)) {
+          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          break;
+        }
+        try {
+          unstageHunks(msg.projectPath, msg.hunks);
+          this.send(ws, { type: "git_unstage_hunks_result", success: true });
+        } catch (err) {
+          this.send(ws, {
+            type: "git_unstage_hunks_result",
+            success: false,
+            error: String(err),
+          });
         }
         break;
       }
@@ -2047,7 +2640,11 @@ export class BridgeWebSocketServer {
             message: result.message,
           });
         } catch (err) {
-          this.send(ws, { type: "git_commit_result", success: false, error: String(err) });
+          this.send(ws, {
+            type: "git_commit_result",
+            success: false,
+            error: String(err),
+          });
         }
         break;
       }
@@ -2066,7 +2663,11 @@ export class BridgeWebSocketServer {
             branch: result.branch,
           });
         } catch (err) {
-          this.send(ws, { type: "git_push_result", success: false, error: String(err) });
+          this.send(ws, {
+            type: "git_push_result",
+            success: false,
+            error: String(err),
+          });
         }
         break;
       }
@@ -2089,7 +2690,11 @@ export class BridgeWebSocketServer {
             url: result.url,
           });
         } catch (err) {
-          this.send(ws, { type: "gh_pr_result", success: false, error: String(err) });
+          this.send(ws, {
+            type: "gh_pr_result",
+            success: false,
+            error: String(err),
+          });
         }
         break;
       }
@@ -2108,7 +2713,10 @@ export class BridgeWebSocketServer {
             untracked: result.untracked,
           });
         } catch (err) {
-          this.send(ws, { type: "error", message: `Failed to get git status: ${err}` });
+          this.send(ws, {
+            type: "error",
+            message: `Failed to get git status: ${err}`,
+          });
         }
         break;
       }
@@ -2127,7 +2735,12 @@ export class BridgeWebSocketServer {
             checkedOutBranches: result.checkedOutBranches,
           });
         } catch (err) {
-          this.send(ws, { type: "git_branches_result", current: "", branches: [], error: String(err) });
+          this.send(ws, {
+            type: "git_branches_result",
+            current: "",
+            branches: [],
+            error: String(err),
+          });
         }
         break;
       }
@@ -2141,7 +2754,11 @@ export class BridgeWebSocketServer {
           createBranch(msg.projectPath, msg.name, msg.checkout);
           this.send(ws, { type: "git_create_branch_result", success: true });
         } catch (err) {
-          this.send(ws, { type: "git_create_branch_result", success: false, error: String(err) });
+          this.send(ws, {
+            type: "git_create_branch_result",
+            success: false,
+            error: String(err),
+          });
         }
         break;
       }
@@ -2155,7 +2772,11 @@ export class BridgeWebSocketServer {
           checkoutBranch(msg.projectPath, msg.branch);
           this.send(ws, { type: "git_checkout_branch_result", success: true });
         } catch (err) {
-          this.send(ws, { type: "git_checkout_branch_result", success: false, error: String(err) });
+          this.send(ws, {
+            type: "git_checkout_branch_result",
+            success: false,
+            error: String(err),
+          });
         }
         break;
       }
@@ -2169,7 +2790,29 @@ export class BridgeWebSocketServer {
           revertFiles(msg.projectPath, msg.files);
           this.send(ws, { type: "git_revert_file_result", success: true });
         } catch (err) {
-          this.send(ws, { type: "git_revert_file_result", success: false, error: String(err) });
+          this.send(ws, {
+            type: "git_revert_file_result",
+            success: false,
+            error: String(err),
+          });
+        }
+        break;
+      }
+
+      case "git_revert_hunks": {
+        if (!this.isPathAllowed(msg.projectPath)) {
+          this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
+          break;
+        }
+        try {
+          revertHunks(msg.projectPath, msg.hunks);
+          this.send(ws, { type: "git_revert_hunks_result", success: true });
+        } catch (err) {
+          this.send(ws, {
+            type: "git_revert_hunks_result",
+            success: false,
+            error: String(err),
+          });
         }
         break;
       }
@@ -2183,7 +2826,11 @@ export class BridgeWebSocketServer {
           gitFetch(msg.projectPath);
           this.send(ws, { type: "git_fetch_result", success: true });
         } catch (err) {
-          this.send(ws, { type: "git_fetch_result", success: false, error: String(err) });
+          this.send(ws, {
+            type: "git_fetch_result",
+            success: false,
+            error: String(err),
+          });
         }
         break;
       }
@@ -2196,12 +2843,24 @@ export class BridgeWebSocketServer {
         try {
           const result = gitPull(msg.projectPath);
           if (result.success) {
-            this.send(ws, { type: "git_pull_result", success: true, message: result.message });
+            this.send(ws, {
+              type: "git_pull_result",
+              success: true,
+              message: result.message,
+            });
           } else {
-            this.send(ws, { type: "git_pull_result", success: false, error: result.message });
+            this.send(ws, {
+              type: "git_pull_result",
+              success: false,
+              error: result.message,
+            });
           }
         } catch (err) {
-          this.send(ws, { type: "git_pull_result", success: false, error: String(err) });
+          this.send(ws, {
+            type: "git_pull_result",
+            success: false,
+            error: String(err),
+          });
         }
         break;
       }
@@ -2221,7 +2880,13 @@ export class BridgeWebSocketServer {
             hasUpstream: result.hasUpstream,
           });
         } catch (err) {
-          this.send(ws, { type: "git_remote_status_result", ahead: 0, behind: 0, branch: "", hasUpstream: false });
+          this.send(ws, {
+            type: "git_remote_status_result",
+            ahead: 0,
+            behind: 0,
+            branch: "",
+            hasUpstream: false,
+          });
         }
         break;
       }
@@ -2229,81 +2894,96 @@ export class BridgeWebSocketServer {
       case "rewind_dry_run": {
         const session = this.sessionManager.get(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "rewind_preview", canRewind: false, error: `Session ${msg.sessionId} not found` });
-          return;
-        }
-        this.sessionManager.rewindFiles(msg.sessionId, msg.targetUuid, true).then((result) => {
           this.send(ws, {
             type: "rewind_preview",
-            canRewind: result.canRewind,
-            filesChanged: result.filesChanged,
-            insertions: result.insertions,
-            deletions: result.deletions,
-            error: result.error,
+            canRewind: false,
+            error: `Session ${msg.sessionId} not found`,
           });
-        }).catch((err) => {
-          this.send(ws, { type: "rewind_preview", canRewind: false, error: `Dry run failed: ${err}` });
-        });
+          return;
+        }
+        this.sessionManager
+          .rewindFiles(msg.sessionId, msg.targetUuid, true)
+          .then((result) => {
+            this.send(ws, {
+              type: "rewind_preview",
+              canRewind: result.canRewind,
+              filesChanged: result.filesChanged,
+              insertions: result.insertions,
+              deletions: result.deletions,
+              error: result.error,
+            });
+          })
+          .catch((err) => {
+            this.send(ws, {
+              type: "rewind_preview",
+              canRewind: false,
+              error: `Dry run failed: ${err}`,
+            });
+          });
         break;
       }
 
       case "rewind": {
         const session = this.sessionManager.get(msg.sessionId);
         if (!session) {
-          this.send(ws, { type: "rewind_result", success: false, mode: msg.mode, error: `Session ${msg.sessionId} not found` });
+          this.send(ws, {
+            type: "rewind_result",
+            success: false,
+            mode: msg.mode,
+            error: `Session ${msg.sessionId} not found`,
+          });
           return;
         }
 
         const handleError = (err: unknown) => {
           const errMsg = err instanceof Error ? err.message : String(err);
-          this.send(ws, { type: "rewind_result", success: false, mode: msg.mode, error: errMsg });
+          this.send(ws, {
+            type: "rewind_result",
+            success: false,
+            mode: msg.mode,
+            error: errMsg,
+          });
         };
 
         if (msg.mode === "code") {
           // Code-only rewind: rewind files without restarting the conversation
-          this.sessionManager.rewindFiles(msg.sessionId, msg.targetUuid).then((result) => {
-            if (result.canRewind) {
-              this.send(ws, { type: "rewind_result", success: true, mode: "code" });
-            } else {
-              this.send(ws, { type: "rewind_result", success: false, mode: "code", error: result.error ?? "Cannot rewind files" });
-            }
-          }).catch(handleError);
+          this.sessionManager
+            .rewindFiles(msg.sessionId, msg.targetUuid)
+            .then((result) => {
+              if (result.canRewind) {
+                this.send(ws, {
+                  type: "rewind_result",
+                  success: true,
+                  mode: "code",
+                });
+              } else {
+                this.send(ws, {
+                  type: "rewind_result",
+                  success: false,
+                  mode: "code",
+                  error: result.error ?? "Cannot rewind files",
+                });
+              }
+            })
+            .catch(handleError);
         } else if (msg.mode === "conversation") {
           // Conversation-only rewind: restart session at the target UUID
           try {
-            this.sessionManager.rewindConversation(msg.sessionId, msg.targetUuid, (newSessionId) => {
-              this.send(ws, { type: "rewind_result", success: true, mode: "conversation" });
-              // Notify the new session ID
-              const newSession = this.sessionManager.get(newSessionId);
-              const rewindPermMode = newSession?.process instanceof SdkProcess ? newSession.process.permissionMode : undefined;
-              this.send(
-                ws,
-                this.buildSessionCreatedMessage({
-                  sessionId: newSessionId,
-                  provider: newSession?.provider ?? "claude",
-                  projectPath: newSession?.projectPath ?? "",
-                  session: newSession,
-                  permissionMode: rewindPermMode,
-                  sourceSessionId: msg.sessionId,
-                }),
-              );
-              this.sendSessionList(ws);
-            });
-          } catch (err) {
-            handleError(err);
-          }
-        } else {
-          // Both: rewind files first, then rewind conversation
-          this.sessionManager.rewindFiles(msg.sessionId, msg.targetUuid).then((result) => {
-            if (!result.canRewind) {
-              this.send(ws, { type: "rewind_result", success: false, mode: "both", error: result.error ?? "Cannot rewind files" });
-              return;
-            }
-            try {
-              this.sessionManager.rewindConversation(msg.sessionId, msg.targetUuid, (newSessionId) => {
-                this.send(ws, { type: "rewind_result", success: true, mode: "both" });
+            this.sessionManager.rewindConversation(
+              msg.sessionId,
+              msg.targetUuid,
+              (newSessionId) => {
+                this.send(ws, {
+                  type: "rewind_result",
+                  success: true,
+                  mode: "conversation",
+                });
+                // Notify the new session ID
                 const newSession = this.sessionManager.get(newSessionId);
-                const rewindPermMode2 = newSession?.process instanceof SdkProcess ? newSession.process.permissionMode : undefined;
+                const rewindPermMode =
+                  newSession?.process instanceof SdkProcess
+                    ? newSession.process.permissionMode
+                    : undefined;
                 this.send(
                   ws,
                   this.buildSessionCreatedMessage({
@@ -2311,16 +2991,64 @@ export class BridgeWebSocketServer {
                     provider: newSession?.provider ?? "claude",
                     projectPath: newSession?.projectPath ?? "",
                     session: newSession,
-                    permissionMode: rewindPermMode2,
+                    permissionMode: rewindPermMode,
                     sourceSessionId: msg.sessionId,
                   }),
                 );
                 this.sendSessionList(ws);
-              });
-            } catch (err) {
-              handleError(err);
-            }
-          }).catch(handleError);
+              },
+            );
+          } catch (err) {
+            handleError(err);
+          }
+        } else {
+          // Both: rewind files first, then rewind conversation
+          this.sessionManager
+            .rewindFiles(msg.sessionId, msg.targetUuid)
+            .then((result) => {
+              if (!result.canRewind) {
+                this.send(ws, {
+                  type: "rewind_result",
+                  success: false,
+                  mode: "both",
+                  error: result.error ?? "Cannot rewind files",
+                });
+                return;
+              }
+              try {
+                this.sessionManager.rewindConversation(
+                  msg.sessionId,
+                  msg.targetUuid,
+                  (newSessionId) => {
+                    this.send(ws, {
+                      type: "rewind_result",
+                      success: true,
+                      mode: "both",
+                    });
+                    const newSession = this.sessionManager.get(newSessionId);
+                    const rewindPermMode2 =
+                      newSession?.process instanceof SdkProcess
+                        ? newSession.process.permissionMode
+                        : undefined;
+                    this.send(
+                      ws,
+                      this.buildSessionCreatedMessage({
+                        sessionId: newSessionId,
+                        provider: newSession?.provider ?? "claude",
+                        projectPath: newSession?.projectPath ?? "",
+                        session: newSession,
+                        permissionMode: rewindPermMode2,
+                        sourceSessionId: msg.sessionId,
+                      }),
+                    );
+                    this.sendSessionList(ws);
+                  },
+                );
+              } catch (err) {
+                handleError(err);
+              }
+            })
+            .catch(handleError);
         }
         break;
       }
@@ -2343,7 +3071,10 @@ export class BridgeWebSocketServer {
         // For window mode, verify the window ID is still valid.
         // The user may have fetched the window list minutes ago and the
         // window could have been closed since then.
-        const doCapture = async (): Promise<{ mode: "fullscreen" | "window"; windowId?: number }> => {
+        const doCapture = async (): Promise<{
+          mode: "fullscreen" | "window";
+          windowId?: number;
+        }> => {
           if (msg.mode !== "window" || msg.windowId == null) {
             return { mode: msg.mode };
           }
@@ -2369,7 +3100,11 @@ export class BridgeWebSocketServer {
                 );
                 if (meta) {
                   const info = this.galleryStore.metaToInfo(meta);
-                  this.send(ws, { type: "screenshot_result", success: true, image: info });
+                  this.send(ws, {
+                    type: "screenshot_result",
+                    success: true,
+                    image: info,
+                  });
                   this.broadcast({ type: "gallery_new_image", image: info });
                   return;
                 }
@@ -2396,39 +3131,69 @@ export class BridgeWebSocketServer {
 
       case "backup_prompt_history": {
         if (!this.promptHistoryBackup) {
-          this.send(ws, { type: "prompt_history_backup_result", success: false, error: "Backup store not available" });
+          this.send(ws, {
+            type: "prompt_history_backup_result",
+            success: false,
+            error: "Backup store not available",
+          });
           break;
         }
         const buf = Buffer.from(msg.data, "base64");
-        this.promptHistoryBackup.save(buf, msg.appVersion, msg.dbVersion).then((meta) => {
-          this.send(ws, { type: "prompt_history_backup_result", success: true, backedUpAt: meta.backedUpAt });
-        }).catch((err) => {
-          this.send(ws, { type: "prompt_history_backup_result", success: false, error: err instanceof Error ? err.message : String(err) });
-        });
+        this.promptHistoryBackup
+          .save(buf, msg.appVersion, msg.dbVersion)
+          .then((meta) => {
+            this.send(ws, {
+              type: "prompt_history_backup_result",
+              success: true,
+              backedUpAt: meta.backedUpAt,
+            });
+          })
+          .catch((err) => {
+            this.send(ws, {
+              type: "prompt_history_backup_result",
+              success: false,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
         break;
       }
 
       case "restore_prompt_history": {
         if (!this.promptHistoryBackup) {
-          this.send(ws, { type: "prompt_history_restore_result", success: false, error: "Backup store not available" });
+          this.send(ws, {
+            type: "prompt_history_restore_result",
+            success: false,
+            error: "Backup store not available",
+          });
           break;
         }
-        this.promptHistoryBackup.load().then((result) => {
-          if (result) {
+        this.promptHistoryBackup
+          .load()
+          .then((result) => {
+            if (result) {
+              this.send(ws, {
+                type: "prompt_history_restore_result",
+                success: true,
+                data: result.data.toString("base64"),
+                appVersion: result.meta.appVersion,
+                dbVersion: result.meta.dbVersion,
+                backedUpAt: result.meta.backedUpAt,
+              });
+            } else {
+              this.send(ws, {
+                type: "prompt_history_restore_result",
+                success: false,
+                error: "No backup found",
+              });
+            }
+          })
+          .catch((err) => {
             this.send(ws, {
               type: "prompt_history_restore_result",
-              success: true,
-              data: result.data.toString("base64"),
-              appVersion: result.meta.appVersion,
-              dbVersion: result.meta.dbVersion,
-              backedUpAt: result.meta.backedUpAt,
+              success: false,
+              error: err instanceof Error ? err.message : String(err),
             });
-          } else {
-            this.send(ws, { type: "prompt_history_restore_result", success: false, error: "No backup found" });
-          }
-        }).catch((err) => {
-          this.send(ws, { type: "prompt_history_restore_result", success: false, error: err instanceof Error ? err.message : String(err) });
-        });
+          });
         break;
       }
 
@@ -2437,15 +3202,28 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "prompt_history_backup_info", exists: false });
           break;
         }
-        this.promptHistoryBackup.getMeta().then((meta) => {
-          if (meta) {
-            this.send(ws, { type: "prompt_history_backup_info", exists: true, ...meta });
-          } else {
-            this.send(ws, { type: "prompt_history_backup_info", exists: false });
-          }
-        }).catch(() => {
-          this.send(ws, { type: "prompt_history_backup_info", exists: false });
-        });
+        this.promptHistoryBackup
+          .getMeta()
+          .then((meta) => {
+            if (meta) {
+              this.send(ws, {
+                type: "prompt_history_backup_info",
+                exists: true,
+                ...meta,
+              });
+            } else {
+              this.send(ws, {
+                type: "prompt_history_backup_info",
+                exists: false,
+              });
+            }
+          })
+          .catch(() => {
+            this.send(ws, {
+              type: "prompt_history_backup_info",
+              exists: false,
+            });
+          });
         break;
       }
 
@@ -2500,15 +3278,23 @@ export class BridgeWebSocketServer {
       this.sessionManager.renameSession(sessionId, name);
 
       // Persist to provider storage
-      if (runningSession.provider === "claude" && runningSession.claudeSessionId) {
+      if (
+        runningSession.provider === "claude" &&
+        runningSession.claudeSessionId
+      ) {
         await renameClaudeSession(
           runningSession.worktreePath ?? runningSession.projectPath,
           runningSession.claudeSessionId,
           name,
         );
-      } else if (runningSession.provider === "codex" && runningSession.process) {
+      } else if (
+        runningSession.provider === "codex" &&
+        runningSession.process
+      ) {
         try {
-          await (runningSession.process as import("./codex-process.js").CodexProcess).renameThread(name ?? "");
+          await (
+            runningSession.process as import("./codex-process.js").CodexProcess
+          ).renameThread(name ?? "");
         } catch (err) {
           console.warn(`[websocket] Failed to rename Codex thread:`, err);
         }
@@ -2526,7 +3312,11 @@ export class BridgeWebSocketServer {
     const projectPath = renameMsg.projectPath;
 
     if (provider === "claude" && providerSessionId && projectPath) {
-      const success = await renameClaudeSession(projectPath, providerSessionId, name);
+      const success = await renameClaudeSession(
+        projectPath,
+        providerSessionId,
+        name,
+      );
       this.send(ws, { type: "rename_result", sessionId, name, success });
       return;
     }
@@ -2541,7 +3331,9 @@ export class BridgeWebSocketServer {
     this.send(ws, { type: "rename_result", sessionId, name, success: false });
   }
 
-  private resolveSession(sessionId: string | undefined): SessionInfo | undefined {
+  private resolveSession(
+    sessionId: string | undefined,
+  ): SessionInfo | undefined {
     if (sessionId) return this.sessionManager.get(sessionId);
     return this.getFirstSession();
   }
@@ -2555,14 +3347,28 @@ export class BridgeWebSocketServer {
   private sendSessionList(ws: WebSocket): void {
     this.pruneDebugEvents();
     const sessions = this.sessionManager.list();
-    this.send(ws, { type: "session_list", sessions, allowedDirs: this.allowedDirs, claudeModels: CLAUDE_MODELS, codexModels: CODEX_MODELS, bridgeVersion: getPackageVersion() });
+    this.send(ws, {
+      type: "session_list",
+      sessions,
+      allowedDirs: this.allowedDirs,
+      claudeModels: CLAUDE_MODELS,
+      codexModels: CODEX_MODELS,
+      bridgeVersion: getPackageVersion(),
+    });
   }
 
   /** Broadcast session list to all connected clients. */
   private broadcastSessionList(): void {
     this.pruneDebugEvents();
     const sessions = this.sessionManager.list();
-    this.broadcast({ type: "session_list", sessions, allowedDirs: this.allowedDirs, claudeModels: CLAUDE_MODELS, codexModels: CODEX_MODELS, bridgeVersion: getPackageVersion() });
+    this.broadcast({
+      type: "session_list",
+      sessions,
+      allowedDirs: this.allowedDirs,
+      claudeModels: CLAUDE_MODELS,
+      codexModels: CODEX_MODELS,
+      bridgeVersion: getPackageVersion(),
+    });
   }
 
   private broadcastSessionMessage(sessionId: string, msg: ServerMessage): void {
@@ -2576,7 +3382,11 @@ export class BridgeWebSocketServer {
     this.recordingStore?.record(sessionId, "outgoing", msg);
 
     // Update recording meta with claudeSessionId when it becomes available
-    if ((msg.type === "system" || msg.type === "result") && "sessionId" in msg && msg.sessionId) {
+    if (
+      (msg.type === "system" || msg.type === "result") &&
+      "sessionId" in msg &&
+      msg.sessionId
+    ) {
       const session = this.sessionManager.get(sessionId);
       if (session) {
         this.recordingStore?.saveMeta(sessionId, {
@@ -2603,7 +3413,9 @@ export class BridgeWebSocketServer {
       try {
         return await this.listRecentCodexThreads(msg);
       } catch (err) {
-        console.warn(`[ws] Codex thread/list failed, falling back to rollout scan: ${err}`);
+        console.warn(
+          `[ws] Codex thread/list failed, falling back to rollout scan: ${err}`,
+        );
       }
     }
 
@@ -2619,10 +3431,14 @@ export class BridgeWebSocketServer {
   }
 
   private getActiveCodexProcess(): CodexProcess | null {
-    const summary = this.sessionManager.list().find((session) => session.provider === "codex");
+    const summary = this.sessionManager
+      .list()
+      .find((session) => session.provider === "codex");
     if (!summary) return null;
     const session = this.sessionManager.get(summary.id);
-    return session?.provider === "codex" ? session.process as CodexProcess : null;
+    return session?.provider === "codex"
+      ? (session.process as CodexProcess)
+      : null;
   }
 
   private async listRecentCodexThreads(
@@ -2630,7 +3446,9 @@ export class BridgeWebSocketServer {
   ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
     const limit = msg.limit ?? 20;
     const offset = msg.offset ?? 0;
-    const process = this.getActiveCodexProcess() ?? await this.createStandaloneCodexProcess(msg.projectPath);
+    const process =
+      this.getActiveCodexProcess() ??
+      (await this.createStandaloneCodexProcess(msg.projectPath));
     const isStandalone = process !== this.getActiveCodexProcess();
 
     try {
@@ -2658,7 +3476,9 @@ export class BridgeWebSocketServer {
         .filter((thread) => !archivedIds.has(thread.id))
         .filter((thread) => !msg.namedOnly || !!thread.name)
         .slice(offset, offset + limit)
-        .map((thread) => codexThreadToRecentSession(thread, indexedById.get(thread.id)));
+        .map((thread) =>
+          codexThreadToRecentSession(thread, indexedById.get(thread.id)),
+        );
       return {
         sessions,
         hasMore: result.nextCursor != null,
@@ -2670,7 +3490,9 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private async createStandaloneCodexProcess(projectPath?: string): Promise<CodexProcess> {
+  private async createStandaloneCodexProcess(
+    projectPath?: string,
+  ): Promise<CodexProcess> {
     const proc = new CodexProcess();
     await proc.initializeOnly(projectPath ?? process.cwd());
     return proc;
@@ -2708,29 +3530,36 @@ export class BridgeWebSocketServer {
     return project;
   }
 
-  private maybeSendPushNotification(sessionId: string, msg: ServerMessage): void {
+  private maybeSendPushNotification(
+    sessionId: string,
+    msg: ServerMessage,
+  ): void {
     if (!this.pushRelay.isConfigured) return;
 
     const privacy = this.isPrivacyMode();
     const label = privacy ? "" : this.sessionLabel(sessionId);
 
     if (msg.type === "permission_request") {
-      const seen = this.notifiedPermissionToolUses.get(sessionId) ?? new Set<string>();
+      const seen =
+        this.notifiedPermissionToolUses.get(sessionId) ?? new Set<string>();
       if (seen.has(msg.toolUseId)) return;
       seen.add(msg.toolUseId);
       this.notifiedPermissionToolUses.set(sessionId, seen);
 
       const isAskUserQuestion = msg.toolName === "AskUserQuestion";
       const isExitPlanMode = msg.toolName === "ExitPlanMode";
-      const eventType = isAskUserQuestion ? "ask_user_question" : "approval_required";
+      const eventType = isAskUserQuestion
+        ? "ask_user_question"
+        : "approval_required";
 
       // Extract question text for AskUserQuestion (standard mode only)
       let questionText: string | undefined;
       if (!privacy && isAskUserQuestion) {
         const questions = msg.input?.questions;
-        const firstQuestion = Array.isArray(questions) && questions.length > 0
-          ? (questions[0] as Record<string, unknown>)?.question
-          : undefined;
+        const firstQuestion =
+          Array.isArray(questions) && questions.length > 0
+            ? (questions[0] as Record<string, unknown>)?.question
+            : undefined;
         if (typeof firstQuestion === "string" && firstQuestion.length > 0) {
           questionText = firstQuestion.slice(0, 120);
         }
@@ -2749,32 +3578,42 @@ export class BridgeWebSocketServer {
 
         if (isExitPlanMode) {
           const titleKey = "plan_ready_title";
-          title = label ? `${t(locale, titleKey)} - ${label}` : t(locale, titleKey);
+          title = label
+            ? `${t(locale, titleKey)} - ${label}`
+            : t(locale, titleKey);
           body = t(locale, "plan_ready_body");
         } else if (isAskUserQuestion) {
           const titleKey = "ask_title";
-          title = label ? `${t(locale, titleKey)} - ${label}` : t(locale, titleKey);
+          title = label
+            ? `${t(locale, titleKey)} - ${label}`
+            : t(locale, titleKey);
           body = privacy
             ? t(locale, "ask_body_private")
             : (questionText ?? t(locale, "ask_default_body"));
         } else {
           const titleKey = "approval_title";
-          title = label ? `${t(locale, titleKey)} - ${label}` : t(locale, titleKey);
+          title = label
+            ? `${t(locale, titleKey)} - ${label}`
+            : t(locale, titleKey);
           body = privacy
             ? t(locale, "approval_body_private")
             : t(locale, "approval_body", { toolName: msg.toolName });
         }
 
-        void this.pushRelay.notify({
-          eventType,
-          title,
-          body,
-          locale,
-          data,
-        }).catch((err) => {
-          const detail = err instanceof Error ? err.message : String(err);
-          console.warn(`[ws] Failed to send push notification (${eventType}, ${locale}): ${detail}`);
-        });
+        void this.pushRelay
+          .notify({
+            eventType,
+            title,
+            body,
+            locale,
+            data,
+          })
+          .catch((err) => {
+            const detail = err instanceof Error ? err.message : String(err);
+            console.warn(
+              `[ws] Failed to send push notification (${eventType}, ${locale}): ${detail}`,
+            );
+          });
       }
       return;
     }
@@ -2804,11 +3643,17 @@ export class BridgeWebSocketServer {
     for (const locale of this.getRegisteredLocales()) {
       let title: string;
       if (privacy) {
-        title = isSuccess ? t(locale, "task_completed") : t(locale, "error_occurred");
+        title = isSuccess
+          ? t(locale, "task_completed")
+          : t(locale, "error_occurred");
       } else {
         title = label
-          ? (isSuccess ? `✅ ${label}` : `❌ ${label}`)
-          : (isSuccess ? t(locale, "task_completed") : t(locale, "error_occurred"));
+          ? isSuccess
+            ? `✅ ${label}`
+            : `❌ ${label}`
+          : isSuccess
+            ? t(locale, "task_completed")
+            : t(locale, "error_occurred");
       }
 
       let body: string;
@@ -2822,19 +3667,25 @@ export class BridgeWebSocketServer {
           ? `${msg.result.slice(0, 120)}${stats}`
           : `${t(locale, "session_completed")}${stats}`;
       } else {
-        body = msg.error ? msg.error.slice(0, 120) : t(locale, "session_failed");
+        body = msg.error
+          ? msg.error.slice(0, 120)
+          : t(locale, "session_failed");
       }
 
-      void this.pushRelay.notify({
-        eventType,
-        title,
-        body,
-        locale,
-        data,
-      }).catch((err) => {
-        const detail = err instanceof Error ? err.message : String(err);
-        console.warn(`[ws] Failed to send push notification (${eventType}, ${locale}): ${detail}`);
-      });
+      void this.pushRelay
+        .notify({
+          eventType,
+          title,
+          body,
+          locale,
+          data,
+        })
+        .catch((err) => {
+          const detail = err instanceof Error ? err.message : String(err);
+          console.warn(
+            `[ws] Failed to send push notification (${eventType}, ${locale}): ${detail}`,
+          );
+        });
     }
   }
 
@@ -2847,7 +3698,10 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private send(ws: WebSocket, msg: ServerMessage | Record<string, unknown>): void {
+  private send(
+    ws: WebSocket,
+    msg: ServerMessage | Record<string, unknown>,
+  ): void {
     const sessionId = this.extractSessionIdFromServerMessage(msg);
     if (sessionId) {
       this.recordDebugEvent(sessionId, {
@@ -2863,7 +3717,9 @@ export class BridgeWebSocketServer {
   }
 
   /** Broadcast a gallery_new_image message to all connected clients. */
-  broadcastGalleryNewImage(image: import("./gallery-store.js").GalleryImageInfo): void {
+  broadcastGalleryNewImage(
+    image: import("./gallery-store.js").GalleryImageInfo,
+  ): void {
     this.broadcast({ type: "gallery_new_image", image });
   }
 
@@ -2876,7 +3732,59 @@ export class BridgeWebSocketServer {
 
     // Staged only: git diff --cached
     if (options?.staged) {
-      execFile("git", ["diff", "--cached", "--no-color"], execOpts, (err, stdout) => {
+      execFile(
+        "git",
+        ["diff", "--cached", "--no-color"],
+        execOpts,
+        (err, stdout) => {
+          if (err) {
+            callback({ diff: "", error: err.message });
+            return;
+          }
+          callback({ diff: stdout });
+        },
+      );
+      return;
+    }
+
+    // Unstaged only: git diff (working tree vs index) — original behavior
+    if (options?.unstaged) {
+      // Collect untracked files so they appear in the diff.
+      let untrackedFiles: string[] = [];
+      try {
+        const out = execFileSync(
+          "git",
+          ["ls-files", "--others", "--exclude-standard"],
+          { cwd },
+        )
+          .toString()
+          .trim();
+        untrackedFiles = out ? out.split("\n") : [];
+      } catch {
+        // Ignore errors: non-git directories are handled by git diff callback.
+      }
+
+      // Temporarily stage untracked files with --intent-to-add.
+      if (untrackedFiles.length > 0) {
+        try {
+          execFileSync("git", ["add", "--intent-to-add", ...untrackedFiles], {
+            cwd,
+          });
+        } catch {
+          // Ignore staging errors.
+        }
+      }
+
+      execFile("git", ["diff", "--no-color"], execOpts, (err, stdout) => {
+        // Revert intent-to-add for untracked files.
+        if (untrackedFiles.length > 0) {
+          try {
+            execFileSync("git", ["reset", "--", ...untrackedFiles], { cwd });
+          } catch {
+            // Ignore reset errors.
+          }
+        }
+
         if (err) {
           callback({ diff: "", error: err.message });
           return;
@@ -2886,49 +3794,16 @@ export class BridgeWebSocketServer {
       return;
     }
 
-    // Unstaged only: git diff (working tree vs index) — original behavior
-    if (options?.unstaged) {
-      // Collect untracked files so they appear in the diff.
-    let untrackedFiles: string[] = [];
-    try {
-      const out = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd }).toString().trim();
-      untrackedFiles = out ? out.split("\n") : [];
-    } catch {
-      // Ignore errors: non-git directories are handled by git diff callback.
-    }
-
-    // Temporarily stage untracked files with --intent-to-add.
-    if (untrackedFiles.length > 0) {
-      try {
-        execFileSync("git", ["add", "--intent-to-add", ...untrackedFiles], { cwd });
-      } catch {
-        // Ignore staging errors.
-      }
-    }
-
-    execFile("git", ["diff", "--no-color"], execOpts, (err, stdout) => {
-      // Revert intent-to-add for untracked files.
-      if (untrackedFiles.length > 0) {
-        try {
-          execFileSync("git", ["reset", "--", ...untrackedFiles], { cwd });
-        } catch {
-          // Ignore reset errors.
-        }
-      }
-
-      if (err) {
-        callback({ diff: "", error: err.message });
-        return;
-      }
-      callback({ diff: stdout });
-    });
-      return;
-    }
-
     // All mode (no options): git diff HEAD — shows both staged and unstaged vs HEAD
     let untrackedFilesAll: string[] = [];
     try {
-      const out = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd }).toString().trim();
+      const out = execFileSync(
+        "git",
+        ["ls-files", "--others", "--exclude-standard"],
+        { cwd },
+      )
+        .toString()
+        .trim();
       untrackedFilesAll = out ? out.split("\n") : [];
     } catch {
       // Ignore
@@ -2936,7 +3811,9 @@ export class BridgeWebSocketServer {
 
     if (untrackedFilesAll.length > 0) {
       try {
-        execFileSync("git", ["add", "--intent-to-add", ...untrackedFilesAll], { cwd });
+        execFileSync("git", ["add", "--intent-to-add", ...untrackedFilesAll], {
+          cwd,
+        });
       } catch {
         // Ignore
       }
@@ -2964,7 +3841,14 @@ export class BridgeWebSocketServer {
   // ---------------------------------------------------------------------------
 
   private static readonly IMAGE_EXTENSIONS = new Set([
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp", ".svg",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".ico",
+    ".bmp",
+    ".svg",
   ]);
 
   // Image diff thresholds (configurable via environment variables)
@@ -3006,7 +3890,10 @@ export class BridgeWebSocketServer {
    * - New version: read from working tree
    * - Apply size thresholds for auto-display / on-demand / text-only
    */
-  private async collectImageChanges(cwd: string, diffText: string): Promise<ImageChange[]> {
+  private async collectImageChanges(
+    cwd: string,
+    diffText: string,
+  ): Promise<ImageChange[]> {
     // Phase 1: Extract image file entries from diff text (synchronous, CPU only)
     interface ImageEntry {
       filePath: string;
@@ -3063,11 +3950,15 @@ export class BridgeWebSocketServer {
       // Read old image (committed version)
       if (!entry.isNew) {
         try {
-          const result = await execFileAsync("git", ["show", `HEAD:${entry.filePath}`], {
-            cwd,
-            maxBuffer: BridgeWebSocketServer.MAX_IMAGE_SIZE + 1024,
-            encoding: "buffer",
-          });
+          const result = await execFileAsync(
+            "git",
+            ["show", `HEAD:${entry.filePath}`],
+            {
+              cwd,
+              maxBuffer: BridgeWebSocketServer.MAX_IMAGE_SIZE + 1024,
+              encoding: "buffer",
+            },
+          );
           oldBuf = result.stdout as unknown as Buffer;
         } catch {
           // File may not exist in HEAD (e.g. untracked)
@@ -3090,8 +3981,10 @@ export class BridgeWebSocketServer {
       const newSize = newBuf?.length;
       const maxSize = Math.max(oldSize ?? 0, newSize ?? 0);
 
-      const autoDisplay = maxSize <= BridgeWebSocketServer.AUTO_DISPLAY_THRESHOLD;
-      const loadable = autoDisplay || maxSize <= BridgeWebSocketServer.MAX_IMAGE_SIZE;
+      const autoDisplay =
+        maxSize <= BridgeWebSocketServer.AUTO_DISPLAY_THRESHOLD;
+      const loadable =
+        autoDisplay || maxSize <= BridgeWebSocketServer.MAX_IMAGE_SIZE;
 
       const change: ImageChange = {
         filePath: entry.filePath,
@@ -3139,11 +4032,15 @@ export class BridgeWebSocketServer {
 
       let buf: Buffer;
       if (version === "old") {
-        const result = await execFileAsync("git", ["show", `HEAD:${filePath}`], {
-          cwd,
-          maxBuffer: BridgeWebSocketServer.MAX_IMAGE_SIZE + 1024,
-          encoding: "buffer",
-        });
+        const result = await execFileAsync(
+          "git",
+          ["show", `HEAD:${filePath}`],
+          {
+            cwd,
+            maxBuffer: BridgeWebSocketServer.MAX_IMAGE_SIZE + 1024,
+            encoding: "buffer",
+          },
+        );
         buf = result.stdout as unknown as Buffer;
       } else {
         const absPath = resolve(cwd, filePath);
@@ -3164,12 +4061,19 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private extractSessionIdFromClientMessage(msg: ClientMessage): string | undefined {
-    return "sessionId" in msg && typeof msg.sessionId === "string" ? msg.sessionId : undefined;
+  private extractSessionIdFromClientMessage(
+    msg: ClientMessage,
+  ): string | undefined {
+    return "sessionId" in msg && typeof msg.sessionId === "string"
+      ? msg.sessionId
+      : undefined;
   }
 
-  private extractSessionIdFromServerMessage(msg: ServerMessage | Record<string, unknown>): string | undefined {
-    if ("sessionId" in msg && typeof msg.sessionId === "string") return msg.sessionId;
+  private extractSessionIdFromServerMessage(
+    msg: ServerMessage | Record<string, unknown>,
+  ): string | undefined {
+    if ("sessionId" in msg && typeof msg.sessionId === "string")
+      return msg.sessionId;
     return undefined;
   }
 
@@ -3193,17 +4097,19 @@ export class BridgeWebSocketServer {
 
   private getDebugEvents(sessionId: string, limit: number): DebugTraceEvent[] {
     const events = this.debugEvents.get(sessionId) ?? [];
-    const capped = Math.max(0, Math.min(limit, BridgeWebSocketServer.MAX_DEBUG_EVENTS));
+    const capped = Math.max(
+      0,
+      Math.min(limit, BridgeWebSocketServer.MAX_DEBUG_EVENTS),
+    );
     if (capped === 0) return [];
     return events.slice(-capped);
   }
 
   private buildHistorySummary(history: ServerMessage[]): string[] {
-    const lines = history
-      .map((msg, index) => {
-        const num = String(index + 1).padStart(3, "0");
-        return `${num}. ${this.summarizeServerMessage(msg)}`;
-      });
+    const lines = history.map((msg, index) => {
+      const num = String(index + 1).padStart(3, "0");
+      return `${num}. ${this.summarizeServerMessage(msg)}`;
+    });
     if (lines.length <= BridgeWebSocketServer.MAX_HISTORY_SUMMARY_ITEMS) {
       return lines;
     }
@@ -3257,7 +4163,10 @@ export class BridgeWebSocketServer {
         return text ? `assistant: ${text}` : "assistant";
       }
       case "tool_result": {
-        const contentPreview = msg.content.replace(/\s+/g, " ").trim().slice(0, 100);
+        const contentPreview = msg.content
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 100);
         return `${msg.toolName ?? "tool_result"}(${msg.toolUseId}) ${contentPreview}`;
       }
       case "permission_request":
@@ -3276,7 +4185,9 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private summarizeOutboundMessage(msg: ServerMessage | Record<string, unknown>): string {
+  private summarizeOutboundMessage(
+    msg: ServerMessage | Record<string, unknown>,
+  ): string {
     if ("type" in msg && typeof msg.type === "string") {
       return msg.type;
     }
@@ -3334,7 +4245,9 @@ export class BridgeWebSocketServer {
     };
   }
 
-  private buildResumeSessionMessage(session: SessionInfo): Record<string, unknown> {
+  private buildResumeSessionMessage(
+    session: SessionInfo,
+  ): Record<string, unknown> {
     const msg: Record<string, unknown> = {
       type: "resume_session",
       sessionId: session.claudeSessionId ?? "<session_id_from_recent_sessions>",
@@ -3377,5 +4290,4 @@ export class BridgeWebSocketServer {
       "3) Concrete validation steps and the minimum extra logs needed.",
     ].join("\n");
   }
-
 }

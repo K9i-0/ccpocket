@@ -44,10 +44,10 @@ class MockBridgeService extends BridgeService {
 
   // Git Operations streams
   @override
-  Stream<GitStageResultMessage> get gitStageResults =>
-      _mockMessageController.stream
-          .where((m) => m is GitStageResultMessage)
-          .cast<GitStageResultMessage>();
+  Stream<GitStageResultMessage> get gitStageResults => _mockMessageController
+      .stream
+      .where((m) => m is GitStageResultMessage)
+      .cast<GitStageResultMessage>();
 
   @override
   Stream<GitUnstageResultMessage> get gitUnstageResults =>
@@ -56,28 +56,33 @@ class MockBridgeService extends BridgeService {
           .cast<GitUnstageResultMessage>();
 
   @override
-  Stream<GitCommitResultMessage> get gitCommitResults =>
+  Stream<GitUnstageHunksResultMessage> get gitUnstageHunksResults =>
       _mockMessageController.stream
-          .where((m) => m is GitCommitResultMessage)
-          .cast<GitCommitResultMessage>();
+          .where((m) => m is GitUnstageHunksResultMessage)
+          .cast<GitUnstageHunksResultMessage>();
 
   @override
-  Stream<GitPushResultMessage> get gitPushResults =>
-      _mockMessageController.stream
-          .where((m) => m is GitPushResultMessage)
-          .cast<GitPushResultMessage>();
+  Stream<GitCommitResultMessage> get gitCommitResults => _mockMessageController
+      .stream
+      .where((m) => m is GitCommitResultMessage)
+      .cast<GitCommitResultMessage>();
 
   @override
-  Stream<GhPrResultMessage> get ghPrResults =>
-      _mockMessageController.stream
-          .where((m) => m is GhPrResultMessage)
-          .cast<GhPrResultMessage>();
+  Stream<GitPushResultMessage> get gitPushResults => _mockMessageController
+      .stream
+      .where((m) => m is GitPushResultMessage)
+      .cast<GitPushResultMessage>();
 
   @override
-  Stream<GitStatusResultMessage> get gitStatusResults =>
-      _mockMessageController.stream
-          .where((m) => m is GitStatusResultMessage)
-          .cast<GitStatusResultMessage>();
+  Stream<GhPrResultMessage> get ghPrResults => _mockMessageController.stream
+      .where((m) => m is GhPrResultMessage)
+      .cast<GhPrResultMessage>();
+
+  @override
+  Stream<GitStatusResultMessage> get gitStatusResults => _mockMessageController
+      .stream
+      .where((m) => m is GitStatusResultMessage)
+      .cast<GitStatusResultMessage>();
 
   @override
   Stream<GitBranchesResultMessage> get gitBranchesResults =>
@@ -104,16 +109,22 @@ class MockBridgeService extends BridgeService {
           .cast<GitRevertFileResultMessage>();
 
   @override
-  Stream<GitFetchResultMessage> get gitFetchResults =>
+  Stream<GitRevertHunksResultMessage> get gitRevertHunksResults =>
       _mockMessageController.stream
-          .where((m) => m is GitFetchResultMessage)
-          .cast<GitFetchResultMessage>();
+          .where((m) => m is GitRevertHunksResultMessage)
+          .cast<GitRevertHunksResultMessage>();
 
   @override
-  Stream<GitPullResultMessage> get gitPullResults =>
-      _mockMessageController.stream
-          .where((m) => m is GitPullResultMessage)
-          .cast<GitPullResultMessage>();
+  Stream<GitFetchResultMessage> get gitFetchResults => _mockMessageController
+      .stream
+      .where((m) => m is GitFetchResultMessage)
+      .cast<GitFetchResultMessage>();
+
+  @override
+  Stream<GitPullResultMessage> get gitPullResults => _mockMessageController
+      .stream
+      .where((m) => m is GitPullResultMessage)
+      .cast<GitPullResultMessage>();
 
   @override
   Stream<GitRemoteStatusResultMessage> get gitRemoteStatusResults =>
@@ -252,6 +263,11 @@ class MockBridgeService extends BridgeService {
           const Duration(milliseconds: 200),
           const GitUnstageResultMessage(success: true),
         );
+      case 'git_unstage_hunks':
+        _scheduleMessage(
+          const Duration(milliseconds: 200),
+          const GitUnstageHunksResultMessage(success: true),
+        );
       case 'git_commit':
         _scheduleMessage(
           const Duration(milliseconds: 500),
@@ -314,6 +330,11 @@ class MockBridgeService extends BridgeService {
           const Duration(milliseconds: 200),
           const GitRevertFileResultMessage(success: true),
         );
+      case 'git_revert_hunks':
+        _scheduleMessage(
+          const Duration(milliseconds: 200),
+          const GitRevertHunksResultMessage(success: true),
+        );
       case 'git_fetch':
         _scheduleMessage(
           const Duration(milliseconds: 200),
@@ -332,7 +353,10 @@ class MockBridgeService extends BridgeService {
       case 'git_pull':
         _scheduleMessage(
           const Duration(milliseconds: 500),
-          const GitPullResultMessage(success: true, message: 'Already up to date.'),
+          const GitPullResultMessage(
+            success: true,
+            message: 'Already up to date.',
+          ),
         );
       case 'refresh_branch':
         // No-op for mock (session branch refresh)
@@ -518,7 +542,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0''',
-    'packages/bridge/src/index.ts': '''import { startServer } from "./websocket.js";
+    'packages/bridge/src/index.ts':
+        '''import { startServer } from "./websocket.js";
 
 const PORT = Number(process.env.BRIDGE_PORT ?? 8765);
 const HOST = process.env.BRIDGE_HOST ?? "0.0.0.0";
