@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import type { Provider } from "./parser.js";
 import { getStagedDiff } from "./git-operations.js";
 
@@ -18,18 +20,24 @@ export function generateCommitMessage(options: GitAssistOptions): string {
     throw new Error("Nothing to commit: no files are staged");
   }
 
-  const command = options.provider === "codex" ? "codex" : "claude";
-  const args =
+  const cwd = resolve(options.projectPath);
+  const output =
     options.provider === "codex"
-      ? ["-q", ...(options.model ? ["--model", options.model] : []), COMMIT_MESSAGE_PROMPT]
-      : ["-p", ...(options.model ? ["--model", options.model] : []), COMMIT_MESSAGE_PROMPT];
-
-  const output = execFileSync(command, args, {
-    cwd: resolve(options.projectPath),
-    encoding: "utf-8",
-    input: diff,
-    maxBuffer: 1024 * 1024,
-  });
+      ? runCodexCommitAssist(cwd, diff, options.model)
+      : execFileSync(
+          "claude",
+          [
+            "-p",
+            ...(options.model ? ["--model", options.model] : []),
+            COMMIT_MESSAGE_PROMPT,
+          ],
+          {
+            cwd,
+            encoding: "utf-8",
+            input: diff,
+            maxBuffer: 1024 * 1024,
+          },
+        );
 
   const message = output
     .split("\n")
@@ -39,4 +47,29 @@ export function generateCommitMessage(options: GitAssistOptions): string {
     throw new Error("Commit message generation returned empty output");
   }
   return message;
+}
+
+function runCodexCommitAssist(
+  cwd: string,
+  diff: string,
+  model?: string,
+): string {
+  const outputDir = mkdtempSync(join(tmpdir(), "ccpocket-git-assist-"));
+  const outputPath = join(outputDir, "last-message.txt");
+
+  try {
+    execFileSync(
+      "codex",
+      ["exec", ...(model ? ["-m", model] : []), "-o", outputPath, "-"],
+      {
+        cwd,
+        encoding: "utf-8",
+        input: `${COMMIT_MESSAGE_PROMPT}\n\n${diff}`,
+        maxBuffer: 1024 * 1024,
+      },
+    );
+    return readFileSync(outputPath, "utf-8");
+  } finally {
+    rmSync(outputDir, { recursive: true, force: true });
+  }
 }
