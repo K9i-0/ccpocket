@@ -253,9 +253,7 @@ void _pushStoreScenario(NavigatorState navigator, String scenarioName) {
         ),
       );
     case 'Git Diff':
-      navigator.push(
-        MaterialPageRoute(builder: (_) => const _StoreGitRoute()),
-      );
+      navigator.push(MaterialPageRoute(builder: (_) => const _StoreGitRoute()));
   }
 }
 

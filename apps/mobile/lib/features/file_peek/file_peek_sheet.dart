@@ -68,8 +68,7 @@ List<String> _resolveFilePath(String filePath, List<String> projectFiles) {
 
   // Suffix match: e.g. "lib/main.dart" matches "apps/mobile/lib/main.dart".
   final suffix = filePath.startsWith('/') ? filePath : '/$filePath';
-  final candidates =
-      projectFiles.where((f) => '/$f'.endsWith(suffix)).toList();
+  final candidates = projectFiles.where((f) => '/$f'.endsWith(suffix)).toList();
 
   return candidates;
 }
@@ -140,10 +139,7 @@ Future<String?> _showFilePickerSheet(
                     size: 20,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  title: Text(
-                    fileName,
-                    style: const TextStyle(fontSize: 14),
-                  ),
+                  title: Text(fileName, style: const TextStyle(fontSize: 14)),
                   subtitle: dir.isNotEmpty
                       ? Text(
                           dir,
@@ -260,8 +256,7 @@ class _FilePeekContentState extends State<_FilePeekContent> {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final fileName =
-        widget.filePath.split('/').lastOrNull ?? widget.filePath;
+    final fileName = widget.filePath.split('/').lastOrNull ?? widget.filePath;
     final isMarkdown = widget.filePath.endsWith('.md');
 
     return Column(
@@ -356,10 +351,7 @@ class _FilePeekContentState extends State<_FilePeekContent> {
               alignment: Alignment.centerLeft,
               child: Text(
                 '${_result!.totalLines} lines${_result!.truncated ? ' (truncated)' : ''}${_result!.language != null ? ' \u00b7 ${_result!.language}' : ''}',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: appColors.subtleText,
-                ),
+                style: TextStyle(fontSize: 11, color: appColors.subtleText),
               ),
             ),
           ),
@@ -369,10 +361,10 @@ class _FilePeekContentState extends State<_FilePeekContent> {
           child: _loading
               ? const Center(child: CircularProgressIndicator.adaptive())
               : _result?.error != null
-                  ? _buildError(appColors)
-                  : (isMarkdown && !_showRaw)
-                      ? _buildMarkdownPreview()
-                      : _buildCodeContent(appColors),
+              ? _buildError(appColors)
+              : (isMarkdown && !_showRaw)
+              ? _buildMarkdownPreview()
+              : _buildCodeContent(appColors),
         ),
       ],
     );

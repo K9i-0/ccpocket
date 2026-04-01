@@ -114,7 +114,35 @@ void main() {
   });
 
   group('GitScreen - project mode hunk actions', () {
-    testWidgets('shows compact bottom action buttons', (tester) async {
+    testWidgets('lays out project header below the AppBar', (tester) async {
+      final bridge = MockBridgeService()..mockDiff = _multiFileDiff;
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        _wrap(const GitScreen(projectPath: '/tmp/project'), bridge: bridge),
+      );
+      await tester.pumpAndSettle();
+
+      final appBarRect = tester.getRect(find.byType(AppBar));
+      final headerRect = tester.getRect(
+        find.byKey(const ValueKey('git_project_header')),
+      );
+      final branchRect = tester.getRect(
+        find.byKey(const ValueKey('branch_selector_button')),
+      );
+      final pullRect = tester.getRect(
+        find.byKey(const ValueKey('pull_button')),
+      );
+
+      expect(headerRect.top, greaterThanOrEqualTo(appBarRect.bottom));
+      expect((branchRect.top - pullRect.top).abs(), lessThan(1));
+      expect(find.byKey(const ValueKey('unstaged_tab_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('staged_tab_button')), findsOneWidget);
+    });
+
+    testWidgets('shows header sync buttons and bottom commit button', (
+      tester,
+    ) async {
       final bridge = MockBridgeService()..mockDiff = _multiFileDiff;
       addTearDown(bridge.dispose);
 
@@ -125,7 +153,9 @@ void main() {
 
       expect(find.byKey(const ValueKey('pull_button')), findsOneWidget);
       expect(find.byKey(const ValueKey('push_button')), findsOneWidget);
-      expect(find.byKey(const ValueKey('commit_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('revert_all_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('stage_all_button')), findsOneWidget);
+
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('pull_button')),
@@ -140,11 +170,11 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('Pull'), findsNothing);
-      expect(find.text('Push'), findsNothing);
     });
 
-    testWidgets('shows bulk actions menu for unstaged changes', (tester) async {
+    testWidgets('shows revert and stage all for unstaged changes', (
+      tester,
+    ) async {
       final bridge = MockBridgeService()..mockDiff = _multiFileDiff;
       addTearDown(bridge.dispose);
 
@@ -153,15 +183,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('git_bulk_actions_button')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Stage All'), findsOneWidget);
-      expect(find.text('Revert All'), findsOneWidget);
-      expect(find.text('Unstage All'), findsNothing);
+      expect(find.byKey(const ValueKey('stage_all_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('revert_all_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('unstage_all_button')), findsNothing);
     });
 
-    testWidgets('shows unstage all menu item in staged tab', (tester) async {
+    testWidgets('shows unstage all button in staged tab', (tester) async {
       final bridge = MockBridgeService()..mockDiff = _multiFileDiff;
       bridge.send(
         ClientMessage.gitStage('/tmp/project', files: ['file_a.dart']),
@@ -175,11 +202,10 @@ void main() {
 
       await tester.tap(find.text('Staged'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('git_bulk_actions_button')));
-      await tester.pumpAndSettle();
 
-      expect(find.text('Unstage All'), findsOneWidget);
-      expect(find.text('Stage All'), findsNothing);
+      expect(find.byKey(const ValueKey('unstage_all_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('commit_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('stage_all_button')), findsNothing);
     });
 
     testWidgets('shows confirmation dialog before reverting all changes', (
@@ -193,9 +219,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('git_bulk_actions_button')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Revert All'));
+      await tester.tap(find.byKey(const ValueKey('revert_all_button')));
       await tester.pumpAndSettle();
 
       expect(find.text('すべての変更を破棄しますか'), findsOneWidget);

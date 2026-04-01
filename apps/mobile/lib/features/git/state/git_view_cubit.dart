@@ -413,10 +413,14 @@ class GitViewCubit extends Cubit<GitViewState> {
     );
   }
 
+  bool _pendingSwitchToStaged = false;
+  bool _pendingSwitchToUnstaged = false;
+
   /// Stage all files.
   void stageAll() {
     final projectPath = _projectPath;
     if (projectPath == null || state.files.isEmpty) return;
+    _pendingSwitchToStaged = true;
     emit(state.copyWith(staging: true));
     _bridge.send(
       ClientMessage.gitStage(
@@ -430,6 +434,7 @@ class GitViewCubit extends Cubit<GitViewState> {
   void unstageAll() {
     final projectPath = _projectPath;
     if (projectPath == null || state.files.isEmpty) return;
+    _pendingSwitchToUnstaged = true;
     emit(state.copyWith(staging: true));
     _bridge.send(
       ClientMessage.gitUnstage(
@@ -455,8 +460,14 @@ class GitViewCubit extends Cubit<GitViewState> {
   void _onStageResult(GitStageResultMessage result) {
     if (result.success) {
       emit(state.copyWith(staging: false));
-      refreshDiffOnly();
+      if (_pendingSwitchToStaged) {
+        _pendingSwitchToStaged = false;
+        switchMode(GitViewMode.staged);
+      } else {
+        refreshDiffOnly();
+      }
     } else {
+      _pendingSwitchToStaged = false;
       emit(state.copyWith(staging: false, error: result.error));
     }
   }
@@ -482,8 +493,14 @@ class GitViewCubit extends Cubit<GitViewState> {
   void _onUnstageResult(GitUnstageResultMessage result) {
     if (result.success) {
       emit(state.copyWith(staging: false));
-      refreshDiffOnly();
+      if (_pendingSwitchToUnstaged) {
+        _pendingSwitchToUnstaged = false;
+        switchMode(GitViewMode.unstaged);
+      } else {
+        refreshDiffOnly();
+      }
     } else {
+      _pendingSwitchToUnstaged = false;
       emit(state.copyWith(staging: false, error: result.error));
     }
   }

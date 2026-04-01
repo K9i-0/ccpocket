@@ -5,6 +5,7 @@ import 'diff_binary_notice.dart';
 import 'diff_file_header.dart';
 import 'diff_hunk_widget.dart';
 import 'diff_image_widget.dart';
+import 'git_swipe_action_background.dart';
 
 class DiffContentList extends StatelessWidget {
   final List<DiffFile> files;
@@ -182,13 +183,10 @@ class _SwipeStageDismissible extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     // Determine left swipe action: Revert takes priority, then Unstage
     final hasLeftAction = onSwipeRevert != null || onSwipeUnstage != null;
     final isRevert = onSwipeRevert != null;
     final leftLabel = isRevert ? 'Revert' : 'Unstage';
-    final leftColor = isRevert ? cs.error : cs.tertiary;
     final leftIcon = isRevert ? Icons.undo : Icons.remove_circle_outline;
 
     // Determine swipe direction
@@ -216,49 +214,25 @@ class _SwipeStageDismissible extends StatelessWidget {
         return false;
       },
       background: onSwipeStage != null
-          ? Container(
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.only(left: 20),
-              color: cs.primary.withValues(alpha: 0.15),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.add_circle_outline, color: cs.primary, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Stage',
-                    style: TextStyle(
-                      color: cs.primary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
+          ? const GitSwipeActionBackground(
+              alignment: Alignment.topLeft,
+              padding: EdgeInsets.only(left: 12, top: 10),
+              icon: Icons.add_circle_outline,
+              label: 'Stage',
+              tone: GitSwipeActionTone.primary,
             )
           : hasLeftAction
           ? const SizedBox.shrink()
           : null,
       secondaryBackground: hasLeftAction
-          ? Container(
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 20),
-              color: leftColor.withValues(alpha: 0.15),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    leftLabel,
-                    style: TextStyle(
-                      color: leftColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(leftIcon, color: leftColor, size: 20),
-                ],
-              ),
+          ? GitSwipeActionBackground(
+              alignment: Alignment.topRight,
+              padding: const EdgeInsets.only(right: 12, top: 10),
+              icon: leftIcon,
+              label: leftLabel,
+              tone: isRevert
+                  ? GitSwipeActionTone.danger
+                  : GitSwipeActionTone.neutral,
             )
           : null,
       child: child,
