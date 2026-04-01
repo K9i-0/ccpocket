@@ -1,0 +1,108 @@
+# ccpocket project rules for Codex.
+# Mirror the intent of .claude/settings.json, but keep auto-allow narrow.
+
+# Safe local inspection.
+prefix_rule(
+    pattern=["ls"],
+    justification="Listing files is read-only and low risk.",
+)
+prefix_rule(
+    pattern=["pwd"],
+    justification="Printing the working directory is read-only and low risk.",
+)
+prefix_rule(
+    pattern=["which"],
+    justification="Resolving executables is read-only and low risk.",
+)
+prefix_rule(
+    pattern=[["rg", "grep"]],
+    justification="Repository search is read-only.",
+)
+prefix_rule(
+    pattern=[["cat", "sed", "head", "tail", "wc", "find", "tree"]],
+    justification="File inspection commands are read-only.",
+)
+prefix_rule(
+    pattern=[["ps", "pgrep", "lsof"]],
+    justification="Process inspection is read-only.",
+)
+
+# Safe git inspection.
+prefix_rule(
+    pattern=["git", ["status", "diff", "show", "log", "branch", "rev-parse"]],
+    justification="Read-only git inspection is safe to auto-allow.",
+)
+
+# Safe GitHub inspection.
+prefix_rule(
+    pattern=["gh", "issue", "view"],
+    justification="Viewing issue details is read-only on GitHub.",
+)
+prefix_rule(
+    pattern=["gh", "run", "view"],
+    justification="Viewing CI run details is read-only on GitHub.",
+)
+prefix_rule(
+    pattern=["gh", "search"],
+    justification="GitHub search is read-only.",
+)
+prefix_rule(
+    pattern=["gh", "pr", ["view", "diff", "checks"]],
+    justification="PR inspection is read-only on GitHub.",
+)
+
+# Safe verification commands used in this repo.
+prefix_rule(
+    pattern=["npx", "tsc", "--noEmit"],
+    justification="TypeScript type-check without emit is verification only.",
+)
+prefix_rule(
+    pattern=["dart", "analyze"],
+    justification="Static analysis is verification only.",
+)
+prefix_rule(
+    pattern=["flutter", "test"],
+    justification="Tests are verification only.",
+)
+
+# Explicit prompts for commands that mutate state or control long-running processes.
+prefix_rule(
+    pattern=["git", ["add", "commit", "checkout", "switch", "restore", "reset", "clean", "push", "pull", "merge", "rebase", "cherry-pick", "stash"]],
+    decision="prompt",
+    justification="Git state changes should be confirmed each time.",
+)
+prefix_rule(
+    pattern=["npm", ["install", "update", "publish", "run"]],
+    decision="prompt",
+    justification="npm install/run commands may modify the workspace or start processes.",
+)
+prefix_rule(
+    pattern=["node"],
+    decision="prompt",
+    justification="node can execute arbitrary scripts and should be confirmed.",
+)
+prefix_rule(
+    pattern=["dart", ["format", "fix", "run"]],
+    decision="prompt",
+    justification="These Dart commands can write files or start programs.",
+)
+prefix_rule(
+    pattern=["flutter", ["run", "pub", "build", "drive"]],
+    decision="prompt",
+    justification="Flutter run/build/pub commands may write files or start long-running processes.",
+)
+prefix_rule(
+    pattern=["xcrun", "simctl"],
+    decision="prompt",
+    justification="Simulator control should be explicit.",
+)
+prefix_rule(
+    pattern=["pod", "install"],
+    decision="prompt",
+    justification="pod install changes iOS dependencies and lockfiles.",
+)
+prefix_rule(
+    pattern=[["mkdir", "chmod", "tar", "open", "kill", "pkill", "python3", "xargs"]],
+    decision="prompt",
+    justification="These commands mutate local state, launch programs, or control processes.",
+)

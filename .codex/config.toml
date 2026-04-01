@@ -1,3 +1,5 @@
+# Project-local MCP config. Execpolicy lives in .codex/rules/default.rules.
+
 [mcp_servers.marionette]
 command = "marionette_mcp"
 args = []
@@ -14,6 +16,36 @@ enabled_tools = [
   "call_custom_extension",
 ]
 
+[mcp_servers.marionette.tools.connect]
+approval_mode = "approve"
+
+[mcp_servers.marionette.tools.disconnect]
+approval_mode = "approve"
+
+[mcp_servers.marionette.tools.get_interactive_elements]
+approval_mode = "approve"
+
+[mcp_servers.marionette.tools.get_logs]
+approval_mode = "approve"
+
+[mcp_servers.marionette.tools.scroll_to]
+approval_mode = "approve"
+
+[mcp_servers.marionette.tools.tap]
+approval_mode = "approve"
+
+[mcp_servers.marionette.tools.enter_text]
+approval_mode = "approve"
+
+[mcp_servers.marionette.tools.take_screenshots]
+approval_mode = "approve"
+
+[mcp_servers.marionette.tools.list_custom_extensions]
+approval_mode = "approve"
+
+[mcp_servers.marionette.tools.call_custom_extension]
+approval_mode = "approve"
+
 [mcp_servers.dart-mcp]
 command = "dart"
 args = ["mcp-server"]
@@ -29,3 +61,30 @@ enabled_tools = [
   "get_widget_tree",
   "get_runtime_errors",
 ]
+
+[mcp_servers.dart-mcp.tools.launch_app]
+approval_mode = "approve"
+
+[mcp_servers.dart-mcp.tools.stop_app]
+approval_mode = "approve"
+
+[mcp_servers.dart-mcp.tools.get_app_logs]
+approval_mode = "approve"
+
+[mcp_servers.dart-mcp.tools.list_running_apps]
+approval_mode = "approve"
+
+[mcp_servers.dart-mcp.tools.connect_dart_tooling_daemon]
+approval_mode = "approve"
+
+[mcp_servers.dart-mcp.tools.hot_reload]
+approval_mode = "approve"
+
+[mcp_servers.dart-mcp.tools.hot_restart]
+approval_mode = "approve"
+
+[mcp_servers.dart-mcp.tools.get_widget_tree]
+approval_mode = "approve"
+
+[mcp_servers.dart-mcp.tools.get_runtime_errors]
+approval_mode = "approve"
