@@ -127,6 +127,16 @@ In the app, choose a project, pick your AI tool, and configure session modes.
 
 You can also enable **Worktree** to isolate a session in its own git worktree.
 
+### Supported Models
+
+CC Pocket does not expose every model available in the Codex CLI or Claude Code.
+Instead, the Bridge Server provides a curated list of recent, commonly used models, and the mobile app falls back to that same curated set when needed.
+
+This keeps the setup and model picker simpler on mobile while still covering the models most users are likely to want.
+Adding support for more models is usually straightforward because the available model list is defined on the Bridge side.
+
+If a model is available in Codex CLI or Claude Code but not shown in CC Pocket, please open an issue with the exact model name you want to use.
+
 ## Worktree Configuration (`.gtrconfig`)
 
 When starting a session, you can enable **Worktree** to automatically create a [git worktree](https://git-scm.com/docs/git-worktree) with its own branch and directory. This lets you run multiple sessions in parallel on the same project without conflicts.

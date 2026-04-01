@@ -127,6 +127,16 @@ npx @ccpocket/bridge@latest
 
 你也可以启用 **Worktree**，把每个会话隔离到独立的 git worktree 中。
 
+### 支持的模型说明
+
+CC Pocket 不会直接展示 Codex CLI 或 Claude Code 中全部可用模型。
+相反，Bridge Server 会提供一份精选的模型列表，优先包含近期常用的主流模型；在需要时，移动端也会用这份相同的 curated list 作为后备。
+
+这样可以让移动端的配置和模型选择界面保持简洁，同时覆盖大多数用户真正会用到的模型。
+由于可用模型列表定义在 Bridge 端，后续增加模型支持通常也比较直接。
+
+如果某个模型在 Codex CLI 或 Claude Code 中可用，但没有出现在 CC Pocket 里，欢迎提交 issue，并附上你想使用的准确模型名。
+
 ## Worktree 配置（`.gtrconfig`）
 
 在启动会话时启用 **Worktree** 后，应用会自动创建一个带独立分支和目录的 [git worktree](https://git-scm.com/docs/git-worktree)。这样你就可以在同一个项目上并行运行多个会话，而不会互相冲突。
