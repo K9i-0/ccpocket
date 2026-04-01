@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.32.0] - 2026-04-02
+
+### Added
+- Codex `approvalPolicy` values (`untrusted`, `on-request`, `on-failure`, `never`) in the Bridge client protocol
+
+### Changed
+- Preserve Codex approval policy directly across start, resume, and mode-change flows instead of mapping everything through legacy execution presets
+
 ## [1.31.1] - 2026-04-01
 
 ### Fixed
