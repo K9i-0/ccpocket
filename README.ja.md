@@ -299,6 +299,7 @@ cd apps/mobile && flutter pub get && cd ../..
 | `BRIDGE_ALLOWED_DIRS` | `$HOME` | 許可するプロジェクトディレクトリ。カンマ区切り |
 | `DIFF_IMAGE_AUTO_DISPLAY_KB` | `1024` | 画像 diff の自動表示しきい値 |
 | `DIFF_IMAGE_MAX_SIZE_MB` | `5` | 画像 diff プレビューの最大サイズ |
+| `BRIDGE_DISABLE_MDNS` | 未設定 | mDNS 自動発見のアドバタイズメントを無効化 |
 | `BRIDGE_ENABLE_USAGE` | 未設定 | Claude の使用量取得を有効化。**Claude Agent SDK 外で Anthropic API に直接通信します。自己責任でご利用ください。** |
 
 ## ライセンス

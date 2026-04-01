@@ -83,6 +83,7 @@ if (subcommand === "doctor") {
   if (host) process.env.BRIDGE_HOST = host;
   if (apiKey) process.env.BRIDGE_API_KEY = apiKey;
   if (publicWsUrl) process.env.BRIDGE_PUBLIC_WS_URL = publicWsUrl;
+  if (hasFlag("no-mdns")) process.env.BRIDGE_DISABLE_MDNS = "1";
 
   startServer();
 }

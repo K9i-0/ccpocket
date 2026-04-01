@@ -299,6 +299,7 @@ cd apps/mobile && flutter pub get && cd ../..
 | `BRIDGE_ALLOWED_DIRS` | `$HOME` | 允许访问的项目目录，逗号分隔 |
 | `DIFF_IMAGE_AUTO_DISPLAY_KB` | `1024` | 图片 diff 自动显示阈值 |
 | `DIFF_IMAGE_MAX_SIZE_MB` | `5` | diff 图片预览允许的最大大小 |
+| `BRIDGE_DISABLE_MDNS` | 未设置 | 禁用 mDNS 自动发现广播 |
 
 ## 许可证
 

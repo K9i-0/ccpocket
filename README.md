@@ -299,6 +299,7 @@ cd apps/mobile && flutter pub get && cd ../..
 | `BRIDGE_ALLOWED_DIRS` | `$HOME` | Allowed project directories, comma-separated |
 | `DIFF_IMAGE_AUTO_DISPLAY_KB` | `1024` | Auto-display threshold for image diffs |
 | `DIFF_IMAGE_MAX_SIZE_MB` | `5` | Max image size for diff previews |
+| `BRIDGE_DISABLE_MDNS` | unset | Disables mDNS auto-discovery advertisement |
 | `BRIDGE_ENABLE_USAGE` | unset | Enables Claude usage tracking via the Anthropic API. **This makes direct API calls to Anthropic outside the Claude Agent SDK. Use at your own risk.** |
 
 ## License

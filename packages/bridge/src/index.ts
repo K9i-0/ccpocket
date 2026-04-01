@@ -33,6 +33,10 @@ export async function startServer() {
     console.log("[bridge] API key authentication enabled");
   }
 
+  if (process.env.BRIDGE_DISABLE_MDNS) {
+    console.log("[bridge] mDNS advertisement disabled");
+  }
+
   console.log(`[bridge] Allowed dirs: ${ALLOWED_DIRS.join(", ")}`);
 
   // Initialize Firebase Anonymous Auth for push notifications
@@ -53,7 +57,8 @@ export async function startServer() {
   const RECORDING_ENABLED = !!process.env.BRIDGE_RECORDING;
   const recordingStore = RECORDING_ENABLED ? new RecordingStore() : undefined;
   const promptHistoryBackup = new PromptHistoryBackupStore();
-  const mdns = new MdnsAdvertiser();
+  const MDNS_DISABLED = !!process.env.BRIDGE_DISABLE_MDNS;
+  const mdns = MDNS_DISABLED ? undefined : new MdnsAdvertiser();
 
   // Initialize stores (async)
   galleryStore.init().then(() => {
@@ -186,13 +191,13 @@ export async function startServer() {
 
   httpServer.listen(PORT, HOST, () => {
     console.log(`[bridge] Ready. Listening on http://${HOST}:${PORT} (HTTP + WebSocket)`);
-    mdns.start(PORT, API_KEY);
+    mdns?.start(PORT, API_KEY);
     printStartupInfo(PORT, HOST, API_KEY);
   });
 
   function shutdown() {
     console.log("\n[bridge] Shutting down gracefully...");
-    mdns.stop();
+    mdns?.stop();
     wsServer?.close();
     httpServer.close();
     process.exit(0);
