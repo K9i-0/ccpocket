@@ -558,7 +558,28 @@ class _ChatScreenBody extends HookWidget {
               ),
               actions: [
                 // View Changes button
-                if (projectPath != null)
+                if ((projectPath ?? '').isNotEmpty)
+                  IconButton(
+                    key: const ValueKey('appbar_explore_button'),
+                    icon: Icon(
+                      Icons.folder_outlined,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    tooltip: 'Explore',
+                    onPressed: () => context.router.push(
+                      ExploreRoute(
+                        projectPath: projectPath!,
+                        initialFiles: context.read<FileListCubit>().state,
+                      ),
+                    ),
+                  ),
+                if ((projectPath ?? '').isNotEmpty)
                   IconButton(
                     key: const ValueKey('appbar_view_changes'),
                     icon: Icon(

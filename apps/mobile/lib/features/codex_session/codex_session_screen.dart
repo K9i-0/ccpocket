@@ -105,7 +105,9 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     _isPending = widget.isPending;
     _sandboxMode = sandboxModeFromRaw(widget.initialSandboxMode);
     _permissionMode = permissionModeFromRaw(widget.initialPermissionMode);
-    _codexApprovalPolicy = codexApprovalPolicyFromRaw(widget.initialApprovalPolicy);
+    _codexApprovalPolicy = codexApprovalPolicyFromRaw(
+      widget.initialApprovalPolicy,
+    );
 
     if (_isPending) {
       _listenForSessionCreated();
@@ -179,7 +181,8 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       _permissionMode =
           permissionModeFromRaw(msg.permissionMode) ?? _permissionMode;
       _codexApprovalPolicy =
-          codexApprovalPolicyFromRaw(msg.approvalPolicy) ?? _codexApprovalPolicy;
+          codexApprovalPolicyFromRaw(msg.approvalPolicy) ??
+          _codexApprovalPolicy;
     });
   }
 
@@ -200,7 +203,8 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       _permissionMode =
           permissionModeFromRaw(msg.permissionMode) ?? _permissionMode;
       _codexApprovalPolicy =
-          codexApprovalPolicyFromRaw(msg.approvalPolicy) ?? _codexApprovalPolicy;
+          codexApprovalPolicyFromRaw(msg.approvalPolicy) ??
+          _codexApprovalPolicy;
       _isPending = false;
     });
     _pendingSub?.cancel();
@@ -556,7 +560,28 @@ class _CodexChatBody extends HookWidget {
               ),
               actions: [
                 // View Changes button
-                if (projectPath != null)
+                if ((projectPath ?? '').isNotEmpty)
+                  IconButton(
+                    key: const ValueKey('appbar_explore_button'),
+                    icon: Icon(
+                      Icons.folder_outlined,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    tooltip: 'Explore',
+                    onPressed: () => context.router.push(
+                      ExploreRoute(
+                        projectPath: projectPath!,
+                        initialFiles: context.read<FileListCubit>().state,
+                      ),
+                    ),
+                  ),
+                if ((projectPath ?? '').isNotEmpty)
                   IconButton(
                     key: const ValueKey('appbar_view_changes'),
                     icon: Icon(

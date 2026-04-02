@@ -297,6 +297,73 @@ class DebugRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
+/// [ExploreScreen]
+class ExploreRoute extends PageRouteInfo<ExploreRouteArgs> {
+  ExploreRoute({
+    Key? key,
+    required String projectPath,
+    List<String> initialFiles = const [],
+    List<PageRouteInfo>? children,
+  }) : super(
+         ExploreRoute.name,
+         args: ExploreRouteArgs(
+           key: key,
+           projectPath: projectPath,
+           initialFiles: initialFiles,
+         ),
+         initialChildren: children,
+       );
+
+  static const String name = 'ExploreRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<ExploreRouteArgs>();
+      return ExploreScreen(
+        key: args.key,
+        projectPath: args.projectPath,
+        initialFiles: args.initialFiles,
+      );
+    },
+  );
+}
+
+class ExploreRouteArgs {
+  const ExploreRouteArgs({
+    this.key,
+    required this.projectPath,
+    this.initialFiles = const [],
+  });
+
+  final Key? key;
+
+  final String projectPath;
+
+  final List<String> initialFiles;
+
+  @override
+  String toString() {
+    return 'ExploreRouteArgs{key: $key, projectPath: $projectPath, initialFiles: $initialFiles}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! ExploreRouteArgs) return false;
+    return key == other.key &&
+        projectPath == other.projectPath &&
+        const ListEquality<String>().equals(initialFiles, other.initialFiles);
+  }
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      projectPath.hashCode ^
+      const ListEquality<String>().hash(initialFiles);
+}
+
+/// generated route for
 /// [GalleryScreen]
 class GalleryRoute extends PageRouteInfo<GalleryRouteArgs> {
   GalleryRoute({Key? key, String? sessionId, List<PageRouteInfo>? children})
