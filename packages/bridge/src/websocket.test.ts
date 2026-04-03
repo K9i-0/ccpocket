@@ -1516,3 +1516,266 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 });
+
+describe("multi-client sessions", () => {
+  const OPEN_STATE = 1;
+  let httpServer: ReturnType<typeof createServer>;
+
+  beforeEach(() => {
+    httpServer = createServer();
+    getAllRecentSessionsMock.mockResolvedValue({ sessions: [], hasMore: false });
+    getSessionHistoryMock.mockReset();
+  });
+
+  afterEach(() => {
+    httpServer.close();
+  });
+
+  it("attach_session sends history and session_clients to new client", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+    // Client A starts a session
+    const wsA = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/proj", provider: "claude" },
+      wsA,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const sendsA = wsA.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sendsA.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(created).toBeDefined();
+    const sessionId = created.sessionId as string;
+
+    // Client B attaches to the session
+    const wsB = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "attach_session", sessionId },
+      wsB,
+    );
+    await Promise.resolve();
+
+    const sendsB = wsB.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+
+    // Client B receives session_clients
+    const sessionClientsMsg = sendsB.find((m: any) => m.type === "session_clients");
+    expect(sessionClientsMsg).toBeDefined();
+    expect(sessionClientsMsg.sessionId).toBe(sessionId);
+    expect(Array.isArray(sessionClientsMsg.clients)).toBe(true);
+    expect(sessionClientsMsg.clients.length).toBeGreaterThanOrEqual(1);
+
+    // Client B receives session_created
+    const sessionCreatedMsg = sendsB.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(sessionCreatedMsg).toBeDefined();
+
+    // Client B receives history
+    const historyMsg = sendsB.find((m: any) => m.type === "history");
+    expect(historyMsg).toBeDefined();
+    expect(historyMsg.sessionId).toBe(sessionId);
+
+    // Client A receives client_joined
+    const sendsAAfter = wsA.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const clientJoined = sendsAAfter.find((m: any) => m.type === "client_joined");
+    expect(clientJoined).toBeDefined();
+    expect(clientJoined.sessionId).toBe(sessionId);
+
+    bridge.close();
+  });
+
+  it("detach_session removes client without stopping session", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+    // Client A starts and Client B attaches
+    const wsA = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/proj", provider: "claude" },
+      wsA,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const sendsA = wsA.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sendsA.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+
+    const wsB = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "attach_session", sessionId },
+      wsB,
+    );
+    await Promise.resolve();
+
+    // Clear sends so we can check fresh messages
+    wsA.send.mockClear();
+    wsB.send.mockClear();
+
+    // Client A detaches
+    (bridge as any).handleClientMessage(
+      { type: "detach_session", sessionId },
+      wsA,
+    );
+    await Promise.resolve();
+
+    // Client B receives client_left
+    const sendsBAfter = wsB.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const clientLeft = sendsBAfter.find((m: any) => m.type === "client_left");
+    expect(clientLeft).toBeDefined();
+    expect(clientLeft.sessionId).toBe(sessionId);
+
+    // Session still active
+    const session = (bridge as any).sessionManager.get(sessionId);
+    expect(session).toBeDefined();
+
+    bridge.close();
+  });
+
+  it("session messages route only to attached clients", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+    // Client A starts session
+    const wsA = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/proj", provider: "claude" },
+      wsA,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const sendsA = wsA.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sendsA.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+
+    // Client B connects but does NOT attach to the session
+    const wsB = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    // Register wsB with wss.clients (simulates a connected but non-attached client)
+    (bridge as any).wss.clients.add(wsB);
+
+    // Clear sends
+    wsA.send.mockClear();
+    wsB.send.mockClear();
+
+    // Broadcast a session message to session 1
+    const testMsg = { type: "status", status: "running" } as any;
+    (bridge as any).broadcastSessionMessage(sessionId, testMsg);
+
+    // Client A (attached) receives it
+    const sendsAAfter = wsA.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    expect(sendsAAfter.some((m: any) => m.type === "status")).toBe(true);
+
+    // Client B (not attached) does NOT receive it
+    expect(wsB.send).not.toHaveBeenCalled();
+
+    (bridge as any).wss.clients.delete(wsB);
+    bridge.close();
+  });
+
+  it("first approval wins — only one client needs to send approve", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+    // Client A starts session
+    const wsA = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/proj", provider: "claude" },
+      wsA,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const sendsA = wsA.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sendsA.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+
+    // Client B attaches
+    const wsB = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "attach_session", sessionId },
+      wsB,
+    );
+    await Promise.resolve();
+
+    // Set up a pending permission on the session mock process
+    const session = (bridge as any).sessionManager.get(sessionId);
+    const permId = "perm-1";
+    session.process.getPendingPermission.mockReturnValue({
+      id: permId,
+      description: "run shell command",
+    });
+
+    wsA.send.mockClear();
+    wsB.send.mockClear();
+
+    // Client A approves
+    (bridge as any).handleClientMessage(
+      { type: "approve", id: permId, sessionId },
+      wsA,
+    );
+    await Promise.resolve();
+
+    // The session process approve was called
+    expect(session.process.approve).toHaveBeenCalled();
+
+    bridge.close();
+  });
+
+  it("ws disconnect removes client from all sessions", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+    // Client A starts session (auto-attached)
+    const wsA = { readyState: OPEN_STATE, send: vi.fn(), on: vi.fn() } as any;
+    (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/proj", provider: "claude" },
+      wsA,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const sendsA = wsA.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sendsA.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+
+    // Confirm wsA is attached
+    const clientsBefore = (bridge as any).sessionClients.get(sessionId);
+    expect(clientsBefore).toBeDefined();
+    expect(clientsBefore.size).toBe(1);
+
+    // Simulate ws disconnect via detachClientFromAll (same as what the close event calls)
+    (bridge as any).detachClientFromAll(wsA);
+
+    // Session client list is now empty (map entry removed)
+    const clientsAfter = (bridge as any).sessionClients.get(sessionId);
+    expect(clientsAfter).toBeUndefined();
+
+    bridge.close();
+  });
+
+  it("fallback broadcast when no clients explicitly attached", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+
+    // Create a session via start but do NOT attach any additional ws
+    // (start auto-attaches wsA, so we use a fresh bridge with no start)
+    // Instead: create session manually and leave sessionClients empty
+    const wsA = { readyState: OPEN_STATE, send: vi.fn() } as any;
+
+    // Register wsA as a connected ws client (simulates a real WS connection)
+    (bridge as any).wss.clients.add(wsA);
+
+    // Create a session without going through handleClientMessage start
+    // so sessionClients has no entry for this session
+    const sessionId = (bridge as any).sessionManager.create("/tmp/proj", {});
+    // Confirm no attached clients for this session
+    expect((bridge as any).sessionClients.get(sessionId)).toBeUndefined();
+
+    // Broadcast a session message
+    const testMsg = { type: "status", status: "idle" } as any;
+    (bridge as any).broadcastSessionMessage(sessionId, testMsg);
+
+    // wsA receives the message via fallback broadcast
+    expect(wsA.send).toHaveBeenCalled();
+    const received = wsA.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    expect(received.some((m: any) => m.type === "status")).toBe(true);
+
+    (bridge as any).wss.clients.delete(wsA);
+    bridge.close();
+  });
+});
