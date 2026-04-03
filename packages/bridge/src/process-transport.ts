@@ -1,12 +1,12 @@
 import { EventEmitter } from "node:events";
-import type { ProcessStatus, ServerMessage, Provider } from "./parser.js";
+import type { ProcessStatus, Provider, PermissionMode } from "./parser.js";
 
 /** Options passed to IProcessTransport.start(). */
 export interface ProcessStartOptions {
   projectPath: string;
   provider: Provider;
   sessionId?: string;            // Resume existing session
-  permissionMode?: string;       // Claude: "default" | "acceptEdits" | "bypassPermissions"
+  permissionMode?: PermissionMode;
   model?: string;
   initialInput?: string;         // Auto-send on start
   [key: string]: unknown;        // Provider-specific passthrough
@@ -24,7 +24,9 @@ export interface ProcessStartOptions {
  */
 export interface IProcessTransport extends EventEmitter {
   start(opts: ProcessStartOptions): void;
+  /** Graceful shutdown (SIGTERM). */
   stop(): void;
+  /** Forceful termination (SIGKILL). */
   kill(): void;
 
   /** Raw input — PTY keystrokes or no-op for SDK processes. */
