@@ -1722,7 +1722,7 @@ describe("multi-client sessions", () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
 
     // Client A starts session (auto-attached)
-    const wsA = { readyState: OPEN_STATE, send: vi.fn(), on: vi.fn() } as any;
+    const wsA = { readyState: OPEN_STATE, send: vi.fn() } as any;
     (bridge as any).handleClientMessage(
       { type: "start", projectPath: "/tmp/proj", provider: "claude" },
       wsA,
