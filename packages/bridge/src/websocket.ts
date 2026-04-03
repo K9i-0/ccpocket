@@ -251,6 +251,12 @@ export class BridgeWebSocketServer {
   /** FCM token → push notification locale */
   private tokenLocales = new Map<string, PushLocale>();
   private tokenPrivacyMode = new Map<string, boolean>();
+  /** Per-session client tracking for multi-device fan-out. */
+  private sessionClients = new Map<
+    string,
+    Map<WebSocket, { clientId: string; clientType: string; connectedAt: Date }>
+  >();
+  private nextClientId = 0;
   private failSetPermissionMode = envFlagEnabled(
     "BRIDGE_FAIL_SET_PERMISSION_MODE",
   );
@@ -541,6 +547,7 @@ export class BridgeWebSocketServer {
 
     ws.on("close", () => {
       console.log("[ws] Client disconnected");
+      this.detachClientFromAll(ws);
     });
 
     ws.on("error", (err) => {
@@ -693,6 +700,7 @@ export class BridgeWebSocketServer {
               }),
             );
             this.broadcastSessionList();
+            this.attachClient(sessionId, ws);
             // Send a gentle tip when the project is not a git repository
             if (createdSession && !createdSession.gitBranch) {
               const tipMsg = {
@@ -1718,6 +1726,7 @@ export class BridgeWebSocketServer {
             sessionId: session.claudeSessionId,
           });
           this.sessionManager.destroy(msg.sessionId);
+          this.sessionClients.delete(msg.sessionId);
           this.recordDebugEvent(msg.sessionId, {
             direction: "internal",
             channel: "bridge",
@@ -2085,6 +2094,7 @@ export class BridgeWebSocketServer {
                   }),
                 );
                 this.broadcastSessionList();
+                this.attachClient(sessionId, ws);
               });
               this.debugEvents.set(sessionId, []);
               this.recordDebugEvent(sessionId, {
@@ -2183,6 +2193,7 @@ export class BridgeWebSocketServer {
                 claudeSessionId,
               });
               this.broadcastSessionList();
+              this.attachClient(sessionId, ws);
             });
             this.debugEvents.set(sessionId, []);
             this.recordDebugEvent(sessionId, {
@@ -3272,6 +3283,49 @@ export class BridgeWebSocketServer {
         await this.handleRenameSession(ws, msg.sessionId, name, msg);
         break;
       }
+
+      case "attach_session": {
+        const session = this.sessionManager.get(msg.sessionId);
+        if (!session) {
+          this.send(ws, {
+            type: "error",
+            message: `Session ${msg.sessionId} not found`,
+          });
+          break;
+        }
+
+        this.attachClient(msg.sessionId, ws, msg.clientType);
+
+        // Send session_created so the client has full session metadata
+        const createdMsg = this.buildSessionCreatedMessage({
+          sessionId: msg.sessionId,
+          provider: session.provider,
+          projectPath: session.projectPath,
+          session,
+        });
+        this.send(ws, createdMsg);
+
+        // Send current history so the attaching client catches up
+        if (session.pastMessages && session.pastMessages.length > 0) {
+          this.send(ws, {
+            type: "past_history",
+            claudeSessionId: session.claudeSessionId ?? msg.sessionId,
+            messages: session.pastMessages,
+          } as Record<string, unknown>);
+        }
+        this.send(ws, {
+          type: "history",
+          messages: session.history,
+          sessionId: msg.sessionId,
+        } as Record<string, unknown>);
+
+        break;
+      }
+
+      case "detach_session": {
+        this.detachClient(msg.sessionId, ws);
+        break;
+      }
     }
   }
 
@@ -3411,6 +3465,88 @@ export class BridgeWebSocketServer {
     });
   }
 
+  /** Generate a unique client ID for this bridge instance. */
+  private generateClientId(): string {
+    return `client-${++this.nextClientId}`;
+  }
+
+  /** Attach a WebSocket client to a session. Returns the clientId. */
+  private attachClient(
+    sessionId: string,
+    ws: WebSocket,
+    clientType: string = "app",
+  ): string {
+    let clients = this.sessionClients.get(sessionId);
+    if (!clients) {
+      clients = new Map();
+      this.sessionClients.set(sessionId, clients);
+    }
+
+    // Check if this ws is already attached
+    const existing = clients.get(ws);
+    if (existing) return existing.clientId;
+
+    const clientId = this.generateClientId();
+    clients.set(ws, { clientId, clientType, connectedAt: new Date() });
+
+    // Notify other attached clients
+    const joinMsg = JSON.stringify({
+      type: "client_joined",
+      sessionId,
+      client: { clientId, clientType },
+    });
+    for (const [otherWs] of clients) {
+      if (otherWs !== ws && otherWs.readyState === WebSocket.OPEN) {
+        otherWs.send(joinMsg);
+      }
+    }
+
+    // Send current client list to the newly attached client
+    const clientList = Array.from(clients.values()).map((c) => ({
+      clientId: c.clientId,
+      clientType: c.clientType,
+      connectedAt: c.connectedAt.toISOString(),
+    }));
+    this.send(ws, { type: "session_clients", sessionId, clients: clientList });
+
+    return clientId;
+  }
+
+  /** Detach a WebSocket client from a session. */
+  private detachClient(sessionId: string, ws: WebSocket): void {
+    const clients = this.sessionClients.get(sessionId);
+    if (!clients) return;
+
+    const info = clients.get(ws);
+    if (!info) return;
+
+    clients.delete(ws);
+
+    // Notify remaining clients
+    const leftMsg = JSON.stringify({
+      type: "client_left",
+      sessionId,
+      client: { clientId: info.clientId, clientType: info.clientType },
+    });
+    for (const [otherWs] of clients) {
+      if (otherWs.readyState === WebSocket.OPEN) {
+        otherWs.send(leftMsg);
+      }
+    }
+
+    // Clean up empty session client maps
+    if (clients.size === 0) {
+      this.sessionClients.delete(sessionId);
+    }
+  }
+
+  /** Detach a WebSocket client from ALL sessions (on disconnect). */
+  private detachClientFromAll(ws: WebSocket): void {
+    for (const sessionId of this.sessionClients.keys()) {
+      this.detachClient(sessionId, ws);
+    }
+  }
+
   private broadcastSessionMessage(sessionId: string, msg: ServerMessage): void {
     this.maybeSendPushNotification(sessionId, msg);
     this.recordDebugEvent(sessionId, {
@@ -3437,11 +3573,22 @@ export class BridgeWebSocketServer {
         });
       }
     }
-    // Wrap the message with sessionId
     const data = JSON.stringify({ ...msg, sessionId });
-    for (const client of this.wss.clients) {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(data);
+    const clients = this.sessionClients.get(sessionId);
+
+    if (clients && clients.size > 0) {
+      // Send to attached clients only
+      for (const [ws] of clients) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(data);
+        }
+      }
+    } else {
+      // Fallback: broadcast to all (backward compat for apps that don't attach)
+      for (const client of this.wss.clients) {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(data);
+        }
       }
     }
   }
