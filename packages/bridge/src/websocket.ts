@@ -68,6 +68,17 @@ import { getPackageVersion } from "./version.js";
 
 type SystemServerMessage = Extract<ServerMessage, { type: "system" }>;
 
+/** Messages that all client types need (session lifecycle, client presence). */
+function isMetaMessage(msg: ServerMessage): boolean {
+  return (
+    msg.type === "session_clients" ||
+    msg.type === "client_joined" ||
+    msg.type === "client_left" ||
+    msg.type === "error" ||
+    (msg.type === "system" && (msg as any).subtype === "session_created")
+  );
+}
+
 // ---- Available model lists (delivered to clients via session_list) ----
 
 const CLAUDE_MODELS: string[] = [
@@ -3310,20 +3321,63 @@ export class BridgeWebSocketServer {
         });
         this.send(ws, createdMsg);
 
-        // Send current history so the attaching client catches up
-        if (session.pastMessages && session.pastMessages.length > 0) {
+        if (msg.lastSeq !== undefined && msg.lastSeq > 0) {
+          // Seq-based replay for reconnecting phone clients
+          const { events, gap } = session.replayBuffer.replayWithGapInfo(msg.lastSeq);
+          if (gap) {
+            this.send(ws, {
+              type: "history",
+              messages: events.map((e) => e.msg),
+              gap: true,
+              sessionId: msg.sessionId,
+            } as Record<string, unknown>);
+          } else {
+            for (const event of events) {
+              this.send(ws, { ...event.msg, sessionId: msg.sessionId, seq: event.seq } as any);
+            }
+          }
+        } else if (msg.clientType !== "cli") {
+          // First connect (no lastSeq) — send full history for app clients
+          if (session.pastMessages && session.pastMessages.length > 0) {
+            this.send(ws, {
+              type: "past_history",
+              claudeSessionId: session.claudeSessionId ?? msg.sessionId,
+              messages: session.pastMessages,
+            } as Record<string, unknown>);
+          }
           this.send(ws, {
-            type: "past_history",
-            claudeSessionId: session.claudeSessionId ?? msg.sessionId,
-            messages: session.pastMessages,
+            type: "history",
+            messages: session.history,
+            sessionId: msg.sessionId,
           } as Record<string, unknown>);
         }
-        this.send(ws, {
-          type: "history",
-          messages: session.history,
-          sessionId: msg.sessionId,
-        } as Record<string, unknown>);
+        // CLI clients skip history — they see the live PTY stream
 
+        break;
+      }
+
+      case "pty_input": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session) {
+          this.send(ws, { type: "error", message: "Session not found" });
+          return;
+        }
+        this.attachClient(session.id, ws);
+        // Write raw bytes to PTY
+        session.process.write(msg.data);
+        break;
+      }
+
+      case "pty_resize": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session) {
+          this.send(ws, { type: "error", message: "Session not found" });
+          return;
+        }
+        // PtyProcess has resize(), other processes don't
+        if (session.process.isPty) {
+          (session.process as any).resize(msg.cols, msg.rows);
+        }
         break;
       }
 
@@ -3582,10 +3636,20 @@ export class BridgeWebSocketServer {
     const clients = this.sessionClients.get(sessionId);
 
     if (clients && clients.size > 0) {
-      // Send to attached clients only
-      for (const [ws] of clients) {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(data);
+      for (const [ws, info] of clients) {
+        if (ws.readyState !== WebSocket.OPEN) continue;
+
+        if (msg.type === "pty_output") {
+          // Raw PTY bytes → only cli clients
+          if (info.clientType === "cli") {
+            ws.send(data);
+          }
+        } else {
+          // Structured events → only app clients (and cli for backward compat meta messages)
+          // Note: cli clients in PTY mode don't need structured events — they see the raw terminal
+          if (info.clientType !== "cli" || isMetaMessage(msg)) {
+            ws.send(data);
+          }
         }
       }
     } else {
