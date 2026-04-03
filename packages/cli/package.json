@@ -1,0 +1,45 @@
+{
+  "name": "@ccpocket/cli",
+  "version": "0.1.0",
+  "description": "Terminal client for CC Pocket — attach to live Claude/Codex sessions from your terminal",
+  "type": "module",
+  "license": "MIT",
+  "author": "K9i",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/K9i-0/ccpocket.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "ccpocket": "./bin/ccpocket.js"
+  },
+  "main": "dist/index.js",
+  "files": ["dist", "bin"],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "ink": "^5.1.0",
+    "ink-text-input": "^6.0.0",
+    "react": "^18.3.1",
+    "ws": "^8.18.0",
+    "bonjour-service": "^1.3.0",
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/ws": "^8.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
+  }
+}
