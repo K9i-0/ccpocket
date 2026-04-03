@@ -75,7 +75,7 @@ function isMetaMessage(msg: ServerMessage): boolean {
     msg.type === "client_joined" ||
     msg.type === "client_left" ||
     msg.type === "error" ||
-    (msg.type === "system" && (msg as any).subtype === "session_created")
+    (msg.type === "system" && msg.subtype === "session_created")
   );
 }
 
@@ -3362,7 +3362,7 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "Session not found" });
           return;
         }
-        this.attachClient(session.id, ws);
+        this.attachClient(session.id, ws, "cli");
         // Write raw bytes to PTY
         session.process.write(msg.data);
         break;
@@ -3376,7 +3376,7 @@ export class BridgeWebSocketServer {
         }
         // PtyProcess has resize(), other processes don't
         if (session.process.isPty) {
-          (session.process as any).resize(msg.cols, msg.rows);
+          session.process.resize?.(msg.cols, msg.rows);
         }
         break;
       }

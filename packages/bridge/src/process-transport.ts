@@ -41,6 +41,9 @@ export interface IProcessTransport extends EventEmitter {
   /** Reject a pending tool call. */
   sendRejection(id: string, reason?: string): void;
 
+  /** Resize the PTY terminal (no-op for non-PTY processes). */
+  resize?(cols: number, rows: number): void;
+
   /** Current process status. */
   readonly status: ProcessStatus;
 
