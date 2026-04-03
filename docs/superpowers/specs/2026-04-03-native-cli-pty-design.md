@@ -18,9 +18,36 @@ claude/codex (PTY) ──→ Bridge ─┤
 
 ## Bridge Process Changes
 
+### IProcessTransport interface
+
+Inspired by Remodex's `createCodexTransport()` abstraction, all process backends implement a common transport interface. This lets `SessionManager` treat PTY, SDK, and Codex processes uniformly.
+
+```typescript
+interface IProcessTransport extends EventEmitter {
+  // Lifecycle
+  start(opts: ProcessStartOptions): void;
+  stop(): void;
+  kill(): void;
+
+  // Input
+  write(data: string): void;           // raw input (PTY keystrokes or SDK text)
+  sendInput(text: string): void;       // user message (adds newline for PTY)
+  sendApproval(id: string): void;      // tool approval
+  sendRejection(id: string, reason?: string): void;
+
+  // Events emitted
+  //   "message"  → ServerMessage (structured, for phone clients)
+  //   "pty_data" → string (raw bytes, for terminal clients — PTY only)
+  //   "status"   → string
+  //   "exit"     → { code: number }
+}
+```
+
+`PtyProcess`, `SdkProcess`, and `CodexProcess` all implement `IProcessTransport`. During migration, old classes stay in repo behind the same interface. `SessionManager.createProcess()` selects the backend based on provider + a `usePty` flag.
+
 ### PtyProcess class
 
-A new `PtyProcess` class replaces both `SdkProcess` (Claude) and `CodexProcess` (Codex). Located at `packages/bridge/src/pty-process.ts`.
+A new `PtyProcess` class implements `IProcessTransport` using PTY-based spawning. Located at `packages/bridge/src/pty-process.ts`.
 
 **Spawning:**
 - Uses `node-pty` to create a pseudo-terminal
@@ -35,16 +62,16 @@ A new `PtyProcess` class replaces both `SdkProcess` (Claude) and `CodexProcess` 
   1. Forwards raw bytes to all terminal clients as `pty_output`
   2. Feeds bytes into `AnsiParser` which emits structured events for phone clients
 
-**Input to PTY:**
-- Terminal client sends `pty_input` → `pty.write(rawBytes)` (raw keystrokes)
-- Phone sends `input` → `pty.write(text + "\n")`
-- Phone sends `approve` → `pty.write("y\n")`
-- Phone sends `reject` → `pty.write("n\n")`
+**Input to PTY (IProcessTransport methods):**
+- `write(data)` → `pty.write(data)` — raw keystrokes from terminal client `pty_input`
+- `sendInput(text)` → `pty.write(text + "\n")` — phone user message
+- `sendApproval(id)` → `pty.write("y\n")` — phone tool approval
+- `sendRejection(id)` → `pty.write("n\n")` — phone tool rejection
 
 **Session lifecycle:**
-- `PtyProcess` extends `EventEmitter`
+- `PtyProcess` implements `IProcessTransport` (extends `EventEmitter`)
 - Emits: `message` (structured events from parser), `pty_data` (raw bytes), `status`, `exit`
-- `SessionManager` uses it the same way as current process classes
+- `SessionManager` uses it the same way as current process classes via the shared interface
 
 **Session ID capture:**
 - When `claude` starts, it prints a session ID in its init output
@@ -142,17 +169,57 @@ The Ink-based home screen, new session screen, and bridge discovery are unchange
 - Multiple terminal clients all get the same PTY stream (shared terminal view)
 - Multiple phone clients all get the same structured events
 
+## Reconnect Replay Buffer
+
+Inspired by Remodex's bounded outbound buffer with sequence-based replay. When a phone client disconnects and reconnects (common on mobile networks), it needs to catch up on missed structured events without restarting the session.
+
+### Design
+
+Each session maintains a `ReplayBuffer` of structured events (not raw PTY bytes — those are for terminal clients only).
+
+```typescript
+interface ReplayBuffer {
+  events: Array<{ seq: number; msg: ServerMessage; timestamp: number }>;
+  nextSeq: number;
+}
+```
+
+**Bounds:** 500 messages or 5MB total payload, whichever is hit first. Oldest events evicted on overflow (ring buffer).
+
+**Write path:** Every structured event emitted by the ANSI parser is appended to the buffer with an incrementing sequence number before being broadcast to phone clients.
+
+**Read path (reconnect):** When a phone client sends `attach_session`, it includes an optional `lastSeq` field:
+
+```typescript
+| { type: "attach_session"; sessionId: string; clientType: "app"; lastSeq?: number }
+```
+
+- If `lastSeq` is provided: bridge replays all events with `seq > lastSeq`
+- If `lastSeq` is omitted (first connect): bridge sends full buffer contents as `history`
+- If `lastSeq` is older than the buffer's oldest entry: bridge sends full buffer + a `gap` flag so the app knows events were lost
+
+**Terminal clients don't use the replay buffer.** They get the live PTY screen state via `pty_output` — the terminal itself is the replay mechanism (scrollback).
+
+### Why not replay raw PTY bytes?
+
+Raw PTY bytes include ANSI cursor positioning, screen clears, and partial redraws. Replaying them would produce garbled output. Structured events are idempotent and can be safely replayed to reconstruct the phone's conversation view.
+
 ## File Structure
 
 ### New files
-- `packages/bridge/src/pty-process.ts` — PtyProcess class
+- `packages/bridge/src/process-transport.ts` — `IProcessTransport` interface definition
+- `packages/bridge/src/pty-process.ts` — PtyProcess class (implements IProcessTransport)
 - `packages/bridge/src/ansi-parser.ts` — ANSI parser state machine
 - `packages/bridge/src/ansi-parser.test.ts` — Parser tests with captured PTY output samples
+- `packages/bridge/src/replay-buffer.ts` — Bounded ring buffer with sequence tracking
+- `packages/bridge/src/replay-buffer.test.ts` — Replay buffer tests (overflow, gap detection, replay from seq)
 
 ### Modified files
-- `packages/bridge/src/session.ts` — Use PtyProcess instead of SdkProcess/CodexProcess
-- `packages/bridge/src/websocket.ts` — Handle `pty_input`/`pty_resize`, route by client type
-- `packages/bridge/src/parser.ts` — Add new message types
+- `packages/bridge/src/session.ts` — Use PtyProcess via IProcessTransport; integrate ReplayBuffer per session
+- `packages/bridge/src/websocket.ts` — Handle `pty_input`/`pty_resize`, route by client type, seq-based replay on attach
+- `packages/bridge/src/parser.ts` — Add new message types (pty_input, pty_output, pty_resize, attach_session with lastSeq)
+- `packages/bridge/src/sdk-process.ts` — Implement IProcessTransport interface (backward compat)
+- `packages/bridge/src/codex-process.ts` — Implement IProcessTransport interface (backward compat)
 - `packages/cli/src/screens/session.tsx` — Replace Ink rendering with raw PTY passthrough
 
 ### Unchanged
@@ -172,6 +239,22 @@ The ANSI parser depends on `claude`/`codex` CLI output conventions. When these C
 2. Update parser patterns and tests
 3. The terminal client is unaffected (raw passthrough doesn't care about format)
 4. Only the phone-side structured events need parser updates
+
+## Patterns Borrowed from Remodex
+
+[Remodex](https://github.com/Emanuele-web04/remodex) is an open-source iPhone remote for Codex CLI. While it uses structured JSON-RPC (not PTY), three architectural patterns transfer well:
+
+| Remodex pattern | Our adaptation |
+|---|---|
+| `createCodexTransport()` — unified interface with `send/onMessage/onClose/shutdown` for both spawn and WebSocket backends | `IProcessTransport` — common interface for `PtyProcess`, `SdkProcess`, `CodexProcess`. SessionManager is backend-agnostic. |
+| Bounded outbound buffer (500 msg / 10MB) + monotonic sequence counters for reconnect replay | `ReplayBuffer` — structured event ring buffer per session. Phone sends `lastSeq` on re-attach, bridge replays missed events. |
+| Handler chain routing — bridge intercepts its own commands, forwards rest to Codex | `broadcastSessionMessage` routes by `clientType` — raw PTY bytes to `cli`, structured events to `app`. Bridge-level messages (list, stop, rename) handled before reaching the process. |
+
+**What Remodex doesn't solve** (our unique challenges):
+- ANSI parsing (Remodex's Codex speaks JSON-RPC natively)
+- Dual-mode output (Remodex has one client type)
+- PTY lifecycle management (resize, signal forwarding, flow control)
+- Terminal state reconstruction for mid-session phone connects
 
 ## Success Criteria
 
