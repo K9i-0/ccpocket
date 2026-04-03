@@ -2,7 +2,7 @@
  * ANSI Parser — strips escape codes from PTY output and emits structured
  * ServerMessage objects for phone clients.
  *
- * State machine with states: idle, streaming_text, tool_call, tool_result, permission_prompt.
+ * State machine with states: idle, streaming_text, tool_result.
  *
  * Detects Claude CLI patterns:
  *   ⏺ (U+23FA)  — assistant marker
@@ -14,7 +14,7 @@
 
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
-import type { ServerMessage, Provider, AssistantContent } from "./parser.js";
+import type { ServerMessage, Provider } from "./parser.js";
 
 // ---- ANSI stripping ----
 
@@ -25,12 +25,14 @@ function stripAnsi(str: string): string {
   // Simple ESC sequences: ESC followed by single char
   return str.replace(
     // eslint-disable-next-line no-control-regex
-    /\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[^[\]]/g,
+    /\x1b\[[\x20-\x3f]*[\x40-\x7e]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[^[\]]/g,
     "",
   );
 }
 
 // ---- Pattern regexes ----
+
+const MAX_TOOL_RESULT_LINES = 2000;
 
 const ASSISTANT_MARKER = "\u23FA"; // ⏺
 const TOOL_HEADER_RE = /^\u23BF\s+(\w+)\((.*)?\)\s*$/;
@@ -50,7 +52,6 @@ export class AnsiParser extends EventEmitter {
 
   // Accumulated assistant text across lines
   private assistantText = "";
-  private assistantContent: AssistantContent[] = [];
   private currentMessageId = "";
 
   // Tool call tracking
@@ -83,34 +84,6 @@ export class AnsiParser extends EventEmitter {
       this.processLine(line);
     }
 
-    // If buffer contains text without newline yet (partial streaming),
-    // check for assistant marker to emit stream_delta
-    if (this.lineBuffer.length > 0) {
-      const clean = stripAnsi(this.lineBuffer);
-      if (this.state === "idle" && clean.startsWith(ASSISTANT_MARKER)) {
-        // Start streaming; emit delta for what we have so far
-        this.state = "streaming_text";
-        this.currentMessageId = randomUUID();
-        const text = clean.slice(ASSISTANT_MARKER.length).trimStart();
-        if (text.length > 0) {
-          this.assistantText += text;
-          this.emit("message", {
-            type: "stream_delta",
-            text,
-          } satisfies ServerMessage);
-        }
-      } else if (this.state === "streaming_text") {
-        // Continue streaming partial line
-        const text = stripAnsi(this.lineBuffer);
-        if (text.length > 0) {
-          this.assistantText += text;
-          this.emit("message", {
-            type: "stream_delta",
-            text,
-          } satisfies ServerMessage);
-        }
-      }
-    }
   }
 
   /** Finalize any pending state. */
@@ -157,7 +130,9 @@ export class AnsiParser extends EventEmitter {
     }
 
     // --- Permission detection ---
-    if (PERMISSION_RE.test(line)) {
+    // Skip lines with significant indentation (4+ spaces) — real permission
+    // prompts appear at the top level, not inside tool output blocks.
+    if (PERMISSION_RE.test(line) && !/^ {4}/.test(line)) {
       // Capture tool context before finalization resets it
       const toolName = this.currentToolName || "unknown";
       const toolId = this.currentToolId || randomUUID();
@@ -273,6 +248,11 @@ export class AnsiParser extends EventEmitter {
   }
 
   private processToolResultLine(line: string): void {
+    // Stop accumulating once the cap is hit (truncation marker already added)
+    if (this.toolResultLines.length >= MAX_TOOL_RESULT_LINES) {
+      return;
+    }
+
     // Empty line can signal end of tool result block
     if (line.trim().length === 0) {
       // Don't finalize yet — might be followed by more result or permission
@@ -282,6 +262,11 @@ export class AnsiParser extends EventEmitter {
 
     // Accumulate tool result content
     this.toolResultLines.push(line);
+
+    // Add truncation marker when we hit the limit
+    if (this.toolResultLines.length === MAX_TOOL_RESULT_LINES) {
+      this.toolResultLines.push("[... output truncated]");
+    }
   }
 
   private finalizeCurrentState(): void {
@@ -296,14 +281,9 @@ export class AnsiParser extends EventEmitter {
   }
 
   private finalizeAssistant(): void {
-    if (this.assistantText.trim().length === 0 && this.assistantContent.length === 0) {
+    if (this.assistantText.trim().length === 0) {
       this.state = "idle";
       return;
-    }
-
-    const content: AssistantContent[] = [...this.assistantContent];
-    if (this.assistantText.trim().length > 0) {
-      content.push({ type: "text", text: this.assistantText.trimEnd() });
     }
 
     this.emit("message", {
@@ -311,14 +291,13 @@ export class AnsiParser extends EventEmitter {
       message: {
         id: this.currentMessageId || randomUUID(),
         role: "assistant",
-        content,
+        content: [{ type: "text", text: this.assistantText.trimEnd() }],
         model: this.provider,
       },
     } satisfies ServerMessage);
 
     // Reset
     this.assistantText = "";
-    this.assistantContent = [];
     this.currentMessageId = "";
     this.state = "idle";
   }
