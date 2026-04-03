@@ -86,10 +86,8 @@ export function SessionScreen({ client, sessionId, onDetach }: SessionScreenProp
           break;
 
         case "assistant":
-          setStreamBuffer((prev) => {
-            if (prev) appendOutput(prev);
-            return "";
-          });
+          // Clear stream buffer — assistant message is the final formatted version
+          setStreamBuffer("");
           appendOutput(renderMessage(msg));
           break;
 
