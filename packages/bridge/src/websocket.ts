@@ -3542,7 +3542,7 @@ export class BridgeWebSocketServer {
 
   /** Detach a WebSocket client from ALL sessions (on disconnect). */
   private detachClientFromAll(ws: WebSocket): void {
-    for (const sessionId of this.sessionClients.keys()) {
+    for (const sessionId of [...this.sessionClients.keys()]) {
       this.detachClient(sessionId, ws);
     }
   }
