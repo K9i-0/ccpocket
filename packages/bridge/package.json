@@ -51,6 +51,7 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.74",
     "bonjour-service": "^1.3.0",
+    "node-pty": "^1.1.0",
     "qrcode": "^1.5.4",
     "socks": "^2.8.7",
     "undici": "^7.24.4",
