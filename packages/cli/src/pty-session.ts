@@ -89,7 +89,10 @@ export async function runPtySession(
     client.on("message", onSessionEnd);
     stdout.on("resize", onResize);
 
+    let cleaned = false;
     function cleanup() {
+      if (cleaned) return;
+      cleaned = true;
       // Restore terminal state
       stdin.off("data", onStdinData);
       client.off("message", onMessage);

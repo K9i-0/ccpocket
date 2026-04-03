@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Box, Text, useInput, useApp } from "ink";
+import { Box, Text, useInput } from "ink";
 import type { BridgeClient } from "../bridge-client.js";
 
 interface Session {
@@ -22,7 +22,6 @@ interface HomeScreenProps {
 export function HomeScreen({ client, onAttach, onNew, onQuit }: HomeScreenProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { exit } = useApp();
 
   useEffect(() => {
     const handler = (msg: Record<string, unknown>) => {
@@ -40,7 +39,6 @@ export function HomeScreen({ client, onAttach, onNew, onQuit }: HomeScreenProps)
   useInput((input, key) => {
     if (input === "q") {
       onQuit();
-      exit();
       return;
     }
     if (input === "n") {

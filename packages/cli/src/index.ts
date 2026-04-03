@@ -25,8 +25,10 @@ program
     const client = new BridgeClient(url, program.opts().apiKey);
 
     // Wait for connection, then go straight to raw PTY session
-    await new Promise<void>((resolve) => {
-      client.on("open", () => resolve());
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Connection timed out")), 10_000);
+      client.on("open", () => { clearTimeout(timer); resolve(); });
+      client.on("error", (err) => { clearTimeout(timer); reject(err); });
     });
     await runPtySession(client, sessionId);
     client.disconnect();
@@ -45,7 +47,8 @@ program
     const client = new BridgeClient(url, program.opts().apiKey);
 
     // Wait for connection, start session, then enter raw PTY mode
-    const sessionId = await new Promise<string>((resolve) => {
+    const sessionId = await new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Session creation timed out")), 30_000);
       client.on("open", () => {
         client.send({
           type: "start",
@@ -53,13 +56,19 @@ program
           provider: opts.provider,
         });
       });
+      client.on("error", (err) => { clearTimeout(timer); reject(err); });
       client.on("message", (msg) => {
         if (
           msg.type === "system" &&
           msg.subtype === "session_created" &&
           msg.sessionId
         ) {
+          clearTimeout(timer);
           resolve(msg.sessionId as string);
+        }
+        if (msg.type === "error") {
+          clearTimeout(timer);
+          reject(new Error((msg.message as string) ?? "Session creation failed"));
         }
       });
     });
