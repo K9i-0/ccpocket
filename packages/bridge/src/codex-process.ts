@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { rm, writeFile } from "node:fs/promises";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type { ServerMessage, ProcessStatus } from "./parser.js";
+import type { IProcessTransport, ProcessStartOptions } from "./process-transport.js";
 
 export interface CodexStartOptions {
   threadId?: string;
@@ -120,7 +121,7 @@ interface CodexResolvedSettings {
   webSearchMode?: string;
 }
 
-export class CodexProcess extends EventEmitter<CodexProcessEvents> {
+export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IProcessTransport {
   private child: ChildProcessWithoutNullStreams | null = null;
   private _status: ProcessStatus = "starting";
   private _threadId: string | null = null;
@@ -279,7 +280,17 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     };
   }
 
-  start(projectPath: string, options?: CodexStartOptions): void {
+  start(optsOrPath: ProcessStartOptions | string, options?: CodexStartOptions): void {
+    if (typeof optsOrPath !== "string") {
+      // IProcessTransport call — adapt to existing pattern
+      const opts = optsOrPath;
+      return this.start(opts.projectPath, {
+        threadId: opts.sessionId,
+        model: opts.model,
+      });
+    }
+    const projectPath = optsOrPath;
+
     if (this.child) {
       this.stop();
     }
@@ -1907,6 +1918,33 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     ) {
       this.setStatus(this.pendingTurnId ? "running" : "idle");
     }
+  }
+
+  // ── IProcessTransport compat ───────────────────────────────────────
+
+  /** Raw PTY write — no-op for Codex process. */
+  write(_data: string): void {
+    // No PTY — raw write not supported
+  }
+
+  /** Not a PTY process. */
+  get isPty(): boolean {
+    return false;
+  }
+
+  /** Forceful termination — delegates to graceful stop for Codex. */
+  kill(): void {
+    this.stop();
+  }
+
+  /** IProcessTransport approval bridge. */
+  sendApproval(id: string): void {
+    this.approve(id);
+  }
+
+  /** IProcessTransport rejection bridge. */
+  sendRejection(id: string, _reason?: string): void {
+    this.reject(id);
   }
 }
 

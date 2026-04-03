@@ -10,6 +10,7 @@ import {
   type ProcessStatus,
   type PermissionMode,
 } from "./parser.js";
+import type { IProcessTransport, ProcessStartOptions } from "./process-transport.js";
 import {
   getClaudeAuthStatus,
   getValidClaudeAccessToken,
@@ -401,7 +402,7 @@ interface SDKUserMsg {
   parent_tool_use_id: null;
 }
 
-export class SdkProcess extends EventEmitter<SdkProcessEvents> {
+export class SdkProcess extends EventEmitter<SdkProcessEvents> implements IProcessTransport {
   private queryInstance: Query | null = null;
   private _status: ProcessStatus = "idle";
   private _sessionId: string | null = null;
@@ -440,7 +441,19 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     return this.queryInstance !== null;
   }
 
-  start(projectPath: string, options?: StartOptions): void {
+  start(optsOrPath: ProcessStartOptions | string, options?: StartOptions): void {
+    if (typeof optsOrPath !== "string") {
+      // IProcessTransport call — adapt to existing pattern
+      const opts = optsOrPath;
+      return this.start(opts.projectPath, {
+        sessionId: opts.sessionId,
+        permissionMode: opts.permissionMode as PermissionMode | undefined,
+        model: opts.model,
+        initialInput: opts.initialInput,
+      });
+    }
+    const projectPath = optsOrPath;
+
     if (this.queryInstance) {
       this.stop();
     }
@@ -1166,5 +1179,32 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   private emitMessage(msg: ServerMessage): void {
     this.emit("message", msg);
+  }
+
+  // ── IProcessTransport compat ───────────────────────────────────────
+
+  /** Raw PTY write — no-op for SDK process. */
+  write(_data: string): void {
+    // No PTY — raw write not supported
+  }
+
+  /** Not a PTY process. */
+  get isPty(): boolean {
+    return false;
+  }
+
+  /** Forceful termination — delegates to graceful stop for SDK. */
+  kill(): void {
+    this.stop();
+  }
+
+  /** IProcessTransport approval bridge. */
+  sendApproval(id: string): void {
+    this.approve(id);
+  }
+
+  /** IProcessTransport rejection bridge. */
+  sendRejection(id: string, reason?: string): void {
+    this.reject(id, reason);
   }
 }
