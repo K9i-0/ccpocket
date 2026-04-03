@@ -81,7 +81,15 @@ export class AnsiParser extends EventEmitter {
         line = line.slice(0, -1);
       }
       this.lineBuffer = this.lineBuffer.slice(idx + 1);
-      this.processLine(line);
+
+      if (this.provider === "codex") {
+        // Codex CLI has a Rust-based TUI with different output formatting.
+        // Until Codex-specific patterns are captured and validated, emit all
+        // non-empty lines as generic assistant text (graceful degradation).
+        this.processCodexLine(line);
+      } else {
+        this.processLine(line);
+      }
     }
 
   }
@@ -349,6 +357,27 @@ export class AnsiParser extends EventEmitter {
     this.currentToolId = "";
     this.toolResultLines = [];
     this.state = "idle";
+  }
+
+  /**
+   * Codex provider: emit non-empty lines as generic assistant text.
+   * Codex's Rust-based TUI uses different formatting than Claude's CLI.
+   * This graceful degradation ensures phone clients see all output as text
+   * rather than garbled partial pattern matches.
+   */
+  private processCodexLine(rawLine: string): void {
+    const line = stripAnsi(rawLine);
+    if (line.trim().length === 0) return;
+
+    // Still detect session ID if Codex prints one
+    const sessionMatch = SESSION_RE.exec(line);
+    if (sessionMatch) {
+      this.sessionId = sessionMatch[1];
+      this.emit("session_id", this.sessionId);
+      return;
+    }
+
+    this.emitGenericText(line);
   }
 
   private emitGenericText(line: string): void {

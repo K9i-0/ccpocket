@@ -55,6 +55,10 @@ export interface SessionInfo {
   worktreePath?: string;
   /** Branch name of the worktree. */
   worktreeBranch?: string;
+  /** Permission mode used to start this session (for metadata in list). */
+  permissionMode?: string;
+  /** Model used to start this session (for metadata in list). */
+  model?: string;
   /** Codex-specific settings used to start this session (for resume). */
   codexSettings?: {
     approvalPolicy?: string;
@@ -253,6 +257,10 @@ export class SessionManager {
       // Pre-populate claudeSessionId for resumed sessions so that get_history
       // can return it immediately (before the SDK sends a system/result event).
       claudeSessionId: options?.sessionId,
+      // Store start options for session list metadata (used by PtyProcess sessions
+      // where instanceof checks can't extract these from the process object)
+      permissionMode: options?.permissionMode,
+      model: options?.model ?? codexOptions?.model,
     };
 
     // Cache tool_use id → name for enriching tool_result messages
@@ -602,13 +610,19 @@ export class SessionManager {
             ? s.process.approvalPolicy === "never"
               ? "fullAccess"
               : "default"
-            : undefined;
+            : s.permissionMode === "bypassPermissions"
+              ? "fullAccess"
+              : s.permissionMode === "acceptEdits"
+                ? "acceptEdits"
+                : s.permissionMode
+                  ? "default"
+                  : undefined;
       const planMode =
         s.process instanceof SdkProcess
           ? s.process.permissionMode === "plan"
           : s.process instanceof CodexProcess
             ? s.process.collaborationMode === "plan"
-            : undefined;
+            : s.permissionMode === "plan";
       return {
         id: s.id,
         provider: s.provider,
@@ -631,10 +645,13 @@ export class SessionManager {
                 : s.process.approvalPolicy === "never"
                   ? "bypassPermissions"
                   : "acceptEdits"
-              : undefined,
+              : s.permissionMode,
         executionMode,
         planMode,
-        model: s.process instanceof SdkProcess ? s.process.model : undefined,
+        model:
+          s.process instanceof SdkProcess
+            ? s.process.model
+            : s.model,
         codexSettings: s.codexSettings,
         agentNickname:
           s.process instanceof CodexProcess

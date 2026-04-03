@@ -83,10 +83,16 @@ export async function runPtySession(
       }
     };
 
+    // Handle connection drop
+    const onClose = () => {
+      cleanup();
+    };
+
     // Wire up listeners
     stdin.on("data", onStdinData);
     client.on("message", onMessage);
     client.on("message", onSessionEnd);
+    client.on("close", onClose);
     stdout.on("resize", onResize);
 
     let cleaned = false;
@@ -97,6 +103,7 @@ export async function runPtySession(
       stdin.off("data", onStdinData);
       client.off("message", onMessage);
       client.off("message", onSessionEnd);
+      client.off("close", onClose);
       stdout.off("resize", onResize);
 
       if (stdin.isTTY) {

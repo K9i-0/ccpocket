@@ -3543,7 +3543,13 @@ export class BridgeWebSocketServer {
 
     // Check if this ws is already attached
     const existing = clients.get(ws);
-    if (existing) return existing.clientId;
+    if (existing) {
+      // Update clientType if it changed (e.g., app client sending pty_input)
+      if (existing.clientType !== clientType) {
+        existing.clientType = clientType;
+      }
+      return existing.clientId;
+    }
 
     const clientId = this.generateClientId();
     clients.set(ws, { clientId, clientType, connectedAt: new Date() });
