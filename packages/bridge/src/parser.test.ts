@@ -757,4 +757,41 @@ describe("parseClientMessage", () => {
       ),
     ).toBeNull();
   });
+
+  // ---- attach_session / detach_session ----
+
+  it("parses attach_session", () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: "attach_session", sessionId: "abc123", clientType: "cli" }),
+    );
+    expect(msg).toEqual({ type: "attach_session", sessionId: "abc123", clientType: "cli" });
+  });
+
+  it("rejects attach_session without sessionId", () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: "attach_session", clientType: "cli" }),
+    );
+    expect(msg).toBeNull();
+  });
+
+  it("parses attach_session with default clientType", () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: "attach_session", sessionId: "abc123" }),
+    );
+    expect(msg).toEqual({ type: "attach_session", sessionId: "abc123" });
+  });
+
+  it("parses detach_session", () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: "detach_session", sessionId: "abc123" }),
+    );
+    expect(msg).toEqual({ type: "detach_session", sessionId: "abc123" });
+  });
+
+  it("rejects detach_session without sessionId", () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: "detach_session" }),
+    );
+    expect(msg).toBeNull();
+  });
 });

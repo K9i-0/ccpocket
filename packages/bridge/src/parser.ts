@@ -256,7 +256,9 @@ export type ClientMessage =
     }
   | { type: "git_fetch"; projectPath: string }
   | { type: "git_pull"; projectPath: string }
-  | { type: "git_remote_status"; projectPath: string };
+  | { type: "git_remote_status"; projectPath: string }
+  | { type: "attach_session"; sessionId: string; clientType?: string }
+  | { type: "detach_session"; sessionId: string };
 
 /** Image change detected in a git diff (binary image file). */
 export interface ImageChange {
@@ -527,6 +529,21 @@ export type ServerMessage =
       behind: number;
       branch: string;
       hasUpstream: boolean;
+    }
+  | {
+      type: "session_clients";
+      sessionId: string;
+      clients: Array<{ clientId: string; clientType: string; connectedAt: string }>;
+    }
+  | {
+      type: "client_joined";
+      sessionId: string;
+      client: { clientId: string; clientType: string };
+    }
+  | {
+      type: "client_left";
+      sessionId: string;
+      client: { clientId: string; clientType: string };
     };
 
 export interface UsageWindowPayload {
@@ -1014,6 +1031,14 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (typeof msg.sessionId !== "string") return null;
         if (msg.provider !== "claude" && msg.provider !== "codex") return null;
         if (typeof msg.projectPath !== "string") return null;
+        break;
+      case "attach_session":
+        if (typeof msg.sessionId !== "string") return null;
+        if (msg.clientType !== undefined && typeof msg.clientType !== "string")
+          return null;
+        break;
+      case "detach_session":
+        if (typeof msg.sessionId !== "string") return null;
         break;
       default:
         return null;
