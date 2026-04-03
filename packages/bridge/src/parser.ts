@@ -257,7 +257,9 @@ export type ClientMessage =
   | { type: "git_fetch"; projectPath: string }
   | { type: "git_pull"; projectPath: string }
   | { type: "git_remote_status"; projectPath: string }
-  | { type: "attach_session"; sessionId: string; clientType?: string }
+  | { type: "attach_session"; sessionId: string; clientType?: string; lastSeq?: number }
+  | { type: "pty_input"; sessionId: string; data: string }
+  | { type: "pty_resize"; sessionId: string; cols: number; rows: number }
   | { type: "detach_session"; sessionId: string };
 
 /** Image change detected in a git diff (binary image file). */
@@ -544,7 +546,8 @@ export type ServerMessage =
       type: "client_left";
       sessionId: string;
       client: { clientId: string; clientType: string };
-    };
+    }
+  | { type: "pty_output"; sessionId: string; data: string };
 
 export interface UsageWindowPayload {
   utilization: number;
@@ -1036,6 +1039,17 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (typeof msg.sessionId !== "string") return null;
         if (msg.clientType !== undefined && typeof msg.clientType !== "string")
           return null;
+        if (msg.lastSeq !== undefined && typeof msg.lastSeq !== "number")
+          return null;
+        break;
+      case "pty_input":
+        if (typeof msg.sessionId !== "string") return null;
+        if (typeof msg.data !== "string") return null;
+        break;
+      case "pty_resize":
+        if (typeof msg.sessionId !== "string") return null;
+        if (typeof msg.cols !== "number") return null;
+        if (typeof msg.rows !== "number") return null;
         break;
       case "detach_session":
         if (typeof msg.sessionId !== "string") return null;
