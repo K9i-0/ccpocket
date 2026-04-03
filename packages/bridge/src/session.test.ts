@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProcessStatus, ServerMessage } from "./parser.js";
 import { pathToSlug } from "./sessions-index.js";
 
-const { codexInstances, sdkInstances, fakeDirs, fakeFiles } = vi.hoisted(
+const { codexInstances, sdkInstances, ptyInstances, fakeDirs, fakeFiles } = vi.hoisted(
   () => ({
     codexInstances: [] as Array<{
       start: ReturnType<typeof vi.fn>;
@@ -18,6 +18,12 @@ const { codexInstances, sdkInstances, fakeDirs, fakeFiles } = vi.hoisted(
       start: ReturnType<typeof vi.fn>;
       stop: ReturnType<typeof vi.fn>;
       rewindFiles: ReturnType<typeof vi.fn>;
+      emit: (event: string, ...args: unknown[]) => boolean;
+    }>,
+    ptyInstances: [] as Array<{
+      isPty: boolean;
+      start: ReturnType<typeof vi.fn>;
+      stop: ReturnType<typeof vi.fn>;
       emit: (event: string, ...args: unknown[]) => boolean;
     }>,
     fakeDirs: new Set<string>(),
@@ -95,12 +101,33 @@ vi.mock("./sdk-process.js", () => ({
   },
 }));
 
+vi.mock("./pty-process.js", () => ({
+  PtyProcess: class MockPtyProcess extends EventEmitter {
+    public isPty = true;
+    public start = vi.fn((_opts?: unknown) => {});
+    public stop = vi.fn(() => {});
+    public kill = vi.fn(() => {});
+    public write = vi.fn((_data: string) => {});
+    public sendInput = vi.fn((_text: string) => {});
+    public sendApproval = vi.fn((_id: string) => {});
+    public sendRejection = vi.fn((_id: string, _reason?: string) => {});
+    public status = "idle" as const;
+    public sessionId = null;
+
+    constructor() {
+      super();
+      ptyInstances.push(this);
+    }
+  },
+}));
+
 import { SessionManager } from "./session.js";
 
 describe("SessionManager codex path", () => {
   beforeEach(() => {
     codexInstances.length = 0;
     sdkInstances.length = 0;
+    ptyInstances.length = 0;
   });
 
   it("creates a codex session and forwards codex start options", () => {
@@ -122,19 +149,14 @@ describe("SessionManager codex path", () => {
       },
     );
 
-    expect(codexInstances).toHaveLength(1);
-    expect(sdkInstances).toHaveLength(0);
-    expect(codexInstances[0].start).toHaveBeenCalledTimes(1);
-    expect(codexInstances[0].start).toHaveBeenCalledWith(
-      "/tmp/project-codex",
+    // With usePty=true, PtyProcess is used for all providers
+    expect(ptyInstances).toHaveLength(1);
+    expect(ptyInstances[0].start).toHaveBeenCalledTimes(1);
+    expect(ptyInstances[0].start).toHaveBeenCalledWith(
       expect.objectContaining({
-        threadId: "thread-1",
-        sandboxMode: "workspace-write",
-        approvalPolicy: "on-request",
-        model: "gpt-5.3-codex",
-        modelReasoningEffort: "high",
-        networkAccessEnabled: true,
-        webSearchMode: "live",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        sessionId: "thread-1",
       }),
     );
 
@@ -155,7 +177,7 @@ describe("SessionManager codex path", () => {
       },
     );
 
-    codexInstances[0].emit("message", {
+    ptyInstances[0].emit("message", {
       type: "system",
       subtype: "init",
       provider: "codex",
@@ -165,7 +187,7 @@ describe("SessionManager codex path", () => {
       sandboxMode: "workspace-write",
       networkAccessEnabled: false,
     });
-    codexInstances[0].emit("message", {
+    ptyInstances[0].emit("message", {
       type: "assistant",
       message: {
         id: "msg_1",
@@ -195,7 +217,7 @@ describe("SessionManager codex path", () => {
       "codex",
     );
 
-    codexInstances[0].emit("message", {
+    ptyInstances[0].emit("message", {
       type: "system",
       subtype: "init",
       provider: "codex",
@@ -203,7 +225,7 @@ describe("SessionManager codex path", () => {
       model: "codex",
       sandboxMode: "workspace-write",
     });
-    codexInstances[0].emit("message", {
+    ptyInstances[0].emit("message", {
       type: "assistant",
       message: {
         id: "msg_1",
@@ -239,13 +261,13 @@ describe("SessionManager codex path", () => {
       },
     );
 
-    expect(codexInstances).toHaveLength(1);
-    expect(codexInstances[0].start).toHaveBeenCalledTimes(1);
-    expect(codexInstances[0].start).toHaveBeenCalledWith(
-      "/tmp/project-main-worktrees/feature-x",
+    expect(ptyInstances).toHaveLength(1);
+    expect(ptyInstances[0].start).toHaveBeenCalledTimes(1);
+    expect(ptyInstances[0].start).toHaveBeenCalledWith(
       expect.objectContaining({
-        threadId: "thread-worktree",
-        sandboxMode: "workspace-write",
+        projectPath: "/tmp/project-main-worktrees/feature-x",
+        provider: "codex",
+        sessionId: "thread-worktree",
       }),
     );
 
@@ -296,7 +318,7 @@ describe("SessionManager codex path", () => {
       undefined,
       "codex",
     );
-    const proc = codexInstances[0];
+    const proc = ptyInstances[0];
     const session = manager.get(sessionId);
     expect(session?.status).toBe("starting");
 
@@ -321,16 +343,11 @@ describe("SessionManager codex path", () => {
       undefined,
       "codex",
     );
-    const proc = codexInstances[0] as (typeof codexInstances)[number] & {
-      agentNickname?: string;
-      agentRole?: string;
-    };
-    proc.agentNickname = "Atlas";
-    proc.agentRole = "explorer";
-
+    // With usePty=true, PtyProcess is used — instanceof CodexProcess is false,
+    // so agent metadata is not surfaced. This test verifies the PTY path.
     const summary = manager.list().find((entry) => entry.id == sessionId);
-    expect(summary?.agentNickname).toBe("Atlas");
-    expect(summary?.agentRole).toBe("explorer");
+    expect(summary?.agentNickname).toBeUndefined();
+    expect(summary?.agentRole).toBeUndefined();
   });
 
   it("counts past messages and excludes streaming deltas from history", () => {
@@ -350,7 +367,7 @@ describe("SessionManager codex path", () => {
       "codex",
     );
 
-    const proc = codexInstances[0];
+    const proc = ptyInstances[0];
     proc.emit("message", {
       type: "stream_delta",
       text: "partial",
@@ -397,7 +414,7 @@ describe("SessionManager codex path", () => {
       "codex",
     );
 
-    codexInstances[0].emit("message", {
+    ptyInstances[0].emit("message", {
       type: "tool_result",
       toolUseId: "mcp-img-1",
       toolName: "mcp:marionette/take_screenshots",
@@ -461,6 +478,7 @@ describe("SessionManager claude UUID backfill", () => {
   beforeEach(() => {
     codexInstances.length = 0;
     sdkInstances.length = 0;
+    ptyInstances.length = 0;
     fakeDirs.clear();
     fakeFiles.clear();
   });
@@ -503,7 +521,7 @@ describe("SessionManager claude UUID backfill", () => {
       text: "hello from worktree",
     } as ServerMessage);
 
-    sdkInstances[0].emit("message", {
+    ptyInstances[0].emit("message", {
       type: "result",
       subtype: "success",
       sessionId: threadId,
@@ -545,7 +563,7 @@ describe("SessionManager claude UUID backfill", () => {
     } as ServerMessage);
 
     // Simulate SDK echoing back user_input with UUID (no imageCount)
-    sdkInstances[0].emit("message", {
+    ptyInstances[0].emit("message", {
       type: "user_input",
       text: "check this screenshot",
       userMessageUuid: "uuid-img",
@@ -576,7 +594,7 @@ describe("SessionManager claude UUID backfill", () => {
     } as ServerMessage);
 
     // SDK echo with UUID
-    sdkInstances[0].emit("message", {
+    ptyInstances[0].emit("message", {
       type: "user_input",
       text: "hello world",
       userMessageUuid: "uuid-text",
@@ -618,7 +636,7 @@ describe("SessionManager claude UUID backfill", () => {
       text: "fallback match",
     } as ServerMessage);
 
-    sdkInstances[0].emit("message", {
+    ptyInstances[0].emit("message", {
       type: "result",
       subtype: "success",
       sessionId: threadId,

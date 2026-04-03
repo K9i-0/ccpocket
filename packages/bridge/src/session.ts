@@ -14,6 +14,9 @@ import {
   type RewindFilesResult,
 } from "./sdk-process.js";
 import { CodexProcess, type CodexStartOptions } from "./codex-process.js";
+import type { IProcessTransport } from "./process-transport.js";
+import { PtyProcess } from "./pty-process.js";
+import { ReplayBuffer } from "./replay-buffer.js";
 import type {
   ServerMessage,
   ProcessStatus,
@@ -34,7 +37,8 @@ export interface WorktreeOptions {
 
 export interface SessionInfo {
   id: string;
-  process: SdkProcess | CodexProcess;
+  process: IProcessTransport;
+  replayBuffer: ReplayBuffer;
   provider: Provider;
   history: ServerMessage[];
   /** Past conversation loaded from disk on resume (SessionHistoryMessage[]). */
@@ -182,8 +186,16 @@ export class SessionManager {
   ): string {
     const id = randomUUID().slice(0, 8);
     const effectiveProvider = provider ?? "claude";
-    const proc =
-      effectiveProvider === "codex" ? new CodexProcess() : new SdkProcess();
+    const usePty = true; // Toggle for migration rollback
+
+    let proc: IProcessTransport;
+    if (usePty) {
+      proc = new PtyProcess();
+    } else if (effectiveProvider === "codex") {
+      proc = new CodexProcess();
+    } else {
+      proc = new SdkProcess();
+    }
 
     // Handle worktree: reuse existing or create new
     let wtPath: string | undefined;
@@ -221,9 +233,12 @@ export class SessionManager {
       /* not a git repo */
     }
 
+    const replayBuffer = new ReplayBuffer();
+
     const session: SessionInfo = {
       id,
       process: proc,
+      replayBuffer,
       provider: effectiveProvider,
       history: [],
       pastMessages:
@@ -242,6 +257,16 @@ export class SessionManager {
 
     // Cache tool_use id → name for enriching tool_result messages
     const toolUseNames = new Map<string, string>();
+
+    // Feed structured events into the replay buffer for client reconnection
+    proc.on("message", (msg: ServerMessage) => {
+      replayBuffer.append(msg);
+    });
+
+    // Forward raw PTY data through the existing broadcast mechanism
+    proc.on("pty_data", (data: string) => {
+      this.onMessage(id, { type: "pty_output", sessionId: id, data } as any);
+    });
 
     proc.on("message", async (msg) => {
       try {
@@ -524,7 +549,14 @@ export class SessionManager {
       }
     }
 
-    if (effectiveProvider === "codex") {
+    if (proc instanceof PtyProcess) {
+      proc.start({
+        projectPath: effectiveCwd,
+        provider: effectiveProvider,
+        sessionId: effectiveProvider === "codex" ? codexOptions?.threadId : options?.sessionId,
+        permissionMode: options?.permissionMode,
+      });
+    } else if (effectiveProvider === "codex") {
       (proc as CodexProcess).start(effectiveCwd, codexOptions);
     } else {
       (proc as SdkProcess).start(effectiveCwd, options);
@@ -705,6 +737,12 @@ export class SessionManager {
         error: "Rewind is not supported for Codex sessions",
       };
     }
+    if (session.process.isPty) {
+      return {
+        canRewind: false,
+        error: "Rewind is not supported for PTY sessions",
+      };
+    }
     return (session.process as SdkProcess).rewindFiles(targetUuid, dryRun);
   }
 
@@ -727,6 +765,9 @@ export class SessionManager {
     }
     if (session.provider === "codex") {
       throw new Error("Rewind is not supported for Codex sessions");
+    }
+    if (session.process.isPty) {
+      throw new Error("Rewind is not supported for PTY sessions");
     }
 
     const claudeSessionId = session.claudeSessionId;
