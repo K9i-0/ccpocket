@@ -745,6 +745,8 @@ export class BridgeWebSocketServer {
           });
           return;
         }
+        // Auto-attach client on session interaction (handles reconnects)
+        this.attachClient(session.id, ws);
         const text = msg.text;
 
         // Codex: reject if the process is not waiting for input (turn-based, no internal queue)
@@ -1599,6 +1601,7 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "No active session." });
           return;
         }
+        this.attachClient(session.id, ws);
         if (session.provider === "codex") {
           (session.process as CodexProcess).approve(msg.id, msg.updatedInput);
           break;
@@ -1689,6 +1692,7 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "No active session." });
           return;
         }
+        this.attachClient(session.id, ws);
         if (session.provider === "codex") {
           (session.process as CodexProcess).reject(msg.id, msg.message);
           break;
@@ -1703,6 +1707,7 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "No active session." });
           return;
         }
+        this.attachClient(session.id, ws);
         if (session.provider === "codex") {
           (session.process as CodexProcess).answer(msg.toolUseId, msg.result);
           break;
