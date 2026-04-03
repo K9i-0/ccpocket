@@ -265,7 +265,7 @@ export class SessionManager {
 
     // Forward raw PTY data through the existing broadcast mechanism
     proc.on("pty_data", (data: string) => {
-      this.onMessage(id, { type: "pty_output", sessionId: id, data } as any);
+      this.onMessage(id, { type: "pty_output", sessionId: id, data });
     });
 
     proc.on("message", async (msg) => {

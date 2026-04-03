@@ -44,6 +44,12 @@ export interface IProcessTransport extends EventEmitter {
   /** Resize the PTY terminal (no-op for non-PTY processes). */
   resize?(cols: number, rows: number): void;
 
+  /** Interrupt the current operation (Ctrl+C for PTY, SDK interrupt for others). */
+  interrupt(): void;
+
+  /** Whether the process is waiting for user input (always true for PTY). */
+  readonly isWaitingForInput: boolean;
+
   /** Current process status. */
   readonly status: ProcessStatus;
 

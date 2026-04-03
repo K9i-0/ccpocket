@@ -25,6 +25,16 @@ export class PtyProcess extends EventEmitter implements IProcessTransport {
     return this._sessionId;
   }
 
+  get isWaitingForInput(): boolean {
+    // PTY is always ready to receive input — no turn-based protocol
+    return true;
+  }
+
+  interrupt(): void {
+    // Send Ctrl+C to the PTY (standard Unix SIGINT)
+    this.ptyProc?.write("\x03");
+  }
+
   start(opts: ProcessStartOptions): void {
     const { projectPath, provider, sessionId, permissionMode } = opts;
 
