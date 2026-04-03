@@ -4,7 +4,7 @@ import React from "react";
 import { App } from "./app.js";
 import { BridgeClient } from "./bridge-client.js";
 import { discoverBridge } from "./discovery.js";
-import { loadConfig } from "./config.js";
+import { runPtySession } from "./pty-session.js";
 
 const program = new Command()
   .name("ccpocket")
@@ -23,12 +23,13 @@ program
       process.exit(1);
     }
     const client = new BridgeClient(url, program.opts().apiKey);
-    render(
-      React.createElement(App, {
-        client,
-        initialScreen: { name: "session", sessionId },
-      }),
-    );
+
+    // Wait for connection, then go straight to raw PTY session
+    await new Promise<void>((resolve) => {
+      client.on("open", () => resolve());
+    });
+    await runPtySession(client, sessionId);
+    client.disconnect();
   });
 
 program
@@ -42,26 +43,32 @@ program
       process.exit(1);
     }
     const client = new BridgeClient(url, program.opts().apiKey);
-    client.on("open", () => {
-      client.send({
-        type: "start",
-        projectPath: path,
-        provider: opts.provider,
+
+    // Wait for connection, start session, then enter raw PTY mode
+    const sessionId = await new Promise<string>((resolve) => {
+      client.on("open", () => {
+        client.send({
+          type: "start",
+          projectPath: path,
+          provider: opts.provider,
+        });
+      });
+      client.on("message", (msg) => {
+        if (
+          msg.type === "system" &&
+          msg.subtype === "session_created" &&
+          msg.sessionId
+        ) {
+          resolve(msg.sessionId as string);
+        }
       });
     });
-    client.on("message", (msg) => {
-      if (msg.type === "system" && msg.subtype === "session_created" && msg.sessionId) {
-        render(
-          React.createElement(App, {
-            client,
-            initialScreen: { name: "session", sessionId: msg.sessionId as string },
-          }),
-        );
-      }
-    });
+
+    await runPtySession(client, sessionId);
+    client.disconnect();
   });
 
-// Default command: show session picker
+// Default command: session picker with Ink ↔ raw PTY loop
 program.action(async () => {
   const url = await resolveUrl(program.opts().url);
   if (!url) {
@@ -69,7 +76,33 @@ program.action(async () => {
     process.exit(1);
   }
   const client = new BridgeClient(url, program.opts().apiKey);
-  render(React.createElement(App, { client }));
+
+  // Loop: Ink screen → raw session → back to Ink
+  let running = true;
+  while (running) {
+    const result = await new Promise<{ action: "session"; sessionId: string } | { action: "quit" }>(
+      (resolve) => {
+        const { unmount } = render(
+          React.createElement(App, {
+            client,
+            onEnterRawSession: (sessionId: string) => {
+              unmount();
+              resolve({ action: "session", sessionId });
+            },
+          }),
+        );
+      },
+    );
+
+    if (result.action === "quit") {
+      running = false;
+    } else {
+      await runPtySession(client, result.sessionId);
+      // After raw session ends, loop back to Ink home screen
+    }
+  }
+
+  client.disconnect();
 });
 
 async function resolveUrl(explicit?: string): Promise<string | null> {
