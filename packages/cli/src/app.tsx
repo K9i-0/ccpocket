@@ -12,9 +12,10 @@ interface AppProps {
   client: BridgeClient;
   initialScreen?: { name: "home" } | { name: "new-session" };
   onEnterRawSession: (sessionId: string) => void;
+  onQuit?: () => void;
 }
 
-export function App({ client, initialScreen, onEnterRawSession }: AppProps) {
+export function App({ client, initialScreen, onEnterRawSession, onQuit }: AppProps) {
   const [screen, setScreen] = useState<Screen>(initialScreen ?? { name: "home" });
   const { exit } = useApp();
 
@@ -25,7 +26,7 @@ export function App({ client, initialScreen, onEnterRawSession }: AppProps) {
           client={client}
           onAttach={(sessionId) => onEnterRawSession(sessionId)}
           onNew={() => setScreen({ name: "new-session" })}
-          onQuit={() => exit()}
+          onQuit={() => { exit(); onQuit?.(); }}
         />
       );
     case "new-session":

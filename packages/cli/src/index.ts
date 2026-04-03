@@ -89,6 +89,10 @@ program.action(async () => {
               unmount();
               resolve({ action: "session", sessionId });
             },
+            onQuit: () => {
+              unmount();
+              resolve({ action: "quit" });
+            },
           }),
         );
       },
