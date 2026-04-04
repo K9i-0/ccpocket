@@ -107,7 +107,7 @@ export class PtyProcess extends EventEmitter {
     permissionMode?: string,
   ): string[] {
     if (provider === "codex") {
-      return [projectPath, "--thread", sessionId];
+      return ["resume", sessionId, "-C", projectPath];
     }
     const args = [projectPath, "--verbose", "--resume", sessionId];
     if (permissionMode === "bypassPermissions") {

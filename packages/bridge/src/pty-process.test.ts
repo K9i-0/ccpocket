@@ -59,7 +59,7 @@ describe("PtyProcess (sidecar)", () => {
     );
   });
 
-  it("spawns codex with --thread for codex provider", () => {
+  it("spawns codex with resume subcommand for codex provider", () => {
     proc.start({
       projectPath: "/tmp/project",
       provider: "codex",
@@ -68,7 +68,7 @@ describe("PtyProcess (sidecar)", () => {
 
     expect(pty.spawn).toHaveBeenCalledWith(
       expect.any(String),
-      ["/tmp/project", "--thread", "thread-456"],
+      ["resume", "thread-456", "-C", "/tmp/project"],
       expect.objectContaining({ cols: 80, rows: 24 }),
     );
   });
