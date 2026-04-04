@@ -38,6 +38,8 @@ export interface WorktreeOptions {
 export interface SessionInfo {
   id: string;
   process: IProcessTransport;
+  /** On-demand sidecar PTY for CLI terminal clients. Null when no CLI is attached. */
+  ptyProcess: PtyProcess | null;
   replayBuffer: ReplayBuffer;
   provider: Provider;
   history: ServerMessage[];
@@ -190,12 +192,8 @@ export class SessionManager {
   ): string {
     const id = randomUUID().slice(0, 8);
     const effectiveProvider = provider ?? "claude";
-    const usePty = true; // Toggle for migration rollback
-
     let proc: IProcessTransport;
-    if (usePty) {
-      proc = new PtyProcess();
-    } else if (effectiveProvider === "codex") {
+    if (effectiveProvider === "codex") {
       proc = new CodexProcess();
     } else {
       proc = new SdkProcess();
@@ -242,6 +240,7 @@ export class SessionManager {
     const session: SessionInfo = {
       id,
       process: proc,
+      ptyProcess: null,
       replayBuffer,
       provider: effectiveProvider,
       history: [],
@@ -269,11 +268,6 @@ export class SessionManager {
     // Feed structured events into the replay buffer for client reconnection
     proc.on("message", (msg: ServerMessage) => {
       replayBuffer.append(msg);
-    });
-
-    // Forward raw PTY data through the existing broadcast mechanism
-    proc.on("pty_data", (data: string) => {
-      this.onMessage(id, { type: "pty_output", sessionId: id, data });
     });
 
     proc.on("message", async (msg) => {
@@ -559,14 +553,7 @@ export class SessionManager {
       }
     }
 
-    if (proc instanceof PtyProcess) {
-      proc.start({
-        projectPath: effectiveCwd,
-        provider: effectiveProvider,
-        sessionId: effectiveProvider === "codex" ? codexOptions?.threadId : options?.sessionId,
-        permissionMode: options?.permissionMode,
-      });
-    } else if (effectiveProvider === "codex") {
+    if (effectiveProvider === "codex") {
       (proc as CodexProcess).start(effectiveCwd, codexOptions);
     } else {
       (proc as SdkProcess).start(effectiveCwd, options);
@@ -1001,9 +988,88 @@ export class SessionManager {
     return true;
   }
 
+  /**
+   * Spawn a sidecar PTY for CLI terminal display.
+   * The PTY attaches to the existing session via --resume/--thread.
+   * Returns the PtyProcess, or null if already running or session ID unavailable.
+   */
+  spawnSidecarPty(
+    sessionId: string,
+    cols?: number,
+    rows?: number,
+  ): PtyProcess | null {
+    const session = this.sessions.get(sessionId);
+    if (!session) return null;
+
+    // Already has a sidecar
+    if (session.ptyProcess) return session.ptyProcess;
+
+    // Need the native session ID to --resume/--thread
+    const nativeSessionId = session.claudeSessionId;
+    if (!nativeSessionId) {
+      console.log(`[session] Cannot spawn sidecar PTY: no session ID yet for ${sessionId}`);
+      return null;
+    }
+
+    const effectiveCwd = session.worktreePath ?? session.projectPath;
+    const ptyProc = new PtyProcess();
+
+    // Forward raw PTY bytes through broadcast
+    ptyProc.on("pty_data", (data: string) => {
+      this.onMessage(sessionId, { type: "pty_output", sessionId, data } as any);
+    });
+
+    // Clean up sidecar on exit
+    ptyProc.on("exit", () => {
+      console.log(`[session] Sidecar PTY exited for session ${sessionId}`);
+      if (session.ptyProcess === ptyProc) {
+        session.ptyProcess = null;
+      }
+    });
+
+    try {
+      ptyProc.start({
+        projectPath: effectiveCwd,
+        provider: session.provider,
+        sessionId: nativeSessionId,
+        permissionMode: session.permissionMode as import("./parser.js").PermissionMode | undefined,
+        cols,
+        rows,
+      });
+    } catch (err) {
+      console.error(`[session] Failed to spawn sidecar PTY:`, err);
+      ptyProc.removeAllListeners();
+      return null;
+    }
+
+    session.ptyProcess = ptyProc;
+    console.log(`[session] Spawned sidecar PTY for session ${sessionId} (native: ${nativeSessionId})`);
+    return ptyProc;
+  }
+
+  /**
+   * Destroy the sidecar PTY for a session.
+   * Called when the last CLI client detaches.
+   */
+  destroySidecarPty(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session?.ptyProcess) return;
+
+    session.ptyProcess.stop();
+    session.ptyProcess.removeAllListeners();
+    session.ptyProcess = null;
+    console.log(`[session] Destroyed sidecar PTY for session ${sessionId}`);
+  }
+
   destroy(id: string): boolean {
     const session = this.sessions.get(id);
     if (!session) return false;
+    // Destroy sidecar PTY if present
+    if (session.ptyProcess) {
+      session.ptyProcess.stop();
+      session.ptyProcess.removeAllListeners();
+      session.ptyProcess = null;
+    }
     session.process.stop();
     session.process.removeAllListeners();
     this.sessions.delete(id);
