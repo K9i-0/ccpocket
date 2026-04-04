@@ -2,6 +2,16 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.33.1] - 2026-04-04
+
+### Changed
+- Add Bridge test/typecheck/build to the regular Ubuntu CI workflow
+- Require Windows smoke verification for Bridge releases and support manual Windows smoke runs
+
+### Fixed
+- Handle Windows allowed-directory and `resume_session` path normalization correctly, including `\\?\` extended paths
+- Launch Codex app-server on Windows via a compatible `cmd.exe` spawn path
+
 ## [1.33.0] - 2026-04-02
 
 ### Added
