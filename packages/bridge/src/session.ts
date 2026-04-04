@@ -1016,7 +1016,7 @@ export class SessionManager {
 
     // Forward raw PTY bytes through broadcast
     ptyProc.on("pty_data", (data: string) => {
-      this.onMessage(sessionId, { type: "pty_output", sessionId, data } as any);
+      this.onMessage(sessionId, { type: "pty_output", sessionId, data } as ServerMessage);
     });
 
     // Clean up sidecar on exit
