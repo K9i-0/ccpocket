@@ -18,16 +18,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
-
-      - name: Update npm for OIDC support
-        run: npm install -g npm@latest
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Windows smoke tests
-        run: npm run test:windows-smoke --workspace=packages/bridge
+      - name: Run tests
+        run: npm run test:bridge
 
       - name: Type check
         run: npx tsc --noEmit -p packages/bridge/tsconfig.json
@@ -48,8 +45,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm run test:bridge
+      - name: Run Windows smoke tests
+        run: npm run test:windows-smoke --workspace=packages/bridge
 
       - name: Type check
         run: npx tsc --noEmit -p packages/bridge/tsconfig.json
@@ -69,9 +66,6 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-
-      - name: Update npm for OIDC support
-        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
