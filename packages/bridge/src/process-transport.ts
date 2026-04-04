@@ -9,6 +9,8 @@ export interface ProcessStartOptions {
   permissionMode?: PermissionMode;
   model?: string;
   initialInput?: string;         // Auto-send on start
+  cols?: number;                 // Initial terminal columns (PTY sidecar)
+  rows?: number;                 // Initial terminal rows (PTY sidecar)
   [key: string]: unknown;        // Provider-specific passthrough
 }
 

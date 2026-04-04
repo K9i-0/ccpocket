@@ -1,15 +1,27 @@
 import { EventEmitter } from "node:events";
+import { execFileSync } from "node:child_process";
 import * as pty from "node-pty";
 import type { IPty } from "node-pty";
-import { AnsiParser } from "./ansi-parser.js";
-import type { IProcessTransport, ProcessStartOptions } from "./process-transport.js";
-import type { ProcessStatus, ServerMessage } from "./parser.js";
+import type { ProcessStartOptions } from "./process-transport.js";
+import type { ProcessStatus } from "./parser.js";
 
-export class PtyProcess extends EventEmitter implements IProcessTransport {
+/**
+ * Sidecar PTY process — spawns the native CLI binary (`claude` or `codex`)
+ * for terminal display. Emits raw `pty_data` bytes for CLI clients.
+ *
+ * This is NOT the primary session process. SdkProcess/CodexProcess own the
+ * session and emit structured events for phone clients. PtyProcess is a
+ * secondary display process that attaches to the same conversation via
+ * `claude --resume` or `codex --thread`.
+ *
+ * Events emitted:
+ * - "pty_data" (data: string)           — raw terminal bytes
+ * - "status"   (status: ProcessStatus)  — lifecycle status changes
+ * - "exit"     (code: number)           — process exited
+ */
+export class PtyProcess extends EventEmitter {
   private ptyProc: IPty | null = null;
-  private parser: AnsiParser | null = null;
   private _status: ProcessStatus = "idle";
-  private _sessionId: string | null = null;
   private dataDisposable: { dispose(): void } | null = null;
   private exitDisposable: { dispose(): void } | null = null;
 
@@ -17,59 +29,46 @@ export class PtyProcess extends EventEmitter implements IProcessTransport {
     return this._status;
   }
 
-  get isPty(): boolean {
-    return true;
-  }
-
-  get sessionId(): string | null {
-    return this._sessionId;
-  }
-
-  get isWaitingForInput(): boolean {
-    // PTY is always ready to receive input — no turn-based protocol
-    return true;
-  }
-
-  interrupt(): void {
-    // Send Ctrl+C to the PTY (standard Unix SIGINT)
-    this.ptyProc?.write("\x03");
-  }
-
+  /**
+   * Spawn the native CLI as a sidecar PTY.
+   * For Claude: `claude --resume <sessionId> <projectPath> --verbose`
+   * For Codex:  `codex --thread <sessionId> <projectPath>`
+   */
   start(opts: ProcessStartOptions): void {
-    const { projectPath, provider, sessionId, permissionMode } = opts;
+    const { projectPath, provider, sessionId } = opts;
 
-    const binary = provider === "codex" ? "codex" : "claude";
-    const args = this.buildArgs(provider, projectPath, sessionId, permissionMode);
+    if (!sessionId) {
+      throw new Error("Sidecar PTY requires a sessionId (--resume/--thread)");
+    }
 
-    this.parser = new AnsiParser(provider);
-    this.parser.on("message", (msg: ServerMessage) => {
-      this.emit("message", msg);
-    });
-    this.parser.on("session_id", (id: string) => {
-      this._sessionId = id;
-    });
+    const binaryName = provider === "codex" ? "codex" : "claude";
+    let binary: string;
+    try {
+      binary = execFileSync("which", [binaryName], { encoding: "utf-8" }).trim();
+    } catch {
+      binary = binaryName;
+    }
+
+    const args = this.buildArgs(provider, projectPath, sessionId, opts.permissionMode);
+    console.log(`[pty] Spawning sidecar: ${binary} ${args.join(" ")}`);
 
     this._status = "starting";
     this.emit("status", this._status);
 
     this.ptyProc = pty.spawn(binary, args, {
       name: "xterm-256color",
-      cols: 80,
-      rows: 24,
+      cols: opts.cols ?? 80,
+      rows: opts.rows ?? 24,
       cwd: projectPath,
       env: process.env as Record<string, string>,
     });
 
-    // Wire handlers BEFORE emitting "running" — if the binary doesn't exist,
-    // the process exits immediately and we need onExit registered to clean up.
     this.dataDisposable = this.ptyProc.onData((data: string) => {
       this.emit("pty_data", data);
-      this.parser?.feed(data);
     });
 
     this.exitDisposable = this.ptyProc.onExit(
       ({ exitCode }: { exitCode: number; signal?: number }) => {
-        this.parser?.flush();
         this._status = "idle";
         this.emit("status", this._status);
         this.emit("exit", exitCode);
@@ -79,56 +78,38 @@ export class PtyProcess extends EventEmitter implements IProcessTransport {
 
     this._status = "running";
     this.emit("status", this._status);
-
-    if (opts.initialInput) {
-      setTimeout(() => this.sendInput(opts.initialInput!), 500);
-    }
   }
 
-  stop(): void {
-    this.ptyProc?.kill("SIGTERM");
-  }
-
-  kill(): void {
-    this.ptyProc?.kill("SIGKILL");
-  }
-
+  /** Write raw bytes to the PTY (keystrokes from CLI client). */
   write(data: string): void {
     this.ptyProc?.write(data);
   }
 
-  sendInput(text: string): void {
-    this.ptyProc?.write(text + "\n");
-  }
-
-  sendApproval(_id: string): void {
-    this.ptyProc?.write("y\n");
-  }
-
-  sendRejection(_id: string, _reason?: string): void {
-    this.ptyProc?.write("n\n");
-  }
-
+  /** Resize the PTY terminal. */
   resize(cols: number, rows: number): void {
     this.ptyProc?.resize(cols, rows);
+  }
+
+  /** Graceful stop (SIGTERM). */
+  stop(): void {
+    this.ptyProc?.kill("SIGTERM");
+  }
+
+  /** Forceful kill (SIGKILL). */
+  kill(): void {
+    this.ptyProc?.kill("SIGKILL");
   }
 
   private buildArgs(
     provider: string,
     projectPath: string,
-    sessionId?: string,
+    sessionId: string,
     permissionMode?: string,
   ): string[] {
     if (provider === "codex") {
-      const args = [projectPath];
-      if (sessionId) args.push("--thread", sessionId);
-      return args;
+      return [projectPath, "--thread", sessionId];
     }
-
-    const args = [projectPath, "--verbose"];
-    if (sessionId) {
-      args.push("--resume", sessionId);
-    }
+    const args = [projectPath, "--verbose", "--resume", sessionId];
     if (permissionMode === "bypassPermissions") {
       args.push("--dangerously-skip-permissions");
     }
