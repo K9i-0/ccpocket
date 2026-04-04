@@ -502,12 +502,14 @@ export class SessionManager {
 
     proc.on("status", (status) => {
       session.status = status;
+      this.onMessage(id, { type: "status", status } as ServerMessage);
     });
 
-    proc.on("exit", () => {
+    proc.on("exit", (exitCode: number) => {
       session.status = "idle";
-      // Add status message to history so it stays in sync with session.status
-      session.history.push({ type: "status", status: "idle" } as ServerMessage);
+      const statusMsg = { type: "status", status: "idle" } as ServerMessage;
+      session.history.push(statusMsg);
+      this.onMessage(id, statusMsg);
     });
 
     // Re-persist customTitle after CLI finishes writing sessions-index.json.

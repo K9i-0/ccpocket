@@ -27,8 +27,10 @@ program
     // Wait for connection, then go straight to raw PTY session
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("Connection timed out")), 10_000);
-      client.on("open", () => { clearTimeout(timer); resolve(); });
-      client.on("error", (err) => { clearTimeout(timer); reject(err); });
+      const onOpen = () => { client.off("error", onError); clearTimeout(timer); resolve(); };
+      const onError = (err: Error) => { client.off("open", onOpen); clearTimeout(timer); reject(err); };
+      client.once("open", onOpen);
+      client.once("error", onError);
     });
     await runPtySession(client, sessionId);
     client.disconnect();
@@ -48,29 +50,44 @@ program
 
     // Wait for connection, start session, then enter raw PTY mode
     const sessionId = await new Promise<string>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Session creation timed out")), 30_000);
-      client.on("open", () => {
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error("Session creation timed out"));
+      }, 30_000);
+
+      const onOpen = () => {
         client.send({
           type: "start",
           projectPath: path,
           provider: opts.provider,
         });
-      });
-      client.on("error", (err) => { clearTimeout(timer); reject(err); });
-      client.on("message", (msg) => {
+      };
+      const onError = (err: Error) => { cleanup(); reject(err); };
+      const onMessage = (msg: Record<string, unknown>) => {
         if (
           msg.type === "system" &&
           msg.subtype === "session_created" &&
           msg.sessionId
         ) {
-          clearTimeout(timer);
+          cleanup();
           resolve(msg.sessionId as string);
         }
         if (msg.type === "error") {
-          clearTimeout(timer);
+          cleanup();
           reject(new Error((msg.message as string) ?? "Session creation failed"));
         }
-      });
+      };
+
+      function cleanup() {
+        clearTimeout(timer);
+        client.off("open", onOpen);
+        client.off("error", onError);
+        client.off("message", onMessage);
+      }
+
+      client.once("open", onOpen);
+      client.on("error", onError);
+      client.on("message", onMessage);
     });
 
     await runPtySession(client, sessionId);

@@ -72,12 +72,12 @@ export async function runPtySession(
       }
     };
 
-    // Handle session end
+    // Handle session end — PtyProcess emits "idle" when the CLI exits
     const onSessionEnd = (msg: Record<string, unknown>) => {
       if (msg.sessionId !== sessionId) return;
       if (
         msg.type === "status" &&
-        (msg.status === "exited" || msg.status === "stopped")
+        (msg.status === "idle" || msg.status === "exited" || msg.status === "stopped")
       ) {
         cleanup();
       }

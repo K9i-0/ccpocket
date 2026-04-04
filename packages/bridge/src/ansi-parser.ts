@@ -261,7 +261,7 @@ export class AnsiParser extends EventEmitter {
 
   private processToolResultLine(line: string): void {
     // Stop accumulating once the cap is hit (truncation marker already added)
-    if (this.toolResultLines.length >= MAX_TOOL_RESULT_LINES) {
+    if (this.toolResultLines.length > MAX_TOOL_RESULT_LINES) {
       return;
     }
 
@@ -269,13 +269,12 @@ export class AnsiParser extends EventEmitter {
     if (line.trim().length === 0) {
       // Don't finalize yet — might be followed by more result or permission
       this.toolResultLines.push("");
-      return;
+    } else {
+      // Accumulate tool result content
+      this.toolResultLines.push(line);
     }
 
-    // Accumulate tool result content
-    this.toolResultLines.push(line);
-
-    // Add truncation marker when we hit the limit
+    // Add truncation marker when we hit the limit (works for both empty and non-empty lines)
     if (this.toolResultLines.length === MAX_TOOL_RESULT_LINES) {
       this.toolResultLines.push("[... output truncated]");
     }
