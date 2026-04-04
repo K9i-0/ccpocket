@@ -521,6 +521,20 @@ final List<ServerMessage> storeChatMarkdownInput = [
   const StatusMessage(status: ProcessStatus.idle),
 ];
 
+/// Mock project file list for file peek detection in the markdown input
+/// screenshot. Paths match the assistant message referencing shopify-app.
+const storeMarkdownInputFileList = [
+  'lib/main.dart',
+  'lib/app.dart',
+  'lib/features/checkout/checkout_screen.dart',
+  'lib/features/checkout/checkout_bloc.dart',
+  'lib/features/products/product_list.dart',
+  'lib/features/auth/auth_service.dart',
+  'lib/services/api_client.dart',
+  'lib/services/stripe_service.dart',
+  'test/checkout_test.dart',
+];
+
 /// Pre-populated input text for the markdown input screenshot.
 const storeMarkdownInputText =
     'Refactor the checkout module:\n'

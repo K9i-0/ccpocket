@@ -1,2 +1,4 @@
-- Git Operations: stage, unstage, commit, branch checkout, fetch/pull/push directly from the app
-- Bug fixes
+- Explore file browser: browse project files directly in the app
+- Codex approval policy display
+- Improved file peek detection
+- Git diff screen UI improvements

@@ -485,7 +485,10 @@ class _StoreMarkdownInputRouteState extends State<_StoreMarkdownInputRoute> {
                 ActiveSessionsCubit(const [], _mockService.sessionList),
           ),
           BlocProvider(
-            create: (_) => FileListCubit(const [], _mockService.fileList),
+            create: (_) => FileListCubit(
+              storeMarkdownInputFileList,
+              _mockService.fileList,
+            ),
           ),
         ],
         child: const ClaudeSessionScreen(
