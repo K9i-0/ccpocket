@@ -35,7 +35,7 @@ function stripAnsi(str: string): string {
 const MAX_TOOL_RESULT_LINES = 2000;
 
 const ASSISTANT_MARKER = "\u23FA"; // ⏺
-const TOOL_HEADER_RE = /^\u23BF\s+(\w+)\((.*)?\)\s*$/;
+const TOOL_HEADER_RE = /^\u23BF\s+([\w:.\-/]+)\((.*)?\)\s*$/;
 const PERMISSION_RE = /Allow\?\s*\(/;
 const COST_RE = /^Cost:\s*\$([0-9.]+)\s*\u00B7\s*Duration:\s*([0-9.]+)s/;
 const SESSION_RE = /^Session:\s*(\S+)/;
@@ -100,7 +100,11 @@ export class AnsiParser extends EventEmitter {
     if (this.lineBuffer.length > 0) {
       const line = this.lineBuffer.replace(/\r$/, "");
       this.lineBuffer = "";
-      this.processLine(line);
+      if (this.provider === "codex") {
+        this.processCodexLine(line);
+      } else {
+        this.processLine(line);
+      }
     }
 
     this.finalizeCurrentState();

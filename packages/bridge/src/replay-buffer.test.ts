@@ -86,11 +86,27 @@ describe("ReplayBuffer", () => {
     expect(buf.replayFrom(99)).toEqual([]);
   });
 
-  it("clear removes all events and resets nextSeq", () => {
+  it("clear removes all events but preserves nextSeq for gap detection", () => {
     const buf = new ReplayBuffer();
-    buf.append({ type: "stream_delta", text: "a" });
+    buf.append({ type: "stream_delta", text: "a" }); // seq 1
     buf.clear();
     expect(buf.replayFrom(0)).toEqual([]);
     expect(buf.length).toBe(0);
+
+    // After clear, new events continue from where nextSeq left off
+    const seq = buf.append({ type: "stream_delta", text: "b" });
+    expect(seq).toBe(2); // Not 1 — nextSeq was preserved
+
+    // A client reconnecting with lastSeq=1 correctly detects a gap
+    // (the cleared event at seq 1 is gone — client knows data was lost)
+    const result = buf.replayWithGapInfo(1);
+    expect(result.gap).toBe(true);
+    expect(result.events).toHaveLength(1); // full buffer on gap
+    expect(result.events[0].seq).toBe(2);
+
+    // A client with lastSeq=0 (first connect) gets everything, no gap
+    const fresh = buf.replayWithGapInfo(0);
+    expect(fresh.gap).toBe(false);
+    expect(fresh.events).toHaveLength(1);
   });
 });

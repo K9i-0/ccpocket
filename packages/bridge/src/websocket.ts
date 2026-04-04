@@ -3362,6 +3362,10 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "Session not found" });
           return;
         }
+        if (!session.process.isPty) {
+          this.send(ws, { type: "error", message: "Session is not a PTY session" });
+          return;
+        }
         this.attachClient(session.id, ws, "cli");
         // Write raw bytes to PTY
         session.process.write(msg.data);

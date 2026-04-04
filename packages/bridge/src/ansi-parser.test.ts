@@ -140,6 +140,57 @@ describe("AnsiParser", () => {
     });
   });
 
+  describe("Claude profile — MCP tool names", () => {
+    it("detects tool names with colons, hyphens, and slashes", () => {
+      const parser = new AnsiParser("claude");
+      const msgs = collectMessages(parser, [
+        "\u23BF mcp__playwright__browser_click(/path/to/el)\r\n",
+        "  clicked element\r\n",
+        "\r\n",
+      ]);
+
+      const assistants = msgs.filter((m) => m.type === "assistant");
+      const toolUse = assistants.find(
+        (m) =>
+          m.type === "assistant" &&
+          m.message.content.some((c: any) => c.type === "tool_use"),
+      ) as any;
+      expect(toolUse).toBeDefined();
+      expect(toolUse.message.content[0].name).toBe(
+        "mcp__playwright__browser_click",
+      );
+    });
+  });
+
+  describe("Codex profile", () => {
+    it("emits all non-empty lines as generic assistant text", () => {
+      const parser = new AnsiParser("codex");
+      const msgs = collectMessages(parser, [
+        "Thinking about your request...\r\n",
+        "Running command: ls -la\r\n",
+        "\r\n",
+        "Done.\r\n",
+      ]);
+
+      // All non-empty lines become assistant messages
+      const assistants = msgs.filter((m) => m.type === "assistant");
+      expect(assistants).toHaveLength(3);
+    });
+
+    it("flush routes remaining Codex buffer through Codex path", () => {
+      const parser = new AnsiParser("codex");
+      const msgs: ServerMessage[] = [];
+      parser.on("message", (msg) => msgs.push(msg));
+
+      // Feed partial line (no trailing newline)
+      parser.feed("partial codex output");
+      parser.flush();
+
+      const assistants = msgs.filter((m) => m.type === "assistant");
+      expect(assistants).toHaveLength(1);
+    });
+  });
+
   describe("graceful degradation", () => {
     it("emits generic assistant text for unrecognized output", () => {
       const parser = new AnsiParser("claude");

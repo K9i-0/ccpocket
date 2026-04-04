@@ -72,7 +72,8 @@ export class ReplayBuffer {
 
   clear(): void {
     this.events = [];
-    this.nextSeq = 1;
+    // nextSeq intentionally NOT reset — preserves monotonic ordering
+    // so reconnecting clients can still detect gaps after a clear.
     this.totalBytes = 0;
   }
 }

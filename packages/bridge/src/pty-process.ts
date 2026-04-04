@@ -60,6 +60,8 @@ export class PtyProcess extends EventEmitter implements IProcessTransport {
       env: process.env as Record<string, string>,
     });
 
+    // Wire handlers BEFORE emitting "running" — if the binary doesn't exist,
+    // the process exits immediately and we need onExit registered to clean up.
     this.dataDisposable = this.ptyProc.onData((data: string) => {
       this.emit("pty_data", data);
       this.parser?.feed(data);
