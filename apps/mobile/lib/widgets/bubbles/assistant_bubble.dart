@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../providers/bridge_cubits.dart';
 import '../../models/messages.dart';
 import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
@@ -264,7 +266,12 @@ class _DefaultLayout extends StatelessWidget {
                       styleSheet: buildMarkdownStyle(context),
                       onTapLink: handleMarkdownLink,
                       inlineSyntaxes: [
-                        if (onFileTap != null) FilePathSyntax(),
+                        if (onFileTap != null)
+                          FilePathSyntax(
+                            knownPathSuffixes: FilePathSyntax.buildSuffixSet(
+                              context.read<FileListCubit>().state,
+                            ),
+                          ),
                         ...colorCodeInlineSyntaxes,
                       ],
                       builders: {
