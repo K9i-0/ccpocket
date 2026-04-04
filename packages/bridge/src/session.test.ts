@@ -149,14 +149,13 @@ describe("SessionManager codex path", () => {
       },
     );
 
-    // With usePty=true, PtyProcess is used for all providers
-    expect(ptyInstances).toHaveLength(1);
-    expect(ptyInstances[0].start).toHaveBeenCalledTimes(1);
-    expect(ptyInstances[0].start).toHaveBeenCalledWith(
+    expect(codexInstances).toHaveLength(1);
+    expect(codexInstances[0].start).toHaveBeenCalledTimes(1);
+    expect(codexInstances[0].start).toHaveBeenCalledWith(
+      "/tmp/project-codex",
       expect.objectContaining({
-        projectPath: "/tmp/project-codex",
-        provider: "codex",
-        sessionId: "thread-1",
+        threadId: "thread-1",
+        sandboxMode: "workspace-write",
       }),
     );
 
@@ -177,7 +176,7 @@ describe("SessionManager codex path", () => {
       },
     );
 
-    ptyInstances[0].emit("message", {
+    codexInstances[0].emit("message", {
       type: "system",
       subtype: "init",
       provider: "codex",
@@ -187,7 +186,7 @@ describe("SessionManager codex path", () => {
       sandboxMode: "workspace-write",
       networkAccessEnabled: false,
     });
-    ptyInstances[0].emit("message", {
+    codexInstances[0].emit("message", {
       type: "assistant",
       message: {
         id: "msg_1",
@@ -217,7 +216,7 @@ describe("SessionManager codex path", () => {
       "codex",
     );
 
-    ptyInstances[0].emit("message", {
+    codexInstances[0].emit("message", {
       type: "system",
       subtype: "init",
       provider: "codex",
@@ -225,7 +224,7 @@ describe("SessionManager codex path", () => {
       model: "codex",
       sandboxMode: "workspace-write",
     });
-    ptyInstances[0].emit("message", {
+    codexInstances[0].emit("message", {
       type: "assistant",
       message: {
         id: "msg_1",
@@ -261,13 +260,13 @@ describe("SessionManager codex path", () => {
       },
     );
 
-    expect(ptyInstances).toHaveLength(1);
-    expect(ptyInstances[0].start).toHaveBeenCalledTimes(1);
-    expect(ptyInstances[0].start).toHaveBeenCalledWith(
+    expect(codexInstances).toHaveLength(1);
+    expect(codexInstances[0].start).toHaveBeenCalledTimes(1);
+    expect(codexInstances[0].start).toHaveBeenCalledWith(
+      "/tmp/project-main-worktrees/feature-x",
       expect.objectContaining({
-        projectPath: "/tmp/project-main-worktrees/feature-x",
-        provider: "codex",
-        sessionId: "thread-worktree",
+        threadId: "thread-worktree",
+        sandboxMode: "workspace-write",
       }),
     );
 
@@ -318,7 +317,7 @@ describe("SessionManager codex path", () => {
       undefined,
       "codex",
     );
-    const proc = ptyInstances[0];
+    const proc = codexInstances[0];
     const session = manager.get(sessionId);
     expect(session?.status).toBe("starting");
 
@@ -367,7 +366,7 @@ describe("SessionManager codex path", () => {
       "codex",
     );
 
-    const proc = ptyInstances[0];
+    const proc = codexInstances[0];
     proc.emit("message", {
       type: "stream_delta",
       text: "partial",
@@ -414,7 +413,7 @@ describe("SessionManager codex path", () => {
       "codex",
     );
 
-    ptyInstances[0].emit("message", {
+    codexInstances[0].emit("message", {
       type: "tool_result",
       toolUseId: "mcp-img-1",
       toolName: "mcp:marionette/take_screenshots",
@@ -521,7 +520,7 @@ describe("SessionManager claude UUID backfill", () => {
       text: "hello from worktree",
     } as ServerMessage);
 
-    ptyInstances[0].emit("message", {
+    sdkInstances[0].emit("message", {
       type: "result",
       subtype: "success",
       sessionId: threadId,
@@ -563,7 +562,7 @@ describe("SessionManager claude UUID backfill", () => {
     } as ServerMessage);
 
     // Simulate SDK echoing back user_input with UUID (no imageCount)
-    ptyInstances[0].emit("message", {
+    sdkInstances[0].emit("message", {
       type: "user_input",
       text: "check this screenshot",
       userMessageUuid: "uuid-img",
@@ -594,7 +593,7 @@ describe("SessionManager claude UUID backfill", () => {
     } as ServerMessage);
 
     // SDK echo with UUID
-    ptyInstances[0].emit("message", {
+    sdkInstances[0].emit("message", {
       type: "user_input",
       text: "hello world",
       userMessageUuid: "uuid-text",
@@ -636,7 +635,7 @@ describe("SessionManager claude UUID backfill", () => {
       text: "fallback match",
     } as ServerMessage);
 
-    ptyInstances[0].emit("message", {
+    sdkInstances[0].emit("message", {
       type: "result",
       subtype: "success",
       sessionId: threadId,
@@ -649,5 +648,67 @@ describe("SessionManager claude UUID backfill", () => {
         ? userInput.userMessageUuid
         : undefined,
     ).toBe("user-uuid-fallback");
+  });
+});
+
+describe("sidecar PTY", () => {
+  beforeEach(() => {
+    codexInstances.length = 0;
+    sdkInstances.length = 0;
+    ptyInstances.length = 0;
+  });
+
+  it("spawnSidecarPty returns null when session has no claudeSessionId", () => {
+    const onMessage = vi.fn();
+    const mgr = new SessionManager(onMessage);
+    const id = mgr.create("/tmp", {});
+    const session = mgr.get(id)!;
+    session.claudeSessionId = undefined;
+
+    const result = mgr.spawnSidecarPty(id);
+    expect(result).toBeNull();
+    expect(session.ptyProcess).toBeNull();
+  });
+
+  it("spawnSidecarPty returns existing sidecar if already spawned", () => {
+    const onMessage = vi.fn();
+    const mgr = new SessionManager(onMessage);
+    const id = mgr.create("/tmp", { sessionId: "test-session" });
+    const session = mgr.get(id)!;
+    session.claudeSessionId = "test-session";
+
+    const mockPty = { on: vi.fn(), start: vi.fn(), stop: vi.fn(), removeAllListeners: vi.fn() };
+    session.ptyProcess = mockPty as any;
+
+    const result = mgr.spawnSidecarPty(id);
+    expect(result).toBe(mockPty);
+  });
+
+  it("destroySidecarPty cleans up the sidecar", () => {
+    const onMessage = vi.fn();
+    const mgr = new SessionManager(onMessage);
+    const id = mgr.create("/tmp", {});
+    const session = mgr.get(id)!;
+
+    const mockPty = { stop: vi.fn(), removeAllListeners: vi.fn() };
+    session.ptyProcess = mockPty as any;
+
+    mgr.destroySidecarPty(id);
+    expect(mockPty.stop).toHaveBeenCalled();
+    expect(mockPty.removeAllListeners).toHaveBeenCalled();
+    expect(session.ptyProcess).toBeNull();
+  });
+
+  it("destroy() also destroys sidecar PTY", () => {
+    const onMessage = vi.fn();
+    const mgr = new SessionManager(onMessage);
+    const id = mgr.create("/tmp", {});
+    const session = mgr.get(id)!;
+
+    const mockPty = { stop: vi.fn(), removeAllListeners: vi.fn() };
+    session.ptyProcess = mockPty as any;
+
+    mgr.destroy(id);
+    expect(mockPty.stop).toHaveBeenCalled();
   });
 });
