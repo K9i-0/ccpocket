@@ -257,7 +257,7 @@ export type ClientMessage =
   | { type: "git_fetch"; projectPath: string }
   | { type: "git_pull"; projectPath: string }
   | { type: "git_remote_status"; projectPath: string }
-  | { type: "attach_session"; sessionId: string; clientType?: string; lastSeq?: number }
+  | { type: "attach_session"; sessionId: string; clientType?: string; lastSeq?: number; cols?: number; rows?: number }
   | { type: "pty_input"; sessionId: string; data: string }
   | { type: "pty_resize"; sessionId: string; cols: number; rows: number }
   | { type: "detach_session"; sessionId: string };
@@ -1041,6 +1041,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         if (msg.lastSeq !== undefined && typeof msg.lastSeq !== "number")
           return null;
+        if (msg.cols !== undefined && typeof msg.cols !== "number") return null;
+        if (msg.rows !== undefined && typeof msg.rows !== "number") return null;
         break;
       case "pty_input":
         if (typeof msg.sessionId !== "string") return null;

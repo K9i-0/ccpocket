@@ -3312,6 +3312,28 @@ export class BridgeWebSocketServer {
 
         this.attachClient(msg.sessionId, ws, msg.clientType);
 
+        // Spawn sidecar PTY for CLI clients
+        if (msg.clientType === "cli") {
+          const cols = typeof msg.cols === "number" ? msg.cols : undefined;
+          const rows = typeof msg.rows === "number" ? msg.rows : undefined;
+          const ptyProc = this.sessionManager.spawnSidecarPty(
+            msg.sessionId,
+            cols,
+            rows,
+          );
+          if (!ptyProc && !session.ptyProcess) {
+            // Session ID not available yet — will spawn when it arrives
+            if (!session.claudeSessionId) {
+              this.deferSidecarSpawn(msg.sessionId, ws, cols, rows);
+            } else {
+              this.send(ws, {
+                type: "error",
+                message: "Failed to start CLI view",
+              });
+            }
+          }
+        }
+
         // Send session_created so the client has full session metadata
         const createdMsg = this.buildSessionCreatedMessage({
           sessionId: msg.sessionId,
@@ -3362,13 +3384,12 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "Session not found" });
           return;
         }
-        if (!session.process.isPty) {
-          this.send(ws, { type: "error", message: "Session is not a PTY session" });
+        if (!session.ptyProcess) {
+          this.send(ws, { type: "error", message: "No CLI view active for this session" });
           return;
         }
         this.attachClient(session.id, ws, "cli");
-        // Write raw bytes to PTY
-        session.process.write(msg.data);
+        session.ptyProcess.write(msg.data);
         break;
       }
 
@@ -3378,9 +3399,8 @@ export class BridgeWebSocketServer {
           this.send(ws, { type: "error", message: "Session not found" });
           return;
         }
-        // PtyProcess has resize(), other processes don't
-        if (session.process.isPty) {
-          session.process.resize?.(msg.cols, msg.rows);
+        if (session.ptyProcess) {
+          session.ptyProcess.resize(msg.cols, msg.rows);
         }
         break;
       }
@@ -3581,6 +3601,44 @@ export class BridgeWebSocketServer {
     return clientId;
   }
 
+  /**
+   * Defer sidecar PTY spawn until the SDK process emits a session ID.
+   * Used when a CLI client attaches before the session ID is available.
+   */
+  private deferSidecarSpawn(
+    sessionId: string,
+    ws: WebSocket,
+    cols?: number,
+    rows?: number,
+  ): void {
+    const session = this.sessionManager.get(sessionId);
+    if (!session) return;
+
+    console.log(`[ws] Deferring sidecar PTY spawn for ${sessionId} (waiting for session ID)`);
+
+    const onMessage = (msg: Record<string, unknown>) => {
+      if (
+        (msg.type === "system" || msg.type === "result") &&
+        "sessionId" in msg &&
+        msg.sessionId
+      ) {
+        session.process.off("message", onMessage);
+        // Now we have a session ID — spawn the sidecar
+        const ptyProc = this.sessionManager.spawnSidecarPty(sessionId, cols, rows);
+        if (!ptyProc) {
+          this.send(ws, { type: "error", message: "Failed to start CLI view" });
+        }
+      }
+    };
+
+    session.process.on("message", onMessage);
+
+    // Clean up if the client disconnects before we get a session ID
+    ws.once("close", () => {
+      session.process.off("message", onMessage);
+    });
+  }
+
   /** Detach a WebSocket client from a session. */
   private detachClient(sessionId: string, ws: WebSocket): void {
     const clients = this.sessionClients.get(sessionId);
@@ -3600,6 +3658,16 @@ export class BridgeWebSocketServer {
     for (const [otherWs] of clients) {
       if (otherWs.readyState === WebSocket.OPEN) {
         otherWs.send(leftMsg);
+      }
+    }
+
+    // If a CLI client left, check if any CLI clients remain
+    if (info.clientType === "cli") {
+      const hasCliClients = [...clients.values()].some(
+        (c) => c.clientType === "cli",
+      );
+      if (!hasCliClients) {
+        this.sessionManager.destroySidecarPty(sessionId);
       }
     }
 
