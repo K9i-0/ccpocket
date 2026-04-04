@@ -12,22 +12,14 @@ export async function runPtySession(
     const stdin = process.stdin;
     const stdout = process.stdout;
 
-    // Attach to session as CLI client
+    // Attach to session as CLI client — include terminal size for sidecar PTY
     client.send({
       type: "attach_session",
       sessionId,
       clientType: "cli",
+      cols: stdout.columns,
+      rows: stdout.rows,
     });
-
-    // Send terminal dimensions
-    if (stdout.columns && stdout.rows) {
-      client.send({
-        type: "pty_resize",
-        sessionId,
-        cols: stdout.columns,
-        rows: stdout.rows,
-      });
-    }
 
     // Enter raw mode
     const wasRaw = stdin.isRaw;
@@ -79,6 +71,12 @@ export async function runPtySession(
         msg.type === "status" &&
         (msg.status === "idle" || msg.status === "exited" || msg.status === "stopped")
       ) {
+        cleanup();
+      }
+
+      // Also handle sidecar spawn failure
+      if (msg.type === "error" && msg.message === "Failed to start CLI view") {
+        console.error("Failed to start CLI view for this session.");
         cleanup();
       }
     };
