@@ -1,39 +1,93 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { spawnMock, fakeChildren } = vi.hoisted(() => ({
-  spawnMock: vi.fn(),
-  fakeChildren: [] as FakeChildProcess[],
-}));
+const { spawnMock, fakeChildren, fakeWebSockets, FakeWebSocket, FakeChildProcess } = vi.hoisted(() => {
+  const { EventEmitter } = require("node:events");
 
-class FakeWritable extends EventEmitter {
-  public writes: string[] = [];
-  write(chunk: string): boolean {
-    this.writes.push(chunk);
-    this.emit("write", chunk);
-    return true;
+  class FakeWritable extends EventEmitter {
+    public writes: string[] = [];
+    write(chunk: string): boolean {
+      this.writes.push(chunk);
+      this.emit("write", chunk);
+      return true;
+    }
   }
-}
 
-class FakeReadable extends EventEmitter {
-  setEncoding(_encoding: string): void {}
-}
-
-class FakeChildProcess extends EventEmitter {
-  public stdout = new FakeReadable();
-  public stderr = new FakeReadable();
-  public stdin = new FakeWritable();
-  public killed = false;
-
-  kill(_signal?: NodeJS.Signals): boolean {
-    this.killed = true;
-    this.emit("exit", 0);
-    return true;
+  class FakeReadable extends EventEmitter {
+    setEncoding(_encoding: string): void {}
   }
-}
+
+  class FakeChildProcess extends EventEmitter {
+    public stdout = new FakeReadable();
+    public stderr = new FakeReadable();
+    public stdin = new FakeWritable();
+    public killed = false;
+
+    kill(_signal?: NodeJS.Signals): boolean {
+      this.killed = true;
+      this.emit("exit", 0);
+      return true;
+    }
+  }
+
+  const fakeWebSockets: InstanceType<typeof FakeWebSocket>[] = [];
+
+  class FakeWebSocket extends EventEmitter {
+    static OPEN = 1;
+    public readyState = 1; // OPEN
+    public sends: string[] = [];
+    public url: string;
+
+    constructor(url: string) {
+      super();
+      this.url = url;
+      fakeWebSockets.push(this);
+      setTimeout(() => this.emit("open"), 0);
+    }
+
+    send(data: string): void {
+      this.sends.push(data);
+      this.emit("send", data);
+    }
+
+    terminate(): void {
+      this.readyState = 3;
+      this.removeAllListeners();
+    }
+
+    injectMessage(data: string): void {
+      this.emit("message", data);
+    }
+  }
+
+  return {
+    spawnMock: vi.fn(),
+    fakeChildren: [] as InstanceType<typeof FakeChildProcess>[],
+    fakeWebSockets,
+    FakeWebSocket,
+    FakeChildProcess,
+  };
+});
 
 vi.mock("node:child_process", () => ({
   spawn: spawnMock,
+}));
+
+vi.mock("ws", () => ({
+  WebSocket: FakeWebSocket,
+}));
+
+vi.mock("node:net", () => ({
+  createServer: () => {
+    const { EventEmitter } = require("node:events");
+    const srv = new EventEmitter();
+    srv.listen = (_port: number, _host: string, cb: () => void) => {
+      setTimeout(cb, 0);
+    };
+    srv.address = () => ({ port: 54321 });
+    srv.close = (cb?: () => void) => { if (cb) cb(); };
+    return srv;
+  },
 }));
 
 import { CodexProcess } from "./codex-process.js";
@@ -42,6 +96,7 @@ describe("CodexProcess (app-server)", () => {
   beforeEach(() => {
     spawnMock.mockReset();
     fakeChildren.length = 0;
+    fakeWebSockets.length = 0;
     spawnMock.mockImplementation(() => {
       const child = new FakeChildProcess();
       fakeChildren.push(child);
@@ -54,6 +109,9 @@ describe("CodexProcess (app-server)", () => {
       if (!child.killed) {
         child.kill();
       }
+    }
+    for (const ws of fakeWebSockets) {
+      ws.terminate();
     }
   });
 
@@ -68,28 +126,28 @@ describe("CodexProcess (app-server)", () => {
       model: "gpt-5.3-codex",
     });
 
+    const ws = await waitForWs();
+
     expect(spawnMock).toHaveBeenCalledTimes(1);
     expect(spawnMock).toHaveBeenCalledWith(
       "codex",
-      ["app-server", "--listen", "stdio://"],
+      ["app-server", "--listen", "ws://0.0.0.0:54321"],
       expect.objectContaining({ cwd: "/tmp/project-a" }),
     );
 
-    const child = fakeChildren[0];
     await tick();
 
-    const initReq = nextOutgoingRequest(child);
+    const initReq = nextOutgoingRequest(ws);
     expect(initReq.method).toBe("initialize");
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
 
     await tick();
-    const initialized = nextOutgoingNotification(child);
+    const initialized = nextOutgoingNotification(ws);
     expect(initialized.method).toBe("initialized");
 
-    const startReq = nextOutgoingRequest(child);
+    const startReq = nextOutgoingRequest(ws);
     expect(startReq.method).toBe("thread/start");
     expect(startReq.params).toMatchObject({
       cwd: "/tmp/project-a",
@@ -98,8 +156,7 @@ describe("CodexProcess (app-server)", () => {
       model: "gpt-5.3-codex",
     });
 
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         id: startReq.id,
         result: {
@@ -142,24 +199,22 @@ describe("CodexProcess (app-server)", () => {
       model: "codex",
     });
 
-    const child = fakeChildren[0];
+    const ws = await waitForWs();
     await tick();
 
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    const initReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
 
     await tick();
-    nextOutgoingNotification(child); // initialized
+    nextOutgoingNotification(ws); // initialized
 
-    const startReq = nextOutgoingRequest(child);
+    const startReq = nextOutgoingRequest(ws);
     expect(startReq.method).toBe("thread/start");
     expect(startReq.params).not.toHaveProperty("model");
 
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         id: startReq.id,
         result: { thread: { id: "thr_placeholder" } },
@@ -167,7 +222,7 @@ describe("CodexProcess (app-server)", () => {
     );
 
     await tick();
-    drainSkillsList(child);
+    drainSkillsList(ws);
 
     expect(messages).toContainEqual(
       expect.objectContaining({
@@ -187,7 +242,7 @@ describe("CodexProcess (app-server)", () => {
 
     proc.sendInput("continue");
     await tick();
-    const turnReq = nextOutgoingRequest(child);
+    const turnReq = nextOutgoingRequest(ws);
     expect(turnReq.method).toBe("turn/start");
     expect(turnReq.params).not.toHaveProperty("model");
     expect(turnReq.params).toMatchObject({
@@ -207,28 +262,28 @@ describe("CodexProcess (app-server)", () => {
 
     const initializePromise = proc.initializeOnly("/tmp/project-init-only");
 
+    const ws = await waitForWs();
+
     expect(spawnMock).toHaveBeenCalledTimes(1);
     expect(spawnMock).toHaveBeenCalledWith(
       "codex",
-      ["app-server", "--listen", "stdio://"],
+      ["app-server", "--listen", "ws://0.0.0.0:54321"],
       expect.objectContaining({ cwd: "/tmp/project-init-only" }),
     );
 
-    const child = fakeChildren[0];
     await tick();
 
-    const initReq = nextOutgoingRequest(child);
+    const initReq = nextOutgoingRequest(ws);
     expect(initReq.method).toBe("initialize");
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
 
     await initializePromise;
 
-    const initialized = nextOutgoingNotification(child);
+    const initialized = nextOutgoingNotification(ws);
     expect(initialized.method).toBe("initialized");
-    expect(() => nextOutgoingRequest(child)).toThrow();
+    expect(() => nextOutgoingRequest(ws)).toThrow();
 
     proc.stop();
   });
@@ -239,39 +294,34 @@ describe("CodexProcess (app-server)", () => {
     proc.on("message", (msg) => messages.push(msg));
 
     proc.start("/tmp/project-b");
-    const child = fakeChildren[0];
+    const ws = await waitForWs();
 
     await tick();
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    const initReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
     await tick();
-    nextOutgoingNotification(child); // initialized
-    const threadReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    nextOutgoingNotification(ws); // initialized
+    const threadReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_2" } } })}\n`,
     );
 
     await tick();
-    drainSkillsList(child);
+    drainSkillsList(ws);
     proc.sendInput("run ls");
     await tick();
-    const turnReq = nextOutgoingRequest(child);
+    const turnReq = nextOutgoingRequest(ws);
     expect(turnReq.method).toBe("turn/start");
 
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({ id: turnReq.id, result: { turn: { id: "turn_1" } } })}\n`,
     );
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({ method: "turn/started", params: { turn: { id: "turn_1" } } })}\n`,
     );
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         id: "req-approval-1",
         method: "item/commandExecution/requestApproval",
@@ -295,14 +345,13 @@ describe("CodexProcess (app-server)", () => {
 
     proc.approve("item_cmd_1");
     await tick();
-    const approvalResponse = nextOutgoingResponse(child);
+    const approvalResponse = nextOutgoingResponse(ws);
     expect(approvalResponse).toMatchObject({
       id: "req-approval-1",
       result: { decision: "accept" },
     });
 
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         method: "turn/completed",
         params: { turn: { id: "turn_1", status: "completed" } },
@@ -328,39 +377,34 @@ describe("CodexProcess (app-server)", () => {
     proc.on("message", (msg) => messages.push(msg));
 
     proc.start("/tmp/project-c");
-    const child = fakeChildren[0];
+    const ws = await waitForWs();
 
     await tick();
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    const initReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
     await tick();
-    nextOutgoingNotification(child); // initialized
-    const threadReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    nextOutgoingNotification(ws); // initialized
+    const threadReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_3" } } })}\n`,
     );
 
     await tick();
-    drainSkillsList(child);
+    drainSkillsList(ws);
     proc.sendInput("ask me a question");
     await tick();
-    const turnReq = nextOutgoingRequest(child);
+    const turnReq = nextOutgoingRequest(ws);
     expect(turnReq.method).toBe("turn/start");
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({ id: turnReq.id, result: { turn: { id: "turn_2" } } })}\n`,
     );
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({ method: "turn/started", params: { turn: { id: "turn_2" } } })}\n`,
     );
 
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         id: "req-user-input-1",
         method: "item/tool/requestUserInput",
@@ -395,7 +439,7 @@ describe("CodexProcess (app-server)", () => {
 
     proc.answer("item_user_input_1", "A");
     await tick();
-    const answerResponse = nextOutgoingResponse(child);
+    const answerResponse = nextOutgoingResponse(ws);
     expect(answerResponse).toMatchObject({
       id: "req-user-input-1",
       result: {
@@ -405,8 +449,7 @@ describe("CodexProcess (app-server)", () => {
       },
     });
 
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         method: "turn/completed",
         params: { turn: { id: "turn_2", status: "completed" } },
@@ -431,25 +474,22 @@ describe("CodexProcess (app-server)", () => {
     proc.on("message", (msg) => messages.push(msg));
 
     proc.start("/tmp/project-perms");
-    const child = fakeChildren[0];
+    const ws = await waitForWs();
 
     await tick();
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    const initReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
     await tick();
-    nextOutgoingNotification(child);
-    const threadReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    nextOutgoingNotification(ws);
+    const threadReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_perms" } } })}\n`,
     );
 
     await tick();
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         id: "req-perms-1",
         method: "item/permissions/requestApproval",
@@ -480,7 +520,7 @@ describe("CodexProcess (app-server)", () => {
     proc.approveAlways("perm_item_1");
     await tick();
 
-    const response = nextOutgoingResponse(child);
+    const response = nextOutgoingResponse(ws);
     expect(response).toMatchObject({
       id: "req-perms-1",
       result: {
@@ -502,25 +542,22 @@ describe("CodexProcess (app-server)", () => {
     proc.on("message", (msg) => messages.push(msg));
 
     proc.start("/tmp/project-elicitation");
-    const child = fakeChildren[0];
+    const ws = await waitForWs();
 
     await tick();
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    const initReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
     await tick();
-    nextOutgoingNotification(child);
-    const threadReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    nextOutgoingNotification(ws);
+    const threadReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_elicit" } } })}\n`,
     );
 
     await tick();
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         id: "req-elicit-1",
         method: "mcpServer/elicitation/request",
@@ -558,7 +595,7 @@ describe("CodexProcess (app-server)", () => {
     proc.answer("req-elicit-1", "true");
     await tick();
 
-    const response = nextOutgoingResponse(child);
+    const response = nextOutgoingResponse(ws);
     expect(response).toMatchObject({
       id: "req-elicit-1",
       result: {
@@ -578,25 +615,22 @@ describe("CodexProcess (app-server)", () => {
     proc.on("message", (msg) => messages.push(msg));
 
     proc.start("/tmp/project-resolved");
-    const child = fakeChildren[0];
+    const ws = await waitForWs();
 
     await tick();
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    const initReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
     await tick();
-    nextOutgoingNotification(child);
-    const threadReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    nextOutgoingNotification(ws);
+    const threadReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_resolved" } } })}\n`,
     );
 
     await tick();
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         id: "req-resolved-1",
         method: "item/commandExecution/requestApproval",
@@ -609,8 +643,7 @@ describe("CodexProcess (app-server)", () => {
     );
 
     await tick();
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         method: "serverRequest/resolved",
         params: {
@@ -635,25 +668,22 @@ describe("CodexProcess (app-server)", () => {
     const proc = new CodexProcess();
 
     proc.start("/tmp/project-approve-always");
-    const child = fakeChildren[0];
+    const ws = await waitForWs();
 
     await tick();
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    const initReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
     await tick();
-    nextOutgoingNotification(child);
-    const threadReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    nextOutgoingNotification(ws);
+    const threadReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_always" } } })}\n`,
     );
 
     await tick();
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         id: "req-always-1",
         method: "item/commandExecution/requestApproval",
@@ -669,7 +699,7 @@ describe("CodexProcess (app-server)", () => {
     proc.approveAlways("item_always_1");
     await tick();
 
-    const response = nextOutgoingResponse(child);
+    const response = nextOutgoingResponse(ws);
     expect(response).toMatchObject({
       id: "req-always-1",
       result: { decision: "acceptForSession" },
@@ -684,25 +714,22 @@ describe("CodexProcess (app-server)", () => {
     proc.on("message", (msg) => messages.push(msg));
 
     proc.start("/tmp/project-dynamic-tool");
-    const child = fakeChildren[0];
+    const ws = await waitForWs();
 
     await tick();
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    const initReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
     await tick();
-    nextOutgoingNotification(child);
-    const threadReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    nextOutgoingNotification(ws);
+    const threadReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_dynamic" } } })}\n`,
     );
 
     await tick();
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         method: "item/started",
         params: {
@@ -719,8 +746,7 @@ describe("CodexProcess (app-server)", () => {
         },
       })}\n`,
     );
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         method: "item/completed",
         params: {
@@ -790,25 +816,22 @@ describe("CodexProcess (app-server)", () => {
     proc.on("message", (msg) => messages.push(msg));
 
     proc.start("/tmp/project-mcp-images");
-    const child = fakeChildren[0];
+    const ws = await waitForWs();
 
     await tick();
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    const initReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
     await tick();
-    nextOutgoingNotification(child);
-    const threadReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    nextOutgoingNotification(ws);
+    const threadReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_mcp" } } })}\n`,
     );
 
     await tick();
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         method: "item/completed",
         params: {
@@ -877,45 +900,39 @@ describe("CodexProcess (app-server)", () => {
     proc.on("message", (msg) => messages.push(msg));
 
     proc.start("/tmp/project-d");
-    const child = fakeChildren[0];
+    const ws = await waitForWs();
 
     await tick();
-    const initReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    const initReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
     );
     await tick();
-    nextOutgoingNotification(child); // initialized
-    const threadReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    nextOutgoingNotification(ws); // initialized
+    const threadReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_4" } } })}\n`,
     );
 
     await tick();
-    drainSkillsList(child);
+    drainSkillsList(ws);
     proc.sendInput("make a plan");
     await tick();
-    const turnReq = nextOutgoingRequest(child);
-    child.stdout.emit(
-      "data",
+    const turnReq = nextOutgoingRequest(ws);
+    ws.injectMessage(
       `${JSON.stringify({ id: turnReq.id, result: { turn: { id: "turn_3" } } })}\n`,
     );
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({ method: "turn/started", params: { turn: { id: "turn_3" } } })}\n`,
     );
 
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         method: "item/plan/delta",
         params: { delta: "1. gather requirements" },
       })}\n`,
     );
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({
         method: "turn/plan/updated",
         params: {
@@ -955,10 +972,10 @@ describe("CodexProcess (app-server)", () => {
 });
 
 function consumeOutgoing(
-  child: FakeChildProcess,
+  ws: FakeWebSocket,
   predicate: (value: Record<string, unknown>) => boolean,
 ): Record<string, unknown> {
-  const lines = child.stdin.writes
+  const lines = ws.sends
     .flatMap((chunk) => chunk.split("\n"))
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
@@ -970,28 +987,27 @@ function consumeOutgoing(
     throw new Error("Expected outgoing JSON-RPC message was not found");
   }
   const remaining = lines.filter((_, lineIndex) => lineIndex !== index);
-  child.stdin.writes =
+  ws.sends =
     remaining.length > 0 ? [`${remaining.join("\n")}\n`] : [];
 
   return parsed[index];
 }
 
-function nextOutgoingRequest(child: FakeChildProcess): Record<string, unknown> {
+function nextOutgoingRequest(ws: FakeWebSocket): Record<string, unknown> {
   return consumeOutgoing(
-    child,
+    ws,
     (value) => typeof value.method === "string" && value.id !== undefined,
   );
 }
 
 /** Consume and reply to the background skills/list request that fires after thread/start. */
-function drainSkillsList(child: FakeChildProcess): void {
+function drainSkillsList(ws: FakeWebSocket): void {
   try {
     const req = consumeOutgoing(
-      child,
+      ws,
       (value) => value.method === "skills/list" && value.id !== undefined,
     );
-    child.stdout.emit(
-      "data",
+    ws.injectMessage(
       `${JSON.stringify({ id: req.id, result: { data: [] } })}\n`,
     );
   } catch {
@@ -1000,24 +1016,38 @@ function drainSkillsList(child: FakeChildProcess): void {
 }
 
 function nextOutgoingNotification(
-  child: FakeChildProcess,
+  ws: FakeWebSocket,
 ): Record<string, unknown> {
   return consumeOutgoing(
-    child,
+    ws,
     (value) => typeof value.method === "string" && value.id === undefined,
   );
 }
 
 function nextOutgoingResponse(
-  child: FakeChildProcess,
+  ws: FakeWebSocket,
 ): Record<string, unknown> {
   return consumeOutgoing(
-    child,
+    ws,
     (value) =>
       value.id !== undefined &&
       value.result !== undefined &&
       value.method === undefined,
   );
+}
+
+/** Wait for the async WS connection to establish after proc.start(). */
+async function waitForWs(): Promise<InstanceType<typeof FakeWebSocket>> {
+  // Need real time for: findFreePort setTimeout(cb, 0), connectWs setTimeout(tryConnect, 50), WS open setTimeout(0)
+  for (let i = 0; i < 20; i++) {
+    await new Promise((r) => setTimeout(r, 10));
+    if (fakeWebSockets.length > 0) break;
+  }
+  const ws = fakeWebSockets[fakeWebSockets.length - 1];
+  if (!ws) throw new Error("No FakeWebSocket was created");
+  // Wait one more tick for the "open" event to fire
+  await new Promise((r) => setTimeout(r, 10));
+  return ws;
 }
 
 async function tick(): Promise<void> {

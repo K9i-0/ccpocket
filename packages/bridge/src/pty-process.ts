@@ -49,7 +49,7 @@ export class PtyProcess extends EventEmitter {
       binary = binaryName;
     }
 
-    const args = this.buildArgs(provider, projectPath, sessionId, opts.permissionMode);
+    const args = this.buildArgs(provider, projectPath, sessionId, opts.permissionMode, opts.codexAppServerPort);
     console.log(`[pty] Spawning sidecar: ${binary} ${args.join(" ")}`);
 
     this._status = "starting";
@@ -105,8 +105,14 @@ export class PtyProcess extends EventEmitter {
     projectPath: string,
     sessionId: string,
     permissionMode?: string,
+    codexAppServerPort?: number,
   ): string[] {
     if (provider === "codex") {
+      if (codexAppServerPort) {
+        // Connect to the app-server via WebSocket — enables native TUI
+        return ["resume", "--remote", `ws://127.0.0.1:${codexAppServerPort}`];
+      }
+      // Fallback: direct session resume (won't work if app-server uses WS)
       return ["resume", sessionId, "-C", projectPath];
     }
     const args = [projectPath, "--verbose", "--resume", sessionId];

@@ -11,6 +11,7 @@ export interface ProcessStartOptions {
   initialInput?: string;         // Auto-send on start
   cols?: number;                 // Initial terminal columns (PTY sidecar)
   rows?: number;                 // Initial terminal rows (PTY sidecar)
+  codexAppServerPort?: number;   // Codex app-server WS port (for sidecar --remote)
   [key: string]: unknown;        // Provider-specific passthrough
 }
 

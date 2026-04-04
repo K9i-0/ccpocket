@@ -61,6 +61,8 @@ export interface SessionInfo {
   permissionMode?: string;
   /** Model used to start this session (for metadata in list). */
   model?: string;
+  /** Port the Codex app-server WS is listening on (for sidecar --remote). */
+  codexAppServerPort?: number;
   /** Codex-specific settings used to start this session (for resume). */
   codexSettings?: {
     approvalPolicy?: string;
@@ -324,6 +326,10 @@ export class SessionManager {
           // Codex: capture thread_id for session tracking and worktree restore.
           if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
             session.claudeSessionId = msg.sessionId;
+            // Store the app-server WS port so sidecar PTY can use --remote
+            if (session.process instanceof CodexProcess) {
+              session.codexAppServerPort = session.process.appServerPort ?? undefined;
+            }
             this.saveWorktreeMapping(session);
           }
           if (msg.type === "system") {
@@ -1035,6 +1041,7 @@ export class SessionManager {
         permissionMode: session.permissionMode as import("./parser.js").PermissionMode | undefined,
         cols,
         rows,
+        codexAppServerPort: session.codexAppServerPort,
       });
     } catch (err) {
       console.error(`[session] Failed to spawn sidecar PTY:`, err);

@@ -59,7 +59,22 @@ describe("PtyProcess (sidecar)", () => {
     );
   });
 
-  it("spawns codex with resume subcommand for codex provider", () => {
+  it("spawns codex with --remote when codexAppServerPort is provided", () => {
+    proc.start({
+      projectPath: "/tmp/project",
+      provider: "codex",
+      sessionId: "thread-456",
+      codexAppServerPort: 9876,
+    });
+
+    expect(pty.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      ["resume", "--remote", "ws://127.0.0.1:9876"],
+      expect.objectContaining({ cols: 80, rows: 24 }),
+    );
+  });
+
+  it("falls back to direct resume for codex without port", () => {
     proc.start({
       projectPath: "/tmp/project",
       provider: "codex",

@@ -1,9 +1,11 @@
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
+import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rm, writeFile } from "node:fs/promises";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { WebSocket } from "ws";
 import type { ServerMessage, ProcessStatus } from "./parser.js";
 import type { IProcessTransport, ProcessStartOptions } from "./process-transport.js";
 
@@ -123,6 +125,8 @@ interface CodexResolvedSettings {
 
 export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IProcessTransport {
   private child: ChildProcessWithoutNullStreams | null = null;
+  private wsClient: WebSocket | null = null;
+  private _appServerPort: number | null = null;
   private _status: ProcessStatus = "starting";
   private _threadId: string | null = null;
   private _agentNickname: string | null = null;
@@ -161,7 +165,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IP
     }
   >();
 
-  private stdoutBuffer = "";
+  /** Port the Codex app-server WS is listening on (for sidecar --remote). */
+  get appServerPort(): number | null {
+    return this._appServerPort;
+  }
 
   // Collaboration mode & plan completion state
   private _approvalPolicy: string = "never";
@@ -296,9 +303,20 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IP
     }
 
     this.prepareLaunch(projectPath, options);
-    this.launchAppServer(projectPath, options);
 
-    void this.bootstrap(projectPath, options);
+    void this.launchAppServer(projectPath, options).then(() => {
+      if (!this.stopped) {
+        void this.bootstrap(projectPath, options);
+      }
+    }).catch((err) => {
+      if (!this.stopped) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[codex-process] Failed to launch app-server: ${message}`);
+        this.emitMessage({ type: "error", message });
+        this.setStatus("idle");
+        this.emit("exit", 1);
+      }
+    });
   }
 
   async initializeOnly(projectPath: string): Promise<void> {
@@ -306,7 +324,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IP
       this.stop();
     }
     this.prepareLaunch(projectPath);
-    this.launchAppServer(projectPath);
+    await this.launchAppServer(projectPath);
     await this.initializeRpcConnection();
     this.setStatus("idle");
   }
@@ -323,11 +341,14 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IP
     this.pendingUserInputs.clear();
     this.rejectAllPending(new Error("stopped"));
 
+    this.closeWs();
+
     if (this.child) {
       this.child.kill("SIGTERM");
       this.child = null;
     }
 
+    this._appServerPort = null;
     this.setStatus("idle");
     console.log("[codex-process] Stopped");
   }
@@ -337,6 +358,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IP
     options?: CodexStartOptions,
   ): void {
     this.stopped = false;
+    this.closeWs();
+    this._appServerPort = null;
     this._threadId = null;
     this._agentNickname = null;
     this._agentRole = null;
@@ -355,32 +378,36 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IP
     this._projectPath = projectPath;
   }
 
-  private launchAppServer(
+  private async launchAppServer(
     projectPath: string,
     options?: CodexStartOptions,
-  ): void {
+  ): Promise<void> {
+    const port = await findFreePort();
+    this._appServerPort = port;
+    const listenUrl = `ws://0.0.0.0:${port}`;
+
     console.log(
-      `[codex-process] Starting app-server (cwd: ${projectPath}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, model: ${options?.model ?? "default"}, collaboration: ${this._collaborationMode})`,
+      `[codex-process] Starting app-server (cwd: ${projectPath}, listen: ${listenUrl}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, model: ${options?.model ?? "default"}, collaboration: ${this._collaborationMode})`,
     );
 
-    const child = spawn("codex", ["app-server", "--listen", "stdio://"], {
+    const child = spawn("codex", ["app-server", "--listen", listenUrl], {
       cwd: projectPath,
       stdio: "pipe",
       env: process.env,
     });
     this.child = child;
 
+    // app-server still writes logs to stdout/stderr — drain them
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
-      this.handleStdoutChunk(chunk);
+      const line = chunk.trim();
+      if (line) console.log(`[codex-process] stdout: ${line}`);
     });
 
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk: string) => {
       const line = chunk.trim();
-      if (line) {
-        console.log(`[codex-process] stderr: ${line}`);
-      }
+      if (line) console.log(`[codex-process] stderr: ${line}`);
     });
 
     child.on("error", (err) => {
@@ -397,6 +424,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IP
     child.on("exit", (code) => {
       const exitCode = code ?? 0;
       this.child = null;
+      this.closeWs();
       this.rejectAllPending(new Error("codex app-server exited"));
       if (!this.stopped && exitCode !== 0) {
         this.emitMessage({
@@ -407,6 +435,90 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IP
       this.setStatus("idle");
       this.emit("exit", code);
     });
+
+    // Connect WebSocket client to the app-server
+    await this.connectWs(port);
+  }
+
+  /**
+   * Connect a WebSocket client to the app-server.
+   * Retries briefly to allow the server time to bind.
+   */
+  private connectWs(port: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const url = `ws://127.0.0.1:${port}`;
+      let attempts = 0;
+      const maxAttempts = 30; // 30 × 200ms = 6s max wait
+
+      const tryConnect = () => {
+        if (this.stopped || !this.child) {
+          reject(new Error("app-server stopped before WS connected"));
+          return;
+        }
+
+        attempts++;
+        const ws = new WebSocket(url);
+
+        ws.on("open", () => {
+          console.log(`[codex-process] WS connected to app-server on port ${port}`);
+          this.wsClient = ws;
+          resolve();
+        });
+
+        ws.on("message", (data: Buffer | string) => {
+          const raw = typeof data === "string" ? data : data.toString("utf8");
+          // Each WS message is one complete JSON-RPC envelope
+          for (const line of raw.split("\n")) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            try {
+              const envelope = JSON.parse(trimmed) as JsonRpcEnvelope;
+              this.handleRpcEnvelope(envelope);
+            } catch (err) {
+              console.warn(
+                `[codex-process] failed to parse app-server WS message: ${trimmed.slice(0, 200)}`,
+              );
+              if (!this.stopped) {
+                this.emitMessage({
+                  type: "error",
+                  message: `Failed to parse codex app-server output: ${err instanceof Error ? err.message : String(err)}`,
+                });
+              }
+            }
+          }
+        });
+
+        ws.on("close", () => {
+          if (!this.stopped && this.wsClient === ws) {
+            console.log("[codex-process] WS connection closed by app-server");
+            this.wsClient = null;
+          }
+        });
+
+        ws.on("error", (err) => {
+          ws.removeAllListeners();
+          ws.terminate();
+          if (attempts < maxAttempts) {
+            setTimeout(tryConnect, 200);
+          } else {
+            const msg = `Failed to connect WS to app-server after ${maxAttempts} attempts: ${err.message}`;
+            console.error(`[codex-process] ${msg}`);
+            reject(new Error(msg));
+          }
+        });
+      };
+
+      // Small initial delay to let the process bind
+      setTimeout(tryConnect, 50);
+    });
+  }
+
+  private closeWs(): void {
+    if (this.wsClient) {
+      this.wsClient.removeAllListeners();
+      this.wsClient.terminate();
+      this.wsClient = null;
+    }
   }
 
   interrupt(): void {
@@ -995,32 +1107,6 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IP
         tempPaths.map((path) => rm(path, { force: true }).catch(() => {})),
       );
       void completion;
-    }
-  }
-
-  private handleStdoutChunk(chunk: string): void {
-    this.stdoutBuffer += chunk;
-    while (true) {
-      const newlineIndex = this.stdoutBuffer.indexOf("\n");
-      if (newlineIndex < 0) break;
-      const line = this.stdoutBuffer.slice(0, newlineIndex).trim();
-      this.stdoutBuffer = this.stdoutBuffer.slice(newlineIndex + 1);
-      if (!line) continue;
-
-      try {
-        const envelope = JSON.parse(line) as JsonRpcEnvelope;
-        this.handleRpcEnvelope(envelope);
-      } catch (err) {
-        console.warn(
-          `[codex-process] failed to parse app-server JSON line: ${line.slice(0, 200)}`,
-        );
-        if (!this.stopped) {
-          this.emitMessage({
-            type: "error",
-            message: `Failed to parse codex app-server output: ${err instanceof Error ? err.message : String(err)}`,
-          });
-        }
-      }
     }
   }
 
@@ -1843,11 +1929,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> implements IP
   }
 
   private writeEnvelope(envelope: Record<string, unknown>): void {
-    if (!this.child || this.child.killed) {
-      throw new Error("codex app-server is not running");
+    if (!this.wsClient || this.wsClient.readyState !== WebSocket.OPEN) {
+      throw new Error("codex app-server WebSocket is not connected");
     }
     const line = `${JSON.stringify(envelope)}\n`;
-    this.child.stdin.write(line);
+    this.wsClient.send(line);
   }
 
   private rejectAllPending(error: Error): void {
@@ -2681,4 +2767,21 @@ function extensionFromMime(mimeType: string): string | null {
     default:
       return null;
   }
+}
+
+/** Find an available TCP port by binding to :0 and reading the assigned port. */
+function findFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.listen(0, "127.0.0.1", () => {
+      const addr = srv.address();
+      if (addr && typeof addr === "object") {
+        const port = addr.port;
+        srv.close(() => resolve(port));
+      } else {
+        srv.close(() => reject(new Error("Failed to get port from server")));
+      }
+    });
+    srv.on("error", reject);
+  });
 }
