@@ -579,6 +579,14 @@ export class SessionManager {
     return this.sessions.get(id);
   }
 
+  /** Find a running session by its native session/thread ID (claudeSessionId). */
+  findByNativeId(nativeId: string): SessionInfo | undefined {
+    for (const session of this.sessions.values()) {
+      if (session.claudeSessionId === nativeId) return session;
+    }
+    return undefined;
+  }
+
   list(): SessionSummary[] {
     return Array.from(this.sessions.values()).map((s) => {
       const processWithPending = s.process as {

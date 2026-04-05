@@ -100,7 +100,11 @@ vi.mock("./session.js", () => ({
         id,
         projectPath,
         startOptions: options,
-        claudeSessionId: options?.sessionId,
+        claudeSessionId:
+          options?.sessionId ??
+          (provider === "codex" && (codexOptions as any)?.threadId
+            ? (codexOptions as any).threadId
+            : undefined),
         pastMessages,
         codexOptions,
         codexSettings: codexOptions,
@@ -130,6 +134,13 @@ vi.mock("./session.js", () => ({
         gitBranch: "",
         lastMessage: "",
       }));
+    }
+
+    findByNativeId(nativeId: string) {
+      for (const session of this.sessions.values()) {
+        if (session.claudeSessionId === nativeId) return session;
+      }
+      return undefined;
     }
 
     getCachedCommands() {
@@ -375,6 +386,59 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(created).toBeDefined();
     expect(created.provider).toBe("codex");
     expect(created.projectPath).toBe("/tmp/project-main");
+
+    bridge.close();
+  });
+
+  it("reuses an existing running codex session when resuming the same native thread", async () => {
+    getCodexSessionHistoryMock.mockResolvedValue([
+      {
+        role: "user",
+        content: [{ type: "text", text: "restored codex question" }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const firstWs = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const secondWs = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    const resumePayload = {
+      type: "resume_session",
+      sessionId: "codex-thread-shared",
+      projectPath: "/tmp/project-codex",
+      provider: "codex",
+    } as const;
+
+    (bridge as any).handleClientMessage(resumePayload, firstWs);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const firstCreated = firstWs.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(firstCreated?.sessionId).toBe("s-1");
+
+    firstWs.send.mockClear();
+    (bridge as any).handleClientMessage(resumePayload, secondWs);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const secondSends = secondWs.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    const secondCreated = secondSends.find(
+      (m: any) => m.type === "system" && m.subtype === "session_created",
+    );
+    expect(secondCreated?.sessionId).toBe("s-1");
+
+    const sessions = (bridge as any).sessionManager.list();
+    expect(sessions).toHaveLength(1);
 
     bridge.close();
   });

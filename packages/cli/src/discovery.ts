@@ -1,9 +1,13 @@
+import { Socket } from "node:net";
 import { Bonjour } from "bonjour-service";
 import { loadConfig } from "./config.js";
 
 export async function discoverBridge(timeoutMs = 5000): Promise<string | null> {
   const config = loadConfig();
   if (config.bridgeUrl) return config.bridgeUrl;
+
+  const localhostUrl = await detectLocalBridgeUrl();
+  if (localhostUrl) return localhostUrl;
 
   return new Promise<string | null>((resolve) => {
     const bonjour = new Bonjour();
@@ -36,5 +40,34 @@ export async function discoverBridge(timeoutMs = 5000): Promise<string | null> {
         resolve(null);
       }
     }, timeoutMs);
+  });
+}
+
+async function detectLocalBridgeUrl(): Promise<string | null> {
+  const isReachable = await canConnect("127.0.0.1", 8765, 250);
+  return isReachable ? "ws://127.0.0.1:8765" : null;
+}
+
+function canConnect(
+  host: string,
+  port: number,
+  timeoutMs: number,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new Socket();
+    let settled = false;
+
+    const finish = (result: boolean) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(result);
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () => finish(true));
+    socket.once("timeout", () => finish(false));
+    socket.once("error", () => finish(false));
+    socket.connect(port, host);
   });
 }

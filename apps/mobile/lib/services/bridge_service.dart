@@ -377,6 +377,8 @@ class BridgeService implements BridgeServiceBase {
                 logger.error('Bridge error: $message');
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
+              case IgnoredMessage():
+                break; // silently drop multi-client meta messages
               default:
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);

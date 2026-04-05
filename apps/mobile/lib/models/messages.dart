@@ -419,11 +419,26 @@ String _normalizeToolResultContent(dynamic content) {
   return content?.toString() ?? '';
 }
 
+bool _isIgnoredMetaMessageType(String? type) {
+  if (type == null || type.isEmpty) return false;
+  return type == 'handoff' ||
+      type == 'session_clients' ||
+      type == 'client_joined' ||
+      type == 'client_left' ||
+      type.startsWith('session_') ||
+      type.startsWith('client_');
+}
+
 // ---- Server messages ----
 
 sealed class ServerMessage {
   factory ServerMessage.fromJson(Map<String, dynamic> json) {
-    return switch (json['type'] as String) {
+    final type = json['type'] as String?;
+    if (_isIgnoredMetaMessageType(type)) {
+      return IgnoredMessage(type: type ?? 'unknown');
+    }
+
+    return switch (type) {
       'system' => SystemMessage(
         subtype: json['subtype'] as String? ?? '',
         sessionId: json['sessionId'] as String?,
@@ -955,6 +970,13 @@ class ErrorMessage implements ServerMessage {
   final String message;
   final String? errorCode;
   const ErrorMessage({required this.message, this.errorCode});
+}
+
+/// A message type that the app recognizes but does not display in chat.
+/// Used for multi-client meta messages (session_clients, handoff, etc.).
+class IgnoredMessage implements ServerMessage {
+  final String type;
+  const IgnoredMessage({required this.type});
 }
 
 class StatusMessage implements ServerMessage {

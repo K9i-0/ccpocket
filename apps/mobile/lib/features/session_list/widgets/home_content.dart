@@ -115,6 +115,83 @@ class HomeContentState extends State<HomeContent> {
   final _searchController = TextEditingController();
   SessionDisplayMode _displayMode = SessionDisplayMode.first;
 
+  String? _normalizedId(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed;
+  }
+
+  int _timestampScore(String? value) {
+    final parsed = DateTime.tryParse(value ?? '');
+    if (parsed == null) return 0;
+    return parsed.microsecondsSinceEpoch;
+  }
+
+  String _runningSignature(SessionInfo session) {
+    return [
+      session.provider ?? '',
+      session.projectPath,
+      session.createdAt,
+    ].join('|');
+  }
+
+  String _recentSignature(RecentSession session) {
+    return [
+      session.provider ?? '',
+      session.projectPath,
+      session.created,
+    ].join('|');
+  }
+
+  String _runningDedupKey(SessionInfo session) {
+    final provider = session.provider ?? '';
+    final nativeSessionId = _normalizedId(session.claudeSessionId);
+    if (nativeSessionId != null) {
+      return 'native|$provider|$nativeSessionId';
+    }
+    return 'bridge|$provider|${session.id}';
+  }
+
+  String _recentDedupKey(RecentSession session) {
+    final provider = session.provider ?? '';
+    final nativeSessionId = _normalizedId(session.sessionId);
+    if (nativeSessionId != null) {
+      return 'native|$provider|$nativeSessionId';
+    }
+    return 'recent|${_recentSignature(session)}';
+  }
+
+  List<SessionInfo> _dedupeRunningSessions(List<SessionInfo> sessions) {
+    final deduped = <String, SessionInfo>{};
+    for (final session in sessions) {
+      final key = _runningDedupKey(session);
+      final existing = deduped[key];
+      if (existing == null ||
+          _timestampScore(session.lastActivityAt) >
+              _timestampScore(existing.lastActivityAt)) {
+        deduped[key] = session;
+      }
+    }
+    return deduped.values.toList();
+  }
+
+  List<RecentSession> _dedupeRecentSessions(
+    List<RecentSession> sessions,
+    Set<String> runningKeys,
+    Set<String> runningSignatures,
+  ) {
+    final deduped = <String, RecentSession>{};
+    for (final session in sessions) {
+      final key = _recentDedupKey(session);
+      final signature = _recentSignature(session);
+      if (runningKeys.contains(key) || runningSignatures.contains(signature)) {
+        continue;
+      }
+      deduped.putIfAbsent(key, () => session);
+    }
+    return deduped.values.toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -209,39 +286,25 @@ class HomeContentState extends State<HomeContent> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final hasRunningSessions = widget.sessions.isNotEmpty;
-    final hasRecentSessions = widget.recentSessions.isNotEmpty;
     final isReconnecting =
         widget.connectionState == BridgeConnectionState.reconnecting;
     final updateBanner = _buildUpdateBanner();
     final appUpdateBanner = _buildAppUpdateBanner();
 
-    // Compute derived state
-    // Exclude running sessions from recent list to avoid duplicates
-    final runningSessionIds = widget.sessions
-        .expand(
-          (s) => [s.id, if (s.claudeSessionId != null) s.claudeSessionId!],
-        )
+    final runningSessions = _dedupeRunningSessions(widget.sessions);
+    final runningSessionKeys = runningSessions
+        .map(_runningDedupKey)
         .toSet();
-
-    // Fallback for Codex sessions which use a short proxy ID instead of UUID
-    bool isDuplicate(RecentSession rs) {
-      if (runningSessionIds.contains(rs.sessionId)) return true;
-      for (final s in widget.sessions) {
-        if (s.provider == rs.provider &&
-            s.projectPath == rs.projectPath &&
-            s.createdAt == rs.created) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    // All filtering (project, provider, namedOnly, searchQuery) is applied
-    // server-side. Only deduplicate running sessions here.
-    final filteredSessions = widget.recentSessions
-        .where((s) => !isDuplicate(s))
-        .toList();
+    final runningSignatures = runningSessions
+        .map(_runningSignature)
+        .toSet();
+    final filteredSessions = _dedupeRecentSessions(
+      widget.recentSessions,
+      runningSessionKeys,
+      runningSignatures,
+    );
+    final hasRunningSessions = runningSessions.isNotEmpty;
+    final hasRecentSessions = filteredSessions.isNotEmpty;
 
     final hasActiveFilter =
         widget.currentProjectFilter != null ||
@@ -298,7 +361,7 @@ class HomeContentState extends State<HomeContent> {
             color: appColors.statusOnline,
           ),
           const SizedBox(height: 4),
-          for (final session in widget.sessions)
+          for (final session in runningSessions)
             Slidable(
               key: ValueKey('running_session_${session.id}'),
               endActionPane: ActionPane(

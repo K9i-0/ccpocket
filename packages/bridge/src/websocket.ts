@@ -2025,6 +2025,45 @@ export class BridgeWebSocketServer {
           planMode,
         );
         const sessionRefId = msg.sessionId;
+
+        // If there's already a running session for this native thread/session ID,
+        // attach the client to it instead of creating a duplicate.
+        const existingSession =
+          this.sessionManager.findByNativeId(sessionRefId);
+        if (existingSession) {
+          console.log(
+            `[ws] resume_session: found running session ${existingSession.id} for native ${sessionRefId}, attaching instead`,
+          );
+          this.attachClient(existingSession.id, ws, "app");
+          this.send(
+            ws,
+            this.buildSessionCreatedMessage({
+              sessionId: existingSession.id,
+              provider: existingSession.provider,
+              projectPath: existingSession.projectPath,
+              session: existingSession,
+            }),
+          );
+          // Send history so the phone client can display existing messages
+          if (
+            existingSession.pastMessages &&
+            existingSession.pastMessages.length > 0
+          ) {
+            this.send(ws, {
+              type: "past_history",
+              claudeSessionId:
+                existingSession.claudeSessionId ?? existingSession.id,
+              messages: existingSession.pastMessages,
+            } as Record<string, unknown>);
+          }
+          this.send(ws, {
+            type: "history",
+            messages: existingSession.history,
+            sessionId: existingSession.id,
+          } as Record<string, unknown>);
+          break;
+        }
+
         // Resume flow: keep past history in SessionInfo and deliver it only
         // via get_history(sessionId) to avoid duplicate/missed replay races.
         if (provider === "codex") {
