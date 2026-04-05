@@ -70,19 +70,22 @@ describe("startup-info", () => {
   });
 
   describe("printStartupInfo", () => {
-    it("uses LAN address for deep link by default", async () => {
+    it("prefers tailscale address for deep link when available", async () => {
       await printStartupInfo(8765, "0.0.0.0", "test-token");
 
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining("LAN:         ws://192.168.1.20:8765"),
       );
       expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Tailscale:   ws://100.64.0.2:8765"),
+      );
+      expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining(
-          "Deep Link: ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765&token=test-token",
+          "Deep Link: ccpocket://connect?url=ws%3A%2F%2F100.64.0.2%3A8765&token=test-token",
         ),
       );
       expect(mockQrToString).toHaveBeenCalledWith(
-        "ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765&token=test-token",
+        "ccpocket://connect?url=ws%3A%2F%2F100.64.0.2%3A8765&token=test-token",
         expect.objectContaining({ type: "terminal", small: true }),
       );
     });
@@ -132,7 +135,7 @@ describe("startup-info", () => {
         "[bridge] Warning: ignoring invalid BRIDGE_PUBLIC_WS_URL: https://example.com",
       );
       expect(mockQrToString).toHaveBeenCalledWith(
-        "ccpocket://connect?url=ws%3A%2F%2F192.168.1.20%3A8765&token=test-token",
+        "ccpocket://connect?url=ws%3A%2F%2F100.64.0.2%3A8765&token=test-token",
         expect.any(Object),
       );
     });

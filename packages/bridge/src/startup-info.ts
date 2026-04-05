@@ -110,8 +110,12 @@ export async function printStartupInfo(
     lines.push(`[bridge]   ${"Public:".padEnd(12)} ${publicWsUrl}`);
   }
 
-  const fallbackWsUrl = displayAddresses.length > 0
-    ? `ws://${displayAddresses.find((a) => a.label === "LAN")?.ip ?? displayAddresses[0].ip}:${port}`
+  const preferredAddress =
+    displayAddresses.find((a) => a.label === "Tailscale") ??
+    displayAddresses.find((a) => a.label === "LAN") ??
+    displayAddresses[0];
+  const fallbackWsUrl = preferredAddress
+    ? `ws://${preferredAddress.ip}:${port}`
     : undefined;
 
   const connectWsUrl = publicWsUrl ?? fallbackWsUrl;
