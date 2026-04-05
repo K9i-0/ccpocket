@@ -4,7 +4,7 @@
   "description": "Bridge server that connects Claude Code and Codex CLI to mobile devices via WebSocket",
   "private": false,
   "type": "module",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "author": "K9i",
   "repository": {
     "type": "git",
@@ -30,7 +30,8 @@
   },
   "main": "dist/index.js",
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=18.0.0"

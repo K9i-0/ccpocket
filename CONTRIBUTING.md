@@ -54,6 +54,12 @@ For these environments:
 - An Issue alone does not guarantee maintainer implementation
 - The best path to getting a fix merged is a focused PR with tests and reporter-side validation
 
+If a fix can be scoped cleanly to the Bridge Server, please also consider
+whether unofficial Bridge redistribution is a better fit than asking the main
+project to carry long-term support for a niche environment. The project license
+explicitly allows unofficial Bridge redistributions for these compatibility
+cases, as long as they remain clearly unofficial and unsupported.
+
 If you file an Issue for one of these environments, please include:
 
 - Exact OS and version
@@ -87,6 +93,10 @@ For experimental / best-effort platforms such as Windows Bridge or macOS mobile:
 - Add automated tests where possible
 - Describe exactly what you validated on the target platform
 - Avoid broad refactors unless they are required for the fix
+
+For Bridge-only compatibility work, we may decide that redistribution of an
+unofficial Bridge build or fork is the more sustainable outcome than ongoing
+first-party support in the main project.
 
 PRs for these platforms are reviewed on a best-effort basis.
 We are more likely to merge changes that are easy to reason about and low risk for supported platforms.
@@ -181,6 +191,12 @@ CC Pocket は主に macOS 上で開発しています。
 - Issue だけでメンテナ実装を約束するものではありません
 - 修正を通す最短経路は、テストと投稿者側の検証結果つきの小さな PR です
 
+また、修正が Bridge Server の範囲にきれいに閉じる場合は、メインプロジェクトが
+特殊環境を長期サポートし続ける前提にするのではなく、非公式 Bridge 再配布の
+方が適切かも併せて検討してください。ライセンス上、その種の互換性対応を目的と
+した Bridge の非公式再配布は、非公式かつ無保証であることを明示する限り許可
+されています。
+
 該当環境の Issue では、次の情報を含めてください:
 
 - OS とバージョン
@@ -202,6 +218,8 @@ Windows の Bridge や macOS 版 mobile のような experimental / best-effort 
 
 これらの PR は best-effort でレビューします。
 正式サポート環境へのリスクが低く、意図が明確なものほど取り込みやすくなります。
+Bridge に閉じた互換対応については、メインブランチで恒常的に抱えるより、
+非公式 build / fork の再配布を選ぶ判断をすることがあります。
 
 ### トリアージで使うラベル
 

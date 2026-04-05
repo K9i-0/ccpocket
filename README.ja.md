@@ -305,3 +305,11 @@ cd apps/mobile && flutter pub get && cd ../..
 ## ライセンス
 
 [FSL-1.1-MIT](LICENSE) — ソースコード公開。2028-03-17 に自動的に MIT へ移行します。
+
+`@ccpocket/bridge` には Bridge Redistribution Exception を設けています。
+Windows、WSL、proxy 必須環境、enterprise network など、メンテナが継続的に
+検証しづらい環境向けの非公式再配布や環境特化 fork は許可されます。
+
+ただし、それらの配布物は非公式かつ無保証であることを明確にしてください。
+Anthropic、OpenAI、社内ネットワーク規約その他の第三者条件への適合責任は、
+配布者および利用者にあります。

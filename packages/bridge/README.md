@@ -88,4 +88,18 @@ The bridge server spawns and manages Claude Code CLI processes, translating WebS
 
 ## License
 
-[MIT](../../LICENSE)
+This package is governed by the [CC Pocket license](../../LICENSE).
+
+The repository remains under FSL-1.1-MIT, with a specific Bridge Redistribution
+Exception that allows unofficial redistribution of the Bridge Server, including
+environment-specific builds and forks for Windows, WSL, proxy-restricted, or
+other hard-to-validate environments.
+
+If you redistribute this package or a modified fork:
+
+- do not imply it is official, endorsed, or supported by the CC Pocket maintainer
+- preserve the license text and clearly state that the software is provided "AS IS"
+- make clear that compliance with Anthropic, OpenAI, network, enterprise, and other third-party terms is the responsibility of the redistributor and end user
+
+In short: unofficial Bridge redistributions are permitted for compatibility and
+support purposes, but they remain unsupported and at your own risk.

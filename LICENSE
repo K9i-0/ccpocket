@@ -28,6 +28,33 @@ Additional Use Grant: You may make use of the Licensed Work, provided that you
                       provides substantially the same functionality as the
                       Licensed Work.
 
+                      Bridge Redistribution Exception:
+                      You may copy, modify, and redistribute the Bridge Server
+                      component of the Licensed Work, including unofficial
+                      builds, forks, and environment-specific distributions,
+                      for example to support Windows, WSL, proxy-restricted,
+                      enterprise, or other environments that the Licensor does
+                      not actively validate.
+
+                      This exception does not permit representing such
+                      distributions as official, endorsed, supported, or
+                      verified by the Licensor, Anthropic, OpenAI, or any other
+                      third party.
+
+                      Any person who redistributes the Bridge Server under this
+                      exception must preserve this License and must clearly
+                      disclose that:
+                      (1) the redistribution is unofficial,
+                      (2) the Licensed Work is provided "AS IS" without
+                      warranties or support from the Licensor, and
+                      (3) compliance with applicable third-party terms,
+                      policies, network rules, export controls, and local laws
+                      is the sole responsibility of the redistributor and end
+                      user.
+
+                      For the avoidance of doubt, this exception does not allow
+                      Competing Use.
+
 Change Date:          The earlier of 2028-03-17 or a date specified at
                       https://github.com/K9i-0/ccpocket
 
@@ -60,12 +87,21 @@ Parameters
                         making the Licensed Work available to third parties
                         as a commercial product or service that provides
                         substantially the same functionality.
+                        The Bridge Server component may be copied, modified,
+                        and redistributed, including unofficial builds and
+                        environment-specific distributions, provided that such
+                        redistribution remains unofficial, preserves this
+                        License, includes clear "AS IS" / no-support notice,
+                        and leaves third-party compliance to the redistributor
+                        and end user.
   Change Date:          2028-03-17
   Change License:       MIT
 
 Summary
 
   - Use, modify, and distribute for personal and internal purposes: Allowed
+  - Redistribute the Bridge Server, including unofficial environment-specific
+    builds: Allowed, subject to the Bridge Redistribution Exception above
   - Contribute back to this project: Allowed and encouraged
   - Use as a competing commercial product or service: Not allowed
   - After the Change Date, the license converts to MIT automatically

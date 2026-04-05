@@ -305,3 +305,12 @@ cd apps/mobile && flutter pub get && cd ../..
 ## License
 
 [FSL-1.1-MIT](LICENSE) — Source available. Converts to MIT on 2028-03-17.
+
+The repository includes a Bridge Redistribution Exception for `@ccpocket/bridge`.
+Unofficial Bridge redistributions and environment-specific forks are allowed,
+for example to support Windows, WSL, proxies, or enterprise networks that are
+hard for the maintainer to validate continuously.
+
+Those redistributions must remain clearly unofficial and unsupported. Compliance
+with Anthropic, OpenAI, enterprise, network, and other third-party terms remains
+the responsibility of the redistributor and end user.

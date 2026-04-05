@@ -304,3 +304,10 @@ cd apps/mobile && flutter pub get && cd ../..
 ## 许可证
 
 [FSL-1.1-MIT](LICENSE) — 源码可用，并将于 2028-03-17 自动转换为 MIT。
+
+`@ccpocket/bridge` 适用一项 Bridge Redistribution Exception。
+对于 Windows、WSL、代理受限环境、企业网络等维护者难以持续验证的场景，
+允许进行非官方再分发或制作面向特定环境的 fork。
+
+但这类分发必须明确标注为非官方且不提供保证或支持。对于 Anthropic、
+OpenAI、企业网络以及其他第三方条款的合规责任，由分发者和最终用户自行承担。
