@@ -70,7 +70,7 @@ jobs:
           IPA_PATH=$(ls apps/mobile/build/ios/ipa/*.ipa)
           echo "ipa_path=$IPA_PATH" >> "$GITHUB_OUTPUT"
       - name: Upload to TestFlight
-        uses: apple-actions/upload-testflight-build@9fd28d4e690396e43caca69cef54cccccce77034 # v3.0.1
+        uses: apple-actions/upload-testflight-build@1fb41afa66075b5d62c79cb623c6c4999334e185 # v4.0.0
         with:
           app-path: ${{ steps.find_ipa.outputs.ipa_path }}
           issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
