@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.34.0] - 2026-04-07
+
+### Added
+- Token highlighting and Codex skill completion in composer
+- Split slash and dollar completions for Codex
+
+### Fixed
+- Preserve MCP elicitation approval type in Codex sessions
+
 ## [1.33.3] - 2026-04-05
 
 ### Fixed
