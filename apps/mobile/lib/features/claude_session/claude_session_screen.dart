@@ -873,6 +873,7 @@ class _ChatScreenBody extends HookWidget {
                       pendingPlanToolUseId: pendingPlanToolUseId,
                       scrollToUserEntry: scrollToUserEntry,
                       bottomPadding: 8,
+                      isCodex: false,
                     ),
                   ),
                 ),

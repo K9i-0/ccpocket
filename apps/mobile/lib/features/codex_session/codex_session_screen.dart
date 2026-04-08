@@ -860,6 +860,7 @@ class _CodexChatBody extends HookWidget {
                       scrollToUserEntry: scrollToUserEntry,
                       collapseToolResults: collapseToolResults,
                       bottomPadding: 8,
+                      isCodex: true,
                     ),
                   ),
                 ),

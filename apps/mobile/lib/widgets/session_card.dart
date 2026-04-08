@@ -577,6 +577,11 @@ class _ToolApprovalArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final presentation = permission.presentation;
+    final detailLines = isCodex
+        ? presentation.secondaryDetails
+              .where((line) => !line.startsWith('Why:'))
+              .toList()
+        : presentation.secondaryDetails;
     final canReject = permission.canDecline;
     final canApproveAlways =
         permission.canApproveForSession && onApproveAlways != null;
@@ -630,9 +635,9 @@ class _ToolApprovalArea extends StatelessWidget {
               ),
             ),
           ],
-          if (presentation.secondaryDetails.isNotEmpty) ...[
+          if (detailLines.isNotEmpty) ...[
             const SizedBox(height: 6),
-            ...presentation.secondaryDetails
+            ...detailLines
                 .take(2)
                 .map(
                   (line) => Padding(

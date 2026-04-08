@@ -433,6 +433,10 @@ void main() {
         find.text('Verify whether Flutter 3.41.6 finished installing'),
         findsOneWidget,
       );
+      expect(
+        find.text('Why: Verify whether Flutter 3.41.6 finished installing'),
+        findsNothing,
+      );
       expect(find.text('/bin/zsh -lc "mise ls flutter"'), findsOneWidget);
       expect(
         find.text('Allowed actions: accept, acceptForSession, decline'),

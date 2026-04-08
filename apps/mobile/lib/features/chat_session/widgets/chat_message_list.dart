@@ -30,6 +30,7 @@ class ChatMessageList extends StatefulWidget {
   final bool allowPlanEditing;
   final String? pendingPlanToolUseId;
   final double bottomPadding;
+  final bool isCodex;
 
   /// Project path for file peek (reading files from Bridge).
   final String? projectPath;
@@ -52,6 +53,7 @@ class ChatMessageList extends StatefulWidget {
     this.scrollToUserEntry,
     this.bottomPadding = 8,
     this.projectPath,
+    this.isCodex = false,
   });
 
   @override
@@ -198,6 +200,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                   onRetryMessage: null,
                   collapseToolResults: null,
                   hiddenToolUseIds: const {},
+                  isCodex: widget.isCodex,
                 );
               },
             );
@@ -252,6 +255,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                 ),
               );
             },
+            isCodex: widget.isCodex,
           );
           // Wrap with AutoScrollTag for scroll-to-index support.
           // Use entryIndex (not reverse index) as the AutoScrollTag index.

@@ -102,6 +102,40 @@ void main() {
       expect(find.text('Allowed actions: accept, decline'), findsNothing);
     });
 
+    testWidgets('codex approval hides duplicated Why line', (tester) async {
+      await tester.pumpWidget(
+        buildSubject(
+          pendingPermission: const PermissionRequestMessage(
+            toolUseId: 'tu-why',
+            toolName: 'Bash',
+            input: {
+              'command': '/bin/zsh -lc "mise ls flutter"',
+              'reason': 'Verify whether Flutter 3.41.6 finished installing',
+              'additionalPermissions': {
+                'fileSystem': {
+                  'write': ['/tmp/project'],
+                },
+              },
+            },
+          ),
+          planApprovalUiMode: PlanApprovalUiMode.codex,
+        ),
+      );
+
+      expect(
+        find.text('Verify whether Flutter 3.41.6 finished installing'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Why: Verify whether Flutter 3.41.6 finished installing'),
+        findsNothing,
+      );
+      expect(
+        find.text('Additional permissions: fileSystem.write=/tmp/project'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('shows primary target without redundant approval badges', (
       tester,
     ) async {

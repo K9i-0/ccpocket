@@ -39,6 +39,7 @@ class ChatEntryWidget extends StatelessWidget {
 
   /// Callback for tapping file paths in assistant messages.
   final FilePathTapCallback? onFileTap;
+  final bool isCodex;
 
   const ChatEntryWidget({
     super.key,
@@ -55,6 +56,7 @@ class ChatEntryWidget extends StatelessWidget {
     this.hiddenToolUseIds = const {},
     this.onImageTap,
     this.onFileTap,
+    this.isCodex = false,
   });
 
   @override
@@ -74,6 +76,7 @@ class ChatEntryWidget extends StatelessWidget {
             pendingPlanToolUseId: pendingPlanToolUseId,
             hiddenToolUseIds: hiddenToolUseIds,
             onFileTap: onFileTap,
+            isCodex: isCodex,
           ),
           final UserChatEntry user => UserBubble(
             text: user.text,
@@ -159,6 +162,7 @@ class ServerMessageWidget extends StatelessWidget {
 
   /// Callback for tapping file paths in assistant messages.
   final FilePathTapCallback? onFileTap;
+  final bool isCodex;
 
   const ServerMessageWidget({
     super.key,
@@ -171,6 +175,7 @@ class ServerMessageWidget extends StatelessWidget {
     this.pendingPlanToolUseId,
     this.hiddenToolUseIds = const {},
     this.onFileTap,
+    this.isCodex = false,
   });
 
   @override
@@ -204,7 +209,7 @@ class ServerMessageWidget extends StatelessWidget {
                 msg.toolName == 'AskUserQuestion' ||
                 msg.toolName == 'McpElicitation'
             ? const SizedBox.shrink()
-            : PermissionRequestBubble(message: msg),
+            : PermissionRequestBubble(message: msg, isCodex: isCodex),
       PermissionResolvedMessage() => const SizedBox.shrink(),
       StreamDeltaMessage() => const SizedBox.shrink(),
       ThinkingDeltaMessage() => const SizedBox.shrink(),
