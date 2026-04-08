@@ -704,8 +704,10 @@ class _MockSessionListWrapperState extends State<_MockSessionListWrapper> {
         return [mockSessionPlanApproval()];
       case 'Codex Plan Approval':
         return [mockSessionCodexPlanApproval()];
-      case 'Codex Bash Approval':
-        return [mockSessionCodexBashApproval()];
+      case 'Codex Bash Approval (2 Choices)':
+        return [mockSessionCodexBashApprovalTwoChoices()];
+      case 'Codex Bash Approval (3 Choices)':
+        return [mockSessionCodexBashApprovalThreeChoices()];
       case 'Codex FileChange Approval':
         return [mockSessionCodexFileChangeApproval()];
       case 'Codex MCP Approval':
@@ -1326,9 +1328,7 @@ class _StoreDiffWrapperState extends State<_StoreDiffWrapper> {
   Widget build(BuildContext context) {
     return RepositoryProvider<BridgeService>.value(
       value: _mockBridge,
-      child: const GitScreen(
-        projectPath: '/mock/shopify-app',
-      ),
+      child: const GitScreen(projectPath: '/mock/shopify-app'),
     );
   }
 }

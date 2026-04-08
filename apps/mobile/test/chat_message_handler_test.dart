@@ -843,9 +843,9 @@ void main() {
       );
       expect(
         perm.detailLines,
-        contains('Allowed actions: accept, acceptForSession, decline'),
+        isNot(contains('Allowed actions: accept, acceptForSession, decline')),
       );
-      expect(perm.presentation.scopeLabel, 'Session-wide option available');
+      expect(perm.presentation.scopeLabel, isNull);
     });
 
     test('uses reason as the main summary for bash approvals', () {
@@ -860,6 +860,47 @@ void main() {
 
       expect(perm.summary, 'Verify whether Flutter 3.41.6 finished installing');
       expect(perm.presentation.primaryTarget, '/bin/zsh -lc "mise ls flutter"');
+    });
+
+    test('hides redundant bash reason when it repeats the command', () {
+      const command = '/bin/zsh -lc "python3 - <<\'PY\'\\nprint(1)\\nPY"';
+      const perm = PermissionRequestMessage(
+        toolUseId: 'tu-bash-dup',
+        toolName: 'Bash',
+        input: {
+          'command': command,
+          'reason':
+              '`/bin/zsh -lc "python3 - <<\'PY\'\\nprint(1)\\nPY"` '
+              'requires approval: These commands mutate local state.',
+        },
+      );
+
+      expect(perm.summary, 'Allow command execution');
+      expect(
+        perm.detailLines.where((line) => line.startsWith('Why:')),
+        isEmpty,
+      );
+    });
+
+    test('keeps bash reason when command mention adds extra intent', () {
+      const command = '/bin/zsh -lc "mise ls flutter"';
+      const perm = PermissionRequestMessage(
+        toolUseId: 'tu-bash-intent',
+        toolName: 'Bash',
+        input: {
+          'command': command,
+          'reason': '$command to verify whether Flutter 3.41.6 is installed',
+        },
+      );
+
+      expect(
+        perm.summary,
+        '$command to verify whether Flutter 3.41.6 is installed',
+      );
+      expect(
+        perm.detailLines,
+        contains('Why: $command to verify whether Flutter 3.41.6 is installed'),
+      );
     });
 
     test('builds notification copy from structured permission details', () {

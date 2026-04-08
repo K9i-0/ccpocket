@@ -1073,6 +1073,25 @@ class PermissionRequestMessage implements ServerMessage {
 
   bool get isPermissionGrantRequest => toolName == 'Permissions';
 
+  List<String> get availableDecisions =>
+      _stringList(input['availableDecisions']);
+
+  bool get canApprove =>
+      availableDecisions.isEmpty || availableDecisions.contains('accept');
+
+  bool get canApproveForSession =>
+      availableDecisions.isEmpty ||
+      availableDecisions.contains('acceptForSession');
+
+  bool get canDecline =>
+      availableDecisions.isEmpty ||
+      availableDecisions.contains('decline') ||
+      availableDecisions.contains('cancel');
+
+  bool get showsCancelAction =>
+      availableDecisions.contains('cancel') &&
+      !availableDecisions.contains('decline');
+
   PermissionPresentation get presentation => PermissionPresentation.from(this);
 
   ApprovalNotificationCopy get notificationCopy =>
@@ -1124,8 +1143,6 @@ class PermissionPresentation {
   factory PermissionPresentation.from(PermissionRequestMessage message) {
     final input = message.input;
     final rawDetails = const JsonEncoder.withIndent('  ').convert(input);
-    final availableDecisions = _stringList(input['availableDecisions']);
-    final scopeLabel = _scopeLabel(availableDecisions);
 
     if (message.isRequestUserInputApproval) {
       return PermissionPresentation(
@@ -1133,7 +1150,6 @@ class PermissionPresentation {
         summary: requestUserInputQuestionText(input) ?? message.displayToolName,
         rawDetails: rawDetails,
         riskBadge: 'App Tool',
-        scopeLabel: scopeLabel,
         secondaryDetails: _buildCommonSecondaryDetails(
           input,
           includePermissions: false,
@@ -1148,7 +1164,6 @@ class PermissionPresentation {
         summary: summary,
         rawDetails: rawDetails,
         riskBadge: 'MCP',
-        scopeLabel: scopeLabel,
         primaryTargetLabel: input['url'] is String ? 'URL' : null,
         primaryTarget: input['url'] as String?,
         secondaryDetails: _buildCommonSecondaryDetails(
@@ -1169,7 +1184,6 @@ class PermissionPresentation {
                 : message.displayToolName),
         rawDetails: rawDetails,
         riskBadge: 'Permissions',
-        scopeLabel: scopeLabel,
         primaryTargetLabel: permissions.isNotEmpty ? 'Requested' : null,
         primaryTarget: permissions.isNotEmpty ? permissions.join(', ') : null,
         secondaryDetails: _buildCommonSecondaryDetails(
@@ -1181,18 +1195,22 @@ class PermissionPresentation {
 
     switch (message.toolName) {
       case 'Bash':
+        final command = input['command'] as String?;
+        final visibleReason = _visibleReason(
+          input['reason'],
+          primaryTarget: command,
+        );
         return PermissionPresentation(
           title: 'Command Approval',
-          summary:
-              _nonEmptyString(input['reason']) ?? 'Allow command execution',
+          summary: visibleReason ?? 'Allow command execution',
           rawDetails: rawDetails,
           riskBadge: 'Command',
-          scopeLabel: scopeLabel,
-          primaryTargetLabel: input['command'] is String ? 'Command' : null,
-          primaryTarget: input['command'] as String?,
+          primaryTargetLabel: command != null ? 'Command' : null,
+          primaryTarget: command,
           secondaryDetails: _buildCommonSecondaryDetails(
             input,
             includePermissions: false,
+            primaryTarget: command,
           ),
         );
       case 'FileChange':
@@ -1205,7 +1223,6 @@ class PermissionPresentation {
               'Allow file changes',
           rawDetails: rawDetails,
           riskBadge: 'File Changes',
-          scopeLabel: scopeLabel,
           primaryTargetLabel: changes.isNotEmpty ? 'Files' : null,
           primaryTarget: changes.isNotEmpty
               ? _compactFileTargets(changes)
@@ -1217,7 +1234,6 @@ class PermissionPresentation {
               input,
               includePermissions: false,
               includeReason: false,
-              includeAllowedActions: true,
             ),
           ],
         );
@@ -1232,17 +1248,17 @@ class PermissionPresentation {
         return PermissionPresentation(
           title: message.displayToolName,
           summary:
-              _nonEmptyString(input['reason']) ??
+              _visibleReason(input['reason'], primaryTarget: fallbackPrimary) ??
               fallbackPrimary ??
               message.displayToolName,
           rawDetails: rawDetails,
           riskBadge: message.displayToolName,
-          scopeLabel: scopeLabel,
           primaryTargetLabel: fallbackPrimary != null ? 'Target' : null,
           primaryTarget: fallbackPrimary,
           secondaryDetails: _buildCommonSecondaryDetails(
             input,
             includePermissions: false,
+            primaryTarget: fallbackPrimary,
           ),
         );
     }
@@ -1337,6 +1353,24 @@ String? _nonEmptyString(dynamic value) {
   return trimmed.isEmpty ? null : trimmed;
 }
 
+String? _visibleReason(dynamic value, {String? primaryTarget}) {
+  final reason = _nonEmptyString(value);
+  final target = _nonEmptyString(primaryTarget);
+  if (reason == null || target == null) return reason;
+
+  final normalizedReason = reason.replaceAll('`', '');
+  final normalizedTarget = target.replaceAll('`', '');
+  final approvalBoilerplates = <String>[
+    '$normalizedTarget requires approval:',
+    '$normalizedTarget requires permission:',
+  ];
+  if (normalizedReason == normalizedTarget ||
+      approvalBoilerplates.any(normalizedReason.startsWith)) {
+    return null;
+  }
+  return reason;
+}
+
 String? _firstInputValue(Map<String, dynamic> input, List<String> keys) {
   for (final key in keys) {
     final value = _nonEmptyString(input[key]);
@@ -1370,26 +1404,19 @@ String _compactFileTargets(List<String> changes) {
   return '${changes.first} +${changes.length - 1} more';
 }
 
-String? _scopeLabel(List<String> decisions) {
-  if (decisions.any((d) => d == 'acceptForSession')) {
-    return 'Session-wide option available';
-  }
-  if (decisions.any((d) => d == 'accept')) {
-    return 'One-time approval';
-  }
-  return null;
-}
-
 List<String> _buildCommonSecondaryDetails(
   Map<String, dynamic> input, {
   required bool includePermissions,
   bool includeReason = true,
-  bool includeAllowedActions = true,
+  String? primaryTarget,
 }) {
   final lines = <String>[];
 
   if (includeReason) {
-    final reason = _nonEmptyString(input['reason']);
+    final reason = _visibleReason(
+      input['reason'],
+      primaryTarget: primaryTarget,
+    );
     if (reason != null) {
       lines.add('Why: $reason');
     }
@@ -1419,13 +1446,6 @@ List<String> _buildCommonSecondaryDetails(
   );
   if (networkAmendments != null) {
     lines.add('Network policy: $networkAmendments');
-  }
-
-  if (includeAllowedActions) {
-    final availableDecisions = _stringList(input['availableDecisions']);
-    if (availableDecisions.isNotEmpty) {
-      lines.add('Allowed actions: ${availableDecisions.join(', ')}');
-    }
   }
 
   return lines;

@@ -436,8 +436,15 @@ void main() {
       expect(find.text('/bin/zsh -lc "mise ls flutter"'), findsOneWidget);
       expect(
         find.text('Allowed actions: accept, acceptForSession, decline'),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('approve_button')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('approve_always_button')),
         findsOneWidget,
       );
+      expect(find.byKey(const ValueKey('reject_button')), findsOneWidget);
+      expect(find.text('Approve'), findsOneWidget);
     });
 
     testWidgets('ask user custom input does not send on keyboard done', (
@@ -706,7 +713,7 @@ void main() {
       );
 
       expect(find.text('Approve tool call'), findsOneWidget);
-      expect(find.text('Allow Once'), findsOneWidget);
+      expect(find.text('Approve'), findsOneWidget);
       // Wide viewport (800px) → single-line combined text
       expect(find.text('This Session allow'), findsOneWidget);
       expect(find.text('Reject'), findsOneWidget);
@@ -719,6 +726,36 @@ void main() {
       await tester.pump();
 
       expect(answered, 'Approve this Session');
+    });
+
+    testWidgets('shows Cancel label when codex approval exposes cancel', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'codex-command-cancel',
+        provider: 'codex',
+        projectPath: '/home/user/my-app',
+        status: 'waiting_approval',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        pendingPermission: const PermissionRequestMessage(
+          toolUseId: 'tool-codex-cmd-cancel',
+          toolName: 'Bash',
+          input: {
+            'command': 'git status',
+            'availableDecisions': ['accept', 'cancel'],
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(RunningSessionCard(session: session, onTap: () {})),
+      );
+
+      expect(find.text('Approve'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Reject'), findsNothing);
+      expect(find.byKey(const ValueKey('approve_always_button')), findsNothing);
     });
   });
 

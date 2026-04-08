@@ -95,6 +95,7 @@ class ApprovalBar extends StatelessWidget {
             ] else
               const SizedBox(height: 6),
             _ApprovalButtons(
+              pendingPermission: pendingPermission,
               isPlanApproval: isPlanApproval,
               planApprovalUiMode: planApprovalUiMode,
               onApprove: onApprove,
@@ -331,6 +332,7 @@ class _KeepPlanningCard extends StatelessWidget {
 }
 
 class _ApprovalButtons extends StatelessWidget {
+  final PermissionRequestMessage? pendingPermission;
   final bool isPlanApproval;
   final PlanApprovalUiMode planApprovalUiMode;
   final VoidCallback onApprove;
@@ -339,6 +341,7 @@ class _ApprovalButtons extends StatelessWidget {
   final VoidCallback? onApproveClearContext;
 
   const _ApprovalButtons({
+    this.pendingPermission,
     required this.isPlanApproval,
     required this.planApprovalUiMode,
     required this.onApprove,
@@ -413,10 +416,16 @@ class _ApprovalButtons extends StatelessWidget {
 
     final cs = Theme.of(context).colorScheme;
     final isCodex = planApprovalUiMode == PlanApprovalUiMode.codex;
+    final canReject = pendingPermission?.canDecline ?? true;
+    final canApproveAlways = pendingPermission?.canApproveForSession ?? true;
+    final canApprove = pendingPermission?.canApprove ?? true;
+    final rejectLabel = pendingPermission?.showsCancelAction ?? false
+        ? l.cancel
+        : l.reject;
     final alwaysMain = isCodex ? l.approveSessionMain : l.approveAlways;
     final alwaysSub = isCodex ? l.approveSessionSub : l.approveAlwaysSub;
-    return Row(
-      children: [
+    final buttons = <Widget>[
+      if (canReject)
         Expanded(
           child: OutlinedButton(
             key: const ValueKey('reject_button'),
@@ -424,10 +433,11 @@ class _ApprovalButtons extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 8),
             ),
-            child: Text(l.reject, style: const TextStyle(fontSize: 13)),
+            child: Text(rejectLabel, style: const TextStyle(fontSize: 13)),
           ),
         ),
-        const SizedBox(width: 8),
+      if (canApproveAlways) ...[
+        if (canReject) const SizedBox(width: 8),
         Expanded(
           child: OutlinedButton(
             key: const ValueKey('approve_always_button'),
@@ -446,7 +456,9 @@ class _ApprovalButtons extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+      ],
+      if (canApprove) ...[
+        if (canReject || canApproveAlways) const SizedBox(width: 8),
         Expanded(
           child: FilledButton(
             key: const ValueKey('approve_button'),
@@ -454,10 +466,14 @@ class _ApprovalButtons extends StatelessWidget {
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 10),
             ),
-            child: Text(l.approveOnce, style: const TextStyle(fontSize: 13)),
+            child: Text(
+              isCodex ? l.approve : l.approveOnce,
+              style: const TextStyle(fontSize: 13),
+            ),
           ),
         ),
       ],
-    );
+    ];
+    return Row(children: buttons);
   }
 }

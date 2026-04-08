@@ -69,7 +69,8 @@ final List<MockScenario> mockScenarios = [
   _longHistory,
   // Chat session scenarios — Codex
   _codexPlanApproval,
-  _codexBashApproval,
+  _codexBashApprovalTwoChoices,
+  _codexBashApprovalThreeChoices,
   _codexFileChangeApproval,
   _codexMcpApproval,
   _codexAskUserQuestion,
@@ -85,7 +86,8 @@ final List<MockScenario> mockScenarios = [
   _sessionListPlanApproval,
   // Session list scenarios — Codex
   _sessionListCodexPlanApproval,
-  _sessionListCodexBashApproval,
+  _sessionListCodexBashApprovalTwoChoices,
+  _sessionListCodexBashApprovalThreeChoices,
   _sessionListCodexFileChangeApproval,
   _sessionListCodexMcpApproval,
   sessionListNewSession20Projects,
@@ -1518,12 +1520,12 @@ final _codexPlanApproval = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// 6c. Codex Bash Approval
+// 6c. Codex Bash Approval (2 choices)
 // ---------------------------------------------------------------------------
-final _codexBashApproval = MockScenario(
-  name: 'Codex Bash Approval',
+final _codexBashApprovalTwoChoices = MockScenario(
+  name: 'Codex Bash Approval (2 Choices)',
   icon: Icons.terminal,
-  description: 'Codex command execution approval (Bash)',
+  description: 'Codex command execution approval with accept / reject only',
   provider: MockScenarioProvider.codex,
   steps: [
     MockStep(
@@ -1556,11 +1558,12 @@ final _codexBashApproval = MockScenario(
     MockStep(
       delay: const Duration(milliseconds: 1000),
       message: const PermissionRequestMessage(
-        toolUseId: 'tool-codex-bash-1',
+        toolUseId: 'tool-codex-bash-2',
         toolName: 'Bash',
         input: {
           'command': 'cd apps/mobile && flutter test test/widgets/',
           'cwd': '/Users/demo/Workspace/ccpocket',
+          'availableDecisions': ['accept', 'decline'],
         },
       ),
     ),
@@ -1572,7 +1575,62 @@ final _codexBashApproval = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// 6d. Codex FileChange Approval
+// 6d. Codex Bash Approval (3 choices)
+// ---------------------------------------------------------------------------
+final _codexBashApprovalThreeChoices = MockScenario(
+  name: 'Codex Bash Approval (3 Choices)',
+  icon: Icons.terminal,
+  description: 'Codex command execution approval with session reuse option',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 600),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-bash-3',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text: 'I need to run the test suite and may need to repeat it.',
+            ),
+            const ToolUseContent(
+              id: 'tool-codex-bash-3',
+              name: 'Bash',
+              input: {
+                'command': 'cd apps/mobile && flutter test test/widgets/',
+                'cwd': '/Users/demo/Workspace/ccpocket',
+              },
+            ),
+          ],
+          model: 'o3',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1000),
+      message: const PermissionRequestMessage(
+        toolUseId: 'tool-codex-bash-3',
+        toolName: 'Bash',
+        input: {
+          'command': 'cd apps/mobile && flutter test test/widgets/',
+          'cwd': '/Users/demo/Workspace/ccpocket',
+          'availableDecisions': ['accept', 'acceptForSession', 'decline'],
+        },
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1200),
+      message: const StatusMessage(status: ProcessStatus.waitingApproval),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 6e. Codex FileChange Approval
 // ---------------------------------------------------------------------------
 final _codexFileChangeApproval = MockScenario(
   name: 'Codex FileChange Approval',
@@ -1636,7 +1694,7 @@ final _codexFileChangeApproval = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// 6e. Codex MCP Tool Approval (AskUserQuestion → ApprovalBar)
+// 6f. Codex MCP Tool Approval (AskUserQuestion → ApprovalBar)
 // ---------------------------------------------------------------------------
 final _codexMcpApproval = MockScenario(
   name: 'Codex MCP Approval',
@@ -2598,19 +2656,31 @@ const _sessionListCodexPlanApproval = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// SL-7. Codex Bash Approval
+// SL-7. Codex Bash Approval (2 choices)
 // ---------------------------------------------------------------------------
-const _sessionListCodexBashApproval = MockScenario(
-  name: 'Codex Bash Approval',
+const _sessionListCodexBashApprovalTwoChoices = MockScenario(
+  name: 'Codex Bash Approval (2 Choices)',
   icon: Icons.terminal,
-  description: 'Codex Bash command approval in session list',
+  description: 'Codex Bash command approval in session list with 2 actions',
   section: MockScenarioSection.sessionList,
   provider: MockScenarioProvider.codex,
   steps: [],
 );
 
 // ---------------------------------------------------------------------------
-// SL-8. Codex FileChange Approval
+// SL-8. Codex Bash Approval (3 choices)
+// ---------------------------------------------------------------------------
+const _sessionListCodexBashApprovalThreeChoices = MockScenario(
+  name: 'Codex Bash Approval (3 Choices)',
+  icon: Icons.terminal,
+  description: 'Codex Bash command approval in session list with 3 actions',
+  section: MockScenarioSection.sessionList,
+  provider: MockScenarioProvider.codex,
+  steps: [],
+);
+
+// ---------------------------------------------------------------------------
+// SL-9. Codex FileChange Approval
 // ---------------------------------------------------------------------------
 const _sessionListCodexFileChangeApproval = MockScenario(
   name: 'Codex FileChange Approval',
@@ -2622,7 +2692,7 @@ const _sessionListCodexFileChangeApproval = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// SL-9. Codex MCP Approval
+// SL-10. Codex MCP Approval
 // ---------------------------------------------------------------------------
 const _sessionListCodexMcpApproval = MockScenario(
   name: 'Codex MCP Approval',
@@ -2634,7 +2704,7 @@ const _sessionListCodexMcpApproval = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// SL-10. New Session (20 Projects)
+// SL-11. New Session (20 Projects)
 // ---------------------------------------------------------------------------
 const sessionListNewSession20Projects = MockScenario(
   name: 'New Session (20 Projects)',

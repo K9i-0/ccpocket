@@ -557,7 +557,7 @@ List<SessionInfo> mockSessionsAllStatuses() => [
 /// All approval UI variants for visual confirmation.
 /// Covers: Tool (Bash), Tool (Edit), AskUser single, AskUser multi-select,
 /// AskUser multi-question, ExitPlanMode (Claude), ExitPlanMode (Codex),
-/// Codex Bash, Codex FileChange, Codex MCP.
+/// Codex Bash (2/3 choices), Codex FileChange, Codex MCP.
 List<SessionInfo> mockSessionsAllApprovals() => [
   // Tool approval — Bash
   SessionInfo(
@@ -613,17 +613,23 @@ List<SessionInfo> mockSessionsAllApprovals() => [
   mockSessionPlanApproval(),
   // Plan approval — Codex
   mockSessionCodexPlanApproval(),
-  // Codex — Bash approval
-  mockSessionCodexBashApproval(),
+  // Codex — Bash approval (2 choices)
+  mockSessionCodexBashApprovalTwoChoices(),
+  // Codex — Bash approval (3 choices)
+  mockSessionCodexBashApprovalThreeChoices(),
   // Codex — FileChange approval
   mockSessionCodexFileChangeApproval(),
   // Codex — MCP tool approval (ApprovalBar)
   mockSessionCodexMcpApproval(),
 ];
 
-/// Session with a Bash command pending approval for Codex.
-SessionInfo mockSessionCodexBashApproval() => SessionInfo(
-  id: 'mock-running-codex-bash',
+SessionInfo _mockSessionCodexBashApproval({
+  required String id,
+  required String toolUseId,
+  required String lastMessage,
+  required List<String> availableDecisions,
+}) => SessionInfo(
+  id: id,
   provider: 'codex',
   projectPath: '/Users/demo/Workspace/ccpocket',
   status: 'waiting_approval',
@@ -634,19 +640,42 @@ SessionInfo mockSessionCodexBashApproval() => SessionInfo(
       .subtract(const Duration(seconds: 10))
       .toIso8601String(),
   gitBranch: 'feat/codex-bash',
-  lastMessage: 'Running tests to verify the implementation.',
+  lastMessage: lastMessage,
   codexModel: 'o3',
   codexSandboxMode: 'workspace-write',
   codexApprovalPolicy: 'on-request',
-  pendingPermission: const PermissionRequestMessage(
-    toolUseId: 'tool-codex-bash-sl-1',
+  pendingPermission: PermissionRequestMessage(
+    toolUseId: toolUseId,
     toolName: 'Bash',
     input: {
       'command': 'cd apps/mobile && flutter test',
       'cwd': '/Users/demo/Workspace/ccpocket',
+      'availableDecisions': availableDecisions,
     },
   ),
 );
+
+/// Session with a 2-choice Bash command pending approval for Codex.
+SessionInfo mockSessionCodexBashApprovalTwoChoices() =>
+    _mockSessionCodexBashApproval(
+      id: 'mock-running-codex-bash-2',
+      toolUseId: 'tool-codex-bash-sl-2',
+      lastMessage: 'Verifying the widget tests before proceeding.',
+      availableDecisions: const ['accept', 'decline'],
+    );
+
+/// Session with a 3-choice Bash command pending approval for Codex.
+SessionInfo mockSessionCodexBashApprovalThreeChoices() =>
+    _mockSessionCodexBashApproval(
+      id: 'mock-running-codex-bash-3',
+      toolUseId: 'tool-codex-bash-sl-3',
+      lastMessage: 'Running tests to verify the implementation.',
+      availableDecisions: const ['accept', 'acceptForSession', 'decline'],
+    );
+
+/// Backward-compatible default Codex Bash approval mock.
+SessionInfo mockSessionCodexBashApproval() =>
+    mockSessionCodexBashApprovalThreeChoices();
 
 /// Session with a FileChange pending approval for Codex.
 SessionInfo mockSessionCodexFileChangeApproval() => SessionInfo(

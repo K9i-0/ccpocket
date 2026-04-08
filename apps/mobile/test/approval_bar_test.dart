@@ -98,9 +98,8 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Exec policy: mode=allow'), findsOneWidget);
-      expect(find.text('Allowed actions: accept, decline'), findsOneWidget);
       expect(find.text('Allow command execution'), findsOneWidget);
-      expect(find.text('One-time approval'), findsNothing);
+      expect(find.text('Allowed actions: accept, decline'), findsNothing);
     });
 
     testWidgets('shows primary target without redundant approval badges', (
@@ -147,6 +146,61 @@ void main() {
         find.text('Reuse this approval in the current session'),
         findsNothing,
       );
+      expect(find.text('Approve'), findsOneWidget);
+      expect(find.text('This Session'), findsOneWidget);
+      expect(find.text('Reject'), findsOneWidget);
+    });
+
+    testWidgets(
+      'shows only accept and reject when session approval is absent',
+      (tester) async {
+        await tester.pumpWidget(
+          buildSubject(
+            pendingPermission: const PermissionRequestMessage(
+              toolUseId: 'tu-1',
+              toolName: 'Bash',
+              input: {
+                'command': 'git status',
+                'availableDecisions': ['accept', 'decline'],
+              },
+            ),
+            planApprovalUiMode: PlanApprovalUiMode.codex,
+          ),
+        );
+
+        expect(find.byKey(const ValueKey('approve_button')), findsOneWidget);
+        expect(find.byKey(const ValueKey('reject_button')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('approve_always_button')),
+          findsNothing,
+        );
+        expect(find.text('Approve'), findsOneWidget);
+        expect(find.text('Reject'), findsOneWidget);
+      },
+    );
+
+    testWidgets('treats cancel as reject for codex 2-choice approvals', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildSubject(
+          pendingPermission: const PermissionRequestMessage(
+            toolUseId: 'tu-1',
+            toolName: 'Bash',
+            input: {
+              'command': 'git status',
+              'availableDecisions': ['accept', 'cancel'],
+            },
+          ),
+          planApprovalUiMode: PlanApprovalUiMode.codex,
+        ),
+      );
+
+      expect(find.byKey(const ValueKey('approve_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('reject_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('approve_always_button')), findsNothing);
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Reject'), findsNothing);
     });
 
     testWidgets('shows plan approval labels', (tester) async {
@@ -313,7 +367,10 @@ void main() {
           pendingPermission: const PermissionRequestMessage(
             toolUseId: 'tu-1',
             toolName: 'Bash',
-            input: {'command': 'ls'},
+            input: {
+              'command': 'ls',
+              'availableDecisions': ['accept', 'acceptForSession', 'decline'],
+            },
           ),
           onApproveAlways: () => approvedAlways = true,
         ),

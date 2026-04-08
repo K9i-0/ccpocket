@@ -577,6 +577,10 @@ class _ToolApprovalArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final presentation = permission.presentation;
+    final canReject = permission.canDecline;
+    final canApproveAlways =
+        permission.canApproveForSession && onApproveAlways != null;
+    final canApprove = permission.canApprove;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -653,31 +657,36 @@ class _ToolApprovalArea extends StatelessWidget {
               final isWide = constraints.maxWidth >= 400;
               final l = AppLocalizations.of(context);
               final cs = Theme.of(context).colorScheme;
+              final rejectLabel = permission.showsCancelAction
+                  ? l.cancel
+                  : l.reject;
               final alwaysMain = isCodex
                   ? l.approveSessionMain
                   : l.approveAlways;
               final alwaysSub = isCodex
                   ? l.approveSessionSub
                   : l.approveAlwaysSub;
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
+              final buttons = <Widget>[
+                if (canReject)
                   SizedBox(
                     height: 36,
                     child: OutlinedButton.icon(
+                      key: const ValueKey('reject_button'),
                       onPressed: onReject,
                       icon: const Icon(Icons.close, size: 14),
-                      label: Text(l.reject),
+                      label: Text(rejectLabel),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         textStyle: const TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                if (canApproveAlways) ...[
+                  if (canReject) const SizedBox(width: 8),
                   SizedBox(
                     height: 36,
                     child: OutlinedButton(
+                      key: const ValueKey('approve_always_button'),
                       onPressed: onApproveAlways,
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -712,13 +721,16 @@ class _ToolApprovalArea extends StatelessWidget {
                             ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                ],
+                if (canApprove) ...[
+                  if (canReject || canApproveAlways) const SizedBox(width: 8),
                   SizedBox(
                     height: 36,
                     child: FilledButton.tonalIcon(
+                      key: const ValueKey('approve_button'),
                       onPressed: onApprove,
                       icon: const Icon(Icons.check, size: 14),
-                      label: Text(l.approveOnce),
+                      label: Text(isCodex ? l.approve : l.approveOnce),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         textStyle: const TextStyle(fontSize: 12),
@@ -728,6 +740,10 @@ class _ToolApprovalArea extends StatelessWidget {
                     ),
                   ),
                 ],
+              ];
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: buttons,
               );
             },
           ),
