@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.34.1] - 2026-04-08
+
+### Fixed
+- Remove deprecated gpt-5.2-codex model from Codex model list
+- Route McpElicitation through permission path for proper approval UI in Codex sessions
+
 ## [1.34.0] - 2026-04-07
 
 ### Added
