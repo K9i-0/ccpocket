@@ -68,7 +68,9 @@ void main() {
       expect(find.text('Allow Once'), findsOneWidget);
       expect(find.text('Reject'), findsOneWidget);
       expect(find.text('Permanently allow'), findsOneWidget);
-      expect(find.text('Approve only this request'), findsOneWidget);
+      expect(find.text('Approve only this request'), findsNothing);
+      expect(find.text('Stop this action'), findsNothing);
+      expect(find.text('Command'), findsNothing);
     });
 
     testWidgets('shows granular approval detail lines', (tester) async {
@@ -98,6 +100,53 @@ void main() {
       expect(find.text('Exec policy: mode=allow'), findsOneWidget);
       expect(find.text('Allowed actions: accept, decline'), findsOneWidget);
       expect(find.text('Allow command execution'), findsOneWidget);
+      expect(find.text('One-time approval'), findsNothing);
+    });
+
+    testWidgets('shows primary target without redundant approval badges', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildSubject(
+          pendingPermission: const PermissionRequestMessage(
+            toolUseId: 'tu-1',
+            toolName: 'AskUserQuestion',
+            input: {
+              'serverName': 'postgres',
+              'questions': [
+                {
+                  'header': 'Approve app tool call?',
+                  'question': 'Tool call: postgres.query("SELECT 1")',
+                  'options': [
+                    {'label': 'Approve Once', 'description': 'Allow once.'},
+                    {
+                      'label': 'Approve this Session',
+                      'description': 'Allow for this session.',
+                    },
+                    {'label': 'Deny', 'description': 'Reject this tool call.'},
+                    {'label': 'Cancel', 'description': 'Cancel and go back.'},
+                  ],
+                  'multiSelect': false,
+                },
+              ],
+              'availableDecisions': ['accept', 'acceptForSession', 'decline'],
+            },
+          ),
+          planApprovalUiMode: PlanApprovalUiMode.codex,
+        ),
+      );
+
+      expect(find.text('Approve app tool call?'), findsOneWidget);
+      expect(
+        find.text('Tool call: postgres.query("SELECT 1")'),
+        findsOneWidget,
+      );
+      expect(find.text('App Tool'), findsNothing);
+      expect(find.text('Session-wide option available'), findsNothing);
+      expect(
+        find.text('Reuse this approval in the current session'),
+        findsNothing,
+      );
     });
 
     testWidgets('shows plan approval labels', (tester) async {

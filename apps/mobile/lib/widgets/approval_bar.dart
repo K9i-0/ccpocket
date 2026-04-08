@@ -78,7 +78,7 @@ class ApprovalBar extends StatelessWidget {
               isPlanApproval: isPlanApproval,
               toolName: toolName,
               summary: summary,
-              presentation: presentation,
+              primaryTarget: presentation?.primaryTarget,
               detailLines: detailLines,
               onViewPlan: onViewPlan,
             ),
@@ -114,7 +114,7 @@ class _ApprovalHeader extends StatelessWidget {
   final bool isPlanApproval;
   final String? toolName;
   final String summary;
-  final PermissionPresentation? presentation;
+  final String? primaryTarget;
   final List<String> detailLines;
   final VoidCallback? onViewPlan;
 
@@ -123,7 +123,7 @@ class _ApprovalHeader extends StatelessWidget {
     required this.isPlanApproval,
     required this.toolName,
     required this.summary,
-    required this.presentation,
+    required this.primaryTarget,
     required this.detailLines,
     this.onViewPlan,
   });
@@ -132,9 +132,7 @@ class _ApprovalHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
-    final primaryTarget = presentation?.primaryTarget;
-    final riskBadge = presentation?.riskBadge;
-    final scopeLabel = presentation?.scopeLabel;
+    final primaryTargetText = primaryTarget;
     return Row(
       children: [
         Container(
@@ -169,25 +167,13 @@ class _ApprovalHeader extends StatelessWidget {
                 maxLines: 2,
                 backgroundColor: appColors.approvalBar,
               ),
-              if (!isPlanApproval && primaryTarget != null) ...[
+              if (!isPlanApproval && primaryTargetText != null) ...[
                 const SizedBox(height: 8),
                 _PrimaryTargetCard(
-                  text: primaryTarget,
+                  text: primaryTargetText,
                   backgroundColor: appColors.approvalBar.withValues(alpha: 0.7),
                   borderColor: appColors.approvalBarBorder,
                   textColor: Theme.of(context).colorScheme.onSurface,
-                ),
-              ],
-              if (!isPlanApproval &&
-                  (riskBadge != null || scopeLabel != null)) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    if (riskBadge != null) _InfoBadge(label: riskBadge),
-                    if (scopeLabel != null) _InfoBadge(label: scopeLabel),
-                  ],
                 ),
               ],
               if (detailLines.isNotEmpty) ...[
@@ -253,33 +239,6 @@ class _PrimaryTargetCard extends StatelessWidget {
           fontSize: 11,
           fontFamily: 'monospace',
           color: textColor,
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoBadge extends StatelessWidget {
-  final String label;
-
-  const _InfoBadge({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: cs.onSurfaceVariant,
         ),
       ),
     );
@@ -459,79 +418,44 @@ class _ApprovalButtons extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _ApprovalActionButton(
-            button: OutlinedButton(
-              key: const ValueKey('reject_button'),
-              onPressed: onReject,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              child: Text(l.reject, style: const TextStyle(fontSize: 13)),
+          child: OutlinedButton(
+            key: const ValueKey('reject_button'),
+            onPressed: onReject,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 8),
             ),
-            hint: 'Stop this action',
+            child: Text(l.reject, style: const TextStyle(fontSize: 13)),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _ApprovalActionButton(
-            button: OutlinedButton(
-              key: const ValueKey('approve_always_button'),
-              onPressed: onApproveAlways,
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                foregroundColor: cs.error,
-                side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
-              ),
-              child: Text(
-                isCodex || alwaysSub.isEmpty
-                    ? alwaysMain
-                    : '$alwaysMain $alwaysSub',
-                style: const TextStyle(fontSize: 13),
-                textAlign: TextAlign.center,
-              ),
+          child: OutlinedButton(
+            key: const ValueKey('approve_always_button'),
+            onPressed: onApproveAlways,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              foregroundColor: cs.error,
+              side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
             ),
-            hint: isCodex
-                ? 'Reuse this approval in the current session'
-                : 'Allow future runs without asking again',
+            child: Text(
+              isCodex || alwaysSub.isEmpty
+                  ? alwaysMain
+                  : '$alwaysMain $alwaysSub',
+              style: const TextStyle(fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _ApprovalActionButton(
-            button: FilledButton(
-              key: const ValueKey('approve_button'),
-              onPressed: onApprove,
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-              child: Text(l.approveOnce, style: const TextStyle(fontSize: 13)),
+          child: FilledButton(
+            key: const ValueKey('approve_button'),
+            onPressed: onApprove,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 10),
             ),
-            hint: 'Approve only this request',
+            child: Text(l.approveOnce, style: const TextStyle(fontSize: 13)),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ApprovalActionButton extends StatelessWidget {
-  final Widget button;
-  final String hint;
-
-  const _ApprovalActionButton({required this.button, required this.hint});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        button,
-        const SizedBox(height: 4),
-        Text(
-          hint,
-          style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
-          textAlign: TextAlign.center,
         ),
       ],
     );
