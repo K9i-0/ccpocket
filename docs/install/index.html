@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Install CC Pocket</title>
-  <meta name="description" content="Run Codex and Claude Code from your phone. Install CC Pocket from the App Store or Google Play.">
+  <meta name="description" content="Start Codex and Claude Code sessions from your phone. Install CC Pocket from the App Store or Google Play.">
   <meta property="og:title" content="Install CC Pocket">
-  <meta property="og:description" content="Your Mac's coding agent, on your phone. Scan for iPhone or Android and start coding from anywhere.">
+  <meta property="og:description" content="Start coding agent sessions from your phone. Scan for iPhone or Android and install CC Pocket in seconds.">
   <meta property="og:image" content="https://k9i-0.github.io/ccpocket/images/screenshots.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -457,11 +457,11 @@
 
     const translations = {
       en: {
-        eyebrow: "Mobile control for your coding agent",
-        titleBefore: "Run ",
+        eyebrow: "Built for long-running coding agent sessions",
+        titleBefore: "Start ",
         titleAnd: " and ",
-        titleAfter: " from your phone.",
-        subtitle: "Start sessions, handle approvals, and review diffs seamlessly. Your Mac does the heavy lifting, your phone acts as the remote.",
+        titleAfter: " sessions from your phone.",
+        subtitle: "Start sessions from your phone, stay on top of approvals and diffs, and step in only when decisions are needed while the session keeps running on your own machine.",
         scanIOS: "Scan for iPhone or iPad",
         scanAndroid: "Scan for Android",
         stepTitle: "Install in 3 steps",
@@ -469,16 +469,16 @@
         step1Desc: "Install and run the Bridge Server on your Mac or Linux box.",
         step2Title: "Scan & Install",
         step2Desc: "Use the QR codes on the left to jump directly into the app store.",
-        step3Title: "Connect",
-        step3Desc: "Scan the Bridge QR from the app, choose a project, and start coding.",
+        step3Title: "Connect and start a session",
+        step3Desc: "Scan the Bridge QR from the app, choose a project, and keep the session moving from wherever you are.",
         footnote: "CC Pocket is not affiliated with, endorsed by, or officially connected to Anthropic or OpenAI."
       },
       ja: {
-        eyebrow: "コーディングエージェントをスマホから操作",
+        eyebrow: "長時間のコーディングエージェント運用のために",
         titleBefore: "スマホから",
-        titleAnd: " ＆ ",
-        titleAfter: "を実行。",
-        subtitle: "セッションの開始、承認、差分レビューをシームレスに。重い処理はMacに任せて、スマホをリモコンのように使えます。",
+        titleAnd: " と ",
+        titleAfter: "のセッションを開始。",
+        subtitle: "スマホからセッションを始め、承認や差分を追いながら、判断が必要なときだけ介入。セッションは自分のマシン上で動き続けます。",
         scanIOS: "iPhone / iPad 向け",
         scanAndroid: "Android 向け",
         stepTitle: "3ステップで導入",
@@ -486,16 +486,16 @@
         step1Desc: "MacまたはLinuxでBridgeサーバーをインストールして起動します。",
         step2Title: "インストール",
         step2Desc: "左側のQRコードを使って、直接アプリストアにジャンプします。",
-        step3Title: "接続して開始",
-        step3Desc: "アプリからBridgeのQRコードを読み込み、プロジェクトを選んでコーディングを開始します。",
+        step3Title: "接続してセッション開始",
+        step3Desc: "アプリからBridgeのQRコードを読み込み、プロジェクトを選んで、どこからでもセッションを進められます。",
         footnote: "CC PocketはAnthropic社やOpenAI社と提携、推奨、または公式な関係を持つものではありません。"
       },
       zh: {
-        eyebrow: "在移动端控制您的编程智能体",
-        titleBefore: "从手机运行",
+        eyebrow: "为长时间运行的编程智能体会话而设计",
+        titleBefore: "从手机启动",
         titleAnd: " 和 ",
-        titleAfter: "。",
-        subtitle: "无缝启动会话、处理批准并审查差异。让您的Mac处理繁重的工作，手机充当遥控器。",
+        titleAfter: " 会话。",
+        subtitle: "直接从手机启动会话，随时查看审批和 diff，只在需要做决定时介入。会话会持续运行在您自己的机器上。",
         scanIOS: "扫描下载 iPhone / iPad 版",
         scanAndroid: "扫描下载 Android 版",
         stepTitle: "仅需3步轻松安装",
@@ -503,8 +503,8 @@
         step1Desc: "在您的 Mac 或 Linux 主机上安装并运行 Bridge 服务器。",
         step2Title: "扫描安装",
         step2Desc: "使用左侧的二维码直接跳转到应用商店进行下载。",
-        step3Title: "连接",
-        step3Desc: "从应用中扫描 Bridge 控制台的二维码，选择项目，即可开始编程。",
+        step3Title: "连接并启动会话",
+        step3Desc: "在应用中扫描 Bridge 的二维码，选择项目后，无论身在何处都能继续推进会话。",
         footnote: "CC Pocket 与 Anthropic 或 OpenAI 没有附属、认可或官方联系。"
       }
     };
@@ -629,11 +629,11 @@
       <article class="hero-content">
         <div class="eyebrow">
           <span class="blinking-dot" aria-hidden="true"></span>
-          <span data-i18n="eyebrow">Mobile control for your coding agent</span>
+          <span data-i18n="eyebrow">Built for long-running coding agent sessions</span>
         </div>
-        <h1 class="hero-title"><span data-i18n="titleBefore">Run </span><span class="highlight">Codex</span><span data-i18n="titleAnd"> and </span><span class="highlight">Claude Code</span><span data-i18n="titleAfter"> from your phone.</span></h1>
+        <h1 class="hero-title"><span data-i18n="titleBefore">Start </span><span class="highlight">Codex</span><span data-i18n="titleAnd"> and </span><span class="highlight">Claude Code</span><span data-i18n="titleAfter"> sessions from your phone.</span></h1>
         <p class="hero-subtitle" data-i18n="subtitle">
-          Start sessions, handle approvals, and review diffs seamlessly. Your Mac does the heavy lifting, your phone acts as the remote.
+          Start sessions from your phone, stay on top of approvals and diffs, and step in only when decisions are needed while the session keeps running on your own machine.
         </p>
 
         <div class="qr-grid" aria-label="Store QR codes">
@@ -685,8 +685,8 @@
             <div class="step-item">
               <div class="step-num">3</div>
               <div class="step-content">
-                <strong data-i18n="step3Title">Connect</strong>
-                <p data-i18n="step3Desc">Scan the Bridge QR from the app, choose a project, and start coding.</p>
+                <strong data-i18n="step3Title">Connect and start a session</strong>
+                <p data-i18n="step3Desc">Scan the Bridge QR from the app, choose a project, and keep the session moving from wherever you are.</p>
               </div>
             </div>
           </div>
