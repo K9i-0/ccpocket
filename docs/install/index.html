@@ -304,6 +304,11 @@
       border-radius: 32px;
       box-shadow: 0 40px 80px rgba(0,0,0,0.5);
       animation: float-mockup 8s infinite ease-in-out;
+      cursor: zoom-in;
+      transition: filter 0.3s ease;
+    }
+    .mobile-screenshot:hover {
+      filter: brightness(1.08);
     }
     @keyframes float-mockup {
       0%, 100% { transform: translateY(0); }
@@ -514,6 +519,18 @@
           el.innerText = translations[lang][key];
         }
       });
+
+      const screenshot = document.getElementById('app-screenshot');
+      if (screenshot) {
+        if (lang === 'ja') {
+          screenshot.src = '../images/screenshots-ja.png';
+        } else if (lang === 'zh') {
+          screenshot.src = '../images/screenshots-zh-CN.png';
+        } else {
+          screenshot.src = '../images/screenshots.png';
+        }
+      }
+
       document.getElementById('lang-selector').value = lang;
       localStorage.setItem('ccpocket_lang', lang);
 
@@ -545,6 +562,42 @@
           btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
         }, 2000);
       });
+    }
+
+    function openZoom(img) {
+      const overlay = document.createElement('div');
+      Object.assign(overlay.style, {
+        position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+        backgroundColor: 'rgba(0,0,0,0)', backdropFilter: 'blur(0px)', WebkitBackdropFilter: 'blur(0px)',
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        zIndex: '9999', cursor: 'zoom-out', transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+      });
+      const clone = document.createElement('img');
+      clone.src = img.src;
+      Object.assign(clone.style, {
+        maxWidth: '92%', maxHeight: '92%', borderRadius: '32px',
+        boxShadow: '0 60px 120px rgba(0,0,0,0.8)',
+        transform: 'scale(0.85) translateY(20px)', opacity: '0', transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
+      });
+      overlay.appendChild(clone);
+      document.body.appendChild(overlay);
+      
+      requestAnimationFrame(() => {
+        overlay.style.backgroundColor = 'rgba(7, 10, 17, 0.85)';
+        overlay.style.backdropFilter = 'blur(20px)';
+        overlay.style.WebkitBackdropFilter = 'blur(20px)';
+        clone.style.transform = 'scale(1) translateY(0)';
+        clone.style.opacity = '1';
+      });
+      
+      overlay.onclick = () => {
+        overlay.style.backgroundColor = 'rgba(0,0,0,0)';
+        overlay.style.backdropFilter = 'blur(0px)';
+        overlay.style.WebkitBackdropFilter = 'blur(0px)';
+        clone.style.transform = 'scale(0.9) translateY(20px)';
+        clone.style.opacity = '0';
+        setTimeout(() => document.body.removeChild(overlay), 400);
+      };
     }
   </script>
 </head>
@@ -604,7 +657,7 @@
 
       <!-- Right Column: Visuals & Steps -->
       <aside class="visual-container">
-        <img src="../images/screenshots.png" alt="CC Pocket app screenshots" class="mobile-screenshot">
+        <img id="app-screenshot" src="../images/screenshots.png" alt="CC Pocket app screenshots" class="mobile-screenshot" onclick="openZoom(this)" aria-label="Zoom screenshot">
         
         <div class="steps-card">
           <h3 data-i18n="stepTitle">Install in 3 steps</h3>
