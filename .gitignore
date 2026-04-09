@@ -77,3 +77,6 @@ npm-debug.log*
 
 # Web preview artifacts
 web-preview.png
+
+# Codex investigation artifacts
+.codex-tmp/
