@@ -468,6 +468,7 @@
 
   "settingsTitle": "设置",
   "sectionGeneral": "通用",
+  "sectionSupport": "支持",
   "sectionEditor": "编辑器",
   "indentSize": "缩进大小",
   "indentSizeSubtitle": "列表缩进使用的空格数",
@@ -745,5 +746,37 @@
   },
   "starOnGithub": "在 GitHub 点星",
   "rateOnStore": "在 App Store 评分",
-  "rateOnStoreAndroid": "在 Google Play 评分"
+  "rateOnStoreAndroid": "在 Google Play 评分",
+  "supporterTitle": "Supporter",
+  "supporterStatusActive": "你正在持续支持 ccpocket。",
+  "supporterStatusInactive": "这里会显示 OSS 支持状态，应用功能仍然完全免费。",
+  "supporterStatusLoading": "正在检查支持状态...",
+  "supporterMonthlyDescription": "按月支持，并显示 Supporter 标记。",
+  "supporterCoffeeDescription": "一次性的小额支持。",
+  "supporterLunchDescription": "一次性的大一点支持。",
+  "supporterBuyButton": "支持",
+  "supporterActiveButton": "已激活",
+  "supporterRestoreButton": "恢复购买",
+  "supporterRetryButton": "重试",
+  "supporterProductsUnavailable": "当前没有可用的支持商品。",
+  "supporterPurchaseSuccess": "感谢你通过 {title} 支持 ccpocket！",
+  "@supporterPurchaseSuccess": {
+    "placeholders": {
+      "title": { "type": "String" }
+    }
+  },
+  "supporterPurchaseCancelled": "已取消购买。",
+  "supporterPurchaseFailed": "购买失败：{message}",
+  "@supporterPurchaseFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  },
+  "supporterRestoreSuccess": "已恢复购买记录。",
+  "supporterRestoreFailed": "恢复失败：{message}",
+  "@supporterRestoreFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  }
 }

@@ -401,6 +401,7 @@
 
   "settingsTitle": "Settings",
   "sectionGeneral": "GENERAL",
+  "sectionSupport": "SUPPORT",
   "sectionEditor": "EDITOR",
   "indentSize": "Indent size",
   "indentSizeSubtitle": "Number of spaces for list indentation",
@@ -605,5 +606,37 @@
   },
   "starOnGithub": "Star on GitHub",
   "rateOnStore": "Rate on App Store",
-  "rateOnStoreAndroid": "Rate on Google Play"
+  "rateOnStoreAndroid": "Rate on Google Play",
+  "supporterTitle": "Supporter",
+  "supporterStatusActive": "You are actively supporting ccpocket.",
+  "supporterStatusInactive": "OSS support is available here. The app stays fully free.",
+  "supporterStatusLoading": "Checking supporter status...",
+  "supporterMonthlyDescription": "Monthly support with the Supporter badge.",
+  "supporterCoffeeDescription": "One-time support for a small coffee.",
+  "supporterLunchDescription": "One-time support for a bigger thank-you.",
+  "supporterBuyButton": "Support",
+  "supporterActiveButton": "Active",
+  "supporterRestoreButton": "Restore",
+  "supporterRetryButton": "Retry",
+  "supporterProductsUnavailable": "No support products are currently available.",
+  "supporterPurchaseSuccess": "Thanks for supporting ccpocket with {title}!",
+  "@supporterPurchaseSuccess": {
+    "placeholders": {
+      "title": { "type": "String" }
+    }
+  },
+  "supporterPurchaseCancelled": "Purchase cancelled.",
+  "supporterPurchaseFailed": "Purchase failed: {message}",
+  "@supporterPurchaseFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  },
+  "supporterRestoreSuccess": "Purchases restored.",
+  "supporterRestoreFailed": "Restore failed: {message}",
+  "@supporterRestoreFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  }
 }

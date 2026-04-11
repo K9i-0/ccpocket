@@ -1032,6 +1032,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionGeneral => 'GENERAL';
 
   @override
+  String get sectionSupport => 'SUPPORT';
+
+  @override
   String get sectionEditor => 'EDITOR';
 
   @override
@@ -1460,4 +1463,66 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get rateOnStoreAndroid => 'Rate on Google Play';
+
+  @override
+  String get supporterTitle => 'Supporter';
+
+  @override
+  String get supporterStatusActive => 'You are actively supporting ccpocket.';
+
+  @override
+  String get supporterStatusInactive =>
+      'OSS support is available here. The app stays fully free.';
+
+  @override
+  String get supporterStatusLoading => 'Checking supporter status...';
+
+  @override
+  String get supporterMonthlyDescription =>
+      'Monthly support with the Supporter badge.';
+
+  @override
+  String get supporterCoffeeDescription =>
+      'One-time support for a small coffee.';
+
+  @override
+  String get supporterLunchDescription =>
+      'One-time support for a bigger thank-you.';
+
+  @override
+  String get supporterBuyButton => 'Support';
+
+  @override
+  String get supporterActiveButton => 'Active';
+
+  @override
+  String get supporterRestoreButton => 'Restore';
+
+  @override
+  String get supporterRetryButton => 'Retry';
+
+  @override
+  String get supporterProductsUnavailable =>
+      'No support products are currently available.';
+
+  @override
+  String supporterPurchaseSuccess(String title) {
+    return 'Thanks for supporting ccpocket with $title!';
+  }
+
+  @override
+  String get supporterPurchaseCancelled => 'Purchase cancelled.';
+
+  @override
+  String supporterPurchaseFailed(String message) {
+    return 'Purchase failed: $message';
+  }
+
+  @override
+  String get supporterRestoreSuccess => 'Purchases restored.';
+
+  @override
+  String supporterRestoreFailed(String message) {
+    return 'Restore failed: $message';
+  }
 }

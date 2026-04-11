@@ -17,10 +17,12 @@ import '../../providers/machine_manager_cubit.dart';
 import '../../router/app_router.dart';
 import '../../services/bridge_service.dart';
 import '../../services/database_service.dart';
+import '../../services/revenuecat_service.dart';
 import '../../models/machine.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
 import 'widgets/app_locale_bottom_sheet.dart';
+import 'widgets/support_section.dart';
 
 import 'widgets/new_session_tabs_bottom_sheet.dart';
 import 'widgets/speech_locale_bottom_sheet.dart';
@@ -51,6 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     final bridge = context.read<BridgeService>();
+    final revenueCat = context.read<RevenueCatService>();
 
     return Scaffold(
       appBar: AppBar(title: Text(l.settingsTitle)),
@@ -306,6 +309,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 8),
               ],
+
+              ValueListenableBuilder<SupportCatalogState>(
+                valueListenable: revenueCat.catalogState,
+                builder: (context, supportState, _) {
+                  if (!supportState.isAvailable &&
+                      supportState.errorMessage == null) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Column(
+                    children: [
+                      _SectionHeader(title: l.sectionSupport),
+                      const SupportSectionCard(),
+                      const SizedBox(height: 8),
+                    ],
+                  );
+                },
+              ),
 
               // ── Editor ──
               _SectionHeader(title: l.sectionEditor),

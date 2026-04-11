@@ -1930,6 +1930,12 @@ abstract class AppLocalizations {
   /// **'一般'**
   String get sectionGeneral;
 
+  /// No description provided for @sectionSupport.
+  ///
+  /// In ja, this message translates to:
+  /// **'支援'**
+  String get sectionSupport;
+
   /// No description provided for @sectionEditor.
   ///
   /// In ja, this message translates to:
@@ -2727,6 +2733,108 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'Google Play で評価する'**
   String get rateOnStoreAndroid;
+
+  /// No description provided for @supporterTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Supporter'**
+  String get supporterTitle;
+
+  /// No description provided for @supporterStatusActive.
+  ///
+  /// In ja, this message translates to:
+  /// **'現在 ccpocket を支援中です。'**
+  String get supporterStatusActive;
+
+  /// No description provided for @supporterStatusInactive.
+  ///
+  /// In ja, this message translates to:
+  /// **'ここからOSS支援を扱います。アプリ本体は無料のままです。'**
+  String get supporterStatusInactive;
+
+  /// No description provided for @supporterStatusLoading.
+  ///
+  /// In ja, this message translates to:
+  /// **'支援状態を確認しています...'**
+  String get supporterStatusLoading;
+
+  /// No description provided for @supporterMonthlyDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'Supporter バッジ付きの月額支援です。'**
+  String get supporterMonthlyDescription;
+
+  /// No description provided for @supporterCoffeeDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'気軽に入れられる 1 回限りの支援です。'**
+  String get supporterCoffeeDescription;
+
+  /// No description provided for @supporterLunchDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'少し大きめの 1 回限りの支援です。'**
+  String get supporterLunchDescription;
+
+  /// No description provided for @supporterBuyButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'支援する'**
+  String get supporterBuyButton;
+
+  /// No description provided for @supporterActiveButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'利用中'**
+  String get supporterActiveButton;
+
+  /// No description provided for @supporterRestoreButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'復元'**
+  String get supporterRestoreButton;
+
+  /// No description provided for @supporterRetryButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'再試行'**
+  String get supporterRetryButton;
+
+  /// No description provided for @supporterProductsUnavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'現在利用できる支援商品がありません。'**
+  String get supporterProductsUnavailable;
+
+  /// No description provided for @supporterPurchaseSuccess.
+  ///
+  /// In ja, this message translates to:
+  /// **'{title} で支援してくれてありがとうございます。'**
+  String supporterPurchaseSuccess(String title);
+
+  /// No description provided for @supporterPurchaseCancelled.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入をキャンセルしました。'**
+  String get supporterPurchaseCancelled;
+
+  /// No description provided for @supporterPurchaseFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入に失敗しました: {message}'**
+  String supporterPurchaseFailed(String message);
+
+  /// No description provided for @supporterRestoreSuccess.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入情報を復元しました。'**
+  String get supporterRestoreSuccess;
+
+  /// No description provided for @supporterRestoreFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'復元に失敗しました: {message}'**
+  String supporterRestoreFailed(String message);
 }
 
 class _AppLocalizationsDelegate

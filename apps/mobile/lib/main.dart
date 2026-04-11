@@ -45,6 +45,7 @@ import 'services/in_app_review_service.dart';
 import 'services/machine_manager_service.dart';
 import 'services/notification_service.dart';
 import 'services/prompt_history_service.dart';
+import 'services/revenuecat_service.dart';
 import 'services/ssh_startup_service.dart';
 import 'theme/app_theme.dart';
 import 'services/store_screenshot_extension.dart';
@@ -137,6 +138,8 @@ void main() async {
   StoreScreenshotState.draftService = draftService;
   final dbService = DatabaseService();
   final promptHistoryService = PromptHistoryService(dbService);
+  final revenueCatService = RevenueCatService();
+  unawaited(revenueCatService.initialize());
   runApp(
     MultiRepositoryProvider(
       providers: [
@@ -148,6 +151,7 @@ void main() async {
         RepositoryProvider<PromptHistoryService>.value(
           value: promptHistoryService,
         ),
+        RepositoryProvider<RevenueCatService>.value(value: revenueCatService),
         RepositoryProvider<MachineManagerService>.value(
           value: machineManagerService,
         ),

@@ -990,6 +990,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sectionGeneral => '一般';
 
   @override
+  String get sectionSupport => '支援';
+
+  @override
   String get sectionEditor => 'エディタ';
 
   @override
@@ -1413,4 +1416,61 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get rateOnStoreAndroid => 'Google Play で評価する';
+
+  @override
+  String get supporterTitle => 'Supporter';
+
+  @override
+  String get supporterStatusActive => '現在 ccpocket を支援中です。';
+
+  @override
+  String get supporterStatusInactive => 'ここからOSS支援を扱います。アプリ本体は無料のままです。';
+
+  @override
+  String get supporterStatusLoading => '支援状態を確認しています...';
+
+  @override
+  String get supporterMonthlyDescription => 'Supporter バッジ付きの月額支援です。';
+
+  @override
+  String get supporterCoffeeDescription => '気軽に入れられる 1 回限りの支援です。';
+
+  @override
+  String get supporterLunchDescription => '少し大きめの 1 回限りの支援です。';
+
+  @override
+  String get supporterBuyButton => '支援する';
+
+  @override
+  String get supporterActiveButton => '利用中';
+
+  @override
+  String get supporterRestoreButton => '復元';
+
+  @override
+  String get supporterRetryButton => '再試行';
+
+  @override
+  String get supporterProductsUnavailable => '現在利用できる支援商品がありません。';
+
+  @override
+  String supporterPurchaseSuccess(String title) {
+    return '$title で支援してくれてありがとうございます。';
+  }
+
+  @override
+  String get supporterPurchaseCancelled => '購入をキャンセルしました。';
+
+  @override
+  String supporterPurchaseFailed(String message) {
+    return '購入に失敗しました: $message';
+  }
+
+  @override
+  String get supporterRestoreSuccess => '購入情報を復元しました。';
+
+  @override
+  String supporterRestoreFailed(String message) {
+    return '復元に失敗しました: $message';
+  }
 }

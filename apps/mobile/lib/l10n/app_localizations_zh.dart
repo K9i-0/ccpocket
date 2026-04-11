@@ -978,6 +978,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sectionGeneral => '通用';
 
   @override
+  String get sectionSupport => '支持';
+
+  @override
   String get sectionEditor => '编辑器';
 
   @override
@@ -1398,4 +1401,61 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get rateOnStoreAndroid => '在 Google Play 评分';
+
+  @override
+  String get supporterTitle => 'Supporter';
+
+  @override
+  String get supporterStatusActive => '你正在持续支持 ccpocket。';
+
+  @override
+  String get supporterStatusInactive => '这里会显示 OSS 支持状态，应用功能仍然完全免费。';
+
+  @override
+  String get supporterStatusLoading => '正在检查支持状态...';
+
+  @override
+  String get supporterMonthlyDescription => '按月支持，并显示 Supporter 标记。';
+
+  @override
+  String get supporterCoffeeDescription => '一次性的小额支持。';
+
+  @override
+  String get supporterLunchDescription => '一次性的大一点支持。';
+
+  @override
+  String get supporterBuyButton => '支持';
+
+  @override
+  String get supporterActiveButton => '已激活';
+
+  @override
+  String get supporterRestoreButton => '恢复购买';
+
+  @override
+  String get supporterRetryButton => '重试';
+
+  @override
+  String get supporterProductsUnavailable => '当前没有可用的支持商品。';
+
+  @override
+  String supporterPurchaseSuccess(String title) {
+    return '感谢你通过 $title 支持 ccpocket！';
+  }
+
+  @override
+  String get supporterPurchaseCancelled => '已取消购买。';
+
+  @override
+  String supporterPurchaseFailed(String message) {
+    return '购买失败：$message';
+  }
+
+  @override
+  String get supporterRestoreSuccess => '已恢复购买记录。';
+
+  @override
+  String supporterRestoreFailed(String message) {
+    return '恢复失败：$message';
+  }
 }
