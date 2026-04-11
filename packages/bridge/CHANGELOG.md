@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.35.0] - 2026-04-11
+
+### Changed
+- Stop querying Claude usage via the undocumented internal endpoint from the Bridge usage API
+- Return Codex-only usage data so mobile clients can direct Claude users to the official billing and usage pages
+
 ## [1.34.1] - 2026-04-08
 
 ### Fixed
