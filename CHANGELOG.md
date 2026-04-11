@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.60.0] - 2026-04-11
+
+### Added
+- Support always-allow approvals for MCP tool requests in Codex sessions
+
+### Fixed
+- Avoid async `BuildContext` access warnings in Claude and Codex session screens
+
 ## [1.59.0] - 2026-04-11
 
 ### Added
