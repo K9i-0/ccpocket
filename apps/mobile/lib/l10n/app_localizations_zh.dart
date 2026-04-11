@@ -1406,7 +1406,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get supporterTitle => 'Supporter';
 
   @override
-  String get supporterStatusActive => '你正在持续支持 ccpocket。';
+  String get supporterMonthlyTitle => 'Supporter Monthly';
+
+  @override
+  String get supporterCoffeeTitle => 'Coffee Support';
+
+  @override
+  String get supporterLunchTitle => 'Lunch Support';
+
+  @override
+  String get supporterStatusActive => '感谢你支持 CC Pocket！';
 
   @override
   String get supporterStatusInactive => '这里会显示 OSS 支持状态，应用功能仍然完全免费。';
@@ -1440,7 +1449,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String supporterPurchaseSuccess(String title) {
-    return '感谢你通过 $title 支持 ccpocket！';
+    return '感谢你通过 $title 支持 CC Pocket！';
   }
 
   @override

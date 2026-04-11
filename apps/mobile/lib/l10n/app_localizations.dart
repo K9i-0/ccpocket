@@ -2740,10 +2740,28 @@ abstract class AppLocalizations {
   /// **'Supporter'**
   String get supporterTitle;
 
+  /// No description provided for @supporterMonthlyTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Supporter Monthly'**
+  String get supporterMonthlyTitle;
+
+  /// No description provided for @supporterCoffeeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Coffee Support'**
+  String get supporterCoffeeTitle;
+
+  /// No description provided for @supporterLunchTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Lunch Support'**
+  String get supporterLunchTitle;
+
   /// No description provided for @supporterStatusActive.
   ///
   /// In ja, this message translates to:
-  /// **'現在 ccpocket を支援中です。'**
+  /// **'CC Pocket の支援ありがとうございます！'**
   String get supporterStatusActive;
 
   /// No description provided for @supporterStatusInactive.
@@ -2809,7 +2827,7 @@ abstract class AppLocalizations {
   /// No description provided for @supporterPurchaseSuccess.
   ///
   /// In ja, this message translates to:
-  /// **'{title} で支援してくれてありがとうございます。'**
+  /// **'{title} で CC Pocket を支援してくれてありがとうございます。'**
   String supporterPurchaseSuccess(String title);
 
   /// No description provided for @supporterPurchaseCancelled.

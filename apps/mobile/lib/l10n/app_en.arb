@@ -608,7 +608,10 @@
   "rateOnStore": "Rate on App Store",
   "rateOnStoreAndroid": "Rate on Google Play",
   "supporterTitle": "Supporter",
-  "supporterStatusActive": "You are actively supporting ccpocket.",
+  "supporterMonthlyTitle": "Supporter Monthly",
+  "supporterCoffeeTitle": "Coffee Support",
+  "supporterLunchTitle": "Lunch Support",
+  "supporterStatusActive": "Thanks for supporting CC Pocket!",
   "supporterStatusInactive": "OSS support is available here. The app stays fully free.",
   "supporterStatusLoading": "Checking supporter status...",
   "supporterMonthlyDescription": "Monthly support with the Supporter badge.",
@@ -619,7 +622,7 @@
   "supporterRestoreButton": "Restore",
   "supporterRetryButton": "Retry",
   "supporterProductsUnavailable": "No support products are currently available.",
-  "supporterPurchaseSuccess": "Thanks for supporting ccpocket with {title}!",
+  "supporterPurchaseSuccess": "Thanks for supporting CC Pocket with {title}!",
   "@supporterPurchaseSuccess": {
     "placeholders": {
       "title": { "type": "String" }

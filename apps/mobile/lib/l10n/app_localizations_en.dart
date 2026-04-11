@@ -1468,7 +1468,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get supporterTitle => 'Supporter';
 
   @override
-  String get supporterStatusActive => 'You are actively supporting ccpocket.';
+  String get supporterMonthlyTitle => 'Supporter Monthly';
+
+  @override
+  String get supporterCoffeeTitle => 'Coffee Support';
+
+  @override
+  String get supporterLunchTitle => 'Lunch Support';
+
+  @override
+  String get supporterStatusActive => 'Thanks for supporting CC Pocket!';
 
   @override
   String get supporterStatusInactive =>
@@ -1507,7 +1516,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String supporterPurchaseSuccess(String title) {
-    return 'Thanks for supporting ccpocket with $title!';
+    return 'Thanks for supporting CC Pocket with $title!';
   }
 
   @override

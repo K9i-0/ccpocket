@@ -79,8 +79,8 @@ void main() {
 
     await tester.pumpWidget(_wrap(service));
 
-    expect(find.text('Supporter \$10/mo'), findsOneWidget);
-    expect(find.text('\$5 Coffee'), findsOneWidget);
+    expect(find.text('Supporter Monthly'), findsOneWidget);
+    expect(find.text('Coffee Support'), findsOneWidget);
     expect(find.text('Restore'), findsOneWidget);
   });
 

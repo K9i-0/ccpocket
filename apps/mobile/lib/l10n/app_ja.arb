@@ -666,7 +666,10 @@
   "rateOnStore": "App Store で評価する",
   "rateOnStoreAndroid": "Google Play で評価する",
   "supporterTitle": "Supporter",
-  "supporterStatusActive": "現在 ccpocket を支援中です。",
+  "supporterMonthlyTitle": "Supporter Monthly",
+  "supporterCoffeeTitle": "Coffee Support",
+  "supporterLunchTitle": "Lunch Support",
+  "supporterStatusActive": "CC Pocket の支援ありがとうございます！",
   "supporterStatusInactive": "ここからOSS支援を扱います。アプリ本体は無料のままです。",
   "supporterStatusLoading": "支援状態を確認しています...",
   "supporterMonthlyDescription": "Supporter バッジ付きの月額支援です。",
@@ -677,7 +680,7 @@
   "supporterRestoreButton": "復元",
   "supporterRetryButton": "再試行",
   "supporterProductsUnavailable": "現在利用できる支援商品がありません。",
-  "supporterPurchaseSuccess": "{title} で支援してくれてありがとうございます。",
+  "supporterPurchaseSuccess": "{title} で CC Pocket を支援してくれてありがとうございます。",
   "@supporterPurchaseSuccess": {
     "placeholders": {
       "title": { "type": "String" }

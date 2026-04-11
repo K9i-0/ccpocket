@@ -179,7 +179,7 @@ class _SupportPackageTile extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              package.title,
+              _titleForPackage(l, package),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -243,6 +243,19 @@ class _SupportPackageTile extends StatelessWidget {
         return l.supporterStatusInactive;
     }
   }
+
+  String _titleForPackage(AppLocalizations l, SupportPackage package) {
+    switch (package.kind) {
+      case SupportPackageKind.monthly:
+        return l.supporterMonthlyTitle;
+      case SupportPackageKind.coffee:
+        return l.supporterCoffeeTitle;
+      case SupportPackageKind.lunch:
+        return l.supporterLunchTitle;
+      case SupportPackageKind.other:
+        return package.title;
+    }
+  }
 }
 
 void _showResultSnackBar(
@@ -253,11 +266,18 @@ void _showResultSnackBar(
 }) {
   final l = AppLocalizations.of(context);
   final messenger = ScaffoldMessenger.of(context);
+  final packageTitle = switch (package?.kind) {
+    SupportPackageKind.monthly => l.supporterMonthlyTitle,
+    SupportPackageKind.coffee => l.supporterCoffeeTitle,
+    SupportPackageKind.lunch => l.supporterLunchTitle,
+    SupportPackageKind.other => package?.title,
+    null => null,
+  };
 
   final text = switch (result.type) {
     SupportActionResultType.success when isRestore => l.supporterRestoreSuccess,
     SupportActionResultType.success => l.supporterPurchaseSuccess(
-      package?.title ?? l.supporterTitle,
+      packageTitle ?? l.supporterTitle,
     ),
     SupportActionResultType.cancelled => l.supporterPurchaseCancelled,
     SupportActionResultType.error when isRestore => l.supporterRestoreFailed(
