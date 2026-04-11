@@ -70,6 +70,9 @@ jobs:
           IPA_PATH=$(ls apps/mobile/build/ios/ipa/*.ipa)
           echo "ipa_path=$IPA_PATH" >> "$GITHUB_OUTPUT"
       - name: Upload to TestFlight
+        # Intentionally pinned to v3.0.1. v4 switched to iTMSTransporter and
+        # currently fails on GitHub macOS runners, so keep this until upstream
+        # provides a working Node 24-compatible path.
         uses: apple-actions/upload-testflight-build@9fd28d4e690396e43caca69cef54cccccce77034 # v3.0.1
         with:
           app-path: ${{ steps.find_ipa.outputs.ipa_path }}
