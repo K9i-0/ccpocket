@@ -646,9 +646,9 @@ async function findLatestTokenCount(filePath: string): Promise<CodexTokenCountEv
 // ── Combined ──
 
 export async function fetchAllUsage(): Promise<UsageInfo[]> {
-  const [claude, codex] = await Promise.all([
-    fetchClaudeUsage(),
-    fetchCodexUsage(),
-  ]);
-  return [claude, codex];
+  // Claude usage previously depended on an undocumented internal endpoint.
+  // Keep this API limited to Codex so the app can link users to Claude's
+  // official billing pages instead of querying that endpoint.
+  const codex = await fetchCodexUsage();
+  return [codex];
 }
