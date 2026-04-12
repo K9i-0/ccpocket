@@ -106,8 +106,15 @@ void main() {
             ),
           ],
         )
-        ..currentInfo = const RevenueCatCustomerInfo(
-          activeEntitlementIds: {'supporter'},
+        ..currentInfo = RevenueCatCustomerInfo(
+          activeEntitlementIds: const {'supporter'},
+          historySummary: SupportHistorySummary(
+            supporterSince: DateTime(2026, 1, 10),
+            latestSubscriptionPurchaseAt: DateTime(2026, 4, 1),
+            oneTimeSupportCount: 3,
+            coffeeSupportCount: 2,
+            lunchSupportCount: 1,
+          ),
         );
       final service = RevenueCatService(
         gateway: gateway,
@@ -121,6 +128,9 @@ void main() {
       expect(service.supporterState.value.isAvailable, isTrue);
       expect(service.supporterState.value.isSupporter, isTrue);
       expect(service.catalogState.value.packages, hasLength(1));
+      expect(service.catalogState.value.summary.oneTimeSupportCount, 3);
+      expect(service.catalogState.value.summary.coffeeSupportCount, 2);
+      expect(service.catalogState.value.summary.supporterSince, DateTime(2026, 1, 10));
     });
 
     test('updates state when customer info changes', () async {

@@ -2836,6 +2836,54 @@ abstract class AppLocalizations {
   /// **'購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間では支援状態は共有されません。'**
   String get supporterRestoreNoticeBody;
 
+  /// No description provided for @supporterSummaryTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'支援サマリー'**
+  String get supporterSummaryTitle;
+
+  /// No description provided for @supporterSummarySinceChip.
+  ///
+  /// In ja, this message translates to:
+  /// **'{date}から支援中'**
+  String supporterSummarySinceChip(String date);
+
+  /// No description provided for @supporterSummaryStreakChip.
+  ///
+  /// In ja, this message translates to:
+  /// **'継続 {duration}'**
+  String supporterSummaryStreakChip(String duration);
+
+  /// No description provided for @supporterSummaryOneTimeCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'単発 ×{count}'**
+  String supporterSummaryOneTimeCount(int count);
+
+  /// No description provided for @supporterSummaryCoffeeCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'Coffee ×{count}'**
+  String supporterSummaryCoffeeCount(int count);
+
+  /// No description provided for @supporterSummaryLunchCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'Lunch ×{count}'**
+  String supporterSummaryLunchCount(int count);
+
+  /// No description provided for @supporterSummaryLessThanMonth.
+  ///
+  /// In ja, this message translates to:
+  /// **'1か月未満'**
+  String get supporterSummaryLessThanMonth;
+
+  /// No description provided for @supporterSummaryDurationMonths.
+  ///
+  /// In ja, this message translates to:
+  /// **'{count}か月'**
+  String supporterSummaryDurationMonths(int count);
+
   /// No description provided for @supporterLearnMoreTitle.
   ///
   /// In ja, this message translates to:

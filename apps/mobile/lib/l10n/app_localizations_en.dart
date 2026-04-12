@@ -1522,6 +1522,48 @@ class AppLocalizationsEn extends AppLocalizations {
       'Restore works with the same Apple ID or Google account. Support status is not shared between iOS and Android.';
 
   @override
+  String get supporterSummaryTitle => 'Your support';
+
+  @override
+  String supporterSummarySinceChip(String date) {
+    return 'Since $date';
+  }
+
+  @override
+  String supporterSummaryStreakChip(String duration) {
+    return 'Streak: $duration';
+  }
+
+  @override
+  String supporterSummaryOneTimeCount(int count) {
+    return 'One-time ×$count';
+  }
+
+  @override
+  String supporterSummaryCoffeeCount(int count) {
+    return 'Coffee ×$count';
+  }
+
+  @override
+  String supporterSummaryLunchCount(int count) {
+    return 'Lunch ×$count';
+  }
+
+  @override
+  String get supporterSummaryLessThanMonth => '<1 month';
+
+  @override
+  String supporterSummaryDurationMonths(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count months',
+      one: '1 month',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get supporterLearnMoreTitle => 'About Supporter';
 
   @override

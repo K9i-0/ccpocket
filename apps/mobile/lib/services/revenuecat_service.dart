@@ -45,6 +45,27 @@ class SupportPackage {
 }
 
 @immutable
+class SupportHistorySummary {
+  const SupportHistorySummary({
+    this.supporterSince,
+    this.latestSubscriptionPurchaseAt,
+    this.oneTimeSupportCount = 0,
+    this.coffeeSupportCount = 0,
+    this.lunchSupportCount = 0,
+  });
+
+  const SupportHistorySummary.empty() : this();
+
+  final DateTime? supporterSince;
+  final DateTime? latestSubscriptionPurchaseAt;
+  final int oneTimeSupportCount;
+  final int coffeeSupportCount;
+  final int lunchSupportCount;
+
+  bool get hasActivity => supporterSince != null || oneTimeSupportCount > 0;
+}
+
+@immutable
 class SupporterState {
   const SupporterState({
     required this.isAvailable,
@@ -86,6 +107,7 @@ class SupportCatalogState {
     required this.isLoading,
     required this.isSupporter,
     required this.packages,
+    this.summary = const SupportHistorySummary.empty(),
     this.isRestoring = false,
     this.purchasingPackageId,
     this.errorMessage,
@@ -114,6 +136,7 @@ class SupportCatalogState {
   final String? purchasingPackageId;
   final String? errorMessage;
   final List<SupportPackage> packages;
+  final SupportHistorySummary summary;
 
   bool get hasPackages => packages.isNotEmpty;
   bool get isBusy =>
@@ -127,6 +150,7 @@ class SupportCatalogState {
     Object? purchasingPackageId = _copySentinel,
     Object? errorMessage = _copySentinel,
     List<SupportPackage>? packages,
+    SupportHistorySummary? summary,
   }) {
     return SupportCatalogState(
       isAvailable: isAvailable ?? this.isAvailable,
@@ -140,6 +164,7 @@ class SupportCatalogState {
           ? this.errorMessage
           : errorMessage as String?,
       packages: packages ?? this.packages,
+      summary: summary ?? this.summary,
     );
   }
 }
@@ -148,9 +173,13 @@ const _copySentinel = Object();
 
 @immutable
 class RevenueCatCustomerInfo {
-  const RevenueCatCustomerInfo({required this.activeEntitlementIds});
+  const RevenueCatCustomerInfo({
+    required this.activeEntitlementIds,
+    this.historySummary = const SupportHistorySummary.empty(),
+  });
 
   final Set<String> activeEntitlementIds;
+  final SupportHistorySummary historySummary;
 }
 
 @immutable
@@ -262,8 +291,32 @@ class PurchasesRevenueCatGateway implements RevenueCatGateway {
   }
 
   RevenueCatCustomerInfo _mapInfo(purchases.CustomerInfo info) {
+    final entitlement = info.entitlements.all[_supporterEntitlementId];
+    final oneTimeTransactions = info.nonSubscriptionTransactions;
+    final coffeeCount = oneTimeTransactions
+        .where(
+          (transaction) =>
+              _packageKindFor(transaction.productIdentifier, '') ==
+              SupportPackageKind.coffee,
+        )
+        .length;
+    final lunchCount = oneTimeTransactions
+        .where(
+          (transaction) =>
+              _packageKindFor(transaction.productIdentifier, '') ==
+              SupportPackageKind.lunch,
+        )
+        .length;
+
     return RevenueCatCustomerInfo(
       activeEntitlementIds: info.entitlements.active.keys.toSet(),
+      historySummary: SupportHistorySummary(
+        supporterSince: _parseDate(entitlement?.originalPurchaseDate),
+        latestSubscriptionPurchaseAt: _parseDate(entitlement?.latestPurchaseDate),
+        oneTimeSupportCount: oneTimeTransactions.length,
+        coffeeSupportCount: coffeeCount,
+        lunchSupportCount: lunchCount,
+      ),
     );
   }
 
@@ -289,7 +342,9 @@ class PurchasesRevenueCatGateway implements RevenueCatGateway {
   }
 
   SupportPackageKind _packageKindFor(String productId, String packageId) {
-    if (productId == 'supporter_monthly_10' || packageId == r'$rc_monthly') {
+    if (productId == 'supporter_monthly_10' ||
+        productId == 'supporter_monthly_10_ios' ||
+        packageId == r'$rc_monthly') {
       return SupportPackageKind.monthly;
     }
     if (productId == 'support_coffee_5' || packageId == r'$rc_custom_coffee') {
@@ -299,6 +354,11 @@ class PurchasesRevenueCatGateway implements RevenueCatGateway {
       return SupportPackageKind.lunch;
     }
     return SupportPackageKind.other;
+  }
+
+  DateTime? _parseDate(String? value) {
+    if (value == null || value.isEmpty) return null;
+    return DateTime.tryParse(value)?.toLocal();
   }
 }
 
@@ -515,6 +575,7 @@ class RevenueCatService {
       purchasingPackageId: purchasingPackageId,
       errorMessage: errorMessage,
       packages: packages ?? current.packages,
+      summary: info.historySummary,
     );
   }
 }

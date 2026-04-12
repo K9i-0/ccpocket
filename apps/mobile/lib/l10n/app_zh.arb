@@ -764,6 +764,44 @@
   "supporterProductsUnavailable": "当前没有可用的支持商品。",
   "supporterRestoreNoticeTitle": "关于恢复",
   "supporterRestoreNoticeBody": "恢复购买仅适用于相同的 Apple ID 或 Google 账号。iOS 与 Android 之间不会共享支持状态。",
+  "supporterSummaryTitle": "支持摘要",
+  "supporterSummarySinceChip": "自 {date} 起支持",
+  "@supporterSummarySinceChip": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "supporterSummaryStreakChip": "连续 {duration}",
+  "@supporterSummaryStreakChip": {
+    "placeholders": {
+      "duration": { "type": "String" }
+    }
+  },
+  "supporterSummaryOneTimeCount": "单次 ×{count}",
+  "@supporterSummaryOneTimeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryCoffeeCount": "Coffee ×{count}",
+  "@supporterSummaryCoffeeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryLunchCount": "Lunch ×{count}",
+  "@supporterSummaryLunchCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryLessThanMonth": "不足 1 个月",
+  "supporterSummaryDurationMonths": "{count} 个月",
+  "@supporterSummaryDurationMonths": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "supporterLearnMoreTitle": "关于 Supporter",
   "supporterLearnMoreBody": "了解 CC Pocket 中支持、恢复购买与隐私设计的方式。",
   "supporterOpenLinkFailed": "无法打开 Supporter 指南。",

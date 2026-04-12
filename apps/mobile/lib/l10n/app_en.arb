@@ -624,6 +624,44 @@
   "supporterProductsUnavailable": "No support products are currently available.",
   "supporterRestoreNoticeTitle": "About restore",
   "supporterRestoreNoticeBody": "Restore works with the same Apple ID or Google account. Support status is not shared between iOS and Android.",
+  "supporterSummaryTitle": "Your support",
+  "supporterSummarySinceChip": "Since {date}",
+  "@supporterSummarySinceChip": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "supporterSummaryStreakChip": "Streak: {duration}",
+  "@supporterSummaryStreakChip": {
+    "placeholders": {
+      "duration": { "type": "String" }
+    }
+  },
+  "supporterSummaryOneTimeCount": "One-time ×{count}",
+  "@supporterSummaryOneTimeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryCoffeeCount": "Coffee ×{count}",
+  "@supporterSummaryCoffeeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryLunchCount": "Lunch ×{count}",
+  "@supporterSummaryLunchCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryLessThanMonth": "<1 month",
+  "supporterSummaryDurationMonths": "{count, plural, =1{1 month} other{{count} months}}",
+  "@supporterSummaryDurationMonths": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "supporterLearnMoreTitle": "About Supporter",
   "supporterLearnMoreBody": "Read how support, restore, and privacy work in CC Pocket.",
   "supporterOpenLinkFailed": "Could not open the Supporter guide.",

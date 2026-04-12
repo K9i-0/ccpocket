@@ -1455,6 +1455,42 @@ class AppLocalizationsZh extends AppLocalizations {
       '恢复购买仅适用于相同的 Apple ID 或 Google 账号。iOS 与 Android 之间不会共享支持状态。';
 
   @override
+  String get supporterSummaryTitle => '支持摘要';
+
+  @override
+  String supporterSummarySinceChip(String date) {
+    return '自 $date 起支持';
+  }
+
+  @override
+  String supporterSummaryStreakChip(String duration) {
+    return '连续 $duration';
+  }
+
+  @override
+  String supporterSummaryOneTimeCount(int count) {
+    return '单次 ×$count';
+  }
+
+  @override
+  String supporterSummaryCoffeeCount(int count) {
+    return 'Coffee ×$count';
+  }
+
+  @override
+  String supporterSummaryLunchCount(int count) {
+    return 'Lunch ×$count';
+  }
+
+  @override
+  String get supporterSummaryLessThanMonth => '不足 1 个月';
+
+  @override
+  String supporterSummaryDurationMonths(int count) {
+    return '$count 个月';
+  }
+
+  @override
   String get supporterLearnMoreTitle => '关于 Supporter';
 
   @override

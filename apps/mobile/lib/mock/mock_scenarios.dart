@@ -16,6 +16,7 @@ enum MockScenarioProvider { claude, codex }
 enum MockScenarioSection {
   chat('Chat Session', Icons.chat_bubble_outline),
   sessionList('Session List', Icons.list_alt),
+  settings('Settings', Icons.settings_outlined),
   storeScreenshot('Store Screenshots', Icons.photo_camera);
 
   final String label;
@@ -91,6 +92,9 @@ final List<MockScenario> mockScenarios = [
   _sessionListCodexFileChangeApproval,
   _sessionListCodexMcpApproval,
   sessionListNewSession20Projects,
+  supporterPreviewInactive,
+  supporterPreviewActive,
+  supporterPreviewVeteran,
   // Store screenshot scenarios
   ...storeScreenshotScenarios,
   // Standalone viewers
@@ -2716,6 +2720,30 @@ const sessionListNewSession20Projects = MockScenario(
   icon: Icons.folder_copy_outlined,
   description: 'New session sheet with 20 projects to test expandable history',
   section: MockScenarioSection.sessionList,
+  steps: [],
+);
+
+const supporterPreviewInactive = MockScenario(
+  name: 'Supporter (Inactive)',
+  icon: Icons.favorite_border,
+  description: 'Support section with products visible before any purchase',
+  section: MockScenarioSection.settings,
+  steps: [],
+);
+
+const supporterPreviewActive = MockScenario(
+  name: 'Supporter (Active)',
+  icon: Icons.favorite,
+  description: 'Active monthly supporter with a few one-time supports',
+  section: MockScenarioSection.settings,
+  steps: [],
+);
+
+const supporterPreviewVeteran = MockScenario(
+  name: 'Supporter (Veteran)',
+  icon: Icons.workspace_premium,
+  description: 'Long-running supporter with heavier one-time support history',
+  section: MockScenarioSection.settings,
   steps: [],
 );
 

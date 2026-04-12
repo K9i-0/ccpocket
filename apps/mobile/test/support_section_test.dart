@@ -53,10 +53,16 @@ Widget _wrap(RevenueCatService revenueCatService) {
 void main() {
   testWidgets('renders packages and restore action', (tester) async {
     final service = FakeRevenueCatService(
-      catalog: const SupportCatalogState(
+      catalog: SupportCatalogState(
         isAvailable: true,
         isLoading: false,
         isSupporter: false,
+        summary: SupportHistorySummary(
+          supporterSince: DateTime(2026, 1, 10),
+          oneTimeSupportCount: 3,
+          coffeeSupportCount: 2,
+          lunchSupportCount: 1,
+        ),
         packages: [
           SupportPackage(
             id: r'$rc_monthly',
@@ -83,6 +89,10 @@ void main() {
     expect(find.text('Coffee Support'), findsOneWidget);
     expect(find.text('Restore'), findsOneWidget);
     expect(find.text('About Supporter'), findsOneWidget);
+    expect(find.text('Your support'), findsOneWidget);
+    expect(find.text('One-time ×3'), findsOneWidget);
+    expect(find.text('Coffee ×2'), findsOneWidget);
+    expect(find.text('Lunch ×1'), findsOneWidget);
   });
 
   testWidgets('purchase button invokes service', (tester) async {

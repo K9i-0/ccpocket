@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart' as intl;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../l10n/app_localizations.dart';
@@ -29,6 +30,15 @@ class SupportSectionCard extends StatelessWidget {
           child: Column(
             children: [
               _SupportStatusTile(state: state),
+              if (state.summary.hasActivity) ...[
+                Divider(
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+                _SupportSummaryTile(state: state),
+              ],
               Divider(
                 height: 1,
                 indent: 16,
@@ -185,6 +195,99 @@ class _SupportLearnMoreTile extends StatelessWidget {
       subtitle: Text(l.supporterLearnMoreBody),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _openSupporterDoc(context),
+    );
+  }
+}
+
+class _SupportSummaryTile extends StatelessWidget {
+  const _SupportSummaryTile({required this.state});
+
+  final SupportCatalogState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final chips = <Widget>[];
+    final summary = state.summary;
+
+    if (summary.supporterSince != null) {
+      chips.add(
+        _SupportSummaryChip(
+          label: l.supporterSummarySinceChip(
+            _formatSupportMonthYear(context, summary.supporterSince!),
+          ),
+        ),
+      );
+    }
+    if (state.isSupporter && summary.supporterSince != null) {
+      chips.add(
+        _SupportSummaryChip(
+          label: l.supporterSummaryStreakChip(
+            _formatSupportDuration(
+              l,
+              summary.supporterSince!,
+              DateTime.now(),
+            ),
+          ),
+        ),
+      );
+    }
+    if (summary.oneTimeSupportCount > 0) {
+      chips.add(
+        _SupportSummaryChip(
+          label: l.supporterSummaryOneTimeCount(summary.oneTimeSupportCount),
+        ),
+      );
+    }
+    if (summary.coffeeSupportCount > 0) {
+      chips.add(
+        _SupportSummaryChip(
+          label: l.supporterSummaryCoffeeCount(summary.coffeeSupportCount),
+        ),
+      );
+    }
+    if (summary.lunchSupportCount > 0) {
+      chips.add(
+        _SupportSummaryChip(
+          label: l.supporterSummaryLunchCount(summary.lunchSupportCount),
+        ),
+      );
+    }
+
+    return ListTile(
+      leading: Icon(Icons.auto_awesome, color: cs.primary),
+      title: Text(l.supporterSummaryTitle),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Wrap(spacing: 8, runSpacing: 8, children: chips),
+      ),
+    );
+  }
+}
+
+class _SupportSummaryChip extends StatelessWidget {
+  const _SupportSummaryChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: cs.secondaryContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: cs.onSecondaryContainer,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -356,4 +459,29 @@ Future<void> _openSupporterDoc(BuildContext context) async {
       SnackBar(content: Text(l.supporterOpenLinkFailed)),
     );
   }
+}
+
+String _formatSupportMonthYear(BuildContext context, DateTime date) {
+  final locale = Localizations.localeOf(context).toLanguageTag();
+  return intl.DateFormat.yMMM(locale).format(date);
+}
+
+String _formatSupportDuration(
+  AppLocalizations l,
+  DateTime start,
+  DateTime end,
+) {
+  final months = _completedMonthsBetween(start, end);
+  if (months <= 0) {
+    return l.supporterSummaryLessThanMonth;
+  }
+  return l.supporterSummaryDurationMonths(months);
+}
+
+int _completedMonthsBetween(DateTime start, DateTime end) {
+  var months = (end.year - start.year) * 12 + end.month - start.month;
+  if (end.day < start.day) {
+    months -= 1;
+  }
+  return months < 0 ? 0 : months;
 }

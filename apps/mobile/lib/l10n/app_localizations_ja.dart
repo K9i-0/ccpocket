@@ -1470,6 +1470,42 @@ class AppLocalizationsJa extends AppLocalizations {
       '購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間では支援状態は共有されません。';
 
   @override
+  String get supporterSummaryTitle => '支援サマリー';
+
+  @override
+  String supporterSummarySinceChip(String date) {
+    return '$dateから支援中';
+  }
+
+  @override
+  String supporterSummaryStreakChip(String duration) {
+    return '継続 $duration';
+  }
+
+  @override
+  String supporterSummaryOneTimeCount(int count) {
+    return '単発 ×$count';
+  }
+
+  @override
+  String supporterSummaryCoffeeCount(int count) {
+    return 'Coffee ×$count';
+  }
+
+  @override
+  String supporterSummaryLunchCount(int count) {
+    return 'Lunch ×$count';
+  }
+
+  @override
+  String get supporterSummaryLessThanMonth => '1か月未満';
+
+  @override
+  String supporterSummaryDurationMonths(int count) {
+    return '$countか月';
+  }
+
+  @override
   String get supporterLearnMoreTitle => '支援について';
 
   @override
