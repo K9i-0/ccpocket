@@ -17,6 +17,7 @@ jobs:
       APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
       APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
       CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
+      REVENUECAT_PUBLIC_KEY: ${{ secrets.REVENUECAT_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Read Flutter version from .mise.toml
@@ -63,7 +64,9 @@ jobs:
           shorebird release ios \
             --flutter-version="${{ steps.mise.outputs.flutter_version }}" \
             --export-options-plist=$HOME/export_options.plist \
-            -- --no-tree-shake-icons
+            -- \
+            --dart-define=REVENUECAT_PUBLIC_KEY="${REVENUECAT_PUBLIC_KEY}" \
+            --no-tree-shake-icons
       - name: Find IPA file
         id: find_ipa
         run: |
