@@ -1448,6 +1448,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get supporterProductsUnavailable => '当前没有可用的支持商品。';
 
   @override
+  String get supporterRestoreNoticeTitle => '关于恢复';
+
+  @override
+  String get supporterRestoreNoticeBody =>
+      '恢复购买仅适用于相同的 Apple ID 或 Google 账号。iOS 与 Android 之间不会共享支持状态。';
+
+  @override
+  String get supporterLearnMoreTitle => '关于 Supporter';
+
+  @override
+  String get supporterLearnMoreBody => '了解 CC Pocket 中支持、恢复购买与隐私设计的方式。';
+
+  @override
+  String get supporterOpenLinkFailed => '无法打开 Supporter 指南。';
+
+  @override
   String supporterPurchaseSuccess(String title) {
     return '感谢你通过 $title 支持 CC Pocket！';
   }

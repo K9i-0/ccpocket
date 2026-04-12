@@ -1515,6 +1515,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'No support products are currently available.';
 
   @override
+  String get supporterRestoreNoticeTitle => 'About restore';
+
+  @override
+  String get supporterRestoreNoticeBody =>
+      'Restore works with the same Apple ID or Google account. Support status is not shared between iOS and Android.';
+
+  @override
+  String get supporterLearnMoreTitle => 'About Supporter';
+
+  @override
+  String get supporterLearnMoreBody =>
+      'Read how support, restore, and privacy work in CC Pocket.';
+
+  @override
+  String get supporterOpenLinkFailed => 'Could not open the Supporter guide.';
+
+  @override
   String supporterPurchaseSuccess(String title) {
     return 'Thanks for supporting CC Pocket with $title!';
   }

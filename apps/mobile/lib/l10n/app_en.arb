@@ -622,6 +622,11 @@
   "supporterRestoreButton": "Restore",
   "supporterRetryButton": "Retry",
   "supporterProductsUnavailable": "No support products are currently available.",
+  "supporterRestoreNoticeTitle": "About restore",
+  "supporterRestoreNoticeBody": "Restore works with the same Apple ID or Google account. Support status is not shared between iOS and Android.",
+  "supporterLearnMoreTitle": "About Supporter",
+  "supporterLearnMoreBody": "Read how support, restore, and privacy work in CC Pocket.",
+  "supporterOpenLinkFailed": "Could not open the Supporter guide.",
   "supporterPurchaseSuccess": "Thanks for supporting CC Pocket with {title}!",
   "@supporterPurchaseSuccess": {
     "placeholders": {

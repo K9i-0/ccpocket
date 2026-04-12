@@ -2824,6 +2824,36 @@ abstract class AppLocalizations {
   /// **'現在利用できる支援商品がありません。'**
   String get supporterProductsUnavailable;
 
+  /// No description provided for @supporterRestoreNoticeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'復元について'**
+  String get supporterRestoreNoticeTitle;
+
+  /// No description provided for @supporterRestoreNoticeBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間では支援状態は共有されません。'**
+  String get supporterRestoreNoticeBody;
+
+  /// No description provided for @supporterLearnMoreTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'支援について'**
+  String get supporterLearnMoreTitle;
+
+  /// No description provided for @supporterLearnMoreBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'支援の仕組み、復元、プライバシー方針の考え方を確認できます。'**
+  String get supporterLearnMoreBody;
+
+  /// No description provided for @supporterOpenLinkFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'支援ガイドを開けませんでした。'**
+  String get supporterOpenLinkFailed;
+
   /// No description provided for @supporterPurchaseSuccess.
   ///
   /// In ja, this message translates to:

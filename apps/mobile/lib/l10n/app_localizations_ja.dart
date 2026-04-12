@@ -1463,6 +1463,22 @@ class AppLocalizationsJa extends AppLocalizations {
   String get supporterProductsUnavailable => '現在利用できる支援商品がありません。';
 
   @override
+  String get supporterRestoreNoticeTitle => '復元について';
+
+  @override
+  String get supporterRestoreNoticeBody =>
+      '購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間では支援状態は共有されません。';
+
+  @override
+  String get supporterLearnMoreTitle => '支援について';
+
+  @override
+  String get supporterLearnMoreBody => '支援の仕組み、復元、プライバシー方針の考え方を確認できます。';
+
+  @override
+  String get supporterOpenLinkFailed => '支援ガイドを開けませんでした。';
+
+  @override
   String supporterPurchaseSuccess(String title) {
     return '$title で CC Pocket を支援してくれてありがとうございます。';
   }

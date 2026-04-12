@@ -680,6 +680,11 @@
   "supporterRestoreButton": "復元",
   "supporterRetryButton": "再試行",
   "supporterProductsUnavailable": "現在利用できる支援商品がありません。",
+  "supporterRestoreNoticeTitle": "復元について",
+  "supporterRestoreNoticeBody": "購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間では支援状態は共有されません。",
+  "supporterLearnMoreTitle": "支援について",
+  "supporterLearnMoreBody": "支援の仕組み、復元、プライバシー方針の考え方を確認できます。",
+  "supporterOpenLinkFailed": "支援ガイドを開けませんでした。",
   "supporterPurchaseSuccess": "{title} で CC Pocket を支援してくれてありがとうございます。",
   "@supporterPurchaseSuccess": {
     "placeholders": {

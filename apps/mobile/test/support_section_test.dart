@@ -82,6 +82,7 @@ void main() {
     expect(find.text('Supporter Monthly'), findsOneWidget);
     expect(find.text('Coffee Support'), findsOneWidget);
     expect(find.text('Restore'), findsOneWidget);
+    expect(find.text('About Supporter'), findsOneWidget);
   });
 
   testWidgets('purchase button invokes service', (tester) async {

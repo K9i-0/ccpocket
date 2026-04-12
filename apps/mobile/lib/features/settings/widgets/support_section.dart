@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../services/revenuecat_service.dart';
 import '../../../widgets/supporter_badge.dart';
+
+final Uri _supporterDocUri = Uri.parse(
+  'https://github.com/K9i-0/ccpocket/blob/main/docs/supporter.md',
+);
 
 class SupportSectionCard extends StatelessWidget {
   const SupportSectionCard({super.key});
@@ -39,6 +44,20 @@ class SupportSectionCard extends StatelessWidget {
                   errorMessage: state.errorMessage,
                   onRetry: revenueCat.refresh,
                 ),
+              Divider(
+                height: 1,
+                indent: 16,
+                endIndent: 16,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+              const _SupportRestoreNoticeTile(),
+              Divider(
+                height: 1,
+                indent: 16,
+                endIndent: 16,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+              const _SupportLearnMoreTile(),
             ],
           ),
         );
@@ -132,6 +151,40 @@ class _SupportLoadingTile extends StatelessWidget {
         child: CircularProgressIndicator(strokeWidth: 2),
       ),
       title: Text(l.supporterStatusLoading),
+    );
+  }
+}
+
+class _SupportRestoreNoticeTile extends StatelessWidget {
+  const _SupportRestoreNoticeTile();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+
+    return ListTile(
+      leading: Icon(Icons.info_outline, color: cs.primary),
+      title: Text(l.supporterRestoreNoticeTitle),
+      subtitle: Text(l.supporterRestoreNoticeBody),
+    );
+  }
+}
+
+class _SupportLearnMoreTile extends StatelessWidget {
+  const _SupportLearnMoreTile();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+
+    return ListTile(
+      leading: Icon(Icons.open_in_new, color: cs.primary),
+      title: Text(l.supporterLearnMoreTitle),
+      subtitle: Text(l.supporterLearnMoreBody),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => _openSupporterDoc(context),
     );
   }
 }
@@ -289,4 +342,18 @@ void _showResultSnackBar(
   };
 
   messenger.showSnackBar(SnackBar(content: Text(text)));
+}
+
+Future<void> _openSupporterDoc(BuildContext context) async {
+  final l = AppLocalizations.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final launched = await launchUrl(
+    _supporterDocUri,
+    mode: LaunchMode.externalApplication,
+  );
+  if (!launched && context.mounted) {
+    messenger.showSnackBar(
+      SnackBar(content: Text(l.supporterOpenLinkFailed)),
+    );
+  }
 }
