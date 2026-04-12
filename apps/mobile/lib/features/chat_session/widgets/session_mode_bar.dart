@@ -338,37 +338,31 @@ void showExecutionModeMenu(
                       CodexApprovalPolicy.untrusted =>
                         Icons.verified_user_outlined,
                       CodexApprovalPolicy.onRequest => Icons.tune,
-                      CodexApprovalPolicy.onFailure =>
-                        Icons.auto_mode_outlined,
+                      CodexApprovalPolicy.onFailure => Icons.auto_mode_outlined,
                       CodexApprovalPolicy.never => Icons.flash_on,
                     },
                     color: policy == currentPolicy
                         ? (policy == CodexApprovalPolicy.never
-                            ? sheetCs.error
-                            : sheetCs.primary)
+                              ? sheetCs.error
+                              : sheetCs.primary)
                         : sheetCs.onSurfaceVariant,
                   ),
-                  title: Text(
-                    switch (policy) {
-                      CodexApprovalPolicy.untrusted => 'Untrusted',
-                      CodexApprovalPolicy.onRequest => 'On Request',
-                      CodexApprovalPolicy.onFailure => 'On Failure',
-                      CodexApprovalPolicy.never => 'Never Ask',
-                    },
-                  ),
-                  subtitle: Text(
-                    switch (policy) {
-                      CodexApprovalPolicy.untrusted =>
-                        l.codexApprovalUntrustedDescription,
-                      CodexApprovalPolicy.onRequest =>
-                        l.codexApprovalOnRequestDescription,
-                      CodexApprovalPolicy.onFailure =>
-                        l.codexApprovalOnFailureDescription,
-                      CodexApprovalPolicy.never =>
-                        l.codexApprovalNeverDescription,
-                    },
-                    style: const TextStyle(fontSize: 12),
-                  ),
+                  title: Text(switch (policy) {
+                    CodexApprovalPolicy.untrusted => 'Untrusted',
+                    CodexApprovalPolicy.onRequest => 'On Request',
+                    CodexApprovalPolicy.onFailure => 'On Failure',
+                    CodexApprovalPolicy.never => 'Never Ask',
+                  }),
+                  subtitle: Text(switch (policy) {
+                    CodexApprovalPolicy.untrusted =>
+                      l.codexApprovalUntrustedDescription,
+                    CodexApprovalPolicy.onRequest =>
+                      l.codexApprovalOnRequestDescription,
+                    CodexApprovalPolicy.onFailure =>
+                      l.codexApprovalOnFailureDescription,
+                    CodexApprovalPolicy.never =>
+                      l.codexApprovalNeverDescription,
+                  }, style: const TextStyle(fontSize: 12)),
                   trailing: policy == currentPolicy
                       ? Icon(
                           Icons.check,
@@ -860,8 +854,11 @@ class ExecutionModeChip extends StatelessWidget {
     // Colors aligned with Claude Code CLI
     const purple = Color(0xFFBB86FC);
 
-    final (IconData icon, String label, Color fg) =
-        provider == Provider.codex && codexApprovalPolicy != null
+    final (
+      IconData icon,
+      String label,
+      Color fg,
+    ) = provider == Provider.codex && codexApprovalPolicy != null
         ? switch (codexApprovalPolicy!) {
             CodexApprovalPolicy.untrusted => (
               Icons.verified_user_outlined,

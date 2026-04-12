@@ -258,9 +258,7 @@ class ComposerTextEditingController extends TextEditingController {
     }
 
     final composingRange =
-        withComposing &&
-            value.composing.isValid &&
-            !value.composing.isCollapsed
+        withComposing && value.composing.isValid && !value.composing.isCollapsed
         ? TextRange(
             start: value.composing.start.clamp(0, text.length),
             end: value.composing.end.clamp(0, text.length),
@@ -326,10 +324,7 @@ List<TextSpan> _buildSegmentSpans({
   final spans = <TextSpan>[];
   if (start < composingRange.start) {
     spans.add(
-      TextSpan(
-        text: text.substring(start, composingRange.start),
-        style: style,
-      ),
+      TextSpan(text: text.substring(start, composingRange.start), style: style),
     );
   }
 
@@ -340,16 +335,12 @@ List<TextSpan> _buildSegmentSpans({
   spans.add(
     TextSpan(
       text: text.substring(composingStart, composingEnd),
-      style: style.merge(
-        const TextStyle(decoration: TextDecoration.underline),
-      ),
+      style: style.merge(const TextStyle(decoration: TextDecoration.underline)),
     ),
   );
 
   if (composingEnd < end) {
-    spans.add(
-      TextSpan(text: text.substring(composingEnd, end), style: style),
-    );
+    spans.add(TextSpan(text: text.substring(composingEnd, end), style: style));
   }
 
   return spans;

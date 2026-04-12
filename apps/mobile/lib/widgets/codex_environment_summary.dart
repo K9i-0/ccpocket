@@ -42,14 +42,10 @@ class CodexEnvironmentSummary extends StatelessWidget {
           )
           case final modelText?)
         Text(modelText, style: textStyle, overflow: TextOverflow.ellipsis),
-      if (_executionLabel(
-            approvalPolicy: approvalPolicy,
-          )
+      if (_executionLabel(approvalPolicy: approvalPolicy)
           case final executionLabel?)
         _EnvironmentMeta(
-          icon: _executionIcon(
-            approvalPolicy: approvalPolicy,
-          ),
+          icon: _executionIcon(approvalPolicy: approvalPolicy),
           label: executionLabel,
           compact: compact,
         ),
@@ -127,9 +123,7 @@ String? _displayModelSummary(
   return '$model $effortLabel';
 }
 
-IconData _executionIcon({
-  String? approvalPolicy,
-}) {
+IconData _executionIcon({String? approvalPolicy}) {
   return switch (approvalPolicy) {
     'never' => Icons.flash_on,
     'on-failure' => Icons.auto_mode_outlined,
@@ -139,9 +133,7 @@ IconData _executionIcon({
   };
 }
 
-String? _executionLabel({
-  String? approvalPolicy,
-}) {
+String? _executionLabel({String? approvalPolicy}) {
   return switch (approvalPolicy) {
     'untrusted' => 'Untrusted',
     'on-request' => 'On Request',
