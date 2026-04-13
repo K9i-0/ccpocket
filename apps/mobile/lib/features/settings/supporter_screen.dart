@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../services/revenuecat_service.dart';
-import '../../../widgets/supporter_badge.dart';
 
 @RoutePage()
 class SupporterScreen extends StatelessWidget {
@@ -35,7 +34,7 @@ class SupporterScreen extends StatelessWidget {
               const SizedBox(height: 24),
               _SupportPackageSection(state: state, onRetry: revenueCat.refresh),
               const SizedBox(height: 32),
-              const _SupportFooterInfo(),
+              const _SupportPurchaseInfoCard(),
             ],
           );
         },
@@ -137,21 +136,15 @@ class _SupportImpactCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _SupportImpactItem(
-              icon: Icons.auto_awesome_outlined,
-              title: l.supporterImpactAiTitle,
-              body: l.supporterImpactAiBody,
-            ),
-            const SizedBox(height: 12),
-            _SupportImpactItem(
-              icon: Icons.devices_outlined,
-              title: l.supporterImpactDevicesTitle,
-              body: l.supporterImpactDevicesBody,
-            ),
-            const SizedBox(height: 12),
-            _SupportImpactItem(
               icon: Icons.favorite_outline,
               title: l.supporterImpactMotivationTitle,
               body: l.supporterImpactMotivationBody,
+            ),
+            const SizedBox(height: 12),
+            _SupportImpactItem(
+              icon: Icons.auto_awesome_outlined,
+              title: l.supporterImpactAiTitle,
+              body: l.supporterImpactAiBody,
             ),
           ],
         ),
@@ -160,27 +153,46 @@ class _SupportImpactCard extends StatelessWidget {
   }
 }
 
-class _SupportFooterInfo extends StatelessWidget {
-  const _SupportFooterInfo();
+class _SupportPurchaseInfoCard extends StatelessWidget {
+  const _SupportPurchaseInfoCard();
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
 
     return Card(
       margin: EdgeInsets.zero,
-      color: Colors.transparent,
-      elevation: 0,
+      color: cs.surfaceContainerLow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
-      child: Column(
-        children: [
-          const _SupportRestoreNoticeTile(),
-          Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.5)),
-          const _SupportLearnMoreTile(),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l.supporterPurchaseInfoTitle,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l.supporterPurchaseInfoBody,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            _SupportTextLink(
+              label: l.supporterPurchaseInfoLink,
+              onTap: () => _openSupporterDoc(context),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -208,19 +220,34 @@ class _SupportPackageSection extends StatelessWidget {
     if (state.isLoading && !state.hasPackages) {
       children.add(const Card(child: _SupportLoadingTile()));
     } else if (state.hasPackages) {
-      for (var i = 0; i < state.packages.length; i++) {
-        final package = state.packages[i];
-        final isPremium = package.kind == SupportPackageKind.monthly;
+      final recurringPackages = state.packages
+          .where((package) => package.isSubscription)
+          .toList();
+      final oneTimePackages = state.packages
+          .where((package) => !package.isSubscription)
+          .toList();
+
+      if (recurringPackages.isNotEmpty) {
         children.add(
-          Padding(
-            padding: EdgeInsets.only(
-              bottom: i < state.packages.length - 1 ? 12 : 0,
-            ),
-            child: _SupportPackageCard(
-              package: package,
-              state: state,
-              isPremium: isPremium,
-            ),
+          _SupportPackageGroup(
+            title: l.supporterSubscriptionGroupTitle,
+            body: l.supporterSubscriptionGroupBody,
+            packages: recurringPackages,
+            state: state,
+            showRestoreButton: !state.isSupporter,
+          ),
+        );
+      }
+      if (oneTimePackages.isNotEmpty) {
+        if (recurringPackages.isNotEmpty) {
+          children.add(const SizedBox(height: 20));
+        }
+        children.add(
+          _SupportPackageGroup(
+            title: l.supporterOneTimeGroupTitle,
+            body: l.supporterOneTimeGroupBody,
+            packages: oneTimePackages,
+            state: state,
           ),
         );
       }
@@ -237,6 +264,81 @@ class _SupportPackageSection extends StatelessWidget {
 
     return Column(
       key: const ValueKey('supporter_packages_section'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+}
+
+class _SupportPackageGroup extends StatelessWidget {
+  const _SupportPackageGroup({
+    required this.title,
+    required this.body,
+    required this.packages,
+    required this.state,
+    this.showRestoreButton = false,
+  });
+
+  final String title;
+  final String body;
+  final List<SupportPackage> packages;
+  final SupportCatalogState state;
+  final bool showRestoreButton;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final revenueCat = context.read<RevenueCatService>();
+    final children = <Widget>[
+      Text(
+        title,
+        style: Theme.of(
+          context,
+        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 4),
+      Text(body, style: Theme.of(context).textTheme.bodyMedium),
+      const SizedBox(height: 12),
+    ];
+
+    for (var i = 0; i < packages.length; i++) {
+      children.add(
+        Padding(
+          padding: EdgeInsets.only(bottom: i < packages.length - 1 ? 12 : 0),
+          child: _SupportPackageCard(
+            package: packages[i],
+            state: state,
+            isPremium: packages[i].isSubscription,
+          ),
+        ),
+      );
+    }
+    if (showRestoreButton) {
+      children.add(const SizedBox(height: 8));
+      children.add(
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: state.isBusy
+                ? null
+                : () async {
+                    final result = await revenueCat.restorePurchases();
+                    if (!context.mounted) return;
+                    _showResultSnackBar(context, result, isRestore: true);
+                  },
+            child: state.isRestoring
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(l.supporterRestoreButton),
+          ),
+        ),
+      );
+    }
+
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: children,
     );
@@ -341,13 +443,12 @@ class _SupportStatusTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
-    final revenueCat = context.read<RevenueCatService>();
 
     final subtitle = state.isSupporter
         ? l.supporterStatusActive
         : state.isLoading
         ? l.supporterStatusLoading
-        : l.supporterStatusInactive;
+        : l.supportEntryInactiveSubtitle;
 
     return ListTile(
       contentPadding: state.isSupporter ? EdgeInsets.zero : null,
@@ -364,7 +465,7 @@ class _SupportStatusTile extends StatelessWidget {
       title: Row(
         children: [
           Text(
-            l.supporterTitle,
+            state.isSupporter ? l.supporterTitle : l.supportEntryInactiveTitle,
             style: state.isSupporter
                 ? Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
@@ -372,10 +473,6 @@ class _SupportStatusTile extends StatelessWidget {
                   )
                 : null,
           ),
-          if (state.isSupporter) ...[
-            const SizedBox(width: 8),
-            const SupporterBadge(),
-          ],
         ],
       ),
       subtitle: Padding(
@@ -387,24 +484,6 @@ class _SupportStatusTile extends StatelessWidget {
               : null,
         ),
       ),
-      trailing: !state.isSupporter
-          ? TextButton(
-              onPressed: state.isBusy
-                  ? null
-                  : () async {
-                      final result = await revenueCat.restorePurchases();
-                      if (!context.mounted) return;
-                      _showResultSnackBar(context, result, isRestore: true);
-                    },
-              child: state.isRestoring
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(l.supporterRestoreButton),
-            )
-          : null,
     );
   }
 }
@@ -427,40 +506,6 @@ class _SupportLoadingTile extends StatelessWidget {
   }
 }
 
-class _SupportRestoreNoticeTile extends StatelessWidget {
-  const _SupportRestoreNoticeTile();
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
-
-    return ListTile(
-      leading: Icon(Icons.info_outline, color: cs.primary),
-      title: Text(l.supporterRestoreNoticeTitle),
-      subtitle: Text(l.supporterRestoreNoticeBody),
-    );
-  }
-}
-
-class _SupportLearnMoreTile extends StatelessWidget {
-  const _SupportLearnMoreTile();
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
-
-    return ListTile(
-      leading: Icon(Icons.open_in_new, color: cs.primary),
-      title: Text(l.supporterLearnMoreTitle),
-      subtitle: Text(l.supporterLearnMoreBody),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => _openSupporterDoc(context),
-    );
-  }
-}
-
 class _SupportSummaryContent extends StatelessWidget {
   const _SupportSummaryContent({required this.state});
 
@@ -470,50 +515,7 @@ class _SupportSummaryContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
-    final chips = <Widget>[];
     final summary = state.summary;
-
-    if (summary.supporterSince != null) {
-      chips.add(
-        _SupportSummaryChip(
-          label: l.supporterSummarySinceChip(
-            _formatSupportMonthYear(context, summary.supporterSince!),
-          ),
-          isActive: true,
-        ),
-      );
-    }
-    if (state.isSupporter && summary.supporterSince != null) {
-      chips.add(
-        _SupportSummaryChip(
-          label: l.supporterSummaryStreakChip(
-            _formatSupportDuration(l, summary.supporterSince!, DateTime.now()),
-          ),
-          isActive: true,
-        ),
-      );
-    }
-    if (summary.oneTimeSupportCount > 0) {
-      chips.add(
-        _SupportSummaryChip(
-          label: l.supporterSummaryOneTimeCount(summary.oneTimeSupportCount),
-        ),
-      );
-    }
-    if (summary.coffeeSupportCount > 0) {
-      chips.add(
-        _SupportSummaryChip(
-          label: l.supporterSummaryCoffeeCount(summary.coffeeSupportCount),
-        ),
-      );
-    }
-    if (summary.lunchSupportCount > 0) {
-      chips.add(
-        _SupportSummaryChip(
-          label: l.supporterSummaryLunchCount(summary.lunchSupportCount),
-        ),
-      );
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,33 +538,105 @@ class _SupportSummaryContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        Wrap(spacing: 12, runSpacing: 12, children: chips),
+        Row(
+          children: [
+            Expanded(
+              child: _SupportSummaryStat(
+                label: l.supporterSummarySinceLabel,
+                value: summary.supporterSince == null
+                    ? '—'
+                    : _formatSupportMonthYear(context, summary.supporterSince!),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _SupportSummaryStat(
+                label: l.supporterSummaryStreakLabel,
+                value: summary.supporterSince == null
+                    ? '—'
+                    : _formatSupportDuration(
+                        l,
+                        summary.supporterSince!,
+                        DateTime.now(),
+                      ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
 }
 
-class _SupportSummaryChip extends StatelessWidget {
-  const _SupportSummaryChip({required this.label, this.isActive = false});
+class _SupportSummaryStat extends StatelessWidget {
+  const _SupportSummaryStat({required this.label, required this.value});
 
   final String label;
-  final bool isActive;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isActive ? cs.primary : cs.secondaryContainer,
-        borderRadius: BorderRadius.circular(999),
+        color: cs.surface.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.12)),
       ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: isActive ? cs.onPrimary : cs.onSecondaryContainer,
-          fontWeight: FontWeight.bold,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: cs.onPrimaryContainer,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SupportTextLink extends StatelessWidget {
+  const _SupportTextLink({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: cs.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.arrow_forward, size: 16, color: cs.primary),
+          ],
         ),
       ),
     );
@@ -607,7 +681,7 @@ class _SupportPackageTile extends StatelessWidget {
     final isPurchasing = state.purchasingPackageId == package.id;
 
     return ListTile(
-      leading: Icon(_iconForPackage(package), color: cs.primary, size: 28),
+      leading: _SupportPackageLeading(package: package),
       title: Row(
         children: [
           Expanded(
@@ -658,19 +732,6 @@ class _SupportPackageTile extends StatelessWidget {
     );
   }
 
-  IconData _iconForPackage(SupportPackage package) {
-    switch (package.kind) {
-      case SupportPackageKind.monthly:
-        return Icons.favorite;
-      case SupportPackageKind.coffee:
-        return Icons.local_cafe;
-      case SupportPackageKind.lunch:
-        return Icons.lunch_dining;
-      case SupportPackageKind.other:
-        return Icons.volunteer_activism_outlined;
-    }
-  }
-
   String _descriptionForPackage(AppLocalizations l, SupportPackage package) {
     switch (package.kind) {
       case SupportPackageKind.monthly:
@@ -695,6 +756,71 @@ class _SupportPackageTile extends StatelessWidget {
       case SupportPackageKind.other:
         return package.title;
     }
+  }
+}
+
+class _SupportPackageLeading extends StatelessWidget {
+  const _SupportPackageLeading({required this.package});
+
+  final SupportPackage package;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final emoji = _emojiForPackage(package);
+    if (emoji != null) {
+      return Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        child: Text(emoji, style: const TextStyle(fontSize: 28)),
+      );
+    }
+    return Icon(_iconForPackage(package), color: cs.primary, size: 28);
+  }
+
+  IconData _iconForPackage(SupportPackage package) {
+    switch (package.kind) {
+      case SupportPackageKind.monthly:
+        return Icons.favorite;
+      case SupportPackageKind.coffee:
+        return Icons.local_cafe;
+      case SupportPackageKind.lunch:
+        return Icons.lunch_dining;
+      case SupportPackageKind.other:
+        return Icons.volunteer_activism_outlined;
+    }
+  }
+
+  String? _emojiForPackage(SupportPackage package) {
+    final candidates = switch (package.kind) {
+      SupportPackageKind.coffee => [
+        '☕',
+        '🍵',
+        '🧃',
+        '🥤',
+        '🧋',
+        '🍹',
+        '🍺',
+        '🍻',
+        '🥛',
+      ],
+      SupportPackageKind.lunch => [
+        '🍔',
+        '🍕',
+        '🍜',
+        '🍛',
+        '🍣',
+        '🥪',
+        '🌭',
+        '🥟',
+        '🍱',
+        '🥙',
+      ],
+      _ => const <String>[],
+    };
+    if (candidates.isEmpty) return null;
+    return candidates[package.id.hashCode.abs() % candidates.length];
   }
 }
 

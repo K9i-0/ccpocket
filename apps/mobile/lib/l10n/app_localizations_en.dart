@@ -1471,7 +1471,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get supporterMonthlyTitle => 'Monthly Supporter';
 
   @override
-  String get supporterCoffeeTitle => 'Buy Me a Coffee';
+  String get supporterCoffeeTitle => 'Buy Me a Drink';
 
   @override
   String get supporterLunchTitle => 'Buy Me Lunch';
@@ -1509,15 +1509,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get supporterMonthlyDescription =>
-      'Recurring support that includes the Supporter badge.';
+      'I\'d appreciate steady support to keep the app improving over time.';
 
   @override
   String get supporterCoffeeDescription =>
-      'A small one-time thank-you that helps cover AI usage and development costs.';
+      'If you feel like buying me a drink, this is the one.';
 
   @override
   String get supporterLunchDescription =>
-      'A larger one-time boost for devices, testing, and ongoing work.';
+      'If you feel like buying me lunch, this is the one.';
 
   @override
   String get supporterBuyButton => 'Support';
@@ -1585,18 +1585,24 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get supporterSummarySinceLabel => 'Started';
+
+  @override
+  String get supporterSummaryStreakLabel => 'Active for';
+
+  @override
   String get supporterImpactTitle => 'What your support helps cover';
 
   @override
   String get supporterImpactBody =>
-      'CC Pocket stays free to use. Support helps pay for the tools and momentum needed to keep improving it.';
+      'If you like CC Pocket, I\'d appreciate your support for ongoing development. CC Pocket will stay available as free OSS.';
 
   @override
-  String get supporterImpactAiTitle => 'AI usage';
+  String get supporterImpactAiTitle => 'Development costs';
 
   @override
   String get supporterImpactAiBody =>
-      'Claude, Codex, and other tools used to design, test, and ship updates.';
+      'AI usage, device checks, testing, and shipping all add recurring costs.';
 
   @override
   String get supporterImpactDevicesTitle => 'Devices and testing';
@@ -1606,14 +1612,38 @@ class AppLocalizationsEn extends AppLocalizations {
       'Keeping the app reliable across phones, tablets, and platform updates.';
 
   @override
-  String get supporterImpactMotivationTitle => 'Momentum to keep going';
+  String get supporterImpactMotivationTitle => 'Momentum to keep building';
 
   @override
   String get supporterImpactMotivationBody =>
-      'A direct signal that the app is useful and worth continuous improvement.';
+      'Knowing the app is useful makes it much easier to keep shipping new features and improvements.';
 
   @override
   String get supporterPackagesTitle => 'Choose a way to support';
+
+  @override
+  String get supporterSubscriptionGroupTitle => 'Monthly support';
+
+  @override
+  String get supporterSubscriptionGroupBody =>
+      'For ongoing support that keeps development moving.';
+
+  @override
+  String get supporterOneTimeGroupTitle => 'One-time support';
+
+  @override
+  String get supporterOneTimeGroupBody =>
+      'If you feel like buying me a drink or lunch, I’d really appreciate the support.';
+
+  @override
+  String get supporterPurchaseInfoTitle => 'About purchases';
+
+  @override
+  String get supporterPurchaseInfoBody =>
+      'Restore works with the same Apple ID or Google account. Supporter status does not carry between iOS and Android.';
+
+  @override
+  String get supporterPurchaseInfoLink => 'Learn more';
 
   @override
   String get supporterLearnMoreTitle => 'How Supporter works';

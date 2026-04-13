@@ -1409,7 +1409,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get supporterMonthlyTitle => '每月支持';
 
   @override
-  String get supporterCoffeeTitle => '请喝杯咖啡';
+  String get supporterCoffeeTitle => '请喝杯饮料';
 
   @override
   String get supporterLunchTitle => '请吃顿午餐';
@@ -1444,13 +1444,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get supporterMonthlyDescription => '按月支持开发，并显示 Supporter 徽章。';
+  String get supporterMonthlyDescription => '如果你愿意持续支持，帮我把开发继续下去，我会很开心。';
 
   @override
-  String get supporterCoffeeDescription => '一笔轻量的一次性支持，帮助分担 AI 使用和开发成本。';
+  String get supporterCoffeeDescription => '如果你想请我喝一杯饮料，就选这个。';
 
   @override
-  String get supporterLunchDescription => '一笔更有力的一次性支持，用于设备、测试与持续迭代。';
+  String get supporterLunchDescription => '如果你想请我吃一顿午餐，就选这个。';
 
   @override
   String get supporterBuyButton => '支持';
@@ -1511,17 +1511,23 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get supporterSummarySinceLabel => '开始支持';
+
+  @override
+  String get supporterSummaryStreakLabel => '持续时间';
+
+  @override
   String get supporterImpactTitle => '你的支持会帮助到';
 
   @override
   String get supporterImpactBody =>
-      'CC Pocket 会继续免费开放使用。你的支持会直接帮助我持续投入时间和成本，把它做得更好。';
+      '如果你喜欢 CC Pocket，愿意支持持续开发的话我会很开心。CC Pocket 会继续以免费的 OSS 形式提供。';
 
   @override
-  String get supporterImpactAiTitle => 'AI 使用费用';
+  String get supporterImpactAiTitle => '开发成本';
 
   @override
-  String get supporterImpactAiBody => '用于承担 Claude、Codex 等开发与测试所需的 AI 成本。';
+  String get supporterImpactAiBody => 'AI 使用、真机验证、测试和发布都会带来持续成本。';
 
   @override
   String get supporterImpactDevicesTitle => '设备与测试';
@@ -1533,11 +1539,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String get supporterImpactMotivationTitle => '持续改进的动力';
 
   @override
-  String get supporterImpactMotivationBody =>
-      '每一份支持，都会直接鼓励我继续把 CC Pocket 做得更好。';
+  String get supporterImpactMotivationBody => '知道这个应用真的有用，会更有动力继续做新功能和改进。';
 
   @override
   String get supporterPackagesTitle => '选择一种支持方式';
+
+  @override
+  String get supporterSubscriptionGroupTitle => '每月支持';
+
+  @override
+  String get supporterSubscriptionGroupBody => '适合想持续支持、慢慢推动开发的人。';
+
+  @override
+  String get supporterOneTimeGroupTitle => '单次支持';
+
+  @override
+  String get supporterOneTimeGroupBody => '如果你愿意请我喝杯饮料或吃顿午餐，我会很感谢这份支持。';
+
+  @override
+  String get supporterPurchaseInfoTitle => '关于购买';
+
+  @override
+  String get supporterPurchaseInfoBody =>
+      '恢复购买仅适用于相同的 Apple ID 或 Google 账号。iOS 与 Android 之间的支持状态不会互通。';
+
+  @override
+  String get supporterPurchaseInfoLink => '了解更多';
 
   @override
   String get supporterLearnMoreTitle => '关于 Supporter';

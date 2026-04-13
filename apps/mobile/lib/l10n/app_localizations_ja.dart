@@ -1424,7 +1424,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get supporterMonthlyTitle => '月額サポーター';
 
   @override
-  String get supporterCoffeeTitle => 'コーヒーで応援';
+  String get supporterCoffeeTitle => 'ドリンクで応援';
 
   @override
   String get supporterLunchTitle => 'ランチで応援';
@@ -1460,13 +1460,13 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get supporterMonthlyDescription => 'Supporter バッジ付きで、毎月継続して応援できます。';
+  String get supporterMonthlyDescription => '継続的に、開発を後押ししてもらえるとうれしいです。';
 
   @override
-  String get supporterCoffeeDescription => 'AI 利用料や開発コストの足しになる、気軽な 1 回の応援です。';
+  String get supporterCoffeeDescription => 'ドリンクを 1 杯おごる気持ちになったらお願いします。';
 
   @override
-  String get supporterLunchDescription => '実機確認や継続改善の後押しになる、少し大きめの 1 回の応援です。';
+  String get supporterLunchDescription => 'ランチを 1 食おごる気持ちになったらお願いします。';
 
   @override
   String get supporterBuyButton => '応援する';
@@ -1527,18 +1527,23 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get supporterSummarySinceLabel => '応援開始';
+
+  @override
+  String get supporterSummaryStreakLabel => '継続';
+
+  @override
   String get supporterImpactTitle => '応援が支えるもの';
 
   @override
   String get supporterImpactBody =>
-      'CC Pocket は無料のまま使えます。応援は、継続して改善していくためのコストと勢いを支えます。';
+      'CC Pocket が気に入ったら、継続開発のために応援してもらえるとうれしいです。CC Pocket は無料の OSS として公開を続けます。';
 
   @override
-  String get supporterImpactAiTitle => 'AI 利用料';
+  String get supporterImpactAiTitle => '開発にかかるコスト';
 
   @override
-  String get supporterImpactAiBody =>
-      'Claude や Codex など、開発と検証に使う AI のコストに充てます。';
+  String get supporterImpactAiBody => 'AI 利用料、実機確認、テスト、配布まわりなどの継続コストを支えます。';
 
   @override
   String get supporterImpactDevicesTitle => '端末とテスト';
@@ -1552,10 +1557,33 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get supporterImpactMotivationBody =>
-      '使ってくれている実感が、改善を続けるいちばんの後押しになります。';
+      '使ってくれている実感が、新機能や改善を続けるいちばんの後押しになります。';
 
   @override
   String get supporterPackagesTitle => '応援の方法';
+
+  @override
+  String get supporterSubscriptionGroupTitle => '毎月応援';
+
+  @override
+  String get supporterSubscriptionGroupBody => '継続的に応援したい人向けです。';
+
+  @override
+  String get supporterOneTimeGroupTitle => '単発で応援';
+
+  @override
+  String get supporterOneTimeGroupBody =>
+      'ドリンクやランチをおごる気持ちになったら、応援してもらえるとうれしいです。';
+
+  @override
+  String get supporterPurchaseInfoTitle => '購入について';
+
+  @override
+  String get supporterPurchaseInfoBody =>
+      '購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間で応援状態は共有されません。';
+
+  @override
+  String get supporterPurchaseInfoLink => '詳しくはこちら';
 
   @override
   String get supporterLearnMoreTitle => 'Supporter について';

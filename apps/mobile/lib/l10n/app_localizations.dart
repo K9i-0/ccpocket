@@ -2749,7 +2749,7 @@ abstract class AppLocalizations {
   /// No description provided for @supporterCoffeeTitle.
   ///
   /// In ja, this message translates to:
-  /// **'コーヒーで応援'**
+  /// **'ドリンクで応援'**
   String get supporterCoffeeTitle;
 
   /// No description provided for @supporterLunchTitle.
@@ -2815,19 +2815,19 @@ abstract class AppLocalizations {
   /// No description provided for @supporterMonthlyDescription.
   ///
   /// In ja, this message translates to:
-  /// **'Supporter バッジ付きで、毎月継続して応援できます。'**
+  /// **'継続的に、開発を後押ししてもらえるとうれしいです。'**
   String get supporterMonthlyDescription;
 
   /// No description provided for @supporterCoffeeDescription.
   ///
   /// In ja, this message translates to:
-  /// **'AI 利用料や開発コストの足しになる、気軽な 1 回の応援です。'**
+  /// **'ドリンクを 1 杯おごる気持ちになったらお願いします。'**
   String get supporterCoffeeDescription;
 
   /// No description provided for @supporterLunchDescription.
   ///
   /// In ja, this message translates to:
-  /// **'実機確認や継続改善の後押しになる、少し大きめの 1 回の応援です。'**
+  /// **'ランチを 1 食おごる気持ちになったらお願いします。'**
   String get supporterLunchDescription;
 
   /// No description provided for @supporterBuyButton.
@@ -2920,6 +2920,18 @@ abstract class AppLocalizations {
   /// **'{count}か月'**
   String supporterSummaryDurationMonths(int count);
 
+  /// No description provided for @supporterSummarySinceLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援開始'**
+  String get supporterSummarySinceLabel;
+
+  /// No description provided for @supporterSummaryStreakLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'継続'**
+  String get supporterSummaryStreakLabel;
+
   /// No description provided for @supporterImpactTitle.
   ///
   /// In ja, this message translates to:
@@ -2929,19 +2941,19 @@ abstract class AppLocalizations {
   /// No description provided for @supporterImpactBody.
   ///
   /// In ja, this message translates to:
-  /// **'CC Pocket は無料のまま使えます。応援は、継続して改善していくためのコストと勢いを支えます。'**
+  /// **'CC Pocket が気に入ったら、継続開発のために応援してもらえるとうれしいです。CC Pocket は無料の OSS として公開を続けます。'**
   String get supporterImpactBody;
 
   /// No description provided for @supporterImpactAiTitle.
   ///
   /// In ja, this message translates to:
-  /// **'AI 利用料'**
+  /// **'開発にかかるコスト'**
   String get supporterImpactAiTitle;
 
   /// No description provided for @supporterImpactAiBody.
   ///
   /// In ja, this message translates to:
-  /// **'Claude や Codex など、開発と検証に使う AI のコストに充てます。'**
+  /// **'AI 利用料、実機確認、テスト、配布まわりなどの継続コストを支えます。'**
   String get supporterImpactAiBody;
 
   /// No description provided for @supporterImpactDevicesTitle.
@@ -2965,7 +2977,7 @@ abstract class AppLocalizations {
   /// No description provided for @supporterImpactMotivationBody.
   ///
   /// In ja, this message translates to:
-  /// **'使ってくれている実感が、改善を続けるいちばんの後押しになります。'**
+  /// **'使ってくれている実感が、新機能や改善を続けるいちばんの後押しになります。'**
   String get supporterImpactMotivationBody;
 
   /// No description provided for @supporterPackagesTitle.
@@ -2973,6 +2985,48 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'応援の方法'**
   String get supporterPackagesTitle;
+
+  /// No description provided for @supporterSubscriptionGroupTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'毎月応援'**
+  String get supporterSubscriptionGroupTitle;
+
+  /// No description provided for @supporterSubscriptionGroupBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'継続的に応援したい人向けです。'**
+  String get supporterSubscriptionGroupBody;
+
+  /// No description provided for @supporterOneTimeGroupTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'単発で応援'**
+  String get supporterOneTimeGroupTitle;
+
+  /// No description provided for @supporterOneTimeGroupBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'ドリンクやランチをおごる気持ちになったら、応援してもらえるとうれしいです。'**
+  String get supporterOneTimeGroupBody;
+
+  /// No description provided for @supporterPurchaseInfoTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入について'**
+  String get supporterPurchaseInfoTitle;
+
+  /// No description provided for @supporterPurchaseInfoBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間で応援状態は共有されません。'**
+  String get supporterPurchaseInfoBody;
+
+  /// No description provided for @supporterPurchaseInfoLink.
+  ///
+  /// In ja, this message translates to:
+  /// **'詳しくはこちら'**
+  String get supporterPurchaseInfoLink;
 
   /// No description provided for @supporterLearnMoreTitle.
   ///
