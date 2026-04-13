@@ -45,6 +45,14 @@ Supporter is intentionally small.
 - A simple way to support the project financially
 - No feature gating for the main app experience
 
+## What Support Helps Cover
+
+Support is used to keep the app moving.
+
+- AI usage for development and testing, including tools like Claude and Codex
+- Devices, OS updates, and real-world testing across platforms
+- The motivation to keep polishing the app when people clearly find it useful
+
 ## FAQ
 
 ### Is CC Pocket paywalled?

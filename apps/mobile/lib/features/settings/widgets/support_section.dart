@@ -5,7 +5,6 @@ import 'package:intl/intl.dart' as intl;
 
 import '../../../l10n/app_localizations.dart';
 import '../../../services/revenuecat_service.dart';
-import '../../../widgets/supporter_badge.dart';
 import '../../../router/app_router.dart';
 
 enum _SupportEntryVariant { inactive, oneTime, active }
@@ -27,23 +26,13 @@ class SupportSectionCard extends StatelessWidget {
         }
 
         final variant = _variantForState(state);
-        final isActive = variant == _SupportEntryVariant.active;
         final title = _titleForVariant(l, variant);
         final subtitle = _subtitleForVariant(context, l, state, variant);
-        final icon = _iconForVariant(variant);
-        final cardColor = _colorForVariant(cs, variant);
-        final iconBackgroundColor = _iconBackgroundForVariant(cs, variant);
-        final borderSide = _borderForVariant(cs, variant);
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Card(
             margin: EdgeInsets.zero,
-            color: cardColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: borderSide,
-            ),
             child: InkWell(
               key: const ValueKey('supporter_entry_button'),
               borderRadius: BorderRadius.circular(16),
@@ -59,29 +48,22 @@ class SupportSectionCard extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: iconBackgroundColor,
-                        shape: BoxShape.circle,
+                      decoration: _iconDecorationForVariant(cs, variant),
+                      child: Icon(
+                        _iconForVariant(variant),
+                        color: _iconColorForVariant(cs, variant),
+                        size: 24,
                       ),
-                      child: Icon(icon, color: cs.primary, size: 24),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Text(
-                                title,
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              if (isActive) ...[
-                                const SizedBox(width: 8),
-                                const SupporterBadge(),
-                              ],
-                            ],
+                          Text(
+                            title,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -142,47 +124,39 @@ class SupportSectionCard extends StatelessWidget {
     };
   }
 
-  Color _colorForVariant(ColorScheme cs, _SupportEntryVariant variant) {
-    return switch (variant) {
-      _SupportEntryVariant.inactive => cs.surfaceContainerHigh,
-      _SupportEntryVariant.oneTime => Color.alphaBlend(
-        cs.secondary.withValues(alpha: 0.04),
-        cs.surfaceContainerHigh,
-      ),
-      _SupportEntryVariant.active => Color.alphaBlend(
-        cs.primary.withValues(alpha: 0.08),
-        cs.surfaceContainerHigh,
-      ),
-    };
-  }
-
-  Color _iconBackgroundForVariant(
+  Decoration _iconDecorationForVariant(
     ColorScheme cs,
     _SupportEntryVariant variant,
   ) {
-    return switch (variant) {
-      _SupportEntryVariant.inactive => cs.surfaceContainerHighest,
-      _SupportEntryVariant.oneTime => cs.secondaryContainer.withValues(
-        alpha: 0.5,
-      ),
-      _SupportEntryVariant.active => cs.primaryContainer.withValues(alpha: 0.8),
-    };
+    if (variant == _SupportEntryVariant.active) {
+      return BoxDecoration(
+        gradient: LinearGradient(
+          colors: [cs.primary, cs.tertiary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        shape: BoxShape.circle,
+      );
+    }
+    return BoxDecoration(
+      color: switch (variant) {
+        _SupportEntryVariant.inactive => cs.surfaceContainerHighest.withValues(
+          alpha: 0.5,
+        ),
+        _SupportEntryVariant.oneTime => cs.primaryContainer.withValues(
+          alpha: 0.5,
+        ),
+        _SupportEntryVariant.active => Colors.transparent, // unreachable
+      },
+      shape: BoxShape.circle,
+    );
   }
 
-  BorderSide _borderForVariant(ColorScheme cs, _SupportEntryVariant variant) {
+  Color _iconColorForVariant(ColorScheme cs, _SupportEntryVariant variant) {
     return switch (variant) {
-      _SupportEntryVariant.inactive => BorderSide(
-        color: cs.outlineVariant,
-        width: 1,
-      ),
-      _SupportEntryVariant.oneTime => BorderSide(
-        color: cs.secondary.withValues(alpha: 0.2),
-        width: 1,
-      ),
-      _SupportEntryVariant.active => BorderSide(
-        color: cs.primary.withValues(alpha: 0.35),
-        width: 1.5,
-      ),
+      _SupportEntryVariant.inactive => cs.onSurfaceVariant,
+      _SupportEntryVariant.oneTime => cs.primary,
+      _SupportEntryVariant.active => cs.onPrimary,
     };
   }
 
