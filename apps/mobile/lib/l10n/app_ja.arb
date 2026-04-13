@@ -683,9 +683,9 @@
       "date": { "type": "String" }
     }
   },
-  "supporterMonthlyDescription": "継続的に開発を後押ししてもらえるとうれしいです。",
-  "supporterCoffeeDescription": "ドリンクを1杯おごる気持ちになったら、応援してもらえるとうれしいです。",
-  "supporterLunchDescription": "ランチを1食おごる気持ちになったら、応援してもらえるとうれしいです。",
+  "supporterMonthlyDescription": "継続的な開発を後押し",
+  "supporterCoffeeDescription": "ドリンクを1杯おごる",
+  "supporterLunchDescription": "ランチを1食おごる",
   "supporterBuyButton": "応援する",
   "supporterActiveButton": "応援中",
   "supporterRestoreButton": "購入を復元",

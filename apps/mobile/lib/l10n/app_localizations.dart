@@ -2815,19 +2815,19 @@ abstract class AppLocalizations {
   /// No description provided for @supporterMonthlyDescription.
   ///
   /// In ja, this message translates to:
-  /// **'継続的に開発を後押ししてもらえるとうれしいです。'**
+  /// **'継続的な開発を後押し'**
   String get supporterMonthlyDescription;
 
   /// No description provided for @supporterCoffeeDescription.
   ///
   /// In ja, this message translates to:
-  /// **'ドリンクを1杯おごる気持ちになったら、応援してもらえるとうれしいです。'**
+  /// **'ドリンクを1杯おごる'**
   String get supporterCoffeeDescription;
 
   /// No description provided for @supporterLunchDescription.
   ///
   /// In ja, this message translates to:
-  /// **'ランチを1食おごる気持ちになったら、応援してもらえるとうれしいです。'**
+  /// **'ランチを1食おごる'**
   String get supporterLunchDescription;
 
   /// No description provided for @supporterBuyButton.

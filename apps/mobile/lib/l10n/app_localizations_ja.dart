@@ -1460,14 +1460,13 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get supporterMonthlyDescription => '継続的に開発を後押ししてもらえるとうれしいです。';
+  String get supporterMonthlyDescription => '継続的な開発を後押し';
 
   @override
-  String get supporterCoffeeDescription =>
-      'ドリンクを1杯おごる気持ちになったら、応援してもらえるとうれしいです。';
+  String get supporterCoffeeDescription => 'ドリンクを1杯おごる';
 
   @override
-  String get supporterLunchDescription => 'ランチを1食おごる気持ちになったら、応援してもらえるとうれしいです。';
+  String get supporterLunchDescription => 'ランチを1食おごる';
 
   @override
   String get supporterBuyButton => '応援する';
