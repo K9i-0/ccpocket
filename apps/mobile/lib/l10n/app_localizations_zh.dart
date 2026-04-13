@@ -1494,7 +1494,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String supporterSummaryCoffeeCount(int count) {
-    return '咖啡 ×$count';
+    return '饮料 ×$count';
   }
 
   @override

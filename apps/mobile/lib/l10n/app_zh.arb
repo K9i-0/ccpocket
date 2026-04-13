@@ -794,7 +794,7 @@
       "count": { "type": "int" }
     }
   },
-  "supporterSummaryCoffeeCount": "咖啡 ×{count}",
+  "supporterSummaryCoffeeCount": "饮料 ×{count}",
   "@supporterSummaryCoffeeCount": {
     "placeholders": {
       "count": { "type": "int" }

@@ -1510,7 +1510,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String supporterSummaryCoffeeCount(int count) {
-    return 'コーヒー ×$count';
+    return 'ドリンク ×$count';
   }
 
   @override

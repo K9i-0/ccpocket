@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,8 +10,21 @@ import '../../../l10n/app_localizations.dart';
 import '../../../services/revenuecat_service.dart';
 
 @RoutePage()
-class SupporterScreen extends StatelessWidget {
+class SupporterScreen extends StatefulWidget {
   const SupporterScreen({super.key});
+
+  @override
+  State<SupporterScreen> createState() => _SupporterScreenState();
+}
+
+class _SupporterScreenState extends State<SupporterScreen> {
+  late final int _emojiSeed;
+
+  @override
+  void initState() {
+    super.initState();
+    _emojiSeed = Random().nextInt(1 << 32);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,21 +40,44 @@ class SupporterScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          return ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            children: [
-              _SupportHeroArea(state: state),
-              const SizedBox(height: 24),
-              const _SupportImpactCard(),
-              const SizedBox(height: 24),
-              _SupportPackageSection(state: state, onRetry: revenueCat.refresh),
-              const SizedBox(height: 32),
-              const _SupportPurchaseInfoCard(),
-            ],
+          return _SupportEmojiSeedScope(
+            seed: _emojiSeed,
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              children: [
+                _SupportHeroArea(state: state),
+                const SizedBox(height: 24),
+                const _SupportImpactCard(),
+                const SizedBox(height: 24),
+                _SupportPackageSection(
+                  state: state,
+                  onRetry: revenueCat.refresh,
+                ),
+                const SizedBox(height: 32),
+                const _SupportPurchaseInfoCard(),
+              ],
+            ),
           );
         },
       ),
     );
+  }
+}
+
+class _SupportEmojiSeedScope extends InheritedWidget {
+  const _SupportEmojiSeedScope({required this.seed, required super.child});
+
+  final int seed;
+
+  static int of(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<_SupportEmojiSeedScope>();
+    return scope?.seed ?? 0;
+  }
+
+  @override
+  bool updateShouldNotify(_SupportEmojiSeedScope oldWidget) {
+    return seed != oldWidget.seed;
   }
 }
 
@@ -83,15 +121,13 @@ class _SupportHeroArea extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SupportStatusTile(state: state),
           if (state.isSupporter && state.summary.hasActivity) ...[
-            const SizedBox(height: 16),
-            Divider(height: 1, color: cs.primary.withValues(alpha: 0.2)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _SupportSummaryContent(state: state),
           ],
         ],
@@ -516,54 +552,75 @@ class _SupportSummaryContent extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     final summary = state.summary;
+    final activityChips = <Widget>[
+      if (summary.coffeeSupportCount > 0)
+        _SupportSummaryBadge(
+          label: l.supporterSummaryCoffeeCount(summary.coffeeSupportCount),
+        ),
+      if (summary.lunchSupportCount > 0)
+        _SupportSummaryBadge(
+          label: l.supporterSummaryLunchCount(summary.lunchSupportCount),
+        ),
+    ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.auto_awesome,
-              color: state.isSupporter ? cs.primary : cs.onSurfaceVariant,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              l.supporterSummaryTitle,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: state.isSupporter ? cs.primary : cs.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface.withValues(alpha: 0.38),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome, color: cs.primary, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                l.supporterSummaryTitle,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _SupportSummaryStat(
+                  label: l.supporterSummarySinceLabel,
+                  value: summary.supporterSince == null
+                      ? '—'
+                      : _formatSupportMonthYear(
+                          context,
+                          summary.supporterSince!,
+                        ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SupportSummaryStat(
+                  label: l.supporterSummaryStreakLabel,
+                  value: summary.supporterSince == null
+                      ? '—'
+                      : _formatSupportDuration(
+                          l,
+                          summary.supporterSince!,
+                          DateTime.now(),
+                        ),
+                ),
+              ),
+            ],
+          ),
+          if (activityChips.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: activityChips),
           ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _SupportSummaryStat(
-                label: l.supporterSummarySinceLabel,
-                value: summary.supporterSince == null
-                    ? '—'
-                    : _formatSupportMonthYear(context, summary.supporterSince!),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _SupportSummaryStat(
-                label: l.supporterSummaryStreakLabel,
-                value: summary.supporterSince == null
-                    ? '—'
-                    : _formatSupportDuration(
-                        l,
-                        summary.supporterSince!,
-                        DateTime.now(),
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -579,11 +636,11 @@ class _SupportSummaryStat extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: cs.surface.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.12)),
+        color: cs.surface.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -595,15 +652,41 @@ class _SupportSummaryStat extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
               color: cs.onPrimaryContainer,
               fontWeight: FontWeight.w700,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SupportSummaryBadge extends StatelessWidget {
+  const _SupportSummaryBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: cs.primary,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -767,7 +850,7 @@ class _SupportPackageLeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final emoji = _emojiForPackage(package);
+    final emoji = _emojiForPackage(context, package);
     if (emoji != null) {
       return Container(
         width: 40,
@@ -792,7 +875,7 @@ class _SupportPackageLeading extends StatelessWidget {
     }
   }
 
-  String? _emojiForPackage(SupportPackage package) {
+  String? _emojiForPackage(BuildContext context, SupportPackage package) {
     final candidates = switch (package.kind) {
       SupportPackageKind.coffee => [
         '☕',
@@ -820,7 +903,9 @@ class _SupportPackageLeading extends StatelessWidget {
       _ => const <String>[],
     };
     if (candidates.isEmpty) return null;
-    return candidates[package.id.hashCode.abs() % candidates.length];
+    final seed = _SupportEmojiSeedScope.of(context);
+    final index = Object.hash(seed, package.id).abs() % candidates.length;
+    return candidates[index];
   }
 }
 

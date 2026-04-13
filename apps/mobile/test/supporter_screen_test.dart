@@ -85,6 +85,8 @@ void main() {
         summary: SupportHistorySummary(
           supporterSince: DateTime(2026, 2, 14),
           oneTimeSupportCount: 2,
+          coffeeSupportCount: 3,
+          lunchSupportCount: 1,
         ),
       ),
       supporter: const SupporterState.active(),
@@ -95,5 +97,7 @@ void main() {
 
     expect(find.text(l.supporterSummaryTitle), findsOneWidget);
     expect(find.text(l.supporterImpactTitle), findsOneWidget);
+    expect(find.text(l.supporterSummaryCoffeeCount(3)), findsOneWidget);
+    expect(find.text(l.supporterSummaryLunchCount(1)), findsOneWidget);
   });
 }

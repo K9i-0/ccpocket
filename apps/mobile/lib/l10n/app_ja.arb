@@ -712,7 +712,7 @@
       "count": { "type": "int" }
     }
   },
-  "supporterSummaryCoffeeCount": "コーヒー ×{count}",
+  "supporterSummaryCoffeeCount": "ドリンク ×{count}",
   "@supporterSummaryCoffeeCount": {
     "placeholders": {
       "count": { "type": "int" }

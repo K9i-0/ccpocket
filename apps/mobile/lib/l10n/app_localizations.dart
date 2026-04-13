@@ -2899,7 +2899,7 @@ abstract class AppLocalizations {
   /// No description provided for @supporterSummaryCoffeeCount.
   ///
   /// In ja, this message translates to:
-  /// **'コーヒー ×{count}'**
+  /// **'ドリンク ×{count}'**
   String supporterSummaryCoffeeCount(int count);
 
   /// No description provided for @supporterSummaryLunchCount.
