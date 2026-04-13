@@ -8,10 +8,6 @@ import '../../../l10n/app_localizations.dart';
 import '../../../services/revenuecat_service.dart';
 import '../../../widgets/supporter_badge.dart';
 
-final Uri _supporterDocUri = Uri.parse(
-  'https://github.com/K9i-0/ccpocket/blob/main/docs/supporter.md',
-);
-
 @RoutePage()
 class SupporterScreen extends StatelessWidget {
   const SupporterScreen({super.key});
@@ -33,58 +29,18 @@ class SupporterScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
             children: [
-              // 1. Status & Summary Hero Area
               _SupportHeroArea(state: state),
-
+              const SizedBox(height: 24),
+              const _SupportImpactCard(),
+              const SizedBox(height: 24),
+              _SupportPackageSection(state: state, onRetry: revenueCat.refresh),
               const SizedBox(height: 32),
-
-              // 2. Packages List
-              if (state.isLoading && !state.hasPackages)
-                const Card(child: _SupportLoadingTile())
-              else if (state.hasPackages)
-                ..._buildPackageTiles(context, state)
-              else
-                Card(
-                  child: _SupportEmptyTile(
-                    errorMessage: state.errorMessage,
-                    onRetry: revenueCat.refresh,
-                  ),
-                ),
-
-              const SizedBox(height: 32),
-
-              // 3. Footer Links
               const _SupportFooterInfo(),
             ],
           );
         },
       ),
     );
-  }
-
-  List<Widget> _buildPackageTiles(
-    BuildContext context,
-    SupportCatalogState state,
-  ) {
-    final widgets = <Widget>[];
-    for (var i = 0; i < state.packages.length; i++) {
-      final package = state.packages[i];
-      // Highlight the first (monthly) if it's not active already
-      final isPremium = package.kind == SupportPackageKind.monthly;
-      widgets.add(
-        Padding(
-          padding: EdgeInsets.only(
-            bottom: i < state.packages.length - 1 ? 12 : 0,
-          ),
-          child: _SupportPackageCard(
-            package: package,
-            state: state,
-            isPremium: isPremium,
-          ),
-        ),
-      );
-    }
-    return widgets;
   }
 }
 
@@ -133,13 +89,72 @@ class _SupportHeroArea extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SupportStatusTile(state: state),
-          if (state.summary.hasActivity) ...[
+          if (state.isSupporter && state.summary.hasActivity) ...[
             const SizedBox(height: 16),
             Divider(height: 1, color: cs.primary.withValues(alpha: 0.2)),
             const SizedBox(height: 16),
             _SupportSummaryContent(state: state),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _SupportImpactCard extends StatelessWidget {
+  const _SupportImpactCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+
+    return Card(
+      key: const ValueKey('supporter_impact_card'),
+      margin: EdgeInsets.zero,
+      color: cs.surfaceContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l.supporterImpactTitle,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l.supporterImpactBody,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+            _SupportImpactItem(
+              icon: Icons.auto_awesome_outlined,
+              title: l.supporterImpactAiTitle,
+              body: l.supporterImpactAiBody,
+            ),
+            const SizedBox(height: 12),
+            _SupportImpactItem(
+              icon: Icons.devices_outlined,
+              title: l.supporterImpactDevicesTitle,
+              body: l.supporterImpactDevicesBody,
+            ),
+            const SizedBox(height: 12),
+            _SupportImpactItem(
+              icon: Icons.favorite_outline,
+              title: l.supporterImpactMotivationTitle,
+              body: l.supporterImpactMotivationBody,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -167,6 +182,63 @@ class _SupportFooterInfo extends StatelessWidget {
           const _SupportLearnMoreTile(),
         ],
       ),
+    );
+  }
+}
+
+class _SupportPackageSection extends StatelessWidget {
+  const _SupportPackageSection({required this.state, required this.onRetry});
+
+  final SupportCatalogState state;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final children = <Widget>[
+      Text(
+        l.supporterPackagesTitle,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 12),
+    ];
+
+    if (state.isLoading && !state.hasPackages) {
+      children.add(const Card(child: _SupportLoadingTile()));
+    } else if (state.hasPackages) {
+      for (var i = 0; i < state.packages.length; i++) {
+        final package = state.packages[i];
+        final isPremium = package.kind == SupportPackageKind.monthly;
+        children.add(
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: i < state.packages.length - 1 ? 12 : 0,
+            ),
+            child: _SupportPackageCard(
+              package: package,
+              state: state,
+              isPremium: isPremium,
+            ),
+          ),
+        );
+      }
+    } else {
+      children.add(
+        Card(
+          child: _SupportEmptyTile(
+            errorMessage: state.errorMessage,
+            onRetry: onRetry,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      key: const ValueKey('supporter_packages_section'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
     );
   }
 }
@@ -202,6 +274,60 @@ class _SupportPackageCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: _SupportPackageTile(package: package, state: state),
       ),
+    );
+  }
+}
+
+class _SupportImpactItem extends StatelessWidget {
+  const _SupportImpactItem({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: cs.primary, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                body,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -515,7 +641,7 @@ class _SupportPackageTile extends StatelessWidget {
             : () async {
                 final result = await revenueCat.purchasePackage(package.id);
                 if (!context.mounted) return;
-                _showResultSnackBar(context, result, package: package);
+                _showResultSnackBar(context, result);
               },
         child: isPurchasing
             ? const SizedBox(
@@ -576,23 +702,12 @@ void _showResultSnackBar(
   BuildContext context,
   SupportActionResult result, {
   bool isRestore = false,
-  SupportPackage? package,
 }) {
   final l = AppLocalizations.of(context);
   final messenger = ScaffoldMessenger.of(context);
-  final packageTitle = switch (package?.kind) {
-    SupportPackageKind.monthly => l.supporterMonthlyTitle,
-    SupportPackageKind.coffee => l.supporterCoffeeTitle,
-    SupportPackageKind.lunch => l.supporterLunchTitle,
-    SupportPackageKind.other => package?.title,
-    null => null,
-  };
-
   final text = switch (result.type) {
     SupportActionResultType.success when isRestore => l.supporterRestoreSuccess,
-    SupportActionResultType.success => l.supporterPurchaseSuccess(
-      packageTitle ?? l.supporterTitle,
-    ),
+    SupportActionResultType.success => l.supporterPurchaseSuccess,
     SupportActionResultType.cancelled => l.supporterPurchaseCancelled,
     SupportActionResultType.error when isRestore => l.supporterRestoreFailed(
       result.message ?? 'unknown',
@@ -608,10 +723,19 @@ void _showResultSnackBar(
 Future<void> _openSupporterDoc(BuildContext context) async {
   final l = AppLocalizations.of(context);
   final messenger = ScaffoldMessenger.of(context);
-  final launched = await launchUrl(
-    _supporterDocUri,
-    mode: LaunchMode.externalApplication,
-  );
+  final locale = Localizations.localeOf(context).languageCode;
+  final uri = switch (locale) {
+    'ja' => Uri.parse(
+      'https://github.com/K9i-0/ccpocket/blob/main/docs/supporter_ja.md',
+    ),
+    'zh' => Uri.parse(
+      'https://github.com/K9i-0/ccpocket/blob/main/docs/supporter_zh.md',
+    ),
+    _ => Uri.parse(
+      'https://github.com/K9i-0/ccpocket/blob/main/docs/supporter.md',
+    ),
+  };
+  final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
   if (!launched && context.mounted) {
     messenger.showSnackBar(SnackBar(content: Text(l.supporterOpenLinkFailed)));
   }

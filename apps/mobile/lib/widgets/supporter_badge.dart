@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 class SupporterBadge extends StatelessWidget {
   const SupporterBadge({super.key, this.compact = false});
 
@@ -7,6 +9,7 @@ class SupporterBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     final iconSize = compact ? 12.0 : 14.0;
     final fontSize = compact ? 10.0 : 11.0;
@@ -24,7 +27,7 @@ class SupporterBadge extends StatelessWidget {
           Icon(Icons.favorite, size: iconSize, color: cs.onTertiaryContainer),
           const SizedBox(width: 4),
           Text(
-            'Supporter',
+            l.supporterTitle,
             style: TextStyle(
               fontSize: fontSize,
               fontWeight: FontWeight.w700,

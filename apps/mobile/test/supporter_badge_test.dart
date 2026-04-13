@@ -32,7 +32,10 @@ void main() {
       ),
     );
 
-    expect(find.text('Supporter'), findsOneWidget);
+    final l = AppLocalizations.of(
+      tester.element(find.byType(SessionListSliverAppBar)),
+    );
+    expect(find.text(l.supporterTitle), findsOneWidget);
   });
 
   testWidgets('hides supporter badge when inactive', (tester) async {
@@ -43,6 +46,9 @@ void main() {
       ),
     );
 
-    expect(find.text('Supporter'), findsNothing);
+    final l = AppLocalizations.of(
+      tester.element(find.byType(SessionListSliverAppBar)),
+    );
+    expect(find.text(l.supporterTitle), findsNothing);
   });
 }

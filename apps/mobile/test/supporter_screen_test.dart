@@ -1,0 +1,99 @@
+import 'package:ccpocket/features/settings/supporter_screen.dart';
+import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/services/revenuecat_service.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+class FakeRevenueCatService extends RevenueCatService {
+  FakeRevenueCatService({
+    required SupportCatalogState catalog,
+    required SupporterState supporter,
+  }) : super(publicApiKey: '', platform: TargetPlatform.iOS) {
+    catalogState.value = catalog;
+    supporterState.value = supporter;
+  }
+}
+
+Widget _wrap(RevenueCatService revenueCatService) {
+  return RepositoryProvider<RevenueCatService>.value(
+    value: revenueCatService,
+    child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const SupporterScreen(),
+    ),
+  );
+}
+
+AppLocalizations _localizations(WidgetTester tester) {
+  return AppLocalizations.of(tester.element(find.byType(SupporterScreen)));
+}
+
+void main() {
+  testWidgets('shows impact section and hides summary when inactive', (
+    tester,
+  ) async {
+    final service = FakeRevenueCatService(
+      catalog: SupportCatalogState(
+        isAvailable: true,
+        isLoading: false,
+        isSupporter: false,
+        packages: const [
+          SupportPackage(
+            id: r'$rc_monthly',
+            productId: 'supporter_monthly_10',
+            title: 'Monthly',
+            priceLabel: '\$10.00',
+            kind: SupportPackageKind.monthly,
+          ),
+        ],
+        summary: const SupportHistorySummary(
+          oneTimeSupportCount: 2,
+          coffeeSupportCount: 1,
+        ),
+      ),
+      supporter: const SupporterState.inactive(),
+    );
+
+    await tester.pumpWidget(_wrap(service));
+    final l = _localizations(tester);
+
+    expect(find.byKey(const ValueKey('supporter_impact_card')), findsOneWidget);
+    expect(find.text(l.supporterImpactTitle), findsOneWidget);
+    expect(find.text(l.supporterPackagesTitle), findsOneWidget);
+    expect(find.text(l.supporterSummaryTitle), findsNothing);
+  });
+
+  testWidgets('shows summary only while subscription is active', (
+    tester,
+  ) async {
+    final service = FakeRevenueCatService(
+      catalog: SupportCatalogState(
+        isAvailable: true,
+        isLoading: false,
+        isSupporter: true,
+        packages: const [
+          SupportPackage(
+            id: r'$rc_monthly',
+            productId: 'supporter_monthly_10',
+            title: 'Monthly',
+            priceLabel: '\$10.00',
+            kind: SupportPackageKind.monthly,
+          ),
+        ],
+        summary: SupportHistorySummary(
+          supporterSince: DateTime(2026, 2, 14),
+          oneTimeSupportCount: 2,
+        ),
+      ),
+      supporter: const SupporterState.active(),
+    );
+
+    await tester.pumpWidget(_wrap(service));
+    final l = _localizations(tester);
+
+    expect(find.text(l.supporterSummaryTitle), findsOneWidget);
+    expect(find.text(l.supporterImpactTitle), findsOneWidget);
+  });
+}
