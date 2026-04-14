@@ -67,9 +67,14 @@ class AppIconService {
     required AppIconVariant selectedIcon,
     required bool isSupporter,
     bool force = false,
+    bool allowResetToDefault = true,
   }) async {
     final supported = await isSupported();
     if (!supported) return;
+
+    if (!isSupporter && !allowResetToDefault) {
+      return;
+    }
 
     final targetIcon = isSupporter ? selectedIcon : AppIconVariant.defaultIcon;
     if (!force && _lastAppliedIcon == targetIcon) return;

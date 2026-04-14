@@ -46,7 +46,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('SettingsCubit app icon sync', () {
-    test('keeps default icon applied until supporter becomes active', () async {
+    test('does not auto-reset icon when supporter becomes inactive', () async {
       SharedPreferences.setMockInitialValues({
         'settings_selected_app_icon': 'light_outline',
       });
@@ -72,6 +72,33 @@ void main() {
 
       revenueCat.setSupporterState(const SupporterState.inactive());
       await _flushAsync();
+      expect(appIconGateway.appliedIcons.last, 'light_outline');
+
+      await cubit.close();
+    });
+
+    test('can still reset to default from explicit selection', () async {
+      SharedPreferences.setMockInitialValues({
+        'settings_selected_app_icon': 'light_outline',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final appIconGateway = FakeAppIconGateway(currentIcon: 'light_outline');
+      final revenueCat = FakeRevenueCatService(
+        supporterState: const SupporterState.inactive(),
+      );
+      final cubit = SettingsCubit(
+        prefs,
+        revenueCatService: revenueCat,
+        appIconService: AppIconService(
+          gateway: appIconGateway,
+          platform: TargetPlatform.iOS,
+        ),
+      );
+
+      await _flushAsync();
+      await cubit.setSelectedAppIcon(AppIconVariant.defaultIcon);
+
+      expect(cubit.state.selectedAppIcon, AppIconVariant.defaultIcon);
       expect(appIconGateway.appliedIcons.last, isNull);
 
       await cubit.close();

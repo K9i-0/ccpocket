@@ -283,7 +283,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> setSelectedAppIcon(AppIconVariant icon) async {
     await _prefs.setString(_keySelectedAppIcon, icon.id);
     emit(state.copyWith(selectedAppIcon: icon));
-    await _syncAppIcon(force: true);
+    await _syncAppIcon(force: true, allowResetToDefault: true);
   }
 
   void setSpeechLocaleId(String localeId) {
@@ -458,7 +458,10 @@ class SettingsCubit extends Cubit<SettingsState> {
     unawaited(_syncAppIcon());
   }
 
-  Future<void> _syncAppIcon({bool force = false}) async {
+  Future<void> _syncAppIcon({
+    bool force = false,
+    bool allowResetToDefault = false,
+  }) async {
     try {
       final supporterState = _revenueCat?.supporterState.value;
       if (supporterState != null &&
@@ -469,6 +472,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         selectedIcon: state.selectedAppIcon,
         isSupporter: supporterState?.isSupporter ?? false,
         force: force,
+        allowResetToDefault: allowResetToDefault,
       );
     } catch (error, stackTrace) {
       logger.warning('[settings] failed to sync app icon', error, stackTrace);
