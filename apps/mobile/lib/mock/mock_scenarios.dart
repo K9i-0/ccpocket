@@ -94,6 +94,7 @@ final List<MockScenario> mockScenarios = [
   sessionListNewSession20Projects,
   settingsSupportEntriesPreview,
   supporterPreviewInactive,
+  supporterPreviewOneTime,
   supporterPreviewActive,
   supporterPreviewVeteran,
   // Store screenshot scenarios
@@ -2736,6 +2737,14 @@ const supporterPreviewInactive = MockScenario(
   name: 'Supporter Screen (Inactive)',
   icon: Icons.favorite_border,
   description: 'Supporter screen with products visible before any purchase',
+  section: MockScenarioSection.supporter,
+  steps: [],
+);
+
+const supporterPreviewOneTime = MockScenario(
+  name: 'Supporter Screen (One-Time)',
+  icon: Icons.favorite_outline,
+  description: 'Supporter screen for a one-time supporter without subscription',
   section: MockScenarioSection.supporter,
   steps: [],
 );

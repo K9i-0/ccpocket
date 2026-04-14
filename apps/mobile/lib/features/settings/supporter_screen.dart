@@ -88,9 +88,9 @@ class _SupportHeroArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isActive = state.isSupporter;
+    final hasSummary = state.summary.hasActivity;
 
-    if (!isActive) return const SizedBox.shrink();
+    if (!state.isSupporter && !hasSummary) return const SizedBox.shrink();
 
     return Container(
       decoration: BoxDecoration(
@@ -117,7 +117,7 @@ class _SupportHeroArea extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SupportStatusTile(state: state),
-          if (state.isSupporter && state.summary.hasActivity) ...[
+          if (hasSummary) ...[
             const SizedBox(height: 12),
             _SupportSummaryContent(state: state),
           ],
@@ -474,30 +474,43 @@ class _SupportStatusTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
+    final isOneTimeOnly = !state.isSupporter && state.summary.hasActivity;
 
     final subtitle = state.isSupporter
         ? l.supporterStatusActive
+        : isOneTimeOnly
+        ? l.supportEntryOneTimeSubtitle
         : state.isLoading
         ? l.supporterStatusLoading
         : l.supportEntryInactiveSubtitle;
 
     return ListTile(
-      contentPadding: state.isSupporter ? EdgeInsets.zero : null,
-      leading: state.isSupporter
+      contentPadding: (state.isSupporter || isOneTimeOnly)
+          ? EdgeInsets.zero
+          : null,
+      leading: (state.isSupporter || isOneTimeOnly)
           ? Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: cs.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.favorite, color: cs.primary, size: 28),
+              child: Icon(
+                state.isSupporter ? Icons.favorite : Icons.favorite_outline,
+                color: cs.primary,
+                size: 28,
+              ),
             )
           : Icon(Icons.favorite, color: cs.primary),
       title: Row(
         children: [
           Text(
-            state.isSupporter ? l.supporterTitle : l.supportEntryInactiveTitle,
-            style: state.isSupporter
+            state.isSupporter
+                ? l.supporterTitle
+                : isOneTimeOnly
+                ? l.supportEntryOneTimeTitle
+                : l.supportEntryInactiveTitle,
+            style: (state.isSupporter || isOneTimeOnly)
                 ? Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: cs.onPrimaryContainer,
@@ -510,7 +523,7 @@ class _SupportStatusTile extends StatelessWidget {
         padding: const EdgeInsets.only(top: 4.0),
         child: Text(
           subtitle,
-          style: state.isSupporter
+          style: (state.isSupporter || isOneTimeOnly)
               ? TextStyle(color: cs.onPrimaryContainer.withValues(alpha: 0.8))
               : null,
         ),
@@ -548,6 +561,12 @@ class _SupportSummaryContent extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final summary = state.summary;
     final activityChips = <Widget>[
+      if (summary.oneTimeSupportCount > 0 &&
+          summary.coffeeSupportCount == 0 &&
+          summary.lunchSupportCount == 0)
+        _SupportSummaryBadge(
+          label: l.supporterSummaryOneTimeCount(summary.oneTimeSupportCount),
+        ),
       if (summary.lunchSupportCount > 0)
         _SupportSummaryBadge(
           label: l.supporterSummaryLunchCount(summary.lunchSupportCount),
@@ -581,35 +600,33 @@ class _SupportSummaryContent extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _SupportSummaryStat(
-                  label: l.supporterSummarySinceLabel,
-                  value: summary.supporterSince == null
-                      ? '—'
-                      : _formatSupportMonthYear(
-                          context,
-                          summary.supporterSince!,
-                        ),
+          if (summary.supporterSince != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _SupportSummaryStat(
+                    label: l.supporterSummarySinceLabel,
+                    value: _formatSupportMonthYear(
+                      context,
+                      summary.supporterSince!,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _SupportSummaryStat(
-                  label: l.supporterSummaryStreakLabel,
-                  value: summary.supporterSince == null
-                      ? '—'
-                      : _formatSupportDuration(
-                          l,
-                          summary.supporterSince!,
-                          DateTime.now(),
-                        ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _SupportSummaryStat(
+                    label: l.supporterSummaryStreakLabel,
+                    value: _formatSupportDuration(
+                      l,
+                      summary.supporterSince!,
+                      DateTime.now(),
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           if (activityChips.isNotEmpty) ...[
             const SizedBox(height: 10),
             Wrap(spacing: 8, runSpacing: 8, children: activityChips),

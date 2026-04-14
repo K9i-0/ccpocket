@@ -755,6 +755,9 @@ final _veteranSupportCatalog = SupportCatalogState(
 );
 
 SupportCatalogState _catalogForSupporterScenario(MockScenario scenario) {
+  if (scenario == supporterPreviewOneTime) {
+    return _oneTimeSupportCatalog;
+  }
   if (scenario == supporterPreviewActive) {
     return _activeSupportCatalog;
   }

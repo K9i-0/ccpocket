@@ -48,10 +48,7 @@ void main() {
             kind: SupportPackageKind.monthly,
           ),
         ],
-        summary: const SupportHistorySummary(
-          oneTimeSupportCount: 2,
-          coffeeSupportCount: 1,
-        ),
+        summary: const SupportHistorySummary.empty(),
       ),
       supporter: const SupporterState.inactive(),
     );
@@ -63,6 +60,41 @@ void main() {
     expect(find.text(l.supporterImpactTitle), findsOneWidget);
     expect(find.text(l.supporterPackagesTitle), findsOneWidget);
     expect(find.text(l.supporterSummaryTitle), findsNothing);
+  });
+
+  testWidgets('shows minimal summary for one-time supporters', (tester) async {
+    final service = FakeRevenueCatService(
+      catalog: SupportCatalogState(
+        isAvailable: true,
+        isLoading: false,
+        isSupporter: false,
+        packages: const [
+          SupportPackage(
+            id: r'$rc_monthly',
+            productId: 'supporter_monthly_10',
+            title: 'Monthly',
+            priceLabel: '\$9.99',
+            kind: SupportPackageKind.monthly,
+          ),
+        ],
+        summary: const SupportHistorySummary(
+          oneTimeSupportCount: 2,
+          coffeeSupportCount: 1,
+          lunchSupportCount: 1,
+        ),
+      ),
+      supporter: const SupporterState.inactive(),
+    );
+
+    await tester.pumpWidget(_wrap(service));
+    final l = _localizations(tester);
+
+    expect(find.text(l.supportEntryOneTimeTitle), findsOneWidget);
+    expect(find.text(l.supporterSummaryTitle), findsOneWidget);
+    expect(find.text(l.supporterSummarySinceLabel), findsNothing);
+    expect(find.text(l.supporterSummaryStreakLabel), findsNothing);
+    expect(find.text(l.supporterSummaryLunchCount(1)), findsOneWidget);
+    expect(find.text(l.supporterSummaryCoffeeCount(1)), findsOneWidget);
   });
 
   testWidgets('shows summary only while subscription is active', (
