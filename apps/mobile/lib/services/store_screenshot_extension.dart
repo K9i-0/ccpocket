@@ -669,9 +669,7 @@ class _StoreGitRouteState extends State<_StoreGitRoute> {
   Widget build(BuildContext context) {
     return RepositoryProvider<BridgeService>.value(
       value: _mockBridge,
-      child: const GitScreen(
-        projectPath: '/mock/shopify-app',
-      ),
+      child: const GitScreen(projectPath: '/mock/shopify-app'),
     );
   }
 }

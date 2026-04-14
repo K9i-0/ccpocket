@@ -13,14 +13,19 @@ import '../../constants/app_constants.dart';
 import '../../constants/feature_flags.dart';
 import '../../services/app_update_service.dart';
 import '../../l10n/app_localizations.dart';
+import '../../models/app_icon.dart';
+import '../../models/new_session_tab.dart';
 import '../../providers/machine_manager_cubit.dart';
 import '../../router/app_router.dart';
 import '../../services/bridge_service.dart';
 import '../../services/database_service.dart';
+import '../../services/revenuecat_service.dart';
 import '../../models/machine.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
+import 'widgets/app_icon_bottom_sheet.dart';
 import 'widgets/app_locale_bottom_sheet.dart';
+import 'widgets/support_section.dart';
 
 import 'widgets/new_session_tabs_bottom_sheet.dart';
 import 'widgets/speech_locale_bottom_sheet.dart';
@@ -51,6 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
     final bridge = context.read<BridgeService>();
+    final revenueCat = context.read<RevenueCatService>();
 
     return Scaffold(
       appBar: AppBar(title: Text(l.settingsTitle)),
@@ -63,7 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             controller: _scrollController,
             children: [
               if (isConnected) ...[
-                const _SectionHeader(title: 'Connection & Accounts'),
+                _SectionHeader(title: l.sectionConnectionAccounts),
                 Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
@@ -104,6 +110,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             context.read<SettingsCubit>().setThemeMode(mode),
                       ),
                     ),
+                    if (isConnected && state.appIconSupported) ...[
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: cs.outlineVariant,
+                      ),
+                      ValueListenableBuilder<SupporterState>(
+                        valueListenable: revenueCat.supporterState,
+                        builder: (context, supporterState, _) {
+                          return ListTile(
+                            key: const ValueKey('app_icon_tile'),
+                            leading: Icon(
+                              Icons.apps_outlined,
+                              color: cs.primary,
+                            ),
+                            title: Text(l.appIconTitle),
+                            subtitle: Text(
+                              _getAppIconSubtitle(
+                                context,
+                                selectedIcon: state.selectedAppIcon,
+                                isSupporter: supporterState.isSupporter,
+                              ),
+                            ),
+                            trailing: const Icon(Icons.chevron_right, size: 20),
+                            onTap: () async {
+                              if (!context.mounted) return;
+                              await showAppIconBottomSheet(
+                                context: context,
+                                current: state.selectedAppIcon,
+                                isSupporter: supporterState.isSupporter,
+                                onChanged: (icon) => context
+                                    .read<SettingsCubit>()
+                                    .setSelectedAppIcon(icon),
+                                onSupporterRequired: () =>
+                                    _openSupporterPerk(context),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
                     Divider(
                       height: 1,
                       indent: 16,
@@ -177,9 +225,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     // New Session Tabs
                     ListTile(
                       leading: Icon(Icons.tab, color: cs.primary),
-                      title: const Text('New Session Tabs'),
+                      title: Text(l.settingsNewSessionTabs),
                       subtitle: Text(
-                        state.newSessionTabs.map((t) => t.label).join(', '),
+                        state.newSessionTabs
+                            .map((t) => t.localizedLabel(l))
+                            .join(', '),
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => showNewSessionTabsBottomSheet(
@@ -247,7 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 8),
 
               if (state.activeMachineId != null) ...[
-                const _SectionHeader(title: 'Notifications'),
+                _SectionHeader(title: l.sectionNotifications),
                 Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
@@ -350,17 +400,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 8),
 
-              // ── Usage ──
-              UsageSection(bridgeService: bridge),
-              const SizedBox(height: 8),
-
               if (isConnected) ...[
+                // ── Usage ──
+                UsageSection(bridgeService: bridge),
+                const SizedBox(height: 8),
+
                 // ── Backup ──
                 BackupSection(
                   bridgeService: bridge,
                   databaseService: context.read<DatabaseService>(),
                 ),
                 const SizedBox(height: 8),
+
+                ValueListenableBuilder<SupportCatalogState>(
+                  valueListenable: revenueCat.catalogState,
+                  builder: (context, supportState, _) {
+                    if (!supportState.isAvailable &&
+                        supportState.errorMessage == null) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _SectionHeader(title: l.sectionSupport),
+                        const SupportSectionCard(),
+                        const SizedBox(height: 8),
+                      ],
+                    );
+                  },
+                ),
 
                 // ── Spread ──
                 _SectionHeader(title: l.sectionSpread),
@@ -542,6 +611,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case ThemeMode.dark:
         return l.themeDark;
     }
+  }
+
+  static String _getAppIconSubtitle(
+    BuildContext context, {
+    required AppIconVariant selectedIcon,
+    required bool isSupporter,
+  }) {
+    final l = AppLocalizations.of(context);
+    if (!isSupporter) {
+      return l.appIconMonthlySupporterPerk;
+    }
+    return switch (selectedIcon) {
+      AppIconVariant.defaultIcon => l.appIconOptionDefaultTitle,
+      AppIconVariant.lightOutline => l.appIconOptionLightOutlineTitle,
+      AppIconVariant.proCopperEmerald => l.appIconOptionCopperEmeraldTitle,
+    };
+  }
+
+  static void _openSupporterPerk(BuildContext context) {
+    context.pushRoute(const SupporterRoute());
   }
 
   Machine? _activeMachine(BuildContext context, String? activeMachineId) {

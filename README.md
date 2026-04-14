@@ -137,6 +137,19 @@ Adding support for more models is usually straightforward because the available 
 
 If a model is available in Codex CLI or Claude Code but not shown in CC Pocket, please open an issue with the exact model name you want to use.
 
+## Supporter / Purchases
+
+CC Pocket is designed around self-hosting and minimal data collection. It does not require a dedicated CC Pocket account for purchases.
+
+Because of that, restore works within the same store account:
+
+- Apple platforms: the same Apple ID
+- Android: the same Google account
+
+Support status is not shared between iOS and Android.
+
+See [docs/supporter.md](docs/supporter.md) for the full explanation.
+
 ## Worktree Configuration (`.gtrconfig`)
 
 When starting a session, you can enable **Worktree** to automatically create a [git worktree](https://git-scm.com/docs/git-worktree) with its own branch and directory. This lets you run multiple sessions in parallel on the same project without conflicts.

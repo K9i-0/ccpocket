@@ -37,6 +37,7 @@ import 'providers/machine_manager_cubit.dart';
 import 'providers/server_discovery_cubit.dart';
 import 'router/app_router.dart';
 import 'router/session_route_observer.dart';
+import 'services/app_icon_service.dart';
 import 'services/bridge_service.dart';
 import 'services/connection_url_parser.dart';
 import 'services/database_service.dart';
@@ -45,6 +46,7 @@ import 'services/in_app_review_service.dart';
 import 'services/machine_manager_service.dart';
 import 'services/notification_service.dart';
 import 'services/prompt_history_service.dart';
+import 'services/revenuecat_service.dart';
 import 'services/ssh_startup_service.dart';
 import 'theme/app_theme.dart';
 import 'services/store_screenshot_extension.dart';
@@ -137,6 +139,9 @@ void main() async {
   StoreScreenshotState.draftService = draftService;
   final dbService = DatabaseService();
   final promptHistoryService = PromptHistoryService(dbService);
+  final appIconService = AppIconService();
+  final revenueCatService = RevenueCatService();
+  unawaited(revenueCatService.initialize());
   runApp(
     MultiRepositoryProvider(
       providers: [
@@ -148,6 +153,8 @@ void main() async {
         RepositoryProvider<PromptHistoryService>.value(
           value: promptHistoryService,
         ),
+        RepositoryProvider<AppIconService>.value(value: appIconService),
+        RepositoryProvider<RevenueCatService>.value(value: revenueCatService),
         RepositoryProvider<MachineManagerService>.value(
           value: machineManagerService,
         ),
@@ -191,6 +198,8 @@ void main() async {
               prefs,
               bridgeService: bridge,
               machineManager: machineManagerService,
+              revenueCatService: revenueCatService,
+              appIconService: appIconService,
             ),
           ),
         ],

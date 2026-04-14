@@ -246,9 +246,7 @@ class _DefaultLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fileSuffixes = onFileTap != null
-        ? FilePathSyntax.buildSuffixSet(
-            context.watch<FileListCubit>().state,
-          )
+        ? FilePathSyntax.buildSuffixSet(context.watch<FileListCubit>().state)
         : const <String>{};
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -272,12 +270,8 @@ class _DefaultLayout extends StatelessWidget {
                       onTapLink: handleMarkdownLink,
                       inlineSyntaxes: [
                         if (onFileTap != null) ...[
-                          FilePathSyntax(
-                            knownPathSuffixes: fileSuffixes,
-                          ),
-                          BareFilePathSyntax(
-                            knownPathSuffixes: fileSuffixes,
-                          ),
+                          FilePathSyntax(knownPathSuffixes: fileSuffixes),
+                          BareFilePathSyntax(knownPathSuffixes: fileSuffixes),
                         ],
                         ...colorCodeInlineSyntaxes,
                       ],

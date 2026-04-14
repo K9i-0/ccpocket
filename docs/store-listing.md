@@ -86,7 +86,7 @@ codex,claude,code,ai,coding,agent,mobile,bridge,ssh,remote
 
 - No violence, nudity, or mature content
 - No user-generated content sharing
-- In-app purchases (optional Pro plan)
+- In-app purchases (optional Supporter contribution)
 - No ads
 
 ## Privacy

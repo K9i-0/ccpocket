@@ -653,3 +653,19 @@ class SetupGuideRoute extends PageRouteInfo<void> {
     },
   );
 }
+
+/// generated route for
+/// [SupporterScreen]
+class SupporterRoute extends PageRouteInfo<void> {
+  const SupporterRoute({List<PageRouteInfo>? children})
+    : super(SupporterRoute.name, initialChildren: children);
+
+  static const String name = 'SupporterRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const SupporterScreen();
+    },
+  );
+}

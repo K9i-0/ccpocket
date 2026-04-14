@@ -401,6 +401,9 @@
 
   "settingsTitle": "Settings",
   "sectionGeneral": "GENERAL",
+  "sectionConnectionAccounts": "Connection & Accounts",
+  "sectionNotifications": "Notifications",
+  "sectionSupport": "Support",
   "sectionEditor": "EDITOR",
   "indentSize": "Indent size",
   "indentSizeSubtitle": "Number of spaces for list indentation",
@@ -409,6 +412,18 @@
   "themeSystem": "System",
   "themeLight": "Light",
   "themeDark": "Dark",
+  "appIconTitle": "App Icon",
+  "appIconMonthlySupporterPerk": "This is a Monthly Supporter perk.",
+  "appIconSupporterDialogTitle": "Monthly Supporter Perk",
+  "appIconSupporterSectionLabel": "Monthly Supporter Perk",
+  "appIconPickerTitle": "Choose app icon",
+  "appIconPickerSubtitle": "Pick the icon shown on your home screen.",
+  "appIconOptionDefaultTitle": "Dark",
+  "appIconOptionDefaultSubtitle": "The standard CC Pocket icon.",
+  "appIconOptionLightOutlineTitle": "Light",
+  "appIconOptionLightOutlineSubtitle": "A brighter variation with a lighter outline.",
+  "appIconOptionCopperEmeraldTitle": "Metallic",
+  "appIconOptionCopperEmeraldSubtitle": "A special edition with a glossy finish.",
   "language": "Language",
   "languageSystem": "System Default",
   "voiceInput": "Voice Input",
@@ -480,6 +495,15 @@
   "usageFetchFailed": "Failed to fetch",
   "usageFiveHour": "5 hours",
   "usageSevenDay": "7 days",
+  "settingsUsageSectionTitle": "Usage",
+  "settingsUsageNoCodexData": "No Codex usage data found.",
+  "settingsClaudeUsageDescription": "Open Claude's official billing pages in your browser.",
+  "settingsClaudeApiBilling": "API Key billing",
+  "settingsClaudeSubscriptionUsage": "Subscription usage",
+  "settingsNewSessionTabs": "New Session Tabs",
+  "settingsNewSessionTabsDescription": "Choose which AI tools appear for new sessions and change their order.",
+  "newSessionTabCodex": "Codex",
+  "newSessionTabClaudeCode": "Claude Code",
   "usageResetAt": "Reset: {time}",
   "@usageResetAt": {
     "placeholders": {
@@ -605,5 +629,110 @@
   },
   "starOnGithub": "Star on GitHub",
   "rateOnStore": "Rate on App Store",
-  "rateOnStoreAndroid": "Rate on Google Play"
+  "rateOnStoreAndroid": "Rate on Google Play",
+  "supporterTitle": "Supporter",
+  "supporterMonthlyTitle": "Monthly Supporter",
+  "supporterCoffeeTitle": "Buy Me a Drink",
+  "supporterLunchTitle": "Buy Me Lunch",
+  "supporterStatusActive": "Thanks for backing CC Pocket.",
+  "supporterStatusInactive": "CC Pocket stays fully free. You can support ongoing development here.",
+  "supporterStatusLoading": "Checking supporter status...",
+  "supportEntryInactiveTitle": "Support",
+  "supportEntryInactiveSubtitle": "If CC Pocket has been useful, I'd appreciate your support for ongoing development.",
+  "supportEntryOneTimeTitle": "Thanks for your support",
+  "supportEntryOneTimeSubtitle": "Thanks for supporting CC Pocket.",
+  "supportEntryActiveTitle": "Supporting",
+  "supportEntryActiveSubtitle": "Thank you. You’ve been supporting CC Pocket since {date}.",
+  "@supportEntryActiveSubtitle": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "supporterMonthlyDescription": "Ongoing support to keep the app improving.",
+  "supporterMonthlyPerkLabel": "Includes alternate app icon perks",
+  "supporterCoffeeDescription": "If you feel like buying me a drink, I'd really appreciate the support.",
+  "supporterLunchDescription": "If you feel like buying me lunch, I'd really appreciate the support.",
+  "supporterBuyButton": "Support",
+  "supporterActiveButton": "Active",
+  "supporterRestoreButton": "Restore",
+  "supporterRetryButton": "Retry",
+  "supporterProductsUnavailable": "No support options are currently available.",
+  "supporterRestoreNoticeTitle": "About restore",
+  "supporterRestoreNoticeBody": "Restore works with the same Apple ID or Google account. Supporter status does not carry between iOS and Android.",
+  "supporterSummaryTitle": "Your support",
+  "supporterSummarySinceChip": "Since {date}",
+  "@supporterSummarySinceChip": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "supporterSummaryStreakChip": "Streak: {duration}",
+  "@supporterSummaryStreakChip": {
+    "placeholders": {
+      "duration": { "type": "String" }
+    }
+  },
+  "supporterSummaryOneTimeCount": "One-time ×{count}",
+  "@supporterSummaryOneTimeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryCoffeeCount": "Drinks ×{count}",
+  "@supporterSummaryCoffeeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryLunchCount": "Lunch ×{count}",
+  "@supporterSummaryLunchCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryLessThanMonth": "<1 month",
+  "supporterSummaryDurationMonths": "{count, plural, =1{1 month} other{{count} months}}",
+  "@supporterSummaryDurationMonths": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummarySinceLabel": "Started",
+  "supporterSummaryStreakLabel": "Active for",
+  "supporterSummaryOngoingLabel": "Supporting",
+  "supporterSummarySupportPeriodLabel": "Support period",
+  "supporterImpactTitle": "What support helps make possible",
+  "supporterImpactBody": "If you like CC Pocket, I'd really appreciate your support for ongoing development. The app will continue as free OSS.",
+  "supporterImpactAiTitle": "Development and operating costs",
+  "supporterImpactAiBody": "AI usage, device checks, testing, and shipping all add recurring costs.",
+  "supporterImpactDevicesTitle": "Devices and testing",
+  "supporterImpactDevicesBody": "Keeping the app reliable across phones, tablets, and platform updates.",
+  "supporterImpactMotivationTitle": "Momentum to keep building",
+  "supporterImpactMotivationBody": "Knowing the app is useful makes it much easier to keep shipping new features and improvements.",
+  "supporterPackagesTitle": "Choose a way to support",
+  "supporterSubscriptionGroupTitle": "Monthly support",
+  "supporterSubscriptionGroupBody": "I'd really appreciate ongoing support here.",
+  "supporterOneTimeGroupTitle": "One-time support",
+  "supporterOneTimeGroupBody": "If you feel like buying me lunch or a drink, I’d really appreciate the support.",
+  "supporterPurchaseInfoTitle": "About purchases",
+  "supporterPurchaseInfoBody": "Restore works with the same Apple ID or Google account. Supporter status does not carry between iOS and Android.",
+  "supporterPurchaseInfoLink": "Learn more",
+  "supporterLearnMoreTitle": "About purchases and support",
+  "supporterLearnMoreBody": "Read why CC Pocket stays free, how restore works, and what Supporter includes.",
+  "supporterOpenLinkFailed": "Could not open the info page.",
+  "supporterPurchaseSuccess": "Thanks for supporting CC Pocket!",
+  "supporterPurchaseCancelled": "Purchase cancelled.",
+  "supporterPurchaseFailed": "Purchase failed: {message}",
+  "@supporterPurchaseFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  },
+  "supporterRestoreSuccess": "Purchases restored.",
+  "supporterRestoreFailed": "Restore failed: {message}",
+  "@supporterRestoreFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  }
 }

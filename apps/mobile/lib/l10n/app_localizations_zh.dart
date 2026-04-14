@@ -978,6 +978,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sectionGeneral => '通用';
 
   @override
+  String get sectionConnectionAccounts => '连接与账户';
+
+  @override
+  String get sectionNotifications => '通知';
+
+  @override
+  String get sectionSupport => '支持';
+
+  @override
   String get sectionEditor => '编辑器';
 
   @override
@@ -1000,6 +1009,42 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get themeDark => '深色';
+
+  @override
+  String get appIconTitle => '应用图标';
+
+  @override
+  String get appIconMonthlySupporterPerk => '这是月度 Supporter 特典。';
+
+  @override
+  String get appIconSupporterDialogTitle => '月度 Supporter 特典';
+
+  @override
+  String get appIconSupporterSectionLabel => '月度 Supporter 特典';
+
+  @override
+  String get appIconPickerTitle => '选择应用图标';
+
+  @override
+  String get appIconPickerSubtitle => '可以选择主屏幕上显示的图标。';
+
+  @override
+  String get appIconOptionDefaultTitle => '深色';
+
+  @override
+  String get appIconOptionDefaultSubtitle => '标准的 CC Pocket 图标。';
+
+  @override
+  String get appIconOptionLightOutlineTitle => '浅色';
+
+  @override
+  String get appIconOptionLightOutlineSubtitle => '线条更轻盈、更明亮的版本。';
+
+  @override
+  String get appIconOptionCopperEmeraldTitle => '金属感';
+
+  @override
+  String get appIconOptionCopperEmeraldSubtitle => '带有光泽感的特别版。';
 
   @override
   String get language => '语言';
@@ -1143,6 +1188,33 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get usageSevenDay => '7 天';
+
+  @override
+  String get settingsUsageSectionTitle => '用量';
+
+  @override
+  String get settingsUsageNoCodexData => '未找到 Codex 的用量数据。';
+
+  @override
+  String get settingsClaudeUsageDescription => '在浏览器中打开 Claude 的官方计费页面。';
+
+  @override
+  String get settingsClaudeApiBilling => 'API Key 计费';
+
+  @override
+  String get settingsClaudeSubscriptionUsage => '订阅用量';
+
+  @override
+  String get settingsNewSessionTabs => '新建会话标签页';
+
+  @override
+  String get settingsNewSessionTabsDescription => '可修改新建会话时显示的 AI 工具选项及其排列顺序。';
+
+  @override
+  String get newSessionTabCodex => 'Codex';
+
+  @override
+  String get newSessionTabClaudeCode => 'Claude Code';
 
   @override
   String usageResetAt(String time) {
@@ -1398,4 +1470,205 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get rateOnStoreAndroid => '在 Google Play 评分';
+
+  @override
+  String get supporterTitle => 'Supporter';
+
+  @override
+  String get supporterMonthlyTitle => '每月支持';
+
+  @override
+  String get supporterCoffeeTitle => '请喝杯饮料';
+
+  @override
+  String get supporterLunchTitle => '请吃顿午餐';
+
+  @override
+  String get supporterStatusActive => '感谢你在支持 CC Pocket。';
+
+  @override
+  String get supporterStatusInactive => '应用会继续免费开放使用。你可以在这里支持持续开发。';
+
+  @override
+  String get supporterStatusLoading => '正在检查支持状态...';
+
+  @override
+  String get supportEntryInactiveTitle => '支持一下';
+
+  @override
+  String get supportEntryInactiveSubtitle => '如果你喜欢 CC Pocket，愿意支持持续开发的话我会很开心。';
+
+  @override
+  String get supportEntryOneTimeTitle => '感谢支持';
+
+  @override
+  String get supportEntryOneTimeSubtitle => '谢谢你之前的支持。';
+
+  @override
+  String get supportEntryActiveTitle => '支持中';
+
+  @override
+  String supportEntryActiveSubtitle(String date) {
+    return '感谢支持。你从 $date 开始支持 CC Pocket。';
+  }
+
+  @override
+  String get supporterMonthlyDescription => '如果你愿意持续支持，帮助这个应用继续改进，我会很开心。';
+
+  @override
+  String get supporterMonthlyPerkLabel => '包含更换应用图标特典';
+
+  @override
+  String get supporterCoffeeDescription => '如果你想请我喝一杯饮料，我会很感谢这份支持。';
+
+  @override
+  String get supporterLunchDescription => '如果你想请我吃一顿午餐，我会很感谢这份支持。';
+
+  @override
+  String get supporterBuyButton => '支持';
+
+  @override
+  String get supporterActiveButton => '支持中';
+
+  @override
+  String get supporterRestoreButton => '恢复购买';
+
+  @override
+  String get supporterRetryButton => '重试';
+
+  @override
+  String get supporterProductsUnavailable => '当前没有可用的支持选项。';
+
+  @override
+  String get supporterRestoreNoticeTitle => '关于恢复';
+
+  @override
+  String get supporterRestoreNoticeBody =>
+      '恢复购买仅适用于相同的 Apple ID 或 Google 账号。iOS 与 Android 之间的支持状态不会互通。';
+
+  @override
+  String get supporterSummaryTitle => '支持概览';
+
+  @override
+  String supporterSummarySinceChip(String date) {
+    return '自 $date 起支持';
+  }
+
+  @override
+  String supporterSummaryStreakChip(String duration) {
+    return '已持续 $duration';
+  }
+
+  @override
+  String supporterSummaryOneTimeCount(int count) {
+    return '单次 ×$count';
+  }
+
+  @override
+  String supporterSummaryCoffeeCount(int count) {
+    return '饮料 ×$count';
+  }
+
+  @override
+  String supporterSummaryLunchCount(int count) {
+    return '午餐 ×$count';
+  }
+
+  @override
+  String get supporterSummaryLessThanMonth => '不足 1 个月';
+
+  @override
+  String supporterSummaryDurationMonths(int count) {
+    return '$count 个月';
+  }
+
+  @override
+  String get supporterSummarySinceLabel => '开始支持';
+
+  @override
+  String get supporterSummaryStreakLabel => '持续时间';
+
+  @override
+  String get supporterSummaryOngoingLabel => '支持中';
+
+  @override
+  String get supporterSummarySupportPeriodLabel => '支持期间';
+
+  @override
+  String get supporterImpactTitle => '支持能带来什么';
+
+  @override
+  String get supporterImpactBody =>
+      '如果你喜欢 CC Pocket，愿意支持持续开发的话我会很开心。这个应用会继续作为免费的 OSS 提供。';
+
+  @override
+  String get supporterImpactAiTitle => '开发与维护成本';
+
+  @override
+  String get supporterImpactAiBody => 'AI 使用、真机验证、测试和发布都会带来持续成本。';
+
+  @override
+  String get supporterImpactDevicesTitle => '设备与测试';
+
+  @override
+  String get supporterImpactDevicesBody => '帮助覆盖真机验证、系统适配和持续维护的成本。';
+
+  @override
+  String get supporterImpactMotivationTitle => '持续改进的动力';
+
+  @override
+  String get supporterImpactMotivationBody => '知道这个应用真的有用，会更有动力继续做新功能和改进。';
+
+  @override
+  String get supporterPackagesTitle => '选择一种支持方式';
+
+  @override
+  String get supporterSubscriptionGroupTitle => '每月支持';
+
+  @override
+  String get supporterSubscriptionGroupBody => '如果你愿意持续支持，我会很感谢。';
+
+  @override
+  String get supporterOneTimeGroupTitle => '单次支持';
+
+  @override
+  String get supporterOneTimeGroupBody => '如果你愿意请我吃顿午餐或喝杯饮料，我会很感谢这份支持。';
+
+  @override
+  String get supporterPurchaseInfoTitle => '关于购买';
+
+  @override
+  String get supporterPurchaseInfoBody =>
+      '恢复购买仅适用于相同的 Apple ID 或 Google 账号。iOS 与 Android 之间的支持状态不会互通。';
+
+  @override
+  String get supporterPurchaseInfoLink => '了解更多';
+
+  @override
+  String get supporterLearnMoreTitle => '关于购买与支持';
+
+  @override
+  String get supporterLearnMoreBody => '了解为什么 CC Pocket 保持免费，以及恢复购买与隐私设计的方式。';
+
+  @override
+  String get supporterOpenLinkFailed => '无法打开说明页面。';
+
+  @override
+  String get supporterPurchaseSuccess => '感谢你支持 CC Pocket！';
+
+  @override
+  String get supporterPurchaseCancelled => '已取消购买。';
+
+  @override
+  String supporterPurchaseFailed(String message) {
+    return '购买失败：$message';
+  }
+
+  @override
+  String get supporterRestoreSuccess => '已恢复购买记录。';
+
+  @override
+  String supporterRestoreFailed(String message) {
+    return '恢复失败：$message';
+  }
 }

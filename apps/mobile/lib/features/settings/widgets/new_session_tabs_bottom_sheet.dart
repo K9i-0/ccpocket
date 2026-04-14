@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/provider_style.dart';
@@ -74,6 +75,7 @@ class _TabsBottomSheetContentState extends State<_TabsBottomSheetContent> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final appColors = Theme.of(context).extension<AppColors>()!;
     final cs = Theme.of(context).colorScheme;
 
@@ -102,10 +104,17 @@ class _TabsBottomSheetContentState extends State<_TabsBottomSheetContent> {
               Icon(Icons.tab, color: cs.primary, size: 20),
               const SizedBox(width: 8),
               Text(
-                'New Session Tabs',
+                l.settingsNewSessionTabs,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Text(
+            l.settingsNewSessionTabsDescription,
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
           ),
         ),
         const Divider(height: 1),
@@ -137,7 +146,7 @@ class _TabsBottomSheetContentState extends State<_TabsBottomSheetContent> {
                   activeColor: style.foreground,
                 ),
                 title: Text(
-                  item.tab.label,
+                  item.tab.localizedLabel(l),
                   style: TextStyle(
                     color: item.enabled
                         ? style.foreground
@@ -157,7 +166,7 @@ class _TabsBottomSheetContentState extends State<_TabsBottomSheetContent> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: SizedBox(
             width: double.infinity,
-            child: FilledButton(onPressed: _save, child: const Text('Save')),
+            child: FilledButton(onPressed: _save, child: Text(l.save)),
           ),
         ),
         SizedBox(height: MediaQuery.of(context).padding.bottom + 8),

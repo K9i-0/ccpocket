@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../l10n/app_localizations.dart';
 import 'messages.dart';
 
 /// Tabs available in the new session sheet.
@@ -24,6 +25,13 @@ enum NewSessionTab {
     }
     return null;
   }
+}
+
+extension NewSessionTabL10n on NewSessionTab {
+  String localizedLabel(AppLocalizations l) => switch (this) {
+    NewSessionTab.codex => l.newSessionTabCodex,
+    NewSessionTab.claude => l.newSessionTabClaudeCode,
+  };
 }
 
 /// Default tab order when no user preference is saved.

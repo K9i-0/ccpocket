@@ -218,6 +218,7 @@ class BridgeService implements BridgeServiceBase {
     _channelSub = null;
     _channel?.sink.close();
     _channel = null;
+    _lastUsageResult = null;
     _lastUrl = url;
 
     _setBridgeConnectionState(BridgeConnectionState.connecting);
@@ -1068,6 +1069,7 @@ class BridgeService implements BridgeServiceBase {
     _channelSub = null;
     _channel?.sink.close();
     _channel = null;
+    _lastUsageResult = null;
     _setBridgeConnectionState(BridgeConnectionState.disconnected);
     _bridgeVersion = null;
     clearDiffImageCache();

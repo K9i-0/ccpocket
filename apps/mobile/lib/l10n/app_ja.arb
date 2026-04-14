@@ -459,6 +459,9 @@
 
   "settingsTitle": "設定",
   "sectionGeneral": "一般",
+  "sectionConnectionAccounts": "接続とアカウント",
+  "sectionNotifications": "通知",
+  "sectionSupport": "応援",
   "sectionEditor": "エディタ",
   "indentSize": "インデント幅",
   "indentSizeSubtitle": "箇条書きのインデントに使用するスペース数",
@@ -467,6 +470,18 @@
   "themeSystem": "システム",
   "themeLight": "ライト",
   "themeDark": "ダーク",
+  "appIconTitle": "アプリアイコン",
+  "appIconMonthlySupporterPerk": "月額サポーター特典です。",
+  "appIconSupporterDialogTitle": "月額サポーター特典",
+  "appIconSupporterSectionLabel": "月額サポーター特典",
+  "appIconPickerTitle": "アプリアイコンを選ぶ",
+  "appIconPickerSubtitle": "ホーム画面に表示するアイコンを選べます。",
+  "appIconOptionDefaultTitle": "ダーク",
+  "appIconOptionDefaultSubtitle": "通常の CC Pocket アイコンです。",
+  "appIconOptionLightOutlineTitle": "ライト",
+  "appIconOptionLightOutlineSubtitle": "軽やかなラインが映える明るめのバリエーション。",
+  "appIconOptionCopperEmeraldTitle": "メタリック",
+  "appIconOptionCopperEmeraldSubtitle": "光沢感のある特別版。",
   "language": "言語",
   "languageSystem": "端末の設定に従う",
   "voiceInput": "音声入力",
@@ -538,6 +553,15 @@
   "usageFetchFailed": "取得に失敗しました",
   "usageFiveHour": "5時間",
   "usageSevenDay": "7日間",
+  "settingsUsageSectionTitle": "利用量",
+  "settingsUsageNoCodexData": "Codex の利用量データが見つかりませんでした。",
+  "settingsClaudeUsageDescription": "Claude の公式課金ページをブラウザで開きます。",
+  "settingsClaudeApiBilling": "API キーの課金",
+  "settingsClaudeSubscriptionUsage": "サブスクリプション利用状況",
+  "settingsNewSessionTabs": "新規セッションタブ",
+  "settingsNewSessionTabsDescription": "新規セッションで表示する AI ツールの選択肢と並び順を変更できます。",
+  "newSessionTabCodex": "Codex",
+  "newSessionTabClaudeCode": "Claude Code",
   "usageResetAt": "リセット: {time}",
   "@usageResetAt": {
     "placeholders": {
@@ -663,5 +687,110 @@
   },
   "starOnGithub": "GitHub にスターする",
   "rateOnStore": "App Store で評価する",
-  "rateOnStoreAndroid": "Google Play で評価する"
+  "rateOnStoreAndroid": "Google Play で評価する",
+  "supporterTitle": "Supporter",
+  "supporterMonthlyTitle": "月額サポーター",
+  "supporterCoffeeTitle": "ドリンクで応援",
+  "supporterLunchTitle": "ランチで応援",
+  "supporterStatusActive": "CC Pocket を応援してくれてありがとうございます。",
+  "supporterStatusInactive": "アプリは無料のまま。継続開発を応援できます。",
+  "supporterStatusLoading": "応援状態を確認しています...",
+  "supportEntryInactiveTitle": "応援する",
+  "supportEntryInactiveSubtitle": "CC Pocket が気に入ったら、継続開発を応援してもらえるとうれしいです。",
+  "supportEntryOneTimeTitle": "応援ありがとう",
+  "supportEntryOneTimeSubtitle": "これまでの応援、ありがとうございます。",
+  "supportEntryActiveTitle": "応援中",
+  "supportEntryActiveSubtitle": "いつもありがとうございます。{date}から応援中です。",
+  "@supportEntryActiveSubtitle": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "supporterMonthlyDescription": "継続的な開発を後押し",
+  "supporterMonthlyPerkLabel": "アプリアイコン変更特典付き",
+  "supporterCoffeeDescription": "ドリンクを1杯おごる",
+  "supporterLunchDescription": "ランチを1食おごる",
+  "supporterBuyButton": "応援する",
+  "supporterActiveButton": "応援中",
+  "supporterRestoreButton": "購入を復元",
+  "supporterRetryButton": "再試行",
+  "supporterProductsUnavailable": "現在利用できる応援プランがありません。",
+  "supporterRestoreNoticeTitle": "購入の復元について",
+  "supporterRestoreNoticeBody": "購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間で応援状態は共有されません。",
+  "supporterSummaryTitle": "応援サマリー",
+  "supporterSummarySinceChip": "{date}から応援中",
+  "@supporterSummarySinceChip": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "supporterSummaryStreakChip": "継続 {duration}",
+  "@supporterSummaryStreakChip": {
+    "placeholders": {
+      "duration": { "type": "String" }
+    }
+  },
+  "supporterSummaryOneTimeCount": "単発 ×{count}",
+  "@supporterSummaryOneTimeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryCoffeeCount": "ドリンク ×{count}",
+  "@supporterSummaryCoffeeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryLunchCount": "ランチ ×{count}",
+  "@supporterSummaryLunchCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryLessThanMonth": "1か月未満",
+  "supporterSummaryDurationMonths": "{count}か月",
+  "@supporterSummaryDurationMonths": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummarySinceLabel": "応援開始",
+  "supporterSummaryStreakLabel": "継続",
+  "supporterSummaryOngoingLabel": "継続中",
+  "supporterSummarySupportPeriodLabel": "応援期間",
+  "supporterImpactTitle": "応援でできること",
+  "supporterImpactBody": "CC Pocket が気に入ったら、継続開発を応援してもらえるとうれしいです。アプリはこれからも無料の OSS として続けていきます。",
+  "supporterImpactAiTitle": "開発と運用のコスト",
+  "supporterImpactAiBody": "AI 利用料、実機確認、テスト、配布まわりなどの継続コストを支えます。",
+  "supporterImpactDevicesTitle": "端末とテスト",
+  "supporterImpactDevicesBody": "実機確認や OS アップデート追従など、安定運用に必要なコストを支えます。",
+  "supporterImpactMotivationTitle": "継続するモチベーション",
+  "supporterImpactMotivationBody": "使ってくれている実感が、新機能や改善を続けるいちばんの後押しになります。",
+  "supporterPackagesTitle": "応援の方法",
+  "supporterSubscriptionGroupTitle": "毎月応援",
+  "supporterSubscriptionGroupBody": "継続的に応援してもらえるとうれしいです。",
+  "supporterOneTimeGroupTitle": "単発で応援",
+  "supporterOneTimeGroupBody": "ランチやドリンクをおごる気持ちになったら、応援してもらえるとうれしいです。",
+  "supporterPurchaseInfoTitle": "購入について",
+  "supporterPurchaseInfoBody": "購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間で応援状態は共有されません。",
+  "supporterPurchaseInfoLink": "詳しくはこちら",
+  "supporterLearnMoreTitle": "購入と応援について",
+  "supporterLearnMoreBody": "無料で提供し続ける考え方や、購入の復元の仕組みを確認できます。",
+  "supporterOpenLinkFailed": "案内ページを開けませんでした。",
+  "supporterPurchaseSuccess": "CC Pocket を応援してくれてありがとうございます。",
+  "supporterPurchaseCancelled": "購入をキャンセルしました。",
+  "supporterPurchaseFailed": "購入に失敗しました: {message}",
+  "@supporterPurchaseFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  },
+  "supporterRestoreSuccess": "購入情報を復元しました。",
+  "supporterRestoreFailed": "復元に失敗しました: {message}",
+  "@supporterRestoreFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  }
 }

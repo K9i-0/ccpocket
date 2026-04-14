@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.60.0+98
+version: 1.60.0+102
 
 environment:
   sdk: ^3.11.0
@@ -32,6 +32,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  intl: any
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -63,6 +64,7 @@ dependencies:
   firebase_core: ^4.4.0
   firebase_messaging: ^16.1.1
   shorebird_code_push: ^2.0.5
+  purchases_flutter: ^9.13.1
   package_info_plus: ^9.0.0
   auto_route: ^11.1.0
   collection: ^1.19.1
@@ -121,6 +123,9 @@ flutter:
   uses-material-design: true
   assets:
     - shorebird.yaml
+    - assets/icon.png
+    - assets/icon_light_outline.png
+    - assets/icon_pro_copper_emerald.png
     - assets/docs/
 
   # To add assets to your application, add an assets section, like this:

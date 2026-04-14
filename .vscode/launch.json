@@ -1,0 +1,39 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "mobile",
+      "cwd": "apps/mobile",
+      "program": "lib/main.dart",
+      "request": "launch",
+      "type": "dart",
+      "toolArgs": ["--disable-service-auth-codes"]
+    },
+    {
+      "name": "mobile (android)",
+      "cwd": "apps/mobile",
+      "request": "attach",
+      "type": "dart",
+      "deviceId": "emulator-5554",
+      "preLaunchTask": "mobile: android install + launch"
+    },
+    {
+      "name": "mobile (profile mode)",
+      "cwd": "apps/mobile",
+      "program": "lib/main.dart",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "mobile (release mode)",
+      "cwd": "apps/mobile",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release"
+    }
+  ]
+}

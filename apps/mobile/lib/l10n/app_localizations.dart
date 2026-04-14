@@ -1930,6 +1930,24 @@ abstract class AppLocalizations {
   /// **'一般'**
   String get sectionGeneral;
 
+  /// No description provided for @sectionConnectionAccounts.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続とアカウント'**
+  String get sectionConnectionAccounts;
+
+  /// No description provided for @sectionNotifications.
+  ///
+  /// In ja, this message translates to:
+  /// **'通知'**
+  String get sectionNotifications;
+
+  /// No description provided for @sectionSupport.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援'**
+  String get sectionSupport;
+
   /// No description provided for @sectionEditor.
   ///
   /// In ja, this message translates to:
@@ -1977,6 +1995,78 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'ダーク'**
   String get themeDark;
+
+  /// No description provided for @appIconTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'アプリアイコン'**
+  String get appIconTitle;
+
+  /// No description provided for @appIconMonthlySupporterPerk.
+  ///
+  /// In ja, this message translates to:
+  /// **'月額サポーター特典です。'**
+  String get appIconMonthlySupporterPerk;
+
+  /// No description provided for @appIconSupporterDialogTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'月額サポーター特典'**
+  String get appIconSupporterDialogTitle;
+
+  /// No description provided for @appIconSupporterSectionLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'月額サポーター特典'**
+  String get appIconSupporterSectionLabel;
+
+  /// No description provided for @appIconPickerTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'アプリアイコンを選ぶ'**
+  String get appIconPickerTitle;
+
+  /// No description provided for @appIconPickerSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ホーム画面に表示するアイコンを選べます。'**
+  String get appIconPickerSubtitle;
+
+  /// No description provided for @appIconOptionDefaultTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ダーク'**
+  String get appIconOptionDefaultTitle;
+
+  /// No description provided for @appIconOptionDefaultSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'通常の CC Pocket アイコンです。'**
+  String get appIconOptionDefaultSubtitle;
+
+  /// No description provided for @appIconOptionLightOutlineTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ライト'**
+  String get appIconOptionLightOutlineTitle;
+
+  /// No description provided for @appIconOptionLightOutlineSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'軽やかなラインが映える明るめのバリエーション。'**
+  String get appIconOptionLightOutlineSubtitle;
+
+  /// No description provided for @appIconOptionCopperEmeraldTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'メタリック'**
+  String get appIconOptionCopperEmeraldTitle;
+
+  /// No description provided for @appIconOptionCopperEmeraldSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'光沢感のある特別版。'**
+  String get appIconOptionCopperEmeraldSubtitle;
 
   /// No description provided for @language.
   ///
@@ -2247,6 +2337,60 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'7日間'**
   String get usageSevenDay;
+
+  /// No description provided for @settingsUsageSectionTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'利用量'**
+  String get settingsUsageSectionTitle;
+
+  /// No description provided for @settingsUsageNoCodexData.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex の利用量データが見つかりませんでした。'**
+  String get settingsUsageNoCodexData;
+
+  /// No description provided for @settingsClaudeUsageDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'Claude の公式課金ページをブラウザで開きます。'**
+  String get settingsClaudeUsageDescription;
+
+  /// No description provided for @settingsClaudeApiBilling.
+  ///
+  /// In ja, this message translates to:
+  /// **'API キーの課金'**
+  String get settingsClaudeApiBilling;
+
+  /// No description provided for @settingsClaudeSubscriptionUsage.
+  ///
+  /// In ja, this message translates to:
+  /// **'サブスクリプション利用状況'**
+  String get settingsClaudeSubscriptionUsage;
+
+  /// No description provided for @settingsNewSessionTabs.
+  ///
+  /// In ja, this message translates to:
+  /// **'新規セッションタブ'**
+  String get settingsNewSessionTabs;
+
+  /// No description provided for @settingsNewSessionTabsDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'新規セッションで表示する AI ツールの選択肢と並び順を変更できます。'**
+  String get settingsNewSessionTabsDescription;
+
+  /// No description provided for @newSessionTabCodex.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex'**
+  String get newSessionTabCodex;
+
+  /// No description provided for @newSessionTabClaudeCode.
+  ///
+  /// In ja, this message translates to:
+  /// **'Claude Code'**
+  String get newSessionTabClaudeCode;
 
   /// No description provided for @usageResetAt.
   ///
@@ -2727,6 +2871,366 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'Google Play で評価する'**
   String get rateOnStoreAndroid;
+
+  /// No description provided for @supporterTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Supporter'**
+  String get supporterTitle;
+
+  /// No description provided for @supporterMonthlyTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'月額サポーター'**
+  String get supporterMonthlyTitle;
+
+  /// No description provided for @supporterCoffeeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ドリンクで応援'**
+  String get supporterCoffeeTitle;
+
+  /// No description provided for @supporterLunchTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ランチで応援'**
+  String get supporterLunchTitle;
+
+  /// No description provided for @supporterStatusActive.
+  ///
+  /// In ja, this message translates to:
+  /// **'CC Pocket を応援してくれてありがとうございます。'**
+  String get supporterStatusActive;
+
+  /// No description provided for @supporterStatusInactive.
+  ///
+  /// In ja, this message translates to:
+  /// **'アプリは無料のまま。継続開発を応援できます。'**
+  String get supporterStatusInactive;
+
+  /// No description provided for @supporterStatusLoading.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援状態を確認しています...'**
+  String get supporterStatusLoading;
+
+  /// No description provided for @supportEntryInactiveTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援する'**
+  String get supportEntryInactiveTitle;
+
+  /// No description provided for @supportEntryInactiveSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'CC Pocket が気に入ったら、継続開発を応援してもらえるとうれしいです。'**
+  String get supportEntryInactiveSubtitle;
+
+  /// No description provided for @supportEntryOneTimeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援ありがとう'**
+  String get supportEntryOneTimeTitle;
+
+  /// No description provided for @supportEntryOneTimeSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'これまでの応援、ありがとうございます。'**
+  String get supportEntryOneTimeSubtitle;
+
+  /// No description provided for @supportEntryActiveTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援中'**
+  String get supportEntryActiveTitle;
+
+  /// No description provided for @supportEntryActiveSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'いつもありがとうございます。{date}から応援中です。'**
+  String supportEntryActiveSubtitle(String date);
+
+  /// No description provided for @supporterMonthlyDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'継続的な開発を後押し'**
+  String get supporterMonthlyDescription;
+
+  /// No description provided for @supporterMonthlyPerkLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'アプリアイコン変更特典付き'**
+  String get supporterMonthlyPerkLabel;
+
+  /// No description provided for @supporterCoffeeDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'ドリンクを1杯おごる'**
+  String get supporterCoffeeDescription;
+
+  /// No description provided for @supporterLunchDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'ランチを1食おごる'**
+  String get supporterLunchDescription;
+
+  /// No description provided for @supporterBuyButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援する'**
+  String get supporterBuyButton;
+
+  /// No description provided for @supporterActiveButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援中'**
+  String get supporterActiveButton;
+
+  /// No description provided for @supporterRestoreButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入を復元'**
+  String get supporterRestoreButton;
+
+  /// No description provided for @supporterRetryButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'再試行'**
+  String get supporterRetryButton;
+
+  /// No description provided for @supporterProductsUnavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'現在利用できる応援プランがありません。'**
+  String get supporterProductsUnavailable;
+
+  /// No description provided for @supporterRestoreNoticeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入の復元について'**
+  String get supporterRestoreNoticeTitle;
+
+  /// No description provided for @supporterRestoreNoticeBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間で応援状態は共有されません。'**
+  String get supporterRestoreNoticeBody;
+
+  /// No description provided for @supporterSummaryTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援サマリー'**
+  String get supporterSummaryTitle;
+
+  /// No description provided for @supporterSummarySinceChip.
+  ///
+  /// In ja, this message translates to:
+  /// **'{date}から応援中'**
+  String supporterSummarySinceChip(String date);
+
+  /// No description provided for @supporterSummaryStreakChip.
+  ///
+  /// In ja, this message translates to:
+  /// **'継続 {duration}'**
+  String supporterSummaryStreakChip(String duration);
+
+  /// No description provided for @supporterSummaryOneTimeCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'単発 ×{count}'**
+  String supporterSummaryOneTimeCount(int count);
+
+  /// No description provided for @supporterSummaryCoffeeCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'ドリンク ×{count}'**
+  String supporterSummaryCoffeeCount(int count);
+
+  /// No description provided for @supporterSummaryLunchCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'ランチ ×{count}'**
+  String supporterSummaryLunchCount(int count);
+
+  /// No description provided for @supporterSummaryLessThanMonth.
+  ///
+  /// In ja, this message translates to:
+  /// **'1か月未満'**
+  String get supporterSummaryLessThanMonth;
+
+  /// No description provided for @supporterSummaryDurationMonths.
+  ///
+  /// In ja, this message translates to:
+  /// **'{count}か月'**
+  String supporterSummaryDurationMonths(int count);
+
+  /// No description provided for @supporterSummarySinceLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援開始'**
+  String get supporterSummarySinceLabel;
+
+  /// No description provided for @supporterSummaryStreakLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'継続'**
+  String get supporterSummaryStreakLabel;
+
+  /// No description provided for @supporterSummaryOngoingLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'継続中'**
+  String get supporterSummaryOngoingLabel;
+
+  /// No description provided for @supporterSummarySupportPeriodLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援期間'**
+  String get supporterSummarySupportPeriodLabel;
+
+  /// No description provided for @supporterImpactTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援でできること'**
+  String get supporterImpactTitle;
+
+  /// No description provided for @supporterImpactBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'CC Pocket が気に入ったら、継続開発を応援してもらえるとうれしいです。アプリはこれからも無料の OSS として続けていきます。'**
+  String get supporterImpactBody;
+
+  /// No description provided for @supporterImpactAiTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'開発と運用のコスト'**
+  String get supporterImpactAiTitle;
+
+  /// No description provided for @supporterImpactAiBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'AI 利用料、実機確認、テスト、配布まわりなどの継続コストを支えます。'**
+  String get supporterImpactAiBody;
+
+  /// No description provided for @supporterImpactDevicesTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'端末とテスト'**
+  String get supporterImpactDevicesTitle;
+
+  /// No description provided for @supporterImpactDevicesBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'実機確認や OS アップデート追従など、安定運用に必要なコストを支えます。'**
+  String get supporterImpactDevicesBody;
+
+  /// No description provided for @supporterImpactMotivationTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'継続するモチベーション'**
+  String get supporterImpactMotivationTitle;
+
+  /// No description provided for @supporterImpactMotivationBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'使ってくれている実感が、新機能や改善を続けるいちばんの後押しになります。'**
+  String get supporterImpactMotivationBody;
+
+  /// No description provided for @supporterPackagesTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'応援の方法'**
+  String get supporterPackagesTitle;
+
+  /// No description provided for @supporterSubscriptionGroupTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'毎月応援'**
+  String get supporterSubscriptionGroupTitle;
+
+  /// No description provided for @supporterSubscriptionGroupBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'継続的に応援してもらえるとうれしいです。'**
+  String get supporterSubscriptionGroupBody;
+
+  /// No description provided for @supporterOneTimeGroupTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'単発で応援'**
+  String get supporterOneTimeGroupTitle;
+
+  /// No description provided for @supporterOneTimeGroupBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'ランチやドリンクをおごる気持ちになったら、応援してもらえるとうれしいです。'**
+  String get supporterOneTimeGroupBody;
+
+  /// No description provided for @supporterPurchaseInfoTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入について'**
+  String get supporterPurchaseInfoTitle;
+
+  /// No description provided for @supporterPurchaseInfoBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間で応援状態は共有されません。'**
+  String get supporterPurchaseInfoBody;
+
+  /// No description provided for @supporterPurchaseInfoLink.
+  ///
+  /// In ja, this message translates to:
+  /// **'詳しくはこちら'**
+  String get supporterPurchaseInfoLink;
+
+  /// No description provided for @supporterLearnMoreTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入と応援について'**
+  String get supporterLearnMoreTitle;
+
+  /// No description provided for @supporterLearnMoreBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'無料で提供し続ける考え方や、購入の復元の仕組みを確認できます。'**
+  String get supporterLearnMoreBody;
+
+  /// No description provided for @supporterOpenLinkFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'案内ページを開けませんでした。'**
+  String get supporterOpenLinkFailed;
+
+  /// No description provided for @supporterPurchaseSuccess.
+  ///
+  /// In ja, this message translates to:
+  /// **'CC Pocket を応援してくれてありがとうございます。'**
+  String get supporterPurchaseSuccess;
+
+  /// No description provided for @supporterPurchaseCancelled.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入をキャンセルしました。'**
+  String get supporterPurchaseCancelled;
+
+  /// No description provided for @supporterPurchaseFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入に失敗しました: {message}'**
+  String supporterPurchaseFailed(String message);
+
+  /// No description provided for @supporterRestoreSuccess.
+  ///
+  /// In ja, this message translates to:
+  /// **'購入情報を復元しました。'**
+  String get supporterRestoreSuccess;
+
+  /// No description provided for @supporterRestoreFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'復元に失敗しました: {message}'**
+  String supporterRestoreFailed(String message);
 }
 
 class _AppLocalizationsDelegate

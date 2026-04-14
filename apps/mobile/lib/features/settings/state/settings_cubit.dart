@@ -7,12 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/logger.dart';
+import '../../../models/app_icon.dart';
 import '../../../models/messages.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../models/terminal_app.dart';
+import '../../../services/app_icon_service.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/fcm_service.dart';
 import '../../../services/machine_manager_service.dart';
+import '../../../services/revenuecat_service.dart';
 import 'settings_state.dart';
 
 /// Manages user settings with SharedPreferences persistence.
@@ -21,9 +25,12 @@ class SettingsCubit extends Cubit<SettingsState> {
   final BridgeService? _bridge;
   final MachineManagerService? _machineManager;
   final FcmService _fcmService;
+  final RevenueCatService? _revenueCat;
+  final AppIconService _appIconService;
   StreamSubscription<BridgeConnectionState>? _bridgeSub;
   StreamSubscription<String>? _tokenRefreshSub;
   String? _activeToken;
+  VoidCallback? _supporterListener;
 
   static const _keyThemeMode = 'settings_theme_mode';
   static const _keyAppLocale = 'settings_app_locale';
@@ -35,6 +42,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   /// Also read directly from SharedPreferences in main.dart at startup.
   static const keyShorebirdTrack = 'settings_shorebird_track';
   static const _keyHideVoiceInput = 'settings_hide_voice_input';
+  static const _keySelectedAppIcon = 'settings_selected_app_icon';
   static const _keyTerminalApp = 'settings_terminal_app';
   static const _keyNewSessionTabs = 'settings_new_session_tabs';
   // Legacy key for migration
@@ -47,10 +55,19 @@ class SettingsCubit extends Cubit<SettingsState> {
     BridgeService? bridgeService,
     MachineManagerService? machineManager,
     FcmService? fcmService,
+    RevenueCatService? revenueCatService,
+    AppIconService? appIconService,
   }) : _bridge = bridgeService,
        _machineManager = machineManager,
        _fcmService = fcmService ?? FcmService(),
-       super(_load(_prefs)) {
+       _revenueCat = revenueCatService,
+       _appIconService = appIconService ?? AppIconService(),
+       super(
+         _load(_prefs).copyWith(
+           appIconSupported:
+               (appIconService ?? AppIconService()).isSupportedPlatform,
+         ),
+       ) {
     final bridge = _bridge;
     if (bridge != null) {
       _bridgeSub = bridge.connectionStatus.listen((status) {
@@ -68,7 +85,14 @@ class SettingsCubit extends Cubit<SettingsState> {
         _updateActiveMachine();
       }
     }
+    final revenueCat = _revenueCat;
+    if (revenueCat != null) {
+      _supporterListener = _handleSupporterStateChanged;
+      revenueCat.supporterState.addListener(_supporterListener!);
+    }
     unawaited(_initializePush());
+    unawaited(_initializeAppIconSupport());
+    unawaited(_syncAppIcon(force: true));
   }
 
   /// Resolve the currently connected Machine ID from the bridge URL.
@@ -139,6 +163,9 @@ class SettingsCubit extends Cubit<SettingsState> {
     final shorebirdTrack = prefs.getString(keyShorebirdTrack) ?? 'stable';
     final indentSize = prefs.getInt(_keyIndentSize) ?? 2;
     final hideVoiceInput = prefs.getBool(_keyHideVoiceInput) ?? false;
+    final selectedAppIcon = appIconVariantFromId(
+      prefs.getString(_keySelectedAppIcon),
+    );
 
     // Load terminal app config
     var terminalApp = TerminalAppConfig.empty;
@@ -173,9 +200,17 @@ class SettingsCubit extends Cubit<SettingsState> {
       shorebirdTrack: shorebirdTrack,
       indentSize: indentSize.clamp(1, 4),
       hideVoiceInput: hideVoiceInput,
+      selectedAppIcon: selectedAppIcon,
       terminalApp: terminalApp,
       newSessionTabs: newSessionTabs,
     );
+  }
+
+  Future<void> _initializeAppIconSupport() async {
+    final supported = await _appIconService.isSupported();
+    if (isClosed) return;
+    if (supported == state.appIconSupported) return;
+    emit(state.copyWith(appIconSupported: supported));
   }
 
   Future<void> _initializePush() async {
@@ -243,6 +278,12 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setHideVoiceInput(bool hide) {
     _prefs.setBool(_keyHideVoiceInput, hide);
     emit(state.copyWith(hideVoiceInput: hide));
+  }
+
+  Future<void> setSelectedAppIcon(AppIconVariant icon) async {
+    await _prefs.setString(_keySelectedAppIcon, icon.id);
+    emit(state.copyWith(selectedAppIcon: icon));
+    await _syncAppIcon(force: true, allowResetToDefault: true);
   }
 
   void setSpeechLocaleId(String localeId) {
@@ -413,10 +454,39 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(state.copyWith(fcmSyncInProgress: false, fcmStatusKey: statusKey));
   }
 
+  void _handleSupporterStateChanged() {
+    unawaited(_syncAppIcon());
+  }
+
+  Future<void> _syncAppIcon({
+    bool force = false,
+    bool allowResetToDefault = false,
+  }) async {
+    try {
+      final supporterState = _revenueCat?.supporterState.value;
+      if (supporterState != null &&
+          (!supporterState.isAvailable || supporterState.isLoading)) {
+        return;
+      }
+      await _appIconService.sync(
+        selectedIcon: state.selectedAppIcon,
+        isSupporter: supporterState?.isSupporter ?? false,
+        force: force,
+        allowResetToDefault: allowResetToDefault,
+      );
+    } catch (error, stackTrace) {
+      logger.warning('[settings] failed to sync app icon', error, stackTrace);
+    }
+  }
+
   @override
   Future<void> close() async {
     await _bridgeSub?.cancel();
     await _tokenRefreshSub?.cancel();
+    final listener = _supporterListener;
+    if (listener != null) {
+      _revenueCat?.supporterState.removeListener(listener);
+    }
     return super.close();
   }
 }

@@ -990,6 +990,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sectionGeneral => '一般';
 
   @override
+  String get sectionConnectionAccounts => '接続とアカウント';
+
+  @override
+  String get sectionNotifications => '通知';
+
+  @override
+  String get sectionSupport => '応援';
+
+  @override
   String get sectionEditor => 'エディタ';
 
   @override
@@ -1012,6 +1021,42 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get themeDark => 'ダーク';
+
+  @override
+  String get appIconTitle => 'アプリアイコン';
+
+  @override
+  String get appIconMonthlySupporterPerk => '月額サポーター特典です。';
+
+  @override
+  String get appIconSupporterDialogTitle => '月額サポーター特典';
+
+  @override
+  String get appIconSupporterSectionLabel => '月額サポーター特典';
+
+  @override
+  String get appIconPickerTitle => 'アプリアイコンを選ぶ';
+
+  @override
+  String get appIconPickerSubtitle => 'ホーム画面に表示するアイコンを選べます。';
+
+  @override
+  String get appIconOptionDefaultTitle => 'ダーク';
+
+  @override
+  String get appIconOptionDefaultSubtitle => '通常の CC Pocket アイコンです。';
+
+  @override
+  String get appIconOptionLightOutlineTitle => 'ライト';
+
+  @override
+  String get appIconOptionLightOutlineSubtitle => '軽やかなラインが映える明るめのバリエーション。';
+
+  @override
+  String get appIconOptionCopperEmeraldTitle => 'メタリック';
+
+  @override
+  String get appIconOptionCopperEmeraldSubtitle => '光沢感のある特別版。';
 
   @override
   String get language => '言語';
@@ -1156,6 +1201,34 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get usageSevenDay => '7日間';
+
+  @override
+  String get settingsUsageSectionTitle => '利用量';
+
+  @override
+  String get settingsUsageNoCodexData => 'Codex の利用量データが見つかりませんでした。';
+
+  @override
+  String get settingsClaudeUsageDescription => 'Claude の公式課金ページをブラウザで開きます。';
+
+  @override
+  String get settingsClaudeApiBilling => 'API キーの課金';
+
+  @override
+  String get settingsClaudeSubscriptionUsage => 'サブスクリプション利用状況';
+
+  @override
+  String get settingsNewSessionTabs => '新規セッションタブ';
+
+  @override
+  String get settingsNewSessionTabsDescription =>
+      '新規セッションで表示する AI ツールの選択肢と並び順を変更できます。';
+
+  @override
+  String get newSessionTabCodex => 'Codex';
+
+  @override
+  String get newSessionTabClaudeCode => 'Claude Code';
 
   @override
   String usageResetAt(String time) {
@@ -1413,4 +1486,209 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get rateOnStoreAndroid => 'Google Play で評価する';
+
+  @override
+  String get supporterTitle => 'Supporter';
+
+  @override
+  String get supporterMonthlyTitle => '月額サポーター';
+
+  @override
+  String get supporterCoffeeTitle => 'ドリンクで応援';
+
+  @override
+  String get supporterLunchTitle => 'ランチで応援';
+
+  @override
+  String get supporterStatusActive => 'CC Pocket を応援してくれてありがとうございます。';
+
+  @override
+  String get supporterStatusInactive => 'アプリは無料のまま。継続開発を応援できます。';
+
+  @override
+  String get supporterStatusLoading => '応援状態を確認しています...';
+
+  @override
+  String get supportEntryInactiveTitle => '応援する';
+
+  @override
+  String get supportEntryInactiveSubtitle =>
+      'CC Pocket が気に入ったら、継続開発を応援してもらえるとうれしいです。';
+
+  @override
+  String get supportEntryOneTimeTitle => '応援ありがとう';
+
+  @override
+  String get supportEntryOneTimeSubtitle => 'これまでの応援、ありがとうございます。';
+
+  @override
+  String get supportEntryActiveTitle => '応援中';
+
+  @override
+  String supportEntryActiveSubtitle(String date) {
+    return 'いつもありがとうございます。$dateから応援中です。';
+  }
+
+  @override
+  String get supporterMonthlyDescription => '継続的な開発を後押し';
+
+  @override
+  String get supporterMonthlyPerkLabel => 'アプリアイコン変更特典付き';
+
+  @override
+  String get supporterCoffeeDescription => 'ドリンクを1杯おごる';
+
+  @override
+  String get supporterLunchDescription => 'ランチを1食おごる';
+
+  @override
+  String get supporterBuyButton => '応援する';
+
+  @override
+  String get supporterActiveButton => '応援中';
+
+  @override
+  String get supporterRestoreButton => '購入を復元';
+
+  @override
+  String get supporterRetryButton => '再試行';
+
+  @override
+  String get supporterProductsUnavailable => '現在利用できる応援プランがありません。';
+
+  @override
+  String get supporterRestoreNoticeTitle => '購入の復元について';
+
+  @override
+  String get supporterRestoreNoticeBody =>
+      '購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間で応援状態は共有されません。';
+
+  @override
+  String get supporterSummaryTitle => '応援サマリー';
+
+  @override
+  String supporterSummarySinceChip(String date) {
+    return '$dateから応援中';
+  }
+
+  @override
+  String supporterSummaryStreakChip(String duration) {
+    return '継続 $duration';
+  }
+
+  @override
+  String supporterSummaryOneTimeCount(int count) {
+    return '単発 ×$count';
+  }
+
+  @override
+  String supporterSummaryCoffeeCount(int count) {
+    return 'ドリンク ×$count';
+  }
+
+  @override
+  String supporterSummaryLunchCount(int count) {
+    return 'ランチ ×$count';
+  }
+
+  @override
+  String get supporterSummaryLessThanMonth => '1か月未満';
+
+  @override
+  String supporterSummaryDurationMonths(int count) {
+    return '$countか月';
+  }
+
+  @override
+  String get supporterSummarySinceLabel => '応援開始';
+
+  @override
+  String get supporterSummaryStreakLabel => '継続';
+
+  @override
+  String get supporterSummaryOngoingLabel => '継続中';
+
+  @override
+  String get supporterSummarySupportPeriodLabel => '応援期間';
+
+  @override
+  String get supporterImpactTitle => '応援でできること';
+
+  @override
+  String get supporterImpactBody =>
+      'CC Pocket が気に入ったら、継続開発を応援してもらえるとうれしいです。アプリはこれからも無料の OSS として続けていきます。';
+
+  @override
+  String get supporterImpactAiTitle => '開発と運用のコスト';
+
+  @override
+  String get supporterImpactAiBody => 'AI 利用料、実機確認、テスト、配布まわりなどの継続コストを支えます。';
+
+  @override
+  String get supporterImpactDevicesTitle => '端末とテスト';
+
+  @override
+  String get supporterImpactDevicesBody =>
+      '実機確認や OS アップデート追従など、安定運用に必要なコストを支えます。';
+
+  @override
+  String get supporterImpactMotivationTitle => '継続するモチベーション';
+
+  @override
+  String get supporterImpactMotivationBody =>
+      '使ってくれている実感が、新機能や改善を続けるいちばんの後押しになります。';
+
+  @override
+  String get supporterPackagesTitle => '応援の方法';
+
+  @override
+  String get supporterSubscriptionGroupTitle => '毎月応援';
+
+  @override
+  String get supporterSubscriptionGroupBody => '継続的に応援してもらえるとうれしいです。';
+
+  @override
+  String get supporterOneTimeGroupTitle => '単発で応援';
+
+  @override
+  String get supporterOneTimeGroupBody =>
+      'ランチやドリンクをおごる気持ちになったら、応援してもらえるとうれしいです。';
+
+  @override
+  String get supporterPurchaseInfoTitle => '購入について';
+
+  @override
+  String get supporterPurchaseInfoBody =>
+      '購入の復元は同じ Apple ID または Google アカウントで利用できます。iOS と Android の間で応援状態は共有されません。';
+
+  @override
+  String get supporterPurchaseInfoLink => '詳しくはこちら';
+
+  @override
+  String get supporterLearnMoreTitle => '購入と応援について';
+
+  @override
+  String get supporterLearnMoreBody => '無料で提供し続ける考え方や、購入の復元の仕組みを確認できます。';
+
+  @override
+  String get supporterOpenLinkFailed => '案内ページを開けませんでした。';
+
+  @override
+  String get supporterPurchaseSuccess => 'CC Pocket を応援してくれてありがとうございます。';
+
+  @override
+  String get supporterPurchaseCancelled => '購入をキャンセルしました。';
+
+  @override
+  String supporterPurchaseFailed(String message) {
+    return '購入に失敗しました: $message';
+  }
+
+  @override
+  String get supporterRestoreSuccess => '購入情報を復元しました。';
+
+  @override
+  String supporterRestoreFailed(String message) {
+    return '復元に失敗しました: $message';
+  }
 }

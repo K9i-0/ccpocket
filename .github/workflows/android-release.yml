@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+      REVENUECAT_PUBLIC_KEY: ${{ secrets.REVENUECAT_PUBLIC_KEY_ANDROID }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Read Flutter version from .mise.toml
@@ -54,7 +55,12 @@ jobs:
         # between release and patch builds, which causes Shorebird asset diff warnings
         # and prevents patches from being applied on devices.
         # TODO: Remove once Shorebird supports asset patching (https://github.com/shorebirdtech/shorebird/issues/318)
-        run: shorebird release android --flutter-version="${{ steps.mise.outputs.flutter_version }}" -- --no-tree-shake-icons
+        run: |
+          shorebird release android \
+            --flutter-version="${{ steps.mise.outputs.flutter_version }}" \
+            -- \
+            --dart-define=REVENUECAT_PUBLIC_KEY="${REVENUECAT_PUBLIC_KEY}" \
+            --no-tree-shake-icons
       - name: Upload to Google Play
         uses: r0adkll/upload-google-play@935ef9c68bb393a8e6116b1575626a7f5be3a7fb # v1.1.3
         with:

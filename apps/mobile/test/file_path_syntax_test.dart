@@ -187,10 +187,7 @@ void main() {
     });
 
     test('detects bare file path in mid-sentence', () {
-      final paths = _detectAllFilePaths(
-        '詳細は README.ja.md に集約',
-        suffixes,
-      );
+      final paths = _detectAllFilePaths('詳細は README.ja.md に集約', suffixes);
       expect(paths, ['README.ja.md']);
     });
 

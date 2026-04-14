@@ -468,6 +468,9 @@
 
   "settingsTitle": "设置",
   "sectionGeneral": "通用",
+  "sectionConnectionAccounts": "连接与账户",
+  "sectionNotifications": "通知",
+  "sectionSupport": "支持",
   "sectionEditor": "编辑器",
   "indentSize": "缩进大小",
   "indentSizeSubtitle": "列表缩进使用的空格数",
@@ -476,6 +479,18 @@
   "themeSystem": "跟随系统",
   "themeLight": "浅色",
   "themeDark": "深色",
+  "appIconTitle": "应用图标",
+  "appIconMonthlySupporterPerk": "这是月度 Supporter 特典。",
+  "appIconSupporterDialogTitle": "月度 Supporter 特典",
+  "appIconSupporterSectionLabel": "月度 Supporter 特典",
+  "appIconPickerTitle": "选择应用图标",
+  "appIconPickerSubtitle": "可以选择主屏幕上显示的图标。",
+  "appIconOptionDefaultTitle": "深色",
+  "appIconOptionDefaultSubtitle": "标准的 CC Pocket 图标。",
+  "appIconOptionLightOutlineTitle": "浅色",
+  "appIconOptionLightOutlineSubtitle": "线条更轻盈、更明亮的版本。",
+  "appIconOptionCopperEmeraldTitle": "金属感",
+  "appIconOptionCopperEmeraldSubtitle": "带有光泽感的特别版。",
   "language": "语言",
   "languageSystem": "跟随系统",
   "voiceInput": "语音输入",
@@ -579,6 +594,15 @@
   "usageFetchFailed": "获取失败",
   "usageFiveHour": "5 小时",
   "usageSevenDay": "7 天",
+  "settingsUsageSectionTitle": "用量",
+  "settingsUsageNoCodexData": "未找到 Codex 的用量数据。",
+  "settingsClaudeUsageDescription": "在浏览器中打开 Claude 的官方计费页面。",
+  "settingsClaudeApiBilling": "API Key 计费",
+  "settingsClaudeSubscriptionUsage": "订阅用量",
+  "settingsNewSessionTabs": "新建会话标签页",
+  "settingsNewSessionTabsDescription": "可修改新建会话时显示的 AI 工具选项及其排列顺序。",
+  "newSessionTabCodex": "Codex",
+  "newSessionTabClaudeCode": "Claude Code",
   "usageResetAt": "重置时间：{time}",
   "@usageResetAt": {
     "placeholders": {
@@ -745,5 +769,110 @@
   },
   "starOnGithub": "在 GitHub 点星",
   "rateOnStore": "在 App Store 评分",
-  "rateOnStoreAndroid": "在 Google Play 评分"
+  "rateOnStoreAndroid": "在 Google Play 评分",
+  "supporterTitle": "Supporter",
+  "supporterMonthlyTitle": "每月支持",
+  "supporterCoffeeTitle": "请喝杯饮料",
+  "supporterLunchTitle": "请吃顿午餐",
+  "supporterStatusActive": "感谢你在支持 CC Pocket。",
+  "supporterStatusInactive": "应用会继续免费开放使用。你可以在这里支持持续开发。",
+  "supporterStatusLoading": "正在检查支持状态...",
+  "supportEntryInactiveTitle": "支持一下",
+  "supportEntryInactiveSubtitle": "如果你喜欢 CC Pocket，愿意支持持续开发的话我会很开心。",
+  "supportEntryOneTimeTitle": "感谢支持",
+  "supportEntryOneTimeSubtitle": "谢谢你之前的支持。",
+  "supportEntryActiveTitle": "支持中",
+  "supportEntryActiveSubtitle": "感谢支持。你从 {date} 开始支持 CC Pocket。",
+  "@supportEntryActiveSubtitle": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "supporterMonthlyDescription": "如果你愿意持续支持，帮助这个应用继续改进，我会很开心。",
+  "supporterMonthlyPerkLabel": "包含更换应用图标特典",
+  "supporterCoffeeDescription": "如果你想请我喝一杯饮料，我会很感谢这份支持。",
+  "supporterLunchDescription": "如果你想请我吃一顿午餐，我会很感谢这份支持。",
+  "supporterBuyButton": "支持",
+  "supporterActiveButton": "支持中",
+  "supporterRestoreButton": "恢复购买",
+  "supporterRetryButton": "重试",
+  "supporterProductsUnavailable": "当前没有可用的支持选项。",
+  "supporterRestoreNoticeTitle": "关于恢复",
+  "supporterRestoreNoticeBody": "恢复购买仅适用于相同的 Apple ID 或 Google 账号。iOS 与 Android 之间的支持状态不会互通。",
+  "supporterSummaryTitle": "支持概览",
+  "supporterSummarySinceChip": "自 {date} 起支持",
+  "@supporterSummarySinceChip": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "supporterSummaryStreakChip": "已持续 {duration}",
+  "@supporterSummaryStreakChip": {
+    "placeholders": {
+      "duration": { "type": "String" }
+    }
+  },
+  "supporterSummaryOneTimeCount": "单次 ×{count}",
+  "@supporterSummaryOneTimeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryCoffeeCount": "饮料 ×{count}",
+  "@supporterSummaryCoffeeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryLunchCount": "午餐 ×{count}",
+  "@supporterSummaryLunchCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummaryLessThanMonth": "不足 1 个月",
+  "supporterSummaryDurationMonths": "{count} 个月",
+  "@supporterSummaryDurationMonths": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummarySinceLabel": "开始支持",
+  "supporterSummaryStreakLabel": "持续时间",
+  "supporterSummaryOngoingLabel": "支持中",
+  "supporterSummarySupportPeriodLabel": "支持期间",
+  "supporterImpactTitle": "支持能带来什么",
+  "supporterImpactBody": "如果你喜欢 CC Pocket，愿意支持持续开发的话我会很开心。这个应用会继续作为免费的 OSS 提供。",
+  "supporterImpactAiTitle": "开发与维护成本",
+  "supporterImpactAiBody": "AI 使用、真机验证、测试和发布都会带来持续成本。",
+  "supporterImpactDevicesTitle": "设备与测试",
+  "supporterImpactDevicesBody": "帮助覆盖真机验证、系统适配和持续维护的成本。",
+  "supporterImpactMotivationTitle": "持续改进的动力",
+  "supporterImpactMotivationBody": "知道这个应用真的有用，会更有动力继续做新功能和改进。",
+  "supporterPackagesTitle": "选择一种支持方式",
+  "supporterSubscriptionGroupTitle": "每月支持",
+  "supporterSubscriptionGroupBody": "如果你愿意持续支持，我会很感谢。",
+  "supporterOneTimeGroupTitle": "单次支持",
+  "supporterOneTimeGroupBody": "如果你愿意请我吃顿午餐或喝杯饮料，我会很感谢这份支持。",
+  "supporterPurchaseInfoTitle": "关于购买",
+  "supporterPurchaseInfoBody": "恢复购买仅适用于相同的 Apple ID 或 Google 账号。iOS 与 Android 之间的支持状态不会互通。",
+  "supporterPurchaseInfoLink": "了解更多",
+  "supporterLearnMoreTitle": "关于购买与支持",
+  "supporterLearnMoreBody": "了解为什么 CC Pocket 保持免费，以及恢复购买与隐私设计的方式。",
+  "supporterOpenLinkFailed": "无法打开说明页面。",
+  "supporterPurchaseSuccess": "感谢你支持 CC Pocket！",
+  "supporterPurchaseCancelled": "已取消购买。",
+  "supporterPurchaseFailed": "购买失败：{message}",
+  "@supporterPurchaseFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  },
+  "supporterRestoreSuccess": "已恢复购买记录。",
+  "supporterRestoreFailed": "恢复失败：{message}",
+  "@supporterRestoreFailed": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  }
 }

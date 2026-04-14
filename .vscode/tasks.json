@@ -1,0 +1,15 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "mobile: android install + launch",
+      "type": "shell",
+      "command": "bash",
+      "args": ["scripts/android-install-and-launch.sh", "emulator-5554"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

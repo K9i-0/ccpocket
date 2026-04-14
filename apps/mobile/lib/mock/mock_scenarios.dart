@@ -16,6 +16,7 @@ enum MockScenarioProvider { claude, codex }
 enum MockScenarioSection {
   chat('Chat Session', Icons.chat_bubble_outline),
   sessionList('Session List', Icons.list_alt),
+  supporter('Supporter', Icons.favorite_border),
   storeScreenshot('Store Screenshots', Icons.photo_camera);
 
   final String label;
@@ -91,6 +92,11 @@ final List<MockScenario> mockScenarios = [
   _sessionListCodexFileChangeApproval,
   _sessionListCodexMcpApproval,
   sessionListNewSession20Projects,
+  settingsSupportEntriesPreview,
+  supporterPreviewInactive,
+  supporterPreviewOneTime,
+  supporterPreviewActive,
+  supporterPreviewVeteran,
   // Store screenshot scenarios
   ...storeScreenshotScenarios,
   // Standalone viewers
@@ -2716,6 +2722,46 @@ const sessionListNewSession20Projects = MockScenario(
   icon: Icons.folder_copy_outlined,
   description: 'New session sheet with 20 projects to test expandable history',
   section: MockScenarioSection.sessionList,
+  steps: [],
+);
+
+const settingsSupportEntriesPreview = MockScenario(
+  name: 'Settings Support Entries',
+  icon: Icons.settings_outlined,
+  description: 'Settings support entry cards for inactive and active states',
+  section: MockScenarioSection.supporter,
+  steps: [],
+);
+
+const supporterPreviewInactive = MockScenario(
+  name: 'Supporter Screen (Inactive)',
+  icon: Icons.favorite_border,
+  description: 'Supporter screen with products visible before any purchase',
+  section: MockScenarioSection.supporter,
+  steps: [],
+);
+
+const supporterPreviewOneTime = MockScenario(
+  name: 'Supporter Screen (One-Time)',
+  icon: Icons.favorite_outline,
+  description: 'Supporter screen for a one-time supporter without subscription',
+  section: MockScenarioSection.supporter,
+  steps: [],
+);
+
+const supporterPreviewActive = MockScenario(
+  name: 'Supporter Screen (Active)',
+  icon: Icons.favorite,
+  description: 'Supporter screen for an active monthly supporter',
+  section: MockScenarioSection.supporter,
+  steps: [],
+);
+
+const supporterPreviewVeteran = MockScenario(
+  name: 'Supporter Screen (Veteran)',
+  icon: Icons.workspace_premium,
+  description: 'Supporter screen for a long-running supporter',
+  section: MockScenarioSection.supporter,
   steps: [],
 );
 

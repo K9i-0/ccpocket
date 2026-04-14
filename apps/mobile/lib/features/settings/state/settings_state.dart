@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../../models/app_icon.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../models/terminal_app.dart';
 
@@ -60,6 +61,12 @@ abstract class SettingsState with _$SettingsState {
 
     /// Whether to hide the voice input button in the chat input bar.
     @Default(false) bool hideVoiceInput,
+
+    /// Selected app icon preference for monthly Supporter perks.
+    @Default(AppIconVariant.defaultIcon) AppIconVariant selectedAppIcon,
+
+    /// Whether app icon switching is supported on the current platform.
+    @Default(false) bool appIconSupported,
 
     /// External terminal app configuration (preset or custom URL template).
     @Default(TerminalAppConfig.empty) TerminalAppConfig terminalApp,
