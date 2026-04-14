@@ -978,6 +978,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sectionGeneral => '通用';
 
   @override
+  String get sectionConnectionAccounts => '连接与账户';
+
+  @override
+  String get sectionNotifications => '通知';
+
+  @override
   String get sectionSupport => '支持';
 
   @override
@@ -1182,6 +1188,33 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get usageSevenDay => '7 天';
+
+  @override
+  String get settingsUsageSectionTitle => '用量';
+
+  @override
+  String get settingsUsageNoCodexData => '未找到 Codex 的用量数据。';
+
+  @override
+  String get settingsClaudeUsageDescription => '在浏览器中打开 Claude 的官方计费页面。';
+
+  @override
+  String get settingsClaudeApiBilling => 'API Key 计费';
+
+  @override
+  String get settingsClaudeSubscriptionUsage => '订阅用量';
+
+  @override
+  String get settingsNewSessionTabs => '新建会话标签页';
+
+  @override
+  String get settingsNewSessionTabsDescription => '可修改新建会话时显示的 AI 工具选项及其排列顺序。';
+
+  @override
+  String get newSessionTabCodex => 'Codex';
+
+  @override
+  String get newSessionTabClaudeCode => 'Claude Code';
 
   @override
   String usageResetAt(String time) {

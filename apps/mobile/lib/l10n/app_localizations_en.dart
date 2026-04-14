@@ -1032,6 +1032,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionGeneral => 'GENERAL';
 
   @override
+  String get sectionConnectionAccounts => 'Connection & Accounts';
+
+  @override
+  String get sectionNotifications => 'Notifications';
+
+  @override
   String get sectionSupport => 'Support';
 
   @override
@@ -1242,6 +1248,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get usageSevenDay => '7 days';
+
+  @override
+  String get settingsUsageSectionTitle => 'Usage';
+
+  @override
+  String get settingsUsageNoCodexData => 'No Codex usage data found.';
+
+  @override
+  String get settingsClaudeUsageDescription =>
+      'Open Claude\'s official billing pages in your browser.';
+
+  @override
+  String get settingsClaudeApiBilling => 'API Key billing';
+
+  @override
+  String get settingsClaudeSubscriptionUsage => 'Subscription usage';
+
+  @override
+  String get settingsNewSessionTabs => 'New Session Tabs';
+
+  @override
+  String get settingsNewSessionTabsDescription =>
+      'Choose which AI tools appear for new sessions and change their order.';
+
+  @override
+  String get newSessionTabCodex => 'Codex';
+
+  @override
+  String get newSessionTabClaudeCode => 'Claude Code';
 
   @override
   String usageResetAt(String time) {

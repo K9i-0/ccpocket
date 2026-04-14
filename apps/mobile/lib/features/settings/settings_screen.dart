@@ -14,6 +14,7 @@ import '../../constants/feature_flags.dart';
 import '../../services/app_update_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/app_icon.dart';
+import '../../models/new_session_tab.dart';
 import '../../providers/machine_manager_cubit.dart';
 import '../../router/app_router.dart';
 import '../../services/bridge_service.dart';
@@ -68,7 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             controller: _scrollController,
             children: [
               if (isConnected) ...[
-                const _SectionHeader(title: 'Connection & Accounts'),
+                _SectionHeader(title: l.sectionConnectionAccounts),
                 Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
@@ -224,9 +225,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     // New Session Tabs
                     ListTile(
                       leading: Icon(Icons.tab, color: cs.primary),
-                      title: const Text('New Session Tabs'),
+                      title: Text(l.settingsNewSessionTabs),
                       subtitle: Text(
-                        state.newSessionTabs.map((t) => t.label).join(', '),
+                        state.newSessionTabs
+                            .map((t) => t.localizedLabel(l))
+                            .join(', '),
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => showNewSessionTabsBottomSheet(
@@ -294,7 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 8),
 
               if (state.activeMachineId != null) ...[
-                const _SectionHeader(title: 'Notifications'),
+                _SectionHeader(title: l.sectionNotifications),
                 Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(

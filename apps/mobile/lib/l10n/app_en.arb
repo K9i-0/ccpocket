@@ -401,6 +401,8 @@
 
   "settingsTitle": "Settings",
   "sectionGeneral": "GENERAL",
+  "sectionConnectionAccounts": "Connection & Accounts",
+  "sectionNotifications": "Notifications",
   "sectionSupport": "Support",
   "sectionEditor": "EDITOR",
   "indentSize": "Indent size",
@@ -493,6 +495,15 @@
   "usageFetchFailed": "Failed to fetch",
   "usageFiveHour": "5 hours",
   "usageSevenDay": "7 days",
+  "settingsUsageSectionTitle": "Usage",
+  "settingsUsageNoCodexData": "No Codex usage data found.",
+  "settingsClaudeUsageDescription": "Open Claude's official billing pages in your browser.",
+  "settingsClaudeApiBilling": "API Key billing",
+  "settingsClaudeSubscriptionUsage": "Subscription usage",
+  "settingsNewSessionTabs": "New Session Tabs",
+  "settingsNewSessionTabsDescription": "Choose which AI tools appear for new sessions and change their order.",
+  "newSessionTabCodex": "Codex",
+  "newSessionTabClaudeCode": "Claude Code",
   "usageResetAt": "Reset: {time}",
   "@usageResetAt": {
     "placeholders": {

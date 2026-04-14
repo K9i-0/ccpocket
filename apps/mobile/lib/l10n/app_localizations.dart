@@ -1930,6 +1930,18 @@ abstract class AppLocalizations {
   /// **'一般'**
   String get sectionGeneral;
 
+  /// No description provided for @sectionConnectionAccounts.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続とアカウント'**
+  String get sectionConnectionAccounts;
+
+  /// No description provided for @sectionNotifications.
+  ///
+  /// In ja, this message translates to:
+  /// **'通知'**
+  String get sectionNotifications;
+
   /// No description provided for @sectionSupport.
   ///
   /// In ja, this message translates to:
@@ -2325,6 +2337,60 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'7日間'**
   String get usageSevenDay;
+
+  /// No description provided for @settingsUsageSectionTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'利用量'**
+  String get settingsUsageSectionTitle;
+
+  /// No description provided for @settingsUsageNoCodexData.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex の利用量データが見つかりませんでした。'**
+  String get settingsUsageNoCodexData;
+
+  /// No description provided for @settingsClaudeUsageDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'Claude の公式課金ページをブラウザで開きます。'**
+  String get settingsClaudeUsageDescription;
+
+  /// No description provided for @settingsClaudeApiBilling.
+  ///
+  /// In ja, this message translates to:
+  /// **'API キーの課金'**
+  String get settingsClaudeApiBilling;
+
+  /// No description provided for @settingsClaudeSubscriptionUsage.
+  ///
+  /// In ja, this message translates to:
+  /// **'サブスクリプション利用状況'**
+  String get settingsClaudeSubscriptionUsage;
+
+  /// No description provided for @settingsNewSessionTabs.
+  ///
+  /// In ja, this message translates to:
+  /// **'新規セッションタブ'**
+  String get settingsNewSessionTabs;
+
+  /// No description provided for @settingsNewSessionTabsDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'新規セッションで表示する AI ツールの選択肢と並び順を変更できます。'**
+  String get settingsNewSessionTabsDescription;
+
+  /// No description provided for @newSessionTabCodex.
+  ///
+  /// In ja, this message translates to:
+  /// **'Codex'**
+  String get newSessionTabCodex;
+
+  /// No description provided for @newSessionTabClaudeCode.
+  ///
+  /// In ja, this message translates to:
+  /// **'Claude Code'**
+  String get newSessionTabClaudeCode;
 
   /// No description provided for @usageResetAt.
   ///

@@ -990,6 +990,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get sectionGeneral => '一般';
 
   @override
+  String get sectionConnectionAccounts => '接続とアカウント';
+
+  @override
+  String get sectionNotifications => '通知';
+
+  @override
   String get sectionSupport => '応援';
 
   @override
@@ -1195,6 +1201,34 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get usageSevenDay => '7日間';
+
+  @override
+  String get settingsUsageSectionTitle => '利用量';
+
+  @override
+  String get settingsUsageNoCodexData => 'Codex の利用量データが見つかりませんでした。';
+
+  @override
+  String get settingsClaudeUsageDescription => 'Claude の公式課金ページをブラウザで開きます。';
+
+  @override
+  String get settingsClaudeApiBilling => 'API キーの課金';
+
+  @override
+  String get settingsClaudeSubscriptionUsage => 'サブスクリプション利用状況';
+
+  @override
+  String get settingsNewSessionTabs => '新規セッションタブ';
+
+  @override
+  String get settingsNewSessionTabsDescription =>
+      '新規セッションで表示する AI ツールの選択肢と並び順を変更できます。';
+
+  @override
+  String get newSessionTabCodex => 'Codex';
+
+  @override
+  String get newSessionTabClaudeCode => 'Claude Code';
 
   @override
   String usageResetAt(String time) {

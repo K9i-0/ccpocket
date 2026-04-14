@@ -468,6 +468,8 @@
 
   "settingsTitle": "设置",
   "sectionGeneral": "通用",
+  "sectionConnectionAccounts": "连接与账户",
+  "sectionNotifications": "通知",
   "sectionSupport": "支持",
   "sectionEditor": "编辑器",
   "indentSize": "缩进大小",
@@ -592,6 +594,15 @@
   "usageFetchFailed": "获取失败",
   "usageFiveHour": "5 小时",
   "usageSevenDay": "7 天",
+  "settingsUsageSectionTitle": "用量",
+  "settingsUsageNoCodexData": "未找到 Codex 的用量数据。",
+  "settingsClaudeUsageDescription": "在浏览器中打开 Claude 的官方计费页面。",
+  "settingsClaudeApiBilling": "API Key 计费",
+  "settingsClaudeSubscriptionUsage": "订阅用量",
+  "settingsNewSessionTabs": "新建会话标签页",
+  "settingsNewSessionTabsDescription": "可修改新建会话时显示的 AI 工具选项及其排列顺序。",
+  "newSessionTabCodex": "Codex",
+  "newSessionTabClaudeCode": "Claude Code",
   "usageResetAt": "重置时间：{time}",
   "@usageResetAt": {
     "placeholders": {

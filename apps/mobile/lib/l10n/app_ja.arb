@@ -459,6 +459,8 @@
 
   "settingsTitle": "設定",
   "sectionGeneral": "一般",
+  "sectionConnectionAccounts": "接続とアカウント",
+  "sectionNotifications": "通知",
   "sectionSupport": "応援",
   "sectionEditor": "エディタ",
   "indentSize": "インデント幅",
@@ -551,6 +553,15 @@
   "usageFetchFailed": "取得に失敗しました",
   "usageFiveHour": "5時間",
   "usageSevenDay": "7日間",
+  "settingsUsageSectionTitle": "利用量",
+  "settingsUsageNoCodexData": "Codex の利用量データが見つかりませんでした。",
+  "settingsClaudeUsageDescription": "Claude の公式課金ページをブラウザで開きます。",
+  "settingsClaudeApiBilling": "API キーの課金",
+  "settingsClaudeSubscriptionUsage": "サブスクリプション利用状況",
+  "settingsNewSessionTabs": "新規セッションタブ",
+  "settingsNewSessionTabsDescription": "新規セッションで表示する AI ツールの選択肢と並び順を変更できます。",
+  "newSessionTabCodex": "Codex",
+  "newSessionTabClaudeCode": "Claude Code",
   "usageResetAt": "リセット: {time}",
   "@usageResetAt": {
     "placeholders": {

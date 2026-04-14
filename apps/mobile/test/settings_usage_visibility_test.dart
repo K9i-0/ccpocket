@@ -163,7 +163,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('USAGE'), findsNothing);
+        final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
+
+        expect(find.text(l.settingsUsageSectionTitle), findsNothing);
         expect(find.byKey(const ValueKey('codex_usage_card')), findsNothing);
         expect(find.byKey(const ValueKey('app_icon_tile')), findsNothing);
 
@@ -210,6 +212,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
       expect(find.byKey(const ValueKey('app_icon_tile')), findsOneWidget);
 
@@ -220,7 +223,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('USAGE'), findsOneWidget);
+      expect(find.text(l.settingsUsageSectionTitle), findsOneWidget);
       expect(find.byKey(const ValueKey('codex_usage_card')), findsOneWidget);
 
       await settingsCubit.close();
