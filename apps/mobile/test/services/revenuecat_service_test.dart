@@ -191,13 +191,13 @@ void main() {
         ..currentOffering = RevenueCatOfferingData(
           identifier: 'default',
           packages: const [
-            SupportPackage(
-              id: r'$rc_custom_coffee',
-              productId: 'support_coffee_5',
-              title: r'$4.99 Coffee',
-              priceLabel: r'$4.99',
-              kind: SupportPackageKind.coffee,
-            ),
+          SupportPackage(
+            id: r'$rc_custom_coffee',
+            productId: 'support_coffee_5',
+            title: r'$4.99 Drink',
+            priceLabel: r'$4.99',
+            kind: SupportPackageKind.coffee,
+          ),
           ],
         );
       final service = RevenueCatService(

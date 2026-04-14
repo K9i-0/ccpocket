@@ -48,7 +48,7 @@ void main() {
           SupportPackage(
             id: r'$rc_custom_coffee',
             productId: 'support_coffee_5',
-            title: '\$4.99 Coffee',
+            title: '\$4.99 Drink',
             priceLabel: '\$4.99',
             kind: SupportPackageKind.coffee,
           ),
@@ -67,7 +67,7 @@ void main() {
     expect(find.text(l.supportEntryInactiveTitle), findsOneWidget);
     expect(find.text(l.supportEntryInactiveSubtitle), findsOneWidget);
     expect(find.text('Supporter Monthly'), findsNothing);
-    expect(find.text('Coffee Support'), findsNothing);
+    expect(find.text('Drink Support'), findsNothing);
     expect(find.text(l.supporterRestoreButton), findsNothing);
   });
 

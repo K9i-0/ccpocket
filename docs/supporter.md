@@ -41,9 +41,38 @@ As a result:
 
 Supporter is intentionally small.
 
-- A Supporter badge in the app
-- A simple way to support the project financially
+- A dedicated `Support` screen that shows your support history summary
+- Monthly Supporter perks: alternate app icons
+- One-time and monthly ways to support the project financially
 - No feature gating for the main app experience
+
+## What The App Actually Shows
+
+The purchase flow lives in `Settings > Support`.
+
+The `Support` screen shows:
+
+- Monthly support: `Supporter Monthly`
+- One-time support: `Drink Support` and `Lunch Support`
+- A support summary when there is any purchase history on the current store account
+
+That summary can include:
+
+- When monthly support started
+- How long support has been active
+- One-time support counts such as Drink / Lunch totals
+
+This summary is shown for both monthly supporters and one-time supporters.
+
+## Monthly Supporter Perks
+
+Monthly Supporter does not unlock core app functionality.
+
+Instead, it adds a small cosmetic perk:
+
+- Alternate app icons in `Settings > App Icon`
+
+The default icon remains available to everyone. The alternate icon options are only unlocked while monthly support is active.
 
 ## What Support Helps Cover
 
@@ -66,6 +95,14 @@ Yes, as long as you use the same Apple ID or Google account that made the purcha
 ### Can I buy on iPhone and restore on Android?
 
 No. CC Pocket does not currently share support status across stores.
+
+### What happens after a one-time support purchase?
+
+It appears in the support summary on the `Support` screen. It does not unlock app features.
+
+### What happens after a monthly support purchase?
+
+It appears in the support summary on the `Support` screen and unlocks alternate app icons in `Settings > App Icon`.
 
 ### Why not add a CC Pocket account just for this?
 

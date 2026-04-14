@@ -693,7 +693,7 @@ const _supportPackages = [
   SupportPackage(
     id: r'$rc_custom_coffee',
     productId: 'support_coffee_5',
-    title: 'Coffee Support',
+    title: 'Drink Support',
     priceLabel: r'$4.99',
     kind: SupportPackageKind.coffee,
   ),
