@@ -1,6 +1,6 @@
 # Apple Review Checklist For Supporter
 
-最終更新: 2026-04-14
+最終更新: 2026-04-15
 
 `CC Pocket` の `Supporter` 課金を iOS / App Store Connect / TestFlight / App Review で進めるためのメモ。
 
@@ -34,9 +34,97 @@
 - [ ] `Supporter Monthly` が `Ready to Submit`
 - [ ] `Drink Support` が `Ready to Submit`
 - [ ] `Lunch Support` が `Ready to Submit`
+- [ ] 各商品の `Display Name` / `Description` を最新文言に更新する
+- [ ] `Supporter` subscription group のローカライズを更新する
 - [ ] 各商品に `App Review Screenshot` を設定する
 - [ ] 各商品に `Review Notes` を設定する
 - [ ] アプリ version の `In-App Purchases and Subscriptions` に 3 商品を追加する
+
+## App Store Connect に入れる商品文言候補
+
+実装上の導線と表示に合わせるなら、商品文言は次くらいが自然。
+
+### Supporter Monthly
+
+日本語:
+
+```text
+Display Name:
+Supporter Monthly
+
+Description:
+CC Pocketの継続開発を支援する月額サポーター。
+```
+
+英語:
+
+```text
+Display Name:
+Supporter Monthly
+
+Description:
+Monthly support for CC Pocket.
+```
+
+### Drink Support
+
+日本語:
+
+```text
+Display Name:
+Drink Support
+
+Description:
+CC Pocketを単発で応援するための購入です。
+```
+
+英語:
+
+```text
+Display Name:
+Drink Support
+
+Description:
+One-time support for CC Pocket.
+```
+
+### Lunch Support
+
+日本語:
+
+```text
+Display Name:
+Lunch Support
+
+Description:
+CC Pocketを少し大きめに単発で応援する購入です。
+```
+
+英語:
+
+```text
+Display Name:
+Lunch Support
+
+Description:
+A larger one-time support for CC Pocket.
+```
+
+### Subscription Group
+
+日本語:
+
+```text
+Display Name:
+Supporter
+```
+
+英語:
+
+```text
+Display Name:
+Supporter
+```
 
 ## App Review Information に入れる文面
 
@@ -45,6 +133,7 @@
 ```text
 CC Pocket does not use a dedicated app account for purchases.
 No login is required to access the Support section.
+The purchase flow can be reviewed without connecting to a Bridge server.
 
 To test in-app purchases:
 1. Open the app.
@@ -62,7 +151,8 @@ Important context:
 - Supporter is optional OSS support. Core app functionality is not paywalled.
 - The app remains usable without purchase.
 - One-time purchases update the support summary only.
-- The monthly purchase adds support status and alternate app icon perks.
+- The monthly purchase updates the support summary and unlocks alternate app icon perks.
+- The current alternate app icon options for monthly supporters are Light and Metallic.
 
 Bridge note:
 CC Pocket's main coding workflow connects to a self-hosted Bridge Server.
@@ -87,6 +177,7 @@ The subscription is associated with the reviewer's Apple ID in Apple's sandbox e
 
 This purchase does not unlock core app functionality.
 It is an optional supporter purchase that updates the support summary and unlocks alternate app icons.
+The currently available monthly supporter icon options are Light and Metallic.
 ```
 
 ### Drink Support
@@ -126,12 +217,13 @@ It is an optional one-time support option that updates the support summary on th
 ## Review Screenshot の考え方
 
 - 公開用スクリーンショットではなく、審査用の画面でよい
-- `Settings > Support` が見える画面を使う
+- 基本は `Settings > Support` が見える画面を使う
 - 各商品が確認できる状態で撮る
 
 推奨:
 
 - `Supporter Monthly` が見え、月額サポーター特典の説明も読めるスクショ
+- 可能なら、月額購入後の `Settings > App Icon` で `Light` / `Metallic` が見える確認用スクショも別途控えておく
 - `Drink Support` が見えるスクショ
 - `Lunch Support` が見えるスクショ
 
@@ -142,6 +234,7 @@ It is an optional one-time support option that updates the support summary on th
 - [ ] 単発購入後に `Support` 画面のサマリーが更新される
 - [ ] 月額購入後に `Support` 画面のサマリーが更新される
 - [ ] 月額購入後に `Settings > App Icon` の追加アイコンが解放される
+- [ ] `Settings > App Icon` で `Light` / `Metallic` が選べる
 - [ ] `Restore` が動く
 - [ ] 月額の継続表示と単発支援サマリーが崩れない
 

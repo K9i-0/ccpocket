@@ -153,7 +153,6 @@ void main() {
             ],
           ),
         );
-
         await tester.pumpWidget(
           await _buildScreen(
             bridge: bridge,
@@ -167,7 +166,7 @@ void main() {
 
         expect(find.text(l.settingsUsageSectionTitle), findsNothing);
         expect(find.byKey(const ValueKey('codex_usage_card')), findsNothing);
-        expect(find.byKey(const ValueKey('app_icon_tile')), findsNothing);
+        expect(find.byKey(const ValueKey('app_icon_tile')), findsOneWidget);
 
         await settingsCubit.close();
         await machineManagerCubit.close();

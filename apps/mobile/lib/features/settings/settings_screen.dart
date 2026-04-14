@@ -110,7 +110,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             context.read<SettingsCubit>().setThemeMode(mode),
                       ),
                     ),
-                    if (isConnected && state.appIconSupported) ...[
+                    if (state.appIconSupported) ...[
                       Divider(
                         height: 1,
                         indent: 16,
@@ -400,6 +400,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 8),
 
+              ValueListenableBuilder<SupportCatalogState>(
+                valueListenable: revenueCat.catalogState,
+                builder: (context, supportState, _) {
+                  if (!supportState.isAvailable &&
+                      supportState.errorMessage == null) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _SectionHeader(title: l.sectionSupport),
+                      const SupportSectionCard(),
+                      const SizedBox(height: 8),
+                    ],
+                  );
+                },
+              ),
+
               if (isConnected) ...[
                 // ── Usage ──
                 UsageSection(bridgeService: bridge),
@@ -411,25 +430,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   databaseService: context.read<DatabaseService>(),
                 ),
                 const SizedBox(height: 8),
-
-                ValueListenableBuilder<SupportCatalogState>(
-                  valueListenable: revenueCat.catalogState,
-                  builder: (context, supportState, _) {
-                    if (!supportState.isAvailable &&
-                        supportState.errorMessage == null) {
-                      return const SizedBox.shrink();
-                    }
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _SectionHeader(title: l.sectionSupport),
-                        const SupportSectionCard(),
-                        const SizedBox(height: 8),
-                      ],
-                    );
-                  },
-                ),
 
                 // ── Spread ──
                 _SectionHeader(title: l.sectionSpread),
