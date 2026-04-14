@@ -400,6 +400,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 8),
 
+              if (isConnected) ...[
+                // ── Usage ──
+                UsageSection(bridgeService: bridge),
+                const SizedBox(height: 8),
+
+                // ── Backup ──
+                BackupSection(
+                  bridgeService: bridge,
+                  databaseService: context.read<DatabaseService>(),
+                ),
+                const SizedBox(height: 8),
+              ],
+
               ValueListenableBuilder<SupportCatalogState>(
                 valueListenable: revenueCat.catalogState,
                 builder: (context, supportState, _) {
@@ -420,17 +433,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
 
               if (isConnected) ...[
-                // ── Usage ──
-                UsageSection(bridgeService: bridge),
-                const SizedBox(height: 8),
-
-                // ── Backup ──
-                BackupSection(
-                  bridgeService: bridge,
-                  databaseService: context.read<DatabaseService>(),
-                ),
-                const SizedBox(height: 8),
-
                 // ── Spread ──
                 _SectionHeader(title: l.sectionSpread),
                 Card(
