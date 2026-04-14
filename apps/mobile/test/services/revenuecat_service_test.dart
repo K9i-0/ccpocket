@@ -100,8 +100,8 @@ void main() {
             SupportPackage(
               id: r'$rc_monthly',
               productId: 'supporter_monthly_10',
-              title: 'Supporter \$10/mo',
-              priceLabel: r'$10.00',
+              title: 'Supporter \$9.99/mo',
+              priceLabel: r'$9.99',
               kind: SupportPackageKind.monthly,
             ),
           ],
@@ -162,8 +162,8 @@ void main() {
             SupportPackage(
               id: r'$rc_monthly',
               productId: 'supporter_monthly_10',
-              title: 'Supporter \$10/mo',
-              priceLabel: r'$10.00',
+              title: 'Supporter \$9.99/mo',
+              priceLabel: r'$9.99',
               kind: SupportPackageKind.monthly,
             ),
           ],
@@ -194,8 +194,8 @@ void main() {
             SupportPackage(
               id: r'$rc_custom_coffee',
               productId: 'support_coffee_5',
-              title: r'$5 Coffee',
-              priceLabel: r'$5.00',
+              title: r'$4.99 Coffee',
+              priceLabel: r'$4.99',
               kind: SupportPackageKind.coffee,
             ),
           ],
@@ -222,8 +222,8 @@ void main() {
             SupportPackage(
               id: r'$rc_custom_lunch',
               productId: 'support_lunch_10',
-              title: r'$10 Lunch',
-              priceLabel: r'$10.00',
+              title: r'$9.99 Lunch',
+              priceLabel: r'$9.99',
               kind: SupportPackageKind.lunch,
             ),
           ],
