@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.36.1] - 2026-04-15
+
+### Changed
+- Remove the remaining Claude usage OAuth path from the Bridge codebase and keep the Bridge usage API limited to Codex
+- Update Bridge package metadata and README wording to match the Claude Agent SDK naming
+
 ## [1.36.0] - 2026-04-11
 
 ### Added
