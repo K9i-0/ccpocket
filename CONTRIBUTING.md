@@ -4,7 +4,7 @@ Thank you for your interest in contributing to CC Pocket!
 
 ## Prompt Request — Contributing in the AI Era
 
-CC Pocket is a mobile client for Claude Code / Codex.
+CC Pocket is a mobile client for Claude / Codex.
 Given the nature of the project, we embrace an **AI-driven contribution style**.
 
 In traditional OSS, the standard workflow is "write code and send a Pull Request."
@@ -31,7 +31,7 @@ Rather than sharing code diffs, you share the **instructions you gave to an AI**
 - **Goal**: What you wanted to achieve
 - **Prompt**: The exact instructions you gave to the AI (in a copy-pasteable format)
 - **Result**: What worked, screenshots, etc.
-- **Environment**: The AI tool you used (Claude Code, Codex, etc.)
+- **Environment**: The AI tool you used (Claude, Codex, etc.)
 
 ## Bug Reports / Feature Requests
 

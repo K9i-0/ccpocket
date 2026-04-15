@@ -1,6 +1,6 @@
 # CC Pocket
 
-CC Pocket lets you start and run Codex and Claude Code sessions entirely from your phone. No laptop needed — just open the app, pick a project, and code from anywhere.
+CC Pocket lets you start and run Codex and Claude sessions entirely from your phone. No laptop needed — just open the app, pick a project, and code from anywhere.
 
 [日本語版 README](README.ja.md) | [简体中文版 README](README.zh-CN.md)
 
@@ -16,7 +16,7 @@ AI coding agents are getting autonomous enough to write entire features on their
 
 Decisions don't need a keyboard. They need a screen and a thumb.
 
-CC Pocket is built for this workflow: start a session from your phone, let your machine's Codex or Claude Code do the heavy lifting, and make decisions from wherever you are.
+CC Pocket is built for this workflow: start a session from your phone, let your machine's Codex or Claude do the heavy lifting, and make decisions from wherever you are.
 
 ## Who It's For
 
@@ -108,7 +108,9 @@ It's still in beta, but fully functional. Download the latest `.dmg` from [GitHu
 
 In the app, choose a project, pick your AI tool, and configure session modes.
 
-**Claude Code** uses a single **Permission Mode** that controls both approval scope and planning:
+On the Bridge side, **Claude sessions are powered by the Claude Agent SDK**. Session history remains compatible with Claude Code, so you can reopen past Claude Code sessions from CC Pocket and continue them in Claude Code when needed.
+
+**Claude** uses a single **Permission Mode** that controls both approval scope and planning:
 
 | Permission Mode | Behavior |
 |----------------|----------|
@@ -125,19 +127,19 @@ In the app, choose a project, pick your AI tool, and configure session modes.
 | **Plan** | On / Off | Toggle planning mode independently of approval policy |
 | **Sandbox** | On (default) / Off | Run in a restricted environment for safety |
 
-> Codex defaults to Sandbox On for safety. Claude Code defaults to Sandbox Off.
+> Codex defaults to Sandbox On for safety. Claude defaults to Sandbox Off.
 
 You can also enable **Worktree** to isolate a session in its own git worktree.
 
 ### Supported Models
 
-CC Pocket does not expose every model available in the Codex CLI or Claude Code.
+CC Pocket does not expose every model available in the Codex CLI or Claude.
 Instead, the Bridge Server provides a curated list of recent, commonly used models, and the mobile app falls back to that same curated set when needed.
 
 This keeps the setup and model picker simpler on mobile while still covering the models most users are likely to want.
 Adding support for more models is usually straightforward because the available model list is defined on the Bridge side.
 
-If a model is available in Codex CLI or Claude Code but not shown in CC Pocket, please open an issue with the exact model name you want to use.
+If a model is available in Codex CLI or Claude but not shown in CC Pocket, please open an issue with the exact model name you want to use.
 
 ## Supporter / Purchases
 

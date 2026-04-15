@@ -1,6 +1,6 @@
 AI coding agents can now write entire features autonomously. Your job? Approve, answer, review. That doesn't need a laptop — it needs your phone.
 
-CC Pocket lets you start Codex and Claude Code sessions from your phone, make decisions on the go, and ship code from anywhere.
+CC Pocket lets you start Codex and Claude sessions from your phone, make decisions on the go, and ship code from anywhere.
 
 This app is not affiliated with, endorsed by, or associated with Anthropic or OpenAI.
 

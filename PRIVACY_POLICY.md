@@ -4,7 +4,7 @@
 
 ## Overview
 
-ccpocket ("the App") is a mobile remote client for Claude Code and Codex. This privacy policy explains what data the App collects, how it is used, and your rights regarding that data.
+ccpocket ("the App") is a mobile remote client for Claude and Codex. This privacy policy explains what data the App collects, how it is used, and your rights regarding that data.
 
 This app is not affiliated with, endorsed by, or associated with Anthropic or OpenAI.
 

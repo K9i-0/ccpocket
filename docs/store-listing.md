@@ -6,20 +6,20 @@
 
 ## Short Description (80 chars)
 
-**EN**: Mobile client for Codex and Claude Code coding agents
-**JA**: Codex / Claude Code対応のモバイルクライアント
+**EN**: Mobile client for Codex and Claude coding agents
+**JA**: Codex / Claude対応のモバイルクライアント
 
 ## Full Description
 
 ### English
 
-Control Codex and Claude Code from your phone.
+Control Codex and Claude from your phone.
 
 ccpocket connects to a self-hosted Bridge Server running on your Mac or PC, giving you full control over coding agent sessions from anywhere.
 
 **Key Features**
 
-- Real-time chat with Codex and Claude Code (streaming)
+- Real-time chat with Codex and Claude (streaming)
 - Create, switch, and resume multiple sessions
 - Approve or reject file edits and command execution
 - View git diffs with syntax highlighting
@@ -33,7 +33,7 @@ ccpocket connects to a self-hosted Bridge Server running on your Mac or PC, givi
 
 1. Install the Bridge Server on your Mac/PC: `npx @ccpocket/bridge@latest`
 2. Open ccpocket on your phone and scan the QR code
-3. Start coding with Codex or Claude Code from your phone
+3. Start coding with Codex or Claude from your phone
 
 **Requirements**
 
@@ -44,13 +44,13 @@ Source code available at https://github.com/K9i-0/ccpocket
 
 ### Japanese (日本語)
 
-CodexとClaude Codeをスマホから操作。
+CodexとClaudeをスマホから操作。
 
 ccpocketは、MacやPC上で動作するセルフホストのBridge Serverに接続し、コーディングエージェントのセッションをどこからでも完全にコントロールできます。
 
 **主な機能**
 
-- Codex / Claude Codeとリアルタイムチャット（ストリーミング対応）
+- Codex / Claudeとリアルタイムチャット（ストリーミング対応）
 - 複数セッションの作成・切替・再開
 - ファイル編集やコマンド実行の承認/拒否
 - シンタックスハイライト付きgit diff表示
@@ -64,7 +64,7 @@ ccpocketは、MacやPC上で動作するセルフホストのBridge Serverに接
 
 1. Mac/PCにBridge Serverをインストール: `npx @ccpocket/bridge@latest`
 2. ccpocketを開いてQRコードをスキャン
-3. スマホからCodexやClaude Codeでコーディング開始
+3. スマホからCodexやClaudeでコーディング開始
 
 **必要なもの**
 

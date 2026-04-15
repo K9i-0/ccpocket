@@ -4,7 +4,7 @@
 
 ## Overview
 
-ccpocket ("the App") is a mobile client that connects to a self-hosted Bridge Server to interact with coding agents (Claude Code, Codex). The App is designed with privacy in mind — your data stays on your devices and your server.
+ccpocket ("the App") is a mobile client that connects to a self-hosted Bridge Server to interact with coding agents (Claude, Codex). The App is designed with privacy in mind — your data stays on your devices and your server.
 
 ## Data Collection
 

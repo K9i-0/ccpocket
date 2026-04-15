@@ -1,8 +1,8 @@
 # @ccpocket/bridge
 
-Bridge server that connects [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) and [Codex CLI](https://github.com/openai/codex) to mobile devices via WebSocket.
+Bridge server that connects Claude sessions powered by the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk) and [Codex CLI](https://github.com/openai/codex) to mobile devices via WebSocket.
 
-This is the server component of [ccpocket](https://github.com/K9i-0/ccpocket) — a mobile client for Claude Code and Codex.
+This is the server component of [ccpocket](https://github.com/K9i-0/ccpocket) — a mobile client for Claude and Codex.
 
 ## Quick Start
 
@@ -13,7 +13,7 @@ npx @ccpocket/bridge@latest
 A QR code will appear in your terminal. Scan it with the ccpocket mobile app to connect.
 
 > Warning
-> Versions older than `1.25.0` are deprecated and should not be used for new installs due to potential Anthropic policy concerns around OAuth-based usage.
+> Versions older than `1.25.0` are deprecated and should not be used for new installs because current Anthropic Claude Agent SDK docs do not permit third-party products to use Claude subscription login.
 > Upgrade to `>=1.25.0` and use `ANTHROPIC_API_KEY` instead of OAuth.
 
 ## Installation
