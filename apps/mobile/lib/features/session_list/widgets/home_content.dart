@@ -1,3 +1,4 @@
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -9,7 +10,10 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/app_update_service.dart';
 import '../../../services/draft_service.dart';
+import '../../../services/revenuecat_service.dart';
+import '../../../services/support_banner_service.dart';
 import '../../../theme/app_theme.dart';
+import '../../../router/app_router.dart';
 import '../../../widgets/session_card.dart';
 import '../state/session_list_cubit.dart';
 import '../state/session_list_state.dart';
@@ -19,6 +23,7 @@ import 'session_list_empty_state.dart';
 import 'app_update_banner.dart';
 import 'bridge_update_banner.dart';
 import 'session_reconnect_banner.dart';
+import 'support_banner.dart';
 
 class HomeContent extends StatefulWidget {
   final BridgeConnectionState connectionState;
@@ -112,8 +117,11 @@ class HomeContent extends StatefulWidget {
 class HomeContentState extends State<HomeContent> {
   bool _isSearching = false;
   bool _updateBannerDismissed = false;
+  bool _showSupportBanner = false;
   final _searchController = TextEditingController();
   SessionDisplayMode _displayMode = SessionDisplayMode.first;
+  RevenueCatService? _revenueCatService;
+  VoidCallback? _catalogStateListener;
 
   @override
   void initState() {
@@ -131,6 +139,21 @@ class HomeContentState extends State<HomeContent> {
           orElse: () => SessionDisplayMode.first,
         );
       });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final revenueCatService = context.read<RevenueCatService>();
+    if (!identical(_revenueCatService, revenueCatService)) {
+      if (_revenueCatService != null && _catalogStateListener != null) {
+        _revenueCatService!.catalogState.removeListener(_catalogStateListener!);
+      }
+      _revenueCatService = revenueCatService;
+      _catalogStateListener = () => _refreshSupportBannerVisibility();
+      revenueCatService.catalogState.addListener(_catalogStateListener!);
+      _refreshSupportBannerVisibility();
     }
   }
 
@@ -156,11 +179,15 @@ class HomeContentState extends State<HomeContent> {
     // Reset dismiss state when reconnected (new bridgeVersion received)
     if (widget.bridgeVersion != oldWidget.bridgeVersion) {
       _updateBannerDismissed = false;
+      _refreshSupportBannerVisibility();
     }
   }
 
   @override
   void dispose() {
+    if (_revenueCatService != null && _catalogStateListener != null) {
+      _revenueCatService!.catalogState.removeListener(_catalogStateListener!);
+    }
     _searchController.dispose();
     super.dispose();
   }
@@ -205,6 +232,43 @@ class HomeContentState extends State<HomeContent> {
     );
   }
 
+  bool _hasVisibleBridgeUpdateBanner() {
+    return !_updateBannerDismissed &&
+        BridgeUpdateBanner.shouldShow(
+          widget.bridgeVersion,
+          AppConstants.expectedBridgeVersion,
+        );
+  }
+
+  Future<void> _refreshSupportBannerVisibility() async {
+    final revenueCatService = _revenueCatService;
+    if (revenueCatService == null) return;
+
+    final supportBannerService = context.read<SupportBannerService>();
+    final shouldShow = await supportBannerService.shouldShow(
+      hasBridgeUpdate: _hasVisibleBridgeUpdateBanner(),
+      catalog: revenueCatService.catalogState.value,
+    );
+    if (!mounted || shouldShow == _showSupportBanner) return;
+    setState(() {
+      _showSupportBanner = shouldShow;
+    });
+  }
+
+  Widget? _buildSupportBanner() {
+    if (!_showSupportBanner) return null;
+    return SupportBanner(
+      onTap: () => context.pushRoute(const SupporterRoute()),
+      onDismiss: () async {
+        await context.read<SupportBannerService>().dismiss();
+        if (!mounted) return;
+        setState(() {
+          _showSupportBanner = false;
+        });
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -214,6 +278,7 @@ class HomeContentState extends State<HomeContent> {
     final isReconnecting =
         widget.connectionState == BridgeConnectionState.reconnecting;
     final updateBanner = _buildUpdateBanner();
+    final supportBanner = updateBanner == null ? _buildSupportBanner() : null;
     final appUpdateBanner = _buildAppUpdateBanner();
 
     // Compute derived state
@@ -259,6 +324,7 @@ class HomeContentState extends State<HomeContent> {
           children: [
             if (isReconnecting) const SessionReconnectBanner(),
             ?updateBanner,
+            if (updateBanner == null) ?supportBanner,
             ?appUpdateBanner,
             SectionHeader(
               icon: Icons.history,
@@ -277,6 +343,7 @@ class HomeContentState extends State<HomeContent> {
         children: [
           if (isReconnecting) const SessionReconnectBanner(),
           ?updateBanner,
+          if (updateBanner == null) ?supportBanner,
           const SizedBox(height: 80),
           SessionListEmptyState(onNewSession: widget.onNewSession),
         ],
@@ -291,6 +358,7 @@ class HomeContentState extends State<HomeContent> {
       children: [
         if (isReconnecting) const SessionReconnectBanner(),
         ?updateBanner,
+        if (updateBanner == null) ?supportBanner,
         if (hasRunningSessions) ...[
           SectionHeader(
             icon: Icons.play_circle_filled,

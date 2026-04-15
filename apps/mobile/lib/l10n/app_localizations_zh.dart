@@ -263,6 +263,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get update => '更新';
 
   @override
+  String get supportBannerTitle => '如果 CC Pocket 对你有帮助';
+
+  @override
+  String get supportBannerSubtitle => '你的支持可以帮助持续开发。';
+
+  @override
+  String get supportBannerAction => '查看支持';
+
+  @override
   String get offline => '离线';
 
   @override

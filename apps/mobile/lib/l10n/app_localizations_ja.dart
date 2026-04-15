@@ -265,6 +265,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get update => '更新';
 
   @override
+  String get supportBannerTitle => 'CC Pocketが役に立っていたら';
+
+  @override
+  String get supportBannerSubtitle => 'サポートで継続開発を後押しできます';
+
+  @override
+  String get supportBannerAction => 'サポートを見る';
+
+  @override
   String get offline => 'オフライン';
 
   @override

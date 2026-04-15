@@ -266,6 +266,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get update => 'Update';
 
   @override
+  String get supportBannerTitle => 'CC Pocket has been useful';
+
+  @override
+  String get supportBannerSubtitle =>
+      'Support can help keep development moving.';
+
+  @override
+  String get supportBannerAction => 'View support';
+
+  @override
   String get offline => 'Offline';
 
   @override

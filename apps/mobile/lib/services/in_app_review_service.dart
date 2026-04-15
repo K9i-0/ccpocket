@@ -157,6 +157,27 @@ class InAppReviewService {
   }
 
   Future<InAppReviewEligibility> getEligibility() async {
+    final baseEligibility = await getSupportBannerEligibility();
+    if (!baseEligibility.isEligible) {
+      return baseEligibility;
+    }
+
+    final now = _now();
+    final version = await _appVersionLoader();
+    final lastPromptVersion = _prefs.getString(_keyLastPromptVersion);
+    if (lastPromptVersion == version) {
+      return const InAppReviewEligibility.ineligible('same_version');
+    }
+
+    final lastPromptAt = _dateFromMillis(_prefs.getInt(_keyLastPromptAt));
+    if (lastPromptAt != null && now.difference(lastPromptAt) < promptCooldown) {
+      return const InAppReviewEligibility.ineligible('cooldown');
+    }
+
+    return const InAppReviewEligibility.eligible();
+  }
+
+  Future<InAppReviewEligibility> getSupportBannerEligibility() async {
     final now = _now();
     final firstSeenAt = _dateFromMillis(_prefs.getInt(_keyFirstSeenAt));
     if (firstSeenAt == null || now.difference(firstSeenAt) < minInstallAge) {
@@ -185,17 +206,6 @@ class InAppReviewService {
     if (lastNegativeAt != null &&
         now.difference(lastNegativeAt) < negativeSignalCooldown) {
       return const InAppReviewEligibility.ineligible('recent_negative_signal');
-    }
-
-    final version = await _appVersionLoader();
-    final lastPromptVersion = _prefs.getString(_keyLastPromptVersion);
-    if (lastPromptVersion == version) {
-      return const InAppReviewEligibility.ineligible('same_version');
-    }
-
-    final lastPromptAt = _dateFromMillis(_prefs.getInt(_keyLastPromptAt));
-    if (lastPromptAt != null && now.difference(lastPromptAt) < promptCooldown) {
-      return const InAppReviewEligibility.ineligible('cooldown');
     }
 
     return const InAppReviewEligibility.eligible();

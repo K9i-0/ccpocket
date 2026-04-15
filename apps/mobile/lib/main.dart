@@ -48,6 +48,7 @@ import 'services/notification_service.dart';
 import 'services/prompt_history_service.dart';
 import 'services/revenuecat_service.dart';
 import 'services/ssh_startup_service.dart';
+import 'services/support_banner_service.dart';
 import 'theme/app_theme.dart';
 import 'services/store_screenshot_extension.dart';
 import 'theme/markdown_style.dart';
@@ -136,6 +137,10 @@ void main() async {
   final draftService = DraftService(prefs);
   final inAppReviewService = InAppReviewService(prefs: prefs);
   await inAppReviewService.attachToBridge(bridge);
+  final supportBannerService = SupportBannerService(
+    prefs: prefs,
+    reviewService: inAppReviewService,
+  );
   StoreScreenshotState.draftService = draftService;
   final dbService = DatabaseService();
   final promptHistoryService = PromptHistoryService(dbService);
@@ -150,6 +155,9 @@ void main() async {
         RepositoryProvider<DatabaseService>.value(value: dbService),
         RepositoryProvider<DraftService>.value(value: draftService),
         RepositoryProvider<InAppReviewService>.value(value: inAppReviewService),
+        RepositoryProvider<SupportBannerService>.value(
+          value: supportBannerService,
+        ),
         RepositoryProvider<PromptHistoryService>.value(
           value: promptHistoryService,
         ),

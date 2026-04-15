@@ -580,6 +580,24 @@ abstract class AppLocalizations {
   /// **'更新'**
   String get update;
 
+  /// No description provided for @supportBannerTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'CC Pocketが役に立っていたら'**
+  String get supportBannerTitle;
+
+  /// No description provided for @supportBannerSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'サポートで継続開発を後押しできます'**
+  String get supportBannerSubtitle;
+
+  /// No description provided for @supportBannerAction.
+  ///
+  /// In ja, this message translates to:
+  /// **'サポートを見る'**
+  String get supportBannerAction;
+
   /// No description provided for @offline.
   ///
   /// In ja, this message translates to:
