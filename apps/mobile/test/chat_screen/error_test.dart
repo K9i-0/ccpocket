@@ -64,7 +64,7 @@ void main() {
 
       expect($('Claude login required'), findsOneWidget);
       expect(
-        $('Claude Code needs to sign in again on the Bridge machine.'),
+        $('Claude needs to sign in again on the Bridge machine.'),
         findsOneWidget,
       );
       expect($('claude'), findsOneWidget);
@@ -87,7 +87,7 @@ void main() {
 
       expect($('Claude login required'), findsOneWidget);
       expect(
-        $('Claude Code needs to sign in again on the Bridge machine.'),
+        $('Claude needs to sign in again on the Bridge machine.'),
         findsOneWidget,
       );
     });
@@ -119,7 +119,7 @@ void main() {
 
         expect($('Claude login required'), findsOneWidget);
         expect(
-          $('Claude Code needs to sign in again on the Bridge machine.'),
+          $('Claude needs to sign in again on the Bridge machine.'),
           findsOneWidget,
         );
       },

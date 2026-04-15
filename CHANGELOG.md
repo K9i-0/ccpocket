@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.61.4] - 2026-04-15
+
+### Changed
+- Update public-facing Claude branding across docs, store metadata, and generated marketing assets while keeping Claude Code references where CLI compatibility matters
+
+### Fixed
+- Remove the remaining Claude usage OAuth path from the Bridge-backed mobile flow and keep Claude billing and usage links pointed at official pages
+- Add Privacy Policy and Apple Standard EULA links to the Support purchase flow and metadata
+- Restore the Support section position so it appears just above Spread in Settings
+- Keep Support and App Icon settings visible without an active Bridge connection
+
 ## [1.61.3] - 2026-04-15
 
 ### Fixed

@@ -33,7 +33,11 @@ void main() {
 
       expect(find.text('APIキーが必要です'), findsOneWidget);
       expect(
-        find.text('サブスクリプション認証は規約上の懸念から現在制限されています。APIキーをご利用ください。'),
+        find.text(
+          'Anthropic の現行 Claude Agent SDK ドキュメントでは、'
+          'サードパーティ製品で Claude のサブスクリプションログインを'
+          '使うことは許可されていません。APIキーをご利用ください。',
+        ),
         findsOneWidget,
       );
       expect(find.text('APIキーの取得:'), findsOneWidget);
