@@ -43,6 +43,7 @@ import '../chat_session/widgets/reconnect_banner.dart';
 import '../chat_session/widgets/scroll_to_bottom_button.dart';
 import '../chat_session/widgets/session_mode_bar.dart';
 import '../chat_session/widgets/status_line_flexible_space.dart';
+import '../explore/state/explore_state.dart';
 import 'widgets/rewind_action_sheet.dart';
 import 'widgets/rewind_message_list_sheet.dart' show UserMessageHistorySheet;
 import 'widgets/usage_summary_bar.dart';
@@ -584,12 +585,23 @@ class _ChatScreenBody extends HookWidget {
                       minHeight: 32,
                     ),
                     tooltip: 'Explore',
-                    onPressed: () => context.router.push(
-                      ExploreRoute(
-                        projectPath: projectPath!,
-                        initialFiles: context.read<FileListCubit>().state,
-                      ),
-                    ),
+                    onPressed: () async {
+                      final result = await context.router.push(
+                        ExploreRoute(
+                          sessionId: sessionId,
+                          projectPath: projectPath!,
+                          initialFiles: context.read<FileListCubit>().state,
+                          initialPath: sessionState.explorerCurrentPath,
+                          recentPeekedFiles: sessionState.recentPeekedFiles,
+                        ),
+                      );
+                      if (result is! ExploreScreenResult || !context.mounted) {
+                        return;
+                      }
+                      final cubit = context.read<ChatSessionCubit>();
+                      cubit.setExplorerCurrentPath(result.currentPath);
+                      cubit.setRecentPeekedFiles(result.recentPeekedFiles);
+                    },
                   ),
                 if ((projectPath ?? '').isNotEmpty)
                   IconButton(
@@ -840,6 +852,9 @@ class _ChatScreenBody extends HookWidget {
                       scrollToUserEntry: scrollToUserEntry,
                       bottomPadding: 8,
                       isCodex: false,
+                      onFilePeekOpened: context
+                          .read<ChatSessionCubit>()
+                          .recordPeekedFile,
                     ),
                   ),
                 ),

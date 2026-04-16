@@ -28,6 +28,7 @@ class ChatMessageList extends StatefulWidget {
   final ValueNotifier<int>? collapseToolResults;
   final double bottomPadding;
   final bool isCodex;
+  final ValueChanged<String>? onFilePeekOpened;
 
   /// Project path for file peek (reading files from Bridge).
   final String? projectPath;
@@ -48,6 +49,7 @@ class ChatMessageList extends StatefulWidget {
     this.bottomPadding = 8,
     this.projectPath,
     this.isCodex = false,
+    this.onFilePeekOpened,
   });
 
   @override
@@ -221,6 +223,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
                 projectPath: projectPath,
                 filePath: filePath,
                 projectFiles: context.read<FileListCubit>().state,
+                onResolvedFilePath: widget.onFilePeekOpened,
               );
             },
             onImageTap: (user) {

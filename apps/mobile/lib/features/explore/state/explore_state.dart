@@ -4,6 +4,16 @@ part 'explore_state.freezed.dart';
 
 enum ExploreStatus { loading, ready, empty, error }
 
+class ExploreScreenResult {
+  final String currentPath;
+  final List<String> recentPeekedFiles;
+
+  const ExploreScreenResult({
+    required this.currentPath,
+    required this.recentPeekedFiles,
+  });
+}
+
 class ExploreEntry {
   final String name;
   final String relativePath;

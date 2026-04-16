@@ -18,7 +18,7 @@ mixin _$ChatSessionState {
  ProcessStatus get status;// Messages
  List<ChatEntry> get entries;// Approval / AskUserQuestion
  ApprovalState get approval;// Session metadata
- String? get claudeSessionId; String? get projectPath; String? get gitBranch;// Flags
+ String? get claudeSessionId; String? get projectPath; String? get gitBranch; String get explorerCurrentPath; List<String> get recentPeekedFiles;// Flags
  bool get pastHistoryLoaded; bool get bulkLoading; bool get inPlanMode; bool get collapseToolResults;// Legacy permission mode kept for compatibility with older bridge/app flows.
  PermissionMode get permissionMode;// Canonical session modes
  ExecutionMode get executionMode; CodexApprovalPolicy get codexApprovalPolicy; bool get planMode;// Sandbox mode — Freezed default is .on but Cubit constructor overrides
@@ -38,16 +38,16 @@ $ChatSessionStateCopyWith<ChatSessionState> get copyWith => _$ChatSessionStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChatSessionState&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other.entries, entries)&&(identical(other.approval, approval) || other.approval == approval)&&(identical(other.claudeSessionId, claudeSessionId) || other.claudeSessionId == claudeSessionId)&&(identical(other.projectPath, projectPath) || other.projectPath == projectPath)&&(identical(other.gitBranch, gitBranch) || other.gitBranch == gitBranch)&&(identical(other.pastHistoryLoaded, pastHistoryLoaded) || other.pastHistoryLoaded == pastHistoryLoaded)&&(identical(other.bulkLoading, bulkLoading) || other.bulkLoading == bulkLoading)&&(identical(other.inPlanMode, inPlanMode) || other.inPlanMode == inPlanMode)&&(identical(other.collapseToolResults, collapseToolResults) || other.collapseToolResults == collapseToolResults)&&(identical(other.permissionMode, permissionMode) || other.permissionMode == permissionMode)&&(identical(other.executionMode, executionMode) || other.executionMode == executionMode)&&(identical(other.codexApprovalPolicy, codexApprovalPolicy) || other.codexApprovalPolicy == codexApprovalPolicy)&&(identical(other.planMode, planMode) || other.planMode == planMode)&&(identical(other.sandboxMode, sandboxMode) || other.sandboxMode == sandboxMode)&&const DeepCollectionEquality().equals(other.hiddenToolUseIds, hiddenToolUseIds)&&(identical(other.rewindPreview, rewindPreview) || other.rewindPreview == rewindPreview)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost)&&(identical(other.totalDuration, totalDuration) || other.totalDuration == totalDuration)&&const DeepCollectionEquality().equals(other.slashCommands, slashCommands));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChatSessionState&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other.entries, entries)&&(identical(other.approval, approval) || other.approval == approval)&&(identical(other.claudeSessionId, claudeSessionId) || other.claudeSessionId == claudeSessionId)&&(identical(other.projectPath, projectPath) || other.projectPath == projectPath)&&(identical(other.gitBranch, gitBranch) || other.gitBranch == gitBranch)&&(identical(other.explorerCurrentPath, explorerCurrentPath) || other.explorerCurrentPath == explorerCurrentPath)&&const DeepCollectionEquality().equals(other.recentPeekedFiles, recentPeekedFiles)&&(identical(other.pastHistoryLoaded, pastHistoryLoaded) || other.pastHistoryLoaded == pastHistoryLoaded)&&(identical(other.bulkLoading, bulkLoading) || other.bulkLoading == bulkLoading)&&(identical(other.inPlanMode, inPlanMode) || other.inPlanMode == inPlanMode)&&(identical(other.collapseToolResults, collapseToolResults) || other.collapseToolResults == collapseToolResults)&&(identical(other.permissionMode, permissionMode) || other.permissionMode == permissionMode)&&(identical(other.executionMode, executionMode) || other.executionMode == executionMode)&&(identical(other.codexApprovalPolicy, codexApprovalPolicy) || other.codexApprovalPolicy == codexApprovalPolicy)&&(identical(other.planMode, planMode) || other.planMode == planMode)&&(identical(other.sandboxMode, sandboxMode) || other.sandboxMode == sandboxMode)&&const DeepCollectionEquality().equals(other.hiddenToolUseIds, hiddenToolUseIds)&&(identical(other.rewindPreview, rewindPreview) || other.rewindPreview == rewindPreview)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost)&&(identical(other.totalDuration, totalDuration) || other.totalDuration == totalDuration)&&const DeepCollectionEquality().equals(other.slashCommands, slashCommands));
 }
 
 
 @override
-int get hashCode => Object.hashAll([runtimeType,status,const DeepCollectionEquality().hash(entries),approval,claudeSessionId,projectPath,gitBranch,pastHistoryLoaded,bulkLoading,inPlanMode,collapseToolResults,permissionMode,executionMode,codexApprovalPolicy,planMode,sandboxMode,const DeepCollectionEquality().hash(hiddenToolUseIds),rewindPreview,totalCost,totalDuration,const DeepCollectionEquality().hash(slashCommands)]);
+int get hashCode => Object.hashAll([runtimeType,status,const DeepCollectionEquality().hash(entries),approval,claudeSessionId,projectPath,gitBranch,explorerCurrentPath,const DeepCollectionEquality().hash(recentPeekedFiles),pastHistoryLoaded,bulkLoading,inPlanMode,collapseToolResults,permissionMode,executionMode,codexApprovalPolicy,planMode,sandboxMode,const DeepCollectionEquality().hash(hiddenToolUseIds),rewindPreview,totalCost,totalDuration,const DeepCollectionEquality().hash(slashCommands)]);
 
 @override
 String toString() {
-  return 'ChatSessionState(status: $status, entries: $entries, approval: $approval, claudeSessionId: $claudeSessionId, projectPath: $projectPath, gitBranch: $gitBranch, pastHistoryLoaded: $pastHistoryLoaded, bulkLoading: $bulkLoading, inPlanMode: $inPlanMode, collapseToolResults: $collapseToolResults, permissionMode: $permissionMode, executionMode: $executionMode, codexApprovalPolicy: $codexApprovalPolicy, planMode: $planMode, sandboxMode: $sandboxMode, hiddenToolUseIds: $hiddenToolUseIds, rewindPreview: $rewindPreview, totalCost: $totalCost, totalDuration: $totalDuration, slashCommands: $slashCommands)';
+  return 'ChatSessionState(status: $status, entries: $entries, approval: $approval, claudeSessionId: $claudeSessionId, projectPath: $projectPath, gitBranch: $gitBranch, explorerCurrentPath: $explorerCurrentPath, recentPeekedFiles: $recentPeekedFiles, pastHistoryLoaded: $pastHistoryLoaded, bulkLoading: $bulkLoading, inPlanMode: $inPlanMode, collapseToolResults: $collapseToolResults, permissionMode: $permissionMode, executionMode: $executionMode, codexApprovalPolicy: $codexApprovalPolicy, planMode: $planMode, sandboxMode: $sandboxMode, hiddenToolUseIds: $hiddenToolUseIds, rewindPreview: $rewindPreview, totalCost: $totalCost, totalDuration: $totalDuration, slashCommands: $slashCommands)';
 }
 
 
@@ -58,7 +58,7 @@ abstract mixin class $ChatSessionStateCopyWith<$Res>  {
   factory $ChatSessionStateCopyWith(ChatSessionState value, $Res Function(ChatSessionState) _then) = _$ChatSessionStateCopyWithImpl;
 @useResult
 $Res call({
- ProcessStatus status, List<ChatEntry> entries, ApprovalState approval, String? claudeSessionId, String? projectPath, String? gitBranch, bool pastHistoryLoaded, bool bulkLoading, bool inPlanMode, bool collapseToolResults, PermissionMode permissionMode, ExecutionMode executionMode, CodexApprovalPolicy codexApprovalPolicy, bool planMode, SandboxMode sandboxMode, Set<String> hiddenToolUseIds, RewindPreviewMessage? rewindPreview, double totalCost, Duration? totalDuration, List<SlashCommand> slashCommands
+ ProcessStatus status, List<ChatEntry> entries, ApprovalState approval, String? claudeSessionId, String? projectPath, String? gitBranch, String explorerCurrentPath, List<String> recentPeekedFiles, bool pastHistoryLoaded, bool bulkLoading, bool inPlanMode, bool collapseToolResults, PermissionMode permissionMode, ExecutionMode executionMode, CodexApprovalPolicy codexApprovalPolicy, bool planMode, SandboxMode sandboxMode, Set<String> hiddenToolUseIds, RewindPreviewMessage? rewindPreview, double totalCost, Duration? totalDuration, List<SlashCommand> slashCommands
 });
 
 
@@ -75,7 +75,7 @@ class _$ChatSessionStateCopyWithImpl<$Res>
 
 /// Create a copy of ChatSessionState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? entries = null,Object? approval = null,Object? claudeSessionId = freezed,Object? projectPath = freezed,Object? gitBranch = freezed,Object? pastHistoryLoaded = null,Object? bulkLoading = null,Object? inPlanMode = null,Object? collapseToolResults = null,Object? permissionMode = null,Object? executionMode = null,Object? codexApprovalPolicy = null,Object? planMode = null,Object? sandboxMode = null,Object? hiddenToolUseIds = null,Object? rewindPreview = freezed,Object? totalCost = null,Object? totalDuration = freezed,Object? slashCommands = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? entries = null,Object? approval = null,Object? claudeSessionId = freezed,Object? projectPath = freezed,Object? gitBranch = freezed,Object? explorerCurrentPath = null,Object? recentPeekedFiles = null,Object? pastHistoryLoaded = null,Object? bulkLoading = null,Object? inPlanMode = null,Object? collapseToolResults = null,Object? permissionMode = null,Object? executionMode = null,Object? codexApprovalPolicy = null,Object? planMode = null,Object? sandboxMode = null,Object? hiddenToolUseIds = null,Object? rewindPreview = freezed,Object? totalCost = null,Object? totalDuration = freezed,Object? slashCommands = null,}) {
   return _then(_self.copyWith(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as ProcessStatus,entries: null == entries ? _self.entries : entries // ignore: cast_nullable_to_non_nullable
@@ -83,7 +83,9 @@ as List<ChatEntry>,approval: null == approval ? _self.approval : approval // ign
 as ApprovalState,claudeSessionId: freezed == claudeSessionId ? _self.claudeSessionId : claudeSessionId // ignore: cast_nullable_to_non_nullable
 as String?,projectPath: freezed == projectPath ? _self.projectPath : projectPath // ignore: cast_nullable_to_non_nullable
 as String?,gitBranch: freezed == gitBranch ? _self.gitBranch : gitBranch // ignore: cast_nullable_to_non_nullable
-as String?,pastHistoryLoaded: null == pastHistoryLoaded ? _self.pastHistoryLoaded : pastHistoryLoaded // ignore: cast_nullable_to_non_nullable
+as String?,explorerCurrentPath: null == explorerCurrentPath ? _self.explorerCurrentPath : explorerCurrentPath // ignore: cast_nullable_to_non_nullable
+as String,recentPeekedFiles: null == recentPeekedFiles ? _self.recentPeekedFiles : recentPeekedFiles // ignore: cast_nullable_to_non_nullable
+as List<String>,pastHistoryLoaded: null == pastHistoryLoaded ? _self.pastHistoryLoaded : pastHistoryLoaded // ignore: cast_nullable_to_non_nullable
 as bool,bulkLoading: null == bulkLoading ? _self.bulkLoading : bulkLoading // ignore: cast_nullable_to_non_nullable
 as bool,inPlanMode: null == inPlanMode ? _self.inPlanMode : inPlanMode // ignore: cast_nullable_to_non_nullable
 as bool,collapseToolResults: null == collapseToolResults ? _self.collapseToolResults : collapseToolResults // ignore: cast_nullable_to_non_nullable
@@ -191,10 +193,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ProcessStatus status,  List<ChatEntry> entries,  ApprovalState approval,  String? claudeSessionId,  String? projectPath,  String? gitBranch,  bool pastHistoryLoaded,  bool bulkLoading,  bool inPlanMode,  bool collapseToolResults,  PermissionMode permissionMode,  ExecutionMode executionMode,  CodexApprovalPolicy codexApprovalPolicy,  bool planMode,  SandboxMode sandboxMode,  Set<String> hiddenToolUseIds,  RewindPreviewMessage? rewindPreview,  double totalCost,  Duration? totalDuration,  List<SlashCommand> slashCommands)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ProcessStatus status,  List<ChatEntry> entries,  ApprovalState approval,  String? claudeSessionId,  String? projectPath,  String? gitBranch,  String explorerCurrentPath,  List<String> recentPeekedFiles,  bool pastHistoryLoaded,  bool bulkLoading,  bool inPlanMode,  bool collapseToolResults,  PermissionMode permissionMode,  ExecutionMode executionMode,  CodexApprovalPolicy codexApprovalPolicy,  bool planMode,  SandboxMode sandboxMode,  Set<String> hiddenToolUseIds,  RewindPreviewMessage? rewindPreview,  double totalCost,  Duration? totalDuration,  List<SlashCommand> slashCommands)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ChatSessionState() when $default != null:
-return $default(_that.status,_that.entries,_that.approval,_that.claudeSessionId,_that.projectPath,_that.gitBranch,_that.pastHistoryLoaded,_that.bulkLoading,_that.inPlanMode,_that.collapseToolResults,_that.permissionMode,_that.executionMode,_that.codexApprovalPolicy,_that.planMode,_that.sandboxMode,_that.hiddenToolUseIds,_that.rewindPreview,_that.totalCost,_that.totalDuration,_that.slashCommands);case _:
+return $default(_that.status,_that.entries,_that.approval,_that.claudeSessionId,_that.projectPath,_that.gitBranch,_that.explorerCurrentPath,_that.recentPeekedFiles,_that.pastHistoryLoaded,_that.bulkLoading,_that.inPlanMode,_that.collapseToolResults,_that.permissionMode,_that.executionMode,_that.codexApprovalPolicy,_that.planMode,_that.sandboxMode,_that.hiddenToolUseIds,_that.rewindPreview,_that.totalCost,_that.totalDuration,_that.slashCommands);case _:
   return orElse();
 
 }
@@ -212,10 +214,10 @@ return $default(_that.status,_that.entries,_that.approval,_that.claudeSessionId,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ProcessStatus status,  List<ChatEntry> entries,  ApprovalState approval,  String? claudeSessionId,  String? projectPath,  String? gitBranch,  bool pastHistoryLoaded,  bool bulkLoading,  bool inPlanMode,  bool collapseToolResults,  PermissionMode permissionMode,  ExecutionMode executionMode,  CodexApprovalPolicy codexApprovalPolicy,  bool planMode,  SandboxMode sandboxMode,  Set<String> hiddenToolUseIds,  RewindPreviewMessage? rewindPreview,  double totalCost,  Duration? totalDuration,  List<SlashCommand> slashCommands)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ProcessStatus status,  List<ChatEntry> entries,  ApprovalState approval,  String? claudeSessionId,  String? projectPath,  String? gitBranch,  String explorerCurrentPath,  List<String> recentPeekedFiles,  bool pastHistoryLoaded,  bool bulkLoading,  bool inPlanMode,  bool collapseToolResults,  PermissionMode permissionMode,  ExecutionMode executionMode,  CodexApprovalPolicy codexApprovalPolicy,  bool planMode,  SandboxMode sandboxMode,  Set<String> hiddenToolUseIds,  RewindPreviewMessage? rewindPreview,  double totalCost,  Duration? totalDuration,  List<SlashCommand> slashCommands)  $default,) {final _that = this;
 switch (_that) {
 case _ChatSessionState():
-return $default(_that.status,_that.entries,_that.approval,_that.claudeSessionId,_that.projectPath,_that.gitBranch,_that.pastHistoryLoaded,_that.bulkLoading,_that.inPlanMode,_that.collapseToolResults,_that.permissionMode,_that.executionMode,_that.codexApprovalPolicy,_that.planMode,_that.sandboxMode,_that.hiddenToolUseIds,_that.rewindPreview,_that.totalCost,_that.totalDuration,_that.slashCommands);case _:
+return $default(_that.status,_that.entries,_that.approval,_that.claudeSessionId,_that.projectPath,_that.gitBranch,_that.explorerCurrentPath,_that.recentPeekedFiles,_that.pastHistoryLoaded,_that.bulkLoading,_that.inPlanMode,_that.collapseToolResults,_that.permissionMode,_that.executionMode,_that.codexApprovalPolicy,_that.planMode,_that.sandboxMode,_that.hiddenToolUseIds,_that.rewindPreview,_that.totalCost,_that.totalDuration,_that.slashCommands);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -232,10 +234,10 @@ return $default(_that.status,_that.entries,_that.approval,_that.claudeSessionId,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ProcessStatus status,  List<ChatEntry> entries,  ApprovalState approval,  String? claudeSessionId,  String? projectPath,  String? gitBranch,  bool pastHistoryLoaded,  bool bulkLoading,  bool inPlanMode,  bool collapseToolResults,  PermissionMode permissionMode,  ExecutionMode executionMode,  CodexApprovalPolicy codexApprovalPolicy,  bool planMode,  SandboxMode sandboxMode,  Set<String> hiddenToolUseIds,  RewindPreviewMessage? rewindPreview,  double totalCost,  Duration? totalDuration,  List<SlashCommand> slashCommands)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ProcessStatus status,  List<ChatEntry> entries,  ApprovalState approval,  String? claudeSessionId,  String? projectPath,  String? gitBranch,  String explorerCurrentPath,  List<String> recentPeekedFiles,  bool pastHistoryLoaded,  bool bulkLoading,  bool inPlanMode,  bool collapseToolResults,  PermissionMode permissionMode,  ExecutionMode executionMode,  CodexApprovalPolicy codexApprovalPolicy,  bool planMode,  SandboxMode sandboxMode,  Set<String> hiddenToolUseIds,  RewindPreviewMessage? rewindPreview,  double totalCost,  Duration? totalDuration,  List<SlashCommand> slashCommands)?  $default,) {final _that = this;
 switch (_that) {
 case _ChatSessionState() when $default != null:
-return $default(_that.status,_that.entries,_that.approval,_that.claudeSessionId,_that.projectPath,_that.gitBranch,_that.pastHistoryLoaded,_that.bulkLoading,_that.inPlanMode,_that.collapseToolResults,_that.permissionMode,_that.executionMode,_that.codexApprovalPolicy,_that.planMode,_that.sandboxMode,_that.hiddenToolUseIds,_that.rewindPreview,_that.totalCost,_that.totalDuration,_that.slashCommands);case _:
+return $default(_that.status,_that.entries,_that.approval,_that.claudeSessionId,_that.projectPath,_that.gitBranch,_that.explorerCurrentPath,_that.recentPeekedFiles,_that.pastHistoryLoaded,_that.bulkLoading,_that.inPlanMode,_that.collapseToolResults,_that.permissionMode,_that.executionMode,_that.codexApprovalPolicy,_that.planMode,_that.sandboxMode,_that.hiddenToolUseIds,_that.rewindPreview,_that.totalCost,_that.totalDuration,_that.slashCommands);case _:
   return null;
 
 }
@@ -247,7 +249,7 @@ return $default(_that.status,_that.entries,_that.approval,_that.claudeSessionId,
 
 
 class _ChatSessionState implements ChatSessionState {
-  const _ChatSessionState({this.status = ProcessStatus.starting, final  List<ChatEntry> entries = const [], this.approval = const ApprovalState.none(), this.claudeSessionId, this.projectPath, this.gitBranch, this.pastHistoryLoaded = false, this.bulkLoading = false, this.inPlanMode = false, this.collapseToolResults = false, this.permissionMode = PermissionMode.defaultMode, this.executionMode = ExecutionMode.defaultMode, this.codexApprovalPolicy = CodexApprovalPolicy.onRequest, this.planMode = false, this.sandboxMode = SandboxMode.on, final  Set<String> hiddenToolUseIds = const {}, this.rewindPreview, this.totalCost = 0.0, this.totalDuration, final  List<SlashCommand> slashCommands = const []}): _entries = entries,_hiddenToolUseIds = hiddenToolUseIds,_slashCommands = slashCommands;
+  const _ChatSessionState({this.status = ProcessStatus.starting, final  List<ChatEntry> entries = const [], this.approval = const ApprovalState.none(), this.claudeSessionId, this.projectPath, this.gitBranch, this.explorerCurrentPath = '', final  List<String> recentPeekedFiles = const [], this.pastHistoryLoaded = false, this.bulkLoading = false, this.inPlanMode = false, this.collapseToolResults = false, this.permissionMode = PermissionMode.defaultMode, this.executionMode = ExecutionMode.defaultMode, this.codexApprovalPolicy = CodexApprovalPolicy.onRequest, this.planMode = false, this.sandboxMode = SandboxMode.on, final  Set<String> hiddenToolUseIds = const {}, this.rewindPreview, this.totalCost = 0.0, this.totalDuration, final  List<SlashCommand> slashCommands = const []}): _entries = entries,_recentPeekedFiles = recentPeekedFiles,_hiddenToolUseIds = hiddenToolUseIds,_slashCommands = slashCommands;
   
 
 // Process status
@@ -267,6 +269,14 @@ class _ChatSessionState implements ChatSessionState {
 @override final  String? claudeSessionId;
 @override final  String? projectPath;
 @override final  String? gitBranch;
+@override@JsonKey() final  String explorerCurrentPath;
+ final  List<String> _recentPeekedFiles;
+@override@JsonKey() List<String> get recentPeekedFiles {
+  if (_recentPeekedFiles is EqualUnmodifiableListView) return _recentPeekedFiles;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_recentPeekedFiles);
+}
+
 // Flags
 @override@JsonKey() final  bool pastHistoryLoaded;
 @override@JsonKey() final  bool bulkLoading;
@@ -315,16 +325,16 @@ _$ChatSessionStateCopyWith<_ChatSessionState> get copyWith => __$ChatSessionStat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChatSessionState&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other._entries, _entries)&&(identical(other.approval, approval) || other.approval == approval)&&(identical(other.claudeSessionId, claudeSessionId) || other.claudeSessionId == claudeSessionId)&&(identical(other.projectPath, projectPath) || other.projectPath == projectPath)&&(identical(other.gitBranch, gitBranch) || other.gitBranch == gitBranch)&&(identical(other.pastHistoryLoaded, pastHistoryLoaded) || other.pastHistoryLoaded == pastHistoryLoaded)&&(identical(other.bulkLoading, bulkLoading) || other.bulkLoading == bulkLoading)&&(identical(other.inPlanMode, inPlanMode) || other.inPlanMode == inPlanMode)&&(identical(other.collapseToolResults, collapseToolResults) || other.collapseToolResults == collapseToolResults)&&(identical(other.permissionMode, permissionMode) || other.permissionMode == permissionMode)&&(identical(other.executionMode, executionMode) || other.executionMode == executionMode)&&(identical(other.codexApprovalPolicy, codexApprovalPolicy) || other.codexApprovalPolicy == codexApprovalPolicy)&&(identical(other.planMode, planMode) || other.planMode == planMode)&&(identical(other.sandboxMode, sandboxMode) || other.sandboxMode == sandboxMode)&&const DeepCollectionEquality().equals(other._hiddenToolUseIds, _hiddenToolUseIds)&&(identical(other.rewindPreview, rewindPreview) || other.rewindPreview == rewindPreview)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost)&&(identical(other.totalDuration, totalDuration) || other.totalDuration == totalDuration)&&const DeepCollectionEquality().equals(other._slashCommands, _slashCommands));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChatSessionState&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other._entries, _entries)&&(identical(other.approval, approval) || other.approval == approval)&&(identical(other.claudeSessionId, claudeSessionId) || other.claudeSessionId == claudeSessionId)&&(identical(other.projectPath, projectPath) || other.projectPath == projectPath)&&(identical(other.gitBranch, gitBranch) || other.gitBranch == gitBranch)&&(identical(other.explorerCurrentPath, explorerCurrentPath) || other.explorerCurrentPath == explorerCurrentPath)&&const DeepCollectionEquality().equals(other._recentPeekedFiles, _recentPeekedFiles)&&(identical(other.pastHistoryLoaded, pastHistoryLoaded) || other.pastHistoryLoaded == pastHistoryLoaded)&&(identical(other.bulkLoading, bulkLoading) || other.bulkLoading == bulkLoading)&&(identical(other.inPlanMode, inPlanMode) || other.inPlanMode == inPlanMode)&&(identical(other.collapseToolResults, collapseToolResults) || other.collapseToolResults == collapseToolResults)&&(identical(other.permissionMode, permissionMode) || other.permissionMode == permissionMode)&&(identical(other.executionMode, executionMode) || other.executionMode == executionMode)&&(identical(other.codexApprovalPolicy, codexApprovalPolicy) || other.codexApprovalPolicy == codexApprovalPolicy)&&(identical(other.planMode, planMode) || other.planMode == planMode)&&(identical(other.sandboxMode, sandboxMode) || other.sandboxMode == sandboxMode)&&const DeepCollectionEquality().equals(other._hiddenToolUseIds, _hiddenToolUseIds)&&(identical(other.rewindPreview, rewindPreview) || other.rewindPreview == rewindPreview)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost)&&(identical(other.totalDuration, totalDuration) || other.totalDuration == totalDuration)&&const DeepCollectionEquality().equals(other._slashCommands, _slashCommands));
 }
 
 
 @override
-int get hashCode => Object.hashAll([runtimeType,status,const DeepCollectionEquality().hash(_entries),approval,claudeSessionId,projectPath,gitBranch,pastHistoryLoaded,bulkLoading,inPlanMode,collapseToolResults,permissionMode,executionMode,codexApprovalPolicy,planMode,sandboxMode,const DeepCollectionEquality().hash(_hiddenToolUseIds),rewindPreview,totalCost,totalDuration,const DeepCollectionEquality().hash(_slashCommands)]);
+int get hashCode => Object.hashAll([runtimeType,status,const DeepCollectionEquality().hash(_entries),approval,claudeSessionId,projectPath,gitBranch,explorerCurrentPath,const DeepCollectionEquality().hash(_recentPeekedFiles),pastHistoryLoaded,bulkLoading,inPlanMode,collapseToolResults,permissionMode,executionMode,codexApprovalPolicy,planMode,sandboxMode,const DeepCollectionEquality().hash(_hiddenToolUseIds),rewindPreview,totalCost,totalDuration,const DeepCollectionEquality().hash(_slashCommands)]);
 
 @override
 String toString() {
-  return 'ChatSessionState(status: $status, entries: $entries, approval: $approval, claudeSessionId: $claudeSessionId, projectPath: $projectPath, gitBranch: $gitBranch, pastHistoryLoaded: $pastHistoryLoaded, bulkLoading: $bulkLoading, inPlanMode: $inPlanMode, collapseToolResults: $collapseToolResults, permissionMode: $permissionMode, executionMode: $executionMode, codexApprovalPolicy: $codexApprovalPolicy, planMode: $planMode, sandboxMode: $sandboxMode, hiddenToolUseIds: $hiddenToolUseIds, rewindPreview: $rewindPreview, totalCost: $totalCost, totalDuration: $totalDuration, slashCommands: $slashCommands)';
+  return 'ChatSessionState(status: $status, entries: $entries, approval: $approval, claudeSessionId: $claudeSessionId, projectPath: $projectPath, gitBranch: $gitBranch, explorerCurrentPath: $explorerCurrentPath, recentPeekedFiles: $recentPeekedFiles, pastHistoryLoaded: $pastHistoryLoaded, bulkLoading: $bulkLoading, inPlanMode: $inPlanMode, collapseToolResults: $collapseToolResults, permissionMode: $permissionMode, executionMode: $executionMode, codexApprovalPolicy: $codexApprovalPolicy, planMode: $planMode, sandboxMode: $sandboxMode, hiddenToolUseIds: $hiddenToolUseIds, rewindPreview: $rewindPreview, totalCost: $totalCost, totalDuration: $totalDuration, slashCommands: $slashCommands)';
 }
 
 
@@ -335,7 +345,7 @@ abstract mixin class _$ChatSessionStateCopyWith<$Res> implements $ChatSessionSta
   factory _$ChatSessionStateCopyWith(_ChatSessionState value, $Res Function(_ChatSessionState) _then) = __$ChatSessionStateCopyWithImpl;
 @override @useResult
 $Res call({
- ProcessStatus status, List<ChatEntry> entries, ApprovalState approval, String? claudeSessionId, String? projectPath, String? gitBranch, bool pastHistoryLoaded, bool bulkLoading, bool inPlanMode, bool collapseToolResults, PermissionMode permissionMode, ExecutionMode executionMode, CodexApprovalPolicy codexApprovalPolicy, bool planMode, SandboxMode sandboxMode, Set<String> hiddenToolUseIds, RewindPreviewMessage? rewindPreview, double totalCost, Duration? totalDuration, List<SlashCommand> slashCommands
+ ProcessStatus status, List<ChatEntry> entries, ApprovalState approval, String? claudeSessionId, String? projectPath, String? gitBranch, String explorerCurrentPath, List<String> recentPeekedFiles, bool pastHistoryLoaded, bool bulkLoading, bool inPlanMode, bool collapseToolResults, PermissionMode permissionMode, ExecutionMode executionMode, CodexApprovalPolicy codexApprovalPolicy, bool planMode, SandboxMode sandboxMode, Set<String> hiddenToolUseIds, RewindPreviewMessage? rewindPreview, double totalCost, Duration? totalDuration, List<SlashCommand> slashCommands
 });
 
 
@@ -352,7 +362,7 @@ class __$ChatSessionStateCopyWithImpl<$Res>
 
 /// Create a copy of ChatSessionState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? entries = null,Object? approval = null,Object? claudeSessionId = freezed,Object? projectPath = freezed,Object? gitBranch = freezed,Object? pastHistoryLoaded = null,Object? bulkLoading = null,Object? inPlanMode = null,Object? collapseToolResults = null,Object? permissionMode = null,Object? executionMode = null,Object? codexApprovalPolicy = null,Object? planMode = null,Object? sandboxMode = null,Object? hiddenToolUseIds = null,Object? rewindPreview = freezed,Object? totalCost = null,Object? totalDuration = freezed,Object? slashCommands = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? entries = null,Object? approval = null,Object? claudeSessionId = freezed,Object? projectPath = freezed,Object? gitBranch = freezed,Object? explorerCurrentPath = null,Object? recentPeekedFiles = null,Object? pastHistoryLoaded = null,Object? bulkLoading = null,Object? inPlanMode = null,Object? collapseToolResults = null,Object? permissionMode = null,Object? executionMode = null,Object? codexApprovalPolicy = null,Object? planMode = null,Object? sandboxMode = null,Object? hiddenToolUseIds = null,Object? rewindPreview = freezed,Object? totalCost = null,Object? totalDuration = freezed,Object? slashCommands = null,}) {
   return _then(_ChatSessionState(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as ProcessStatus,entries: null == entries ? _self._entries : entries // ignore: cast_nullable_to_non_nullable
@@ -360,7 +370,9 @@ as List<ChatEntry>,approval: null == approval ? _self.approval : approval // ign
 as ApprovalState,claudeSessionId: freezed == claudeSessionId ? _self.claudeSessionId : claudeSessionId // ignore: cast_nullable_to_non_nullable
 as String?,projectPath: freezed == projectPath ? _self.projectPath : projectPath // ignore: cast_nullable_to_non_nullable
 as String?,gitBranch: freezed == gitBranch ? _self.gitBranch : gitBranch // ignore: cast_nullable_to_non_nullable
-as String?,pastHistoryLoaded: null == pastHistoryLoaded ? _self.pastHistoryLoaded : pastHistoryLoaded // ignore: cast_nullable_to_non_nullable
+as String?,explorerCurrentPath: null == explorerCurrentPath ? _self.explorerCurrentPath : explorerCurrentPath // ignore: cast_nullable_to_non_nullable
+as String,recentPeekedFiles: null == recentPeekedFiles ? _self._recentPeekedFiles : recentPeekedFiles // ignore: cast_nullable_to_non_nullable
+as List<String>,pastHistoryLoaded: null == pastHistoryLoaded ? _self.pastHistoryLoaded : pastHistoryLoaded // ignore: cast_nullable_to_non_nullable
 as bool,bulkLoading: null == bulkLoading ? _self.bulkLoading : bulkLoading // ignore: cast_nullable_to_non_nullable
 as bool,inPlanMode: null == inPlanMode ? _self.inPlanMode : inPlanMode // ignore: cast_nullable_to_non_nullable
 as bool,collapseToolResults: null == collapseToolResults ? _self.collapseToolResults : collapseToolResults // ignore: cast_nullable_to_non_nullable

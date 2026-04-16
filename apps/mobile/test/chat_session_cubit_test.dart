@@ -281,7 +281,6 @@ void main() {
       addTearDown(cubit.close);
       await Future.microtask(() {});
 
-      // Set up permission state
       const permMsg = PermissionRequestMessage(
         toolUseId: 'tool-1',
         toolName: 'bash',
@@ -290,7 +289,6 @@ void main() {
       mockBridge.emitMessage(permMsg, sessionId: 's1');
       await Future.microtask(() {});
 
-      // Approve
       cubit.approve('tool-1');
 
       expect(cubit.state.approval, isA<ApprovalNone>());
@@ -380,7 +378,6 @@ void main() {
       addTearDown(cubit.close);
       await Future.microtask(() {});
 
-      // Simulate entering plan mode + approval
       const permMsg = PermissionRequestMessage(
         toolUseId: 'tool-1',
         toolName: 'EnterPlanMode',
@@ -471,10 +468,7 @@ void main() {
       mockBridge.emitMessage(historyMsg, sessionId: 's1');
       await Future.microtask(() {});
 
-      expect(
-        cubit.state.entries,
-        hasLength(1),
-      ); // StatusMessage not added as entry
+      expect(cubit.state.entries, hasLength(1));
       expect(cubit.state.status, ProcessStatus.idle);
     });
 
@@ -500,11 +494,9 @@ void main() {
       addTearDown(cubit.close);
       await Future.microtask(() {});
 
-      // Add a failed user message via sendMessage then manually set failed
       cubit.sendMessage('Test message');
       expect(cubit.state.entries, hasLength(1));
 
-      // Use sendMessage first, then we'll test retryMessage on the entry
       cubit.sendMessage('Retry me');
       final entryToRetry = cubit.state.entries.last as UserChatEntry;
 
@@ -532,10 +524,8 @@ void main() {
         addTearDown(cubit.close);
         await Future.microtask(() {});
 
-        // Status is starting → timer is active
         expect(cubit.state.status, ProcessStatus.starting);
 
-        // Change status to running → timer should stop
         mockBridge.emitMessage(
           const StatusMessage(status: ProcessStatus.running),
           sessionId: 's1',
@@ -543,7 +533,6 @@ void main() {
         await Future.microtask(() {});
 
         expect(cubit.state.status, ProcessStatus.running);
-        // Timer cancellation is tested by verifying no crash on dispose
       },
     );
 
@@ -718,8 +707,6 @@ void main() {
     test(
       'session_created message with permissionMode updates cubit state',
       () async {
-        // Simulate the bug scenario: cubit created with null (default)
-        // but server knows the correct permissionMode.
         final cubit = ChatSessionCubit(
           sessionId: 'pm-update',
           bridge: mockBridge,
@@ -728,10 +715,8 @@ void main() {
         addTearDown(cubit.close);
         await Future.microtask(() {});
 
-        // Initially default
         expect(cubit.state.permissionMode, PermissionMode.defaultMode);
 
-        // Server sends session_created with bypassPermissions
         const sessionCreated = SystemMessage(
           subtype: 'session_created',
           sessionId: 'pm-update',
@@ -747,7 +732,6 @@ void main() {
     test(
       'history message preserves initial permissionMode (does not reset)',
       () async {
-        // Cubit correctly initialized with bypassPermissions
         final cubit = ChatSessionCubit(
           sessionId: 'pm-history',
           bridge: mockBridge,
@@ -757,7 +741,6 @@ void main() {
         addTearDown(cubit.close);
         await Future.microtask(() {});
 
-        // History message arrives (no permissionMode field)
         final historyMsg = HistoryMessage(
           messages: [
             const StatusMessage(status: ProcessStatus.idle),
@@ -774,9 +757,31 @@ void main() {
         mockBridge.emitMessage(historyMsg, sessionId: 'pm-history');
         await Future.microtask(() {});
 
-        // permissionMode should NOT be reset to default
         expect(cubit.state.permissionMode, PermissionMode.bypassPermissions);
       },
     );
+  });
+
+  group('updateRecentPeekedFiles', () {
+    test('moves reopened file to front without duplication', () {
+      final updated = updateRecentPeekedFiles([
+        'lib/main.dart',
+        'lib/app.dart',
+        'README.md',
+      ], 'lib/app.dart');
+
+      expect(updated, ['lib/app.dart', 'lib/main.dart', 'README.md']);
+    });
+
+    test('caps history at ten items', () {
+      final updated = updateRecentPeekedFiles(
+        List.generate(10, (i) => 'lib/file_$i.dart'),
+        'lib/new.dart',
+      );
+
+      expect(updated.length, 10);
+      expect(updated.first, 'lib/new.dart');
+      expect(updated.last, 'lib/file_8.dart');
+    });
   });
 }

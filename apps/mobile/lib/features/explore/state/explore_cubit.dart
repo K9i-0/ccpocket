@@ -8,13 +8,17 @@ import 'explore_state.dart';
 class ExploreCubit extends Cubit<ExploreState> {
   final BridgeService _bridge;
   StreamSubscription<List<String>>? _fileListSub;
+  List<String> _recentPeekedFiles;
 
   ExploreCubit({
     required BridgeService bridge,
     required String projectPath,
     List<String> initialFiles = const [],
+    String initialPath = '',
+    List<String> recentPeekedFiles = const [],
   }) : _bridge = bridge,
-       super(ExploreState(projectPath: projectPath)) {
+       _recentPeekedFiles = recentPeekedFiles.take(10).toList(),
+       super(ExploreState(projectPath: projectPath, currentPath: initialPath)) {
     _fileListSub = _bridge.fileList.listen(_onFileListUpdated);
     if (initialFiles.isNotEmpty) {
       _applyFiles(initialFiles);
@@ -28,9 +32,11 @@ class ExploreCubit extends Cubit<ExploreState> {
   }
 
   void _applyFiles(List<String> files) {
-    final entries = buildExploreEntries(files, currentPath: state.currentPath);
+    final normalizedPath = normalizeExplorePath(files, state.currentPath);
+    final entries = buildExploreEntries(files, currentPath: normalizedPath);
     emit(
       state.copyWith(
+        currentPath: normalizedPath,
         allFiles: files,
         visibleEntries: entries,
         status: switch ((files.isEmpty, entries.isEmpty)) {
@@ -44,13 +50,14 @@ class ExploreCubit extends Cubit<ExploreState> {
   }
 
   void openDirectory(String relativePath) {
+    final normalizedPath = normalizeExplorePath(state.allFiles, relativePath);
     final entries = buildExploreEntries(
       state.allFiles,
-      currentPath: relativePath,
+      currentPath: normalizedPath,
     );
     emit(
       state.copyWith(
-        currentPath: relativePath,
+        currentPath: normalizedPath,
         visibleEntries: entries,
         status: entries.isEmpty ? ExploreStatus.empty : ExploreStatus.ready,
       ),
@@ -72,6 +79,21 @@ class ExploreCubit extends Cubit<ExploreState> {
   }
 
   List<String> get breadcrumbs => breadcrumbsForPath(state.currentPath);
+  List<String> get recentPeekedFiles => List.unmodifiable(_recentPeekedFiles);
+  List<String> get allFiles => List.unmodifiable(state.allFiles);
+
+  void recordPeekedFile(String path) {
+    _recentPeekedFiles = updateRecentFileHistory(_recentPeekedFiles, path);
+  }
+
+  void jumpToFile(String filePath) {
+    openDirectory(parentDirectoryOf(filePath));
+  }
+
+  ExploreScreenResult buildResult() => ExploreScreenResult(
+    currentPath: state.currentPath,
+    recentPeekedFiles: recentPeekedFiles,
+  );
 
   @override
   Future<void> close() {
@@ -132,6 +154,18 @@ String parentDirectoryOf(String currentPath) {
   return currentPath.substring(0, lastSlash);
 }
 
+String normalizeExplorePath(List<String> files, String currentPath) {
+  var candidate = currentPath.trim();
+  while (candidate.isNotEmpty) {
+    final prefix = '$candidate/';
+    if (files.any((file) => file.startsWith(prefix))) {
+      return candidate;
+    }
+    candidate = parentDirectoryOf(candidate);
+  }
+  return '';
+}
+
 List<String> breadcrumbsForPath(String currentPath) {
   if (currentPath.isEmpty) return const [];
   final segments = currentPath.split('/');
@@ -140,4 +174,15 @@ List<String> breadcrumbsForPath(String currentPath) {
     breadcrumbs.add(segments.take(i + 1).join('/'));
   }
   return breadcrumbs;
+}
+
+List<String> updateRecentFileHistory(
+  List<String> current,
+  String path, {
+  int limit = 10,
+}) {
+  final normalized = path.trim();
+  if (normalized.isEmpty) return current;
+  final next = [normalized, ...current.where((file) => file != normalized)];
+  return next.take(limit).toList();
 }

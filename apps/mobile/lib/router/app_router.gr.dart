@@ -301,15 +301,21 @@ class DebugRoute extends PageRouteInfo<void> {
 class ExploreRoute extends PageRouteInfo<ExploreRouteArgs> {
   ExploreRoute({
     Key? key,
+    required String sessionId,
     required String projectPath,
     List<String> initialFiles = const [],
+    String initialPath = '',
+    List<String> recentPeekedFiles = const [],
     List<PageRouteInfo>? children,
   }) : super(
          ExploreRoute.name,
          args: ExploreRouteArgs(
            key: key,
+           sessionId: sessionId,
            projectPath: projectPath,
            initialFiles: initialFiles,
+           initialPath: initialPath,
+           recentPeekedFiles: recentPeekedFiles,
          ),
          initialChildren: children,
        );
@@ -322,8 +328,11 @@ class ExploreRoute extends PageRouteInfo<ExploreRouteArgs> {
       final args = data.argsAs<ExploreRouteArgs>();
       return ExploreScreen(
         key: args.key,
+        sessionId: args.sessionId,
         projectPath: args.projectPath,
         initialFiles: args.initialFiles,
+        initialPath: args.initialPath,
+        recentPeekedFiles: args.recentPeekedFiles,
       );
     },
   );
@@ -332,19 +341,28 @@ class ExploreRoute extends PageRouteInfo<ExploreRouteArgs> {
 class ExploreRouteArgs {
   const ExploreRouteArgs({
     this.key,
+    required this.sessionId,
     required this.projectPath,
     this.initialFiles = const [],
+    this.initialPath = '',
+    this.recentPeekedFiles = const [],
   });
 
   final Key? key;
+
+  final String sessionId;
 
   final String projectPath;
 
   final List<String> initialFiles;
 
+  final String initialPath;
+
+  final List<String> recentPeekedFiles;
+
   @override
   String toString() {
-    return 'ExploreRouteArgs{key: $key, projectPath: $projectPath, initialFiles: $initialFiles}';
+    return 'ExploreRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, initialFiles: $initialFiles, initialPath: $initialPath, recentPeekedFiles: $recentPeekedFiles}';
   }
 
   @override
@@ -352,15 +370,24 @@ class ExploreRouteArgs {
     if (identical(this, other)) return true;
     if (other is! ExploreRouteArgs) return false;
     return key == other.key &&
+        sessionId == other.sessionId &&
         projectPath == other.projectPath &&
-        const ListEquality<String>().equals(initialFiles, other.initialFiles);
+        const ListEquality<String>().equals(initialFiles, other.initialFiles) &&
+        initialPath == other.initialPath &&
+        const ListEquality<String>().equals(
+          recentPeekedFiles,
+          other.recentPeekedFiles,
+        );
   }
 
   @override
   int get hashCode =>
       key.hashCode ^
+      sessionId.hashCode ^
       projectPath.hashCode ^
-      const ListEquality<String>().hash(initialFiles);
+      const ListEquality<String>().hash(initialFiles) ^
+      initialPath.hashCode ^
+      const ListEquality<String>().hash(recentPeekedFiles);
 }
 
 /// generated route for

@@ -473,6 +473,28 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Stream of side effects that the UI layer must execute (haptics, etc.).
   Stream<Set<ChatSideEffect>> get sideEffects => _sideEffectsController.stream;
 
+  void setExplorerCurrentPath(String path) {
+    final normalized = path.trim();
+    if (normalized == state.explorerCurrentPath) return;
+    emit(state.copyWith(explorerCurrentPath: normalized));
+  }
+
+  void setRecentPeekedFiles(List<String> files) {
+    final normalized = files
+        .map((file) => file.trim())
+        .where((file) => file.isNotEmpty)
+        .take(10)
+        .toList();
+    if (_listEquals(normalized, state.recentPeekedFiles)) return;
+    emit(state.copyWith(recentPeekedFiles: normalized));
+  }
+
+  void recordPeekedFile(String path) {
+    final next = updateRecentPeekedFiles(state.recentPeekedFiles, path);
+    if (_listEquals(next, state.recentPeekedFiles)) return;
+    emit(state.copyWith(recentPeekedFiles: next));
+  }
+
   // ---------------------------------------------------------------------------
   // Commands (Path B: UI → Cubit → Bridge)
   // ---------------------------------------------------------------------------
@@ -965,6 +987,26 @@ class _UsageTotals {
   final Duration? totalDuration;
 
   const _UsageTotals({required this.totalCost, required this.totalDuration});
+}
+
+List<String> updateRecentPeekedFiles(
+  List<String> current,
+  String path, {
+  int limit = 10,
+}) {
+  final normalized = path.trim();
+  if (normalized.isEmpty) return current;
+  final next = [normalized, ...current.where((file) => file != normalized)];
+  return next.take(limit).toList();
+}
+
+bool _listEquals(List<String> a, List<String> b) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 /// Lightweight helper to persist per-session Claude settings.

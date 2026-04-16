@@ -5,13 +5,24 @@ import '../state/explore_state.dart';
 class ExploreEntryTile extends StatelessWidget {
   final ExploreEntry entry;
   final VoidCallback onTap;
+  final bool isHighlighted;
 
-  const ExploreEntryTile({super.key, required this.entry, required this.onTap});
+  const ExploreEntryTile({
+    super.key,
+    required this.entry,
+    required this.onTap,
+    this.isHighlighted = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       key: ValueKey('explore_entry_${entry.relativePath}'),
+      tileColor: isHighlighted
+          ? Theme.of(
+              context,
+            ).colorScheme.primaryContainer.withValues(alpha: 0.4)
+          : null,
       dense: true,
       leading: Icon(
         entry.isDirectory ? Icons.folder_outlined : Icons.description_outlined,

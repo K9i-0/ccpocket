@@ -22,6 +22,8 @@ abstract class ChatSessionState with _$ChatSessionState {
     String? claudeSessionId,
     String? projectPath,
     String? gitBranch,
+    @Default('') String explorerCurrentPath,
+    @Default([]) List<String> recentPeekedFiles,
 
     // Flags
     @Default(false) bool pastHistoryLoaded,

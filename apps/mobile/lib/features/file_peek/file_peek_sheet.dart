@@ -27,12 +27,14 @@ Future<void> openFilePeek(
   required String projectPath,
   required String filePath,
   required List<String> projectFiles,
+  ValueChanged<String>? onResolvedFilePath,
 }) async {
   final resolved = _resolveFilePath(filePath, projectFiles);
 
   switch (resolved.length) {
     case 1:
       // Single match — open directly.
+      onResolvedFilePath?.call(resolved.first);
       return showFilePeekSheet(
         context,
         bridge: bridge,
@@ -41,6 +43,7 @@ Future<void> openFilePeek(
       );
     case 0:
       // No match — try the original path as-is (Bridge may still find it).
+      onResolvedFilePath?.call(filePath);
       return showFilePeekSheet(
         context,
         bridge: bridge,
@@ -51,6 +54,7 @@ Future<void> openFilePeek(
       // Multiple matches — let the user pick.
       final picked = await _showFilePickerSheet(context, filePath, resolved);
       if (picked != null && context.mounted) {
+        onResolvedFilePath?.call(picked);
         return showFilePeekSheet(
           context,
           bridge: bridge,
@@ -173,7 +177,9 @@ Future<void> showFilePeekSheet(
   required BridgeService bridge,
   required String projectPath,
   required String filePath,
+  VoidCallback? onOpened,
 }) {
+  onOpened?.call();
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
