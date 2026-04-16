@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.37.0] - 2026-04-17
+
+### Added
+- Add `claude-opus-4-7` and `claude-opus-4-7[1m]` (1M context) to the available Claude model list
+
+### Changed
+- Remove plan approval editing flow from Bridge protocol and Codex process handling
+
 ## [1.36.1] - 2026-04-15
 
 ### Changed
