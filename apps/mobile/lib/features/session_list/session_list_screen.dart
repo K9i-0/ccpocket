@@ -1172,7 +1172,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                                   child: const Icon(Icons.settings),
                                 ),
                                 onPressed: () =>
-                                    context.router.push(const SettingsRoute()),
+                                    context.router.push(SettingsRoute()),
                                 tooltip: l.settings,
                               ),
                             ],

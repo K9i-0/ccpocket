@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
 import 'package:talker_bloc_logger/talker_bloc_logger.dart';
@@ -152,7 +153,7 @@ void main() async {
         RepositoryProvider<DatabaseService>.value(value: dbService),
         RepositoryProvider<DraftService>.value(value: draftService),
         RepositoryProvider<InAppReviewService>.value(value: inAppReviewService),
-        RepositoryProvider<SupportBannerService>.value(
+        ChangeNotifierProvider<SupportBannerService>.value(
           value: supportBannerService,
         ),
         RepositoryProvider<PromptHistoryService>.value(

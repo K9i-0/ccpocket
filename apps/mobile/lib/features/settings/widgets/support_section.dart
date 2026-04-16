@@ -10,7 +10,9 @@ import '../../../router/app_router.dart';
 enum _SupportEntryVariant { inactive, oneTime, active }
 
 class SupportSectionCard extends StatelessWidget {
-  const SupportSectionCard({super.key});
+  const SupportSectionCard({super.key, this.highlighted = false});
+
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
@@ -31,51 +33,76 @@ class SupportSectionCard extends StatelessWidget {
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Card(
-            margin: EdgeInsets.zero,
-            child: InkWell(
-              key: const ValueKey('supporter_entry_button'),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              onTap: () {
-                context.pushRoute(const SupporterRoute());
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+              boxShadow: highlighted
+                  ? [
+                      BoxShadow(
+                        color: cs.primary.withValues(alpha: 0.22),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Card(
+              margin: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: highlighted
+                      ? cs.primary.withValues(alpha: 0.75)
+                      : cs.outlineVariant.withValues(alpha: 0.18),
+                  width: highlighted ? 1.5 : 1,
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: _iconDecorationForVariant(cs, variant),
-                      child: Icon(
-                        _iconForVariant(variant),
-                        color: _iconColorForVariant(cs, variant),
-                        size: 24,
+              ),
+              child: InkWell(
+                key: const ValueKey('supporter_entry_button'),
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  context.pushRoute(const SupporterRoute());
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: _iconDecorationForVariant(cs, variant),
+                        child: Icon(
+                          _iconForVariant(variant),
+                          color: _iconColorForVariant(cs, variant),
+                          size: 24,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            subtitle,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant),
-                          ),
-                        ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: cs.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
-                  ],
+                      Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+                    ],
+                  ),
                 ),
               ),
             ),

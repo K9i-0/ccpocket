@@ -97,6 +97,29 @@ void main() {
 
       expect(shouldShow, isFalse);
     });
+
+    test('allows debug override to force-show banner', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final service = SupportBannerService(
+        prefs: prefs,
+        reviewService: InAppReviewService(
+          prefs: prefs,
+          now: () => DateTime(2026, 4, 15, 12),
+          appVersionLoader: () async => '1.50.0',
+        ),
+      );
+
+      await service.setDebugForceShowOverride(true);
+      final shouldShow = await service.shouldShow(
+        hasBridgeUpdate: true,
+        catalog: const SupportCatalogState.unavailable(),
+      );
+
+      expect(service.debugForceShowOverride, isTrue);
+      expect(service.shouldForceShowInDebug, isTrue);
+      expect(shouldShow, isTrue);
+    });
   });
 }
 

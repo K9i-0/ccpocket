@@ -57,6 +57,13 @@ class _FakeBridgeService extends BridgeService {
   }
 }
 
+class _FakeRevenueCatService extends RevenueCatService {
+  _FakeRevenueCatService({required SupportCatalogState catalog})
+    : super(publicApiKey: '', platform: TargetPlatform.iOS) {
+    catalogState.value = catalog;
+  }
+}
+
 class _SeededSettingsCubit extends SettingsCubit {
   _SeededSettingsCubit(super.prefs, {required String? activeMachineId}) {
     emit(state.copyWith(activeMachineId: activeMachineId));
@@ -92,11 +99,15 @@ Future<Widget> _buildScreen({
   required BridgeService bridge,
   required SettingsCubit settingsCubit,
   required MachineManagerCubit machineManagerCubit,
+  RevenueCatService? revenueCatService,
+  bool focusSupport = false,
 }) async {
   return MultiRepositoryProvider(
     providers: [
       RepositoryProvider<BridgeService>.value(value: bridge),
-      RepositoryProvider<RevenueCatService>.value(value: RevenueCatService()),
+      RepositoryProvider<RevenueCatService>.value(
+        value: revenueCatService ?? RevenueCatService(),
+      ),
       RepositoryProvider<DatabaseService>.value(value: DatabaseService()),
     ],
     child: MultiBlocProvider(
@@ -108,7 +119,7 @@ Future<Widget> _buildScreen({
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('en'),
-        home: const SettingsScreen(),
+        home: SettingsScreen(focusSupport: focusSupport),
       ),
     ),
   );
@@ -224,6 +235,66 @@ void main() {
 
       expect(find.text(l.settingsUsageSectionTitle), findsOneWidget);
       expect(find.byKey(const ValueKey('codex_usage_card')), findsOneWidget);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('focusSupport scrolls support entry into view', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 560);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(
+        prefs,
+        activeMachineId: 'machine-1',
+      );
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = MachineManagerCubit(manager, null);
+      final bridge = _FakeBridgeService(
+        connected: true,
+        fakeLastUrl: 'ws://127.0.0.1:8765',
+      );
+      final revenueCat = _FakeRevenueCatService(
+        catalog: const SupportCatalogState(
+          isAvailable: true,
+          isLoading: false,
+          isSupporter: false,
+          packages: [
+            SupportPackage(
+              id: r'$rc_monthly',
+              productId: 'supporter_monthly_10',
+              title: 'Supporter \$9.99/mo',
+              priceLabel: '\$9.99',
+              kind: SupportPackageKind.monthly,
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+          revenueCatService: revenueCat,
+          focusSupport: true,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+
+      final supportDy = tester
+          .getTopLeft(find.byKey(const ValueKey('supporter_entry_button')))
+          .dy;
+      expect(supportDy, greaterThanOrEqualTo(0));
+      expect(supportDy, lessThan(560));
 
       await settingsCubit.close();
       await machineManagerCubit.close();

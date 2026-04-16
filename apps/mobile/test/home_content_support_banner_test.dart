@@ -14,6 +14,7 @@ import 'package:ccpocket/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _MockBridgeService extends BridgeService {
@@ -87,7 +88,7 @@ Widget _buildHomeContent({
     providers: [
       RepositoryProvider<DraftService>.value(value: draftService),
       RepositoryProvider<RevenueCatService>.value(value: revenueCatService),
-      RepositoryProvider<SupportBannerService>.value(
+      ChangeNotifierProvider<SupportBannerService>.value(
         value: supportBannerService,
       ),
     ],

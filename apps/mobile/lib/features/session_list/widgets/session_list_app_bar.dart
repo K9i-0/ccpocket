@@ -38,7 +38,7 @@ class SessionListSliverAppBar extends StatelessWidget {
             smallSize: 8,
             child: const Icon(Icons.settings),
           ),
-          onPressed: () => context.router.push(const SettingsRoute()),
+          onPressed: () => context.router.push(SettingsRoute()),
           tooltip: l.settings,
         ),
         IconButton(

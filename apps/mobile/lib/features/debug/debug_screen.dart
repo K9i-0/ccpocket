@@ -11,6 +11,7 @@ import '../../features/settings/widgets/app_locale_bottom_sheet.dart';
 import '../../features/settings/widgets/theme_bottom_sheet.dart';
 import '../../l10n/app_localizations.dart';
 import '../../router/app_router.dart';
+import '../../services/support_banner_service.dart';
 import '../../utils/platform_helper.dart';
 
 @RoutePage()
@@ -21,73 +22,89 @@ class DebugScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
+    final supportBannerService = context.read<SupportBannerService>();
     return Scaffold(
       appBar: AppBar(title: Text(l.debug)),
       body: BlocBuilder<SettingsCubit, SettingsState>(
         builder: (context, settings) {
-          return ListView(
-            children: [
-              ListTile(
-                key: const ValueKey('debug_theme_button'),
-                leading: Icon(Icons.palette, color: cs.primary),
-                title: Text(l.theme),
-                subtitle: Text(_getThemeLabel(context, settings.themeMode)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => showThemeBottomSheet(
-                  context: context,
-                  current: settings.themeMode,
-                  onChanged: (mode) =>
-                      context.read<SettingsCubit>().setThemeMode(mode),
-                ),
-              ),
-              ListTile(
-                key: const ValueKey('debug_language_button'),
-                leading: Icon(Icons.language, color: cs.primary),
-                title: Text(l.language),
-                subtitle: Text(
-                  getAppLocaleLabel(context, settings.appLocaleId),
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => showAppLocaleBottomSheet(
-                  context: context,
-                  current: settings.appLocaleId,
-                  onChanged: (id) =>
-                      context.read<SettingsCubit>().setAppLocaleId(id),
-                ),
-              ),
-              // Shorebird update track (mobile only)
-              if (isMobilePlatform)
-                ListTile(
-                  key: const ValueKey('debug_update_track_button'),
-                  leading: Icon(Icons.update, color: cs.primary),
-                  title: Text(l.updateTrack),
-                  subtitle: Text(
-                    settings.shorebirdTrack == 'staging'
-                        ? l.updateTrackStaging
-                        : l.updateTrackStable,
+          return ListenableBuilder(
+            listenable: supportBannerService,
+            builder: (context, _) {
+              return ListView(
+                children: [
+                  ListTile(
+                    key: const ValueKey('debug_theme_button'),
+                    leading: Icon(Icons.palette, color: cs.primary),
+                    title: Text(l.theme),
+                    subtitle: Text(_getThemeLabel(context, settings.themeMode)),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => showThemeBottomSheet(
+                      context: context,
+                      current: settings.themeMode,
+                      onChanged: (mode) =>
+                          context.read<SettingsCubit>().setThemeMode(mode),
+                    ),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showUpdateTrackSheet(context, settings),
-                ),
-              ListTile(
-                leading: const Icon(Icons.article_outlined),
-                title: Text(l.logs),
-                subtitle: Text(l.viewApplicationLogs),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => TalkerScreen(talker: logger),
+                  ListTile(
+                    key: const ValueKey('debug_language_button'),
+                    leading: Icon(Icons.language, color: cs.primary),
+                    title: Text(l.language),
+                    subtitle: Text(
+                      getAppLocaleLabel(context, settings.appLocaleId),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => showAppLocaleBottomSheet(
+                      context: context,
+                      current: settings.appLocaleId,
+                      onChanged: (id) =>
+                          context.read<SettingsCubit>().setAppLocaleId(id),
+                    ),
                   ),
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.science),
-                title: Text(l.mockPreview),
-                subtitle: Text(l.viewMockChatScenarios),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.router.push(MockPreviewRoute()),
-              ),
-            ],
+                  SwitchListTile(
+                    key: const ValueKey('debug_force_support_banner_toggle'),
+                    secondary: Icon(Icons.favorite_border, color: cs.primary),
+                    title: const Text('Force support banner'),
+                    subtitle: const Text(
+                      'Show the home support banner regardless of eligibility.',
+                    ),
+                    value: supportBannerService.debugForceShowOverride,
+                    onChanged: supportBannerService.setDebugForceShowOverride,
+                  ),
+                  // Shorebird update track (mobile only)
+                  if (isMobilePlatform)
+                    ListTile(
+                      key: const ValueKey('debug_update_track_button'),
+                      leading: Icon(Icons.update, color: cs.primary),
+                      title: Text(l.updateTrack),
+                      subtitle: Text(
+                        settings.shorebirdTrack == 'staging'
+                            ? l.updateTrackStaging
+                            : l.updateTrackStable,
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _showUpdateTrackSheet(context, settings),
+                    ),
+                  ListTile(
+                    leading: const Icon(Icons.article_outlined),
+                    title: Text(l.logs),
+                    subtitle: Text(l.viewApplicationLogs),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => TalkerScreen(talker: logger),
+                      ),
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.science),
+                    title: Text(l.mockPreview),
+                    subtitle: Text(l.viewMockChatScenarios),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.router.push(MockPreviewRoute()),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),

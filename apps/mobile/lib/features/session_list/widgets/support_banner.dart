@@ -56,17 +56,8 @@ class SupportBanner extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  l.supportBannerAction,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-                ),
                 if (onDismiss != null) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   GestureDetector(
                     key: const ValueKey('support_banner_dismiss'),
                     behavior: HitTestBehavior.opaque,

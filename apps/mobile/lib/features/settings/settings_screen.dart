@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:auto_route/auto_route.dart';
@@ -36,7 +37,9 @@ import 'widgets/usage_section.dart';
 
 @RoutePage()
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.focusSupport = false});
+
+  final bool focusSupport;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -44,9 +47,54 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _scrollController = ScrollController();
+  final _supportSectionKey = GlobalKey();
+  Timer? _supportHighlightTimer;
+  bool _didHandleSupportFocus = false;
+  bool _highlightSupportSection = false;
+
+  void _maybeFocusSupportSection() {
+    if (!widget.focusSupport || _didHandleSupportFocus) return;
+    _didHandleSupportFocus = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (_supportSectionKey.currentContext == null &&
+          _scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        await WidgetsBinding.instance.endOfFrame;
+      }
+      if (!mounted) return;
+      final targetContext = _supportSectionKey.currentContext;
+      if (targetContext == null) {
+        _didHandleSupportFocus = false;
+        return;
+      }
+      if (!targetContext.mounted) {
+        _didHandleSupportFocus = false;
+        return;
+      }
+      await Scrollable.ensureVisible(
+        targetContext,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeOutCubic,
+        alignment: 0.12,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _highlightSupportSection = true;
+      });
+      _supportHighlightTimer?.cancel();
+      _supportHighlightTimer = Timer(const Duration(milliseconds: 1800), () {
+        if (!mounted) return;
+        setState(() {
+          _highlightSupportSection = false;
+        });
+      });
+    });
+  }
 
   @override
   void dispose() {
+    _supportHighlightTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -67,6 +115,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return ListView(
             key: const PageStorageKey('settings_list'),
             controller: _scrollController,
+            cacheExtent: widget.focusSupport ? 4096 : null,
             children: [
               if (isConnected) ...[
                 _SectionHeader(title: l.sectionConnectionAccounts),
@@ -421,13 +470,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     return const SizedBox.shrink();
                   }
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _SectionHeader(title: l.sectionSupport),
-                      const SupportSectionCard(),
-                      const SizedBox(height: 8),
-                    ],
+                  _maybeFocusSupportSection();
+
+                  return KeyedSubtree(
+                    key: _supportSectionKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _SectionHeader(title: l.sectionSupport),
+                        SupportSectionCard(
+                          highlighted: _highlightSupportSection,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
                   );
                 },
               ),

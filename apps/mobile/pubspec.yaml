@@ -51,6 +51,7 @@ dependencies:
   speech_to_text: ^7.3.0
   http: ^1.6.0
   flutter_bloc: ^9.1.0
+  provider: ^6.1.5
   flutter_hooks: ^0.21.3+1
   freezed_annotation: ^3.1.0
   json_annotation: ^4.9.0

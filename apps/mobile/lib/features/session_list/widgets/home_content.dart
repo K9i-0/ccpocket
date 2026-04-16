@@ -122,6 +122,8 @@ class HomeContentState extends State<HomeContent> {
   SessionDisplayMode _displayMode = SessionDisplayMode.first;
   RevenueCatService? _revenueCatService;
   VoidCallback? _catalogStateListener;
+  SupportBannerService? _supportBannerService;
+  VoidCallback? _supportBannerListener;
 
   @override
   void initState() {
@@ -153,6 +155,17 @@ class HomeContentState extends State<HomeContent> {
       _revenueCatService = revenueCatService;
       _catalogStateListener = () => _refreshSupportBannerVisibility();
       revenueCatService.catalogState.addListener(_catalogStateListener!);
+      _refreshSupportBannerVisibility();
+    }
+
+    final supportBannerService = context.read<SupportBannerService>();
+    if (!identical(_supportBannerService, supportBannerService)) {
+      if (_supportBannerService != null && _supportBannerListener != null) {
+        _supportBannerService!.removeListener(_supportBannerListener!);
+      }
+      _supportBannerService = supportBannerService;
+      _supportBannerListener = () => _refreshSupportBannerVisibility();
+      supportBannerService.addListener(_supportBannerListener!);
       _refreshSupportBannerVisibility();
     }
   }
@@ -187,6 +200,9 @@ class HomeContentState extends State<HomeContent> {
   void dispose() {
     if (_revenueCatService != null && _catalogStateListener != null) {
       _revenueCatService!.catalogState.removeListener(_catalogStateListener!);
+    }
+    if (_supportBannerService != null && _supportBannerListener != null) {
+      _supportBannerService!.removeListener(_supportBannerListener!);
     }
     _searchController.dispose();
     super.dispose();
@@ -258,7 +274,7 @@ class HomeContentState extends State<HomeContent> {
   Widget? _buildSupportBanner() {
     if (!_showSupportBanner) return null;
     return SupportBanner(
-      onTap: () => context.pushRoute(const SupporterRoute()),
+      onTap: () => context.pushRoute(SettingsRoute(focusSupport: true)),
       onDismiss: () async {
         await context.read<SupportBannerService>().dismiss();
         if (!mounted) return;
@@ -278,7 +294,11 @@ class HomeContentState extends State<HomeContent> {
     final isReconnecting =
         widget.connectionState == BridgeConnectionState.reconnecting;
     final updateBanner = _buildUpdateBanner();
-    final supportBanner = updateBanner == null ? _buildSupportBanner() : null;
+    final supportBannerService = context.read<SupportBannerService>();
+    final supportBanner =
+        updateBanner == null || supportBannerService.shouldForceShowInDebug
+        ? _buildSupportBanner()
+        : null;
     final appUpdateBanner = _buildAppUpdateBanner();
 
     // Compute derived state
@@ -324,7 +344,7 @@ class HomeContentState extends State<HomeContent> {
           children: [
             if (isReconnecting) const SessionReconnectBanner(),
             ?updateBanner,
-            if (updateBanner == null) ?supportBanner,
+            ?supportBanner,
             ?appUpdateBanner,
             SectionHeader(
               icon: Icons.history,
@@ -343,7 +363,7 @@ class HomeContentState extends State<HomeContent> {
         children: [
           if (isReconnecting) const SessionReconnectBanner(),
           ?updateBanner,
-          if (updateBanner == null) ?supportBanner,
+          ?supportBanner,
           const SizedBox(height: 80),
           SessionListEmptyState(onNewSession: widget.onNewSession),
         ],
@@ -358,7 +378,7 @@ class HomeContentState extends State<HomeContent> {
       children: [
         if (isReconnecting) const SessionReconnectBanner(),
         ?updateBanner,
-        if (updateBanner == null) ?supportBanner,
+        ?supportBanner,
         if (hasRunningSessions) ...[
           SectionHeader(
             icon: Icons.play_circle_filled,

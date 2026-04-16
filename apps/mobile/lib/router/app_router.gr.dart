@@ -624,18 +624,51 @@ class SessionListRouteArgs {
 
 /// generated route for
 /// [SettingsScreen]
-class SettingsRoute extends PageRouteInfo<void> {
-  const SettingsRoute({List<PageRouteInfo>? children})
-    : super(SettingsRoute.name, initialChildren: children);
+class SettingsRoute extends PageRouteInfo<SettingsRouteArgs> {
+  SettingsRoute({
+    Key? key,
+    bool focusSupport = false,
+    List<PageRouteInfo>? children,
+  }) : super(
+         SettingsRoute.name,
+         args: SettingsRouteArgs(key: key, focusSupport: focusSupport),
+         initialChildren: children,
+       );
 
   static const String name = 'SettingsRoute';
 
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      return const SettingsScreen();
+      final args = data.argsAs<SettingsRouteArgs>(
+        orElse: () => const SettingsRouteArgs(),
+      );
+      return SettingsScreen(key: args.key, focusSupport: args.focusSupport);
     },
   );
+}
+
+class SettingsRouteArgs {
+  const SettingsRouteArgs({this.key, this.focusSupport = false});
+
+  final Key? key;
+
+  final bool focusSupport;
+
+  @override
+  String toString() {
+    return 'SettingsRouteArgs{key: $key, focusSupport: $focusSupport}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! SettingsRouteArgs) return false;
+    return key == other.key && focusSupport == other.focusSupport;
+  }
+
+  @override
+  int get hashCode => key.hashCode ^ focusSupport.hashCode;
 }
 
 /// generated route for
