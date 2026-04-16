@@ -82,7 +82,7 @@ class _GitScreenState extends State<GitScreen> {
     _scrollToFileIndex.value = null;
     await _scrollController.scrollToIndex(
       index,
-      preferPosition: AutoScrollPosition.middle,
+      preferPosition: AutoScrollPosition.begin,
       duration: const Duration(milliseconds: 280),
     );
   }
@@ -147,10 +147,10 @@ class _GitScreenBody extends StatelessWidget {
       appBar: AppBar(
         title: Text(screenTitle, overflow: TextOverflow.ellipsis),
         actions: [
-          if (isProjectMode)
+          if (isProjectMode && !state.loading)
             _FileListAppBarButton(
               state: state,
-              onPressed: state.loading || state.files.isEmpty
+              onPressed: state.files.isEmpty
                   ? null
                   : () async {
                       final selectedIndex = await showGitFileListSheet(
