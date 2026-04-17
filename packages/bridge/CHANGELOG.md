@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.37.1] - 2026-04-17
+
+### Fixed
+- Prevent TypeScript File Peek rendering from crashing when syntax highlighting hits missing `tsdoc` grammar includes
+- Return a user-friendly error when File Peek opens a symbolic link that points to a directory
+
 ## [1.37.0] - 2026-04-17
 
 ### Added
