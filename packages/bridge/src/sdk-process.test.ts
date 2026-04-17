@@ -5,6 +5,7 @@ import {
   buildSessionRule,
   ACCEPT_EDITS_AUTO_APPROVE,
   extractTokenUsage,
+  buildThinkingOptions,
   isFileEditToolName,
   sdkMessageToServerMessage,
   buildAuthError,
@@ -276,6 +277,24 @@ describe("extractTokenUsage", () => {
     expect(extractTokenUsage(null)).toEqual({});
     expect(extractTokenUsage("invalid")).toEqual({});
     expect(extractTokenUsage([])).toEqual({});
+  });
+});
+
+describe("buildThinkingOptions", () => {
+  it("forces adaptive thinking for claude-opus-4-7", () => {
+    expect(buildThinkingOptions("claude-opus-4-7")).toEqual({
+      thinking: { type: "adaptive" },
+    });
+  });
+
+  it("forces adaptive thinking for claude-opus-4-7[1m]", () => {
+    expect(buildThinkingOptions("claude-opus-4-7[1m]")).toEqual({
+      thinking: { type: "adaptive" },
+    });
+  });
+
+  it("returns empty options for other models", () => {
+    expect(buildThinkingOptions("claude-sonnet-4-6")).toEqual({});
   });
 });
 

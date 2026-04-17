@@ -65,6 +65,20 @@ export function extractTokenUsage(
   };
 }
 
+export function buildThinkingOptions(
+  model: string | undefined,
+): { thinking?: { type: "adaptive" } } {
+  if (
+    typeof model === "string"
+    && /^claude-opus-4-7(?:\[1m\])?$/.test(model.trim())
+  ) {
+    // Opus 4.7 rejects the legacy "thinking.type.enabled" behavior that older
+    // Claude Agent SDK releases can fall back to. Force adaptive thinking.
+    return { thinking: { type: "adaptive" } };
+  }
+  return {};
+}
+
 /**
  * Parse a permission rule in ToolName(ruleContent) format.
  * Matches the CLI's internal pzT() function: /^([^(]+)\(([^)]+)\)$/
@@ -527,6 +541,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         continue: options?.continueMode,
         permissionMode: options?.permissionMode ?? "default",
         ...(options?.model ? { model: options.model } : {}),
+        ...buildThinkingOptions(options?.model),
         ...(options?.effort ? { effort: options.effort } : {}),
         ...(options?.maxTurns != null ? { maxTurns: options.maxTurns } : {}),
         ...(options?.maxBudgetUsd != null ? { maxBudgetUsd: options.maxBudgetUsd } : {}),
