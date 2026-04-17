@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.66.0] - 2026-04-17
+
+### Added
+- Add Claude Auto mode to the app's permission mode selection UI
+
+### Changed
+- Reorder Claude permission modes to Default, Accept Edits, Plan, Auto, and Bypass All
+
+### Fixed
+- Fall back to Default mode and resync the UI when Claude Auto mode is unavailable in the current environment
+
 ## [1.65.0] - 2026-04-17
 
 ### Added
