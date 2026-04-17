@@ -19,6 +19,7 @@ String? _errorTitle(String? errorCode) {
     'path_not_allowed' => 'Path Not Allowed',
     'git_not_available' => 'Git Not Available',
     'bridge_update_required' => 'Bridge Update Required',
+    'auto_mode_unavailable' => 'Auto Mode Unavailable',
     _ => null,
   };
 }
@@ -34,6 +35,8 @@ String? _errorHint(String? errorCode) {
     'git_not_available' =>
       'Git features (diff, file list) are not available for this project',
     'bridge_update_required' => 'npm update -g @ccpocket/bridge',
+    'auto_mode_unavailable' =>
+      'Use Default mode here, or switch to a Claude environment that supports Auto mode',
     _ => null,
   };
 }
@@ -59,7 +62,8 @@ bool _isApiKeyRequired(String? errorCode) {
 /// Whether the errorCode represents a non-critical warning (amber style).
 bool _isWarning(String? errorCode) {
   return errorCode == 'git_not_available' ||
-      errorCode == 'bridge_update_required';
+      errorCode == 'bridge_update_required' ||
+      errorCode == 'auto_mode_unavailable';
 }
 
 class ErrorBubble extends StatelessWidget {

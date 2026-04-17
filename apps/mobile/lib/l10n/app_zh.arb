@@ -123,6 +123,7 @@
   "permissionPlanMode": "规划",
   "permissionBypassMode": "全部绕过",
   "permissionDefaultDescription": "标准权限提示",
+  "permissionAutoDescription": "让 Claude 通过内置安全检查自动处理审批",
   "permissionAcceptEditsDescription": "自动批准文件编辑",
   "permissionPlanDescription": "仅分析和规划，不执行",
   "permissionBypassDescription": "跳过所有权限提示",

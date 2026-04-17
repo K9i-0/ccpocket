@@ -663,6 +663,164 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("falls back Claude auto mode to default on start when auto is unavailable", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    const sessionManager = (bridge as any).sessionManager;
+    const realCreate = sessionManager.create.bind(sessionManager);
+    let failFirstCreate = true;
+    const createSpy = vi
+      .spyOn(sessionManager, "create")
+      .mockImplementation((...args: any[]) => {
+        if (failFirstCreate) {
+          failFirstCreate = false;
+          throw new Error('Permission mode "auto" is unavailable for your plan');
+        }
+        return realCreate(...args);
+      });
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-auto",
+        provider: "claude",
+        permissionMode: "auto",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(createSpy.mock.calls[0]?.[1]?.permissionMode).toBe("auto");
+    expect(createSpy.mock.calls[1]?.[1]?.permissionMode).toBe("default");
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const tip = sends.find((m: any) => m.type === "system" && m.subtype === "tip");
+
+    expect(created).toMatchObject({
+      permissionMode: "default",
+      executionMode: "default",
+      planMode: false,
+    });
+    expect(tip).toMatchObject({
+      tipCode: "auto_mode_fallback_default",
+      sessionId: created.sessionId,
+    });
+
+    bridge.close();
+  });
+
+  it("falls back Claude auto mode to default on resume when auto is unavailable", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    getSessionHistoryMock.mockResolvedValue([]);
+
+    const sessionManager = (bridge as any).sessionManager;
+    const realCreate = sessionManager.create.bind(sessionManager);
+    let failFirstCreate = true;
+    const createSpy = vi
+      .spyOn(sessionManager, "create")
+      .mockImplementation((...args: any[]) => {
+        if (failFirstCreate) {
+          failFirstCreate = false;
+          throw new Error('Permission mode "auto" is unavailable for your plan');
+        }
+        return realCreate(...args);
+      });
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "claude-resume-1",
+        projectPath: "/tmp/project-auto",
+        provider: "claude",
+        permissionMode: "auto",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(createSpy.mock.calls[0]?.[1]?.permissionMode).toBe("auto");
+    expect(createSpy.mock.calls[1]?.[1]?.permissionMode).toBe("default");
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const tip = sends.find((m: any) => m.type === "system" && m.subtype === "tip");
+
+    expect(created).toMatchObject({
+      permissionMode: "default",
+      executionMode: "default",
+      planMode: false,
+      claudeSessionId: "claude-resume-1",
+    });
+    expect(tip).toMatchObject({
+      tipCode: "auto_mode_fallback_default",
+      sessionId: created.sessionId,
+    });
+
+    bridge.close();
+  });
+
+  it("returns structured error when Claude auto mode cannot be enabled in-session", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(created).toBeDefined();
+
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    const setPermissionModeMock = session.process.setPermissionMode as ReturnType<typeof vi.fn>;
+    setPermissionModeMock.mockRejectedValue(
+      new Error('Permission mode "auto" is unavailable for your plan'),
+    );
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_permission_mode",
+        sessionId,
+        mode: "auto",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const last = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
+    expect(last).toEqual({
+      type: "error",
+      message:
+        "Auto mode is unavailable in this environment. Keeping the current permission mode.",
+      errorCode: "auto_mode_unavailable",
+    });
+
+    bridge.close();
+  });
+
   it("maps set_permission_mode plan to collaborationMode for codex session in-place when idle", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

@@ -162,6 +162,7 @@ enum PermissionMode {
   defaultMode('default', 'Default'),
   acceptEdits('acceptEdits', 'Accept Edits'),
   plan('plan', 'Plan'),
+  auto('auto', 'Auto'),
   bypassPermissions('bypassPermissions', 'Bypass All');
 
   final String value;
@@ -2414,6 +2415,7 @@ enum SessionDisplayMode {
 class RecentSession {
   final String sessionId;
   final String? provider;
+  final String? rawPermissionMode;
 
   /// User-assigned session name (customTitle for Claude, thread_name for Codex).
   final String? name;
@@ -2441,6 +2443,7 @@ class RecentSession {
   const RecentSession({
     required this.sessionId,
     this.provider,
+    this.rawPermissionMode,
     this.name,
     this.agentNickname,
     this.agentRole,
@@ -2467,6 +2470,7 @@ class RecentSession {
   ExecutionMode get resolvedExecutionMode => deriveExecutionMode(
     provider: provider,
     executionMode: executionMode,
+    permissionMode: rawPermissionMode,
     approvalPolicy: codexApprovalPolicy,
   );
 
@@ -2478,11 +2482,16 @@ class RecentSession {
     planMode: resolvedPlanMode,
   ).value;
 
+  String get effectivePermissionMode => rawPermissionMode?.isNotEmpty == true
+      ? rawPermissionMode!
+      : permissionMode;
+
   factory RecentSession.fromJson(Map<String, dynamic> json) {
     final codexSettings = json['codexSettings'] as Map<String, dynamic>?;
     return RecentSession(
       sessionId: json['sessionId'] as String,
       provider: json['provider'] as String?,
+      rawPermissionMode: json['permissionMode'] as String?,
       name: json['name'] as String?,
       agentNickname: json['agentNickname'] as String?,
       agentRole: json['agentRole'] as String?,
@@ -2539,6 +2548,7 @@ class RecentSession {
     return RecentSession(
       sessionId: sessionId,
       provider: provider,
+      rawPermissionMode: rawPermissionMode,
       name: clearName ? null : (name ?? this.name),
       agentNickname: agentNickname,
       agentRole: agentRole,

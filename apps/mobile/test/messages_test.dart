@@ -140,6 +140,25 @@ void main() {
       expect(session.codexModel, isNull);
     });
 
+    test('RecentSession preserves raw Claude auto permission mode', () {
+      final session = RecentSession.fromJson({
+        'sessionId': 's-auto',
+        'provider': 'claude',
+        'firstPrompt': 'resume',
+        'created': '2026-02-13T00:00:00Z',
+        'modified': '2026-02-13T00:00:00Z',
+        'gitBranch': 'main',
+        'projectPath': '/tmp/project',
+        'permissionMode': 'auto',
+        'executionMode': 'default',
+        'isSidechain': false,
+      });
+
+      expect(session.rawPermissionMode, 'auto');
+      expect(session.effectivePermissionMode, 'auto');
+      expect(session.resolvedExecutionMode, ExecutionMode.defaultMode);
+    });
+
     test('AssistantMessage ignores placeholder codex model names', () {
       final message = AssistantMessage.fromJson({
         'id': 'a1',

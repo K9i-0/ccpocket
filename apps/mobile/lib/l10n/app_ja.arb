@@ -188,6 +188,7 @@
   "approveSessionMain": "セッション中許可",
   "approveSessionSub": "",
   "permissionDefaultDescription": "標準の承認フローです",
+  "permissionAutoDescription": "Claude が安全チェック付きで承認を自動処理します",
   "permissionAcceptEditsDescription": "ファイル編集を自動で承認します",
   "permissionPlanDescription": "変更を実行する前に分析と計画を行います",
   "permissionBypassDescription": "ほとんどの承認確認なしで実行します",

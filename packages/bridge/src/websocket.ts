@@ -5,8 +5,13 @@ import { lstat, readFile, readlink, stat, unlink } from "node:fs/promises";
 import { resolve, extname, basename, relative } from "node:path";
 import { promisify } from "node:util";
 import { WebSocketServer, WebSocket } from "ws";
-import { SessionManager, type SessionInfo } from "./session.js";
+import {
+  SessionManager,
+  type SessionInfo,
+  type WorktreeOptions,
+} from "./session.js";
 import { SdkProcess } from "./sdk-process.js";
+import type { StartOptions } from "./sdk-process.js";
 import { CodexProcess, type CodexThreadSummary } from "./codex-process.js";
 import {
   parseClientMessage,
@@ -71,6 +76,12 @@ import {
 } from "./path-utils.js";
 
 type SystemServerMessage = Extract<ServerMessage, { type: "system" }>;
+type ClaudePermissionMode =
+  | "default"
+  | "auto"
+  | "acceptEdits"
+  | "bypassPermissions"
+  | "plan";
 
 // ---- Available model lists (delivered to clients via session_list) ----
 
@@ -112,6 +123,30 @@ function normalizeCodexApprovalPolicy(
     default:
       return "on-request";
   }
+}
+
+function errorMessageOf(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function isClaudeAutoModeUnavailableError(err: unknown): boolean {
+  const message = errorMessageOf(err).toLowerCase();
+  const autoMentionsMode =
+    message.includes("auto mode") ||
+    message.includes('permission mode "auto"') ||
+    message.includes("permission mode auto") ||
+    message.includes("mode auto");
+  if (!autoMentionsMode) return false;
+  return (
+    message.includes("unavailable") ||
+    message.includes("not available") ||
+    message.includes("unsupported") ||
+    message.includes("not supported") ||
+    message.includes("disabled") ||
+    message.includes("requires") ||
+    message.includes("only available") ||
+    message.includes("not enabled")
+  );
 }
 
 function deriveExecutionMode(params: {
@@ -414,6 +449,7 @@ export class BridgeWebSocketServer {
         ? {
             permissionMode: permissionMode as
               | "default"
+              | "auto"
               | "acceptEdits"
               | "bypassPermissions"
               | "plan",
@@ -506,6 +542,79 @@ export class BridgeWebSocketServer {
     }
 
     return msg;
+  }
+
+  private sendTip(
+    ws: WebSocket,
+    sessionId: string,
+    tipCode: string,
+    session?: SessionInfo,
+  ): void {
+    const tipMsg = {
+      type: "system",
+      subtype: "tip",
+      tipCode,
+      sessionId,
+    } as ServerMessage;
+    session?.history.push(tipMsg);
+    this.send(ws, tipMsg);
+  }
+
+  private createClaudeSessionWithFallback(params: {
+    projectPath: string;
+    options?: StartOptions & { permissionMode?: ClaudePermissionMode };
+    pastMessages?: unknown[];
+    worktreeOptions?: WorktreeOptions;
+  }): {
+    sessionId: string;
+    permissionMode: ClaudePermissionMode;
+    executionMode: "default" | "acceptEdits" | "fullAccess";
+    planMode: boolean;
+    usedFallback: boolean;
+  } {
+    const initialMode = params.options?.permissionMode ?? "default";
+    try {
+      const sessionId = this.sessionManager.create(
+        params.projectPath,
+        params.options,
+        params.pastMessages,
+        params.worktreeOptions,
+      );
+      return {
+        sessionId,
+        permissionMode: initialMode,
+        executionMode: deriveExecutionMode({
+          provider: "claude",
+          permissionMode: initialMode,
+        }),
+        planMode: derivePlanMode({ permissionMode: initialMode }),
+        usedFallback: false,
+      };
+    } catch (err) {
+      if (
+        initialMode !== "auto" ||
+        !isClaudeAutoModeUnavailableError(err)
+      ) {
+        throw err;
+      }
+      const fallbackOptions = {
+        ...params.options,
+        permissionMode: "default" as const,
+      };
+      const sessionId = this.sessionManager.create(
+        params.projectPath,
+        fallbackOptions,
+        params.pastMessages,
+        params.worktreeOptions,
+      );
+      return {
+        sessionId,
+        permissionMode: "default",
+        executionMode: "default",
+        planMode: false,
+        usedFallback: true,
+      };
+    }
   }
 
   close(): void {
@@ -624,6 +733,16 @@ export class BridgeWebSocketServer {
             executionMode,
             planMode,
           );
+          const claudePermissionMode =
+            provider === "claude"
+              ? ((msg.permissionMode as
+                  | "default"
+                  | "auto"
+                  | "acceptEdits"
+                  | "bypassPermissions"
+                  | "plan"
+                  | undefined) ?? legacyPermissionMode)
+              : legacyPermissionMode;
           if (provider === "codex") {
             console.log(
               `[ws] start(codex): execution=${executionMode} plan=${planMode}`,
@@ -643,59 +762,81 @@ export class BridgeWebSocketServer {
             provider === "claude"
               ? this.sessionManager.getCachedCommands(projectPath)
               : undefined;
-          const sessionId = this.sessionManager.create(
-            projectPath,
-            {
-              sessionId: msg.sessionId,
-              continueMode: msg.continue,
-              permissionMode: legacyPermissionMode,
-              model: msg.model,
-              effort: msg.effort,
-              maxTurns: msg.maxTurns,
-              maxBudgetUsd: msg.maxBudgetUsd,
-              fallbackModel: msg.fallbackModel,
-              forkSession: msg.forkSession,
-              persistSession: msg.persistSession,
-              // Claude sandbox: map "on"/"off" to boolean
-              ...(provider === "claude" && msg.sandboxMode
-                ? { sandboxEnabled: msg.sandboxMode === "on" }
-                : {}),
-            },
-            undefined,
-            {
-              useWorktree: msg.useWorktree,
-              worktreeBranch: msg.worktreeBranch,
-              existingWorktreePath: msg.existingWorktreePath,
-            },
-            provider,
-            provider === "codex"
-              ? {
-                  profile: msg.profile,
-                  approvalPolicy:
-                    codexApprovalPolicy ??
-                    normalizeCodexApprovalPolicy(
-                      executionMode === "fullAccess" ? "never" : "on-request",
-                    ),
-                  sandboxMode: sandboxModeToInternal(msg.sandboxMode),
-                  model: msg.model,
-                  modelReasoningEffort:
-                    (msg.modelReasoningEffort as
-                      | "minimal"
-                      | "low"
-                      | "medium"
-                      | "high"
-                      | "xhigh") ?? undefined,
-                  networkAccessEnabled: msg.networkAccessEnabled,
-                  webSearchMode:
-                    (msg.webSearchMode as "disabled" | "cached" | "live") ??
+          const {
+            sessionId,
+            permissionMode: effectivePermissionMode,
+            executionMode: effectiveExecutionMode,
+            planMode: effectivePlanMode,
+            usedFallback: autoFallbackUsed,
+          } =
+            provider === "claude"
+              ? this.createClaudeSessionWithFallback({
+                  projectPath,
+                  options: {
+                    sessionId: msg.sessionId,
+                    continueMode: msg.continue,
+                    permissionMode: claudePermissionMode,
+                    model: msg.model,
+                    effort: msg.effort,
+                    maxTurns: msg.maxTurns,
+                    maxBudgetUsd: msg.maxBudgetUsd,
+                    fallbackModel: msg.fallbackModel,
+                    forkSession: msg.forkSession,
+                    persistSession: msg.persistSession,
+                    ...(msg.sandboxMode
+                      ? { sandboxEnabled: msg.sandboxMode === "on" }
+                      : {}),
+                  },
+                  worktreeOptions: {
+                    useWorktree: msg.useWorktree,
+                    worktreeBranch: msg.worktreeBranch,
+                    existingWorktreePath: msg.existingWorktreePath,
+                  },
+                })
+              : {
+                  sessionId: this.sessionManager.create(
+                    projectPath,
                     undefined,
-                  threadId: msg.sessionId,
-                  collaborationMode: planMode
-                    ? ("plan" as const)
-                    : ("default" as const),
-                }
-              : undefined,
-          );
+                    undefined,
+                    {
+                      useWorktree: msg.useWorktree,
+                      worktreeBranch: msg.worktreeBranch,
+                      existingWorktreePath: msg.existingWorktreePath,
+                    },
+                    provider,
+                    {
+                      profile: msg.profile,
+                      approvalPolicy:
+                        codexApprovalPolicy ??
+                        normalizeCodexApprovalPolicy(
+                          executionMode === "fullAccess"
+                            ? "never"
+                            : "on-request",
+                        ),
+                      sandboxMode: sandboxModeToInternal(msg.sandboxMode),
+                      model: msg.model,
+                      modelReasoningEffort:
+                        (msg.modelReasoningEffort as
+                          | "minimal"
+                          | "low"
+                          | "medium"
+                          | "high"
+                          | "xhigh") ?? undefined,
+                      networkAccessEnabled: msg.networkAccessEnabled,
+                      webSearchMode:
+                        (msg.webSearchMode as "disabled" | "cached" | "live") ??
+                        undefined,
+                      threadId: msg.sessionId,
+                      collaborationMode: planMode
+                        ? ("plan" as const)
+                        : ("default" as const),
+                    },
+                  ),
+                  permissionMode: claudePermissionMode,
+                  executionMode,
+                  planMode,
+                  usedFallback: false,
+                };
           const createdSession = this.sessionManager.get(sessionId);
 
           // Load saved session name from CLI storage (for resumed sessions)
@@ -712,9 +853,15 @@ export class BridgeWebSocketServer {
                 provider,
                 projectPath,
                 session: createdSession,
-                permissionMode: legacyPermissionMode,
-                executionMode,
-                planMode,
+                permissionMode:
+                  provider === "claude"
+                    ? effectivePermissionMode
+                    : claudePermissionMode,
+                executionMode:
+                  provider === "claude"
+                    ? effectiveExecutionMode
+                    : executionMode,
+                planMode: provider === "claude" ? effectivePlanMode : planMode,
                 sandboxMode: msg.sandboxMode,
                 ...(cached
                   ? {
@@ -732,16 +879,17 @@ export class BridgeWebSocketServer {
               }),
             );
             this.broadcastSessionList();
+            if (autoFallbackUsed) {
+              this.sendTip(
+                ws,
+                sessionId,
+                "auto_mode_fallback_default",
+                createdSession,
+              );
+            }
             // Send a gentle tip when the project is not a git repository
             if (createdSession && !createdSession.gitBranch) {
-              const tipMsg = {
-                type: "system",
-                subtype: "tip",
-                tipCode: "git_not_available",
-                sessionId,
-              } as ServerMessage;
-              createdSession.history.push(tipMsg);
-              this.send(ws, tipMsg);
+              this.sendTip(ws, sessionId, "git_not_available", createdSession);
             }
           });
           this.debugEvents.set(sessionId, []);
@@ -1318,9 +1466,21 @@ export class BridgeWebSocketServer {
         (session.process as SdkProcess)
           .setPermissionMode(msg.mode)
           .catch((err) => {
+            if (
+              msg.mode === "auto" &&
+              isClaudeAutoModeUnavailableError(err)
+            ) {
+              this.send(ws, {
+                type: "error",
+                message:
+                  "Auto mode is unavailable in this environment. Keeping the current permission mode.",
+                errorCode: "auto_mode_unavailable",
+              });
+              return;
+            }
             this.send(ws, {
               type: "error",
-              message: `Failed to set permission mode: ${err instanceof Error ? err.message : String(err)}`,
+              message: `Failed to set permission mode: ${errorMessageOf(err)}`,
             });
           });
         break;
@@ -2055,6 +2215,16 @@ export class BridgeWebSocketServer {
           executionMode,
           planMode,
         );
+        const claudePermissionMode =
+          provider === "claude"
+            ? ((msg.permissionMode as
+                | "default"
+                | "auto"
+                | "acceptEdits"
+                | "bypassPermissions"
+                | "plan"
+                | undefined) ?? legacyPermissionMode)
+            : legacyPermissionMode;
         const sessionRefId = msg.sessionId;
         // Resume flow: keep past history in SessionInfo and deliver it only
         // via get_history(sessionId) to avoid duplicate/missed replay races.
@@ -2204,11 +2374,17 @@ export class BridgeWebSocketServer {
 
         getSessionHistory(claudeSessionId)
           .then((pastMessages) => {
-            const sessionId = this.sessionManager.create(
-              resumeProjectPath,
-              {
+            const {
+              sessionId,
+              permissionMode: effectivePermissionMode,
+              executionMode: effectiveExecutionMode,
+              planMode: effectivePlanMode,
+              usedFallback: autoFallbackUsed,
+            } = this.createClaudeSessionWithFallback({
+              projectPath: resumeProjectPath,
+              options: {
                 sessionId: claudeSessionId,
-                permissionMode: legacyPermissionMode,
+                permissionMode: claudePermissionMode,
                 model: msg.model,
                 effort: msg.effort,
                 maxTurns: msg.maxTurns,
@@ -2221,8 +2397,8 @@ export class BridgeWebSocketServer {
                   : {}),
               },
               pastMessages,
-              worktreeOpts,
-            );
+              worktreeOptions: worktreeOpts,
+            });
             const createdSession = this.sessionManager.get(sessionId);
             void this.loadAndSetSessionName(
               createdSession,
@@ -2236,9 +2412,9 @@ export class BridgeWebSocketServer {
                   provider: "claude",
                   projectPath: resumeProjectPath,
                   session: createdSession,
-                  permissionMode: legacyPermissionMode,
-                  executionMode,
-                  planMode,
+                  permissionMode: effectivePermissionMode,
+                  executionMode: effectiveExecutionMode,
+                  planMode: effectivePlanMode,
                   sandboxMode: msg.sandboxMode,
                   ...(cached
                     ? {
@@ -2257,6 +2433,14 @@ export class BridgeWebSocketServer {
                 claudeSessionId,
               });
               this.broadcastSessionList();
+              if (autoFallbackUsed) {
+                this.sendTip(
+                  ws,
+                  sessionId,
+                  "auto_mode_fallback_default",
+                  createdSession,
+                );
+              }
             });
             this.debugEvents.set(sessionId, []);
             this.recordDebugEvent(sessionId, {

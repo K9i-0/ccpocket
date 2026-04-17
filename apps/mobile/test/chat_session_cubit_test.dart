@@ -427,6 +427,31 @@ void main() {
       expect(cubit.state.inPlanMode, isFalse);
     });
 
+    test(
+      'auto mode unavailable rolls back to previous permission mode',
+      () async {
+        final cubit = createCubit('s1');
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+
+        cubit.setPermissionMode(PermissionMode.auto);
+        expect(cubit.state.permissionMode, PermissionMode.auto);
+
+        mockBridge.emitMessage(
+          const ErrorMessage(
+            message:
+                'Auto mode is unavailable in this environment. Keeping the current permission mode.',
+            errorCode: 'auto_mode_unavailable',
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        expect(cubit.state.permissionMode, PermissionMode.defaultMode);
+        expect(cubit.state.inPlanMode, isFalse);
+      },
+    );
+
     test('sandbox mode rolls back on mode-change error', () async {
       final cubit = createCubit('s1');
       addTearDown(cubit.close);

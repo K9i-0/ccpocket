@@ -876,6 +876,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   bool _isPermissionModeFailure(ErrorMessage msg) {
     return msg.errorCode == 'set_permission_mode_rejected' ||
+        msg.errorCode == 'auto_mode_unavailable' ||
         msg.message.startsWith('Failed to set permission mode:') ||
         msg.message.startsWith(
           'Failed to restart session for permission mode change:',

@@ -452,6 +452,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get permissionDefaultDescription => 'Standard permission prompts';
 
   @override
+  String get permissionAutoDescription =>
+      'Let Claude auto-handle approvals with built-in safety checks';
+
+  @override
   String get permissionAcceptEditsDescription => 'Auto-approve file edits';
 
   @override

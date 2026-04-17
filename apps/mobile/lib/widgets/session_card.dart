@@ -398,6 +398,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                       _buildSettingsSummary(
                         isCodex: false,
                         model: session.model,
+                        permissionMode: session.effectivePermissionMode,
                         executionMode: session.resolvedExecutionMode.value,
                         planMode: session.resolvedPlanMode,
                       ),
@@ -2629,12 +2630,15 @@ class RecentSessionCard extends StatelessWidget {
 String _buildSettingsSummary({
   required bool isCodex,
   String? model,
+  String? permissionMode,
   String? executionMode,
   bool planMode = false,
 }) {
   if (isCodex) return model ?? '';
   final parts = <String>[
-    if (executionMode == 'fullAccess')
+    if (permissionMode == PermissionMode.auto.value)
+      'auto'
+    else if (executionMode == 'fullAccess')
       'full-access'
     else if (executionMode == 'acceptEdits')
       'accept-edits'

@@ -649,6 +649,10 @@ void showPermissionModeMenu(
   final currentMode = chatCubit.state.permissionMode;
   final l = AppLocalizations.of(context);
   const purple = Color(0xFFBB86FC);
+  final appColors = Theme.of(context).extension<AppColors>()!;
+  final autoModeColor = Theme.of(context).brightness == Brightness.dark
+      ? appColors.warningText
+      : appColors.warningBubbleBorder;
 
   final modeDetails =
       <PermissionMode, ({IconData icon, String description, Color color})>{
@@ -656,6 +660,11 @@ void showPermissionModeMenu(
           icon: Icons.tune,
           description: l.permissionDefaultDescription,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        PermissionMode.auto: (
+          icon: Icons.auto_mode_outlined,
+          description: l.permissionAutoDescription,
+          color: autoModeColor,
         ),
         PermissionMode.acceptEdits: (
           icon: Icons.edit_note,
@@ -787,6 +796,10 @@ class PermissionModeChip extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     const purple = Color(0xFFBB86FC);
     final plan = Theme.of(context).extension<AppColors>()!.statusPlan;
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final autoModeColor = Theme.of(context).brightness == Brightness.dark
+        ? appColors.warningText
+        : appColors.warningBubbleBorder;
 
     final (IconData icon, String label, Color fg) = switch (currentMode) {
       PermissionMode.defaultMode => (
@@ -794,6 +807,7 @@ class PermissionModeChip extends StatelessWidget {
         'Default',
         cs.onSurfaceVariant,
       ),
+      PermissionMode.auto => (Icons.auto_mode_outlined, 'Auto', autoModeColor),
       PermissionMode.acceptEdits => (Icons.edit_note, 'Edits', purple),
       PermissionMode.plan => (Icons.assignment_outlined, 'Plan', plan),
       PermissionMode.bypassPermissions => (Icons.flash_on, 'Bypass', cs.error),

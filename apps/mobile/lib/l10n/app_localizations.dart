@@ -940,6 +940,12 @@ abstract class AppLocalizations {
   /// **'標準の承認フローです'**
   String get permissionDefaultDescription;
 
+  /// No description provided for @permissionAutoDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'Claude が安全チェック付きで承認を自動処理します'**
+  String get permissionAutoDescription;
+
   /// No description provided for @permissionAcceptEditsDescription.
   ///
   /// In ja, this message translates to:

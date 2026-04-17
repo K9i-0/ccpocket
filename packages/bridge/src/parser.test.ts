@@ -65,6 +65,17 @@ describe("parseClientMessage", () => {
     });
   });
 
+  it("parses auto permission mode", () => {
+    const msg = parseClientMessage(
+      '{"type":"set_permission_mode","mode":"auto","sessionId":"s1"}',
+    );
+    expect(msg).toEqual({
+      type: "set_permission_mode",
+      mode: "auto",
+      sessionId: "s1",
+    });
+  });
+
   it("parses start with advanced Claude options", () => {
     const msg = parseClientMessage(
       '{"type":"start","projectPath":"/p","model":"claude-sonnet","effort":"high","maxTurns":5,"maxBudgetUsd":1.5,"fallbackModel":"claude-haiku","forkSession":true,"persistSession":false}',

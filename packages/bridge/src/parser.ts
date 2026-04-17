@@ -42,6 +42,7 @@ export interface AssistantMessage {
 
 export type PermissionMode =
   | "default"
+  | "auto"
   | "acceptEdits"
   | "bypassPermissions"
   | "plan";
@@ -638,6 +639,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
         )
           return null;
         if (
+          msg.permissionMode !== undefined &&
+          !["default", "auto", "acceptEdits", "bypassPermissions", "plan"].includes(
+            String(msg.permissionMode),
+          )
+        )
+          return null;
+        if (
           msg.executionMode !== undefined &&
           !["default", "acceptEdits", "fullAccess"].includes(
             String(msg.executionMode),
@@ -710,7 +718,7 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "set_permission_mode":
         if (
           typeof msg.mode !== "string" ||
-          !["default", "acceptEdits", "bypassPermissions", "plan"].includes(
+          !["default", "auto", "acceptEdits", "bypassPermissions", "plan"].includes(
             msg.mode,
           )
         )
@@ -818,6 +826,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
           msg.modelReasoningEffort !== undefined &&
           !["minimal", "low", "medium", "high", "xhigh"].includes(
             String(msg.modelReasoningEffort),
+          )
+        )
+          return null;
+        if (
+          msg.permissionMode !== undefined &&
+          !["default", "auto", "acceptEdits", "bypassPermissions", "plan"].includes(
+            String(msg.permissionMode),
           )
         )
           return null;

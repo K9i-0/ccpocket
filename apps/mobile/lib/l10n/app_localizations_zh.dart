@@ -446,6 +446,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get permissionDefaultDescription => '标准权限提示';
 
   @override
+  String get permissionAutoDescription => '让 Claude 通过内置安全检查自动处理审批';
+
+  @override
   String get permissionAcceptEditsDescription => '自动批准文件编辑';
 
   @override

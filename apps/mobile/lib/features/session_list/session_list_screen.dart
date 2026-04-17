@@ -96,9 +96,11 @@ String buildResumeCommand(RecentSession session) {
     final buf = StringBuffer(
       'claude --resume ${shellQuote(session.sessionId)}',
     );
-    final pm = session.permissionMode;
+    final pm = session.effectivePermissionMode;
     if (pm == PermissionMode.bypassPermissions.value) {
       buf.write(' --dangerously-skip-permissions');
+    } else if (pm == PermissionMode.auto.value) {
+      buf.write(' --permission-mode auto');
     } else if (pm == PermissionMode.acceptEdits.value) {
       buf.write(' --permission-mode acceptEdits');
     } else if (pm == PermissionMode.plan.value) {
@@ -155,6 +157,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   // Cache for resume navigation
   String? _pendingResumeProjectPath;
   String? _pendingResumeGitBranch;
+  NewSessionParams? _pendingClaudeDefaultsCorrection;
 
   // Flag: already navigated to chat for pending session creation
   bool _pendingNavigation = false;
@@ -188,6 +191,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     final bridge = context.read<BridgeService>();
     _messageSub = bridge.messages.listen((msg) {
       if (msg is SystemMessage && msg.subtype == 'session_created') {
+        unawaited(_syncPendingClaudeDefaultsWithSessionCreated(msg));
         bridge.requestSessionList();
         // Clear-context recreation and session restarts (permission mode /
         // sandbox mode / rewind) are handled inside the active chat screen.
@@ -220,6 +224,18 @@ class _SessionListScreenState extends State<SessionListScreen>
           _pendingResumeGitBranch = null;
         }
         return;
+      }
+
+      if (msg is ErrorMessage &&
+          _pendingClaudeDefaultsCorrection != null &&
+          (msg.message.startsWith('Failed to start session:') ||
+              msg.message.startsWith(
+                'Failed to load Claude session history:',
+              ))) {
+        _pendingClaudeDefaultsCorrection = null;
+        _pendingResumeProjectPath = null;
+        _pendingResumeGitBranch = null;
+        _pendingNavigation = false;
       }
 
       if (msg is ArchiveResultMessage) {
@@ -493,6 +509,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     final result = await _openNewSessionSheet(initialParams: defaults);
     if (result == null || !mounted) return;
     await _saveSessionStartDefaults(result);
+    _trackPendingClaudeDefaultsCorrection(result);
     await _saveProjectCodexProfileFromParams(result);
     if (!mounted) return;
     _startNewSession(result);
@@ -616,6 +633,29 @@ class _SessionListScreenState extends State<SessionListScreen>
     final prefs = await SharedPreferences.getInstance();
     final json = sessionStartDefaultsToJson(params);
     await prefs.setString(_prefKeySessionStartDefaults, jsonEncode(json));
+  }
+
+  void _trackPendingClaudeDefaultsCorrection(NewSessionParams params) {
+    _pendingClaudeDefaultsCorrection = params.provider == Provider.claude
+        ? params
+        : null;
+  }
+
+  Future<void> _syncPendingClaudeDefaultsWithSessionCreated(
+    SystemMessage msg,
+  ) async {
+    final pending = _pendingClaudeDefaultsCorrection;
+    _pendingClaudeDefaultsCorrection = null;
+    if (pending == null || pending.provider != Provider.claude) return;
+    if (pending.permissionMode != PermissionMode.auto) return;
+
+    final actualMode =
+        permissionModeFromRaw(msg.permissionMode) ?? PermissionMode.defaultMode;
+    if (actualMode == pending.permissionMode) return;
+
+    await _saveSessionStartDefaults(
+      pending.copyWith(claudePermissionMode: actualMode),
+    );
   }
 
   Future<NewSessionParams?> _loadInitialNewSessionDefaults() async {
@@ -954,6 +994,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       );
       if (edited == null || !mounted) return;
       await _saveSessionStartDefaults(edited);
+      _trackPendingClaudeDefaultsCorrection(edited);
       await _saveProjectCodexProfileFromParams(edited);
       if (!mounted) return;
       _resumeSessionWithParams(session, edited);
@@ -1054,7 +1095,7 @@ class _SessionListScreenState extends State<SessionListScreen>
         claudeDefaults?.sandboxMode?.value;
     final permissionMode =
         sessionSettings?['permissionMode'] as String? ??
-        claudeDefaults?.permissionMode.value;
+        session.effectivePermissionMode;
     final effort =
         sessionSettings?['claudeEffort'] as String? ??
         claudeDefaults?.claudeEffort?.value;
@@ -1145,7 +1186,7 @@ class _SessionListScreenState extends State<SessionListScreen>
         permissionMode: permissionMode,
       );
       final settings = <String, dynamic>{
-        'permissionMode': ?permissionMode,
+        'permissionMode': permissionMode,
         'executionMode': derivedExecutionMode,
         'planMode': derivedPlanMode,
         'sandboxMode': ?sandboxMode,

@@ -160,6 +160,7 @@
   "approveSessionMain": "This Session",
   "approveSessionSub": "allow",
   "permissionDefaultDescription": "Standard permission prompts",
+  "permissionAutoDescription": "Let Claude auto-handle approvals with built-in safety checks",
   "permissionAcceptEditsDescription": "Auto-approve file edits",
   "permissionPlanDescription": "Analyze and plan before executing changes",
   "permissionBypassDescription": "Run without most approval prompts",

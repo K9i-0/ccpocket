@@ -448,6 +448,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get permissionDefaultDescription => '標準の承認フローです';
 
   @override
+  String get permissionAutoDescription => 'Claude が安全チェック付きで承認を自動処理します';
+
+  @override
   String get permissionAcceptEditsDescription => 'ファイル編集を自動で承認します';
 
   @override

@@ -134,6 +134,24 @@ void main() {
     expect(find.byKey(const ValueKey('plan_mode_chip_glow')), findsNothing);
   });
 
+  testWidgets('claude auto permission mode is shown as Auto', (tester) async {
+    final claudeCubit = ChatSessionCubit(
+      sessionId: 'claude-auto-session',
+      provider: Provider.claude,
+      bridge: bridge,
+      streamingCubit: streamingCubit,
+      initialPermissionMode: PermissionMode.auto,
+    );
+
+    await tester.pumpWidget(_wrap(claudeCubit));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Auto'), findsOneWidget);
+    expect(find.byIcon(Icons.auto_mode_outlined), findsOneWidget);
+
+    await claudeCubit.close();
+  });
+
   testWidgets('renders chips in Plan, Execution, Sandbox order', (
     tester,
   ) async {

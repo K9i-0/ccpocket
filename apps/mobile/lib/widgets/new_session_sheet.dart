@@ -17,6 +17,7 @@ import '../theme/provider_style.dart';
 class NewSessionParams {
   final String projectPath;
   final Provider provider;
+  final PermissionMode? claudePermissionMode;
   final ExecutionMode executionMode;
   final CodexApprovalPolicy codexApprovalPolicy;
   final String? codexProfile;
@@ -46,6 +47,7 @@ class NewSessionParams {
   NewSessionParams({
     required this.projectPath,
     this.provider = Provider.codex,
+    PermissionMode? claudePermissionMode,
     ExecutionMode? executionMode,
     CodexApprovalPolicy? codexApprovalPolicy,
     this.codexProfile,
@@ -72,7 +74,10 @@ class NewSessionParams {
     this.claudeFallbackModel,
     this.claudeForkSession,
     this.claudePersistSession,
-  }) : executionMode =
+  }) : claudePermissionMode = provider == Provider.claude
+           ? (claudePermissionMode ?? permissionMode)
+           : null,
+       executionMode =
            executionMode ??
            deriveExecutionMode(
              provider: provider.value,
@@ -85,15 +90,21 @@ class NewSessionParams {
                : CodexApprovalPolicy.onRequest),
        planMode = planMode ?? (permissionMode == PermissionMode.plan);
 
-  PermissionMode get permissionMode => legacyPermissionModeFromModes(
-    provider,
-    executionMode: executionMode,
-    planMode: planMode,
-  );
+  PermissionMode get permissionMode {
+    if (provider == Provider.claude && claudePermissionMode != null) {
+      return claudePermissionMode!;
+    }
+    return legacyPermissionModeFromModes(
+      provider,
+      executionMode: executionMode,
+      planMode: planMode,
+    );
+  }
 
   NewSessionParams copyWith({
     String? projectPath,
     Provider? provider,
+    PermissionMode? claudePermissionMode,
     ExecutionMode? executionMode,
     CodexApprovalPolicy? codexApprovalPolicy,
     String? codexProfile,
@@ -123,6 +134,7 @@ class NewSessionParams {
     return NewSessionParams(
       projectPath: projectPath ?? this.projectPath,
       provider: provider ?? this.provider,
+      claudePermissionMode: claudePermissionMode ?? this.claudePermissionMode,
       executionMode: executionMode ?? this.executionMode,
       codexApprovalPolicy: codexApprovalPolicy ?? this.codexApprovalPolicy,
       codexProfile: codexProfile ?? this.codexProfile,
@@ -243,6 +255,9 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
   return NewSessionParams(
     projectPath: projectPath,
     provider: _providerFromRaw(json['provider'] as String?),
+    claudePermissionMode: permissionModeFromRaw(
+      json['permissionMode'] as String?,
+    ),
     executionMode: _executionModeFromRawWithDefault(
       json['executionMode'] as String?,
       provider: json['provider'] as String?,
@@ -370,6 +385,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _claudeMaxBudgetController = TextEditingController();
   late final PageController _pageController;
   var _provider = Provider.codex;
+  var _claudePermissionMode = PermissionMode.defaultMode;
   var _executionMode = ExecutionMode.defaultMode;
   var _codexApprovalPolicy = CodexApprovalPolicy.onRequest;
   var _planMode = false;
@@ -584,6 +600,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     );
     _provider = isVisible ? p.provider : widget.visibleTabs.first.toProvider();
     _executionMode = p.executionMode;
+    _claudePermissionMode = p.provider == Provider.claude
+        ? p.permissionMode
+        : PermissionMode.defaultMode;
     _codexApprovalPolicy = p.codexApprovalPolicy;
     _planMode = p.planMode;
     _useWorktree = p.useWorktree || p.existingWorktreePath != null;
@@ -735,6 +754,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     return NewSessionParams(
       projectPath: path,
       provider: _provider,
+      claudePermissionMode: !isCodex ? _claudePermissionMode : null,
       executionMode: _executionMode,
       codexApprovalPolicy: _codexApprovalPolicy,
       codexProfile: isCodex ? _selectedCodexProfile : null,
@@ -862,6 +882,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
           _OptionsSection(
             appColors: appColors,
             provider: pageProvider,
+            claudePermissionMode: _claudePermissionMode,
+            onClaudePermissionModeChanged: (value) {
+              setState(() => _claudePermissionMode = value);
+            },
             executionMode: _executionMode,
             onExecutionModeChanged: (value) {
               setState(() => _executionMode = value);
@@ -1438,6 +1462,8 @@ class _PathInput extends StatelessWidget {
 class _OptionsSection extends StatelessWidget {
   final AppColors appColors;
   final Provider provider;
+  final PermissionMode claudePermissionMode;
+  final ValueChanged<PermissionMode> onClaudePermissionModeChanged;
   final ExecutionMode executionMode;
   final ValueChanged<ExecutionMode> onExecutionModeChanged;
   final CodexApprovalPolicy codexApprovalPolicy;
@@ -1498,6 +1524,8 @@ class _OptionsSection extends StatelessWidget {
   const _OptionsSection({
     required this.appColors,
     required this.provider,
+    required this.claudePermissionMode,
+    required this.onClaudePermissionModeChanged,
     required this.executionMode,
     required this.onExecutionModeChanged,
     required this.codexApprovalPolicy,
@@ -1549,17 +1577,24 @@ class _OptionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final selectedPermissionMode = legacyPermissionModeFromModes(
-      provider,
-      executionMode: executionMode,
-      planMode: planMode,
-    );
+    final selectedPermissionMode = provider == Provider.claude
+        ? claudePermissionMode
+        : legacyPermissionModeFromModes(
+            provider,
+            executionMode: executionMode,
+            planMode: planMode,
+          );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final autoModeColor = isDark
+        ? appColors.warningText
+        : appColors.warningBubbleBorder;
 
     // -- Description helpers --
 
     String permissionDescription(PermissionMode mode) {
       return switch (mode) {
         PermissionMode.defaultMode => l.permissionDefaultDescription,
+        PermissionMode.auto => l.permissionAutoDescription,
         PermissionMode.acceptEdits => l.permissionAcceptEditsDescription,
         PermissionMode.plan => l.permissionPlanDescription,
         PermissionMode.bypassPermissions => l.permissionBypassDescription,
@@ -1605,6 +1640,7 @@ class _OptionsSection extends StatelessWidget {
 
     IconData permissionIcon(PermissionMode mode) => switch (mode) {
       PermissionMode.defaultMode => Icons.tune,
+      PermissionMode.auto => Icons.auto_mode_outlined,
       PermissionMode.acceptEdits => Icons.edit_note,
       PermissionMode.plan => Icons.assignment_outlined,
       PermissionMode.bypassPermissions => Icons.flash_on,
@@ -1628,6 +1664,7 @@ class _OptionsSection extends StatelessWidget {
       required String title,
       required String subtitle,
       required VoidCallback onTap,
+      Color? accentColor,
       Key? key,
     }) {
       final cs = Theme.of(context).colorScheme;
@@ -1641,14 +1678,17 @@ class _OptionsSection extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, size: 16),
+              Icon(icon, size: 16, color: accentColor),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(title, style: const TextStyle(fontSize: 13)),
+                    Text(
+                      title,
+                      style: TextStyle(fontSize: 13, color: accentColor),
+                    ),
                     if (subtitle.isNotEmpty)
                       Text(
                         subtitle,
@@ -1745,7 +1785,9 @@ class _OptionsSection extends StatelessWidget {
                             trailing: mode == currentMode
                                 ? Icon(
                                     Icons.check,
-                                    color: sheetCs.primary,
+                                    color:
+                                        colorFor?.call(mode, sheetCs) ??
+                                        sheetCs.primary,
                                     size: 20,
                                   )
                                 : null,
@@ -1857,6 +1899,13 @@ class _OptionsSection extends StatelessWidget {
                   icon: permissionIcon(selectedPermissionMode),
                   title: selectedPermissionMode.label,
                   subtitle: permissionDescription(selectedPermissionMode),
+                  accentColor: switch (selectedPermissionMode) {
+                    PermissionMode.auto => autoModeColor,
+                    PermissionMode.bypassPermissions => Theme.of(
+                      context,
+                    ).colorScheme.error,
+                    _ => null,
+                  },
                   onTap: () => showModeSheet<PermissionMode>(
                     title: l.approval,
                     subtitle: l.sheetSubtitleApproval,
@@ -1866,8 +1915,12 @@ class _OptionsSection extends StatelessWidget {
                     labelFor: (m) => m.label,
                     descriptionFor: permissionDescription,
                     onSelected: (value) {
+                      onClaudePermissionModeChanged(value);
                       switch (value) {
                         case PermissionMode.defaultMode:
+                          onExecutionModeChanged(ExecutionMode.defaultMode);
+                          onPlanModeChanged(false);
+                        case PermissionMode.auto:
                           onExecutionModeChanged(ExecutionMode.defaultMode);
                           onPlanModeChanged(false);
                         case PermissionMode.acceptEdits:
@@ -1882,6 +1935,7 @@ class _OptionsSection extends StatelessWidget {
                       }
                     },
                     colorFor: (mode, cs) => switch (mode) {
+                      PermissionMode.auto => autoModeColor,
                       PermissionMode.bypassPermissions => cs.error,
                       _ => cs.primary,
                     },

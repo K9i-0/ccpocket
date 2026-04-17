@@ -13,6 +13,7 @@ class TipChip extends StatelessWidget {
 
   String get _text => switch (message.tipCode) {
     'git_not_available' => 'Git未検出 — Diff・ファイル一覧は利用できません',
+    'auto_mode_fallback_default' => 'Auto mode はこの環境で使えないため Default に切り替えました',
     _ => message.subtype,
   };
 
