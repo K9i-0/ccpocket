@@ -234,7 +234,7 @@ void main() {
       );
       expect(
         find.text(
-          'If the selected profile defines the same setting, the profile takes precedence over the options below.',
+          'If the selected profile includes the same setting, it takes precedence over the options below.',
         ),
         findsOneWidget,
       );

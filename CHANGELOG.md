@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.65.0] - 2026-04-17
+
+### Added
+- Add Codex profile selection to the New Session sheet
+
+### Changed
+- Refine the Codex profile precedence note copy and spacing so it reads as help text for the Profile field
+
+### Fixed
+- Keep Explorer history available until the session is explicitly stopped
+- Preserve Explorer history when reopening an existing session
+
 ## [1.64.1] - 2026-04-17
 
 ### Fixed
