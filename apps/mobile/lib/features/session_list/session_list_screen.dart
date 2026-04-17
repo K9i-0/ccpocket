@@ -178,6 +178,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeySessionStartDefaults = 'session_start_defaults_v1';
   static const _prefKeyClaudeSessionSettingsPrefix = 'claude_session_settings_';
+  static const _prefKeyCodexProfileByProject = 'codex_profile_by_project_v1';
 
   @override
   void initState() {
@@ -487,11 +488,12 @@ class _SessionListScreenState extends State<SessionListScreen>
   }
 
   void _showNewSessionDialog() async {
-    final defaults = await _loadSessionStartDefaults();
+    final defaults = await _loadInitialNewSessionDefaults();
     if (!mounted) return;
     final result = await _openNewSessionSheet(initialParams: defaults);
     if (result == null || !mounted) return;
     await _saveSessionStartDefaults(result);
+    await _saveProjectCodexProfileFromParams(result);
     if (!mounted) return;
     _startNewSession(result);
   }
@@ -519,17 +521,26 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   void _startNewSession(NewSessionParams result) {
     final bridge = context.read<BridgeService>();
+    final useCodexProfile =
+        result.provider == Provider.codex &&
+        (result.codexProfile?.isNotEmpty ?? false);
     _pendingResumeProjectPath = result.projectPath;
     _pendingResumeGitBranch = result.worktreeBranch;
     bridge.send(
       ClientMessage.start(
         result.projectPath,
-        permissionMode: result.permissionMode.value,
-        executionMode: result.executionMode.value,
+        permissionMode: result.provider == Provider.codex && useCodexProfile
+            ? null
+            : result.permissionMode.value,
+        executionMode: result.provider == Provider.codex && useCodexProfile
+            ? null
+            : result.executionMode.value,
         approvalPolicy: result.provider == Provider.codex
-            ? result.codexApprovalPolicy.value
+            ? (useCodexProfile ? null : result.codexApprovalPolicy.value)
             : null,
-        planMode: result.planMode,
+        planMode: result.provider == Provider.codex && useCodexProfile
+            ? null
+            : result.planMode,
         effort: result.provider == Provider.claude
             ? result.claudeEffort?.value
             : null,
@@ -551,13 +562,24 @@ class _SessionListScreenState extends State<SessionListScreen>
         worktreeBranch: result.worktreeBranch,
         existingWorktreePath: result.existingWorktreePath,
         provider: result.provider.value,
+        profile: result.provider == Provider.codex ? result.codexProfile : null,
         model: result.provider == Provider.claude
             ? result.claudeModel
-            : result.model,
-        sandboxMode: result.sandboxMode?.value,
-        modelReasoningEffort: result.modelReasoningEffort?.value,
-        networkAccessEnabled: result.networkAccessEnabled,
-        webSearchMode: result.webSearchMode?.value,
+            : (useCodexProfile ? null : result.model),
+        sandboxMode: result.provider == Provider.codex && useCodexProfile
+            ? null
+            : result.sandboxMode?.value,
+        modelReasoningEffort:
+            result.provider == Provider.codex && useCodexProfile
+            ? null
+            : result.modelReasoningEffort?.value,
+        networkAccessEnabled:
+            result.provider == Provider.codex && useCodexProfile
+            ? null
+            : result.networkAccessEnabled,
+        webSearchMode: result.provider == Provider.codex && useCodexProfile
+            ? null
+            : result.webSearchMode?.value,
       ),
     );
     // Navigate immediately to chat with pending state
@@ -594,6 +616,73 @@ class _SessionListScreenState extends State<SessionListScreen>
     final prefs = await SharedPreferences.getInstance();
     final json = sessionStartDefaultsToJson(params);
     await prefs.setString(_prefKeySessionStartDefaults, jsonEncode(json));
+  }
+
+  Future<NewSessionParams?> _loadInitialNewSessionDefaults() async {
+    final defaults = await _loadSessionStartDefaults();
+    if (defaults == null || defaults.provider != Provider.codex) {
+      return defaults;
+    }
+    final savedProfile = await _loadProjectCodexProfile(defaults.projectPath);
+    if (savedProfile == null || savedProfile.isEmpty) return defaults;
+    if (!mounted) return defaults;
+    final available = context.read<BridgeService>().codexProfiles;
+    if (available.isNotEmpty && !available.contains(savedProfile)) {
+      return defaults;
+    }
+    return defaults.copyWith(codexProfile: savedProfile);
+  }
+
+  Future<Map<String, String>> _loadCodexProfilesByProject() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_prefKeyCodexProfileByProject);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      return json.map((key, value) => MapEntry(key, value?.toString() ?? ''));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<String?> _loadProjectCodexProfile(String projectPath) async {
+    final normalized = projectPath.trim();
+    if (normalized.isEmpty) return null;
+    final saved = await _loadCodexProfilesByProject();
+    final profile = saved[normalized];
+    if (profile == null || profile.isEmpty) return null;
+    return profile;
+  }
+
+  Future<void> _saveProjectCodexProfile(
+    String projectPath,
+    String? profile,
+  ) async {
+    final normalized = projectPath.trim();
+    if (normalized.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final saved = await _loadCodexProfilesByProject();
+    if (profile == null || profile.isEmpty) {
+      saved.remove(normalized);
+    } else {
+      saved[normalized] = profile;
+    }
+    await prefs.setString(_prefKeyCodexProfileByProject, jsonEncode(saved));
+  }
+
+  Future<void> _saveProjectCodexProfileFromParams(NewSessionParams params) {
+    if (params.provider != Provider.codex) {
+      return Future.value();
+    }
+    final available = context.read<BridgeService>().codexProfiles;
+    final selected = params.codexProfile;
+    if (available.isNotEmpty &&
+        selected != null &&
+        selected.isNotEmpty &&
+        !available.contains(selected)) {
+      return _saveProjectCodexProfile(params.projectPath, null);
+    }
+    return _saveProjectCodexProfile(params.projectPath, selected);
   }
 
   // ---- Per-session Claude settings persistence ----
@@ -681,6 +770,13 @@ class _SessionListScreenState extends State<SessionListScreen>
           codexApprovalPolicyFromLegacyExecutionMode(
             sessionSettings?['executionMode'] as String?,
           ),
+      codexProfile: provider == Provider.codex ? session.codexProfile : null,
+      codexApprovalPolicyOverridden: provider == Provider.codex,
+      codexModelOverridden: provider == Provider.codex,
+      codexSandboxModeOverridden: provider == Provider.codex,
+      codexReasoningEffortOverridden: provider == Provider.codex,
+      codexNetworkAccessOverridden: provider == Provider.codex,
+      codexWebSearchModeOverridden: provider == Provider.codex,
       planMode: derivePlanMode(
         planMode: sessionSettings?['planMode'] as bool?,
         permissionMode: sessionSettings?['permissionMode'] as String?,
@@ -858,6 +954,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       );
       if (edited == null || !mounted) return;
       await _saveSessionStartDefaults(edited);
+      await _saveProjectCodexProfileFromParams(edited);
       if (!mounted) return;
       _resumeSessionWithParams(session, edited);
       return;
@@ -936,6 +1033,8 @@ class _SessionListScreenState extends State<SessionListScreen>
     _pendingResumeGitBranch = session.gitBranch;
 
     final isCodex = session.provider == Provider.codex.value;
+    final useCodexProfile =
+        isCodex && (session.codexProfile?.isNotEmpty ?? false);
 
     // For Claude sessions, prefer per-session settings over global defaults.
     Map<String, dynamic>? sessionSettings;
@@ -982,25 +1081,31 @@ class _SessionListScreenState extends State<SessionListScreen>
       session.sessionId,
       resumeProjectPath,
       permissionMode: isCodex
-          ? (session.codexApprovalPolicy == 'never'
-                ? 'bypassPermissions'
-                : 'acceptEdits')
+          ? (useCodexProfile
+                ? null
+                : (session.codexApprovalPolicy == 'never'
+                      ? 'bypassPermissions'
+                      : 'acceptEdits'))
           : permissionMode,
       executionMode: isCodex
-          ? deriveExecutionMode(
-              provider: Provider.codex.value,
-              executionMode: session.executionMode,
-              permissionMode: session.permissionMode,
-              approvalPolicy: session.codexApprovalPolicy,
-            ).value
+          ? (useCodexProfile
+                ? null
+                : deriveExecutionMode(
+                    provider: Provider.codex.value,
+                    executionMode: session.executionMode,
+                    permissionMode: session.permissionMode,
+                    approvalPolicy: session.codexApprovalPolicy,
+                  ).value)
           : deriveExecutionMode(
               provider: Provider.claude.value,
               executionMode: sessionSettings?['executionMode'] as String?,
               permissionMode: permissionMode,
             ).value,
-      approvalPolicy: isCodex ? session.codexApprovalPolicy : null,
+      approvalPolicy: isCodex
+          ? (useCodexProfile ? null : session.codexApprovalPolicy)
+          : null,
       planMode: isCodex
-          ? session.planMode
+          ? (useCodexProfile ? null : session.planMode)
           : derivePlanMode(
               planMode: sessionSettings?['planMode'] as bool?,
               permissionMode: permissionMode,
@@ -1011,12 +1116,21 @@ class _SessionListScreenState extends State<SessionListScreen>
       fallbackModel: !isCodex ? fallbackModel : null,
       forkSession: !isCodex ? forkSession : null,
       persistSession: !isCodex ? persistSession : null,
+      profile: isCodex ? session.codexProfile : null,
       provider: session.provider,
-      sandboxMode: isCodex ? session.codexSandboxMode : sandboxMode,
-      model: isCodex ? codexModel : claudeModel,
-      modelReasoningEffort: session.codexModelReasoningEffort,
-      networkAccessEnabled: session.codexNetworkAccessEnabled,
-      webSearchMode: session.codexWebSearchMode,
+      sandboxMode: isCodex
+          ? (useCodexProfile ? null : session.codexSandboxMode)
+          : sandboxMode,
+      model: isCodex ? (useCodexProfile ? null : codexModel) : claudeModel,
+      modelReasoningEffort: isCodex
+          ? (useCodexProfile ? null : session.codexModelReasoningEffort)
+          : null,
+      networkAccessEnabled: isCodex
+          ? (useCodexProfile ? null : session.codexNetworkAccessEnabled)
+          : null,
+      webSearchMode: isCodex
+          ? (useCodexProfile ? null : session.codexWebSearchMode)
+          : null,
     );
 
     // Persist settings for this session (so the next resume uses them too).
@@ -1044,6 +1158,10 @@ class _SessionListScreenState extends State<SessionListScreen>
       if (settings.isNotEmpty) {
         unawaited(saveClaudeSessionSettings(session.sessionId, settings));
       }
+    } else {
+      unawaited(
+        _saveProjectCodexProfile(session.projectPath, session.codexProfile),
+      );
     }
   }
 
@@ -1057,31 +1175,50 @@ class _SessionListScreenState extends State<SessionListScreen>
     _pendingResumeGitBranch = session.gitBranch;
 
     final isCodex = edited.provider == Provider.codex;
+    final useCodexProfile =
+        isCodex && (edited.codexProfile?.isNotEmpty ?? false);
     context.read<BridgeService>().resumeSession(
       session.sessionId,
       resumeProjectPath,
-      permissionMode: edited.permissionMode.value,
-      executionMode: edited.executionMode.value,
-      approvalPolicy: isCodex ? edited.codexApprovalPolicy.value : null,
-      planMode: edited.planMode,
+      permissionMode: isCodex && useCodexProfile
+          ? null
+          : edited.permissionMode.value,
+      executionMode: isCodex && useCodexProfile
+          ? null
+          : edited.executionMode.value,
+      approvalPolicy: isCodex
+          ? (useCodexProfile ? null : edited.codexApprovalPolicy.value)
+          : null,
+      planMode: isCodex && useCodexProfile ? null : edited.planMode,
       effort: !isCodex ? edited.claudeEffort?.value : null,
       maxTurns: !isCodex ? edited.claudeMaxTurns : null,
       maxBudgetUsd: !isCodex ? edited.claudeMaxBudgetUsd : null,
       fallbackModel: !isCodex ? edited.claudeFallbackModel : null,
       forkSession: !isCodex ? edited.claudeForkSession : null,
       persistSession: !isCodex ? edited.claudePersistSession : null,
+      profile: isCodex ? edited.codexProfile : null,
       provider: session.provider,
-      sandboxMode: edited.sandboxMode?.value,
+      sandboxMode: isCodex && useCodexProfile
+          ? null
+          : edited.sandboxMode?.value,
       model: isCodex
-          ? (normalizeCodexModelForAvailableList(
-                  edited.model,
-                  context.read<BridgeService>().codexModels,
-                ) ??
-                edited.model)
+          ? (useCodexProfile
+                ? null
+                : (normalizeCodexModelForAvailableList(
+                        edited.model,
+                        context.read<BridgeService>().codexModels,
+                      ) ??
+                      edited.model))
           : edited.claudeModel,
-      modelReasoningEffort: isCodex ? edited.modelReasoningEffort?.value : null,
-      networkAccessEnabled: isCodex ? edited.networkAccessEnabled : null,
-      webSearchMode: isCodex ? edited.webSearchMode?.value : null,
+      modelReasoningEffort: isCodex && useCodexProfile
+          ? null
+          : (isCodex ? edited.modelReasoningEffort?.value : null),
+      networkAccessEnabled: isCodex && useCodexProfile
+          ? null
+          : (isCodex ? edited.networkAccessEnabled : null),
+      webSearchMode: isCodex && useCodexProfile
+          ? null
+          : (isCodex ? edited.webSearchMode?.value : null),
     );
 
     // Persist per-session Claude settings for future resumes.
@@ -1092,6 +1229,8 @@ class _SessionListScreenState extends State<SessionListScreen>
           _claudeSettingsFromParams(edited),
         ),
       );
+    } else {
+      unawaited(_saveProjectCodexProfileFromParams(edited));
     }
   }
 

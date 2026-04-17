@@ -53,7 +53,7 @@ describe("parseClientMessage", () => {
 
   it("parses start with optional fields", () => {
     const msg = parseClientMessage(
-      '{"type":"start","projectPath":"/p","sessionId":"s1","continue":true,"permissionMode":"acceptEdits"}',
+      '{"type":"start","projectPath":"/p","sessionId":"s1","continue":true,"permissionMode":"acceptEdits","profile":"ccpocket"}',
     );
     expect(msg).toEqual({
       type: "start",
@@ -61,6 +61,7 @@ describe("parseClientMessage", () => {
       sessionId: "s1",
       continue: true,
       permissionMode: "acceptEdits",
+      profile: "ccpocket",
     });
   });
 
@@ -244,13 +245,14 @@ describe("parseClientMessage", () => {
 
   it("parses resume_session with provider", () => {
     const msg = parseClientMessage(
-      '{"type":"resume_session","sessionId":"s3","projectPath":"/p","provider":"codex"}',
+      '{"type":"resume_session","sessionId":"s3","projectPath":"/p","provider":"codex","profile":"ccpocket"}',
     );
     expect(msg).toEqual({
       type: "resume_session",
       sessionId: "s3",
       projectPath: "/p",
       provider: "codex",
+      profile: "ccpocket",
     });
   });
 

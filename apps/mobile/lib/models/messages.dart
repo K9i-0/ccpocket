@@ -573,6 +573,12 @@ sealed class ServerMessage {
         codexModels:
             (json['codexModels'] as List?)?.map((e) => e as String).toList() ??
             const [],
+        codexProfiles:
+            (json['codexProfiles'] as List?)
+                ?.map((e) => e as String)
+                .toList() ??
+            const [],
+        defaultCodexProfile: json['defaultCodexProfile'] as String?,
         bridgeVersion: json['bridgeVersion'] as String?,
       ),
       'recent_sessions' => RecentSessionsMessage(
@@ -1649,12 +1655,16 @@ class SessionListMessage implements ServerMessage {
   final List<String> allowedDirs;
   final List<String> claudeModels;
   final List<String> codexModels;
+  final List<String> codexProfiles;
+  final String? defaultCodexProfile;
   final String? bridgeVersion;
   const SessionListMessage({
     required this.sessions,
     this.allowedDirs = const [],
     this.claudeModels = const [],
     this.codexModels = const [],
+    this.codexProfiles = const [],
+    this.defaultCodexProfile,
     this.bridgeVersion,
   });
 }
@@ -2423,6 +2433,7 @@ class RecentSession {
   final bool planMode;
   final String? codexSandboxMode;
   final String? codexModel;
+  final String? codexProfile;
   final String? codexModelReasoningEffort;
   final bool? codexNetworkAccessEnabled;
   final String? codexWebSearchMode;
@@ -2447,6 +2458,7 @@ class RecentSession {
     this.planMode = false,
     this.codexSandboxMode,
     this.codexModel,
+    this.codexProfile,
     this.codexModelReasoningEffort,
     this.codexNetworkAccessEnabled,
     this.codexWebSearchMode,
@@ -2500,6 +2512,7 @@ class RecentSession {
       ),
       codexSandboxMode: codexSettings?['sandboxMode'] as String?,
       codexModel: sanitizeCodexModelName(codexSettings?['model'] as String?),
+      codexProfile: codexSettings?['profile'] as String?,
       codexModelReasoningEffort:
           codexSettings?['modelReasoningEffort'] as String?,
       codexNetworkAccessEnabled:
@@ -2543,6 +2556,7 @@ class RecentSession {
       planMode: planMode,
       codexSandboxMode: codexSandboxMode,
       codexModel: codexModel,
+      codexProfile: codexProfile,
       codexModelReasoningEffort: codexModelReasoningEffort,
       codexNetworkAccessEnabled: codexNetworkAccessEnabled,
       codexWebSearchMode: codexWebSearchMode,
@@ -2576,6 +2590,7 @@ class SessionInfo {
   final String? codexApprovalPolicy;
   final String? codexSandboxMode;
   final String? codexModel;
+  final String? codexProfile;
   final String? codexModelReasoningEffort;
   final bool? codexNetworkAccessEnabled;
   final String? codexWebSearchMode;
@@ -2603,6 +2618,7 @@ class SessionInfo {
     this.codexApprovalPolicy,
     this.codexSandboxMode,
     this.codexModel,
+    this.codexProfile,
     this.codexModelReasoningEffort,
     this.codexNetworkAccessEnabled,
     this.codexWebSearchMode,
@@ -2639,6 +2655,7 @@ class SessionInfo {
     String? codexApprovalPolicy,
     String? codexSandboxMode,
     String? codexModel,
+    String? codexProfile,
     String? codexModelReasoningEffort,
     bool? codexNetworkAccessEnabled,
     String? codexWebSearchMode,
@@ -2667,6 +2684,7 @@ class SessionInfo {
       codexApprovalPolicy: codexApprovalPolicy ?? this.codexApprovalPolicy,
       codexSandboxMode: codexSandboxMode ?? this.codexSandboxMode,
       codexModel: codexModel ?? this.codexModel,
+      codexProfile: codexProfile ?? this.codexProfile,
       codexModelReasoningEffort:
           codexModelReasoningEffort ?? this.codexModelReasoningEffort,
       codexNetworkAccessEnabled:
@@ -2715,6 +2733,7 @@ class SessionInfo {
       ),
       codexSandboxMode: codexSettings?['sandboxMode'] as String?,
       codexModel: sanitizeCodexModelName(codexSettings?['model'] as String?),
+      codexProfile: codexSettings?['profile'] as String?,
       codexModelReasoningEffort:
           codexSettings?['modelReasoningEffort'] as String?,
       codexNetworkAccessEnabled:
@@ -2753,6 +2772,7 @@ class ClientMessage {
     String? fallbackModel,
     bool? forkSession,
     bool? persistSession,
+    String? profile,
     bool? useWorktree,
     String? worktreeBranch,
     String? existingWorktreePath,
@@ -2778,6 +2798,7 @@ class ClientMessage {
       'fallbackModel': ?fallbackModel,
       'forkSession': ?forkSession,
       'persistSession': ?persistSession,
+      'profile': ?profile,
       if (useWorktree == true) 'useWorktree': true,
       if (worktreeBranch != null && worktreeBranch.isNotEmpty)
         'worktreeBranch': worktreeBranch,
@@ -2983,6 +3004,7 @@ class ClientMessage {
     String? fallbackModel,
     bool? forkSession,
     bool? persistSession,
+    String? profile,
     String? provider,
     String? sandboxMode,
     String? model,
@@ -3004,6 +3026,7 @@ class ClientMessage {
       'fallbackModel': ?fallbackModel,
       'forkSession': ?forkSession,
       'persistSession': ?persistSession,
+      'profile': ?profile,
       'provider': ?provider,
       'sandboxMode': ?sandboxMode,
       'model': ?model,

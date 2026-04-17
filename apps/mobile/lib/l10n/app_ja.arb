@@ -140,6 +140,7 @@
   "modelOptional": "モデル（任意）",
   "effort": "Effort",
   "defaultLabel": "デフォルト",
+  "codexProfilePrecedenceNote": "profile に同じ項目の設定がある場合、profile の設定が下記オプションより優先されます。",
   "maxTurns": "Max Turns",
   "maxTurnsHint": "例: 8",
   "maxTurnsError": "1以上の整数を入力してください",

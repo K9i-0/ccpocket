@@ -87,6 +87,8 @@ class BridgeService implements BridgeServiceBase {
   List<String> _allowedDirs = [];
   List<String> _claudeModels = [];
   List<String> _codexModels = [];
+  List<String> _codexProfiles = [];
+  String? _defaultCodexProfile;
   String? _bridgeVersion;
   UsageResultMessage? _lastUsageResult;
 
@@ -183,6 +185,8 @@ class BridgeService implements BridgeServiceBase {
   List<String> get allowedDirs => _allowedDirs;
   List<String> get claudeModels => _claudeModels;
   List<String> get codexModels => _codexModels;
+  List<String> get codexProfiles => _codexProfiles;
+  String? get defaultCodexProfile => _defaultCodexProfile;
   String? get bridgeVersion => _bridgeVersion;
   UsageResultMessage? get lastUsageResult => _lastUsageResult;
 
@@ -240,6 +244,8 @@ class BridgeService implements BridgeServiceBase {
                 :final allowedDirs,
                 :final claudeModels,
                 :final codexModels,
+                :final codexProfiles,
+                :final defaultCodexProfile,
                 :final bridgeVersion,
               ):
                 _sessions = sessions;
@@ -247,6 +253,8 @@ class BridgeService implements BridgeServiceBase {
                 _allowedDirs = allowedDirs;
                 _claudeModels = claudeModels;
                 _codexModels = codexModels;
+                _codexProfiles = codexProfiles;
+                _defaultCodexProfile = defaultCodexProfile;
                 _bridgeVersion = bridgeVersion;
               case RecentSessionsMessage(:final sessions, :final hasMore):
                 _recentSessionsHasMore = hasMore;
@@ -559,6 +567,7 @@ class BridgeService implements BridgeServiceBase {
     String? fallbackModel,
     bool? forkSession,
     bool? persistSession,
+    String? profile,
     String? provider,
     String? sandboxMode,
     String? model,
@@ -580,6 +589,7 @@ class BridgeService implements BridgeServiceBase {
         fallbackModel: fallbackModel,
         forkSession: forkSession,
         persistSession: persistSession,
+        profile: profile,
         provider: provider,
         sandboxMode: sandboxMode,
         model: model,

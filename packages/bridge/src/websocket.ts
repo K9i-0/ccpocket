@@ -254,6 +254,9 @@ export class BridgeWebSocketServer {
   private debugEvents = new Map<string, DebugTraceEvent[]>();
   private notifiedPermissionToolUses = new Map<string, Set<string>>();
   private archiveStore: ArchiveStore;
+  private codexProfiles: string[] = [];
+  private defaultCodexProfile: string | undefined;
+  private codexProfilesRequest: Promise<void> | null = null;
   /** FCM token → push notification locale */
   private tokenLocales = new Map<string, PushLocale>();
   private tokenPrivacyMode = new Map<string, boolean>();
@@ -524,6 +527,7 @@ export class BridgeWebSocketServer {
 
   private handleConnection(ws: WebSocket): void {
     // Send session list and project history on connect
+    void this.refreshCodexProfiles();
     this.sendSessionList(ws);
     const projects = this.projectHistory?.getProjects() ?? [];
     this.send(ws, { type: "project_history", projects });
@@ -624,6 +628,16 @@ export class BridgeWebSocketServer {
             console.log(
               `[ws] start(codex): execution=${executionMode} plan=${planMode}`,
             );
+            if (
+              msg.profile &&
+              !(await this.validateCodexProfile(msg.profile, projectPath))
+            ) {
+              this.send(ws, {
+                type: "error",
+                message: `Codex profile not found: ${msg.profile}`,
+              });
+              break;
+            }
           }
           const cached =
             provider === "claude"
@@ -656,6 +670,7 @@ export class BridgeWebSocketServer {
             provider,
             provider === "codex"
               ? {
+                  profile: msg.profile,
                   approvalPolicy:
                     codexApprovalPolicy ??
                     normalizeCodexApprovalPolicy(
@@ -2044,6 +2059,16 @@ export class BridgeWebSocketServer {
         // Resume flow: keep past history in SessionInfo and deliver it only
         // via get_history(sessionId) to avoid duplicate/missed replay races.
         if (provider === "codex") {
+          if (
+            msg.profile &&
+            !(await this.validateCodexProfile(msg.profile, resumeProjectPath))
+          ) {
+            this.send(ws, {
+              type: "error",
+              message: `Codex profile not found: ${msg.profile}`,
+            });
+            break;
+          }
           const wtMapping = this.worktreeStore.get(sessionRefId);
           const effectiveProjectPath =
             resolvePlatformPath(
@@ -2081,6 +2106,7 @@ export class BridgeWebSocketServer {
                 "codex",
                 {
                   threadId: sessionRefId,
+                  profile: msg.profile,
                   approvalPolicy:
                     codexApprovalPolicy ??
                     normalizeCodexApprovalPolicy(
@@ -3485,6 +3511,8 @@ export class BridgeWebSocketServer {
       allowedDirs: this.allowedDirs,
       claudeModels: CLAUDE_MODELS,
       codexModels: CODEX_MODELS,
+      codexProfiles: this.codexProfiles,
+      defaultCodexProfile: this.defaultCodexProfile,
       bridgeVersion: getPackageVersion(),
     });
   }
@@ -3499,6 +3527,8 @@ export class BridgeWebSocketServer {
       allowedDirs: this.allowedDirs,
       claudeModels: CLAUDE_MODELS,
       codexModels: CODEX_MODELS,
+      codexProfiles: this.codexProfiles,
+      defaultCodexProfile: this.defaultCodexProfile,
       bridgeVersion: getPackageVersion(),
     });
   }
@@ -3560,6 +3590,52 @@ export class BridgeWebSocketServer {
       searchQuery: msg.searchQuery,
       archivedSessionIds: this.archiveStore.archivedIds(),
     });
+  }
+
+  private async refreshCodexProfiles(projectPath?: string): Promise<void> {
+    if (this.codexProfilesRequest) return this.codexProfilesRequest;
+    this.codexProfilesRequest = this.loadCodexProfiles(projectPath)
+      .then(({ profiles, defaultProfile }) => {
+        this.codexProfiles = profiles;
+        this.defaultCodexProfile = defaultProfile;
+        this.broadcastSessionList();
+      })
+      .catch((err) => {
+        console.warn(`[ws] Failed to load Codex profiles: ${err}`);
+        this.codexProfiles = [];
+        this.defaultCodexProfile = undefined;
+      })
+      .finally(() => {
+        this.codexProfilesRequest = null;
+      });
+    return this.codexProfilesRequest;
+  }
+
+  private async loadCodexProfiles(
+    projectPath?: string,
+  ): Promise<{ profiles: string[]; defaultProfile?: string }> {
+    const process =
+      this.getActiveCodexProcess() ??
+      (await this.createStandaloneCodexProcess(projectPath));
+    const isStandalone = process !== this.getActiveCodexProcess();
+    try {
+      return await process.readProfileConfig(projectPath);
+    } finally {
+      if (isStandalone) {
+        process.stop();
+      }
+    }
+  }
+
+  private async validateCodexProfile(
+    profile: string | undefined,
+    projectPath?: string,
+  ): Promise<boolean> {
+    if (!profile) return true;
+    const snapshot = await this.loadCodexProfiles(projectPath);
+    this.codexProfiles = snapshot.profiles;
+    this.defaultCodexProfile = snapshot.defaultProfile;
+    return snapshot.profiles.includes(profile);
   }
 
   private getActiveCodexProcess(): CodexProcess | null {

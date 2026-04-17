@@ -131,6 +131,41 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("sends selected profile via config override on thread/start", async () => {
+    const proc = new CodexProcess("linux");
+
+    proc.start("/tmp/project-profile", {
+      profile: "ccpocket",
+      sandboxMode: "workspace-write",
+      approvalPolicy: "on-request",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child); // initialized
+
+    const startReq = nextOutgoingRequest(child);
+    expect(startReq.method).toBe("thread/start");
+    expect(startReq.params).toMatchObject({
+      cwd: "/tmp/project-profile",
+      approvalPolicy: "on-request",
+      sandbox: "workspace-write",
+      config: {
+        profile: "ccpocket",
+      },
+    });
+
+    proc.stop();
+  });
+
   it("uses cmd.exe to launch codex app-server on Windows", () => {
     const proc = new CodexProcess("win32");
 

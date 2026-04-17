@@ -19,6 +19,13 @@ class NewSessionParams {
   final Provider provider;
   final ExecutionMode executionMode;
   final CodexApprovalPolicy codexApprovalPolicy;
+  final String? codexProfile;
+  final bool codexApprovalPolicyOverridden;
+  final bool codexModelOverridden;
+  final bool codexSandboxModeOverridden;
+  final bool codexReasoningEffortOverridden;
+  final bool codexNetworkAccessOverridden;
+  final bool codexWebSearchModeOverridden;
   final bool planMode;
   final bool useWorktree;
   final String? worktreeBranch;
@@ -41,6 +48,13 @@ class NewSessionParams {
     this.provider = Provider.codex,
     ExecutionMode? executionMode,
     CodexApprovalPolicy? codexApprovalPolicy,
+    this.codexProfile,
+    this.codexApprovalPolicyOverridden = false,
+    this.codexModelOverridden = false,
+    this.codexSandboxModeOverridden = false,
+    this.codexReasoningEffortOverridden = false,
+    this.codexNetworkAccessOverridden = false,
+    this.codexWebSearchModeOverridden = false,
     bool? planMode,
     PermissionMode? permissionMode,
     this.useWorktree = false,
@@ -76,6 +90,71 @@ class NewSessionParams {
     executionMode: executionMode,
     planMode: planMode,
   );
+
+  NewSessionParams copyWith({
+    String? projectPath,
+    Provider? provider,
+    ExecutionMode? executionMode,
+    CodexApprovalPolicy? codexApprovalPolicy,
+    String? codexProfile,
+    bool? codexApprovalPolicyOverridden,
+    bool? codexModelOverridden,
+    bool? codexSandboxModeOverridden,
+    bool? codexReasoningEffortOverridden,
+    bool? codexNetworkAccessOverridden,
+    bool? codexWebSearchModeOverridden,
+    bool? planMode,
+    bool? useWorktree,
+    String? worktreeBranch,
+    String? existingWorktreePath,
+    String? model,
+    SandboxMode? sandboxMode,
+    ReasoningEffort? modelReasoningEffort,
+    bool? networkAccessEnabled,
+    WebSearchMode? webSearchMode,
+    String? claudeModel,
+    ClaudeEffort? claudeEffort,
+    int? claudeMaxTurns,
+    double? claudeMaxBudgetUsd,
+    String? claudeFallbackModel,
+    bool? claudeForkSession,
+    bool? claudePersistSession,
+  }) {
+    return NewSessionParams(
+      projectPath: projectPath ?? this.projectPath,
+      provider: provider ?? this.provider,
+      executionMode: executionMode ?? this.executionMode,
+      codexApprovalPolicy: codexApprovalPolicy ?? this.codexApprovalPolicy,
+      codexProfile: codexProfile ?? this.codexProfile,
+      codexApprovalPolicyOverridden:
+          codexApprovalPolicyOverridden ?? this.codexApprovalPolicyOverridden,
+      codexModelOverridden: codexModelOverridden ?? this.codexModelOverridden,
+      codexSandboxModeOverridden:
+          codexSandboxModeOverridden ?? this.codexSandboxModeOverridden,
+      codexReasoningEffortOverridden:
+          codexReasoningEffortOverridden ?? this.codexReasoningEffortOverridden,
+      codexNetworkAccessOverridden:
+          codexNetworkAccessOverridden ?? this.codexNetworkAccessOverridden,
+      codexWebSearchModeOverridden:
+          codexWebSearchModeOverridden ?? this.codexWebSearchModeOverridden,
+      planMode: planMode ?? this.planMode,
+      useWorktree: useWorktree ?? this.useWorktree,
+      worktreeBranch: worktreeBranch ?? this.worktreeBranch,
+      existingWorktreePath: existingWorktreePath ?? this.existingWorktreePath,
+      model: model ?? this.model,
+      sandboxMode: sandboxMode ?? this.sandboxMode,
+      modelReasoningEffort: modelReasoningEffort ?? this.modelReasoningEffort,
+      networkAccessEnabled: networkAccessEnabled ?? this.networkAccessEnabled,
+      webSearchMode: webSearchMode ?? this.webSearchMode,
+      claudeModel: claudeModel ?? this.claudeModel,
+      claudeEffort: claudeEffort ?? this.claudeEffort,
+      claudeMaxTurns: claudeMaxTurns ?? this.claudeMaxTurns,
+      claudeMaxBudgetUsd: claudeMaxBudgetUsd ?? this.claudeMaxBudgetUsd,
+      claudeFallbackModel: claudeFallbackModel ?? this.claudeFallbackModel,
+      claudeForkSession: claudeForkSession ?? this.claudeForkSession,
+      claudePersistSession: claudePersistSession ?? this.claudePersistSession,
+    );
+  }
 }
 
 // ---- Serialization helpers for SharedPreferences ----
@@ -318,14 +397,22 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   // Model lists from Bridge (with fallbacks)
   late final List<String> _claudeModelList;
   late final List<String> _codexModelList;
+  late final List<String> _codexProfiles;
 
   // Codex-specific options
   String? _selectedModel;
+  String? _selectedCodexProfile;
   var _claudeSandboxMode = SandboxMode.off; // Claude default = OFF
   var _codexSandboxMode = SandboxMode.on; // Codex default = ON
   ReasoningEffort _modelReasoningEffort = ReasoningEffort.high;
   bool _networkAccessEnabled = true;
   WebSearchMode? _webSearchMode;
+  bool _codexApprovalPolicyTouched = false;
+  bool _codexModelTouched = false;
+  bool _codexSandboxModeTouched = false;
+  bool _codexReasoningEffortTouched = false;
+  bool _codexNetworkAccessTouched = false;
+  bool _codexWebSearchTouched = false;
 
   // Project list expansion
   bool _isProjectListExpanded = false;
@@ -421,6 +508,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _codexModelList = bridgeCodexModels.isNotEmpty
         ? bridgeCodexModels
         : _defaultCodexModels;
+    _codexProfiles = widget.bridge?.codexProfiles ?? const [];
+    final defaultCodexProfile = widget.bridge?.defaultCodexProfile;
+    if (_codexProfiles.contains(defaultCodexProfile)) {
+      _selectedCodexProfile = defaultCodexProfile;
+    }
     _worktreeSub = widget.bridge?.worktreeList.listen((msg) {
       if (mounted) setState(() => _worktrees = msg.worktrees);
     });
@@ -503,6 +595,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _selectedModel = _codexModelList.contains(normalizedCodexModel)
         ? normalizedCodexModel
         : null;
+    _selectedCodexProfile = _codexProfiles.contains(p.codexProfile)
+        ? p.codexProfile
+        : null;
     if (p.provider == Provider.claude) {
       _claudeSandboxMode = p.sandboxMode ?? SandboxMode.off;
     } else {
@@ -523,6 +618,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         : null;
     _claudeForkSession = p.claudeForkSession ?? _claudeForkSession;
     _claudePersistSession = p.claudePersistSession ?? _claudePersistSession;
+    _codexApprovalPolicyTouched = p.codexApprovalPolicyOverridden;
+    _codexModelTouched = p.codexModelOverridden;
+    _codexSandboxModeTouched = p.codexSandboxModeOverridden;
+    _codexReasoningEffortTouched = p.codexReasoningEffortOverridden;
+    _codexNetworkAccessTouched = p.codexNetworkAccessOverridden;
+    _codexWebSearchTouched = p.codexWebSearchModeOverridden;
 
     if (p.existingWorktreePath != null) {
       _worktreeMode = _WorktreeMode.useExisting;
@@ -636,6 +737,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       provider: _provider,
       executionMode: _executionMode,
       codexApprovalPolicy: _codexApprovalPolicy,
+      codexProfile: isCodex ? _selectedCodexProfile : null,
+      codexApprovalPolicyOverridden: isCodex && _codexApprovalPolicyTouched,
+      codexModelOverridden: isCodex && _codexModelTouched,
+      codexSandboxModeOverridden: isCodex && _codexSandboxModeTouched,
+      codexReasoningEffortOverridden: isCodex && _codexReasoningEffortTouched,
+      codexNetworkAccessOverridden: isCodex && _codexNetworkAccessTouched,
+      codexWebSearchModeOverridden: isCodex && _codexWebSearchTouched,
       planMode: isCodex ? false : _planMode,
       useWorktree: useExisting ? false : _useWorktree,
       worktreeBranch: useExisting
@@ -760,7 +868,17 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             },
             codexApprovalPolicy: _codexApprovalPolicy,
             onCodexApprovalPolicyChanged: (value) {
-              setState(() => _codexApprovalPolicy = value);
+              setState(() {
+                _codexApprovalPolicy = value;
+                _codexApprovalPolicyTouched = true;
+              });
+            },
+            codexProfiles: _codexProfiles,
+            selectedCodexProfile: _selectedCodexProfile,
+            onCodexProfileChanged: (value) {
+              setState(() {
+                _selectedCodexProfile = value;
+              });
             },
             planMode: _planMode,
             onPlanModeChanged: (value) {
@@ -820,23 +938,40 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             codexModels: _codexModelList,
             selectedModel: _selectedModel,
             onSelectedModelChanged: (value) {
-              setState(() => _selectedModel = value);
+              setState(() {
+                _selectedModel = value;
+                _codexModelTouched = true;
+              });
             },
             sandboxMode: _sandboxMode,
             onSandboxModeChanged: (value) {
-              setState(() => _sandboxMode = value);
+              setState(() {
+                _sandboxMode = value;
+                if (_provider == Provider.codex) {
+                  _codexSandboxModeTouched = true;
+                }
+              });
             },
             modelReasoningEffort: _modelReasoningEffort,
             onModelReasoningEffortChanged: (value) {
-              setState(() => _modelReasoningEffort = value);
+              setState(() {
+                _modelReasoningEffort = value;
+                _codexReasoningEffortTouched = true;
+              });
             },
             webSearchMode: _webSearchMode,
             onWebSearchModeChanged: (value) {
-              setState(() => _webSearchMode = value);
+              setState(() {
+                _webSearchMode = value;
+                _codexWebSearchTouched = true;
+              });
             },
             networkAccessEnabled: _networkAccessEnabled,
             onNetworkAccessChanged: (value) {
-              setState(() => _networkAccessEnabled = value);
+              setState(() {
+                _networkAccessEnabled = value;
+                _codexNetworkAccessTouched = true;
+              });
             },
           ),
           const SizedBox(height: 16),
@@ -1307,6 +1442,9 @@ class _OptionsSection extends StatelessWidget {
   final ValueChanged<ExecutionMode> onExecutionModeChanged;
   final CodexApprovalPolicy codexApprovalPolicy;
   final ValueChanged<CodexApprovalPolicy> onCodexApprovalPolicyChanged;
+  final List<String> codexProfiles;
+  final String? selectedCodexProfile;
+  final ValueChanged<String?> onCodexProfileChanged;
   final bool planMode;
   final ValueChanged<bool> onPlanModeChanged;
   final bool useWorktree;
@@ -1364,6 +1502,9 @@ class _OptionsSection extends StatelessWidget {
     required this.onExecutionModeChanged,
     required this.codexApprovalPolicy,
     required this.onCodexApprovalPolicyChanged,
+    required this.codexProfiles,
+    required this.selectedCodexProfile,
+    required this.onCodexProfileChanged,
     required this.planMode,
     required this.onPlanModeChanged,
     required this.useWorktree,
@@ -1642,6 +1783,43 @@ class _OptionsSection extends StatelessWidget {
               ),
             ),
           ),
+          if (provider == Provider.codex && codexProfiles.isNotEmpty) ...[
+            DropdownButtonFormField<String?>(
+              key: const ValueKey('dialog_codex_profile'),
+              initialValue: selectedCodexProfile,
+              isExpanded: true,
+              decoration: buildInputDecoration('Profile'),
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              items: [
+                DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text(
+                    l.defaultLabel,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                for (final profile in codexProfiles)
+                  DropdownMenuItem<String?>(
+                    value: profile,
+                    child: Text(profile, style: const TextStyle(fontSize: 13)),
+                  ),
+              ],
+              onChanged: onCodexProfileChanged,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l.codexProfilePrecedenceNote,
+              style: TextStyle(
+                fontSize: 12,
+                color: appColors.subtleText,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           provider == Provider.codex
               ? modeSelectorField(
                   key: const ValueKey('dialog_codex_approval_policy'),

@@ -319,6 +319,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get defaultLabel => 'デフォルト';
 
   @override
+  String get codexProfilePrecedenceNote =>
+      'profile に同じ項目の設定がある場合、profile の設定が下記オプションより優先されます。';
+
+  @override
   String get maxTurns => 'Max Turns';
 
   @override

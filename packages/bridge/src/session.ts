@@ -7,6 +7,7 @@ import {
   pathToSlug,
   renameClaudeSession,
   renameCodexSession,
+  saveCodexSessionProfile,
 } from "./sessions-index.js";
 import {
   SdkProcess,
@@ -53,6 +54,7 @@ export interface SessionInfo {
   worktreeBranch?: string;
   /** Codex-specific settings used to start this session (for resume). */
   codexSettings?: {
+    profile?: string;
     approvalPolicy?: string;
     sandboxMode?: string;
     model?: string;
@@ -83,6 +85,7 @@ export interface SessionSummary {
   planMode?: boolean;
   model?: string;
   codexSettings?: {
+    profile?: string;
     approvalPolicy?: string;
     sandboxMode?: string;
     model?: string;
@@ -312,6 +315,12 @@ export class SessionManager {
           if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
             session.claudeSessionId = msg.sessionId;
             this.saveWorktreeMapping(session);
+            if (session.codexSettings?.profile) {
+              void saveCodexSessionProfile(
+                msg.sessionId,
+                session.codexSettings.profile,
+              );
+            }
           }
           if (msg.type === "system") {
             session.codexSettings = mergeCodexSettings(
@@ -524,6 +533,7 @@ export class SessionManager {
 
     if (effectiveProvider === "codex" && codexOptions) {
       session.codexSettings = {
+        profile: codexOptions.profile,
         approvalPolicy: codexOptions.approvalPolicy,
         sandboxMode: codexOptions.sandboxMode,
         model: codexOptions.model,
@@ -535,6 +545,9 @@ export class SessionManager {
       if (codexOptions.threadId) {
         session.claudeSessionId = codexOptions.threadId;
         this.saveWorktreeMapping(session);
+        if (codexOptions.profile) {
+          void saveCodexSessionProfile(codexOptions.threadId, codexOptions.profile);
+        }
       }
     }
 

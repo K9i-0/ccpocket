@@ -162,6 +162,7 @@
   "modelOptional": "模型（可选）",
   "effort": "Effort",
   "defaultLabel": "默认",
+  "codexProfilePrecedenceNote": "如果所选 profile 定义了相同设置，则 profile 设置会优先于下方选项。",
   "maxTurns": "最大轮数",
   "maxTurnsHint": "例如：8",
   "maxTurnsError": "必须输入大于 0 的整数",

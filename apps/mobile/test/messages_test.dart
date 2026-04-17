@@ -51,12 +51,14 @@ void main() {
       final msg = ClientMessage.start(
         '/tmp/project',
         provider: 'codex',
+        profile: 'ccpocket',
         modelReasoningEffort: 'high',
         networkAccessEnabled: true,
         webSearchMode: 'live',
       );
 
       final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(json['profile'], 'ccpocket');
       expect(json['modelReasoningEffort'], 'high');
       expect(json['networkAccessEnabled'], true);
       expect(json['webSearchMode'], 'live');
@@ -74,15 +76,34 @@ void main() {
         'projectPath': '/tmp/project',
         'isSidechain': false,
         'codexSettings': {
+          'profile': 'ccpocket',
           'modelReasoningEffort': 'medium',
           'networkAccessEnabled': false,
           'webSearchMode': 'cached',
         },
       });
 
+      expect(session.codexProfile, 'ccpocket');
       expect(session.codexModelReasoningEffort, 'medium');
       expect(session.codexNetworkAccessEnabled, false);
       expect(session.codexWebSearchMode, 'cached');
+    });
+
+    test('SessionListMessage parses codex profiles', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'session_list',
+        'sessions': const [],
+        'allowedDirs': const [],
+        'claudeModels': const [],
+        'codexModels': const [],
+        'codexProfiles': ['ccpocket', 'research'],
+        'defaultCodexProfile': 'ccpocket',
+      });
+
+      expect(msg, isA<SessionListMessage>());
+      final sessionList = msg as SessionListMessage;
+      expect(sessionList.codexProfiles, ['ccpocket', 'research']);
+      expect(sessionList.defaultCodexProfile, 'ccpocket');
     });
 
     test('RecentSession parses resumeCwd for worktree resume target', () {

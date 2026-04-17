@@ -9,6 +9,7 @@ import { resolvePlatformPath } from "./path-utils.js";
 
 export interface CodexStartOptions {
   threadId?: string;
+  profile?: string;
   approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
   sandboxMode?: "read-only" | "workspace-write" | "danger-full-access";
   model?: string;
@@ -140,6 +141,11 @@ interface CodexResolvedSettings {
   modelReasoningEffort?: string;
   networkAccessEnabled?: boolean;
   webSearchMode?: string;
+}
+
+export interface CodexProfileConfig {
+  profiles: string[];
+  defaultProfile?: string;
 }
 
 export function buildCodexSpawnSpec(
@@ -872,6 +878,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       if (options?.threadId) {
         threadParams.persistExtendedHistory = true;
       }
+      if (options?.profile) {
+        threadParams.config = {
+          profile: options.profile,
+          ...(threadParams.config as Record<string, unknown> | undefined),
+        };
+      }
 
       const response = (await this.request(method, threadParams)) as Record<
         string,
@@ -959,6 +971,29 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       },
     });
     this.notify("initialized", {});
+  }
+
+  async readProfileConfig(
+    cwd?: string,
+  ): Promise<CodexProfileConfig> {
+    const response = (await this.request("config/read", {
+      includeLayers: false,
+      ...(cwd ? { cwd } : {}),
+    })) as {
+      config?: {
+        profile?: unknown;
+        profiles?: Record<string, unknown>;
+      };
+    };
+    const config = response.config;
+    const profiles = config?.profiles;
+    return {
+      profiles: profiles ? Object.keys(profiles).sort() : [],
+      defaultProfile:
+        typeof config?.profile === "string" && config.profile.trim().length > 0
+          ? config.profile.trim()
+          : undefined,
+    };
   }
 
   private async fetchCompletionEntities(projectPath: string): Promise<void> {

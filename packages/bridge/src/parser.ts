@@ -74,6 +74,7 @@ export type ClientMessage =
       fallbackModel?: string;
       forkSession?: boolean;
       persistSession?: boolean;
+      profile?: string;
       modelReasoningEffort?: string;
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
@@ -156,6 +157,7 @@ export type ClientMessage =
       fallbackModel?: string;
       forkSession?: boolean;
       persistSession?: boolean;
+      profile?: string;
       modelReasoningEffort?: string;
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
@@ -621,6 +623,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
           typeof msg.persistSession !== "boolean"
         )
           return null;
+        if (msg.profile !== undefined && typeof msg.profile !== "string")
+          return null;
         if (
           msg.networkAccessEnabled !== undefined &&
           typeof msg.networkAccessEnabled !== "boolean"
@@ -802,6 +806,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
           msg.persistSession !== undefined &&
           typeof msg.persistSession !== "boolean"
         )
+          return null;
+        if (msg.profile !== undefined && typeof msg.profile !== "string")
           return null;
         if (
           msg.networkAccessEnabled !== undefined &&

@@ -317,6 +317,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get defaultLabel => '默认';
 
   @override
+  String get codexProfilePrecedenceNote =>
+      '如果所选 profile 定义了相同设置，则 profile 设置会优先于下方选项。';
+
+  @override
   String get maxTurns => '最大轮数';
 
   @override

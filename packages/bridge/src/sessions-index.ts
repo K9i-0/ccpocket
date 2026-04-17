@@ -24,6 +24,7 @@ export interface SessionIndexEntry {
   permissionMode?: string;
   isSidechain: boolean;
   codexSettings?: {
+    profile?: string;
     approvalPolicy?: string;
     sandboxMode?: string;
     model?: string;
@@ -1434,6 +1435,51 @@ export async function loadCodexSessionNames(): Promise<Map<string, string>> {
   return names;
 }
 
+export async function loadCodexSessionProfiles(): Promise<Map<string, string>> {
+  const path = join(homedir(), ".codex", "ccpocket-session-profiles.json");
+  let raw: string;
+  try {
+    raw = await readFile(path, "utf-8");
+  } catch {
+    return new Map();
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return new Map();
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return new Map();
+  }
+
+  const profiles = new Map<string, string>();
+  for (const [threadId, profile] of Object.entries(
+    parsed as Record<string, unknown>,
+  )) {
+    if (typeof profile === "string" && profile.trim().length > 0) {
+      profiles.set(threadId, profile.trim());
+    }
+  }
+  return profiles;
+}
+
+export async function saveCodexSessionProfile(
+  threadId: string,
+  profile: string | null,
+): Promise<void> {
+  const path = join(homedir(), ".codex", "ccpocket-session-profiles.json");
+  const existing = await loadCodexSessionProfiles();
+  if (profile && profile.trim().length > 0) {
+    existing.set(threadId, profile.trim());
+  } else {
+    existing.delete(threadId);
+  }
+  const next = Object.fromEntries(existing.entries());
+  await writeFile(path, JSON.stringify(next, null, 2), "utf-8");
+}
+
 /**
  * Rename a Codex session by appending to ~/.codex/session_index.jsonl.
  * Passing `null` or empty name writes an empty thread_name to effectively clear it.
@@ -1466,6 +1512,7 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
 
   // Load thread names from session_index.jsonl
   const threadNames = await loadCodexSessionNames();
+  const threadProfiles = await loadCodexSessionProfiles();
 
   for (const filePath of files) {
     let raw: string;
@@ -1485,6 +1532,13 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
     const threadName = threadNames.get(parsed.threadId);
     if (threadName) {
       parsed.entry.name = threadName;
+    }
+    const threadProfile = threadProfiles.get(parsed.threadId);
+    if (threadProfile) {
+      parsed.entry.codexSettings = {
+        ...(parsed.entry.codexSettings ?? {}),
+        profile: threadProfile,
+      };
     }
     entries.push(parsed.entry);
     options.perfStats && (options.perfStats.entriesReturned += 1);

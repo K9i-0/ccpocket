@@ -3,8 +3,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/widgets/new_session_sheet.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+
+class _BridgeWithCodexProfiles extends BridgeService {
+  _BridgeWithCodexProfiles({
+    required this.availableProfiles,
+    this.defaultProfile,
+  });
+
+  final List<String> availableProfiles;
+  final String? defaultProfile;
+
+  @override
+  List<String> get codexProfiles => availableProfiles;
+
+  @override
+  String? get defaultCodexProfile => defaultProfile;
+}
 
 Widget _wrap(Widget child) {
   return MaterialApp(
@@ -157,6 +174,72 @@ void main() {
   });
 
   group('NewSessionSheet - worktree UI', () {
+    testWidgets('Codex profile picker stays hidden when no profiles exist', (
+      tester,
+    ) async {
+      _enlargeViewport(tester);
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                showNewSessionSheet(
+                  context: context,
+                  recentProjects: [(path: '/test/proj', name: 'proj')],
+                  bridge: _BridgeWithCodexProfiles(availableProfiles: const []),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('dialog_codex_profile')), findsNothing);
+    });
+
+    testWidgets('Codex profile picker appears when profiles exist', (
+      tester,
+    ) async {
+      _enlargeViewport(tester);
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                showNewSessionSheet(
+                  context: context,
+                  recentProjects: [(path: '/test/proj', name: 'proj')],
+                  bridge: _BridgeWithCodexProfiles(
+                    availableProfiles: const ['ccpocket'],
+                    defaultProfile: 'ccpocket',
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('dialog_codex_profile')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'If the selected profile defines the same setting, the profile takes precedence over the options below.',
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('Worktree FilterChip toggles', (tester) async {
       _enlargeViewport(tester);
       await tester.pumpWidget(
