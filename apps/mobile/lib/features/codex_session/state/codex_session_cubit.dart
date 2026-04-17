@@ -13,6 +13,8 @@ class CodexSessionCubit extends ChatSessionCubit {
     required super.sessionId,
     required super.bridge,
     required super.streamingCubit,
+    super.initialExplorerCurrentPath,
+    super.initialRecentPeekedFiles,
     super.initialSandboxMode,
     super.initialPermissionMode,
     super.initialCodexApprovalPolicy,

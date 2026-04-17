@@ -23,6 +23,7 @@ class BridgeService implements BridgeServiceBase {
       StreamController<BridgeConnectionState>.broadcast();
   final _sessionListController =
       StreamController<List<SessionInfo>>.broadcast();
+  final _sessionStoppedController = StreamController<String>.broadcast();
   final _recentSessionsController =
       StreamController<List<RecentSession>>.broadcast();
   final _galleryController = StreamController<List<GalleryImage>>.broadcast();
@@ -118,6 +119,7 @@ class BridgeService implements BridgeServiceBase {
       _connectionController.stream;
   @override
   Stream<List<SessionInfo>> get sessionList => _sessionListController.stream;
+  Stream<String> get stoppedSessions => _sessionStoppedController.stream;
   Stream<List<RecentSession>> get recentSessionsStream =>
       _recentSessionsController.stream;
   Stream<List<GalleryImage>> get galleryStream => _galleryController.stream;
@@ -603,6 +605,7 @@ class BridgeService implements BridgeServiceBase {
   @override
   void stopSession(String sessionId) {
     send(ClientMessage.stopSession(sessionId));
+    _sessionStoppedController.add(sessionId);
     clearDiffImageCache();
   }
 
@@ -1119,6 +1122,7 @@ class BridgeService implements BridgeServiceBase {
     _taggedMessageController.close();
     _connectionController.close();
     _sessionListController.close();
+    _sessionStoppedController.close();
     _recentSessionsController.close();
     _galleryController.close();
     _fileListController.close();

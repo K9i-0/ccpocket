@@ -50,6 +50,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     this.provider,
     required BridgeService bridge,
     required StreamingStateCubit streamingCubit,
+    String initialExplorerCurrentPath = '',
+    List<String> initialRecentPeekedFiles = const [],
     PermissionMode? initialPermissionMode,
     SandboxMode? initialSandboxMode,
     CodexApprovalPolicy? initialCodexApprovalPolicy,
@@ -76,6 +78,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
                initialSandboxMode ??
                (provider == Provider.codex ? SandboxMode.on : SandboxMode.off),
            inPlanMode: initialPermissionMode == PermissionMode.plan,
+           explorerCurrentPath: initialExplorerCurrentPath.trim(),
+           recentPeekedFiles: initialRecentPeekedFiles
+               .map((file) => file.trim())
+               .where((file) => file.isNotEmpty)
+               .take(10)
+               .toList(),
          ),
        ) {
     // Subscribe to messages for this session

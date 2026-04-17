@@ -99,11 +99,14 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   late String? _gitBranch;
   late String? _worktreePath;
   late bool _isPending;
+  var _explorerCurrentPath = '';
+  List<String> _recentPeekedFiles = const [];
   SandboxMode? _sandboxMode;
   PermissionMode? _permissionMode;
   CodexApprovalPolicy? _codexApprovalPolicy;
   StreamSubscription<ServerMessage>? _pendingSub;
   StreamSubscription<ServerMessage>? _sandboxRestartSub;
+  StreamSubscription<String>? _sessionStoppedSub;
 
   @override
   void initState() {
@@ -123,6 +126,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       _listenForSessionCreated();
     }
     _listenForSandboxRestart();
+    _listenForSessionStopped();
   }
 
   void _listenForSessionCreated() {
@@ -221,11 +225,33 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     _pendingSub = null;
   }
 
+  void _listenForSessionStopped() {
+    final bridge = context.read<BridgeService>();
+    _sessionStoppedSub = bridge.stoppedSessions.listen((stoppedSessionId) {
+      if (!mounted || stoppedSessionId != _sessionId) return;
+      setState(() {
+        _explorerCurrentPath = '';
+        _recentPeekedFiles = const [];
+      });
+    });
+  }
+
+  void updateExplorerState({
+    required String currentPath,
+    required List<String> recentPeekedFiles,
+  }) {
+    setState(() {
+      _explorerCurrentPath = currentPath;
+      _recentPeekedFiles = recentPeekedFiles;
+    });
+  }
+
   @override
   void dispose() {
     widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
     _pendingSub?.cancel();
     _sandboxRestartSub?.cancel();
+    _sessionStoppedSub?.cancel();
     super.dispose();
   }
 
@@ -253,6 +279,8 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       projectPath: _projectPath,
       gitBranch: _gitBranch,
       worktreePath: _worktreePath,
+      explorerCurrentPath: _explorerCurrentPath,
+      recentPeekedFiles: _recentPeekedFiles,
       sandboxMode: _sandboxMode,
       permissionMode: _permissionMode,
       codexApprovalPolicy: _codexApprovalPolicy,
@@ -269,6 +297,8 @@ class _CodexProviders extends StatelessWidget {
   final String? projectPath;
   final String? gitBranch;
   final String? worktreePath;
+  final String explorerCurrentPath;
+  final List<String> recentPeekedFiles;
   final SandboxMode? sandboxMode;
   final PermissionMode? permissionMode;
   final CodexApprovalPolicy? codexApprovalPolicy;
@@ -279,6 +309,8 @@ class _CodexProviders extends StatelessWidget {
     this.projectPath,
     this.gitBranch,
     this.worktreePath,
+    this.explorerCurrentPath = '',
+    this.recentPeekedFiles = const [],
     this.sandboxMode,
     this.permissionMode,
     this.codexApprovalPolicy,
@@ -296,6 +328,8 @@ class _CodexProviders extends StatelessWidget {
             sessionId: sessionId,
             bridge: bridge,
             streamingCubit: streamingCubit,
+            initialExplorerCurrentPath: explorerCurrentPath,
+            initialRecentPeekedFiles: recentPeekedFiles,
             initialSandboxMode: sandboxMode,
             initialPermissionMode: permissionMode,
             initialCodexApprovalPolicy: codexApprovalPolicy,
@@ -584,18 +618,28 @@ class _CodexChatBody extends HookWidget {
                     ),
                     tooltip: 'Explore',
                     onPressed: () async {
+                      final parentState = context
+                          .findAncestorStateOfType<_CodexSessionScreenState>();
                       final result = await context.router.push(
                         ExploreRoute(
                           sessionId: sessionId,
                           projectPath: projectPath!,
                           initialFiles: context.read<FileListCubit>().state,
-                          initialPath: sessionState.explorerCurrentPath,
-                          recentPeekedFiles: sessionState.recentPeekedFiles,
+                          initialPath:
+                              parentState?._explorerCurrentPath ??
+                              sessionState.explorerCurrentPath,
+                          recentPeekedFiles:
+                              parentState?._recentPeekedFiles ??
+                              sessionState.recentPeekedFiles,
                         ),
                       );
                       if (result is! ExploreScreenResult || !context.mounted) {
                         return;
                       }
+                      parentState?.updateExplorerState(
+                        currentPath: result.currentPath,
+                        recentPeekedFiles: result.recentPeekedFiles,
+                      );
                       final cubit = context.read<ChatSessionCubit>();
                       cubit.setExplorerCurrentPath(result.currentPath);
                       cubit.setRecentPeekedFiles(result.recentPeekedFiles);
