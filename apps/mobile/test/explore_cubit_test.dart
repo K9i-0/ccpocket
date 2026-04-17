@@ -1,8 +1,36 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:ccpocket/features/explore/explore_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:ccpocket/features/explore/state/explore_cubit.dart';
 import 'package:ccpocket/features/explore/widgets/explore_empty_state.dart';
+import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/services/bridge_service.dart';
+import 'package:ccpocket/theme/app_theme.dart';
+
+class _TestBridgeService extends BridgeService {
+  final _fileContentController =
+      StreamController<FileContentMessage>.broadcast();
+  final sentMessages = <ClientMessage>[];
+
+  @override
+  Stream<FileContentMessage> get fileContent => _fileContentController.stream;
+
+  @override
+  void send(ClientMessage message) {
+    sentMessages.add(message);
+  }
+
+  @override
+  void dispose() {
+    _fileContentController.close();
+    super.dispose();
+  }
+}
 
 void main() {
   group('buildExploreEntries', () {
@@ -125,6 +153,53 @@ void main() {
 
       expect(find.text('No files to explore'), findsOneWidget);
       expect(find.textContaining('Git-listed files only'), findsOneWidget);
+    });
+  });
+
+  group('Explore recent files', () {
+    testWidgets('shows recent open files only and opens file peek', (
+      tester,
+    ) async {
+      final bridge = _TestBridgeService();
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        RepositoryProvider<BridgeService>.value(
+          value: bridge,
+          child: MaterialApp(
+            theme: AppTheme.darkTheme,
+            home: const ExploreScreen(
+              sessionId: 'session-1',
+              projectPath: '/tmp/project',
+              initialFiles: ['lib/main.dart', 'docs/readme.md'],
+              recentPeekedFiles: ['lib/main.dart'],
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('explore_recent_files_button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recent open files'), findsOneWidget);
+      expect(find.text('Current location'), findsNothing);
+      expect(find.text('Project root'), findsNothing);
+
+      await tester.tap(find.text('main.dart'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byIcon(Icons.content_copy), findsOneWidget);
+      expect(bridge.sentMessages, hasLength(1));
+
+      final payload =
+          jsonDecode(bridge.sentMessages.single.toJson())
+              as Map<String, dynamic>;
+      expect(payload['type'], 'read_file');
+      expect(payload['projectPath'], '/tmp/project');
+      expect(payload['filePath'], 'lib/main.dart');
     });
   });
 }

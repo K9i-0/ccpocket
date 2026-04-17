@@ -72,23 +72,37 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) => _RecentFilesSheet(
-        currentPath: cubit.state.currentPath,
         recentFiles: cubit.recentPeekedFiles,
         availableFiles: cubit.allFiles.toSet(),
       ),
     );
     if (!mounted || picked == null) return;
-    switch (picked) {
-      case _RecentFilesSheet.currentLocationValue:
-        return;
-      case _RecentFilesSheet.projectRootValue:
-        setState(() => _highlightedFilePath = null);
-        cubit.openDirectory('');
-        return;
-      default:
-        setState(() => _highlightedFilePath = picked);
-        cubit.jumpToFile(picked);
+    await _openFilePeek(cubit, picked, navigateToFileDirectory: true);
+  }
+
+  Future<void> _openFilePeek(
+    ExploreCubit cubit,
+    String filePath, {
+    bool navigateToFileDirectory = false,
+  }) async {
+    setState(() => _highlightedFilePath = filePath);
+    if (navigateToFileDirectory) {
+      cubit.jumpToFile(filePath);
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
     }
+    await showFilePeekSheet(
+      context,
+      bridge: context.read<BridgeService>(),
+      projectPath: widget.projectPath,
+      filePath: filePath,
+      onOpened: () {
+        cubit.recordPeekedFile(filePath);
+        if (mounted) {
+          setState(() => _highlightedFilePath = filePath);
+        }
+      },
+    );
   }
 
   void _ensureHighlightedVisible() {
@@ -173,18 +187,7 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
               context.read<ExploreCubit>().openDirectory(entry.relativePath);
               return;
             }
-            showFilePeekSheet(
-              context,
-              bridge: context.read<BridgeService>(),
-              projectPath: widget.projectPath,
-              filePath: entry.relativePath,
-              onOpened: () {
-                context.read<ExploreCubit>().recordPeekedFile(
-                  entry.relativePath,
-                );
-                setState(() => _highlightedFilePath = entry.relativePath);
-              },
-            );
+            _openFilePeek(context.read<ExploreCubit>(), entry.relativePath);
           },
         );
     }
@@ -192,15 +195,10 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
 }
 
 class _RecentFilesSheet extends StatelessWidget {
-  static const currentLocationValue = '__current__';
-  static const projectRootValue = '__root__';
-
-  final String currentPath;
   final List<String> recentFiles;
   final Set<String> availableFiles;
 
   const _RecentFilesSheet({
-    required this.currentPath,
     required this.recentFiles,
     required this.availableFiles,
   });
@@ -221,31 +219,26 @@ class _RecentFilesSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.navigation_outlined),
-            title: const Text('Current location'),
-            subtitle: Text(
-              currentPath.isEmpty ? '/' : currentPath,
-              style: TextStyle(fontFamily: 'monospace', color: subtle),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                Icon(Icons.history, size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Recent open files',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
             ),
-            onTap: () => Navigator.of(context).pop(currentLocationValue),
-          ),
-          ListTile(
-            leading: const Icon(Icons.home_outlined),
-            title: const Text('Project root'),
-            subtitle: Text(
-              '/',
-              style: TextStyle(fontFamily: 'monospace', color: subtle),
-            ),
-            onTap: () => Navigator.of(context).pop(projectRootValue),
           ),
           const Divider(height: 1),
           if (recentFiles.isEmpty)
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 20, 16, 24),
-              child: Text('No recent files yet'),
+              child: Text('No recent open files yet'),
             )
           else
             Flexible(
