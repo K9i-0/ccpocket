@@ -117,7 +117,7 @@
   "modelOptional": "Model (optional)",
   "effort": "Effort",
   "defaultLabel": "Default",
-  "codexProfilePrecedenceNote": "If the selected profile defines the same setting, the profile takes precedence over the options below.",
+  "codexProfilePrecedenceNote": "If the selected profile includes the same setting, it takes precedence over the options below.",
   "maxTurns": "Max Turns",
   "maxTurnsHint": "e.g. 8",
   "maxTurnsError": "Must be an integer > 0",

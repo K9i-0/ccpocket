@@ -691,7 +691,7 @@ abstract class AppLocalizations {
   /// No description provided for @codexProfilePrecedenceNote.
   ///
   /// In ja, this message translates to:
-  /// **'profile に同じ項目の設定がある場合、profile の設定が下記オプションより優先されます。'**
+  /// **'Profile で同じ設定を指定している場合は、以下の項目より Profile の設定が優先されます。'**
   String get codexProfilePrecedenceNote;
 
   /// No description provided for @maxTurns.

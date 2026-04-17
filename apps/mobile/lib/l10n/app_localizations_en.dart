@@ -322,7 +322,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get codexProfilePrecedenceNote =>
-      'If the selected profile defines the same setting, the profile takes precedence over the options below.';
+      'If the selected profile includes the same setting, it takes precedence over the options below.';
 
   @override
   String get maxTurns => 'Max Turns';

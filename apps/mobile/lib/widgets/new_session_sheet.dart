@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
+import '../features/session_list/session_list_screen.dart'
+    show recentProjects, shortenPath;
 import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 import '../models/new_session_tab.dart';
-import '../features/session_list/session_list_screen.dart'
-    show recentProjects, shortenPath;
 import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
@@ -1809,16 +1809,19 @@ class _OptionsSection extends StatelessWidget {
               ],
               onChanged: onCodexProfileChanged,
             ),
-            const SizedBox(height: 8),
-            Text(
-              l.codexProfilePrecedenceNote,
-              style: TextStyle(
-                fontSize: 12,
-                color: appColors.subtleText,
-                height: 1.35,
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                l.codexProfilePrecedenceNote,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: appColors.subtleText,
+                  height: 1.4,
+                ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
           ],
           provider == Provider.codex
               ? modeSelectorField(
