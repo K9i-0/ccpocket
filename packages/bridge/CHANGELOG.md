@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.38.0] - 2026-04-17
+
+### Added
+- Support listing Codex config profiles via app-server `config/read` and expose them to mobile clients
+- Preserve selected Codex profiles in recent-session metadata and pass profiles through start/resume flows
+
+### Changed
+- Treat selected Codex profiles as the source of truth for overlapping session options when starting or resuming from the mobile app
+
 ## [1.37.1] - 2026-04-17
 
 ### Fixed
