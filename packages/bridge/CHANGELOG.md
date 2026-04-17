@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.38.1] - 2026-04-17
+
+### Changed
+- Update the Claude Agent SDK to support `claude-opus-4-7`
+
+### Fixed
+- Force adaptive thinking for Opus 4.7 sessions to avoid `thinking.type.enabled` API errors
+
 ## [1.38.0] - 2026-04-17
 
 ### Added
