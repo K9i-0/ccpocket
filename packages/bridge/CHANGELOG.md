@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.39.0] - 2026-04-17
+
+### Added
+- Support Claude `auto` permission mode in Bridge session metadata, parser output, and mobile-facing session state
+
+### Changed
+- Fall back Claude sessions to `default` permission mode when `auto` is unavailable in the current environment
+- Return structured `auto_mode_unavailable` errors so mobile clients can roll back the UI cleanly and show a warning
+
 ## [1.38.1] - 2026-04-17
 
 ### Changed

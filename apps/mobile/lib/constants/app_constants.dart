@@ -4,7 +4,7 @@ class AppConstants {
 
   /// Expected Bridge Server version (from packages/bridge/package.json)
   /// Used to check if the server needs updating
-  static const String expectedBridgeVersion = '1.38.1';
+  static const String expectedBridgeVersion = '1.39.0';
 
   /// Maximum number of machines to keep in history
   /// Favorites are always kept, non-favorites are pruned by lastConnected
