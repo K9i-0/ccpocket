@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.66.1] - 2026-04-19
+
+### Changed
+- Update the macOS release workflow to provision Developer ID signing assets through App Store Connect before packaging the app
+
+### Fixed
+- Restore GitHub Release macOS builds by embedding the required provisioning profile in the signed app bundle
+- Re-sign the released macOS app with hardened runtime and a secure timestamp so notarization succeeds
+
 ## [1.66.0] - 2026-04-17
 
 ### Added
