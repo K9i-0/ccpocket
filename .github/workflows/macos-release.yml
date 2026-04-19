@@ -81,17 +81,39 @@ jobs:
         working-directory: apps/mobile
         run: flutter build macos --release
 
-      - name: Verify signed app bundle
+      - name: Re-sign and verify signed app bundle
         id: app
         run: |
           APP_PATH="apps/mobile/build/macos/Build/Products/Release/CC Pocket.app"
           echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
+
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::Developer ID Application identity not found in keychain"
+            exit 1
+          fi
+
+          # Re-sign the final app bundle for notarization requirements.
+          # Xcode's initial signing gets the embedded provisioning profile in place,
+          # then we enforce hardened runtime + secure timestamp with release entitlements.
+          codesign --force --deep --timestamp --options runtime \
+            --sign "$IDENTITY" \
+            --entitlements apps/mobile/macos/Runner/Release.entitlements \
+            "$APP_PATH"
 
           codesign --verify --deep --strict "$APP_PATH"
 
           PROFILE_PATH="$APP_PATH/Contents/embedded.provisionprofile"
           if [ ! -f "$PROFILE_PATH" ]; then
             echo "::error::missing embedded.provisionprofile in signed macOS app bundle"
+            exit 1
+          fi
+
+          ENTITLEMENTS_PATH="$RUNNER_TEMP/app-entitlements.plist"
+          codesign -d --entitlements :- "$APP_PATH" > "$ENTITLEMENTS_PATH"
+          if grep -q "com.apple.security.get-task-allow" "$ENTITLEMENTS_PATH"; then
+            echo "::error::get-task-allow entitlement is still present after re-signing"
+            cat "$ENTITLEMENTS_PATH"
             exit 1
           fi
 
