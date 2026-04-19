@@ -578,16 +578,32 @@ class QrScanRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
-/// [SessionListScreen]
-class SessionListRoute extends PageRouteInfo<SessionListRouteArgs> {
-  SessionListRoute({
+/// [WorkspacePlaceholderScreen]
+class WorkspacePlaceholderRoute extends PageRouteInfo<void> {
+  const WorkspacePlaceholderRoute({List<PageRouteInfo>? children})
+    : super(WorkspacePlaceholderRoute.name, initialChildren: children);
+
+  static const String name = 'WorkspacePlaceholderRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const WorkspacePlaceholderScreen();
+    },
+  );
+}
+
+/// generated route for
+/// [WorkspaceShellScreen]
+class WorkspaceShellRoute extends PageRouteInfo<WorkspaceShellRouteArgs> {
+  WorkspaceShellRoute({
     Key? key,
     ValueNotifier<ConnectionParams?>? deepLinkNotifier,
     List<RecentSession>? debugRecentSessions,
     List<PageRouteInfo>? children,
   }) : super(
-         SessionListRoute.name,
-         args: SessionListRouteArgs(
+         WorkspaceShellRoute.name,
+         args: WorkspaceShellRouteArgs(
            key: key,
            deepLinkNotifier: deepLinkNotifier,
            debugRecentSessions: debugRecentSessions,
@@ -595,15 +611,15 @@ class SessionListRoute extends PageRouteInfo<SessionListRouteArgs> {
          initialChildren: children,
        );
 
-  static const String name = 'SessionListRoute';
+  static const String name = 'WorkspaceShellRoute';
 
   static PageInfo page = PageInfo(
     name,
     builder: (data) {
-      final args = data.argsAs<SessionListRouteArgs>(
-        orElse: () => const SessionListRouteArgs(),
+      final args = data.argsAs<WorkspaceShellRouteArgs>(
+        orElse: () => const WorkspaceShellRouteArgs(),
       );
-      return SessionListScreen(
+      return WorkspaceShellScreen(
         key: args.key,
         deepLinkNotifier: args.deepLinkNotifier,
         debugRecentSessions: args.debugRecentSessions,
@@ -612,8 +628,8 @@ class SessionListRoute extends PageRouteInfo<SessionListRouteArgs> {
   );
 }
 
-class SessionListRouteArgs {
-  const SessionListRouteArgs({
+class WorkspaceShellRouteArgs {
+  const WorkspaceShellRouteArgs({
     this.key,
     this.deepLinkNotifier,
     this.debugRecentSessions,
@@ -627,13 +643,13 @@ class SessionListRouteArgs {
 
   @override
   String toString() {
-    return 'SessionListRouteArgs{key: $key, deepLinkNotifier: $deepLinkNotifier, debugRecentSessions: $debugRecentSessions}';
+    return 'WorkspaceShellRouteArgs{key: $key, deepLinkNotifier: $deepLinkNotifier, debugRecentSessions: $debugRecentSessions}';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    if (other is! SessionListRouteArgs) return false;
+    if (other is! WorkspaceShellRouteArgs) return false;
     return key == other.key &&
         deepLinkNotifier == other.deepLinkNotifier &&
         const ListEquality<RecentSession>().equals(

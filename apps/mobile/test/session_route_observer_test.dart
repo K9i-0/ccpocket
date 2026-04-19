@@ -32,7 +32,7 @@ void main() {
     );
 
     expect(
-      () => observer.didPush(_route(name: SessionListRoute.name), null),
+      () => observer.didPush(_route(name: WorkspaceShellRoute.name), null),
       returnsNormally,
     );
     expect(
