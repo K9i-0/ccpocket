@@ -868,6 +868,21 @@ const _storeWorkspaceProjectPath = '/Users/dev/projects/shopify-app';
 const _storeWorkspaceSessionId = 'store-chat-md';
 const _storeWorkspaceApprovalSessionId = 'store-chat-mq';
 
+final Map<String, dynamic> _storeWorkspaceApprovalInput =
+    _extractStoreWorkspaceApprovalInput();
+
+Map<String, dynamic> _extractStoreWorkspaceApprovalInput() {
+  for (final message in storeChatMultiQuestion) {
+    if (message is! AssistantServerMessage) continue;
+    for (final content in message.message.content) {
+      if (content is ToolUseContent && content.name == 'AskUserQuestion') {
+        return Map<String, dynamic>.from(content.input);
+      }
+    }
+  }
+  return {'questions': const []};
+}
+
 const _workspaceOverviewPreset = _StoreWorkspacePreset(
   sessionId: _storeWorkspaceSessionId,
   projectPath: _storeWorkspaceProjectPath,
@@ -899,8 +914,8 @@ const _approvalInContextPreset = _StoreWorkspacePreset(
 const _approvalQueuePreset = _StoreWorkspacePreset(
   sessionId: _storeWorkspaceApprovalSessionId,
   projectPath: _storeWorkspaceProjectPath,
-  sessionName: 'Approval Triage',
-  sessionSummary: 'Handle several approvals across active sessions',
+  sessionName: 'Notification Rollout',
+  sessionSummary: 'Review the foreground notification choices before rollout',
   centerKind: _StoreWorkspaceCenterKind.approval,
   rightPaneKind: _StoreWorkspacePaneKind.none,
   runningKind: _StoreWorkspaceRunningKind.approvalQueue,
@@ -1189,6 +1204,7 @@ List<SessionInfo> _workspaceRunningSessions(_StoreWorkspacePreset preset) {
         SessionInfo(
           id: preset.sessionId,
           provider: 'claude',
+          name: preset.sessionName,
           projectPath: preset.projectPath,
           status: 'running',
           createdAt: DateTime.now()
@@ -1205,6 +1221,7 @@ List<SessionInfo> _workspaceRunningSessions(_StoreWorkspacePreset preset) {
       return [
         _buildWorkspaceApprovalSession(
           id: preset.sessionId,
+          name: preset.sessionName,
           projectPath: preset.projectPath,
           gitBranch: 'feat/notifications',
           lastMessage:
@@ -1218,15 +1235,18 @@ List<SessionInfo> _workspaceRunningSessions(_StoreWorkspacePreset preset) {
       return [
         _buildWorkspaceApprovalSession(
           id: preset.sessionId,
+          name: preset.sessionName,
           projectPath: preset.projectPath,
           gitBranch: 'feat/notifications',
-          lastMessage: 'Two rollout questions are waiting for your answer.',
+          lastMessage:
+              'Waiting for your decisions on foreground behavior, channels, and analytics.',
           createdOffset: const Duration(minutes: 6),
           lastActivityOffset: const Duration(seconds: 15),
         ),
         SessionInfo(
           id: 'store-queue-2',
           provider: 'codex',
+          name: 'Parser Benchmark',
           projectPath: '/Users/dev/projects/rust-cli',
           status: 'waiting_approval',
           createdAt: DateTime.now()
@@ -1246,6 +1266,7 @@ List<SessionInfo> _workspaceRunningSessions(_StoreWorkspacePreset preset) {
         SessionInfo(
           id: 'store-queue-3',
           provider: 'claude',
+          name: 'Dark Mode Plan',
           projectPath: '/Users/dev/projects/my-portfolio',
           status: 'waiting_approval',
           createdAt: DateTime.now()
@@ -1268,6 +1289,7 @@ List<SessionInfo> _workspaceRunningSessions(_StoreWorkspacePreset preset) {
 
 SessionInfo _buildWorkspaceApprovalSession({
   required String id,
+  required String name,
   required String projectPath,
   required String gitBranch,
   required String lastMessage,
@@ -1277,6 +1299,7 @@ SessionInfo _buildWorkspaceApprovalSession({
   return SessionInfo(
     id: id,
     provider: 'claude',
+    name: name,
     projectPath: projectPath,
     status: 'waiting_approval',
     createdAt: DateTime.now().subtract(createdOffset).toIso8601String(),
@@ -1285,10 +1308,10 @@ SessionInfo _buildWorkspaceApprovalSession({
         .toIso8601String(),
     gitBranch: gitBranch,
     lastMessage: lastMessage,
-    pendingPermission: const PermissionRequestMessage(
+    pendingPermission: PermissionRequestMessage(
       toolUseId: 'store-mq-ask-1',
       toolName: 'AskUserQuestion',
-      input: {'questions': []},
+      input: _storeWorkspaceApprovalInput,
     ),
   );
 }

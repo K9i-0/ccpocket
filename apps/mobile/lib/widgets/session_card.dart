@@ -615,6 +615,33 @@ class _ToolApprovalArea extends StatelessWidget {
               final alwaysSub = isCodex
                   ? l.approveSessionSub
                   : l.approveAlwaysSub;
+              Widget buildApproveLabel() {
+                final approveLabel = isCodex ? l.approve : l.approveOnce;
+                if (isWide || !approveLabel.contains(' ')) {
+                  return Text(
+                    approveLabel,
+                    style: const TextStyle(fontSize: 12),
+                  );
+                }
+                final splitIndex = approveLabel.lastIndexOf(' ');
+                final sub = approveLabel.substring(0, splitIndex);
+                final main = approveLabel.substring(splitIndex + 1);
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      sub,
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w400,
+                        color: statusColor.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    Text(main, style: const TextStyle(fontSize: 11)),
+                  ],
+                );
+              }
+
               final buttons = <Widget>[
                 if (canReject)
                   SizedBox(
@@ -679,10 +706,10 @@ class _ToolApprovalArea extends StatelessWidget {
                       key: const ValueKey('approve_button'),
                       onPressed: onApprove,
                       icon: const Icon(Icons.check, size: 14),
-                      label: Text(isCodex ? l.approve : l.approveOnce),
+                      label: buildApproveLabel(),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
-                        textStyle: const TextStyle(fontSize: 12),
+                        textStyle: const TextStyle(fontSize: 11),
                         backgroundColor: statusColor.withValues(alpha: 0.15),
                         foregroundColor: statusColor,
                       ),
