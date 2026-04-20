@@ -54,7 +54,7 @@ AskUserQuestion（multiSelect）で更新対象を確認する。
 | `07_new_session` | New Session | 新規セッションシート | ライト |
 | `08_dark_theme` | Session List | 承認待ち一覧（ダークモード訴求） | ダーク |
 
-**iPad スクリーンショット（4シナリオ）:**
+**iPad スクリーンショット（5シナリオ）:**
 
 | Key | シナリオ名 | 内容 | テーマ |
 |-----|-----------|------|--------|
@@ -159,7 +159,7 @@ dart-mcp `stop_app` でアプリを停止。
 ### Step 5: iPad スクリーンショット撮影（選択された場合）
 
 iPad は iPhone とは別セットを撮影する。既存の mobile 専用シナリオを流用せず、
-workspace レイアウト前提の 4 シナリオを撮る。
+workspace レイアウト前提の 5 シナリオを撮る。
 
 #### 5-1. iPadシミュレーターの全画面表示を保証
 
@@ -173,12 +173,17 @@ xcrun simctl shutdown "iPad Pro 13-inch (M4)" 2>/dev/null || true
 # シミュレーターのコンテンツとキャッシュをリセット
 xcrun simctl erase "iPad Pro 13-inch (M4)"
 
-# 起動 & ダークモード設定
+# 起動
 xcrun simctl boot "iPad Pro 13-inch (M4)" 2>/dev/null || true
-xcrun simctl ui booted appearance dark
 ```
 
 **重要**: `erase` を実行するとアプリもアンインストールされるため、必ずクリーンインストールが行われる。これにより互換モード問題を防止する。
+
+**横向き前提**: iPad スクショは landscape で撮る。起動後に必ず右回転してから撮影する:
+```bash
+xcrun simctl io booted rotate right
+```
+撮影中に向きが崩れた場合も、スクショを撮る前に再度これを実行する。
 
 **ネイティブダイアログの自動dismiss**: `erase` 後は通知・音声認識・マイク等のパーミッションダイアログが再度表示される。
 
@@ -206,6 +211,13 @@ while swift .claude/skills/update-store/scripts/sim-tap.swift tap "許可" 2>/de
 ```
 
 #### 5-2. シナリオ撮影 & 解像度検証
+
+**テーマ設定**: iPad 側は `Dark Workspace` 以外をライトテーマで撮る。アプリ起動後に最初に一度:
+marionette `call_custom_extension`
+- extension: `ccpocket.setTheme`
+- params: `{ "theme": "light" }`
+
+`Dark Workspace` はシナリオ側で一時的にダークへ切り替わるため、個別に `setTheme dark` する必要はない。
 
 各シナリオに対して:
 
@@ -242,7 +254,7 @@ xcrun simctl io booted screenshot apps/mobile/fastlane/screenshots/en-US/ipad_<k
 WIDTH=$(sips -g pixelWidth apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png | tail -1 | awk '{print $2}')
 HEIGHT=$(sips -g pixelHeight apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png | tail -1 | awk '{print $2}')
 echo "Screenshot: ${WIDTH}x${HEIGHT}"
-# iPad Pro 13-inch (M4): 2064x2752 が期待値
+# iPad Pro 13-inch (M4) landscape: 2752x2064 が期待値
 # 解像度が大幅に小さい場合は互換モードで起動しているため、eraseからやり直す
 ```
 
@@ -297,3 +309,4 @@ git diff --stat
 - **Image Attach シナリオ**: モック画像が自動的に添付される
 - **シミュレーターデバイス名**: Xcode バージョンにより正確な名前が異なる場合がある。`xcrun simctl list devices available` で確認
 - **compose.sh**: ImageMagick (`convert` / `magick`) が必要。PNGタイムスタンプを除去して不要なgit diffを防止
+- **iPad スクショ**: landscape 前提。raw スクショも framed 画像も `2752x2064` を基準に扱う

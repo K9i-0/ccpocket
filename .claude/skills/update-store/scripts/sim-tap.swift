@@ -268,20 +268,21 @@ func dismissDialogs(labels: [String], buttonPositions: [(CGFloat, CGFloat)], dev
     return dismissed
 }
 
-/// Dismiss all common iOS permission dialogs on iPad Pro 13-inch (2064x2752).
+/// Dismiss all common iOS permission dialogs on iPad Pro 13-inch landscape
+/// (2752x2064) after rotating right.
 func dismissIPadDialogs() -> Int {
     // Common "許可" / "Allow" button positions for centered iOS alert dialogs
-    // on iPad Pro 13-inch (M4/M5): 2064x2752 resolution.
-    // Right button ("許可") center ≈ (1180, 1510)
+    // on iPad Pro 13-inch (M4/M5): 2752x2064 resolution.
+    // Right button ("許可") center after rotate-right ≈ (1242, 1180)
     let positions: [(CGFloat, CGFloat)] = [
-        (1180, 1510),  // Standard centered dialog - right button
-        (1180, 1660),  // Lower dialog variant
+        (1242, 1180),  // Standard centered dialog - right button
+        (1092, 1180),  // Lower dialog variant
     ]
     return dismissDialogs(
         labels: ["許可", "Allow", "OK"],
         buttonPositions: positions,
-        deviceWidth: 2064,
-        deviceHeight: 2752
+        deviceWidth: 2752,
+        deviceHeight: 2064
     )
 }
 

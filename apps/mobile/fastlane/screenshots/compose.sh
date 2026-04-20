@@ -165,9 +165,9 @@ for entry in "${SCREENSHOTS[@]}"; do
   compose_screenshot "$key" "$kw_zh" "$tt_zh" "zh-CN" "$FONT_ZH_BOLD" "$FONT_ZH_REG"
 done
 
-# === iPad (2064x2752) ===
-IPAD_CANVAS_W=2064
-IPAD_CANVAS_H=2752
+# === iPad Landscape (2752x2064) ===
+IPAD_CANVAS_W=2752
+IPAD_CANVAS_H=2064
 
 compose_ipad_screenshot() {
   local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6" src_dir="$7"
@@ -186,7 +186,7 @@ compose_ipad_screenshot() {
   local src_w src_h
   read -r src_w src_h <<< "$(magick identify -format '%w %h' "$input")"
 
-  local pad=100
+  local pad=140
   local max_w=$((IPAD_CANVAS_W - pad * 2))
   local scale_ratio
   scale_ratio=$(echo "scale=6; $max_w / $src_w" | bc)
@@ -194,7 +194,7 @@ compose_ipad_screenshot() {
   local scaled_h
   scaled_h=$(echo "$src_h * $scale_ratio / 1" | bc)
 
-  local text_area_h=500
+  local text_area_h=360
 
   local avail_h=$((IPAD_CANVAS_H - text_area_h - 20))
   if [ "$scaled_h" -gt "$avail_h" ]; then
@@ -257,10 +257,10 @@ compose_ipad_screenshot() {
   magick -size "${IPAD_CANVAS_W}x${IPAD_CANVAS_H}" "$bg_gradient" \
     "$tmp_device" -geometry "+${ss_x}+${ss_y}" -composite \
     -gravity North \
-    -font "$font_bold" -pointsize 100 -fill "$text_fill" \
-    -annotate +0+150 "$keyword" \
-    -font "$font_reg" -pointsize 64 -fill "$subtitle_fill" \
-    -annotate +0+280 "$title" \
+    -font "$font_bold" -pointsize 112 -fill "$text_fill" \
+    -annotate +0+110 "$keyword" \
+    -font "$font_reg" -pointsize 68 -fill "$subtitle_fill" \
+    -annotate +0+225 "$title" \
     -depth 8 $PNG_STRIP "$output"
 
   rm -f /tmp/screen_$$.png /tmp/inner_mask_$$.png /tmp/screen_masked_$$.png /tmp/bezel_$$.png /tmp/device_$$.png /tmp/outline_$$.png
