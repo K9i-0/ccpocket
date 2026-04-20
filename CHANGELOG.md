@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.66.2] - 2026-04-20
+
+### Fixed
+- Preserve provisioning-derived entitlements when re-signing the macOS release app so GitHub Release builds can still save API keys in secure storage
+
 ## [1.66.1] - 2026-04-19
 
 ### Changed
