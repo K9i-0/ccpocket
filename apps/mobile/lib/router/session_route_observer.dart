@@ -40,14 +40,16 @@ class SessionRouteObserver extends AutoRouterObserver {
       return;
     }
 
-    if (name == ClaudeSessionRoute.name) {
+    if (name == ClaudeSessionRoute.name ||
+        name == WorkspaceClaudeSessionRoute.name) {
       NotificationService.instance.setActiveSession(
         sessionId: sessionId,
         provider: 'claude',
       );
       return;
     }
-    if (name == CodexSessionRoute.name) {
+    if (name == CodexSessionRoute.name ||
+        name == WorkspaceCodexSessionRoute.name) {
       NotificationService.instance.setActiveSession(
         sessionId: sessionId,
         provider: 'codex',

@@ -94,6 +94,47 @@ class CodexSessionScreen extends StatefulWidget {
   State<CodexSessionScreen> createState() => _CodexSessionScreenState();
 }
 
+@RoutePage(name: 'WorkspaceCodexSessionRoute')
+class WorkspaceCodexSessionScreen extends StatelessWidget {
+  final String sessionId;
+  final String? projectPath;
+  final String? gitBranch;
+  final String? worktreePath;
+  final bool isPending;
+  final String? initialSandboxMode;
+  final String? initialPermissionMode;
+  final String? initialApprovalPolicy;
+  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
+
+  const WorkspaceCodexSessionScreen({
+    super.key,
+    required this.sessionId,
+    this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
+    this.isPending = false,
+    this.initialSandboxMode,
+    this.initialPermissionMode,
+    this.initialApprovalPolicy,
+    this.pendingSessionCreated,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CodexSessionScreen(
+      sessionId: sessionId,
+      projectPath: projectPath,
+      gitBranch: gitBranch,
+      worktreePath: worktreePath,
+      isPending: isPending,
+      initialSandboxMode: initialSandboxMode,
+      initialPermissionMode: initialPermissionMode,
+      initialApprovalPolicy: initialApprovalPolicy,
+      pendingSessionCreated: pendingSessionCreated,
+    );
+  }
+}
+
 class _CodexSessionScreenState extends State<CodexSessionScreen> {
   late String _sessionId;
   late String? _projectPath;
@@ -306,8 +347,13 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isPending) {
+      final shell = WorkspaceShellScreen.maybeOf(context);
       return Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(
+          leading: _sessionAppBarLeading(context, shell),
+          automaticallyImplyLeading: false,
+          leadingWidth: _sessionAppBarLeadingWidth(shell),
+        ),
         body: const Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -415,6 +461,9 @@ class _CodexChatBody extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    final isSinglePane = shell?.isSinglePane ?? true;
+    final leading = _sessionAppBarLeading(context, shell);
     // Mutable branch state (refreshed from Bridge)
     final currentBranch = useState(gitBranch);
 
@@ -640,7 +689,12 @@ class _CodexChatBody extends HookWidget {
           autofocus: true,
           child: Scaffold(
             appBar: AppBar(
-              titleSpacing: 0,
+              leading: leading,
+              automaticallyImplyLeading: false,
+              leadingWidth: _sessionAppBarLeadingWidth(shell),
+              titleSpacing: isSinglePane
+                  ? NavigationToolbar.kMiddleSpacing
+                  : (leading == null ? 16 : 12),
               title: SessionNameTitle(
                 sessionId: sessionId,
                 projectPath: projectPath,
@@ -986,6 +1040,43 @@ class _CodexChatBody extends HookWidget {
       ),
     );
   }
+}
+
+Widget? _sessionAppBarLeading(
+  BuildContext context,
+  WorkspaceShellScreenState? shell,
+) {
+  if (shell?.isSinglePane ?? true) {
+    return BackButton(
+      key: const ValueKey('session_back_button'),
+      onPressed: () =>
+          context.router.replace(const WorkspacePlaceholderRoute()),
+    );
+  }
+  if (shell?.shouldShowLeftPaneButton ?? false) {
+    final theme = Theme.of(context);
+    final fabTheme = theme.floatingActionButtonTheme;
+    return IconButton.filled(
+      key: const ValueKey('show_left_pane_button'),
+      onPressed: shell!.toggleLeftPaneVisibility,
+      tooltip: 'Show sessions',
+      style: IconButton.styleFrom(
+        backgroundColor:
+            fabTheme.backgroundColor ?? theme.colorScheme.primaryContainer,
+        foregroundColor:
+            fabTheme.foregroundColor ?? theme.colorScheme.onPrimaryContainer,
+      ),
+      icon: const Icon(Icons.chevron_right),
+    );
+  }
+  return null;
+}
+
+double? _sessionAppBarLeadingWidth(WorkspaceShellScreenState? shell) {
+  if (shell?.isSinglePane ?? true) {
+    return null;
+  }
+  return shell?.shouldShowLeftPaneButton ?? false ? 64 : null;
 }
 
 // ---------------------------------------------------------------------------

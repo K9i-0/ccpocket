@@ -94,6 +94,44 @@ class ClaudeSessionScreen extends StatefulWidget {
   State<ClaudeSessionScreen> createState() => _ClaudeSessionScreenState();
 }
 
+@RoutePage(name: 'WorkspaceClaudeSessionRoute')
+class WorkspaceClaudeSessionScreen extends StatelessWidget {
+  final String sessionId;
+  final String? projectPath;
+  final String? gitBranch;
+  final String? worktreePath;
+  final bool isPending;
+  final String? initialPermissionMode;
+  final String? initialSandboxMode;
+  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
+
+  const WorkspaceClaudeSessionScreen({
+    super.key,
+    required this.sessionId,
+    this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
+    this.isPending = false,
+    this.initialPermissionMode,
+    this.initialSandboxMode,
+    this.pendingSessionCreated,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClaudeSessionScreen(
+      sessionId: sessionId,
+      projectPath: projectPath,
+      gitBranch: gitBranch,
+      worktreePath: worktreePath,
+      isPending: isPending,
+      initialPermissionMode: initialPermissionMode,
+      initialSandboxMode: initialSandboxMode,
+      pendingSessionCreated: pendingSessionCreated,
+    );
+  }
+}
+
 class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
   late String _sessionId;
   late String? _projectPath;
@@ -303,8 +341,13 @@ class _ClaudeSessionScreenState extends State<ClaudeSessionScreen> {
   Widget build(BuildContext context) {
     if (_isPending) {
       final l = AppLocalizations.of(context);
+      final shell = WorkspaceShellScreen.maybeOf(context);
       return Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(
+          leading: _sessionAppBarLeading(context, shell),
+          automaticallyImplyLeading: false,
+          leadingWidth: _sessionAppBarLeadingWidth(shell),
+        ),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -402,6 +445,9 @@ class _ChatScreenBody extends HookWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    final isSinglePane = shell?.isSinglePane ?? true;
+    final leading = _sessionAppBarLeading(context, shell);
 
     // Mutable branch state (refreshed from Bridge)
     final currentBranch = useState(gitBranch);
@@ -638,7 +684,12 @@ class _ChatScreenBody extends HookWidget {
           autofocus: true,
           child: Scaffold(
             appBar: AppBar(
-              titleSpacing: 0,
+              leading: leading,
+              automaticallyImplyLeading: false,
+              leadingWidth: _sessionAppBarLeadingWidth(shell),
+              titleSpacing: isSinglePane
+                  ? NavigationToolbar.kMiddleSpacing
+                  : (leading == null ? 16 : 12),
               title: SessionNameTitle(
                 sessionId: sessionId,
                 projectPath: projectPath,
@@ -995,6 +1046,43 @@ class _ChatScreenBody extends HookWidget {
       ),
     );
   }
+}
+
+Widget? _sessionAppBarLeading(
+  BuildContext context,
+  WorkspaceShellScreenState? shell,
+) {
+  if (shell?.isSinglePane ?? true) {
+    return BackButton(
+      key: const ValueKey('session_back_button'),
+      onPressed: () =>
+          context.router.replace(const WorkspacePlaceholderRoute()),
+    );
+  }
+  if (shell?.shouldShowLeftPaneButton ?? false) {
+    final theme = Theme.of(context);
+    final fabTheme = theme.floatingActionButtonTheme;
+    return IconButton.filled(
+      key: const ValueKey('show_left_pane_button'),
+      onPressed: shell!.toggleLeftPaneVisibility,
+      tooltip: 'Show sessions',
+      style: IconButton.styleFrom(
+        backgroundColor:
+            fabTheme.backgroundColor ?? theme.colorScheme.primaryContainer,
+        foregroundColor:
+            fabTheme.foregroundColor ?? theme.colorScheme.onPrimaryContainer,
+      ),
+      icon: const Icon(Icons.chevron_right),
+    );
+  }
+  return null;
+}
+
+double? _sessionAppBarLeadingWidth(WorkspaceShellScreenState? shell) {
+  if (shell?.isSinglePane ?? true) {
+    return null;
+  }
+  return shell?.shouldShowLeftPaneButton ?? false ? 64 : null;
 }
 
 // ---------------------------------------------------------------------------

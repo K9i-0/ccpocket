@@ -1082,8 +1082,31 @@ class _SessionListScreenState extends State<SessionListScreen>
         pendingSessionCreated: pendingNotifier,
       ),
     };
+    final PageRouteInfo workspaceRoute = switch (provider) {
+      Provider.codex => WorkspaceCodexSessionRoute(
+        sessionId: sessionId,
+        projectPath: projectPath,
+        gitBranch: gitBranch,
+        worktreePath: worktreePath,
+        isPending: isPending,
+        initialSandboxMode: sandboxMode,
+        initialPermissionMode: permissionMode,
+        initialApprovalPolicy: approvalPolicy,
+        pendingSessionCreated: pendingNotifier,
+      ),
+      _ => WorkspaceClaudeSessionRoute(
+        sessionId: sessionId,
+        projectPath: projectPath,
+        gitBranch: gitBranch,
+        worktreePath: worktreePath,
+        isPending: isPending,
+        initialPermissionMode: permissionMode,
+        initialSandboxMode: sandboxMode,
+        pendingSessionCreated: pendingNotifier,
+      ),
+    };
     final navigation = widget.embedded
-        ? context.router.replaceAll([route])
+        ? context.router.replaceAll([workspaceRoute])
         : context.router.push(route);
     navigation.then((_) {
       if (!mounted) return;

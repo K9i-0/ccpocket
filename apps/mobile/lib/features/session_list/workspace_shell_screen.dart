@@ -91,15 +91,18 @@ class _ExploreToolPaneData extends _WorkspaceToolPaneData {
   String get title => 'Explorer';
 }
 
-@RoutePage()
 class WorkspaceShellScreen extends StatefulWidget {
   final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
   final List<RecentSession>? debugRecentSessions;
+  final Widget content;
+  final String? currentChildRouteName;
 
   const WorkspaceShellScreen({
     super.key,
     this.deepLinkNotifier,
     this.debugRecentSessions,
+    required this.content,
+    required this.currentChildRouteName,
   });
 
   static WorkspaceShellScreenState? maybeOf(BuildContext context) =>
@@ -117,6 +120,10 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   String? _activeChildRouteName;
 
   bool get canOpenToolPane => _layoutMode != _WorkspaceLayoutMode.single;
+  bool get isSinglePane => _layoutMode == _WorkspaceLayoutMode.single;
+  bool get isLeftPaneVisible => _showLeftPane;
+  bool get shouldShowLeftPaneButton =>
+      _layoutMode != _WorkspaceLayoutMode.single && !_showLeftPane;
 
   void openGitPane({
     required String projectPath,
@@ -215,6 +222,10 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     closeToolPane();
   }
 
+  void resetToPlaceholder() {
+    resetWorkspace();
+  }
+
   void _syncLayoutState(_WorkspaceLayoutMode nextMode, String? childRouteName) {
     final shouldCloseToolForRoute =
         _toolPane != null && !_isSessionRoute(childRouteName);
@@ -267,7 +278,8 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   }
 
   bool _isSessionRoute(String? routeName) =>
-      routeName == 'ClaudeSessionRoute' || routeName == 'CodexSessionRoute';
+      routeName == 'WorkspaceClaudeSessionRoute' ||
+      routeName == 'WorkspaceCodexSessionRoute';
 
   @override
   Widget build(BuildContext context) {
@@ -277,99 +289,105 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
           resetWorkspace();
         }
       },
-      child: AutoRouter(
-        builder: (routerContext, content) {
-          final childRouter = AutoRouter.of(routerContext, watch: true);
-          final currentChild = childRouter.currentChild;
-          final currentChildName = currentChild?.name;
-          final isPlaceholder =
-              currentChild == null ||
-              currentChildName == 'WorkspacePlaceholderRoute';
-
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final layoutMode = _layoutModeForWidth(constraints.maxWidth);
-              _syncLayoutState(layoutMode, currentChildName);
-              final sessionList = SessionListScreen(
-                deepLinkNotifier: widget.deepLinkNotifier,
-                debugRecentSessions: widget.debugRecentSessions,
-                embedded: layoutMode != _WorkspaceLayoutMode.single,
-                onTogglePaneVisibility:
-                    layoutMode == _WorkspaceLayoutMode.single
-                    ? null
-                    : toggleLeftPaneVisibility,
-              );
-
-              if (layoutMode == _WorkspaceLayoutMode.single) {
-                return isPlaceholder ? sessionList : content;
-              }
-
-              final showLeftPane = _showLeftPane;
-              final showRightPane = _toolPane != null;
-              final leftWidth = _leftPaneWidth(
-                constraints.maxWidth,
-                layoutMode,
-              );
-              final rightWidth = _rightPaneWidth(
-                constraints.maxWidth,
-                layoutMode,
-              );
-              final children = <Widget>[
-                if (showLeftPane)
-                  SizedBox(
-                    width: leftWidth,
-                    child: ColoredBox(
-                      color: Theme.of(context).colorScheme.surface,
-                      child: sessionList,
-                    ),
-                  ),
-                if (showLeftPane)
-                  _WorkspacePaneDivider(
-                    color: Theme.of(
-                      context,
-                    ).dividerColor.withValues(alpha: 0.18),
-                  ),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(child: content),
-                      if (!showLeftPane)
-                        Positioned(
-                          top: 12,
-                          left: 12,
-                          child: FilledButton.tonalIcon(
-                            key: const ValueKey('show_left_pane_button'),
-                            onPressed: toggleLeftPaneVisibility,
-                            icon: const Icon(Icons.chevron_right, size: 18),
-                            label: const Text('Sessions'),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (showRightPane)
-                  _WorkspacePaneDivider(
-                    color: Theme.of(
-                      context,
-                    ).dividerColor.withValues(alpha: 0.18),
-                  ),
-                if (showRightPane)
-                  SizedBox(
-                    width: rightWidth,
-                    child: _WorkspaceToolPaneHost(
-                      pane: _toolPane!,
-                      onClose: closeToolPane,
-                      onExploreResultChanged: _handleExploreResult,
-                      onDiffSelection: _handleDiffSelection,
-                    ),
-                  ),
-              ];
-
-              return Row(children: children);
-            },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final layoutMode = _layoutModeForWidth(constraints.maxWidth);
+          _syncLayoutState(layoutMode, widget.currentChildRouteName);
+          final sessionList = SessionListScreen(
+            deepLinkNotifier: widget.deepLinkNotifier,
+            debugRecentSessions: widget.debugRecentSessions,
+            embedded: true,
+            onTogglePaneVisibility: toggleLeftPaneVisibility,
           );
+
+          final showLeftPane = _showLeftPane;
+          final showRightPane = _toolPane != null;
+          final leftWidth = _leftPaneWidth(constraints.maxWidth, layoutMode);
+          final rightWidth = _rightPaneWidth(constraints.maxWidth, layoutMode);
+          final children = <Widget>[
+            if (showLeftPane)
+              SizedBox(
+                width: leftWidth,
+                child: ColoredBox(
+                  color: Theme.of(context).colorScheme.surface,
+                  child: sessionList,
+                ),
+              ),
+            if (showLeftPane)
+              _WorkspacePaneDivider(
+                color: Theme.of(context).dividerColor.withValues(alpha: 0.18),
+              ),
+            Expanded(child: widget.content),
+            if (showRightPane)
+              _WorkspacePaneDivider(
+                color: Theme.of(context).dividerColor.withValues(alpha: 0.18),
+              ),
+            if (showRightPane)
+              SizedBox(
+                width: rightWidth,
+                child: _WorkspaceToolPaneHost(
+                  pane: _toolPane!,
+                  onClose: closeToolPane,
+                  onExploreResultChanged: _handleExploreResult,
+                  onDiffSelection: _handleDiffSelection,
+                ),
+              ),
+          ];
+
+          return Row(children: children);
         },
       ),
+    );
+  }
+}
+
+@RoutePage()
+class AdaptiveHomeScreen extends StatefulWidget {
+  final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
+  final List<RecentSession>? debugRecentSessions;
+
+  const AdaptiveHomeScreen({
+    super.key,
+    this.deepLinkNotifier,
+    this.debugRecentSessions,
+  });
+
+  @override
+  State<AdaptiveHomeScreen> createState() => _AdaptiveHomeScreenState();
+}
+
+class _AdaptiveHomeScreenState extends State<AdaptiveHomeScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSinglePane =
+            _layoutModeForWidth(constraints.maxWidth) ==
+            _WorkspaceLayoutMode.single;
+
+        return AutoRouter(
+          builder: (routerContext, content) {
+            final currentChildName = AutoRouter.of(
+              routerContext,
+              watch: true,
+            ).currentChild?.name;
+
+            if (isSinglePane) {
+              return SessionListScreen(
+                deepLinkNotifier: widget.deepLinkNotifier,
+                debugRecentSessions: widget.debugRecentSessions,
+              );
+            }
+
+            return WorkspaceShellScreen(
+              deepLinkNotifier: widget.deepLinkNotifier,
+              debugRecentSessions: widget.debugRecentSessions,
+              content: content,
+              currentChildRouteName: currentChildName,
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -32,7 +32,7 @@ void main() {
     );
 
     expect(
-      () => observer.didPush(_route(name: WorkspaceShellRoute.name), null),
+      () => observer.didPush(_route(name: AdaptiveHomeRoute.name), null),
       returnsNormally,
     );
     expect(
@@ -71,6 +71,42 @@ void main() {
     expect(
       NotificationService.instance.isActiveSession(
         sessionId: 'codex-1',
+        provider: 'codex',
+      ),
+      isTrue,
+    );
+  });
+
+  test('tracks workspace claude session route', () {
+    observer.didPush(
+      _route(
+        name: WorkspaceClaudeSessionRoute.name,
+        arguments: _SessionArgs('workspace-claude-1'),
+      ),
+      null,
+    );
+
+    expect(
+      NotificationService.instance.isActiveSession(
+        sessionId: 'workspace-claude-1',
+        provider: 'claude',
+      ),
+      isTrue,
+    );
+  });
+
+  test('tracks workspace codex session route', () {
+    observer.didPush(
+      _route(
+        name: WorkspaceCodexSessionRoute.name,
+        arguments: _SessionArgs('workspace-codex-1'),
+      ),
+      null,
+    );
+
+    expect(
+      NotificationService.instance.isActiveSession(
+        sessionId: 'workspace-codex-1',
         provider: 'codex',
       ),
       isTrue,

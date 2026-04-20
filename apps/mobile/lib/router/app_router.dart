@@ -6,6 +6,7 @@ import '../features/claude_session/claude_session_screen.dart';
 import '../features/debug/debug_screen.dart';
 import '../features/codex_session/codex_session_screen.dart';
 import '../features/explore/explore_screen.dart';
+import '../features/explore/state/explore_state.dart';
 import '../features/git/git_screen.dart';
 import '../features/gallery/gallery_screen.dart';
 import '../features/session_list/workspace_shell_screen.dart';
@@ -18,6 +19,7 @@ import '../screens/mock_preview_screen.dart';
 import '../services/connection_url_parser.dart';
 import '../features/setup_guide/setup_guide_screen.dart';
 import '../screens/qr_scan_screen.dart';
+import '../utils/diff_parser.dart';
 
 import '../features/settings/supporter_screen.dart';
 
@@ -28,7 +30,7 @@ class AppRouter extends RootStackRouter {
   @override
   List<AutoRoute> get routes => [
     AutoRoute(
-      page: WorkspaceShellRoute.page,
+      page: AdaptiveHomeRoute.page,
       path: '/',
       initial: true,
       children: [
@@ -37,24 +39,29 @@ class AppRouter extends RootStackRouter {
           path: '',
           initial: true,
         ),
-        AutoRoute(page: ClaudeSessionRoute.page, path: 'session/:sessionId'),
         AutoRoute(
-          page: CodexSessionRoute.page,
+          page: WorkspaceClaudeSessionRoute.page,
+          path: 'session/:sessionId',
+        ),
+        AutoRoute(
+          page: WorkspaceCodexSessionRoute.page,
           path: 'codex-session/:sessionId',
         ),
-        AutoRoute(page: ExploreRoute.page, path: 'explore'),
-        AutoRoute(page: GalleryRoute.page, path: 'gallery'),
-        AutoRoute(page: GitRoute.page, path: 'git'),
-        AutoRoute(page: SettingsRoute.page, path: 'settings'),
-        AutoRoute(page: LicensesRoute.page, path: 'licenses'),
-        AutoRoute(page: ChangelogRoute.page, path: 'changelog'),
-        AutoRoute(page: AuthHelpRoute.page, path: 'auth-help'),
-        AutoRoute(page: SupporterRoute.page, path: 'supporter'),
-        AutoRoute(page: QrScanRoute.page, path: 'qr-scan'),
-        AutoRoute(page: MockPreviewRoute.page, path: 'mock-preview'),
-        AutoRoute(page: SetupGuideRoute.page, path: 'setup-guide'),
-        AutoRoute(page: DebugRoute.page, path: 'debug'),
       ],
     ),
+    AutoRoute(page: ClaudeSessionRoute.page, path: '/session/:sessionId'),
+    AutoRoute(page: CodexSessionRoute.page, path: '/codex-session/:sessionId'),
+    AutoRoute(page: ExploreRoute.page, path: '/explore'),
+    AutoRoute(page: GalleryRoute.page, path: '/gallery'),
+    AutoRoute(page: GitRoute.page, path: '/git'),
+    AutoRoute(page: SettingsRoute.page, path: '/settings'),
+    AutoRoute(page: LicensesRoute.page, path: '/licenses'),
+    AutoRoute(page: ChangelogRoute.page, path: '/changelog'),
+    AutoRoute(page: AuthHelpRoute.page, path: '/auth-help'),
+    AutoRoute(page: SupporterRoute.page, path: '/supporter'),
+    AutoRoute(page: QrScanRoute.page, path: '/qr-scan'),
+    AutoRoute(page: MockPreviewRoute.page, path: '/mock-preview'),
+    AutoRoute(page: SetupGuideRoute.page, path: '/setup-guide'),
+    AutoRoute(page: DebugRoute.page, path: '/debug'),
   ];
 }
