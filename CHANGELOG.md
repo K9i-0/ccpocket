@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.68.0] - 2026-04-20
+
+### Added
+- Add center-pane overlay navigation and right-pane session gallery support for the adaptive workspace on iPad and macOS
+- Add native-feeling macOS workspace chrome that integrates the transparent titlebar with pane headers and session toolbars
+
+### Changed
+- Move narrow macOS layouts to render app chrome below the window controls while keeping adaptive workspace controls aligned in the titlebar zone
+
+### Fixed
+- Keep macOS window dragging limited to explicit top chrome drag areas so text selection and copy interactions work normally
+- Refine macOS pane spacing, button grouping, and toolbar alignment to avoid overlap with the traffic lights in both wide and narrow layouts
+
 ## [1.67.0] - 2026-04-20
 
 ### Added
