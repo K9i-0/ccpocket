@@ -657,6 +657,9 @@ class _InputTextField extends StatelessWidget {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    final isImeComposing =
+        controller.value.composing.isValid &&
+        !controller.value.composing.isCollapsed;
 
     // Cmd+V (macOS) or Ctrl+V (Windows/Linux): try image paste first
     final isModifier =
@@ -672,6 +675,9 @@ class _InputTextField extends StatelessWidget {
 
     // Tab / Shift+Tab: indent / dedent (IDE-like)
     if (event.logicalKey == LogicalKeyboardKey.tab && !isModifier) {
+      if (isImeComposing) {
+        return KeyEventResult.ignored;
+      }
       if (HardwareKeyboard.instance.isShiftPressed) {
         onDedent?.call();
       } else {
@@ -684,7 +690,7 @@ class _InputTextField extends StatelessWidget {
       return KeyEventResult.ignored;
     }
     // IME変換中はEnterを無視（変換確定に使われるため）
-    if (controller.value.composing.isValid) {
+    if (isImeComposing) {
       return KeyEventResult.ignored;
     }
     final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
