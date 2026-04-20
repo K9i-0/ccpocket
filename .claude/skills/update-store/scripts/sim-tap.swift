@@ -299,6 +299,7 @@ func findElement(named name: String) -> ElementInfo? {
 }
 
 func tap(name: String, quiet: Bool = false) -> Bool {
+    _ = activateSimulator()
     guard let info = findElement(named: name) else {
         if !quiet {
             fputs("Error: Element \"\(name)\" not found.\n", stderr)
@@ -330,6 +331,22 @@ func tap(name: String, quiet: Bool = false) -> Bool {
     usleep(100_000)
     mouseUp?.post(tap: .cghidEventTap)
     print("OK (CGEvent click)")
+    return true
+}
+
+func pressKeyCode(_ keyCode: CGKeyCode, modifiers: CGEventFlags = []) -> Bool {
+    guard activateSimulator() else { return false }
+    guard let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true),
+          let keyUp = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: false) else {
+        fputs("Error: Failed to create keyboard events.\n", stderr)
+        return false
+    }
+    keyDown.flags = modifiers
+    keyUp.flags = modifiers
+    keyDown.post(tap: .cghidEventTap)
+    usleep(80_000)
+    keyUp.post(tap: .cghidEventTap)
+    usleep(120_000)
     return true
 }
 
@@ -391,6 +408,7 @@ func prepareStorePermissions(bundleId: String = storeScreenshotBundleId) -> Int 
 
 /// Clicks a point in the simulator by mapping iPad/iPhone coordinates to screen coordinates.
 func clickInSimulator(simX: CGFloat, simY: CGFloat, deviceWidth: CGFloat, deviceHeight: CGFloat) -> Bool {
+    guard activateSimulator() else { return false }
     guard let winBounds = findSimulatorWindowBounds() else {
         fputs("Error: Could not find Simulator window.\n", stderr)
         return false
@@ -411,6 +429,17 @@ func clickInSimulator(simX: CGFloat, simY: CGFloat, deviceWidth: CGFloat, device
     usleep(100_000)
     mouseUp.post(tap: .cghidEventTap)
     return true
+}
+
+func deviceMetrics(for device: String) -> (width: CGFloat, height: CGFloat)? {
+    switch device.lowercased() {
+    case "ipad":
+        return (2752, 2064)
+    case "iphone":
+        return (1206, 2622)
+    default:
+        return nil
+    }
 }
 
 /// Dismisses native iOS dialogs by clicking common button positions.
@@ -506,6 +535,89 @@ func dismissIPhoneDialogs() -> Int {
     )
 }
 
+@discardableResult
+func tapAt(device: String, x: CGFloat, y: CGFloat) -> Bool {
+    guard let metrics = deviceMetrics(for: device) else {
+        fputs("Error: Unknown device \"\(device)\". Use 'iphone' or 'ipad'.\n", stderr)
+        return false
+    }
+    let ok = clickInSimulator(
+        simX: x,
+        simY: y,
+        deviceWidth: metrics.width,
+        deviceHeight: metrics.height
+    )
+    if ok {
+        print("Tapped \(device) simulator at (\(Int(x)), \(Int(y)))")
+    }
+    return ok
+}
+
+func dismissSpeechDialog(device: String) -> Bool {
+    let normalized = device.lowercased()
+    guard normalized == "ipad" || normalized == "iphone" else {
+        fputs("Error: Unknown device \"\(device)\". Use 'iphone' or 'ipad'.\n", stderr)
+        return false
+    }
+
+    let dismissLabels = [
+        "許可しない",
+        "Don't Allow",
+        "今はしない",
+        "Not Now",
+        "後で",
+        "Later",
+    ]
+    for label in dismissLabels {
+        if tap(name: label, quiet: true) {
+            print("Dismissed speech dialog via AX label \"\(label)\"")
+            return true
+        }
+    }
+
+    let coordinateCandidates: [(CGFloat, CGFloat)] = switch normalized {
+    case "ipad": [
+        (1120, 1180),
+        (1092, 1180),
+        (980, 1180),
+    ]
+    case "iphone": [
+        (420, 1590),
+        (350, 1590),
+    ]
+    default: []
+    }
+    for (x, y) in coordinateCandidates {
+        if tapAt(device: normalized, x: x, y: y) {
+            Thread.sleep(forTimeInterval: 0.6)
+            print("Dismissed speech dialog via coordinate fallback at (\(Int(x)), \(Int(y)))")
+            return true
+        }
+    }
+
+    let keyboardPlans: [[CGKeyCode]] = [
+        [123, 49],      // left, space
+        [48, 49],       // tab, space
+        [123, 123, 49], // left twice, space
+    ]
+    for plan in keyboardPlans {
+        guard activateSimulator() else { return false }
+        for keyCode in plan {
+            _ = pressKeyCode(keyCode)
+        }
+        Thread.sleep(forTimeInterval: 0.6)
+        for label in dismissLabels {
+            if tap(name: label, quiet: true) {
+                print("Dismissed speech dialog after keyboard fallback")
+                return true
+            }
+        }
+    }
+
+    fputs("Error: Failed to dismiss speech dialog on \(device).\n", stderr)
+    return false
+}
+
 func prepareStoreCapture(device: String) -> Bool {
     switch device.lowercased() {
     case "ipad":
@@ -544,9 +656,12 @@ guard args.count >= 2 else {
       swift \(args[0]) describe                 List all accessible elements
       swift \(args[0]) wait <label> [sec]       Wait for element then tap (default 10s)
       swift \(args[0]) rotate <left|right>      Rotate Simulator via the Device menu
+      swift \(args[0]) tap-at <device> <x> <y>  Tap raw simulator coordinates (iphone|ipad)
       swift \(args[0]) capture-store <device> <path>
                                                Capture a screenshot and normalize orientation
       swift \(args[0]) dismiss-dialogs <device> Dismiss native dialogs (iphone|ipad)
+      swift \(args[0]) dismiss-speech-dialog <device>
+                                               Dismiss the speech/microphone dialog (iphone|ipad)
       swift \(args[0]) prepare-store <device>   Rotate/dismiss dialogs for store capture
 
     """, stderr)
@@ -575,6 +690,16 @@ case "rotate":
         exit(2)
     }
     exit(rotateSimulator(direction: args[2]) ? 0 : 1)
+case "tap-at":
+    guard args.count >= 5 else {
+        fputs("Usage: tap-at <iphone|ipad> <x> <y>\n", stderr)
+        exit(2)
+    }
+    guard let x = Double(args[3]), let y = Double(args[4]) else {
+        fputs("Error: x and y must be numeric.\n", stderr)
+        exit(2)
+    }
+    exit(tapAt(device: args[2], x: CGFloat(x), y: CGFloat(y)) ? 0 : 1)
 case "capture-store":
     guard args.count >= 4 else {
         fputs("Usage: capture-store <iphone|ipad> <path>\n", stderr)
@@ -602,6 +727,12 @@ case "dismiss-dialogs":
     } else {
         print("No dialogs found on \(device)")
     }
+case "dismiss-speech-dialog":
+    guard args.count >= 3 else {
+        fputs("Usage: dismiss-speech-dialog <iphone|ipad>\n", stderr)
+        exit(2)
+    }
+    exit(dismissSpeechDialog(device: args[2]) ? 0 : 1)
 case "prepare-store":
     guard args.count >= 3 else {
         fputs("Usage: prepare-store <iphone|ipad>\n", stderr)

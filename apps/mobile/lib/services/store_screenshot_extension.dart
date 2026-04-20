@@ -1124,51 +1124,54 @@ class _StoreWorkspaceListPane extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: Column(
-        children: [
-          SessionListPaneHeader(
-            onTitleTap: () {},
-            onOpenSettings: () {},
-            onOpenGallery: () {},
-            onDisconnect: () {},
-            onTogglePaneVisibility: null,
-          ),
-          Expanded(
-            child: HomeContent(
-              connectionState: BridgeConnectionState.connected,
-              sessions: runningSessions,
-              recentSessions: recentSessions,
-              accumulatedProjectPaths: projectPaths,
-              searchQuery: '',
-              isLoadingMore: false,
-              isInitialLoading: false,
-              hasMoreSessions: false,
-              currentProjectFilter: null,
-              onNewSession: () {},
-              onTapRunning:
-                  (
-                    _, {
-                    projectPath,
-                    gitBranch,
-                    worktreePath,
-                    provider,
-                    permissionMode,
-                    sandboxMode,
-                  }) {},
-              onStopSession: (_) {},
-              onResumeSession: (_) {},
-              onLongPressRecentSession: (_) {},
-              onArchiveSession: (_) {},
-              onLongPressRunningSession: (_) {},
-              onSelectProject: (_) {},
-              onLoadMore: () {},
-              providerFilter: ProviderFilter.all,
-              namedOnly: false,
-              onToggleProvider: () {},
-              onToggleNamed: () {},
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            SessionListPaneHeader(
+              onTitleTap: () {},
+              onOpenSettings: () {},
+              onOpenGallery: () {},
+              onDisconnect: () {},
+              onTogglePaneVisibility: null,
             ),
-          ),
-        ],
+            Expanded(
+              child: HomeContent(
+                connectionState: BridgeConnectionState.connected,
+                sessions: runningSessions,
+                recentSessions: recentSessions,
+                accumulatedProjectPaths: projectPaths,
+                searchQuery: '',
+                isLoadingMore: false,
+                isInitialLoading: false,
+                hasMoreSessions: false,
+                currentProjectFilter: null,
+                onNewSession: () {},
+                onTapRunning:
+                    (
+                      _, {
+                      projectPath,
+                      gitBranch,
+                      worktreePath,
+                      provider,
+                      permissionMode,
+                      sandboxMode,
+                    }) {},
+                onStopSession: (_) {},
+                onResumeSession: (_) {},
+                onLongPressRecentSession: (_) {},
+                onArchiveSession: (_) {},
+                onLongPressRunningSession: (_) {},
+                onSelectProject: (_) {},
+                onLoadMore: () {},
+                providerFilter: ProviderFilter.all,
+                namedOnly: false,
+                onToggleProvider: () {},
+                onToggleNamed: () {},
+              ),
+            ),
+          ],
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: Padding(
