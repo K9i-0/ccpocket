@@ -103,6 +103,8 @@ defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool true
 ```
 これによりソフトウェアキーボードが表示されなくなり、日本語キーボードがスクショに映り込む問題を防止する。
 
+iPhone / iPad ともに **既存シミュレーターを再利用するのがデフォルト**。毎回 `erase` すると通知・音声認識・マイク等のネイティブダイアログが再出現し、スクショフローが不安定になる。通常はアプリの再起動と向き調整だけで十分。
+
 iPhone 17 Proシミュレーターを起動し、ライトモードに設定:
 ```bash
 xcrun simctl boot "iPhone 17 Pro" 2>/dev/null || true
@@ -164,42 +166,48 @@ workspace レイアウト前提の 5 シナリオを撮る。
 #### 5-1. iPadシミュレーターの全画面表示を保証
 
 iPadでアプリが互換モード（iPhone用の小さいウィンドウ + 黒帯）で起動する場合がある。
-これはシミュレーターのキャッシュが原因のため、撮影前にシミュレーターをリセットする:
+ただし、**通常は `erase` しない**。まずは既存シミュレーターをそのまま使い、アプリだけ再起動する:
 
 ```bash
-# シミュレーターをシャットダウン（起動中の場合）
-xcrun simctl shutdown "iPad Pro 13-inch (M4)" 2>/dev/null || true
-
-# シミュレーターのコンテンツとキャッシュをリセット
-xcrun simctl erase "iPad Pro 13-inch (M4)"
-
-# 起動
+# シミュレーターを起動（未起動なら）
 xcrun simctl boot "iPad Pro 13-inch (M4)" 2>/dev/null || true
 ```
 
-**重要**: `erase` を実行するとアプリもアンインストールされるため、必ずクリーンインストールが行われる。これにより互換モード問題を防止する。
+**重要**: `erase` を実行するとアプリがアンインストールされ、通知・音声認識・マイク等のネイティブダイアログが毎回復活する。これはスクショ取得の妨げになるため、`erase` は最後の手段に限定する。
+
+**`erase` を使ってよいケース**:
+- 実際に互換モード（iPhone用の小さいウィンドウ + 黒帯）で起動した
+- アプリ再起動だけでは解消しない
+- raw スクショの解像度が期待値から大きく外れている
+
+その場合のみ、以下を実行してやり直す:
+
+```bash
+xcrun simctl shutdown "iPad Pro 13-inch (M4)" 2>/dev/null || true
+xcrun simctl erase "iPad Pro 13-inch (M4)"
+xcrun simctl boot "iPad Pro 13-inch (M4)" 2>/dev/null || true
+```
 
 **横向き前提**: iPad スクショは landscape で撮る。起動後に `sim-tap.swift` の準備コマンドを必ず実行する:
 ```bash
 swift .claude/skills/update-store/scripts/sim-tap.swift prepare-store ipad
 ```
 これで以下をまとめて行う:
-- `simctl privacy grant` で通知 / 音声認識 / マイク権限を事前付与
 - Simulator を前面化
 - `Device > Orientation > Landscape Left` で iPad を明示的に横向き固定
 - 通知許諾などのネイティブダイアログを dismiss
 
 撮影中に向きが崩れた場合や許諾ダイアログが再表示された場合も、スクショを撮る前に再度これを実行する。
 
-**ネイティブダイアログの自動dismiss**: `erase` 後は通知・音声認識・マイク等のパーミッションダイアログが再度表示される。
+**ネイティブダイアログの自動dismiss**: `erase` を避ければ、これらのダイアログは通常は再発しない。既存シミュレーター再利用時は、まず `prepare-store ipad` で向きを整え、ダイアログが出ていた場合だけ dismiss する。
 
-**事前権限付与** (erase 直後、アプリ起動前に実行):
+**事前権限付与**: もし `erase` を実行した場合のみ、アプリ起動前に実行する:
 ```bash
 xcrun simctl privacy booted grant notifications com.k9i.ccpocket
 xcrun simctl privacy booted grant speech-recognition com.k9i.ccpocket
 xcrun simctl privacy booted grant microphone com.k9i.ccpocket
 ```
-これによりダイアログの表示自体を防止できる。`simctl privacy` が失敗する場合は以下のフォールバックを使う。
+これによりダイアログの表示自体を防止できる。`simctl privacy` が失敗した場合は以下のフォールバックを使う。
 
 **フォールバック: sim-tap.swift の個別コマンド**:
 ダイアログはホーム画面ではなく**セッション画面遷移後**に表示されることがある。
@@ -262,10 +270,10 @@ WIDTH=$(sips -g pixelWidth apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
 HEIGHT=$(sips -g pixelHeight apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png | tail -1 | awk '{print $2}')
 echo "Screenshot: ${WIDTH}x${HEIGHT}"
 # iPad Pro 13-inch (M4) landscape: 2752x2064 が期待値
-# 解像度が大幅に小さい場合は互換モードで起動しているため、eraseからやり直す
+# 解像度が大幅に小さい場合のみ、互換モードを疑って erase を検討する
 ```
 
-もし解像度が期待値と異なる場合は、`flutter clean` → `flutter build ios --simulator` でクリーンビルドしてやり直すこと。
+もし解像度が期待値と異なる場合は、まずアプリ再起動で再確認する。それでも解消しない場合のみ `erase`、必要に応じて `flutter clean` → `flutter build ios --simulator` でやり直すこと。
 
 #### 5-4. アプリ停止
 
