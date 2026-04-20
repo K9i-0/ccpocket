@@ -25,10 +25,12 @@ import '../../widgets/new_session_sheet.dart';
 import '../../widgets/rename_session_dialog.dart';
 import '../settings/state/settings_cubit.dart';
 import 'state/session_list_cubit.dart';
+import 'state/session_list_state.dart';
 import 'widgets/connect_form.dart';
 import 'widgets/home_content.dart';
 import 'widgets/machine_edit_sheet.dart';
 import 'widgets/session_list_app_bar.dart';
+import 'workspace_shell_screen.dart';
 
 // ---- Testable helpers (top-level) ----
 
@@ -126,17 +128,22 @@ List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
 
 // ---- Screen ----
 
-@RoutePage()
 class SessionListScreen extends StatefulWidget {
   final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
 
   /// Pre-populated sessions for UI testing (skips bridge connection).
   final List<RecentSession>? debugRecentSessions;
+  final bool embedded;
+  final VoidCallback? onTogglePaneVisibility;
+  final ValueChanged<WorkspaceSessionSelection>? onSelectWorkspaceSession;
 
   const SessionListScreen({
     super.key,
     this.deepLinkNotifier,
     this.debugRecentSessions,
+    this.embedded = false,
+    this.onTogglePaneVisibility,
+    this.onSelectWorkspaceSession,
   });
 
   @override
@@ -496,7 +503,24 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   void _disconnect() {
     context.read<BridgeService>().disconnect();
+    WorkspaceShellScreen.maybeOf(context)?.resetWorkspace();
     context.read<SessionListCubit>().resetFilters();
+  }
+
+  Future<void> _openSettings() async {
+    if (widget.embedded) {
+      await context.router.navigate(SettingsRoute());
+      return;
+    }
+    await context.router.push(SettingsRoute());
+  }
+
+  Future<void> _openGallery() async {
+    if (widget.embedded) {
+      await context.router.navigate(GalleryRoute());
+      return;
+    }
+    await context.router.push(GalleryRoute());
   }
 
   void _refresh() {
@@ -1034,7 +1058,25 @@ class _SessionListScreenState extends State<SessionListScreen>
       _pendingSessionCreated.value = null;
     }
     final pendingNotifier = isPending ? _pendingSessionCreated : null;
-    final PageRouteInfo route = switch (provider) {
+    if (widget.embedded) {
+      widget.onSelectWorkspaceSession?.call(
+        WorkspaceSessionSelection(
+          sessionId: sessionId,
+          projectPath: projectPath,
+          gitBranch: gitBranch,
+          worktreePath: worktreePath,
+          isPending: isPending,
+          provider: provider,
+          permissionMode: permissionMode,
+          sandboxMode: sandboxMode,
+          approvalPolicy: approvalPolicy,
+          pendingSessionCreated: pendingNotifier,
+        ),
+      );
+      return;
+    }
+
+    final navigation = context.router.push(switch (provider) {
       Provider.codex => CodexSessionRoute(
         sessionId: sessionId,
         projectPath: projectPath,
@@ -1056,8 +1098,8 @@ class _SessionListScreenState extends State<SessionListScreen>
         initialSandboxMode: sandboxMode,
         pendingSessionCreated: pendingNotifier,
       ),
-    };
-    context.router.push(route).then((_) {
+    });
+    navigation.then((_) {
       if (!mounted) return;
       final isConnected =
           context.read<ConnectionCubit>().state ==
@@ -1333,202 +1375,274 @@ class _SessionListScreenState extends State<SessionListScreen>
                 },
                 child: Focus(
                   autofocus: true,
-                  child: Scaffold(
-                    appBar: showConnectedUI && !_isAutoConnecting
-                        ? null
-                        : AppBar(
-                            title: GestureDetector(
-                              onTap: _onTitleTap,
-                              child: Text(l.appTitle),
-                            ),
-                            actions: [
-                              IconButton(
-                                key: const ValueKey('settings_button'),
-                                icon: Badge(
-                                  isLabelVisible:
-                                      AppUpdateService.instance.cachedUpdate !=
-                                      null,
-                                  smallSize: 8,
-                                  child: const Icon(Icons.settings),
-                                ),
-                                onPressed: () =>
-                                    context.router.push(SettingsRoute()),
-                                tooltip: l.settings,
-                              ),
-                            ],
-                          ),
-                    body: _isAutoConnecting
-                        ? const Center(child: CircularProgressIndicator())
-                        : showConnectedUI
-                        ? NestedScrollView(
-                            headerSliverBuilder:
-                                (context, innerBoxIsScrolled) => [
-                                  SessionListSliverAppBar(
-                                    onTitleTap: _onTitleTap,
-                                    onDisconnect: _disconnect,
-                                    forceElevated: innerBoxIsScrolled,
-                                  ),
-                                ],
-                            body: RefreshIndicator(
-                              onRefresh: () async => _refresh(),
-                              child: HomeContent(
-                                key: _homeContentKey,
-                                connectionState: connectionState,
-                                bridgeVersion: context
-                                    .read<BridgeService>()
-                                    .bridgeVersion,
-                                sessions: sessions,
-                                recentSessions: recentSessionsList,
-                                accumulatedProjectPaths:
-                                    slState.accumulatedProjectPaths,
-                                searchQuery: slState.searchQuery,
-                                isLoadingMore: slState.isLoadingMore,
-                                isInitialLoading: slState.isInitialLoading,
-                                hasMoreSessions: slState.hasMore,
-                                archivingSessionIds: _archivingSessionIds,
-                                unseenSessionIds: unseenSessionIds,
-                                currentProjectFilter: context
-                                    .read<BridgeService>()
-                                    .currentProjectFilter,
-                                onNewSession: _showNewSessionDialog,
-                                onTapRunning:
-                                    (
-                                      sessionId, {
-                                      String? projectPath,
-                                      String? gitBranch,
-                                      String? worktreePath,
-                                      String? provider,
-                                      String? permissionMode,
-                                      String? sandboxMode,
-                                    }) => _navigateToChat(
-                                      sessionId,
-                                      projectPath: projectPath,
-                                      gitBranch: gitBranch,
-                                      worktreePath: worktreePath,
-                                      provider: provider == 'codex'
-                                          ? Provider.codex
-                                          : null,
-                                      permissionMode: permissionMode,
-                                      sandboxMode: sandboxMode,
-                                    ),
-                                onStopSession: _stopSession,
-                                onApprovePermission:
-                                    (
-                                      sessionId,
-                                      toolUseId, {
-                                      bool clearContext = false,
-                                    }) {
-                                      final bridge = context
-                                          .read<BridgeService>();
-                                      bridge.send(
-                                        ClientMessage.approve(
-                                          toolUseId,
-                                          sessionId: sessionId,
-                                          clearContext: clearContext,
-                                        ),
-                                      );
-                                      bridge.clearSessionPermission(sessionId);
-                                    },
-                                onApproveAlways: (sessionId, toolUseId) {
-                                  final bridge = context.read<BridgeService>();
-                                  bridge.send(
-                                    ClientMessage.approveAlways(
-                                      toolUseId,
-                                      sessionId: sessionId,
-                                    ),
-                                  );
-                                  bridge.clearSessionPermission(sessionId);
-                                },
-                                onRejectPermission:
-                                    (sessionId, toolUseId, {message}) {
-                                      final bridge = context
-                                          .read<BridgeService>();
-                                      bridge.send(
-                                        ClientMessage.reject(
-                                          toolUseId,
-                                          message: message,
-                                          sessionId: sessionId,
-                                        ),
-                                      );
-                                      bridge.clearSessionPermission(sessionId);
-                                    },
-                                onAnswerQuestion:
-                                    (sessionId, toolUseId, result) {
-                                      final bridge = context
-                                          .read<BridgeService>();
-                                      bridge.send(
-                                        ClientMessage.answer(
-                                          toolUseId,
-                                          result,
-                                          sessionId: sessionId,
-                                        ),
-                                      );
-                                      bridge.clearSessionPermission(sessionId);
-                                    },
-                                onResumeSession: _resumeSession,
-                                onLongPressRecentSession:
-                                    _showRecentSessionActions,
-                                onArchiveSession: _archiveSession,
-                                onLongPressRunningSession:
-                                    _showRunningSessionActions,
-                                onSelectProject: (path) => context
-                                    .read<SessionListCubit>()
-                                    .selectProject(path),
-                                onLoadMore: () =>
-                                    context.read<SessionListCubit>().loadMore(),
-                                providerFilter: slState.providerFilter,
-                                namedOnly: slState.namedOnly,
-                                onToggleProvider: () => context
-                                    .read<SessionListCubit>()
-                                    .toggleProviderFilter(),
-                                onToggleNamed: () => context
-                                    .read<SessionListCubit>()
-                                    .toggleNamedOnly(),
-                                appUpdateInfo: _appUpdateInfo,
-                                onDismissAppUpdate: _dismissAppUpdate,
-                              ),
-                            ),
-                          )
-                        : connectionState == BridgeConnectionState.connecting
-                        ? const Center(child: CircularProgressIndicator())
-                        : _ConnectFormWidget(
-                            discoveredServers: discoveredServers,
-                            machines: machineState?.machines ?? [],
-                            startingMachineId: machineState?.startingMachineId,
-                            updatingMachineId: machineState?.updatingMachineId,
-                            onScanQrCode: _scanQrCode,
-                            onViewSetupGuide: () =>
-                                context.router.push(const SetupGuideRoute()),
-                            onConnectToDiscovered: _connectToDiscovered,
-                            onConnectToMachine: _connectToMachine,
-                            onStartMachine: _startMachine,
-                            onEditMachine: _editMachine,
-                            onDeleteMachine: _deleteMachine,
-                            onToggleFavorite: _toggleFavorite,
-                            onUpdateMachine: _updateMachine,
-                            onStopMachine: _stopMachine,
-                            onAddMachine: _addMachine,
-                            onRefreshMachines: () =>
-                                machineManagerCubit?.refreshAll(),
-                          ),
-                    floatingActionButton:
-                        showConnectedUI &&
-                            MediaQuery.of(context).viewInsets.bottom == 0
-                        ? Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: FloatingActionButton.extended(
-                              key: const ValueKey('new_session_fab'),
-                              onPressed: _showNewSessionDialog,
-                              icon: const Icon(Icons.add),
-                              label: const Text('New'),
-                            ),
-                          )
-                        : null,
+                  child: _buildScaffoldBody(
+                    context: context,
+                    l: l,
+                    showConnectedUI: showConnectedUI,
+                    connectionState: connectionState,
+                    sessions: sessions,
+                    recentSessionsList: recentSessionsList,
+                    slState: slState,
+                    unseenSessionIds: unseenSessionIds,
+                    discoveredServers: discoveredServers,
+                    machineState: machineState,
+                    machineManagerCubit: machineManagerCubit,
                   ),
                 ),
               ),
             ),
       ),
+    );
+  }
+
+  Widget _buildScaffoldBody({
+    required BuildContext context,
+    required AppLocalizations l,
+    required bool showConnectedUI,
+    required BridgeConnectionState connectionState,
+    required List<SessionInfo> sessions,
+    required List<RecentSession> recentSessionsList,
+    required SessionListState slState,
+    required Set<String> unseenSessionIds,
+    required List<DiscoveredServer> discoveredServers,
+    required dynamic machineState,
+    required MachineManagerCubit? machineManagerCubit,
+  }) {
+    final body = _buildBodyContent(
+      context: context,
+      showConnectedUI: showConnectedUI,
+      connectionState: connectionState,
+      sessions: sessions,
+      recentSessionsList: recentSessionsList,
+      slState: slState,
+      unseenSessionIds: unseenSessionIds,
+      discoveredServers: discoveredServers,
+      machineState: machineState,
+      machineManagerCubit: machineManagerCubit,
+    );
+
+    if (widget.embedded) {
+      return Material(
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          bottom: false,
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  SessionListPaneHeader(
+                    onTitleTap: _onTitleTap,
+                    onOpenSettings: _openSettings,
+                    onOpenGallery: showConnectedUI ? _openGallery : null,
+                    onDisconnect: showConnectedUI ? _disconnect : null,
+                    onTogglePaneVisibility: widget.onTogglePaneVisibility,
+                  ),
+                  Expanded(child: body),
+                ],
+              ),
+              if (showConnectedUI &&
+                  MediaQuery.of(context).viewInsets.bottom == 0)
+                Positioned(
+                  left: 16,
+                  bottom: 16,
+                  child: FloatingActionButton.extended(
+                    key: const ValueKey('new_session_fab'),
+                    onPressed: _showNewSessionDialog,
+                    icon: const Icon(Icons.add),
+                    label: const Text('New'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: showConnectedUI && !_isAutoConnecting
+          ? null
+          : AppBar(
+              title: GestureDetector(
+                onTap: _onTitleTap,
+                child: Text(l.appTitle),
+              ),
+              actions: [
+                IconButton(
+                  key: const ValueKey('settings_button'),
+                  icon: Badge(
+                    isLabelVisible:
+                        AppUpdateService.instance.cachedUpdate != null,
+                    smallSize: 8,
+                    child: const Icon(Icons.settings),
+                  ),
+                  onPressed: _openSettings,
+                  tooltip: l.settings,
+                ),
+              ],
+            ),
+      body: body,
+      floatingActionButton:
+          showConnectedUI && MediaQuery.of(context).viewInsets.bottom == 0
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: FloatingActionButton.extended(
+                key: const ValueKey('new_session_fab'),
+                onPressed: _showNewSessionDialog,
+                icon: const Icon(Icons.add),
+                label: const Text('New'),
+              ),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildBodyContent({
+    required BuildContext context,
+    required bool showConnectedUI,
+    required BridgeConnectionState connectionState,
+    required List<SessionInfo> sessions,
+    required List<RecentSession> recentSessionsList,
+    required SessionListState slState,
+    required Set<String> unseenSessionIds,
+    required List<DiscoveredServer> discoveredServers,
+    required dynamic machineState,
+    required MachineManagerCubit? machineManagerCubit,
+  }) {
+    if (_isAutoConnecting) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (showConnectedUI) {
+      final content = RefreshIndicator(
+        onRefresh: () async => _refresh(),
+        child: HomeContent(
+          key: _homeContentKey,
+          connectionState: connectionState,
+          bridgeVersion: context.read<BridgeService>().bridgeVersion,
+          sessions: sessions,
+          recentSessions: recentSessionsList,
+          accumulatedProjectPaths: slState.accumulatedProjectPaths,
+          searchQuery: slState.searchQuery,
+          isLoadingMore: slState.isLoadingMore,
+          isInitialLoading: slState.isInitialLoading,
+          hasMoreSessions: slState.hasMore,
+          archivingSessionIds: _archivingSessionIds,
+          unseenSessionIds: unseenSessionIds,
+          currentProjectFilter: context
+              .read<BridgeService>()
+              .currentProjectFilter,
+          onNewSession: _showNewSessionDialog,
+          onTapRunning:
+              (
+                sessionId, {
+                String? projectPath,
+                String? gitBranch,
+                String? worktreePath,
+                String? provider,
+                String? permissionMode,
+                String? sandboxMode,
+              }) => _navigateToChat(
+                sessionId,
+                projectPath: projectPath,
+                gitBranch: gitBranch,
+                worktreePath: worktreePath,
+                provider: provider == 'codex' ? Provider.codex : null,
+                permissionMode: permissionMode,
+                sandboxMode: sandboxMode,
+              ),
+          onStopSession: _stopSession,
+          onApprovePermission:
+              (sessionId, toolUseId, {bool clearContext = false}) {
+                final bridge = context.read<BridgeService>();
+                bridge.send(
+                  ClientMessage.approve(
+                    toolUseId,
+                    sessionId: sessionId,
+                    clearContext: clearContext,
+                  ),
+                );
+                bridge.clearSessionPermission(sessionId);
+              },
+          onApproveAlways: (sessionId, toolUseId) {
+            final bridge = context.read<BridgeService>();
+            bridge.send(
+              ClientMessage.approveAlways(toolUseId, sessionId: sessionId),
+            );
+            bridge.clearSessionPermission(sessionId);
+          },
+          onRejectPermission: (sessionId, toolUseId, {message}) {
+            final bridge = context.read<BridgeService>();
+            bridge.send(
+              ClientMessage.reject(
+                toolUseId,
+                message: message,
+                sessionId: sessionId,
+              ),
+            );
+            bridge.clearSessionPermission(sessionId);
+          },
+          onAnswerQuestion: (sessionId, toolUseId, result) {
+            final bridge = context.read<BridgeService>();
+            bridge.send(
+              ClientMessage.answer(toolUseId, result, sessionId: sessionId),
+            );
+            bridge.clearSessionPermission(sessionId);
+          },
+          onResumeSession: _resumeSession,
+          onLongPressRecentSession: _showRecentSessionActions,
+          onArchiveSession: _archiveSession,
+          onLongPressRunningSession: _showRunningSessionActions,
+          onSelectProject: (path) =>
+              context.read<SessionListCubit>().selectProject(path),
+          onLoadMore: () => context.read<SessionListCubit>().loadMore(),
+          providerFilter: slState.providerFilter,
+          namedOnly: slState.namedOnly,
+          onToggleProvider: () =>
+              context.read<SessionListCubit>().toggleProviderFilter(),
+          onToggleNamed: () =>
+              context.read<SessionListCubit>().toggleNamedOnly(),
+          appUpdateInfo: _appUpdateInfo,
+          onDismissAppUpdate: _dismissAppUpdate,
+        ),
+      );
+
+      if (widget.embedded) {
+        return content;
+      }
+
+      return NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SessionListSliverAppBar(
+            onTitleTap: _onTitleTap,
+            onDisconnect: _disconnect,
+            forceElevated: innerBoxIsScrolled,
+          ),
+        ],
+        body: content,
+      );
+    }
+
+    if (connectionState == BridgeConnectionState.connecting) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return _ConnectFormWidget(
+      discoveredServers: discoveredServers,
+      machines: machineState?.machines ?? [],
+      startingMachineId: machineState?.startingMachineId,
+      updatingMachineId: machineState?.updatingMachineId,
+      onScanQrCode: _scanQrCode,
+      onViewSetupGuide: () => context.router.push(const SetupGuideRoute()),
+      onConnectToDiscovered: _connectToDiscovered,
+      onConnectToMachine: _connectToMachine,
+      onStartMachine: _startMachine,
+      onEditMachine: _editMachine,
+      onDeleteMachine: _deleteMachine,
+      onToggleFavorite: _toggleFavorite,
+      onUpdateMachine: _updateMachine,
+      onStopMachine: _stopMachine,
+      onAddMachine: _addMachine,
+      onRefreshMachines: () => machineManagerCubit?.refreshAll(),
     );
   }
 

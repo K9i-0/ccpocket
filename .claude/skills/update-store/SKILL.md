@@ -41,7 +41,7 @@ head -80 CHANGELOG.md
 AskUserQuestion（multiSelect）で更新対象を確認する。
 変更分析結果に基づいて推奨をdescriptionに含める。
 
-**スクリーンショット（8シナリオ）:**
+**iPhone スクリーンショット（8シナリオ）:**
 
 | Key | シナリオ名 | 内容 | テーマ |
 |-----|-----------|------|--------|
@@ -53,6 +53,16 @@ AskUserQuestion（multiSelect）で更新対象を確認する。
 | `06_git_diff` | Git Diff | Diff表示画面 | ライト |
 | `07_new_session` | New Session | 新規セッションシート | ライト |
 | `08_dark_theme` | Session List | 承認待ち一覧（ダークモード訴求） | ダーク |
+
+**iPad スクリーンショット（5シナリオ）:**
+
+| Key | シナリオ名 | 内容 | テーマ |
+|-----|-----------|------|--------|
+| `01_workspace_overview` | Workspace Overview | 左一覧 + 中央チャット + 右Git | ライト |
+| `02_workspace_explorer` | Workspace Explorer | 左一覧 + 中央チャット + 右Explorer | ライト |
+| `03_approval_context` | Approval In Context | 左一覧 + 中央承認UI | ライト |
+| `04_approval_queue` | Approval Queue | 複数の承認待ちセッションを同時に確認 | ライト |
+| `05_dark_workspace` | Dark Workspace | 3-pane ワークスペースのダークテーマ訴求 | ダーク |
 
 **メタデータテキスト:**
 
@@ -148,7 +158,8 @@ dart-mcp `stop_app` でアプリを停止。
 
 ### Step 5: iPad スクリーンショット撮影（選択された場合）
 
-Step 4と同じフローをiPadで実行。
+iPad は iPhone とは別セットを撮影する。既存の mobile 専用シナリオを流用せず、
+workspace レイアウト前提の 5 シナリオを撮る。
 
 #### 5-1. iPadシミュレーターの全画面表示を保証
 
@@ -162,12 +173,23 @@ xcrun simctl shutdown "iPad Pro 13-inch (M4)" 2>/dev/null || true
 # シミュレーターのコンテンツとキャッシュをリセット
 xcrun simctl erase "iPad Pro 13-inch (M4)"
 
-# 起動 & ダークモード設定
+# 起動
 xcrun simctl boot "iPad Pro 13-inch (M4)" 2>/dev/null || true
-xcrun simctl ui booted appearance dark
 ```
 
 **重要**: `erase` を実行するとアプリもアンインストールされるため、必ずクリーンインストールが行われる。これにより互換モード問題を防止する。
+
+**横向き前提**: iPad スクショは landscape で撮る。起動後に `sim-tap.swift` の準備コマンドを必ず実行する:
+```bash
+swift .claude/skills/update-store/scripts/sim-tap.swift prepare-store ipad
+```
+これで以下をまとめて行う:
+- `simctl privacy grant` で通知 / 音声認識 / マイク権限を事前付与
+- Simulator を前面化
+- `Device > Orientation > Landscape Left` で iPad を明示的に横向き固定
+- 通知許諾などのネイティブダイアログを dismiss
+
+撮影中に向きが崩れた場合や許諾ダイアログが再表示された場合も、スクショを撮る前に再度これを実行する。
 
 **ネイティブダイアログの自動dismiss**: `erase` 後は通知・音声認識・マイク等のパーミッションダイアログが再度表示される。
 
@@ -179,12 +201,13 @@ xcrun simctl privacy booted grant microphone com.k9i.ccpocket
 ```
 これによりダイアログの表示自体を防止できる。`simctl privacy` が失敗する場合は以下のフォールバックを使う。
 
-**フォールバック: sim-tap.swift の `dismiss-dialogs` コマンド**:
+**フォールバック: sim-tap.swift の個別コマンド**:
 ダイアログはホーム画面ではなく**セッション画面遷移後**に表示されることがある。
 最初のシナリオ遷移後にdismissし、必要なら撮り直す。
 
 AX API でボタンが見つからない場合（特にiPad）、CGEvent ベースのクリックで自動フォールバックする:
 ```bash
+swift .claude/skills/update-store/scripts/sim-tap.swift rotate right
 swift .claude/skills/update-store/scripts/sim-tap.swift dismiss-dialogs ipad
 swift .claude/skills/update-store/scripts/sim-tap.swift dismiss-dialogs iphone
 ```
@@ -194,24 +217,57 @@ swift .claude/skills/update-store/scripts/sim-tap.swift dismiss-dialogs iphone
 while swift .claude/skills/update-store/scripts/sim-tap.swift tap "許可" 2>/dev/null; do sleep 1; done
 ```
 
-#### 5-2. スクショ撮影 & 解像度検証
+#### 5-2. シナリオ撮影 & 解像度検証
+
+**テーマ設定**: iPad 側は `Dark Workspace` 以外をライトテーマで撮る。アプリ起動後に最初に一度:
+marionette `call_custom_extension`
+- extension: `ccpocket.setTheme`
+- params: `{ "theme": "light" }`
+
+`Dark Workspace` はシナリオ側で一時的にダークへ切り替わるため、個別に `setTheme dark` する必要はない。
+
+各シナリオに対して:
+
+1. marionette `call_custom_extension`
+   - extension: `ccpocket.navigateToStoreScenario`
+   - params: `{ "scenario": "<シナリオ名>" }`
+   - 値:
+     - `Workspace Overview`
+     - `Workspace Explorer`
+     - `Approval In Context`
+     - `Approval Queue`
+     - `Dark Workspace`
+
+2. 2-3秒待機
+
+3. 撮影
+   ```bash
+   swift .claude/skills/update-store/scripts/sim-tap.swift capture-store ipad apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
+   ```
+
+4. marionette `call_custom_extension`
+   - extension: `ccpocket.popToRoot`
+
+5. 1秒待機
+
+#### 5-3. 解像度検証
 
 撮影後、スクショの解像度がiPadのネイティブ解像度と一致するか検証する:
 
 ```bash
-xcrun simctl io booted screenshot apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
+swift .claude/skills/update-store/scripts/sim-tap.swift capture-store ipad apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
 
 # 解像度検証（互換モード検出）
 WIDTH=$(sips -g pixelWidth apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png | tail -1 | awk '{print $2}')
 HEIGHT=$(sips -g pixelHeight apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png | tail -1 | awk '{print $2}')
 echo "Screenshot: ${WIDTH}x${HEIGHT}"
-# iPad Pro 13-inch (M4): 2064x2752 が期待値
+# iPad Pro 13-inch (M4) landscape: 2752x2064 が期待値
 # 解像度が大幅に小さい場合は互換モードで起動しているため、eraseからやり直す
 ```
 
 もし解像度が期待値と異なる場合は、`flutter clean` → `flutter build ios --simulator` でクリーンビルドしてやり直すこと。
 
-#### 5-3. アプリ停止
+#### 5-4. アプリ停止
 
 dart-mcp `stop_app` でアプリを停止。
 **シミュレーターはシャットダウンしない**（compose.sh 実行や確認に支障はない）。
@@ -260,3 +316,4 @@ git diff --stat
 - **Image Attach シナリオ**: モック画像が自動的に添付される
 - **シミュレーターデバイス名**: Xcode バージョンにより正確な名前が異なる場合がある。`xcrun simctl list devices available` で確認
 - **compose.sh**: ImageMagick (`convert` / `magick`) が必要。PNGタイムスタンプを除去して不要なgit diffを防止
+- **iPad スクショ**: landscape 前提。raw スクショも framed 画像も `2752x2064` を基準に扱う

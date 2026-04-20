@@ -11,6 +11,78 @@
 part of 'app_router.dart';
 
 /// generated route for
+/// [AdaptiveHomeScreen]
+class AdaptiveHomeRoute extends PageRouteInfo<AdaptiveHomeRouteArgs> {
+  AdaptiveHomeRoute({
+    Key? key,
+    ValueNotifier<ConnectionParams?>? deepLinkNotifier,
+    List<RecentSession>? debugRecentSessions,
+    List<PageRouteInfo>? children,
+  }) : super(
+         AdaptiveHomeRoute.name,
+         args: AdaptiveHomeRouteArgs(
+           key: key,
+           deepLinkNotifier: deepLinkNotifier,
+           debugRecentSessions: debugRecentSessions,
+         ),
+         initialChildren: children,
+       );
+
+  static const String name = 'AdaptiveHomeRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<AdaptiveHomeRouteArgs>(
+        orElse: () => const AdaptiveHomeRouteArgs(),
+      );
+      return AdaptiveHomeScreen(
+        key: args.key,
+        deepLinkNotifier: args.deepLinkNotifier,
+        debugRecentSessions: args.debugRecentSessions,
+      );
+    },
+  );
+}
+
+class AdaptiveHomeRouteArgs {
+  const AdaptiveHomeRouteArgs({
+    this.key,
+    this.deepLinkNotifier,
+    this.debugRecentSessions,
+  });
+
+  final Key? key;
+
+  final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
+
+  final List<RecentSession>? debugRecentSessions;
+
+  @override
+  String toString() {
+    return 'AdaptiveHomeRouteArgs{key: $key, deepLinkNotifier: $deepLinkNotifier, debugRecentSessions: $debugRecentSessions}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! AdaptiveHomeRouteArgs) return false;
+    return key == other.key &&
+        deepLinkNotifier == other.deepLinkNotifier &&
+        const ListEquality<RecentSession>().equals(
+          debugRecentSessions,
+          other.debugRecentSessions,
+        );
+  }
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      deepLinkNotifier.hashCode ^
+      const ListEquality<RecentSession>().hash(debugRecentSessions);
+}
+
+/// generated route for
 /// [AuthHelpScreen]
 class AuthHelpRoute extends PageRouteInfo<void> {
   const AuthHelpRoute({List<PageRouteInfo>? children})
@@ -306,6 +378,9 @@ class ExploreRoute extends PageRouteInfo<ExploreRouteArgs> {
     List<String> initialFiles = const [],
     String initialPath = '',
     List<String> recentPeekedFiles = const [],
+    bool embedded = false,
+    VoidCallback? onClose,
+    ValueChanged<ExploreScreenResult>? onResultChanged,
     List<PageRouteInfo>? children,
   }) : super(
          ExploreRoute.name,
@@ -316,6 +391,9 @@ class ExploreRoute extends PageRouteInfo<ExploreRouteArgs> {
            initialFiles: initialFiles,
            initialPath: initialPath,
            recentPeekedFiles: recentPeekedFiles,
+           embedded: embedded,
+           onClose: onClose,
+           onResultChanged: onResultChanged,
          ),
          initialChildren: children,
        );
@@ -333,6 +411,9 @@ class ExploreRoute extends PageRouteInfo<ExploreRouteArgs> {
         initialFiles: args.initialFiles,
         initialPath: args.initialPath,
         recentPeekedFiles: args.recentPeekedFiles,
+        embedded: args.embedded,
+        onClose: args.onClose,
+        onResultChanged: args.onResultChanged,
       );
     },
   );
@@ -346,6 +427,9 @@ class ExploreRouteArgs {
     this.initialFiles = const [],
     this.initialPath = '',
     this.recentPeekedFiles = const [],
+    this.embedded = false,
+    this.onClose,
+    this.onResultChanged,
   });
 
   final Key? key;
@@ -360,9 +444,15 @@ class ExploreRouteArgs {
 
   final List<String> recentPeekedFiles;
 
+  final bool embedded;
+
+  final VoidCallback? onClose;
+
+  final ValueChanged<ExploreScreenResult>? onResultChanged;
+
   @override
   String toString() {
-    return 'ExploreRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, initialFiles: $initialFiles, initialPath: $initialPath, recentPeekedFiles: $recentPeekedFiles}';
+    return 'ExploreRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, initialFiles: $initialFiles, initialPath: $initialPath, recentPeekedFiles: $recentPeekedFiles, embedded: $embedded, onClose: $onClose, onResultChanged: $onResultChanged}';
   }
 
   @override
@@ -377,7 +467,10 @@ class ExploreRouteArgs {
         const ListEquality<String>().equals(
           recentPeekedFiles,
           other.recentPeekedFiles,
-        );
+        ) &&
+        embedded == other.embedded &&
+        onClose == other.onClose &&
+        onResultChanged == other.onResultChanged;
   }
 
   @override
@@ -387,7 +480,10 @@ class ExploreRouteArgs {
       projectPath.hashCode ^
       const ListEquality<String>().hash(initialFiles) ^
       initialPath.hashCode ^
-      const ListEquality<String>().hash(recentPeekedFiles);
+      const ListEquality<String>().hash(recentPeekedFiles) ^
+      embedded.hashCode ^
+      onClose.hashCode ^
+      onResultChanged.hashCode;
 }
 
 /// generated route for
@@ -446,6 +542,9 @@ class GitRoute extends PageRouteInfo<GitRouteArgs> {
     String? title,
     String? worktreePath,
     String? sessionId,
+    bool embedded = false,
+    VoidCallback? onClose,
+    ValueChanged<DiffSelection>? onRequestChange,
     List<PageRouteInfo>? children,
   }) : super(
          GitRoute.name,
@@ -456,6 +555,9 @@ class GitRoute extends PageRouteInfo<GitRouteArgs> {
            title: title,
            worktreePath: worktreePath,
            sessionId: sessionId,
+           embedded: embedded,
+           onClose: onClose,
+           onRequestChange: onRequestChange,
          ),
          initialChildren: children,
        );
@@ -475,6 +577,9 @@ class GitRoute extends PageRouteInfo<GitRouteArgs> {
         title: args.title,
         worktreePath: args.worktreePath,
         sessionId: args.sessionId,
+        embedded: args.embedded,
+        onClose: args.onClose,
+        onRequestChange: args.onRequestChange,
       );
     },
   );
@@ -488,6 +593,9 @@ class GitRouteArgs {
     this.title,
     this.worktreePath,
     this.sessionId,
+    this.embedded = false,
+    this.onClose,
+    this.onRequestChange,
   });
 
   final Key? key;
@@ -502,9 +610,15 @@ class GitRouteArgs {
 
   final String? sessionId;
 
+  final bool embedded;
+
+  final VoidCallback? onClose;
+
+  final ValueChanged<DiffSelection>? onRequestChange;
+
   @override
   String toString() {
-    return 'GitRouteArgs{key: $key, initialDiff: $initialDiff, projectPath: $projectPath, title: $title, worktreePath: $worktreePath, sessionId: $sessionId}';
+    return 'GitRouteArgs{key: $key, initialDiff: $initialDiff, projectPath: $projectPath, title: $title, worktreePath: $worktreePath, sessionId: $sessionId, embedded: $embedded, onClose: $onClose, onRequestChange: $onRequestChange}';
   }
 
   @override
@@ -516,7 +630,10 @@ class GitRouteArgs {
         projectPath == other.projectPath &&
         title == other.title &&
         worktreePath == other.worktreePath &&
-        sessionId == other.sessionId;
+        sessionId == other.sessionId &&
+        embedded == other.embedded &&
+        onClose == other.onClose &&
+        onRequestChange == other.onRequestChange;
   }
 
   @override
@@ -526,7 +643,10 @@ class GitRouteArgs {
       projectPath.hashCode ^
       title.hashCode ^
       worktreePath.hashCode ^
-      sessionId.hashCode;
+      sessionId.hashCode ^
+      embedded.hashCode ^
+      onClose.hashCode ^
+      onRequestChange.hashCode;
 }
 
 /// generated route for
@@ -575,78 +695,6 @@ class QrScanRoute extends PageRouteInfo<void> {
       return const QrScanScreen();
     },
   );
-}
-
-/// generated route for
-/// [SessionListScreen]
-class SessionListRoute extends PageRouteInfo<SessionListRouteArgs> {
-  SessionListRoute({
-    Key? key,
-    ValueNotifier<ConnectionParams?>? deepLinkNotifier,
-    List<RecentSession>? debugRecentSessions,
-    List<PageRouteInfo>? children,
-  }) : super(
-         SessionListRoute.name,
-         args: SessionListRouteArgs(
-           key: key,
-           deepLinkNotifier: deepLinkNotifier,
-           debugRecentSessions: debugRecentSessions,
-         ),
-         initialChildren: children,
-       );
-
-  static const String name = 'SessionListRoute';
-
-  static PageInfo page = PageInfo(
-    name,
-    builder: (data) {
-      final args = data.argsAs<SessionListRouteArgs>(
-        orElse: () => const SessionListRouteArgs(),
-      );
-      return SessionListScreen(
-        key: args.key,
-        deepLinkNotifier: args.deepLinkNotifier,
-        debugRecentSessions: args.debugRecentSessions,
-      );
-    },
-  );
-}
-
-class SessionListRouteArgs {
-  const SessionListRouteArgs({
-    this.key,
-    this.deepLinkNotifier,
-    this.debugRecentSessions,
-  });
-
-  final Key? key;
-
-  final ValueNotifier<ConnectionParams?>? deepLinkNotifier;
-
-  final List<RecentSession>? debugRecentSessions;
-
-  @override
-  String toString() {
-    return 'SessionListRouteArgs{key: $key, deepLinkNotifier: $deepLinkNotifier, debugRecentSessions: $debugRecentSessions}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! SessionListRouteArgs) return false;
-    return key == other.key &&
-        deepLinkNotifier == other.deepLinkNotifier &&
-        const ListEquality<RecentSession>().equals(
-          debugRecentSessions,
-          other.debugRecentSessions,
-        );
-  }
-
-  @override
-  int get hashCode =>
-      key.hashCode ^
-      deepLinkNotifier.hashCode ^
-      const ListEquality<RecentSession>().hash(debugRecentSessions);
 }
 
 /// generated route for
@@ -726,6 +774,262 @@ class SupporterRoute extends PageRouteInfo<void> {
     name,
     builder: (data) {
       return const SupporterScreen();
+    },
+  );
+}
+
+/// generated route for
+/// [WorkspaceClaudeSessionScreen]
+class WorkspaceClaudeSessionRoute
+    extends PageRouteInfo<WorkspaceClaudeSessionRouteArgs> {
+  WorkspaceClaudeSessionRoute({
+    Key? key,
+    required String sessionId,
+    String? projectPath,
+    String? gitBranch,
+    String? worktreePath,
+    bool isPending = false,
+    String? initialPermissionMode,
+    String? initialSandboxMode,
+    ValueNotifier<SystemMessage?>? pendingSessionCreated,
+    List<PageRouteInfo>? children,
+  }) : super(
+         WorkspaceClaudeSessionRoute.name,
+         args: WorkspaceClaudeSessionRouteArgs(
+           key: key,
+           sessionId: sessionId,
+           projectPath: projectPath,
+           gitBranch: gitBranch,
+           worktreePath: worktreePath,
+           isPending: isPending,
+           initialPermissionMode: initialPermissionMode,
+           initialSandboxMode: initialSandboxMode,
+           pendingSessionCreated: pendingSessionCreated,
+         ),
+         initialChildren: children,
+       );
+
+  static const String name = 'WorkspaceClaudeSessionRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<WorkspaceClaudeSessionRouteArgs>();
+      return WorkspaceClaudeSessionScreen(
+        key: args.key,
+        sessionId: args.sessionId,
+        projectPath: args.projectPath,
+        gitBranch: args.gitBranch,
+        worktreePath: args.worktreePath,
+        isPending: args.isPending,
+        initialPermissionMode: args.initialPermissionMode,
+        initialSandboxMode: args.initialSandboxMode,
+        pendingSessionCreated: args.pendingSessionCreated,
+      );
+    },
+  );
+}
+
+class WorkspaceClaudeSessionRouteArgs {
+  const WorkspaceClaudeSessionRouteArgs({
+    this.key,
+    required this.sessionId,
+    this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
+    this.isPending = false,
+    this.initialPermissionMode,
+    this.initialSandboxMode,
+    this.pendingSessionCreated,
+  });
+
+  final Key? key;
+
+  final String sessionId;
+
+  final String? projectPath;
+
+  final String? gitBranch;
+
+  final String? worktreePath;
+
+  final bool isPending;
+
+  final String? initialPermissionMode;
+
+  final String? initialSandboxMode;
+
+  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
+
+  @override
+  String toString() {
+    return 'WorkspaceClaudeSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialPermissionMode: $initialPermissionMode, initialSandboxMode: $initialSandboxMode, pendingSessionCreated: $pendingSessionCreated}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! WorkspaceClaudeSessionRouteArgs) return false;
+    return key == other.key &&
+        sessionId == other.sessionId &&
+        projectPath == other.projectPath &&
+        gitBranch == other.gitBranch &&
+        worktreePath == other.worktreePath &&
+        isPending == other.isPending &&
+        initialPermissionMode == other.initialPermissionMode &&
+        initialSandboxMode == other.initialSandboxMode &&
+        pendingSessionCreated == other.pendingSessionCreated;
+  }
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      sessionId.hashCode ^
+      projectPath.hashCode ^
+      gitBranch.hashCode ^
+      worktreePath.hashCode ^
+      isPending.hashCode ^
+      initialPermissionMode.hashCode ^
+      initialSandboxMode.hashCode ^
+      pendingSessionCreated.hashCode;
+}
+
+/// generated route for
+/// [WorkspaceCodexSessionScreen]
+class WorkspaceCodexSessionRoute
+    extends PageRouteInfo<WorkspaceCodexSessionRouteArgs> {
+  WorkspaceCodexSessionRoute({
+    Key? key,
+    required String sessionId,
+    String? projectPath,
+    String? gitBranch,
+    String? worktreePath,
+    bool isPending = false,
+    String? initialSandboxMode,
+    String? initialPermissionMode,
+    String? initialApprovalPolicy,
+    ValueNotifier<SystemMessage?>? pendingSessionCreated,
+    List<PageRouteInfo>? children,
+  }) : super(
+         WorkspaceCodexSessionRoute.name,
+         args: WorkspaceCodexSessionRouteArgs(
+           key: key,
+           sessionId: sessionId,
+           projectPath: projectPath,
+           gitBranch: gitBranch,
+           worktreePath: worktreePath,
+           isPending: isPending,
+           initialSandboxMode: initialSandboxMode,
+           initialPermissionMode: initialPermissionMode,
+           initialApprovalPolicy: initialApprovalPolicy,
+           pendingSessionCreated: pendingSessionCreated,
+         ),
+         initialChildren: children,
+       );
+
+  static const String name = 'WorkspaceCodexSessionRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      final args = data.argsAs<WorkspaceCodexSessionRouteArgs>();
+      return WorkspaceCodexSessionScreen(
+        key: args.key,
+        sessionId: args.sessionId,
+        projectPath: args.projectPath,
+        gitBranch: args.gitBranch,
+        worktreePath: args.worktreePath,
+        isPending: args.isPending,
+        initialSandboxMode: args.initialSandboxMode,
+        initialPermissionMode: args.initialPermissionMode,
+        initialApprovalPolicy: args.initialApprovalPolicy,
+        pendingSessionCreated: args.pendingSessionCreated,
+      );
+    },
+  );
+}
+
+class WorkspaceCodexSessionRouteArgs {
+  const WorkspaceCodexSessionRouteArgs({
+    this.key,
+    required this.sessionId,
+    this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
+    this.isPending = false,
+    this.initialSandboxMode,
+    this.initialPermissionMode,
+    this.initialApprovalPolicy,
+    this.pendingSessionCreated,
+  });
+
+  final Key? key;
+
+  final String sessionId;
+
+  final String? projectPath;
+
+  final String? gitBranch;
+
+  final String? worktreePath;
+
+  final bool isPending;
+
+  final String? initialSandboxMode;
+
+  final String? initialPermissionMode;
+
+  final String? initialApprovalPolicy;
+
+  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
+
+  @override
+  String toString() {
+    return 'WorkspaceCodexSessionRouteArgs{key: $key, sessionId: $sessionId, projectPath: $projectPath, gitBranch: $gitBranch, worktreePath: $worktreePath, isPending: $isPending, initialSandboxMode: $initialSandboxMode, initialPermissionMode: $initialPermissionMode, initialApprovalPolicy: $initialApprovalPolicy, pendingSessionCreated: $pendingSessionCreated}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! WorkspaceCodexSessionRouteArgs) return false;
+    return key == other.key &&
+        sessionId == other.sessionId &&
+        projectPath == other.projectPath &&
+        gitBranch == other.gitBranch &&
+        worktreePath == other.worktreePath &&
+        isPending == other.isPending &&
+        initialSandboxMode == other.initialSandboxMode &&
+        initialPermissionMode == other.initialPermissionMode &&
+        initialApprovalPolicy == other.initialApprovalPolicy &&
+        pendingSessionCreated == other.pendingSessionCreated;
+  }
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      sessionId.hashCode ^
+      projectPath.hashCode ^
+      gitBranch.hashCode ^
+      worktreePath.hashCode ^
+      isPending.hashCode ^
+      initialSandboxMode.hashCode ^
+      initialPermissionMode.hashCode ^
+      initialApprovalPolicy.hashCode ^
+      pendingSessionCreated.hashCode;
+}
+
+/// generated route for
+/// [WorkspacePlaceholderScreen]
+class WorkspacePlaceholderRoute extends PageRouteInfo<void> {
+  const WorkspacePlaceholderRoute({List<PageRouteInfo>? children})
+    : super(WorkspacePlaceholderRoute.name, initialChildren: children);
+
+  static const String name = 'WorkspacePlaceholderRoute';
+
+  static PageInfo page = PageInfo(
+    name,
+    builder: (data) {
+      return const WorkspacePlaceholderScreen();
     },
   );
 }

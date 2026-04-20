@@ -233,7 +233,6 @@ class _CcpocketAppState extends State<CcpocketApp> {
   StreamSubscription<RemoteMessage>? _fcmOnMessageOpenedAppSub;
 
   late final AppRouter _appRouter;
-  final _sessionRouteObserver = SessionRouteObserver();
   bool _routerInitialized = false;
   bool _fcmHandlersInitialized = false;
   late final AppLifecycleListener _lifecycleListener;
@@ -434,7 +433,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           routerConfig: _appRouter.config(
-            navigatorObservers: () => [_sessionRouteObserver],
+            navigatorObservers: () => [SessionRouteObserver()],
           ),
           debugShowCheckedModeBanner: false,
         );

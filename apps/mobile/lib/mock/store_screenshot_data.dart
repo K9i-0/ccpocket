@@ -79,6 +79,51 @@ final storeNewSessionScenario = MockScenario(
   section: MockScenarioSection.storeScreenshot,
 );
 
+/// iPad 01: Workspace with chat + git pane
+final storeIpadWorkspaceOverviewScenario = MockScenario(
+  name: 'Workspace Overview',
+  icon: Icons.space_dashboard_outlined,
+  description: 'iPad 01: Three-pane workspace with Git review',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
+/// iPad 02: Workspace with chat + explorer pane
+final storeIpadWorkspaceExplorerScenario = MockScenario(
+  name: 'Workspace Explorer',
+  icon: Icons.folder_copy_outlined,
+  description: 'iPad 02: Three-pane workspace with file explorer',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
+/// iPad 03: Approval UI in context with session list
+final storeIpadApprovalContextScenario = MockScenario(
+  name: 'Approval In Context',
+  icon: Icons.rule_folder_outlined,
+  description: 'iPad 03: Approval workflow beside the session list',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
+/// iPad 04: Multiple sessions waiting for approval
+final storeIpadApprovalQueueScenario = MockScenario(
+  name: 'Approval Queue',
+  icon: Icons.pending_actions_outlined,
+  description: 'iPad 04: Multiple running sessions waiting for approval',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
+/// iPad 05: Workspace overview in dark theme
+final storeIpadDarkWorkspaceScenario = MockScenario(
+  name: 'Dark Workspace',
+  icon: Icons.dark_mode_outlined,
+  description: 'iPad 05: Three-pane workspace in dark theme',
+  steps: [],
+  section: MockScenarioSection.storeScreenshot,
+);
+
 final List<MockScenario> storeScreenshotScenarios = [
   storeSessionListRecentScenario,
   storeSessionListScenario,
@@ -87,6 +132,11 @@ final List<MockScenario> storeScreenshotScenarios = [
   storeChatImageAttachScenario,
   storeDiffScenario,
   storeNewSessionScenario,
+  storeIpadWorkspaceOverviewScenario,
+  storeIpadWorkspaceExplorerScenario,
+  storeIpadApprovalContextScenario,
+  storeIpadApprovalQueueScenario,
+  storeIpadDarkWorkspaceScenario,
 ];
 
 // =============================================================================

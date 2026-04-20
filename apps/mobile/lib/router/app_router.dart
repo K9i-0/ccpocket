@@ -6,9 +6,10 @@ import '../features/claude_session/claude_session_screen.dart';
 import '../features/debug/debug_screen.dart';
 import '../features/codex_session/codex_session_screen.dart';
 import '../features/explore/explore_screen.dart';
+import '../features/explore/state/explore_state.dart';
 import '../features/git/git_screen.dart';
 import '../features/gallery/gallery_screen.dart';
-import '../features/session_list/session_list_screen.dart';
+import '../features/session_list/workspace_shell_screen.dart';
 import '../features/settings/auth_help_screen.dart';
 import '../features/settings/changelog_screen.dart';
 import '../features/settings/licenses_screen.dart';
@@ -18,6 +19,7 @@ import '../screens/mock_preview_screen.dart';
 import '../services/connection_url_parser.dart';
 import '../features/setup_guide/setup_guide_screen.dart';
 import '../screens/qr_scan_screen.dart';
+import '../utils/diff_parser.dart';
 
 import '../features/settings/supporter_screen.dart';
 
@@ -27,7 +29,7 @@ part 'app_router.gr.dart';
 class AppRouter extends RootStackRouter {
   @override
   List<AutoRoute> get routes => [
-    AutoRoute(page: SessionListRoute.page, path: '/', initial: true),
+    AutoRoute(page: AdaptiveHomeRoute.page, path: '/', initial: true),
     AutoRoute(page: ClaudeSessionRoute.page, path: '/session/:sessionId'),
     AutoRoute(page: CodexSessionRoute.page, path: '/codex-session/:sessionId'),
     AutoRoute(page: ExploreRoute.page, path: '/explore'),

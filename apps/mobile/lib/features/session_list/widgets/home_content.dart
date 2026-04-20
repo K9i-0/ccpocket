@@ -10,6 +10,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/app_update_service.dart';
 import '../../../services/draft_service.dart';
+import '../../../services/notification_service.dart';
 import '../../../services/revenuecat_service.dart';
 import '../../../services/support_banner_service.dart';
 import '../../../theme/app_theme.dart';
@@ -282,6 +283,13 @@ class HomeContentState extends State<HomeContent> {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: NotificationService.instance,
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final l = AppLocalizations.of(context);
     final appColors = Theme.of(context).extension<AppColors>()!;
     final hasRunningSessions = widget.sessions.isNotEmpty;
@@ -295,6 +303,8 @@ class HomeContentState extends State<HomeContent> {
         ? _buildSupportBanner()
         : null;
     final appUpdateBanner = _buildAppUpdateBanner();
+    final selectedSessionId = NotificationService.instance.activeSessionId;
+    final selectedSessionProvider = NotificationService.instance.activeProvider;
 
     // Compute derived state
     // Exclude running sessions from recent list to avoid duplicates
@@ -411,6 +421,9 @@ class HomeContentState extends State<HomeContent> {
               child: RunningSessionCard(
                 session: session,
                 isUnseen: widget.unseenSessionIds.contains(session.id),
+                isSelected:
+                    selectedSessionId == session.id &&
+                    selectedSessionProvider == session.provider,
                 onLongPress: () => widget.onLongPressRunningSession(session),
                 onTap: () => widget.onTapRunning(
                   session.id,
@@ -554,6 +567,8 @@ class HomeContentState extends State<HomeContent> {
                   child: RecentSessionCard(
                     session: session,
                     displayMode: _displayMode,
+                    // Only running sessions show the active selection state.
+                    isSelected: false,
                     draftText: context.read<DraftService>().getDraft(
                       session.sessionId,
                     ),

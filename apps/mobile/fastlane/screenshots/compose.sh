@@ -39,6 +39,14 @@ SCREENSHOTS=(
   "08_dark_theme|Dark mode|Easy on the eyes|ダークモード|目に優しいダークテーマ|深色模式|护眼深色主题"
 )
 
+IPAD_SCREENSHOTS=(
+  "01_workspace_overview|Real workspace|Chat, sessions, and Git together|本物のワークスペース|会話、一覧、差分を同時表示|真正的工作区|会话、列表与差异并排查看"
+  "02_workspace_explorer|Explore while coding|Keep files next to the conversation|探索しながら開発|会話の横でファイルを確認|边写边看文件|在对话旁浏览项目结构"
+  "03_approval_context|Approve in context|Review requests without losing your place|文脈の中で承認|流れを切らさず判断できる|在上下文中审批|不离开当前工作流"
+  "04_approval_queue|Approval queue|Handle multiple active reviews together|承認キュー|複数の判断待ちをまとめてさばく|审批队列|同时处理多个待审批会话"
+  "05_dark_workspace|Dark workspace|A focused layout that feels like your desktop IDE|ダークワークスペース|集中できる大画面レイアウト|深色工作区|像桌面 IDE 一样沉浸的布局"
+)
+
 compose_screenshot() {
   local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6"
   local input="${SCRIPT_DIR}/${lang_dir}/${key}.png"
@@ -46,7 +54,7 @@ compose_screenshot() {
 
   # Dark theme variant: dark background + white text
   local is_dark=false
-  case "$key" in 08_dark_theme) is_dark=true ;; esac
+  case "$key" in 08_dark_theme|05_dark_workspace) is_dark=true ;; esac
 
   if [ ! -f "$input" ]; then
     echo "SKIP: $input not found"
@@ -157,9 +165,9 @@ for entry in "${SCREENSHOTS[@]}"; do
   compose_screenshot "$key" "$kw_zh" "$tt_zh" "zh-CN" "$FONT_ZH_BOLD" "$FONT_ZH_REG"
 done
 
-# === iPad (2064x2752) ===
-IPAD_CANVAS_W=2064
-IPAD_CANVAS_H=2752
+# === iPad Landscape (2752x2064) ===
+IPAD_CANVAS_W=2752
+IPAD_CANVAS_H=2064
 
 compose_ipad_screenshot() {
   local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6" src_dir="$7"
@@ -178,7 +186,7 @@ compose_ipad_screenshot() {
   local src_w src_h
   read -r src_w src_h <<< "$(magick identify -format '%w %h' "$input")"
 
-  local pad=100
+  local pad=140
   local max_w=$((IPAD_CANVAS_W - pad * 2))
   local scale_ratio
   scale_ratio=$(echo "scale=6; $max_w / $src_w" | bc)
@@ -186,7 +194,7 @@ compose_ipad_screenshot() {
   local scaled_h
   scaled_h=$(echo "$src_h * $scale_ratio / 1" | bc)
 
-  local text_area_h=500
+  local text_area_h=360
 
   local avail_h=$((IPAD_CANVAS_H - text_area_h - 20))
   if [ "$scaled_h" -gt "$avail_h" ]; then
@@ -249,10 +257,10 @@ compose_ipad_screenshot() {
   magick -size "${IPAD_CANVAS_W}x${IPAD_CANVAS_H}" "$bg_gradient" \
     "$tmp_device" -geometry "+${ss_x}+${ss_y}" -composite \
     -gravity North \
-    -font "$font_bold" -pointsize 100 -fill "$text_fill" \
-    -annotate +0+150 "$keyword" \
-    -font "$font_reg" -pointsize 64 -fill "$subtitle_fill" \
-    -annotate +0+280 "$title" \
+    -font "$font_bold" -pointsize 112 -fill "$text_fill" \
+    -annotate +0+110 "$keyword" \
+    -font "$font_reg" -pointsize 68 -fill "$subtitle_fill" \
+    -annotate +0+225 "$title" \
     -depth 8 $PNG_STRIP "$output"
 
   rm -f /tmp/screen_$$.png /tmp/inner_mask_$$.png /tmp/screen_masked_$$.png /tmp/bezel_$$.png /tmp/device_$$.png /tmp/outline_$$.png
@@ -261,14 +269,14 @@ compose_ipad_screenshot() {
 
 echo ""
 echo "=== iPad English ==="
-for entry in "${SCREENSHOTS[@]}"; do
+for entry in "${IPAD_SCREENSHOTS[@]}"; do
   IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh <<< "$entry"
   compose_ipad_screenshot "$key" "$kw_en" "$tt_en" "en-US" "$FONT_EN_BOLD" "$FONT_EN_REG" "en-US"
 done
 
 echo ""
 echo "=== iPad Japanese ==="
-for entry in "${SCREENSHOTS[@]}"; do
+for entry in "${IPAD_SCREENSHOTS[@]}"; do
   IFS='|' read -r key kw_en tt_en kw_ja tt_ja kw_zh tt_zh <<< "$entry"
   compose_ipad_screenshot "$key" "$kw_ja" "$tt_ja" "ja" "$FONT_JA_BOLD" "$FONT_JA_REG" "en-US"
 done

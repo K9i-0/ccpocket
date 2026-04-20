@@ -13,6 +13,8 @@
 import AppKit
 import Foundation
 
+let storeScreenshotBundleId = "com.k9i.ccpocket"
+
 // MARK: - AX Helpers
 
 func axValue<T>(_ element: AXUIElement, _ attr: String) -> T? {
@@ -99,6 +101,165 @@ func findSimulatorApp() -> AXUIElement? {
     return AXUIElementCreateApplication(sim.processIdentifier)
 }
 
+@discardableResult
+func activateSimulator() -> Bool {
+    let apps = NSWorkspace.shared.runningApplications
+    guard let sim = apps.first(where: { $0.bundleIdentifier == "com.apple.iphonesimulator" }) else {
+        fputs("Error: Simulator.app is not running.\n", stderr)
+        return false
+    }
+    sim.activate()
+    usleep(300_000)
+    return true
+}
+
+func runAppleScript(_ source: String) -> Bool {
+    var error: NSDictionary?
+    let script = NSAppleScript(source: source)
+    let result = script?.executeAndReturnError(&error)
+    if result != nil { return true }
+    if let error {
+        fputs("AppleScript error: \(error)\n", stderr)
+    }
+    return false
+}
+
+@discardableResult
+func runCommand(_ launchPath: String, _ arguments: [String]) -> (status: Int32, stdout: String, stderr: String) {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: launchPath)
+    process.arguments = arguments
+
+    let stdoutPipe = Pipe()
+    let stderrPipe = Pipe()
+    process.standardOutput = stdoutPipe
+    process.standardError = stderrPipe
+
+    do {
+        try process.run()
+        process.waitUntilExit()
+    } catch {
+        return (1, "", "Failed to run \(launchPath): \(error)")
+    }
+
+    let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+    let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+    return (
+        process.terminationStatus,
+        String(decoding: stdoutData, as: UTF8.self),
+        String(decoding: stderrData, as: UTF8.self)
+    )
+}
+
+func imageSize(at path: String) -> (width: Int, height: Int)? {
+    let result = runCommand("/usr/bin/sips", ["-g", "pixelWidth", "-g", "pixelHeight", path])
+    guard result.status == 0 else { return nil }
+
+    var width: Int?
+    var height: Int?
+    for line in result.stdout.split(separator: "\n") {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("pixelWidth:") {
+            width = Int(trimmed.replacingOccurrences(of: "pixelWidth:", with: "").trimmingCharacters(in: .whitespaces))
+        }
+        if trimmed.hasPrefix("pixelHeight:") {
+            height = Int(trimmed.replacingOccurrences(of: "pixelHeight:", with: "").trimmingCharacters(in: .whitespaces))
+        }
+    }
+    guard let width, let height else { return nil }
+    return (width, height)
+}
+
+func captureStoreScreenshot(device: String, outputPath: String) -> Bool {
+    let screenshot = runCommand("/usr/bin/xcrun", ["simctl", "io", "booted", "screenshot", outputPath])
+    guard screenshot.status == 0 else {
+        fputs("Error: Failed to capture screenshot.\n\(screenshot.stderr)\n", stderr)
+        return false
+    }
+
+    guard let size = imageSize(at: outputPath) else {
+        fputs("Error: Failed to inspect screenshot size at \(outputPath).\n", stderr)
+        return false
+    }
+
+    if device.lowercased() == "ipad", size.width < size.height {
+        let rotate = runCommand("/usr/bin/sips", ["-r", "270", outputPath, "--out", outputPath])
+        guard rotate.status == 0 else {
+            fputs("Error: Failed to rotate iPad screenshot.\n\(rotate.stderr)\n", stderr)
+            return false
+        }
+    }
+
+    if let normalizedSize = imageSize(at: outputPath) {
+        print("Captured \(device) screenshot at \(outputPath) (\(normalizedSize.width)x\(normalizedSize.height))")
+    } else {
+        print("Captured \(device) screenshot at \(outputPath)")
+    }
+    return true
+}
+
+func setSimulatorOrientation(_ orientationItem: String) -> Bool {
+    guard activateSimulator() else { return false }
+    let orientationScript = """
+    tell application "Simulator" to activate
+    tell application "System Events"
+      tell process "Simulator"
+        click menu item "\(orientationItem)" of menu 1 of menu item "Orientation" of menu "Device" of menu bar 1
+      end tell
+    end tell
+    """
+    if runAppleScript(orientationScript) {
+        usleep(300_000)
+        return true
+    }
+    return false
+}
+
+func rotateSimulator(direction: String) -> Bool {
+    guard activateSimulator() else { return false }
+    let menuItem: String
+    let keyCode: Int
+    let orientationItem: String
+    switch direction.lowercased() {
+    case "right":
+        menuItem = "Rotate Right"
+        keyCode = 124
+        orientationItem = "Landscape Right"
+    case "left":
+        menuItem = "Rotate Left"
+        keyCode = 123
+        orientationItem = "Landscape Left"
+    default:
+        fputs("Error: Unknown rotate direction \"\(direction)\". Use 'left' or 'right'.\n", stderr)
+        return false
+    }
+
+    if setSimulatorOrientation(orientationItem) {
+        return true
+    }
+
+    let menuScript = """
+    tell application "Simulator" to activate
+    tell application "System Events"
+      tell process "Simulator"
+        click menu item "\(menuItem)" of menu "Device" of menu bar 1
+      end tell
+    end tell
+    """
+    if runAppleScript(menuScript) {
+        usleep(300_000)
+        return true
+    }
+
+    let shortcutScript = """
+    tell application "Simulator" to activate
+    tell application "System Events"
+      key code \(keyCode) using {command down}
+    end tell
+    """
+    return runAppleScript(shortcutScript)
+}
+
 // MARK: - Commands
 
 func describe() {
@@ -137,13 +298,17 @@ func findElement(named name: String) -> ElementInfo? {
     return elements.first(where: { $0.label.contains(name) })
 }
 
-func tap(name: String) -> Bool {
+func tap(name: String, quiet: Bool = false) -> Bool {
     guard let info = findElement(named: name) else {
-        fputs("Error: Element \"\(name)\" not found.\n", stderr)
+        if !quiet {
+            fputs("Error: Element \"\(name)\" not found.\n", stderr)
+        }
         return false
     }
     guard let pos = info.position, let size = info.size else {
-        fputs("Error: Element \"\(name)\" has no position.\n", stderr)
+        if !quiet {
+            fputs("Error: Element \"\(name)\" has no position.\n", stderr)
+        }
         return false
     }
     let centerX = pos.x + size.width / 2
@@ -197,6 +362,33 @@ func findSimulatorWindowBounds() -> CGRect? {
     return nil
 }
 
+func simulatorLooksLandscape() -> Bool? {
+    guard let bounds = findSimulatorWindowBounds() else { return nil }
+    let titleBarH: CGFloat = 22
+    let contentHeight = max(0, bounds.height - titleBarH)
+    return bounds.width > contentHeight
+}
+
+func grantSimulatorPermission(service: String, bundleId: String = storeScreenshotBundleId) -> Bool {
+    let grant = runCommand("/usr/bin/xcrun", ["simctl", "privacy", "booted", "grant", service, bundleId])
+    if grant.status == 0 {
+        return true
+    }
+    fputs("Warning: Failed to grant \(service) permission for \(bundleId).\n\(grant.stderr)\n", stderr)
+    return false
+}
+
+func prepareStorePermissions(bundleId: String = storeScreenshotBundleId) -> Int {
+    let services = ["notifications", "speech-recognition", "microphone"]
+    var granted = 0
+    for service in services {
+        if grantSimulatorPermission(service: service, bundleId: bundleId) {
+            granted += 1
+        }
+    }
+    return granted
+}
+
 /// Clicks a point in the simulator by mapping iPad/iPhone coordinates to screen coordinates.
 func clickInSimulator(simX: CGFloat, simY: CGFloat, deviceWidth: CGFloat, deviceHeight: CGFloat) -> Bool {
     guard let winBounds = findSimulatorWindowBounds() else {
@@ -232,7 +424,7 @@ func dismissDialogs(labels: [String], buttonPositions: [(CGFloat, CGFloat)], dev
         var found = false
         // Try AX-based tap first
         for label in labels {
-            if tap(name: label) {
+            if tap(name: label, quiet: true) {
                 dismissed += 1
                 found = true
                 Thread.sleep(forTimeInterval: 1.0)
@@ -268,20 +460,36 @@ func dismissDialogs(labels: [String], buttonPositions: [(CGFloat, CGFloat)], dev
     return dismissed
 }
 
-/// Dismiss all common iOS permission dialogs on iPad Pro 13-inch (2064x2752).
+/// Dismiss all common iOS permission dialogs on iPad Pro 13-inch landscape
+/// (2752x2064) after rotating right.
 func dismissIPadDialogs() -> Int {
     // Common "許可" / "Allow" button positions for centered iOS alert dialogs
-    // on iPad Pro 13-inch (M4/M5): 2064x2752 resolution.
-    // Right button ("許可") center ≈ (1180, 1510)
+    // on iPad Pro 13-inch (M4/M5): 2752x2064 resolution.
+    // Right button ("許可") center after rotate-right ≈ (1242, 1180)
     let positions: [(CGFloat, CGFloat)] = [
-        (1180, 1510),  // Standard centered dialog - right button
-        (1180, 1660),  // Lower dialog variant
+        (1242, 1180),  // Standard centered dialog - right button
+        (1092, 1180),  // Lower dialog variant
+        (1380, 1180),  // Wider system prompt variant
     ]
     return dismissDialogs(
-        labels: ["許可", "Allow", "OK"],
+        labels: [
+            "許可",
+            "Allow",
+            "OK",
+            "続ける",
+            "Continue",
+            "今はしない",
+            "Not Now",
+            "後で",
+            "Later",
+            "許可しない",
+            "Don't Allow",
+            "ディクテーションを有効にする",
+            "Enable Dictation",
+        ],
         buttonPositions: positions,
-        deviceWidth: 2064,
-        deviceHeight: 2752
+        deviceWidth: 2752,
+        deviceHeight: 2064
     )
 }
 
@@ -298,6 +506,34 @@ func dismissIPhoneDialogs() -> Int {
     )
 }
 
+func prepareStoreCapture(device: String) -> Bool {
+    switch device.lowercased() {
+    case "ipad":
+        let granted = prepareStorePermissions()
+        guard setSimulatorOrientation("Landscape Left") else {
+            fputs("Error: Failed to set iPad simulator orientation to Landscape Left.\n", stderr)
+            return false
+        }
+        Thread.sleep(forTimeInterval: 0.8)
+        var dismissed = dismissIPadDialogs()
+        Thread.sleep(forTimeInterval: 1.0)
+        dismissed += dismissIPadDialogs()
+        print("Prepared iPad simulator. Granted \(granted) permission(s), dismissed \(dismissed) dialog(s).")
+        return true
+    case "iphone":
+        guard activateSimulator() else { return false }
+        let granted = prepareStorePermissions()
+        var dismissed = dismissIPhoneDialogs()
+        Thread.sleep(forTimeInterval: 1.0)
+        dismissed += dismissIPhoneDialogs()
+        print("Prepared iPhone simulator. Granted \(granted) permission(s), dismissed \(dismissed) dialog(s).")
+        return true
+    default:
+        fputs("Error: Unknown device \"\(device)\". Use 'iphone' or 'ipad'.\n", stderr)
+        return false
+    }
+}
+
 // MARK: - Main
 
 let args = CommandLine.arguments
@@ -307,7 +543,11 @@ guard args.count >= 2 else {
       swift \(args[0]) tap <label>              Tap element by label
       swift \(args[0]) describe                 List all accessible elements
       swift \(args[0]) wait <label> [sec]       Wait for element then tap (default 10s)
+      swift \(args[0]) rotate <left|right>      Rotate Simulator via the Device menu
+      swift \(args[0]) capture-store <device> <path>
+                                               Capture a screenshot and normalize orientation
       swift \(args[0]) dismiss-dialogs <device> Dismiss native dialogs (iphone|ipad)
+      swift \(args[0]) prepare-store <device>   Rotate/dismiss dialogs for store capture
 
     """, stderr)
     exit(2)
@@ -329,6 +569,18 @@ case "wait":
     }
     let timeout = args.count >= 4 ? (Int(args[3]) ?? 10) : 10
     exit(wait(name: args[2], timeout: timeout) ? 0 : 1)
+case "rotate":
+    guard args.count >= 3 else {
+        fputs("Usage: rotate <left|right>\n", stderr)
+        exit(2)
+    }
+    exit(rotateSimulator(direction: args[2]) ? 0 : 1)
+case "capture-store":
+    guard args.count >= 4 else {
+        fputs("Usage: capture-store <iphone|ipad> <path>\n", stderr)
+        exit(2)
+    }
+    exit(captureStoreScreenshot(device: args[2], outputPath: args[3]) ? 0 : 1)
 case "dismiss-dialogs":
     guard args.count >= 3 else {
         fputs("Usage: dismiss-dialogs <iphone|ipad>\n", stderr)
@@ -350,6 +602,12 @@ case "dismiss-dialogs":
     } else {
         print("No dialogs found on \(device)")
     }
+case "prepare-store":
+    guard args.count >= 3 else {
+        fputs("Usage: prepare-store <iphone|ipad>\n", stderr)
+        exit(2)
+    }
+    exit(prepareStoreCapture(device: args[2]) ? 0 : 1)
 default:
     fputs("Unknown command: \(args[1])\n", stderr)
     exit(2)

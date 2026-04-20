@@ -26,6 +26,7 @@ import '../../utils/terminal_launcher.dart';
 import '../settings/state/settings_cubit.dart';
 import '../../widgets/new_session_sheet.dart'
     show permissionModeFromRaw, sandboxModeFromRaw;
+import '../session_list/workspace_shell_screen.dart';
 import '../../widgets/approval_bar.dart';
 import '../../widgets/bubbles/ask_user_question_widget.dart';
 import '../../widgets/screenshot_sheet.dart';
@@ -56,6 +57,16 @@ const _fileListRefreshToolNames = {
   'Bash',
 };
 
+class _NoopListenable implements Listenable {
+  const _NoopListenable();
+
+  @override
+  void addListener(VoidCallback listener) {}
+
+  @override
+  void removeListener(VoidCallback listener) {}
+}
+
 /// Codex-specific chat screen.
 ///
 /// Simpler than [ClaudeSessionScreen] — no rewind.
@@ -71,6 +82,8 @@ class CodexSessionScreen extends StatefulWidget {
   final String? initialSandboxMode;
   final String? initialPermissionMode;
   final String? initialApprovalPolicy;
+  final VoidCallback? onBackToSessions;
+  final bool hideAppBarLeading;
 
   /// Notifier from the parent that may already hold a [SystemMessage]
   /// with subtype `session_created` (race condition fix).
@@ -87,10 +100,59 @@ class CodexSessionScreen extends StatefulWidget {
     this.initialPermissionMode,
     this.initialApprovalPolicy,
     this.pendingSessionCreated,
+    this.onBackToSessions,
+    this.hideAppBarLeading = false,
   });
 
   @override
   State<CodexSessionScreen> createState() => _CodexSessionScreenState();
+}
+
+@RoutePage(name: 'WorkspaceCodexSessionRoute')
+class WorkspaceCodexSessionScreen extends StatelessWidget {
+  final String sessionId;
+  final String? projectPath;
+  final String? gitBranch;
+  final String? worktreePath;
+  final bool isPending;
+  final String? initialSandboxMode;
+  final String? initialPermissionMode;
+  final String? initialApprovalPolicy;
+  final ValueNotifier<SystemMessage?>? pendingSessionCreated;
+  final VoidCallback? onBackToSessions;
+  final bool hideAppBarLeading;
+
+  const WorkspaceCodexSessionScreen({
+    super.key,
+    required this.sessionId,
+    this.projectPath,
+    this.gitBranch,
+    this.worktreePath,
+    this.isPending = false,
+    this.initialSandboxMode,
+    this.initialPermissionMode,
+    this.initialApprovalPolicy,
+    this.pendingSessionCreated,
+    this.onBackToSessions,
+    this.hideAppBarLeading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CodexSessionScreen(
+      sessionId: sessionId,
+      projectPath: projectPath,
+      gitBranch: gitBranch,
+      worktreePath: worktreePath,
+      isPending: isPending,
+      initialSandboxMode: initialSandboxMode,
+      initialPermissionMode: initialPermissionMode,
+      initialApprovalPolicy: initialApprovalPolicy,
+      pendingSessionCreated: pendingSessionCreated,
+      onBackToSessions: onBackToSessions,
+      hideAppBarLeading: hideAppBarLeading,
+    );
+  }
 }
 
 class _CodexSessionScreenState extends State<CodexSessionScreen> {
@@ -261,6 +323,39 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant CodexSessionScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sessionId == widget.sessionId &&
+        oldWidget.projectPath == widget.projectPath &&
+        oldWidget.worktreePath == widget.worktreePath &&
+        oldWidget.gitBranch == widget.gitBranch &&
+        oldWidget.isPending == widget.isPending &&
+        oldWidget.initialPermissionMode == widget.initialPermissionMode &&
+        oldWidget.initialSandboxMode == widget.initialSandboxMode &&
+        oldWidget.initialApprovalPolicy == widget.initialApprovalPolicy) {
+      return;
+    }
+
+    final explorerHistory = context.read<BridgeService>().getExplorerHistory(
+      widget.sessionId,
+    );
+    setState(() {
+      _sessionId = widget.sessionId;
+      _projectPath = widget.projectPath;
+      _worktreePath = widget.worktreePath;
+      _gitBranch = widget.gitBranch;
+      _isPending = widget.isPending;
+      _sandboxMode = sandboxModeFromRaw(widget.initialSandboxMode);
+      _permissionMode = permissionModeFromRaw(widget.initialPermissionMode);
+      _codexApprovalPolicy = codexApprovalPolicyFromRaw(
+        widget.initialApprovalPolicy,
+      );
+      _explorerCurrentPath = explorerHistory.currentPath;
+      _recentPeekedFiles = explorerHistory.recentPeekedFiles;
+    });
+  }
+
+  @override
   void dispose() {
     widget.pendingSessionCreated?.removeListener(_onPendingSessionCreated);
     _pendingSub?.cancel();
@@ -272,8 +367,22 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isPending) {
+      final shell = WorkspaceShellScreen.maybeOf(context);
       return Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(
+          leading: _sessionAppBarLeading(
+            context,
+            shell,
+            onBackToSessions: widget.onBackToSessions,
+            hideAppBarLeading: widget.hideAppBarLeading,
+          ),
+          automaticallyImplyLeading: false,
+          leadingWidth: _sessionAppBarLeadingWidth(
+            shell,
+            onBackToSessions: widget.onBackToSessions,
+            hideAppBarLeading: widget.hideAppBarLeading,
+          ),
+        ),
         body: const Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -298,6 +407,8 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       sandboxMode: _sandboxMode,
       permissionMode: _permissionMode,
       codexApprovalPolicy: _codexApprovalPolicy,
+      onBackToSessions: widget.onBackToSessions,
+      hideAppBarLeading: widget.hideAppBarLeading,
     );
   }
 }
@@ -316,6 +427,8 @@ class _CodexProviders extends StatelessWidget {
   final SandboxMode? sandboxMode;
   final PermissionMode? permissionMode;
   final CodexApprovalPolicy? codexApprovalPolicy;
+  final VoidCallback? onBackToSessions;
+  final bool hideAppBarLeading;
 
   const _CodexProviders({
     super.key,
@@ -328,6 +441,8 @@ class _CodexProviders extends StatelessWidget {
     this.sandboxMode,
     this.permissionMode,
     this.codexApprovalPolicy,
+    this.onBackToSessions,
+    this.hideAppBarLeading = false,
   });
 
   @override
@@ -356,6 +471,8 @@ class _CodexProviders extends StatelessWidget {
         projectPath: projectPath,
         gitBranch: gitBranch,
         worktreePath: worktreePath,
+        onBackToSessions: onBackToSessions,
+        hideAppBarLeading: hideAppBarLeading,
       ),
     );
   }
@@ -370,17 +487,23 @@ class _CodexChatBody extends HookWidget {
   final String? projectPath;
   final String? gitBranch;
   final String? worktreePath;
+  final VoidCallback? onBackToSessions;
+  final bool hideAppBarLeading;
 
   const _CodexChatBody({
     required this.sessionId,
     this.projectPath,
     this.gitBranch,
     this.worktreePath,
+    this.onBackToSessions,
+    this.hideAppBarLeading = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    final presentationListenable = shell?.presentationListenable;
     // Mutable branch state (refreshed from Bridge)
     final currentBranch = useState(gitBranch);
 
@@ -604,186 +727,237 @@ class _CodexChatBody extends HookWidget {
         },
         child: Focus(
           autofocus: true,
-          child: Scaffold(
-            appBar: AppBar(
-              titleSpacing: 0,
-              title: SessionNameTitle(
-                sessionId: sessionId,
-                projectPath: projectPath,
-              ),
-              flexibleSpace: StatusLineFlexibleSpace(
-                status: status,
-                inPlanMode: inPlanMode,
-              ),
-              actions: [
-                // View Changes button
-                if ((projectPath ?? '').isNotEmpty)
-                  IconButton(
-                    key: const ValueKey('appbar_explore_button'),
-                    icon: Icon(
-                      Icons.folder_outlined,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                    tooltip: 'Explore',
-                    onPressed: () async {
-                      final parentState = context
-                          .findAncestorStateOfType<_CodexSessionScreenState>();
-                      final result = await context.router.push(
-                        ExploreRoute(
-                          sessionId: sessionId,
-                          projectPath: projectPath!,
-                          initialFiles: context.read<FileListCubit>().state,
-                          initialPath:
+          child: ListenableBuilder(
+            listenable: presentationListenable ?? const _NoopListenable(),
+            builder: (context, child) {
+              final currentShell = WorkspaceShellScreen.maybeOf(context);
+              final isSinglePane = currentShell?.isSinglePane ?? true;
+              final leading = _sessionAppBarLeading(
+                context,
+                currentShell,
+                onBackToSessions: onBackToSessions,
+                hideAppBarLeading: hideAppBarLeading,
+              );
+
+              return Scaffold(
+                appBar: AppBar(
+                  leading: leading,
+                  automaticallyImplyLeading: false,
+                  leadingWidth: _sessionAppBarLeadingWidth(
+                    currentShell,
+                    onBackToSessions: onBackToSessions,
+                    hideAppBarLeading: hideAppBarLeading,
+                  ),
+                  titleSpacing: isSinglePane
+                      ? NavigationToolbar.kMiddleSpacing
+                      : (leading == null ? 16 : 12),
+                  title: SessionNameTitle(
+                    sessionId: sessionId,
+                    projectPath: projectPath,
+                  ),
+                  flexibleSpace: StatusLineFlexibleSpace(
+                    status: status,
+                    inPlanMode: inPlanMode,
+                  ),
+                  actions: [
+                    if ((projectPath ?? '').isNotEmpty)
+                      IconButton(
+                        key: const ValueKey('appbar_explore_button'),
+                        icon: Icon(
+                          Icons.folder_outlined,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                        tooltip: 'Explore',
+                        onPressed: () async {
+                          final parentState = context
+                              .findAncestorStateOfType<
+                                _CodexSessionScreenState
+                              >();
+                          void handleResult(ExploreScreenResult result) {
+                            if (!context.mounted) return;
+                            parentState?.updateExplorerState(
+                              currentPath: result.currentPath,
+                              recentPeekedFiles: result.recentPeekedFiles,
+                            );
+                            final cubit = context.read<ChatSessionCubit>();
+                            cubit.setExplorerCurrentPath(result.currentPath);
+                            cubit.setRecentPeekedFiles(
+                              result.recentPeekedFiles,
+                            );
+                          }
+
+                          final shell = WorkspaceShellScreen.maybeOf(context);
+                          final initialPath =
                               parentState?._explorerCurrentPath ??
-                              sessionState.explorerCurrentPath,
-                          recentPeekedFiles:
+                              sessionState.explorerCurrentPath;
+                          final recentPeekedFiles =
                               parentState?._recentPeekedFiles ??
-                              sessionState.recentPeekedFiles,
-                        ),
-                      );
-                      if (result is! ExploreScreenResult || !context.mounted) {
-                        return;
-                      }
-                      parentState?.updateExplorerState(
-                        currentPath: result.currentPath,
-                        recentPeekedFiles: result.recentPeekedFiles,
-                      );
-                      final cubit = context.read<ChatSessionCubit>();
-                      cubit.setExplorerCurrentPath(result.currentPath);
-                      cubit.setRecentPeekedFiles(result.recentPeekedFiles);
-                    },
-                  ),
-                if ((projectPath ?? '').isNotEmpty)
-                  IconButton(
-                    key: const ValueKey('appbar_view_changes'),
-                    icon: Icon(
-                      Icons.difference,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                    onPressed: () {
-                      _openGitScreen(
-                        context,
-                        worktreePath ?? projectPath!,
-                        diffSelectionFromNav,
-                        sessionId: sessionId,
-                        worktreePath: worktreePath,
-                      );
-                    },
-                  ),
-                // Overflow menu
-                PopupMenuButton<String>(
-                  key: const ValueKey('session_overflow_menu'),
-                  icon: Icon(
-                    Icons.more_horiz,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
-                  ),
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'history':
-                        _showUserMessageHistory(context, scrollToUserEntry);
-                      case 'screenshot':
-                        if (projectPath == null) return;
-                        showScreenshotSheet(
-                          context: context,
-                          bridge: context.read<BridgeService>(),
-                          projectPath: projectPath!,
-                          sessionId: sessionId,
-                        );
-                      case 'gallery':
-                        context.router.push(GalleryRoute(sessionId: sessionId));
-                      case 'rename':
-                        _renameSession(context, sessionId);
-                      case 'terminal':
-                        _openInTerminal(context, projectPath);
-                    }
-                  },
-                  itemBuilder: (context) {
-                    final terminalConfig = context
-                        .read<SettingsCubit>()
-                        .state
-                        .terminalApp;
-                    final l = AppLocalizations.of(context);
-                    return [
-                      const PopupMenuItem(
-                        key: ValueKey('menu_rename'),
-                        value: 'rename',
-                        child: ListTile(
-                          leading: Icon(Icons.edit_outlined, size: 20),
-                          title: Text('Rename'),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
+                              sessionState.recentPeekedFiles;
+                          if (shell?.canOpenToolPane ?? false) {
+                            shell!.openExplorePane(
+                              sessionId: sessionId,
+                              projectPath: projectPath!,
+                              initialFiles: context.read<FileListCubit>().state,
+                              initialPath: initialPath,
+                              recentPeekedFiles: recentPeekedFiles,
+                              onResultChanged: handleResult,
+                            );
+                            return;
+                          }
+                          final result = await context.router.push(
+                            ExploreRoute(
+                              sessionId: sessionId,
+                              projectPath: projectPath!,
+                              initialFiles: context.read<FileListCubit>().state,
+                              initialPath: initialPath,
+                              recentPeekedFiles: recentPeekedFiles,
+                            ),
+                          );
+                          if (result is! ExploreScreenResult ||
+                              !context.mounted) {
+                            return;
+                          }
+                          handleResult(result);
+                        },
                       ),
-                      const PopupMenuItem(
-                        key: ValueKey('menu_message_history'),
-                        value: 'history',
-                        child: ListTile(
-                          leading: Icon(Icons.chat_outlined, size: 20),
-                          title: Text('Message History'),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
+                    if ((projectPath ?? '').isNotEmpty)
+                      IconButton(
+                        key: const ValueKey('appbar_view_changes'),
+                        icon: Icon(
+                          Icons.difference,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                        onPressed: () {
+                          _openGitScreen(
+                            context,
+                            worktreePath ?? projectPath!,
+                            diffSelectionFromNav,
+                            sessionId: sessionId,
+                            worktreePath: worktreePath,
+                          );
+                        },
                       ),
-                      if (projectPath != null)
-                        const PopupMenuItem(
-                          key: ValueKey('menu_screenshot'),
-                          value: 'screenshot',
-                          child: ListTile(
-                            leading: Icon(Icons.screenshot_monitor, size: 20),
-                            title: Text('Screenshot'),
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
+                    PopupMenuButton<String>(
+                      key: const ValueKey('session_overflow_menu'),
+                      icon: Icon(
+                        Icons.more_horiz,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'history':
+                            _showUserMessageHistory(context, scrollToUserEntry);
+                          case 'screenshot':
+                            if (projectPath == null) return;
+                            showScreenshotSheet(
+                              context: context,
+                              bridge: context.read<BridgeService>(),
+                              projectPath: projectPath!,
+                              sessionId: sessionId,
+                            );
+                          case 'gallery':
+                            context.router.push(
+                              GalleryRoute(sessionId: sessionId),
+                            );
+                          case 'rename':
+                            _renameSession(context, sessionId);
+                          case 'terminal':
+                            _openInTerminal(context, projectPath);
+                        }
+                      },
+                      itemBuilder: (context) {
+                        final terminalConfig = context
+                            .read<SettingsCubit>()
+                            .state
+                            .terminalApp;
+                        final l = AppLocalizations.of(context);
+                        return [
+                          const PopupMenuItem(
+                            key: ValueKey('menu_rename'),
+                            value: 'rename',
+                            child: ListTile(
+                              leading: Icon(Icons.edit_outlined, size: 20),
+                              title: Text('Rename'),
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
                           ),
-                        ),
-                      const PopupMenuItem(
-                        key: ValueKey('menu_gallery'),
-                        value: 'gallery',
-                        child: ListTile(
-                          leading: Icon(Icons.collections, size: 20),
-                          title: Text('Gallery'),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                      if (FeatureFlags.current.isEnabled(
-                            AppFeature.terminalAppIntegration,
-                          ) &&
-                          terminalConfig.isConfigured &&
-                          projectPath != null)
-                        PopupMenuItem(
-                          key: const ValueKey('menu_terminal'),
-                          value: 'terminal',
-                          child: ListTile(
-                            leading: const Icon(Icons.terminal, size: 20),
-                            title: Text(l.openInTerminal),
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
+                          const PopupMenuItem(
+                            key: ValueKey('menu_message_history'),
+                            value: 'history',
+                            child: ListTile(
+                              leading: Icon(Icons.chat_outlined, size: 20),
+                              title: Text('Message History'),
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
                           ),
-                        ),
-                    ];
-                  },
+                          if (projectPath != null)
+                            const PopupMenuItem(
+                              key: ValueKey('menu_screenshot'),
+                              value: 'screenshot',
+                              child: ListTile(
+                                leading: Icon(
+                                  Icons.screenshot_monitor,
+                                  size: 20,
+                                ),
+                                title: Text('Screenshot'),
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                          const PopupMenuItem(
+                            key: ValueKey('menu_gallery'),
+                            value: 'gallery',
+                            child: ListTile(
+                              leading: Icon(Icons.collections, size: 20),
+                              title: Text('Gallery'),
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                          if (FeatureFlags.current.isEnabled(
+                                AppFeature.terminalAppIntegration,
+                              ) &&
+                              terminalConfig.isConfigured &&
+                              projectPath != null)
+                            PopupMenuItem(
+                              key: const ValueKey('menu_terminal'),
+                              value: 'terminal',
+                              child: ListTile(
+                                leading: const Icon(Icons.terminal, size: 20),
+                                title: Text(l.openInTerminal),
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                        ];
+                      },
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            body: Column(
+                body: child,
+              );
+            },
+            child: Column(
               children: [
                 if (bridgeState == BridgeConnectionState.reconnecting ||
                     bridgeState == BridgeConnectionState.disconnected)
@@ -935,6 +1109,57 @@ class _CodexChatBody extends HookWidget {
   }
 }
 
+Widget? _sessionAppBarLeading(
+  BuildContext context,
+  WorkspaceShellScreenState? shell, {
+  VoidCallback? onBackToSessions,
+  bool hideAppBarLeading = false,
+}) {
+  if (hideAppBarLeading) {
+    return null;
+  }
+  if (onBackToSessions != null) {
+    return BackButton(
+      key: const ValueKey('session_back_button'),
+      onPressed: onBackToSessions,
+    );
+  }
+  if (shell?.shouldShowLeftPaneButton ?? false) {
+    final theme = Theme.of(context);
+    final fabTheme = theme.floatingActionButtonTheme;
+    return IconButton.filled(
+      key: const ValueKey('show_left_pane_button'),
+      onPressed: shell!.toggleLeftPaneVisibility,
+      tooltip: 'Show sessions',
+      style: IconButton.styleFrom(
+        backgroundColor:
+            fabTheme.backgroundColor ?? theme.colorScheme.primaryContainer,
+        foregroundColor:
+            fabTheme.foregroundColor ?? theme.colorScheme.onPrimaryContainer,
+      ),
+      icon: const Icon(Icons.chevron_right),
+    );
+  }
+  return BackButton(
+    key: const ValueKey('session_back_button'),
+    onPressed: () => Navigator.of(context).maybePop(),
+  );
+}
+
+double? _sessionAppBarLeadingWidth(
+  WorkspaceShellScreenState? shell, {
+  VoidCallback? onBackToSessions,
+  bool hideAppBarLeading = false,
+}) {
+  if (hideAppBarLeading) {
+    return null;
+  }
+  if (onBackToSessions != null) {
+    return null;
+  }
+  return shell?.shouldShowLeftPaneButton ?? false ? 64 : null;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -946,6 +1171,16 @@ Future<void> _openGitScreen(
   String? sessionId,
   String? worktreePath,
 }) async {
+  final shell = WorkspaceShellScreen.maybeOf(context);
+  if (shell?.canOpenToolPane ?? false) {
+    shell!.openGitPane(
+      projectPath: projectPath,
+      sessionId: sessionId,
+      worktreePath: worktreePath,
+      diffSelectionNotifier: diffSelectionNotifier,
+    );
+    return;
+  }
   final selection = await context.router.push<DiffSelection>(
     GitRoute(
       projectPath: projectPath,
@@ -953,9 +1188,9 @@ Future<void> _openGitScreen(
       worktreePath: worktreePath,
     ),
   );
-  diffSelectionNotifier.value = selection != null && !selection.isEmpty
-      ? selection
-      : null;
+  if (selection != null) {
+    diffSelectionNotifier.value = selection.isEmpty ? null : selection;
+  }
 }
 
 void _executeSideEffects(

@@ -41,6 +41,9 @@ class GitScreen extends StatefulWidget {
 
   /// Session ID (for updating session branch info after checkout).
   final String? sessionId;
+  final bool embedded;
+  final VoidCallback? onClose;
+  final ValueChanged<DiffSelection>? onRequestChange;
 
   const GitScreen({
     super.key,
@@ -49,6 +52,9 @@ class GitScreen extends StatefulWidget {
     this.title,
     this.worktreePath,
     this.sessionId,
+    this.embedded = false,
+    this.onClose,
+    this.onRequestChange,
   });
 
   @override
@@ -117,6 +123,9 @@ class _GitScreenState extends State<GitScreen> {
         isProjectMode: isProjectMode,
         scrollController: _scrollController,
         scrollToFileIndex: _scrollToFileIndex,
+        embedded: widget.embedded,
+        onClose: widget.onClose,
+        onRequestChange: widget.onRequestChange,
       ),
     );
   }
@@ -127,12 +136,18 @@ class _GitScreenBody extends StatelessWidget {
   final bool isProjectMode;
   final AutoScrollController scrollController;
   final ValueNotifier<int?> scrollToFileIndex;
+  final bool embedded;
+  final VoidCallback? onClose;
+  final ValueChanged<DiffSelection>? onRequestChange;
 
   const _GitScreenBody({
     this.title,
     this.isProjectMode = false,
     required this.scrollController,
     required this.scrollToFileIndex,
+    this.embedded = false,
+    this.onClose,
+    this.onRequestChange,
   });
 
   @override
@@ -145,6 +160,15 @@ class _GitScreenBody extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: !embedded,
+        leading: embedded
+            ? IconButton(
+                key: const ValueKey('close_git_pane_button'),
+                onPressed: onClose,
+                icon: const Icon(Icons.close),
+                tooltip: 'Close',
+              )
+            : null,
         title: Text(screenTitle, overflow: TextOverflow.ellipsis),
         actions: [
           if (isProjectMode && !state.loading)
@@ -278,7 +302,8 @@ class _GitScreenBody extends StatelessWidget {
               subtitle: const Text('Send this file back to AI with feedback'),
               onTap: () {
                 Navigator.pop(context);
-                context.router.maybePop(
+                _requestChange(
+                  context,
                   DiffSelection(diffText: reconstructUnifiedDiff(file)),
                 );
               },
@@ -372,7 +397,8 @@ class _GitScreenBody extends StatelessWidget {
               subtitle: const Text('Send this hunk back to AI with feedback'),
               onTap: () {
                 Navigator.pop(context);
-                context.router.maybePop(
+                _requestChange(
+                  context,
                   reconstructDiff(state.files, {'$fileIdx:$hunkIdx'}),
                 );
               },
@@ -410,6 +436,14 @@ class _GitScreenBody extends StatelessWidget {
     if (confirmed == true) {
       onConfirm();
     }
+  }
+
+  void _requestChange(BuildContext context, DiffSelection selection) {
+    if (embedded && onRequestChange != null) {
+      onRequestChange!(selection);
+      return;
+    }
+    context.router.maybePop(selection);
   }
 }
 

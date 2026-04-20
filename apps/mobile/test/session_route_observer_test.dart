@@ -19,6 +19,7 @@ Route<dynamic> _route({String? name, Object? arguments}) {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   final observer = SessionRouteObserver();
 
   setUp(() {
@@ -32,7 +33,7 @@ void main() {
     );
 
     expect(
-      () => observer.didPush(_route(name: SessionListRoute.name), null),
+      () => observer.didPush(_route(name: AdaptiveHomeRoute.name), null),
       returnsNormally,
     );
     expect(
@@ -93,5 +94,17 @@ void main() {
       ),
       isTrue,
     );
+  });
+
+  test('clears active session for non-session routes', () {
+    NotificationService.instance.setActiveSession(
+      sessionId: 'seed',
+      provider: 'claude',
+    );
+
+    observer.didPush(_route(name: SettingsRoute.name), null);
+
+    expect(NotificationService.instance.activeSessionId, isNull);
+    expect(NotificationService.instance.activeProvider, isNull);
   });
 }

@@ -1,9 +1,10 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show ChangeNotifier, kIsWeb;
+import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../models/messages.dart';
 
-class NotificationService {
+class NotificationService extends ChangeNotifier {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
 
@@ -13,6 +14,10 @@ class NotificationService {
   bool _initialized = false;
   String? _activeSessionId;
   String? _activeProvider;
+  bool _notifyScheduled = false;
+
+  String? get activeSessionId => _activeSessionId;
+  String? get activeProvider => _activeProvider;
 
   /// Called when the user taps a notification. The [payload] string
   /// (typically a sessionId) is forwarded.
@@ -30,9 +35,15 @@ class NotificationService {
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
+    const macosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
     const settings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
+      macOS: macosSettings,
     );
 
     await _plugin.initialize(
@@ -65,15 +76,36 @@ class NotificationService {
   }
 
   void setActiveSession({required String sessionId, required String provider}) {
+    if (_activeSessionId == sessionId && _activeProvider == provider) return;
     _activeSessionId = sessionId;
     _activeProvider = provider;
+    _notifyListenersSafely();
   }
 
   void clearActiveSession({String? sessionId, String? provider}) {
     if (sessionId != null && _activeSessionId != sessionId) return;
     if (provider != null && _activeProvider != provider) return;
+    if (_activeSessionId == null && _activeProvider == null) return;
     _activeSessionId = null;
     _activeProvider = null;
+    _notifyListenersSafely();
+  }
+
+  void _notifyListenersSafely() {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final canNotifyNow =
+        phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks;
+    if (canNotifyNow) {
+      notifyListeners();
+      return;
+    }
+    if (_notifyScheduled) return;
+    _notifyScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _notifyScheduled = false;
+      notifyListeners();
+    });
   }
 
   bool isActiveSession({required String sessionId, required String provider}) {
@@ -102,9 +134,11 @@ class NotificationService {
       priority: Priority.high,
     );
     const iosDetails = DarwinNotificationDetails();
+    const macosDetails = DarwinNotificationDetails();
     const details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
+      macOS: macosDetails,
     );
 
     await _plugin.show(
