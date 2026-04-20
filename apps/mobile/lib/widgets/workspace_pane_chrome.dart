@@ -1,4 +1,9 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 const kWorkspaceMacOSToolbarHeight = 52.0;
 const kWorkspaceMacOSLeadingInset = 88.0;
@@ -8,8 +13,49 @@ const kWorkspaceMacOSSinglePaneTopInset = 28.0;
 const kWorkspacePaneHorizontalPadding = 12.0;
 const kWorkspacePaneVerticalPadding = 10.0;
 const kWorkspacePaneActionGap = 4.0;
+const _windowChromeChannelName = 'ccpocket/window_chrome';
 
 enum WorkspacePaneSlot { left, center, right }
+
+class _WindowChromeGateway {
+  const _WindowChromeGateway();
+
+  static const _channel = MethodChannel(_windowChromeChannelName);
+
+  Future<void> beginWindowDrag() {
+    return _channel.invokeMethod<void>('beginWindowDrag');
+  }
+}
+
+class MacOSWindowDragHandle extends StatelessWidget {
+  final Widget child;
+  final bool enabled;
+
+  const MacOSWindowDragHandle({
+    super.key,
+    required this.child,
+    this.enabled = true,
+  });
+
+  static const _gateway = _WindowChromeGateway();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled || kIsWeb || defaultTargetPlatform != TargetPlatform.macOS) {
+      return child;
+    }
+
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) {
+        if (event.kind != PointerDeviceKind.mouse) return;
+        if ((event.buttons & kPrimaryMouseButton) == 0) return;
+        unawaited(_gateway.beginWindowDrag());
+      },
+      child: child,
+    );
+  }
+}
 
 class WorkspacePaneChrome {
   final bool useMacOSAdaptiveChrome;
@@ -87,6 +133,11 @@ class WorkspacePaneChrome {
         child: appBar,
       ),
     );
+  }
+
+  Widget wrapTitle(Widget title) {
+    if (!useMacOSAdaptiveChrome) return title;
+    return MacOSWindowDragHandle(child: title);
   }
 }
 

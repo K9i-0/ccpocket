@@ -94,7 +94,7 @@ class SetupGuideScreen extends HookWidget {
                 : kToolbarHeight,
           ),
           titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
-          title: Text(l.setupGuideTitle),
+          title: chrome.wrapTitle(Text(l.setupGuideTitle)),
           actions: [
             TextButton(
               key: const ValueKey('guide_skip_button'),

@@ -191,7 +191,9 @@ class _GitScreenBody extends StatelessWidget {
                 : kToolbarHeight,
           ),
           titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
-          title: Text(screenTitle, overflow: TextOverflow.ellipsis),
+          title: chrome.wrapTitle(
+            Text(screenTitle, overflow: TextOverflow.ellipsis),
+          ),
           actions: [
             if (isProjectMode && !state.loading)
               _FileListAppBarButton(

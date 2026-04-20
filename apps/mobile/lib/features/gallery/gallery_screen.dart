@@ -74,10 +74,14 @@ class GalleryScreen extends HookWidget {
                 : kToolbarHeight,
           ),
           titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
-          title: Text(
-            images.isEmpty
-                ? AppLocalizations.of(context).gallery
-                : AppLocalizations.of(context).galleryWithCount(images.length),
+          title: chrome.wrapTitle(
+            Text(
+              images.isEmpty
+                  ? AppLocalizations.of(context).gallery
+                  : AppLocalizations.of(
+                      context,
+                    ).galleryWithCount(images.length),
+            ),
           ),
           actions: [
             if (embedded && onClose != null)

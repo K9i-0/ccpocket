@@ -137,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: chrome.wrapAppBar(
         AppBar(
           toolbarHeight: chrome.toolbarHeight,
-          title: Text(l.settingsTitle),
+          title: chrome.wrapTitle(Text(l.settingsTitle)),
           automaticallyImplyLeading: !widget.embedded,
           leading: chrome.wrapLeading(leading),
           leadingWidth: chrome.resolveLeadingWidth(

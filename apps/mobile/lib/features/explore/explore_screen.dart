@@ -179,7 +179,7 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
           appBar: chrome.wrapAppBar(
             AppBar(
               toolbarHeight: chrome.toolbarHeight,
-              title: const Text('Explorer'),
+              title: chrome.wrapTitle(const Text('Explorer')),
               automaticallyImplyLeading: !widget.embedded,
               leading: chrome.wrapLeading(leading),
               leadingWidth: chrome.resolveLeadingWidth(

@@ -768,9 +768,11 @@ class _CodexChatBody extends HookWidget {
                       hasLeading: leading != null,
                       fallback: defaultTitleSpacing,
                     ),
-                    title: SessionNameTitle(
-                      sessionId: sessionId,
-                      projectPath: projectPath,
+                    title: chrome.wrapTitle(
+                      SessionNameTitle(
+                        sessionId: sessionId,
+                        projectPath: projectPath,
+                      ),
                     ),
                     flexibleSpace: StatusLineFlexibleSpace(
                       status: status,

@@ -115,7 +115,9 @@ class SessionListPaneHeader extends StatelessWidget {
                 ),
               )
             else
-              const Spacer(),
+              const Expanded(
+                child: MacOSWindowDragHandle(child: SizedBox.expand()),
+              ),
             _PaneHeaderActionButton(
               key: const ValueKey('settings_button'),
               tooltip: l.settings,
