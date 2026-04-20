@@ -8,6 +8,8 @@ import '../../services/bridge_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/diff_parser.dart'
     show DiffSelection, reconstructDiff, reconstructUnifiedDiff;
+import '../../widgets/workspace_pane_chrome.dart';
+import '../session_list/workspace_shell_screen.dart';
 import 'state/commit_cubit.dart';
 import 'state/git_view_cubit.dart';
 import 'state/git_view_state.dart';
@@ -155,20 +157,39 @@ class _GitScreenBody extends StatelessWidget {
     final state = context.watch<GitViewCubit>().state;
     final cubit = context.read<GitViewCubit>();
     final l = AppLocalizations.of(context);
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    final chrome = resolveWorkspacePaneChrome(
+      platform: Theme.of(context).platform,
+      isAdaptiveWorkspace: shell != null && !shell.isSinglePane,
+      isLeftPaneVisible: shell?.isLeftPaneVisible ?? false,
+      slot: WorkspacePaneSlot.right,
+    );
 
     final screenTitle = title ?? l.changes;
+    final leading = embedded
+        ? IconButton(
+            key: const ValueKey('close_git_pane_button'),
+            onPressed: onClose,
+            style: chrome.useMacOSAdaptiveChrome
+                ? chrome.compactButtonStyle()
+                : null,
+            icon: const Icon(Icons.close),
+            tooltip: 'Close',
+          )
+        : null;
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: chrome.toolbarHeight,
         automaticallyImplyLeading: !embedded,
-        leading: embedded
-            ? IconButton(
-                key: const ValueKey('close_git_pane_button'),
-                onPressed: onClose,
-                icon: const Icon(Icons.close),
-                tooltip: 'Close',
-              )
-            : null,
+        leading: chrome.wrapLeading(leading),
+        leadingWidth: chrome.resolveLeadingWidth(
+          hasLeading: leading != null,
+          baseWidth: chrome.useMacOSAdaptiveChrome
+              ? kWorkspaceMacOSToolbarLeadingSlotWidth
+              : kToolbarHeight,
+        ),
+        titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
         title: Text(screenTitle, overflow: TextOverflow.ellipsis),
         actions: [
           if (isProjectMode && !state.loading)
@@ -192,6 +213,9 @@ class _GitScreenBody extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: l.refresh,
+              style: chrome.useMacOSAdaptiveChrome
+                  ? chrome.compactButtonStyle()
+                  : null,
               onPressed: cubit.refresh,
             ),
         ],

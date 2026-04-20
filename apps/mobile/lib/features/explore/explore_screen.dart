@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../services/bridge_service.dart';
+import '../../widgets/workspace_pane_chrome.dart';
 import '../file_peek/file_peek_sheet.dart';
+import '../session_list/workspace_shell_screen.dart';
 import 'state/explore_cubit.dart';
 import 'state/explore_state.dart';
 import 'widgets/explore_breadcrumbs.dart';
@@ -154,23 +156,45 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
       builder: (context, state) {
         _ensureHighlightedVisible();
         final cubit = context.read<ExploreCubit>();
+        final shell = WorkspaceShellScreen.maybeOf(context);
+        final chrome = resolveWorkspacePaneChrome(
+          platform: Theme.of(context).platform,
+          isAdaptiveWorkspace: shell != null && !shell.isSinglePane,
+          isLeftPaneVisible: shell?.isLeftPaneVisible ?? false,
+          slot: WorkspacePaneSlot.right,
+        );
+        final leading = IconButton(
+          key: ValueKey(
+            widget.embedded
+                ? 'close_explore_pane_button'
+                : 'close_explore_screen_button',
+          ),
+          onPressed: _closeExplorer,
+          style: chrome.useMacOSAdaptiveChrome
+              ? chrome.compactButtonStyle()
+              : null,
+          icon: Icon(widget.embedded ? Icons.close : Icons.arrow_back),
+        );
         final scaffold = Scaffold(
           appBar: AppBar(
+            toolbarHeight: chrome.toolbarHeight,
             title: const Text('Explorer'),
             automaticallyImplyLeading: !widget.embedded,
-            leading: IconButton(
-              key: ValueKey(
-                widget.embedded
-                    ? 'close_explore_pane_button'
-                    : 'close_explore_screen_button',
-              ),
-              onPressed: _closeExplorer,
-              icon: Icon(widget.embedded ? Icons.close : Icons.arrow_back),
+            leading: chrome.wrapLeading(leading),
+            leadingWidth: chrome.resolveLeadingWidth(
+              hasLeading: true,
+              baseWidth: chrome.useMacOSAdaptiveChrome
+                  ? kWorkspaceMacOSToolbarLeadingSlotWidth
+                  : kToolbarHeight,
             ),
+            titleSpacing: chrome.resolveTitleSpacing(hasLeading: true),
             actions: [
               IconButton(
                 key: const ValueKey('explore_recent_files_button'),
                 onPressed: () => _openRecentFilesSheet(cubit),
+                style: chrome.useMacOSAdaptiveChrome
+                    ? chrome.compactButtonStyle()
+                    : null,
                 icon: const Icon(Icons.history),
                 tooltip: 'Recent files',
               ),

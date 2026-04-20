@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../router/app_router.dart';
 import '../../../services/app_update_service.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
 
 /// Floating SliverAppBar for the session list screen.
 ///
@@ -80,57 +81,74 @@ class SessionListPaneHeader extends StatelessWidget {
     final openGallery = onOpenGallery;
     final disconnect = onDisconnect;
     final togglePaneVisibility = onTogglePaneVisibility;
+    final chrome = resolveWorkspacePaneChrome(
+      platform: Theme.of(context).platform,
+      isAdaptiveWorkspace: true,
+      isLeftPaneVisible: true,
+      slot: WorkspacePaneSlot.left,
+    );
     final titleStyle = Theme.of(
       context,
     ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: onTitleTap,
-              child: Text(
-                l.appTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: titleStyle,
+    return SizedBox(
+      height: chrome.toolbarHeight,
+      child: Padding(
+        padding: chrome.headerPadding(),
+        child: Row(
+          children: [
+            if (!chrome.useMacOSAdaptiveChrome)
+              Expanded(
+                child: GestureDetector(
+                  onTap: onTitleTap,
+                  child: Text(
+                    key: const ValueKey('session_list_pane_title'),
+                    l.appTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
+                  ),
+                ),
+              )
+            else
+              const SizedBox.shrink(),
+            _PaneHeaderActionButton(
+              key: const ValueKey('settings_button'),
+              tooltip: l.settings,
+              onPressed: onOpenSettings,
+              icon: Badge(
+                isLabelVisible: AppUpdateService.instance.cachedUpdate != null,
+                smallSize: 8,
+                child: const Icon(Icons.settings),
               ),
+              compact: chrome.useMacOSAdaptiveChrome,
             ),
-          ),
-          _PaneHeaderActionButton(
-            key: const ValueKey('settings_button'),
-            tooltip: l.settings,
-            onPressed: onOpenSettings,
-            icon: Badge(
-              isLabelVisible: AppUpdateService.instance.cachedUpdate != null,
-              smallSize: 8,
-              child: const Icon(Icons.settings),
-            ),
-          ),
-          if (openGallery != null)
-            _PaneHeaderActionButton(
-              key: const ValueKey('gallery_button'),
-              tooltip: l.gallery,
-              onPressed: openGallery,
-              icon: const Icon(Icons.collections_outlined),
-            ),
-          if (disconnect != null)
-            _PaneHeaderActionButton(
-              key: const ValueKey('disconnect_button'),
-              tooltip: l.disconnect,
-              onPressed: disconnect,
-              icon: const Icon(Icons.link_off),
-            ),
-          if (togglePaneVisibility != null)
-            _PaneHeaderActionButton(
-              key: const ValueKey('collapse_left_pane_button'),
-              tooltip: 'Hide sessions',
-              onPressed: togglePaneVisibility,
-              icon: const Icon(Icons.chevron_left),
-            ),
-        ],
+            if (openGallery != null)
+              _PaneHeaderActionButton(
+                key: const ValueKey('gallery_button'),
+                tooltip: l.gallery,
+                onPressed: openGallery,
+                icon: const Icon(Icons.collections_outlined),
+                compact: chrome.useMacOSAdaptiveChrome,
+              ),
+            if (disconnect != null)
+              _PaneHeaderActionButton(
+                key: const ValueKey('disconnect_button'),
+                tooltip: l.disconnect,
+                onPressed: disconnect,
+                icon: const Icon(Icons.link_off),
+                compact: chrome.useMacOSAdaptiveChrome,
+              ),
+            if (togglePaneVisibility != null)
+              _PaneHeaderActionButton(
+                key: const ValueKey('collapse_left_pane_button'),
+                tooltip: 'Hide sessions',
+                onPressed: togglePaneVisibility,
+                icon: const Icon(Icons.chevron_left),
+                compact: chrome.useMacOSAdaptiveChrome,
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -140,17 +158,27 @@ class _PaneHeaderActionButton extends StatelessWidget {
   final String tooltip;
   final VoidCallback onPressed;
   final Widget icon;
+  final bool compact;
 
   const _PaneHeaderActionButton({
     super.key,
     required this.tooltip,
     required this.onPressed,
     required this.icon,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
+      style: compact
+          ? resolveWorkspacePaneChrome(
+              platform: Theme.of(context).platform,
+              isAdaptiveWorkspace: true,
+              isLeftPaneVisible: true,
+              slot: WorkspacePaneSlot.left,
+            ).compactButtonStyle()
+          : null,
       visualDensity: VisualDensity.compact,
       onPressed: onPressed,
       tooltip: tooltip,

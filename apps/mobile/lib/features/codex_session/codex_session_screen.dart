@@ -21,6 +21,7 @@ import '../../services/draft_service.dart';
 import '../../utils/composer_tokens.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/session_name_title.dart';
+import '../../widgets/workspace_pane_chrome.dart';
 import '../../utils/diff_parser.dart';
 import '../../utils/terminal_launcher.dart';
 import '../settings/state/settings_cubit.dart';
@@ -368,19 +369,24 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   Widget build(BuildContext context) {
     if (_isPending) {
       final shell = WorkspaceShellScreen.maybeOf(context);
+      final chrome = _resolveSessionPaneChrome(context, shell);
+      final leading = _sessionAppBarLeading(
+        context,
+        shell,
+        chrome: chrome,
+        onBackToSessions: widget.onBackToSessions,
+        hideSessionBackButton: widget.hideSessionBackButton,
+      );
       return Scaffold(
         appBar: AppBar(
-          leading: _sessionAppBarLeading(
-            context,
-            shell,
-            onBackToSessions: widget.onBackToSessions,
-            hideSessionBackButton: widget.hideSessionBackButton,
-          ),
+          toolbarHeight: chrome.toolbarHeight,
+          leading: chrome.wrapLeading(leading),
           automaticallyImplyLeading: false,
-          leadingWidth: _sessionAppBarLeadingWidth(
-            shell,
-            onBackToSessions: widget.onBackToSessions,
-            hideSessionBackButton: widget.hideSessionBackButton,
+          leadingWidth: chrome.resolveLeadingWidth(
+            hasLeading: leading != null,
+            baseWidth: chrome.useMacOSAdaptiveChrome
+                ? kWorkspaceMacOSToolbarLeadingSlotWidth
+                : 64,
           ),
         ),
         body: const Center(
@@ -732,25 +738,33 @@ class _CodexChatBody extends HookWidget {
             builder: (context, child) {
               final currentShell = WorkspaceShellScreen.maybeOf(context);
               final isSinglePane = currentShell?.isSinglePane ?? true;
+              final chrome = _resolveSessionPaneChrome(context, currentShell);
               final leading = _sessionAppBarLeading(
                 context,
                 currentShell,
+                chrome: chrome,
                 onBackToSessions: onBackToSessions,
                 hideSessionBackButton: hideSessionBackButton,
               );
+              final double defaultTitleSpacing = isSinglePane
+                  ? NavigationToolbar.kMiddleSpacing
+                  : (leading == null ? 16 : 12);
 
               return Scaffold(
                 appBar: AppBar(
-                  leading: leading,
+                  toolbarHeight: chrome.toolbarHeight,
+                  leading: chrome.wrapLeading(leading),
                   automaticallyImplyLeading: false,
-                  leadingWidth: _sessionAppBarLeadingWidth(
-                    currentShell,
-                    onBackToSessions: onBackToSessions,
-                    hideSessionBackButton: hideSessionBackButton,
+                  leadingWidth: chrome.resolveLeadingWidth(
+                    hasLeading: leading != null,
+                    baseWidth: chrome.useMacOSAdaptiveChrome
+                        ? kWorkspaceMacOSToolbarLeadingSlotWidth
+                        : 64.0,
                   ),
-                  titleSpacing: isSinglePane
-                      ? NavigationToolbar.kMiddleSpacing
-                      : (leading == null ? 16 : 12),
+                  titleSpacing: chrome.resolveTitleSpacing(
+                    hasLeading: leading != null,
+                    fallback: defaultTitleSpacing,
+                  ),
                   title: SessionNameTitle(
                     sessionId: sessionId,
                     projectPath: projectPath,
@@ -1110,6 +1124,7 @@ class _CodexChatBody extends HookWidget {
 Widget? _sessionAppBarLeading(
   BuildContext context,
   WorkspaceShellScreenState? shell, {
+  required WorkspacePaneChrome chrome,
   VoidCallback? onBackToSessions,
   bool hideSessionBackButton = false,
 }) {
@@ -1122,16 +1137,20 @@ Widget? _sessionAppBarLeading(
   if (shell?.shouldShowLeftPaneButton ?? false) {
     final theme = Theme.of(context);
     final fabTheme = theme.floatingActionButtonTheme;
-    return IconButton.filled(
+    return IconButton(
       key: const ValueKey('show_left_pane_button'),
       onPressed: shell!.toggleLeftPaneVisibility,
       tooltip: 'Show sessions',
-      style: IconButton.styleFrom(
-        backgroundColor:
-            fabTheme.backgroundColor ?? theme.colorScheme.primaryContainer,
-        foregroundColor:
-            fabTheme.foregroundColor ?? theme.colorScheme.onPrimaryContainer,
-      ),
+      style: chrome.useMacOSAdaptiveChrome
+          ? chrome.compactButtonStyle()
+          : IconButton.styleFrom(
+              backgroundColor:
+                  fabTheme.backgroundColor ??
+                  theme.colorScheme.primaryContainer,
+              foregroundColor:
+                  fabTheme.foregroundColor ??
+                  theme.colorScheme.onPrimaryContainer,
+            ),
       icon: const Icon(Icons.chevron_right),
     );
   }
@@ -1144,18 +1163,16 @@ Widget? _sessionAppBarLeading(
   );
 }
 
-double? _sessionAppBarLeadingWidth(
-  WorkspaceShellScreenState? shell, {
-  VoidCallback? onBackToSessions,
-  bool hideSessionBackButton = false,
-}) {
-  if (!hideSessionBackButton && onBackToSessions != null) {
-    return null;
-  }
-  if (hideSessionBackButton) {
-    return shell?.shouldShowLeftPaneButton ?? false ? 64 : null;
-  }
-  return shell?.shouldShowLeftPaneButton ?? false ? 64 : null;
+WorkspacePaneChrome _resolveSessionPaneChrome(
+  BuildContext context,
+  WorkspaceShellScreenState? shell,
+) {
+  return resolveWorkspacePaneChrome(
+    platform: Theme.of(context).platform,
+    isAdaptiveWorkspace: shell != null && !shell.isSinglePane,
+    isLeftPaneVisible: shell?.isLeftPaneVisible ?? false,
+    slot: WorkspacePaneSlot.center,
+  );
 }
 
 // ---------------------------------------------------------------------------

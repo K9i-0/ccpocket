@@ -4,6 +4,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../widgets/workspace_pane_chrome.dart';
+import '../session_list/workspace_shell_screen.dart';
 import 'widgets/guide_page_about.dart';
 import 'widgets/guide_page_bridge_setup.dart';
 import 'widgets/guide_page_connection.dart';
@@ -30,6 +32,13 @@ class SetupGuideScreen extends HookWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    final chrome = resolveWorkspacePaneChrome(
+      platform: Theme.of(context).platform,
+      isAdaptiveWorkspace: shell != null && !shell.isSinglePane,
+      isLeftPaneVisible: shell?.isLeftPaneVisible ?? false,
+      slot: WorkspacePaneSlot.center,
+    );
     final pageController = usePageController();
     final currentPage = useState(0);
 
@@ -60,17 +69,30 @@ class SetupGuideScreen extends HookWidget {
       context.router.maybePop();
     }
 
+    final leading = onBack == null
+        ? null
+        : IconButton(
+            key: const ValueKey('embedded_setup_guide_back_button'),
+            onPressed: onBack,
+            style: chrome.useMacOSAdaptiveChrome
+                ? chrome.compactButtonStyle()
+                : null,
+            icon: const Icon(Icons.arrow_back),
+            tooltip: l.back,
+          );
+
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: chrome.toolbarHeight,
         automaticallyImplyLeading: !embedded,
-        leading: onBack == null
-            ? null
-            : IconButton(
-                key: const ValueKey('embedded_setup_guide_back_button'),
-                onPressed: onBack,
-                icon: const Icon(Icons.arrow_back),
-                tooltip: l.back,
-              ),
+        leading: chrome.wrapLeading(leading),
+        leadingWidth: chrome.resolveLeadingWidth(
+          hasLeading: leading != null,
+          baseWidth: chrome.useMacOSAdaptiveChrome
+              ? kWorkspaceMacOSToolbarLeadingSlotWidth
+              : kToolbarHeight,
+        ),
+        titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
         title: Text(l.setupGuideTitle),
         actions: [
           TextButton(

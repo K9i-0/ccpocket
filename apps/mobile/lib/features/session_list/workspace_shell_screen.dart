@@ -17,6 +17,7 @@ import '../../router/app_router.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/notification_service.dart';
 import '../../utils/diff_parser.dart';
+import '../../widgets/workspace_pane_chrome.dart';
 import 'session_list_screen.dart';
 
 const _twoPaneBreakpoint = 600.0;
@@ -804,25 +805,46 @@ class WorkspaceLandingScreen extends StatelessWidget {
       builder: (context, _) {
         final currentShell = WorkspaceShellScreen.maybeOf(context);
         final fabTheme = theme.floatingActionButtonTheme;
+        final chrome = resolveWorkspacePaneChrome(
+          platform: theme.platform,
+          isAdaptiveWorkspace:
+              currentShell != null && !currentShell.isSinglePane,
+          isLeftPaneVisible: currentShell?.isLeftPaneVisible ?? false,
+          slot: WorkspacePaneSlot.center,
+        );
+        final showLeftPaneButton =
+            currentShell?.shouldShowLeftPaneButton ?? false;
+        final showSessionsButton = showLeftPaneButton
+            ? IconButton(
+                key: const ValueKey('show_left_pane_button'),
+                onPressed: currentShell!.toggleLeftPaneVisibility,
+                tooltip: 'Show sessions',
+                style: chrome.useMacOSAdaptiveChrome
+                    ? chrome.compactButtonStyle()
+                    : IconButton.styleFrom(
+                        backgroundColor:
+                            fabTheme.backgroundColor ??
+                            theme.colorScheme.primaryContainer,
+                        foregroundColor:
+                            fabTheme.foregroundColor ??
+                            theme.colorScheme.onPrimaryContainer,
+                      ),
+                icon: const Icon(Icons.chevron_right),
+              )
+            : null;
 
         return Scaffold(
           backgroundColor: theme.colorScheme.surfaceContainerLowest,
-          appBar: currentShell?.shouldShowLeftPaneButton ?? false
+          appBar: showLeftPaneButton
               ? AppBar(
-                  leadingWidth: 64,
-                  leading: IconButton.filled(
-                    key: const ValueKey('show_left_pane_button'),
-                    onPressed: currentShell!.toggleLeftPaneVisibility,
-                    tooltip: 'Show sessions',
-                    style: IconButton.styleFrom(
-                      backgroundColor:
-                          fabTheme.backgroundColor ??
-                          theme.colorScheme.primaryContainer,
-                      foregroundColor:
-                          fabTheme.foregroundColor ??
-                          theme.colorScheme.onPrimaryContainer,
-                    ),
-                    icon: const Icon(Icons.chevron_right),
+                  toolbarHeight: chrome.toolbarHeight,
+                  automaticallyImplyLeading: false,
+                  leading: chrome.wrapLeading(showSessionsButton),
+                  leadingWidth: chrome.resolveLeadingWidth(
+                    hasLeading: true,
+                    baseWidth: chrome.useMacOSAdaptiveChrome
+                        ? kWorkspaceMacOSToolbarLeadingSlotWidth
+                        : 64,
                   ),
                 )
               : null,

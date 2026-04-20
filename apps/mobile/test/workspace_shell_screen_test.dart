@@ -163,6 +163,7 @@ Widget _buildWorkspaceApp({
   required SupportBannerService supportBannerService,
   List<RecentSession>? debugRecentSessions,
   GlobalKey<WorkspaceShellScreenState>? shellKey,
+  TargetPlatform platform = TargetPlatform.macOS,
 }) {
   final sessionListCubit = SessionListCubit(bridge: bridge);
   final connectionCubit = ConnectionCubit(
@@ -205,7 +206,7 @@ Widget _buildWorkspaceApp({
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('en'),
-        theme: AppTheme.darkTheme,
+        theme: AppTheme.darkTheme.copyWith(platform: platform),
         home: Scaffold(
           body: SizedBox(
             width: 1400,
@@ -717,6 +718,57 @@ void main() {
       );
     },
   );
+
+  testWidgets('macOS adaptive left pane hides pane title wordmark', (
+    tester,
+  ) async {
+    final bridge = _MockBridgeService();
+    final settingsCubit = await _createSettingsCubit(bridge);
+    final draftService = DraftService(await SharedPreferences.getInstance());
+    final revenueCatService = _FakeRevenueCatService();
+    final supportBannerService = await _createSupportBannerService();
+
+    await tester.pumpWidget(
+      _buildWorkspaceApp(
+        bridge: bridge,
+        settingsCubit: settingsCubit,
+        draftService: draftService,
+        revenueCatService: revenueCatService,
+        supportBannerService: supportBannerService,
+        platform: TargetPlatform.macOS,
+      ),
+    );
+    await _pumpUi(tester);
+
+    expect(find.byKey(const ValueKey('session_list_pane_title')), findsNothing);
+  });
+
+  testWidgets('non-mac adaptive left pane keeps pane title wordmark', (
+    tester,
+  ) async {
+    final bridge = _MockBridgeService();
+    final settingsCubit = await _createSettingsCubit(bridge);
+    final draftService = DraftService(await SharedPreferences.getInstance());
+    final revenueCatService = _FakeRevenueCatService();
+    final supportBannerService = await _createSupportBannerService();
+
+    await tester.pumpWidget(
+      _buildWorkspaceApp(
+        bridge: bridge,
+        settingsCubit: settingsCubit,
+        draftService: draftService,
+        revenueCatService: revenueCatService,
+        supportBannerService: supportBannerService,
+        platform: TargetPlatform.iOS,
+      ),
+    );
+    await _pumpUi(tester);
+
+    expect(
+      find.byKey(const ValueKey('session_list_pane_title')),
+      findsOneWidget,
+    );
+  });
 
   testWidgets(
     'selected running session remains highlighted while a popup menu is open',

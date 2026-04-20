@@ -21,7 +21,9 @@ import '../../router/app_router.dart';
 import '../../services/bridge_service.dart';
 import '../../services/database_service.dart';
 import '../../services/revenuecat_service.dart';
+import '../../widgets/workspace_pane_chrome.dart';
 import '../../models/machine.dart';
+import '../session_list/workspace_shell_screen.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
 import 'widgets/app_icon_bottom_sheet.dart';
@@ -109,22 +111,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    final chrome = resolveWorkspacePaneChrome(
+      platform: Theme.of(context).platform,
+      isAdaptiveWorkspace: shell != null && !shell.isSinglePane,
+      isLeftPaneVisible: shell?.isLeftPaneVisible ?? false,
+      slot: WorkspacePaneSlot.center,
+    );
     final l = AppLocalizations.of(context);
     final bridge = context.read<BridgeService>();
     final revenueCat = context.read<RevenueCatService>();
+    final leading = widget.onBack == null
+        ? null
+        : IconButton(
+            key: const ValueKey('embedded_settings_back_button'),
+            onPressed: widget.onBack,
+            style: chrome.useMacOSAdaptiveChrome
+                ? chrome.compactButtonStyle()
+                : null,
+            icon: const Icon(Icons.arrow_back),
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          );
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: chrome.toolbarHeight,
         title: Text(l.settingsTitle),
         automaticallyImplyLeading: !widget.embedded,
-        leading: widget.onBack != null
-            ? IconButton(
-                key: const ValueKey('embedded_settings_back_button'),
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back),
-                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-              )
-            : null,
+        leading: chrome.wrapLeading(leading),
+        leadingWidth: chrome.resolveLeadingWidth(
+          hasLeading: leading != null,
+          baseWidth: chrome.useMacOSAdaptiveChrome
+              ? kWorkspaceMacOSToolbarLeadingSlotWidth
+              : kToolbarHeight,
+        ),
+        titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
       ),
       body: BlocBuilder<SettingsCubit, SettingsState>(
         builder: (context, state) {
