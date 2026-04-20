@@ -1412,19 +1412,32 @@ class _SessionListScreenState extends State<SessionListScreen>
         color: Theme.of(context).colorScheme.surface,
         child: SafeArea(
           bottom: false,
-          child: Column(
+          child: Stack(
             children: [
-              SessionListPaneHeader(
-                onTitleTap: _onTitleTap,
-                onNewSession: showConnectedUI ? _showNewSessionDialog : null,
-                onOpenSettings: _openSettings,
-                onOpenGallery: showConnectedUI
-                    ? _openGallery
-                    : null,
-                onDisconnect: showConnectedUI ? _disconnect : null,
-                onTogglePaneVisibility: widget.onTogglePaneVisibility,
+              Column(
+                children: [
+                  SessionListPaneHeader(
+                    onTitleTap: _onTitleTap,
+                    onOpenSettings: _openSettings,
+                    onOpenGallery: showConnectedUI ? _openGallery : null,
+                    onDisconnect: showConnectedUI ? _disconnect : null,
+                    onTogglePaneVisibility: widget.onTogglePaneVisibility,
+                  ),
+                  Expanded(child: body),
+                ],
               ),
-              Expanded(child: body),
+              if (showConnectedUI &&
+                  MediaQuery.of(context).viewInsets.bottom == 0)
+                Positioned(
+                  left: 16,
+                  bottom: 16,
+                  child: FloatingActionButton.extended(
+                    key: const ValueKey('new_session_fab'),
+                    onPressed: _showNewSessionDialog,
+                    icon: const Icon(Icons.add),
+                    label: const Text('New'),
+                  ),
+                ),
             ],
           ),
         ),

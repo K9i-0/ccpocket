@@ -20,11 +20,11 @@ enum _WorkspaceLayoutMode { single, doublePane, triplePane }
 
 double _leftPaneWidth(double width, _WorkspaceLayoutMode mode) {
   if (mode == _WorkspaceLayoutMode.triplePane) {
-    return width >= 1280 ? 320 : 280;
+    return width >= 1280 ? 360 : 320;
   }
   if (width >= 1024) return 360;
   if (width >= 720) return 320;
-  return 280;
+  return 320;
 }
 
 double _rightPaneWidth(double width, _WorkspaceLayoutMode mode) {
@@ -294,7 +294,8 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
                 deepLinkNotifier: widget.deepLinkNotifier,
                 debugRecentSessions: widget.debugRecentSessions,
                 embedded: layoutMode != _WorkspaceLayoutMode.single,
-                onTogglePaneVisibility: layoutMode == _WorkspaceLayoutMode.single
+                onTogglePaneVisibility:
+                    layoutMode == _WorkspaceLayoutMode.single
                     ? null
                     : toggleLeftPaneVisibility,
               );
@@ -305,7 +306,10 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
 
               final showLeftPane = _showLeftPane;
               final showRightPane = _toolPane != null;
-              final leftWidth = _leftPaneWidth(constraints.maxWidth, layoutMode);
+              final leftWidth = _leftPaneWidth(
+                constraints.maxWidth,
+                layoutMode,
+              );
               final rightWidth = _rightPaneWidth(
                 constraints.maxWidth,
                 layoutMode,
@@ -429,10 +433,7 @@ class _WorkspaceToolPaneHost extends StatelessWidget {
         ),
     };
 
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      child: child,
-    );
+    return Material(color: Theme.of(context).colorScheme.surface, child: child);
   }
 }
 

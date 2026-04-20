@@ -60,7 +60,6 @@ class SessionListSliverAppBar extends StatelessWidget {
 
 class SessionListPaneHeader extends StatelessWidget {
   final VoidCallback onTitleTap;
-  final VoidCallback? onNewSession;
   final VoidCallback onOpenSettings;
   final VoidCallback? onOpenGallery;
   final VoidCallback? onDisconnect;
@@ -69,7 +68,6 @@ class SessionListPaneHeader extends StatelessWidget {
   const SessionListPaneHeader({
     super.key,
     required this.onTitleTap,
-    this.onNewSession,
     required this.onOpenSettings,
     this.onOpenGallery,
     this.onDisconnect,
@@ -79,77 +77,84 @@ class SessionListPaneHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final openGallery = onOpenGallery;
+    final disconnect = onDisconnect;
+    final togglePaneVisibility = onTogglePaneVisibility;
+    final titleStyle = Theme.of(
+      context,
+    ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 12, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: onTitleTap,
-                  child: Text(
-                    l.appTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
+          Expanded(
+            child: GestureDetector(
+              onTap: onTitleTap,
+              child: Text(
+                l.appTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: titleStyle,
               ),
-              IconButton(
-                key: const ValueKey('settings_button'),
-                icon: Badge(
-                  isLabelVisible:
-                      AppUpdateService.instance.cachedUpdate != null,
-                  smallSize: 8,
-                  child: const Icon(Icons.settings),
-                ),
-                onPressed: onOpenSettings,
-                tooltip: l.settings,
-              ),
-              if (onTogglePaneVisibility != null)
-                IconButton(
-                  key: const ValueKey('collapse_left_pane_button'),
-                  icon: const Icon(Icons.chevron_left),
-                  onPressed: onTogglePaneVisibility,
-                  tooltip: 'Hide sessions',
-                ),
-            ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (onNewSession != null)
-                FilledButton.icon(
-                  key: const ValueKey('new_session_header_button'),
-                  onPressed: onNewSession,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('New'),
-                ),
-              if (onOpenGallery != null)
-                IconButton(
-                  key: const ValueKey('gallery_button'),
-                  onPressed: onOpenGallery,
-                  icon: const Icon(Icons.collections_outlined),
-                  tooltip: l.gallery,
-                ),
-              if (onDisconnect != null)
-                IconButton(
-                  key: const ValueKey('disconnect_button'),
-                  icon: const Icon(Icons.link_off),
-                  onPressed: onDisconnect,
-                  tooltip: l.disconnect,
-                ),
-            ],
+          _PaneHeaderActionButton(
+            key: const ValueKey('settings_button'),
+            tooltip: l.settings,
+            onPressed: onOpenSettings,
+            icon: Badge(
+              isLabelVisible: AppUpdateService.instance.cachedUpdate != null,
+              smallSize: 8,
+              child: const Icon(Icons.settings),
+            ),
           ),
+          if (openGallery != null)
+            _PaneHeaderActionButton(
+              key: const ValueKey('gallery_button'),
+              tooltip: l.gallery,
+              onPressed: openGallery,
+              icon: const Icon(Icons.collections_outlined),
+            ),
+          if (disconnect != null)
+            _PaneHeaderActionButton(
+              key: const ValueKey('disconnect_button'),
+              tooltip: l.disconnect,
+              onPressed: disconnect,
+              icon: const Icon(Icons.link_off),
+            ),
+          if (togglePaneVisibility != null)
+            _PaneHeaderActionButton(
+              key: const ValueKey('collapse_left_pane_button'),
+              tooltip: 'Hide sessions',
+              onPressed: togglePaneVisibility,
+              icon: const Icon(Icons.chevron_left),
+            ),
         ],
       ),
+    );
+  }
+}
+
+class _PaneHeaderActionButton extends StatelessWidget {
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Widget icon;
+
+  const _PaneHeaderActionButton({
+    super.key,
+    required this.tooltip,
+    required this.onPressed,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      onPressed: onPressed,
+      tooltip: tooltip,
+      icon: icon,
     );
   }
 }
