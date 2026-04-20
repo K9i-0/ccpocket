@@ -179,11 +179,16 @@ xcrun simctl boot "iPad Pro 13-inch (M4)" 2>/dev/null || true
 
 **重要**: `erase` を実行するとアプリもアンインストールされるため、必ずクリーンインストールが行われる。これにより互換モード問題を防止する。
 
-**横向き前提**: iPad スクショは landscape で撮る。起動後に必ず右回転してから撮影する:
+**横向き前提**: iPad スクショは landscape で撮る。起動後に `sim-tap.swift` の準備コマンドを必ず実行する:
 ```bash
-xcrun simctl io booted rotate right
+swift .claude/skills/update-store/scripts/sim-tap.swift prepare-store ipad
 ```
-撮影中に向きが崩れた場合も、スクショを撮る前に再度これを実行する。
+これで以下をまとめて行う:
+- Simulator を前面化
+- `Device > Rotate Right` で landscape 化
+- 通知許諾などのネイティブダイアログを dismiss
+
+撮影中に向きが崩れた場合や許諾ダイアログが再表示された場合も、スクショを撮る前に再度これを実行する。
 
 **ネイティブダイアログの自動dismiss**: `erase` 後は通知・音声認識・マイク等のパーミッションダイアログが再度表示される。
 
@@ -195,12 +200,13 @@ xcrun simctl privacy booted grant microphone com.k9i.ccpocket
 ```
 これによりダイアログの表示自体を防止できる。`simctl privacy` が失敗する場合は以下のフォールバックを使う。
 
-**フォールバック: sim-tap.swift の `dismiss-dialogs` コマンド**:
+**フォールバック: sim-tap.swift の個別コマンド**:
 ダイアログはホーム画面ではなく**セッション画面遷移後**に表示されることがある。
 最初のシナリオ遷移後にdismissし、必要なら撮り直す。
 
 AX API でボタンが見つからない場合（特にiPad）、CGEvent ベースのクリックで自動フォールバックする:
 ```bash
+swift .claude/skills/update-store/scripts/sim-tap.swift rotate right
 swift .claude/skills/update-store/scripts/sim-tap.swift dismiss-dialogs ipad
 swift .claude/skills/update-store/scripts/sim-tap.swift dismiss-dialogs iphone
 ```

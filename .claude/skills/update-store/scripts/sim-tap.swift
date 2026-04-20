@@ -99,6 +99,53 @@ func findSimulatorApp() -> AXUIElement? {
     return AXUIElementCreateApplication(sim.processIdentifier)
 }
 
+@discardableResult
+func activateSimulator() -> Bool {
+    let apps = NSWorkspace.shared.runningApplications
+    guard let sim = apps.first(where: { $0.bundleIdentifier == "com.apple.iphonesimulator" }) else {
+        fputs("Error: Simulator.app is not running.\n", stderr)
+        return false
+    }
+    sim.activate()
+    usleep(300_000)
+    return true
+}
+
+func runAppleScript(_ source: String) -> Bool {
+    var error: NSDictionary?
+    let script = NSAppleScript(source: source)
+    let result = script?.executeAndReturnError(&error)
+    if result != nil { return true }
+    if let error {
+        fputs("AppleScript error: \(error)\n", stderr)
+    }
+    return false
+}
+
+func rotateSimulator(direction: String) -> Bool {
+    guard activateSimulator() else { return false }
+    let menuItem: String
+    switch direction.lowercased() {
+    case "right":
+        menuItem = "Rotate Right"
+    case "left":
+        menuItem = "Rotate Left"
+    default:
+        fputs("Error: Unknown rotate direction \"\(direction)\". Use 'left' or 'right'.\n", stderr)
+        return false
+    }
+
+    let script = """
+    tell application "Simulator" to activate
+    tell application "System Events"
+      tell process "Simulator"
+        click menu item "\(menuItem)" of menu "Device" of menu bar 1
+      end tell
+    end tell
+    """
+    return runAppleScript(script)
+}
+
 // MARK: - Commands
 
 func describe() {
@@ -299,6 +346,25 @@ func dismissIPhoneDialogs() -> Int {
     )
 }
 
+func prepareStoreCapture(device: String) -> Bool {
+    switch device.lowercased() {
+    case "ipad":
+        guard rotateSimulator(direction: "right") else { return false }
+        Thread.sleep(forTimeInterval: 0.8)
+        let count = dismissIPadDialogs()
+        print("Prepared iPad simulator. Dismissed \(count) dialog(s).")
+        return true
+    case "iphone":
+        guard activateSimulator() else { return false }
+        let count = dismissIPhoneDialogs()
+        print("Prepared iPhone simulator. Dismissed \(count) dialog(s).")
+        return true
+    default:
+        fputs("Error: Unknown device \"\(device)\". Use 'iphone' or 'ipad'.\n", stderr)
+        return false
+    }
+}
+
 // MARK: - Main
 
 let args = CommandLine.arguments
@@ -308,7 +374,9 @@ guard args.count >= 2 else {
       swift \(args[0]) tap <label>              Tap element by label
       swift \(args[0]) describe                 List all accessible elements
       swift \(args[0]) wait <label> [sec]       Wait for element then tap (default 10s)
+      swift \(args[0]) rotate <left|right>      Rotate Simulator via the Device menu
       swift \(args[0]) dismiss-dialogs <device> Dismiss native dialogs (iphone|ipad)
+      swift \(args[0]) prepare-store <device>   Rotate/dismiss dialogs for store capture
 
     """, stderr)
     exit(2)
@@ -330,6 +398,12 @@ case "wait":
     }
     let timeout = args.count >= 4 ? (Int(args[3]) ?? 10) : 10
     exit(wait(name: args[2], timeout: timeout) ? 0 : 1)
+case "rotate":
+    guard args.count >= 3 else {
+        fputs("Usage: rotate <left|right>\n", stderr)
+        exit(2)
+    }
+    exit(rotateSimulator(direction: args[2]) ? 0 : 1)
 case "dismiss-dialogs":
     guard args.count >= 3 else {
         fputs("Usage: dismiss-dialogs <iphone|ipad>\n", stderr)
@@ -351,6 +425,12 @@ case "dismiss-dialogs":
     } else {
         print("No dialogs found on \(device)")
     }
+case "prepare-store":
+    guard args.count >= 3 else {
+        fputs("Usage: prepare-store <iphone|ipad>\n", stderr)
+        exit(2)
+    }
+    exit(prepareStoreCapture(device: args[2]) ? 0 : 1)
 default:
     fputs("Unknown command: \(args[1])\n", stderr)
     exit(2)
