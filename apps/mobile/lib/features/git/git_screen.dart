@@ -179,46 +179,48 @@ class _GitScreenBody extends StatelessWidget {
         : null;
 
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: chrome.toolbarHeight,
-        automaticallyImplyLeading: !embedded,
-        leading: chrome.wrapLeading(leading),
-        leadingWidth: chrome.resolveLeadingWidth(
-          hasLeading: leading != null,
-          baseWidth: chrome.useMacOSAdaptiveChrome
-              ? kWorkspaceMacOSToolbarLeadingSlotWidth
-              : kToolbarHeight,
+      appBar: chrome.wrapAppBar(
+        AppBar(
+          toolbarHeight: chrome.toolbarHeight,
+          automaticallyImplyLeading: !embedded,
+          leading: chrome.wrapLeading(leading),
+          leadingWidth: chrome.resolveLeadingWidth(
+            hasLeading: leading != null,
+            baseWidth: chrome.useMacOSAdaptiveChrome
+                ? kWorkspaceMacOSToolbarLeadingSlotWidth
+                : kToolbarHeight,
+          ),
+          titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
+          title: Text(screenTitle, overflow: TextOverflow.ellipsis),
+          actions: [
+            if (isProjectMode && !state.loading)
+              _FileListAppBarButton(
+                state: state,
+                onPressed: state.files.isEmpty
+                    ? null
+                    : () async {
+                        final selectedIndex = await showGitFileListSheet(
+                          context,
+                          files: state.files,
+                          viewMode: state.viewMode,
+                        );
+                        if (selectedIndex != null) {
+                          scrollToFileIndex.value = selectedIndex;
+                        }
+                      },
+              ),
+            // Refresh (projectPath mode only)
+            if (cubit.canRefresh && !state.loading)
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: l.refresh,
+                style: chrome.useMacOSAdaptiveChrome
+                    ? chrome.compactButtonStyle()
+                    : null,
+                onPressed: cubit.refresh,
+              ),
+          ],
         ),
-        titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
-        title: Text(screenTitle, overflow: TextOverflow.ellipsis),
-        actions: [
-          if (isProjectMode && !state.loading)
-            _FileListAppBarButton(
-              state: state,
-              onPressed: state.files.isEmpty
-                  ? null
-                  : () async {
-                      final selectedIndex = await showGitFileListSheet(
-                        context,
-                        files: state.files,
-                        viewMode: state.viewMode,
-                      );
-                      if (selectedIndex != null) {
-                        scrollToFileIndex.value = selectedIndex;
-                      }
-                    },
-            ),
-          // Refresh (projectPath mode only)
-          if (cubit.canRefresh && !state.loading)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: l.refresh,
-              style: chrome.useMacOSAdaptiveChrome
-                  ? chrome.compactButtonStyle()
-                  : null,
-              onPressed: cubit.refresh,
-            ),
-        ],
       ),
       bottomNavigationBar: isProjectMode
           ? _DiffBottomBar(

@@ -82,25 +82,27 @@ class SetupGuideScreen extends HookWidget {
           );
 
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: chrome.toolbarHeight,
-        automaticallyImplyLeading: !embedded,
-        leading: chrome.wrapLeading(leading),
-        leadingWidth: chrome.resolveLeadingWidth(
-          hasLeading: leading != null,
-          baseWidth: chrome.useMacOSAdaptiveChrome
-              ? kWorkspaceMacOSToolbarLeadingSlotWidth
-              : kToolbarHeight,
-        ),
-        titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
-        title: Text(l.setupGuideTitle),
-        actions: [
-          TextButton(
-            key: const ValueKey('guide_skip_button'),
-            onPressed: close,
-            child: Text(l.skip),
+      appBar: chrome.wrapAppBar(
+        AppBar(
+          toolbarHeight: chrome.toolbarHeight,
+          automaticallyImplyLeading: !embedded,
+          leading: chrome.wrapLeading(leading),
+          leadingWidth: chrome.resolveLeadingWidth(
+            hasLeading: leading != null,
+            baseWidth: chrome.useMacOSAdaptiveChrome
+                ? kWorkspaceMacOSToolbarLeadingSlotWidth
+                : kToolbarHeight,
           ),
-        ],
+          titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
+          title: Text(l.setupGuideTitle),
+          actions: [
+            TextButton(
+              key: const ValueKey('guide_skip_button'),
+              onPressed: close,
+              child: Text(l.skip),
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: [

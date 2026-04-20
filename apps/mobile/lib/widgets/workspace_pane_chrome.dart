@@ -4,6 +4,7 @@ const kWorkspaceMacOSToolbarHeight = 52.0;
 const kWorkspaceMacOSLeadingInset = 88.0;
 const kWorkspaceMacOSToolbarButtonExtent = 32.0;
 const kWorkspaceMacOSToolbarLeadingSlotWidth = 44.0;
+const kWorkspaceMacOSSinglePaneTopInset = 28.0;
 const kWorkspacePaneHorizontalPadding = 12.0;
 const kWorkspacePaneVerticalPadding = 10.0;
 const kWorkspacePaneActionGap = 4.0;
@@ -14,11 +15,13 @@ class WorkspacePaneChrome {
   final bool useMacOSAdaptiveChrome;
   final bool ownsWindowControls;
   final double toolbarHeight;
+  final double topInset;
 
   const WorkspacePaneChrome({
     required this.useMacOSAdaptiveChrome,
     required this.ownsWindowControls,
     required this.toolbarHeight,
+    this.topInset = 0,
   });
 
   double get leadingInset =>
@@ -74,6 +77,17 @@ class WorkspacePaneChrome {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );
   }
+
+  PreferredSizeWidget wrapAppBar(PreferredSizeWidget appBar) {
+    if (topInset == 0) return appBar;
+    return PreferredSize(
+      preferredSize: Size.fromHeight(appBar.preferredSize.height + topInset),
+      child: Padding(
+        padding: EdgeInsets.only(top: topInset),
+        child: appBar,
+      ),
+    );
+  }
 }
 
 WorkspacePaneChrome resolveWorkspacePaneChrome({
@@ -86,6 +100,14 @@ WorkspacePaneChrome resolveWorkspacePaneChrome({
       platform == TargetPlatform.macOS && isAdaptiveWorkspace;
 
   if (!useMacOSAdaptiveChrome) {
+    if (platform == TargetPlatform.macOS && !isAdaptiveWorkspace) {
+      return const WorkspacePaneChrome(
+        useMacOSAdaptiveChrome: false,
+        ownsWindowControls: false,
+        toolbarHeight: kToolbarHeight,
+        topInset: kWorkspaceMacOSSinglePaneTopInset,
+      );
+    }
     return const WorkspacePaneChrome(
       useMacOSAdaptiveChrome: false,
       ownsWindowControls: false,

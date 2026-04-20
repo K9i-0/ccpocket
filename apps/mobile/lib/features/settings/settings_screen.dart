@@ -134,18 +134,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           );
 
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: chrome.toolbarHeight,
-        title: Text(l.settingsTitle),
-        automaticallyImplyLeading: !widget.embedded,
-        leading: chrome.wrapLeading(leading),
-        leadingWidth: chrome.resolveLeadingWidth(
-          hasLeading: leading != null,
-          baseWidth: chrome.useMacOSAdaptiveChrome
-              ? kWorkspaceMacOSToolbarLeadingSlotWidth
-              : kToolbarHeight,
+      appBar: chrome.wrapAppBar(
+        AppBar(
+          toolbarHeight: chrome.toolbarHeight,
+          title: Text(l.settingsTitle),
+          automaticallyImplyLeading: !widget.embedded,
+          leading: chrome.wrapLeading(leading),
+          leadingWidth: chrome.resolveLeadingWidth(
+            hasLeading: leading != null,
+            baseWidth: chrome.useMacOSAdaptiveChrome
+                ? kWorkspaceMacOSToolbarLeadingSlotWidth
+                : kToolbarHeight,
+          ),
+          titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
         ),
-        titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
       ),
       body: BlocBuilder<SettingsCubit, SettingsState>(
         builder: (context, state) {

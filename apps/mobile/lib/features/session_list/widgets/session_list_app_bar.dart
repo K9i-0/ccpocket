@@ -14,12 +14,14 @@ class SessionListSliverAppBar extends StatelessWidget {
   final VoidCallback onTitleTap;
   final VoidCallback onDisconnect;
   final bool forceElevated;
+  final double? toolbarHeight;
 
   const SessionListSliverAppBar({
     super.key,
     required this.onTitleTap,
     required this.onDisconnect,
     this.forceElevated = false,
+    this.toolbarHeight,
   });
 
   @override
@@ -30,6 +32,7 @@ class SessionListSliverAppBar extends StatelessWidget {
       floating: true,
       snap: true,
       forceElevated: forceElevated,
+      toolbarHeight: toolbarHeight ?? kToolbarHeight,
       title: GestureDetector(onTap: onTitleTap, child: Text(l.appTitle)),
       actions: [
         IconButton(
@@ -90,6 +93,7 @@ class SessionListPaneHeader extends StatelessWidget {
     final titleStyle = Theme.of(
       context,
     ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700);
+    final actionGap = chrome.useMacOSAdaptiveChrome ? 8.0 : 0.0;
 
     return SizedBox(
       height: chrome.toolbarHeight,
@@ -111,7 +115,7 @@ class SessionListPaneHeader extends StatelessWidget {
                 ),
               )
             else
-              const SizedBox.shrink(),
+              const Spacer(),
             _PaneHeaderActionButton(
               key: const ValueKey('settings_button'),
               tooltip: l.settings,
@@ -123,6 +127,10 @@ class SessionListPaneHeader extends StatelessWidget {
               ),
               compact: chrome.useMacOSAdaptiveChrome,
             ),
+            if (openGallery != null ||
+                disconnect != null ||
+                togglePaneVisibility != null)
+              SizedBox(width: actionGap),
             if (openGallery != null)
               _PaneHeaderActionButton(
                 key: const ValueKey('gallery_button'),
@@ -131,6 +139,9 @@ class SessionListPaneHeader extends StatelessWidget {
                 icon: const Icon(Icons.collections_outlined),
                 compact: chrome.useMacOSAdaptiveChrome,
               ),
+            if (openGallery != null &&
+                (disconnect != null || togglePaneVisibility != null))
+              SizedBox(width: actionGap),
             if (disconnect != null)
               _PaneHeaderActionButton(
                 key: const ValueKey('disconnect_button'),
@@ -139,6 +150,8 @@ class SessionListPaneHeader extends StatelessWidget {
                 icon: const Icon(Icons.link_off),
                 compact: chrome.useMacOSAdaptiveChrome,
               ),
+            if (disconnect != null && togglePaneVisibility != null)
+              SizedBox(width: actionGap),
             if (togglePaneVisibility != null)
               _PaneHeaderActionButton(
                 key: const ValueKey('collapse_left_pane_button'),

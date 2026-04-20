@@ -176,29 +176,31 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
           icon: Icon(widget.embedded ? Icons.close : Icons.arrow_back),
         );
         final scaffold = Scaffold(
-          appBar: AppBar(
-            toolbarHeight: chrome.toolbarHeight,
-            title: const Text('Explorer'),
-            automaticallyImplyLeading: !widget.embedded,
-            leading: chrome.wrapLeading(leading),
-            leadingWidth: chrome.resolveLeadingWidth(
-              hasLeading: true,
-              baseWidth: chrome.useMacOSAdaptiveChrome
-                  ? kWorkspaceMacOSToolbarLeadingSlotWidth
-                  : kToolbarHeight,
-            ),
-            titleSpacing: chrome.resolveTitleSpacing(hasLeading: true),
-            actions: [
-              IconButton(
-                key: const ValueKey('explore_recent_files_button'),
-                onPressed: () => _openRecentFilesSheet(cubit),
-                style: chrome.useMacOSAdaptiveChrome
-                    ? chrome.compactButtonStyle()
-                    : null,
-                icon: const Icon(Icons.history),
-                tooltip: 'Recent files',
+          appBar: chrome.wrapAppBar(
+            AppBar(
+              toolbarHeight: chrome.toolbarHeight,
+              title: const Text('Explorer'),
+              automaticallyImplyLeading: !widget.embedded,
+              leading: chrome.wrapLeading(leading),
+              leadingWidth: chrome.resolveLeadingWidth(
+                hasLeading: true,
+                baseWidth: chrome.useMacOSAdaptiveChrome
+                    ? kWorkspaceMacOSToolbarLeadingSlotWidth
+                    : kToolbarHeight,
               ),
-            ],
+              titleSpacing: chrome.resolveTitleSpacing(hasLeading: true),
+              actions: [
+                IconButton(
+                  key: const ValueKey('explore_recent_files_button'),
+                  onPressed: () => _openRecentFilesSheet(cubit),
+                  style: chrome.useMacOSAdaptiveChrome
+                      ? chrome.compactButtonStyle()
+                      : null,
+                  icon: const Icon(Icons.history),
+                  tooltip: 'Recent files',
+                ),
+              ],
+            ),
           ),
           body: Column(
             children: [

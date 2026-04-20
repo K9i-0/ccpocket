@@ -21,6 +21,7 @@ import '../../services/app_update_service.dart';
 import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/server_discovery_service.dart';
+import '../../widgets/workspace_pane_chrome.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../../widgets/rename_session_dialog.dart';
 import '../settings/state/settings_cubit.dart';
@@ -1419,6 +1420,12 @@ class _SessionListScreenState extends State<SessionListScreen>
     required dynamic machineState,
     required MachineManagerCubit? machineManagerCubit,
   }) {
+    final chrome = resolveWorkspacePaneChrome(
+      platform: Theme.of(context).platform,
+      isAdaptiveWorkspace: false,
+      isLeftPaneVisible: true,
+      slot: WorkspacePaneSlot.center,
+    );
     final body = _buildBodyContent(
       context: context,
       showConnectedUI: showConnectedUI,
@@ -1472,24 +1479,27 @@ class _SessionListScreenState extends State<SessionListScreen>
     return Scaffold(
       appBar: showConnectedUI && !_isAutoConnecting
           ? null
-          : AppBar(
-              title: GestureDetector(
-                onTap: _onTitleTap,
-                child: Text(l.appTitle),
-              ),
-              actions: [
-                IconButton(
-                  key: const ValueKey('settings_button'),
-                  icon: Badge(
-                    isLabelVisible:
-                        AppUpdateService.instance.cachedUpdate != null,
-                    smallSize: 8,
-                    child: const Icon(Icons.settings),
-                  ),
-                  onPressed: _openSettings,
-                  tooltip: l.settings,
+          : chrome.wrapAppBar(
+              AppBar(
+                toolbarHeight: chrome.toolbarHeight,
+                title: GestureDetector(
+                  onTap: _onTitleTap,
+                  child: Text(l.appTitle),
                 ),
-              ],
+                actions: [
+                  IconButton(
+                    key: const ValueKey('settings_button'),
+                    icon: Badge(
+                      isLabelVisible:
+                          AppUpdateService.instance.cachedUpdate != null,
+                      smallSize: 8,
+                      child: const Icon(Icons.settings),
+                    ),
+                    onPressed: _openSettings,
+                    tooltip: l.settings,
+                  ),
+                ],
+              ),
             ),
       body: body,
       floatingActionButton:
@@ -1622,12 +1632,22 @@ class _SessionListScreenState extends State<SessionListScreen>
         return content;
       }
 
+      final chrome = resolveWorkspacePaneChrome(
+        platform: Theme.of(context).platform,
+        isAdaptiveWorkspace: false,
+        isLeftPaneVisible: true,
+        slot: WorkspacePaneSlot.center,
+      );
+
       return NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          if (chrome.topInset > 0)
+            SliverToBoxAdapter(child: SizedBox(height: chrome.topInset)),
           SessionListSliverAppBar(
             onTitleTap: _onTitleTap,
             onDisconnect: _disconnect,
             forceElevated: innerBoxIsScrolled,
+            toolbarHeight: chrome.toolbarHeight,
           ),
         ],
         body: content,
