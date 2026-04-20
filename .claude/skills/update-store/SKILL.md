@@ -241,7 +241,7 @@ marionette `call_custom_extension`
 
 3. 撮影
    ```bash
-   xcrun simctl io booted screenshot apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
+   swift .claude/skills/update-store/scripts/sim-tap.swift capture-store ipad apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
    ```
 
 4. marionette `call_custom_extension`
@@ -254,7 +254,7 @@ marionette `call_custom_extension`
 撮影後、スクショの解像度がiPadのネイティブ解像度と一致するか検証する:
 
 ```bash
-xcrun simctl io booted screenshot apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
+swift .claude/skills/update-store/scripts/sim-tap.swift capture-store ipad apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png
 
 # 解像度検証（互換モード検出）
 WIDTH=$(sips -g pixelWidth apps/mobile/fastlane/screenshots/en-US/ipad_<key>.png | tail -1 | awk '{print $2}')

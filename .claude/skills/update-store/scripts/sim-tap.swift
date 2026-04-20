@@ -122,20 +122,97 @@ func runAppleScript(_ source: String) -> Bool {
     return false
 }
 
+@discardableResult
+func runCommand(_ launchPath: String, _ arguments: [String]) -> (status: Int32, stdout: String, stderr: String) {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: launchPath)
+    process.arguments = arguments
+
+    let stdoutPipe = Pipe()
+    let stderrPipe = Pipe()
+    process.standardOutput = stdoutPipe
+    process.standardError = stderrPipe
+
+    do {
+        try process.run()
+        process.waitUntilExit()
+    } catch {
+        return (1, "", "Failed to run \(launchPath): \(error)")
+    }
+
+    let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+    let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+    return (
+        process.terminationStatus,
+        String(decoding: stdoutData, as: UTF8.self),
+        String(decoding: stderrData, as: UTF8.self)
+    )
+}
+
+func imageSize(at path: String) -> (width: Int, height: Int)? {
+    let result = runCommand("/usr/bin/sips", ["-g", "pixelWidth", "-g", "pixelHeight", path])
+    guard result.status == 0 else { return nil }
+
+    var width: Int?
+    var height: Int?
+    for line in result.stdout.split(separator: "\n") {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("pixelWidth:") {
+            width = Int(trimmed.replacingOccurrences(of: "pixelWidth:", with: "").trimmingCharacters(in: .whitespaces))
+        }
+        if trimmed.hasPrefix("pixelHeight:") {
+            height = Int(trimmed.replacingOccurrences(of: "pixelHeight:", with: "").trimmingCharacters(in: .whitespaces))
+        }
+    }
+    guard let width, let height else { return nil }
+    return (width, height)
+}
+
+func captureStoreScreenshot(device: String, outputPath: String) -> Bool {
+    let screenshot = runCommand("/usr/bin/xcrun", ["simctl", "io", "booted", "screenshot", outputPath])
+    guard screenshot.status == 0 else {
+        fputs("Error: Failed to capture screenshot.\n\(screenshot.stderr)\n", stderr)
+        return false
+    }
+
+    guard let size = imageSize(at: outputPath) else {
+        fputs("Error: Failed to inspect screenshot size at \(outputPath).\n", stderr)
+        return false
+    }
+
+    if device.lowercased() == "ipad", size.width < size.height {
+        let rotate = runCommand("/usr/bin/sips", ["-r", "270", outputPath, "--out", outputPath])
+        guard rotate.status == 0 else {
+            fputs("Error: Failed to rotate iPad screenshot.\n\(rotate.stderr)\n", stderr)
+            return false
+        }
+    }
+
+    if let normalizedSize = imageSize(at: outputPath) {
+        print("Captured \(device) screenshot at \(outputPath) (\(normalizedSize.width)x\(normalizedSize.height))")
+    } else {
+        print("Captured \(device) screenshot at \(outputPath)")
+    }
+    return true
+}
+
 func rotateSimulator(direction: String) -> Bool {
     guard activateSimulator() else { return false }
     let menuItem: String
+    let keyCode: Int
     switch direction.lowercased() {
     case "right":
         menuItem = "Rotate Right"
+        keyCode = 124
     case "left":
         menuItem = "Rotate Left"
+        keyCode = 123
     default:
         fputs("Error: Unknown rotate direction \"\(direction)\". Use 'left' or 'right'.\n", stderr)
         return false
     }
 
-    let script = """
+    let menuScript = """
     tell application "Simulator" to activate
     tell application "System Events"
       tell process "Simulator"
@@ -143,7 +220,18 @@ func rotateSimulator(direction: String) -> Bool {
       end tell
     end tell
     """
-    return runAppleScript(script)
+    if runAppleScript(menuScript) {
+        usleep(300_000)
+        return true
+    }
+
+    let shortcutScript = """
+    tell application "Simulator" to activate
+    tell application "System Events"
+      key code \(keyCode) using {command down}
+    end tell
+    """
+    return runAppleScript(shortcutScript)
 }
 
 // MARK: - Commands
@@ -375,6 +463,8 @@ guard args.count >= 2 else {
       swift \(args[0]) describe                 List all accessible elements
       swift \(args[0]) wait <label> [sec]       Wait for element then tap (default 10s)
       swift \(args[0]) rotate <left|right>      Rotate Simulator via the Device menu
+      swift \(args[0]) capture-store <device> <path>
+                                               Capture a screenshot and normalize orientation
       swift \(args[0]) dismiss-dialogs <device> Dismiss native dialogs (iphone|ipad)
       swift \(args[0]) prepare-store <device>   Rotate/dismiss dialogs for store capture
 
@@ -404,6 +494,12 @@ case "rotate":
         exit(2)
     }
     exit(rotateSimulator(direction: args[2]) ? 0 : 1)
+case "capture-store":
+    guard args.count >= 4 else {
+        fputs("Usage: capture-store <iphone|ipad> <path>\n", stderr)
+        exit(2)
+    }
+    exit(captureStoreScreenshot(device: args[2], outputPath: args[3]) ? 0 : 1)
 case "dismiss-dialogs":
     guard args.count >= 3 else {
         fputs("Usage: dismiss-dialogs <iphone|ipad>\n", stderr)
