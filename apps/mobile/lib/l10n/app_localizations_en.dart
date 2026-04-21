@@ -74,6 +74,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gallery => 'Gallery';
 
   @override
+  String get git => 'Git';
+
+  @override
+  String get explorer => 'Explorer';
+
+  @override
   String galleryWithCount(int count) {
     return 'Gallery ($count)';
   }
@@ -218,6 +224,67 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get setupGuide => 'Setup Guide';
+
+  @override
+  String get showSessions => 'Show left pane';
+
+  @override
+  String get hideSessions => 'Hide left pane';
+
+  @override
+  String get workspaceLandingSelectSessionMessage =>
+      'Select a session in the left pane.';
+
+  @override
+  String get workspaceLandingCreateSessionMessage =>
+      'Create a session from New in the left pane.';
+
+  @override
+  String get workspaceLandingDisconnectedMessage =>
+      'Bridge is not connected. Connect from the left pane, or open Setup Guide to configure a machine.';
+
+  @override
+  String get running => 'Running';
+
+  @override
+  String get recentSessions => 'Recent Sessions';
+
+  @override
+  String get search => 'Search';
+
+  @override
+  String get searchSessions => 'Search sessions...';
+
+  @override
+  String get sessionDisplayModeFirst => 'First';
+
+  @override
+  String get sessionDisplayModeLast => 'Last';
+
+  @override
+  String get sessionDisplayModeSummary => 'Summary';
+
+  @override
+  String get allAiTools => 'All AI Tools';
+
+  @override
+  String get allProjects => 'All Projects';
+
+  @override
+  String get named => 'Named';
+
+  @override
+  String get machines => 'Machines';
+
+  @override
+  String get refreshStatus => 'Refresh status';
+
+  @override
+  String get add => 'Add';
+
+  @override
+  String get noSavedMachinesDescription =>
+      'No saved machines.\nAdd one to quickly connect or remotely start the Bridge Server.';
 
   @override
   String get readyToStart => 'Ready to start';

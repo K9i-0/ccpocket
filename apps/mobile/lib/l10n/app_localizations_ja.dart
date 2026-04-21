@@ -74,6 +74,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get gallery => 'ギャラリー';
 
   @override
+  String get git => 'Git';
+
+  @override
+  String get explorer => 'Explorer';
+
+  @override
   String galleryWithCount(int count) {
     return 'ギャラリー ($count)';
   }
@@ -217,6 +223,66 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get setupGuide => 'セットアップガイド';
+
+  @override
+  String get showSessions => '左ペインを表示';
+
+  @override
+  String get hideSessions => '左ペインを隠す';
+
+  @override
+  String get workspaceLandingSelectSessionMessage => '左ペインでセッションを選択してください。';
+
+  @override
+  String get workspaceLandingCreateSessionMessage =>
+      '左ペインの New からセッションを作成してください。';
+
+  @override
+  String get workspaceLandingDisconnectedMessage =>
+      'Bridge に接続されていません。左ペインから接続するか、セットアップガイドを開いてマシンを設定してください。';
+
+  @override
+  String get running => '実行中';
+
+  @override
+  String get recentSessions => '最近のセッション';
+
+  @override
+  String get search => '検索';
+
+  @override
+  String get searchSessions => 'セッションを検索...';
+
+  @override
+  String get sessionDisplayModeFirst => '先頭';
+
+  @override
+  String get sessionDisplayModeLast => '末尾';
+
+  @override
+  String get sessionDisplayModeSummary => '要約';
+
+  @override
+  String get allAiTools => 'すべての AI ツール';
+
+  @override
+  String get allProjects => 'すべてのプロジェクト';
+
+  @override
+  String get named => '名前付き';
+
+  @override
+  String get machines => 'マシン';
+
+  @override
+  String get refreshStatus => '状態を更新';
+
+  @override
+  String get add => '追加';
+
+  @override
+  String get noSavedMachinesDescription =>
+      '保存済みのマシンはありません。\n追加すると、すばやく接続したり Bridge Server をリモート起動したりできます。';
 
   @override
   String get readyToStart => '準備完了';

@@ -363,7 +363,7 @@ void main() {
 
     expect(
       find.text(
-        'Select a session on the left, or open settings or gallery from the sidebar.',
+        'Create a session from New in the left pane.',
       ),
       findsOneWidget,
     );
@@ -485,7 +485,7 @@ void main() {
 
       expect(
         find.text(
-          'Select a session on the left, or open settings or gallery from the sidebar.',
+          'Create a session from New in the left pane.',
         ),
         findsOneWidget,
       );
@@ -580,7 +580,7 @@ void main() {
 
     expect(
       find.text(
-        'Bridge is not connected. Use the left pane to connect, or open the setup guide to configure a machine.',
+        'Bridge is not connected. Connect from the left pane, or open Setup Guide to configure a machine.',
       ),
       findsOneWidget,
     );
@@ -628,7 +628,7 @@ void main() {
     );
     expect(
       find.text(
-        'Bridge is not connected. Use the left pane to connect, or open the setup guide to configure a machine.',
+        'Bridge is not connected. Connect from the left pane, or open Setup Guide to configure a machine.',
       ),
       findsOneWidget,
     );
@@ -974,7 +974,7 @@ void main() {
       await _pumpUi(tester);
       expect(
         find.text(
-          'Bridge is not connected. Use the left pane to connect, or open the setup guide to configure a machine.',
+          'Bridge is not connected. Connect from the left pane, or open Setup Guide to configure a machine.',
         ),
         findsOneWidget,
       );

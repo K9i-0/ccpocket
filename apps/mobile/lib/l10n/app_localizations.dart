@@ -226,6 +226,18 @@ abstract class AppLocalizations {
   /// **'ギャラリー'**
   String get gallery;
 
+  /// No description provided for @git.
+  ///
+  /// In ja, this message translates to:
+  /// **'Git'**
+  String get git;
+
+  /// No description provided for @explorer.
+  ///
+  /// In ja, this message translates to:
+  /// **'Explorer'**
+  String get explorer;
+
   /// No description provided for @galleryWithCount.
   ///
   /// In ja, this message translates to:
@@ -501,6 +513,120 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'セットアップガイド'**
   String get setupGuide;
+
+  /// No description provided for @showSessions.
+  ///
+  /// In ja, this message translates to:
+  /// **'左ペインを表示'**
+  String get showSessions;
+
+  /// No description provided for @hideSessions.
+  ///
+  /// In ja, this message translates to:
+  /// **'左ペインを隠す'**
+  String get hideSessions;
+
+  /// No description provided for @workspaceLandingSelectSessionMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'左ペインでセッションを選択してください。'**
+  String get workspaceLandingSelectSessionMessage;
+
+  /// No description provided for @workspaceLandingCreateSessionMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'左ペインの New からセッションを作成してください。'**
+  String get workspaceLandingCreateSessionMessage;
+
+  /// No description provided for @workspaceLandingDisconnectedMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge に接続されていません。左ペインから接続するか、セットアップガイドを開いてマシンを設定してください。'**
+  String get workspaceLandingDisconnectedMessage;
+
+  /// No description provided for @running.
+  ///
+  /// In ja, this message translates to:
+  /// **'実行中'**
+  String get running;
+
+  /// No description provided for @recentSessions.
+  ///
+  /// In ja, this message translates to:
+  /// **'最近のセッション'**
+  String get recentSessions;
+
+  /// No description provided for @search.
+  ///
+  /// In ja, this message translates to:
+  /// **'検索'**
+  String get search;
+
+  /// No description provided for @searchSessions.
+  ///
+  /// In ja, this message translates to:
+  /// **'セッションを検索...'**
+  String get searchSessions;
+
+  /// No description provided for @sessionDisplayModeFirst.
+  ///
+  /// In ja, this message translates to:
+  /// **'先頭'**
+  String get sessionDisplayModeFirst;
+
+  /// No description provided for @sessionDisplayModeLast.
+  ///
+  /// In ja, this message translates to:
+  /// **'末尾'**
+  String get sessionDisplayModeLast;
+
+  /// No description provided for @sessionDisplayModeSummary.
+  ///
+  /// In ja, this message translates to:
+  /// **'要約'**
+  String get sessionDisplayModeSummary;
+
+  /// No description provided for @allAiTools.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべての AI ツール'**
+  String get allAiTools;
+
+  /// No description provided for @allProjects.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべてのプロジェクト'**
+  String get allProjects;
+
+  /// No description provided for @named.
+  ///
+  /// In ja, this message translates to:
+  /// **'名前付き'**
+  String get named;
+
+  /// No description provided for @machines.
+  ///
+  /// In ja, this message translates to:
+  /// **'マシン'**
+  String get machines;
+
+  /// No description provided for @refreshStatus.
+  ///
+  /// In ja, this message translates to:
+  /// **'状態を更新'**
+  String get refreshStatus;
+
+  /// No description provided for @add.
+  ///
+  /// In ja, this message translates to:
+  /// **'追加'**
+  String get add;
+
+  /// No description provided for @noSavedMachinesDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存済みのマシンはありません。\n追加すると、すばやく接続したり Bridge Server をリモート起動したりできます。'**
+  String get noSavedMachinesDescription;
 
   /// No description provided for @readyToStart.
   ///

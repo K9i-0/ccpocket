@@ -14,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../providers/bridge_cubits.dart';
 import '../../router/app_router.dart';
+import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/notification_service.dart';
 import '../../utils/diff_parser.dart';
@@ -704,6 +705,9 @@ class _WorkspaceContentHost extends StatelessWidget {
   Widget build(BuildContext context) {
     final selection = this.selection;
     final shell = WorkspaceShellScreen.maybeOf(context);
+    final bridge = context.read<BridgeService>();
+    final hasSessions =
+        bridge.sessions.isNotEmpty || bridge.recentSessions.isNotEmpty;
 
     switch (overlay) {
       case _WorkspaceCenterOverlay.settings:
@@ -732,11 +736,13 @@ class _WorkspaceContentHost extends StatelessWidget {
       case _WorkspaceCenterRoot.offline:
         return WorkspaceLandingScreen(
           isConnected: connectionState != BridgeConnectionState.disconnected,
+          hasSessions: hasSessions,
         );
       case _WorkspaceCenterRoot.session:
         if (selection == null) {
           return WorkspaceLandingScreen(
             isConnected: connectionState != BridgeConnectionState.disconnected,
+            hasSessions: hasSessions,
           );
         }
     }
@@ -790,8 +796,13 @@ class WorkspacePlaceholderScreen extends StatelessWidget {
 
 class WorkspaceLandingScreen extends StatelessWidget {
   final bool isConnected;
+  final bool hasSessions;
 
-  const WorkspaceLandingScreen({super.key, required this.isConnected});
+  const WorkspaceLandingScreen({
+    super.key,
+    required this.isConnected,
+    this.hasSessions = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -818,7 +829,7 @@ class WorkspaceLandingScreen extends StatelessWidget {
             ? IconButton(
                 key: const ValueKey('show_left_pane_button'),
                 onPressed: currentShell!.toggleLeftPaneVisibility,
-                tooltip: 'Show sessions',
+                tooltip: l.showSessions,
                 style: chrome.useMacOSAdaptiveChrome
                     ? chrome.compactButtonStyle()
                     : IconButton.styleFrom(
@@ -900,8 +911,10 @@ class WorkspaceLandingScreen extends StatelessWidget {
                         const SizedBox(height: 8),
                         Text(
                           isConnected
-                              ? 'Select a session on the left, or open settings or gallery from the sidebar.'
-                              : 'Bridge is not connected. Use the left pane to connect, or open the setup guide to configure a machine.',
+                              ? (hasSessions
+                                    ? l.workspaceLandingSelectSessionMessage
+                                    : l.workspaceLandingCreateSessionMessage)
+                              : l.workspaceLandingDisconnectedMessage,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                             height: 1.4,
@@ -909,15 +922,7 @@ class WorkspaceLandingScreen extends StatelessWidget {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 20),
-                        if (isConnected)
-                          FilledButton.icon(
-                            onPressed: WorkspaceShellScreen.maybeOf(
-                              context,
-                            )?.openSettingsCenter,
-                            icon: const Icon(Icons.settings_outlined),
-                            label: Text(l.settings),
-                          )
-                        else
+                        if (!isConnected)
                           OutlinedButton.icon(
                             key: const ValueKey('workspace_setup_guide_button'),
                             onPressed:

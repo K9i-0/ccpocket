@@ -74,6 +74,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get gallery => '图库';
 
   @override
+  String get git => 'Git';
+
+  @override
+  String get explorer => '资源管理器';
+
+  @override
   String galleryWithCount(int count) {
     return '图库 ($count)';
   }
@@ -216,6 +222,65 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get setupGuide => '设置指南';
+
+  @override
+  String get showSessions => '显示左侧面板';
+
+  @override
+  String get hideSessions => '隐藏左侧面板';
+
+  @override
+  String get workspaceLandingSelectSessionMessage => '请在左侧面板中选择一个会话。';
+
+  @override
+  String get workspaceLandingCreateSessionMessage => '请从左侧面板中的 New 创建一个会话。';
+
+  @override
+  String get workspaceLandingDisconnectedMessage =>
+      'Bridge 尚未连接。请从左侧面板进行连接，或打开设置指南来配置机器。';
+
+  @override
+  String get running => '进行中';
+
+  @override
+  String get recentSessions => '最近会话';
+
+  @override
+  String get search => '搜索';
+
+  @override
+  String get searchSessions => '搜索会话...';
+
+  @override
+  String get sessionDisplayModeFirst => '开头';
+
+  @override
+  String get sessionDisplayModeLast => '结尾';
+
+  @override
+  String get sessionDisplayModeSummary => '摘要';
+
+  @override
+  String get allAiTools => '全部 AI 工具';
+
+  @override
+  String get allProjects => '全部项目';
+
+  @override
+  String get named => '已命名';
+
+  @override
+  String get machines => '机器';
+
+  @override
+  String get refreshStatus => '刷新状态';
+
+  @override
+  String get add => '添加';
+
+  @override
+  String get noSavedMachinesDescription =>
+      '还没有已保存的机器。\n添加后即可快速连接或远程启动 Bridge Server。';
 
   @override
   String get readyToStart => '准备就绪';
@@ -529,11 +594,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get changeExecutionModeTitle => 'Execution Mode を変更';
+  String get changeExecutionModeTitle => '更改执行模式';
 
   @override
   String changeExecutionModeBody(String mode) {
-    return '$mode に切り替えるとセッションが再起動します。会話は保持されます。';
+    return '切换到 $mode 会重启当前会话。你的对话会被保留。';
   }
 
   @override

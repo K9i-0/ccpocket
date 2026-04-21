@@ -54,9 +54,9 @@ class SessionFilterBar extends StatelessWidget {
   Widget _buildDisplayModeDropdown(BuildContext context) {
     final l = AppLocalizations.of(context);
     final label = switch (displayMode) {
-      SessionDisplayMode.first => 'First',
-      SessionDisplayMode.last => 'Last',
-      SessionDisplayMode.summary => 'Summary',
+      SessionDisplayMode.first => l.sessionDisplayModeFirst,
+      SessionDisplayMode.last => l.sessionDisplayModeLast,
+      SessionDisplayMode.summary => l.sessionDisplayModeSummary,
     };
 
     return _ActionChip(
@@ -70,7 +70,7 @@ class SessionFilterBar extends StatelessWidget {
   Widget _buildProviderDropdown(BuildContext context) {
     final l = AppLocalizations.of(context);
     final label = switch (providerFilter) {
-      ProviderFilter.all => 'All AI Tools',
+      ProviderFilter.all => l.allAiTools,
       ProviderFilter.claude => 'Claude',
       ProviderFilter.codex => 'Codex',
     };
@@ -92,10 +92,10 @@ class SessionFilterBar extends StatelessWidget {
 
     return _DropdownChip<String?>(
       icon: Icons.folder_outlined,
-      label: currentProject != null ? currentProject.name : 'All Projects',
+      label: currentProject != null ? currentProject.name : l.allProjects,
       tooltip: l.tooltipProjectFilter,
       items: [
-        (value: null, label: 'All Projects'),
+        (value: null, label: l.allProjects),
         ...projects.map((p) => (value: p.path, label: p.name)),
       ],
       onSelected: onProjectFilterChanged,
@@ -139,7 +139,7 @@ class SessionFilterBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Named',
+                  l.named,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,

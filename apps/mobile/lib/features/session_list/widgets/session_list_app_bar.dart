@@ -157,7 +157,7 @@ class SessionListPaneHeader extends StatelessWidget {
             if (togglePaneVisibility != null)
               _PaneHeaderActionButton(
                 key: const ValueKey('collapse_left_pane_button'),
-                tooltip: 'Hide sessions',
+                tooltip: l.hideSessions,
                 onPressed: togglePaneVisibility,
                 icon: const Icon(Icons.chevron_left),
                 compact: chrome.useMacOSAdaptiveChrome,

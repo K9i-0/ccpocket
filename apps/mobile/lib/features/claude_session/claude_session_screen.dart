@@ -1157,6 +1157,7 @@ Widget? _sessionAppBarLeading(
   VoidCallback? onBackToSessions,
   bool hideSessionBackButton = false,
 }) {
+  final l = AppLocalizations.of(context);
   if (!hideSessionBackButton && onBackToSessions != null) {
     return BackButton(
       key: const ValueKey('session_back_button'),
@@ -1169,7 +1170,7 @@ Widget? _sessionAppBarLeading(
     return IconButton(
       key: const ValueKey('show_left_pane_button'),
       onPressed: shell!.toggleLeftPaneVisibility,
-      tooltip: 'Show sessions',
+      tooltip: l.showSessions,
       style: chrome.useMacOSAdaptiveChrome
           ? chrome.compactButtonStyle()
           : IconButton.styleFrom(

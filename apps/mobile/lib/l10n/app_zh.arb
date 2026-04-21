@@ -30,6 +30,8 @@
   "send": "发送",
   "settings": "设置",
   "gallery": "图库",
+  "git": "Git",
+  "explorer": "资源管理器",
   "galleryWithCount": "图库 ({count})",
   "disconnect": "断开连接",
   "back": "返回",
@@ -80,6 +82,25 @@
   "apiKeyHint": "如果没有认证可留空",
   "scanQrCode": "扫描二维码",
   "setupGuide": "设置指南",
+  "showSessions": "显示左侧面板",
+  "hideSessions": "隐藏左侧面板",
+  "workspaceLandingSelectSessionMessage": "请在左侧面板中选择一个会话。",
+  "workspaceLandingCreateSessionMessage": "请从左侧面板中的 New 创建一个会话。",
+  "workspaceLandingDisconnectedMessage": "Bridge 尚未连接。请从左侧面板进行连接，或打开设置指南来配置机器。",
+  "running": "进行中",
+  "recentSessions": "最近会话",
+  "search": "搜索",
+  "searchSessions": "搜索会话...",
+  "sessionDisplayModeFirst": "开头",
+  "sessionDisplayModeLast": "结尾",
+  "sessionDisplayModeSummary": "摘要",
+  "allAiTools": "全部 AI 工具",
+  "allProjects": "全部项目",
+  "named": "已命名",
+  "machines": "机器",
+  "refreshStatus": "刷新状态",
+  "add": "添加",
+  "noSavedMachinesDescription": "还没有已保存的机器。\n添加后即可快速连接或远程启动 Bridge Server。",
 
   "readyToStart": "准备就绪",
   "readyToStartDescription": "点击 + 按钮创建新会话，并开始用 Claude 编码。",
@@ -131,6 +152,15 @@
   "changePermissionModeTitle": "更改权限模式",
   "changePermissionModeBody": "切换到 {mode} 会重启当前会话。你的对话会被保留。",
   "@changePermissionModeBody": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "changeExecutionModeTitle": "更改执行模式",
+  "changeExecutionModeBody": "切换到 {mode} 会重启当前会话。你的对话会被保留。",
+  "@changeExecutionModeBody": {
     "placeholders": {
       "mode": {
         "type": "String"
