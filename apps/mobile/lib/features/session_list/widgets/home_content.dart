@@ -314,12 +314,8 @@ class HomeContentState extends State<HomeContent> {
     final appUpdateBanner = _buildAppUpdateBanner();
     final shell = WorkspaceShellScreen.maybeOf(context);
     final selectedSession = shell?.selectedSession;
-    final selectedSessionId =
-        selectedSession?.sessionId ??
-        NotificationService.instance.activeSessionId;
-    final selectedSessionProvider =
-        selectedSession?.provider?.value ??
-        NotificationService.instance.activeProvider;
+    final selectedSessionId = selectedSession?.sessionId;
+    final selectedSessionProvider = selectedSession?.provider?.value;
 
     // Compute derived state
     // Exclude running sessions from recent list to avoid duplicates
