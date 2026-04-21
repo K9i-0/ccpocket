@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.68.2] - 2026-04-21
+
+### Changed
+- Refine the iPad App Store screenshot messaging to better emphasize the tablet-optimized, IDE-like workspace experience
+
+### Fixed
+- Localize the new workspace empty states and left-pane actions in Japanese and Simplified Chinese
+
 ## [1.68.1] - 2026-04-21
 
 ### Changed
