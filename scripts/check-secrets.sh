@@ -106,7 +106,17 @@ done
 # ── Check 2: Secret patterns in file content ──────────────────────────────
 echo "Scanning staged content for secrets..."
 for file in $STAGED_FILES; do
-  # Skip binary files
+  # Skip known binary extensions without forking `file`
+  case "$file" in
+    *.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico|*.bmp|*.heic|*.tiff|*.pdf|\
+    *.zip|*.tar|*.gz|*.bz2|*.7z|*.rar|\
+    *.ttf|*.otf|*.woff|*.woff2|*.eot|\
+    *.mp4|*.mov|*.avi|*.mp3|*.wav|*.ogg|\
+    *.so|*.dylib|*.dll|*.exe|*.jar|*.ipa|*.apk|*.aab)
+      continue ;;
+  esac
+
+  # Skip binary files (fallback when extension is unknown)
   if file "$file" 2>/dev/null | grep -q "binary"; then
     continue
   fi
