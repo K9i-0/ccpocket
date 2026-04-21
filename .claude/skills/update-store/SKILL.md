@@ -111,6 +111,50 @@ xcrun simctl boot "iPhone 17 Pro" 2>/dev/null || true
 xcrun simctl ui booted appearance light
 ```
 
+**英語ロケール設定**（ストアスクショは en-US 基準のため）:
+```bash
+# iPhone・iPad の両デバイスIDで実行
+for ID in <iPhone_ID> <iPad_ID>; do
+  xcrun simctl spawn $ID defaults write -g AppleLanguages "(en-US)"
+  xcrun simctl spawn $ID defaults write -g AppleLocale "en_US"
+done
+
+# 反映には再起動が必要
+for ID in <iPhone_ID> <iPad_ID>; do
+  xcrun simctl shutdown $ID
+done
+sleep 2
+for ID in <iPhone_ID> <iPad_ID>; do
+  xcrun simctl boot $ID
+done
+```
+
+これによりアプリ内の標準コンポーネント（DatePicker、システムダイアログ等）も英語化される。
+アプリ内文言はカスタムエクステンション `ccpocket.setLocale` で別途 `en` に切り替える。
+
+**ステータスバーを Apple 純正風に固定**（9:41 / WiFi / 100% 充電 / キャリア非表示）:
+```bash
+for ID in <iPhone_ID> <iPad_ID>; do
+  xcrun simctl status_bar $ID override \
+    --time "9:41" \
+    --dataNetwork wifi \
+    --wifiMode active \
+    --wifiBars 3 \
+    --cellularMode notSupported \
+    --batteryState charged \
+    --batteryLevel 100
+done
+```
+
+**iPad の日付について（既知の制限）**:
+iPad のステータスバーには時刻に加えて日付（例: `Tue Apr 21`）が表示されるが、`xcrun simctl status_bar --time` は **時刻部分のみ反映**で日付は変更不可（Xcode 26.1 時点で ISO 日付を渡してもエラーになる）。
+
+Apple 純正アプリのスクショは `Apr 1` 等になっているが、現状はシミュレーターのシステム日付がそのまま出る。完全一致が必要な場合のみ、シミュレーター内 `Settings > General > Date & Time > Set Automatically OFF` で手動設定する。通常は許容して進める。
+
+参考:
+- [Apple Developer Forums - Can't change time in Xcode Simulator](https://developer.apple.com/forums/thread/720610)
+- [ControlRoom Issue #205](https://github.com/twostraws/ControlRoom/issues/205)
+
 #### 4-2. アプリ起動 & Marionette接続
 
 dart-mcp `launch_app` でアプリを起動:
@@ -325,3 +369,5 @@ git diff --stat
 - **シミュレーターデバイス名**: Xcode バージョンにより正確な名前が異なる場合がある。`xcrun simctl list devices available` で確認
 - **compose.sh**: ImageMagick (`convert` / `magick`) が必要。PNGタイムスタンプを除去して不要なgit diffを防止
 - **iPad スクショ**: landscape 前提。raw スクショも framed 画像も `2752x2064` を基準に扱う
+- **ステータスバー override の解除**: 撮影完了後に通常開発に戻す場合は `xcrun simctl status_bar <ID> clear` を実行する（override 自体はシミュレーター再起動後も保持される）
+- **ロケールを日本語に戻す**: `xcrun simctl spawn <ID> defaults write -g AppleLanguages "(ja-JP)"` + `defaults write -g AppleLocale "ja_JP"` を実行して再起動
