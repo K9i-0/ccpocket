@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.68.1] - 2026-04-21
+
+### Changed
+- Refresh the iPad App Store screenshots to match the latest workspace flows and orientations
+
+### Fixed
+- Avoid highlighting the running session in the narrow mobile layout when opening a session
+- Show the Hide sessions button in the mock iPad workspace preview scenarios
+- Increase the top clearance for macOS single-pane layouts so the window controls no longer crowd the session chrome
+
 ## [1.68.0] - 2026-04-20
 
 ### Added
