@@ -1,9 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+enum AppUpdateInstallMode { nativeUpdater, externalDownload }
 
 /// Information about an available app update.
 class AppUpdateInfo {
@@ -11,19 +15,50 @@ class AppUpdateInfo {
   final String currentVersion;
   final String downloadUrl;
   final String releaseUrl;
+  final AppUpdateInstallMode installMode;
 
   const AppUpdateInfo({
     required this.latestVersion,
     required this.currentVersion,
     required this.downloadUrl,
     required this.releaseUrl,
+    required this.installMode,
   });
+
+  bool get canInstallInApp => installMode == AppUpdateInstallMode.nativeUpdater;
 }
 
-/// Service to check GitHub Releases for macOS app updates.
+abstract class AppUpdateGateway {
+  Future<Map<String, dynamic>?> probeForUpdate();
+  Future<void> performUpdate();
+}
+
+class MethodChannelAppUpdateGateway implements AppUpdateGateway {
+  const MethodChannelAppUpdateGateway([
+    this._channel = const MethodChannel('ccpocket/app_updater'),
+  ]);
+
+  final MethodChannel _channel;
+
+  @override
+  Future<Map<String, dynamic>?> probeForUpdate() async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'probeForUpdate',
+    );
+    return result == null ? null : Map<String, dynamic>.from(result);
+  }
+
+  @override
+  Future<void> performUpdate() {
+    return _channel.invokeMethod<void>('performUpdate');
+  }
+}
+
+/// Service to check for macOS app updates.
 ///
-/// Only active on macOS desktop. On other platforms, [checkForUpdate] always
-/// returns null.
+/// Native Sparkle-based probing is preferred when available. If Sparkle has not
+/// been configured yet, the service falls back to GitHub Releases so the
+/// current banner UX keeps working during rollout.
 class AppUpdateService {
   static const _owner = 'K9i-0';
   static const _repo = 'ccpocket';
@@ -37,8 +72,14 @@ class AppUpdateService {
   AppUpdateService._({
     http.Client? httpClient,
     Future<PackageInfo> Function()? packageInfoLoader,
+    AppUpdateGateway? gateway,
+    Future<bool> Function(Uri uri)? launcher,
   }) : _httpClient = httpClient ?? http.Client(),
-       _packageInfoLoader = packageInfoLoader ?? PackageInfo.fromPlatform;
+       _packageInfoLoader = packageInfoLoader ?? PackageInfo.fromPlatform,
+       _gateway = gateway ?? const MethodChannelAppUpdateGateway(),
+       _launcher =
+           launcher ??
+           ((uri) => launchUrl(uri, mode: LaunchMode.externalApplication));
 
   static final instance = AppUpdateService._();
 
@@ -46,15 +87,21 @@ class AppUpdateService {
   factory AppUpdateService.test({
     http.Client? httpClient,
     Future<PackageInfo> Function()? packageInfoLoader,
+    AppUpdateGateway? gateway,
+    Future<bool> Function(Uri uri)? launcher,
   }) {
     return AppUpdateService._(
       httpClient: httpClient,
       packageInfoLoader: packageInfoLoader,
+      gateway: gateway,
+      launcher: launcher,
     );
   }
 
   final http.Client _httpClient;
   final Future<PackageInfo> Function() _packageInfoLoader;
+  final AppUpdateGateway _gateway;
+  final Future<bool> Function(Uri uri) _launcher;
 
   AppUpdateInfo? _cachedUpdate;
 
@@ -65,19 +112,17 @@ class AppUpdateService {
   bool _isDismissed = false;
   bool get isDismissedByUser => _isDismissed;
 
-  /// Check for a newer macOS release on GitHub.
+  /// Check for a newer macOS release.
   ///
   /// Returns [AppUpdateInfo] if a newer version is available, null otherwise.
-  /// Respects a minimum check interval to avoid excessive API calls.
+  /// Respects a minimum check interval to avoid excessive requests.
   Future<AppUpdateInfo?> checkForUpdate({bool force = false}) async {
-    // Only check on macOS desktop
     if (defaultTargetPlatform != TargetPlatform.macOS || kIsWeb) {
       return null;
     }
 
     final prefs = await SharedPreferences.getInstance();
 
-    // Throttle checks unless forced
     if (!force) {
       final lastCheck = prefs.getInt(_lastCheckKey) ?? 0;
       final elapsed = DateTime.now().millisecondsSinceEpoch - lastCheck;
@@ -87,38 +132,46 @@ class AppUpdateService {
     }
 
     try {
-      final info = await _packageInfoLoader();
-      final currentVersion = info.version; // e.g. "1.40.0"
+      final packageInfo = await _packageInfoLoader();
+      final currentVersion = packageInfo.version;
 
-      // Fetch latest macOS release details
-      final release = await _fetchLatestMacOSRelease();
-      if (release == null) return null;
-
-      // Save check timestamp
-      await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
-
-      // Compare versions
-      if (_isNewer(release.version, currentVersion)) {
-        _cachedUpdate = AppUpdateInfo(
-          latestVersion: release.version,
-          currentVersion: currentVersion,
-          downloadUrl: release.downloadUrl,
-          releaseUrl: release.releaseUrl,
+      final nativeUpdate = await _probeNativeUpdate(currentVersion);
+      if (nativeUpdate != null) {
+        await prefs.setInt(
+          _lastCheckKey,
+          DateTime.now().millisecondsSinceEpoch,
         );
-
-        // Check if user dismissed this specific version
-        final dismissedVersion = prefs.getString(_dismissedVersionKey);
-        _isDismissed = dismissedVersion == release.version;
-
-        return _cachedUpdate;
+        _cachedUpdate = nativeUpdate;
+        _isDismissed =
+            prefs.getString(_dismissedVersionKey) == nativeUpdate.latestVersion;
+        return nativeUpdate;
       }
 
-      _cachedUpdate = null;
-      return null;
+      final fallbackUpdate = await _fetchGitHubReleaseUpdate(currentVersion);
+      await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
+      _cachedUpdate = fallbackUpdate;
+      _isDismissed =
+          fallbackUpdate != null &&
+          prefs.getString(_dismissedVersionKey) == fallbackUpdate.latestVersion;
+      return fallbackUpdate;
     } catch (e) {
       debugPrint('App update check failed: $e');
-      return _cachedUpdate; // Return cached result on error
+      return _cachedUpdate;
     }
+  }
+
+  Future<void> performUpdate(AppUpdateInfo update) async {
+    if (update.installMode == AppUpdateInstallMode.nativeUpdater) {
+      try {
+        await _gateway.performUpdate();
+        return;
+      } catch (e) {
+        debugPrint('Native app update failed, falling back to browser: $e');
+      }
+    }
+
+    final uri = Uri.parse(update.downloadUrl);
+    await _launcher(uri);
   }
 
   /// Mark the current latest version as dismissed by the user.
@@ -128,6 +181,54 @@ class AppUpdateService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_dismissedVersionKey, _cachedUpdate!.latestVersion);
     }
+  }
+
+  Future<AppUpdateInfo?> _probeNativeUpdate(String currentVersion) async {
+    try {
+      final result = await _gateway.probeForUpdate();
+      if (result == null) return null;
+
+      final latestVersion = result['latestVersion'] as String?;
+      if (latestVersion == null || !_isNewer(latestVersion, currentVersion)) {
+        return null;
+      }
+
+      return AppUpdateInfo(
+        latestVersion: latestVersion,
+        currentVersion: result['currentVersion'] as String? ?? currentVersion,
+        downloadUrl:
+            result['downloadUrl'] as String? ??
+            result['releaseUrl'] as String? ??
+            '',
+        releaseUrl:
+            result['releaseUrl'] as String? ??
+            result['downloadUrl'] as String? ??
+            '',
+        installMode: AppUpdateInstallMode.nativeUpdater,
+      );
+    } on MissingPluginException {
+      return null;
+    } on PlatformException catch (e) {
+      debugPrint('Native app update probe unavailable: ${e.code}');
+      return null;
+    }
+  }
+
+  Future<AppUpdateInfo?> _fetchGitHubReleaseUpdate(
+    String currentVersion,
+  ) async {
+    final release = await _fetchLatestMacOSRelease();
+    if (release == null || !_isNewer(release.version, currentVersion)) {
+      return null;
+    }
+
+    return AppUpdateInfo(
+      latestVersion: release.version,
+      currentVersion: currentVersion,
+      downloadUrl: release.downloadUrl,
+      releaseUrl: release.releaseUrl,
+      installMode: AppUpdateInstallMode.externalDownload,
+    );
   }
 
   /// Fetch the latest macOS release details from GitHub Releases.

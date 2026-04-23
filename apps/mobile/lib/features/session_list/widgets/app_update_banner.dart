@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../services/app_update_service.dart';
 
 /// Banner shown on the home screen when a newer macOS app version is available.
 ///
 /// Styled consistently with [BridgeUpdateBanner] but uses the primary color
-/// scheme and includes a "Download" action.
+/// scheme and includes an update action.
 class AppUpdateBanner extends StatelessWidget {
   final AppUpdateInfo updateInfo;
   final VoidCallback? onDismiss;
@@ -36,7 +35,7 @@ class AppUpdateBanner extends StatelessWidget {
             ),
           ),
           GestureDetector(
-            onTap: () => _openDownload(updateInfo.downloadUrl),
+            onTap: () => AppUpdateService.instance.performUpdate(updateInfo),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -44,7 +43,7 @@ class AppUpdateBanner extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                'Download',
+                updateInfo.canInstallInApp ? 'Update' : 'Download',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -63,12 +62,5 @@ class AppUpdateBanner extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Future<void> _openDownload(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
   }
 }

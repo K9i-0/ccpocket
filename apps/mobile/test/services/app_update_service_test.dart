@@ -21,8 +21,28 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
+    test('prefers native updater results when available', () async {
+      final service = AppUpdateService.test(
+        gateway: _FakeAppUpdateGateway(
+          probeResult: {
+            'latestVersion': '1.44.0',
+            'currentVersion': '1.42.0',
+            'downloadUrl': 'https://example.com/cc-pocket.zip',
+            'releaseUrl': 'https://example.com/release-notes',
+          },
+        ),
+        packageInfoLoader: () async => _packageInfo(version: '1.42.0'),
+      );
+
+      final update = await service.checkForUpdate(force: true);
+
+      expect(update, isNotNull);
+      expect(update!.latestVersion, '1.44.0');
+      expect(update.canInstallInApp, isTrue);
+    });
+
     test(
-      'uses release asset URL for macOS updates with build metadata',
+      'uses release asset URL for macOS updates with build metadata fallback',
       () async {
         final client = MockClient((request) async {
           expect(
@@ -35,20 +55,15 @@ void main() {
 
         final service = AppUpdateService.test(
           httpClient: client,
-          packageInfoLoader: () async => PackageInfo(
-            appName: 'CC Pocket',
-            packageName: 'dev.test.ccpocket',
-            version: '1.42.0',
-            buildNumber: '72',
-            buildSignature: '',
-            installerStore: null,
-          ),
+          gateway: const _FakeAppUpdateGateway(),
+          packageInfoLoader: () async => _packageInfo(version: '1.42.0'),
         );
 
         final update = await service.checkForUpdate(force: true);
 
         expect(update, isNotNull);
         expect(update!.latestVersion, '1.44.0');
+        expect(update.canInstallInApp, isFalse);
         expect(
           update.downloadUrl,
           'https://github.com/K9i-0/ccpocket/releases/download/macos/v1.44.0%2B74/CC-Pocket-macos-v1.44.0.dmg',
@@ -81,14 +96,8 @@ void main() {
 
       final service = AppUpdateService.test(
         httpClient: client,
-        packageInfoLoader: () async => PackageInfo(
-          appName: 'CC Pocket',
-          packageName: 'dev.test.ccpocket',
-          version: '1.42.0',
-          buildNumber: '72',
-          buildSignature: '',
-          installerStore: null,
-        ),
+        gateway: const _FakeAppUpdateGateway(),
+        packageInfoLoader: () async => _packageInfo(version: '1.42.0'),
       );
 
       final update = await service.checkForUpdate(force: true);
@@ -97,6 +106,29 @@ void main() {
       expect(update!.latestVersion, '1.44.0');
     });
   });
+}
+
+class _FakeAppUpdateGateway implements AppUpdateGateway {
+  const _FakeAppUpdateGateway({this.probeResult});
+
+  final Map<String, dynamic>? probeResult;
+
+  @override
+  Future<void> performUpdate() async {}
+
+  @override
+  Future<Map<String, dynamic>?> probeForUpdate() async => probeResult;
+}
+
+PackageInfo _packageInfo({required String version}) {
+  return PackageInfo(
+    appName: 'CC Pocket',
+    packageName: 'dev.test.ccpocket',
+    version: version,
+    buildNumber: '72',
+    buildSignature: '',
+    installerStore: null,
+  );
 }
 
 final _mockReleases = [
