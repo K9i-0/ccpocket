@@ -7,6 +7,8 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type { ServerMessage, ProcessStatus } from "./parser.js";
 import { resolvePlatformPath } from "./path-utils.js";
 
+const DEFAULT_CODEX_MODEL = "gpt-5.5";
+
 export interface CodexStartOptions {
   threadId?: string;
   profile?: string;
@@ -1191,7 +1193,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           model:
             requestedModel
             || sanitizeCodexModel(this.startModel)
-            || "gpt-5.4",
+            || DEFAULT_CODEX_MODEL,
         };
         if (requestedReasoningEffort) {
           modeSettings.reasoning_effort = requestedReasoningEffort;

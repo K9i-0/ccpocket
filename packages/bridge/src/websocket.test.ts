@@ -233,6 +233,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .find((msg: any) => msg.type === "session_list");
 
     expect(sessionList.codexModels).toEqual([
+      "gpt-5.5",
       "gpt-5.4",
       "gpt-5.4-mini",
       "gpt-5.3-codex",

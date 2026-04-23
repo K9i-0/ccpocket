@@ -293,7 +293,7 @@ describe("CodexProcess (app-server)", () => {
       collaborationMode: {
         mode: "default",
         settings: {
-          model: "gpt-5.4",
+          model: "gpt-5.5",
         },
       },
     });
@@ -381,7 +381,7 @@ describe("CodexProcess (app-server)", () => {
       collaborationMode: {
         mode: "default",
         settings: {
-          model: "gpt-5.4",
+          model: "gpt-5.5",
           reasoning_effort: "high",
         },
       },
@@ -440,7 +440,7 @@ describe("CodexProcess (app-server)", () => {
       collaborationMode: {
         mode: "plan",
         settings: {
-          model: "gpt-5.4",
+          model: "gpt-5.5",
           reasoning_effort: "xhigh",
         },
       },
