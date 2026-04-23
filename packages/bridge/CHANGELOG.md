@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.40.0] - 2026-04-24
+
+### Added
+- Add `gpt-5.5` to Codex model selection and default fallback handling
+
 ## [1.39.1] - 2026-04-20
 
 ### Changed
