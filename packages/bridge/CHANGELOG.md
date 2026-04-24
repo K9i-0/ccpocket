@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.41.0] - 2026-04-24
+
+### Added
+- Add Codex auto review approval reviewer support across Bridge app-server start, resume, and runtime approval mode flows
+
 ## [1.40.0] - 2026-04-24
 
 ### Added
