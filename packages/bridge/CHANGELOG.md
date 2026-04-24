@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.42.0] - 2026-04-24
+
+### Added
+- Add Codex Auto Review as a first-class approval reviewer mode for mobile sessions
+
+### Fixed
+- Hide Codex internal Auto Review subagent sessions from recent session lists
+
 ## [1.41.0] - 2026-04-24
 
 ### Added
