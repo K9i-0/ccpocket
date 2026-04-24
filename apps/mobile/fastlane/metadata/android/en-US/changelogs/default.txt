@@ -1,2 +1,1 @@
-- Added an adaptive workspace that shows sessions, chat, and Git diff in 2- or 3-pane layouts on wider screens such as iPad
-- Fixed an issue where pressing Tab during IME composition would insert indentation
+- Added Codex Auto Review support for automatically reviewing approval requests while keeping sessions in On Request mode
