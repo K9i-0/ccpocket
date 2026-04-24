@@ -57,6 +57,8 @@ bash scripts/macos-set-feed-override.sh
   creation or notarization.
 - Sparkle cannot install updates when the app is run directly from a mounted
   disk image or while app translocation is in effect. Use `/Applications`.
-- The production appcast URL and EdDSA key are still unset in
-  `apps/mobile/macos/Runner/Configs/AppInfo.xcconfig`; local validation relies
-  on the feed override instead.
+- Production releases use
+  `https://k9i-0.github.io/ccpocket/sparkle/appcast.xml` as the appcast URL.
+  The macOS release workflow signs the release DMG with the
+  `SPARKLE_PRIVATE_KEY` GitHub Actions secret and deploys the generated
+  `docs/sparkle/appcast.xml` artifact to GitHub Pages.

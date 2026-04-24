@@ -16,5 +16,5 @@ PRODUCT_COPYRIGHT = Copyright © 2026 com.k9i. All rights reserved.
 // Sparkle update feed configuration. The feed URL and EdDSA key are set later
 // when the production appcast is hosted; local validation can override the feed
 // URL via UserDefaults.
-SPARKLE_FEED_URL =
-SPARKLE_PUBLIC_ED_KEY =
+SPARKLE_FEED_URL = https://k9i-0.github.io/ccpocket/sparkle/appcast.xml
+SPARKLE_PUBLIC_ED_KEY = HIY9t036dJwnFg9au6m1/J67nyCgIL4YsjCZxyL0Nbw=

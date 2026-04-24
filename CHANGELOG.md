@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.69.0] - 2026-04-24
+
+### Added
+- Add Sparkle-based in-app updates for macOS releases
+- Publish signed Sparkle appcasts to GitHub Pages from the macOS release workflow
+
 ## [1.68.2] - 2026-04-21
 
 ### Changed
