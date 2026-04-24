@@ -2,6 +2,14 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.43.0] - 2026-04-25
+
+### Added
+- Add Codex additional writable roots support for start and resume flows
+
+### Fixed
+- Fall back safely when resuming Codex sessions whose profile is no longer available
+
 ## [1.42.1] - 2026-04-24
 
 ### Changed
