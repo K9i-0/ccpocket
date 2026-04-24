@@ -645,6 +645,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Never ask for approval; failures are returned immediately';
 
   @override
+  String get codexAutoReview => 'Auto Review';
+
+  @override
+  String get codexAutoReviewDescription =>
+      'Let Codex review approval requests automatically';
+
+  @override
+  String get codexAutoReviewUnavailableDescription =>
+      'Unavailable when approvals are disabled';
+
+  @override
   String get enablePlanModeTitle => 'Enable Plan Mode';
 
   @override

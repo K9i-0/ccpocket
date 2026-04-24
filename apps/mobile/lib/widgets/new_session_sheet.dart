@@ -20,8 +20,10 @@ class NewSessionParams {
   final PermissionMode? claudePermissionMode;
   final ExecutionMode executionMode;
   final CodexApprovalPolicy codexApprovalPolicy;
+  final bool codexAutoReviewEnabled;
   final String? codexProfile;
   final bool codexApprovalPolicyOverridden;
+  final bool codexAutoReviewOverridden;
   final bool codexModelOverridden;
   final bool codexSandboxModeOverridden;
   final bool codexReasoningEffortOverridden;
@@ -50,8 +52,10 @@ class NewSessionParams {
     PermissionMode? claudePermissionMode,
     ExecutionMode? executionMode,
     CodexApprovalPolicy? codexApprovalPolicy,
+    this.codexAutoReviewEnabled = false,
     this.codexProfile,
     this.codexApprovalPolicyOverridden = false,
+    this.codexAutoReviewOverridden = false,
     this.codexModelOverridden = false,
     this.codexSandboxModeOverridden = false,
     this.codexReasoningEffortOverridden = false,
@@ -90,6 +94,9 @@ class NewSessionParams {
                : CodexApprovalPolicy.onRequest),
        planMode = planMode ?? (permissionMode == PermissionMode.plan);
 
+  String get codexApprovalsReviewer =>
+      codexAutoReviewEnabled ? 'auto_review' : 'user';
+
   PermissionMode get permissionMode {
     if (provider == Provider.claude && claudePermissionMode != null) {
       return claudePermissionMode!;
@@ -107,8 +114,10 @@ class NewSessionParams {
     PermissionMode? claudePermissionMode,
     ExecutionMode? executionMode,
     CodexApprovalPolicy? codexApprovalPolicy,
+    bool? codexAutoReviewEnabled,
     String? codexProfile,
     bool? codexApprovalPolicyOverridden,
+    bool? codexAutoReviewOverridden,
     bool? codexModelOverridden,
     bool? codexSandboxModeOverridden,
     bool? codexReasoningEffortOverridden,
@@ -137,9 +146,13 @@ class NewSessionParams {
       claudePermissionMode: claudePermissionMode ?? this.claudePermissionMode,
       executionMode: executionMode ?? this.executionMode,
       codexApprovalPolicy: codexApprovalPolicy ?? this.codexApprovalPolicy,
+      codexAutoReviewEnabled:
+          codexAutoReviewEnabled ?? this.codexAutoReviewEnabled,
       codexProfile: codexProfile ?? this.codexProfile,
       codexApprovalPolicyOverridden:
           codexApprovalPolicyOverridden ?? this.codexApprovalPolicyOverridden,
+      codexAutoReviewOverridden:
+          codexAutoReviewOverridden ?? this.codexAutoReviewOverridden,
       codexModelOverridden: codexModelOverridden ?? this.codexModelOverridden,
       codexSandboxModeOverridden:
           codexSandboxModeOverridden ?? this.codexSandboxModeOverridden,
@@ -225,6 +238,7 @@ Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
     'provider': params.provider.value,
     'executionMode': params.executionMode.value,
     'codexApprovalPolicy': params.codexApprovalPolicy.value,
+    'codexAutoReviewEnabled': params.codexAutoReviewEnabled,
     'planMode': params.planMode,
     'permissionMode': params.permissionMode.value,
     // NOTE: useWorktree, worktreeBranch, existingWorktreePath are
@@ -268,6 +282,7 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
         codexApprovalPolicyFromLegacyExecutionMode(
           json['executionMode'] as String?,
         ),
+    codexAutoReviewEnabled: json['codexAutoReviewEnabled'] as bool? ?? false,
     planMode: derivePlanMode(
       planMode: json['planMode'] as bool?,
       permissionMode: json['permissionMode'] as String?,
@@ -388,6 +403,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   var _claudePermissionMode = PermissionMode.defaultMode;
   var _executionMode = ExecutionMode.defaultMode;
   var _codexApprovalPolicy = CodexApprovalPolicy.onRequest;
+  var _codexAutoReviewEnabled = false;
   var _planMode = false;
   var _useWorktree = false;
   var _worktreeMode = _WorktreeMode.createNew;
@@ -424,6 +440,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   bool _networkAccessEnabled = true;
   WebSearchMode? _webSearchMode;
   bool _codexApprovalPolicyTouched = false;
+  bool _codexAutoReviewTouched = false;
   bool _codexModelTouched = false;
   bool _codexSandboxModeTouched = false;
   bool _codexReasoningEffortTouched = false;
@@ -604,6 +621,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         ? p.permissionMode
         : PermissionMode.defaultMode;
     _codexApprovalPolicy = p.codexApprovalPolicy;
+    _codexAutoReviewEnabled = p.codexAutoReviewEnabled;
     _planMode = p.planMode;
     _useWorktree = p.useWorktree || p.existingWorktreePath != null;
     _branchController.text = p.worktreeBranch ?? "";
@@ -638,6 +656,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _claudeForkSession = p.claudeForkSession ?? _claudeForkSession;
     _claudePersistSession = p.claudePersistSession ?? _claudePersistSession;
     _codexApprovalPolicyTouched = p.codexApprovalPolicyOverridden;
+    _codexAutoReviewTouched = p.codexAutoReviewOverridden;
     _codexModelTouched = p.codexModelOverridden;
     _codexSandboxModeTouched = p.codexSandboxModeOverridden;
     _codexReasoningEffortTouched = p.codexReasoningEffortOverridden;
@@ -757,8 +776,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       claudePermissionMode: !isCodex ? _claudePermissionMode : null,
       executionMode: _executionMode,
       codexApprovalPolicy: _codexApprovalPolicy,
+      codexAutoReviewEnabled:
+          isCodex &&
+          _codexApprovalPolicy != CodexApprovalPolicy.never &&
+          _codexAutoReviewEnabled,
       codexProfile: isCodex ? _selectedCodexProfile : null,
       codexApprovalPolicyOverridden: isCodex && _codexApprovalPolicyTouched,
+      codexAutoReviewOverridden: isCodex && _codexAutoReviewTouched,
       codexModelOverridden: isCodex && _codexModelTouched,
       codexSandboxModeOverridden: isCodex && _codexSandboxModeTouched,
       codexReasoningEffortOverridden: isCodex && _codexReasoningEffortTouched,
@@ -894,7 +918,17 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             onCodexApprovalPolicyChanged: (value) {
               setState(() {
                 _codexApprovalPolicy = value;
+                if (value == CodexApprovalPolicy.never) {
+                  _codexAutoReviewEnabled = false;
+                }
                 _codexApprovalPolicyTouched = true;
+              });
+            },
+            codexAutoReviewEnabled: _codexAutoReviewEnabled,
+            onCodexAutoReviewChanged: (value) {
+              setState(() {
+                _codexAutoReviewEnabled = value;
+                _codexAutoReviewTouched = true;
               });
             },
             codexProfiles: _codexProfiles,
@@ -1468,6 +1502,8 @@ class _OptionsSection extends StatelessWidget {
   final ValueChanged<ExecutionMode> onExecutionModeChanged;
   final CodexApprovalPolicy codexApprovalPolicy;
   final ValueChanged<CodexApprovalPolicy> onCodexApprovalPolicyChanged;
+  final bool codexAutoReviewEnabled;
+  final ValueChanged<bool> onCodexAutoReviewChanged;
   final List<String> codexProfiles;
   final String? selectedCodexProfile;
   final ValueChanged<String?> onCodexProfileChanged;
@@ -1530,6 +1566,8 @@ class _OptionsSection extends StatelessWidget {
     required this.onExecutionModeChanged,
     required this.codexApprovalPolicy,
     required this.onCodexApprovalPolicyChanged,
+    required this.codexAutoReviewEnabled,
+    required this.onCodexAutoReviewChanged,
     required this.codexProfiles,
     required this.selectedCodexProfile,
     required this.onCodexProfileChanged,
@@ -1942,6 +1980,14 @@ class _OptionsSection extends StatelessWidget {
                   ),
                 ),
           const SizedBox(height: 8),
+          if (provider == Provider.codex) ...[
+            _AutoReviewToggleTile(
+              enabled: codexAutoReviewEnabled,
+              isAvailable: codexApprovalPolicy != CodexApprovalPolicy.never,
+              onChanged: onCodexAutoReviewChanged,
+            ),
+            const SizedBox(height: 8),
+          ],
           modeSelectorField(
             key: const ValueKey('dialog_sandbox'),
             label: l.sandbox,
@@ -2517,6 +2563,83 @@ class _CodexAdvancedOptions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(children: buildChildren(context));
+  }
+}
+
+class _AutoReviewToggleTile extends StatelessWidget {
+  final bool enabled;
+  final bool isAvailable;
+  final ValueChanged<bool> onChanged;
+
+  const _AutoReviewToggleTile({
+    required this.enabled,
+    required this.isAvailable,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final active = enabled && isAvailable;
+
+    return Opacity(
+      opacity: isAvailable ? 1 : 0.55,
+      child: InkWell(
+        key: const ValueKey('dialog_codex_auto_review_toggle'),
+        borderRadius: BorderRadius.circular(12),
+        onTap: isAvailable ? () => onChanged(!enabled) : null,
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                Icons.rate_review_outlined,
+                size: 18,
+                color: active ? cs.primary : cs.onSurfaceVariant,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      l.codexAutoReview,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isAvailable
+                          ? l.codexAutoReviewDescription
+                          : l.codexAutoReviewUnavailableDescription,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                key: const ValueKey('dialog_codex_auto_review_switch'),
+                value: active,
+                onChanged: isAvailable ? onChanged : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

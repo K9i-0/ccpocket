@@ -56,6 +56,7 @@ export interface SessionInfo {
   codexSettings?: {
     profile?: string;
     approvalPolicy?: string;
+    approvalsReviewer?: string;
     sandboxMode?: string;
     model?: string;
     modelReasoningEffort?: string;
@@ -87,6 +88,7 @@ export interface SessionSummary {
   codexSettings?: {
     profile?: string;
     approvalPolicy?: string;
+    approvalsReviewer?: string;
     sandboxMode?: string;
     model?: string;
     modelReasoningEffort?: string;
@@ -117,6 +119,9 @@ function mergeCodexSettings(
     ...(current ?? {}),
     ...(msg.approvalPolicy !== undefined
       ? { approvalPolicy: msg.approvalPolicy }
+      : {}),
+    ...(msg.approvalsReviewer !== undefined
+      ? { approvalsReviewer: msg.approvalsReviewer }
       : {}),
     ...(msg.sandboxMode !== undefined ? { sandboxMode: msg.sandboxMode } : {}),
     ...(model !== undefined ? { model } : {}),
@@ -535,6 +540,7 @@ export class SessionManager {
       session.codexSettings = {
         profile: codexOptions.profile,
         approvalPolicy: codexOptions.approvalPolicy,
+        approvalsReviewer: codexOptions.approvalsReviewer,
         sandboxMode: codexOptions.sandboxMode,
         model: codexOptions.model,
         modelReasoningEffort: codexOptions.modelReasoningEffort,

@@ -26,6 +26,7 @@ export interface SessionIndexEntry {
   codexSettings?: {
     profile?: string;
     approvalPolicy?: string;
+    approvalsReviewer?: string;
     sandboxMode?: string;
     model?: string;
     modelReasoningEffort?: string;
@@ -1127,6 +1128,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   let agentRole: string | undefined;
   // Settings extracted from the first turn_context entry
   let approvalPolicy: string | undefined;
+  let approvalsReviewer: string | undefined;
   let sandboxMode: string | undefined;
   let model: string | undefined;
   let modelReasoningEffort: string | undefined;
@@ -1180,6 +1182,9 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       if (payload) {
         if (typeof payload.approval_policy === "string") {
           approvalPolicy = payload.approval_policy;
+        }
+        if (typeof payload.approvals_reviewer === "string") {
+          approvalsReviewer = payload.approvals_reviewer;
         }
         const sp = payload.sandbox_policy as Record<string, unknown> | undefined;
         if (sp && typeof sp.type === "string") {
@@ -1237,6 +1242,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
 
   const codexSettings = (
     approvalPolicy
+    || approvalsReviewer
     || sandboxMode
     || model
     || modelReasoningEffort
@@ -1245,6 +1251,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   )
     ? {
         approvalPolicy,
+        approvalsReviewer,
         sandboxMode,
         model,
         modelReasoningEffort,

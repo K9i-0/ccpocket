@@ -629,6 +629,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get codexApprovalNeverDescription => '確認せず実行し、失敗時も承認を求めません';
 
   @override
+  String get codexAutoReview => '自動レビュー';
+
+  @override
+  String get codexAutoReviewDescription => '承認リクエストを Codex が自動レビューします';
+
+  @override
+  String get codexAutoReviewUnavailableDescription =>
+      'Never Ask では承認リクエストが発生しないため利用できません';
+
+  @override
   String get enablePlanModeTitle => 'Plan Mode を有効化';
 
   @override

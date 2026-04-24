@@ -53,6 +53,10 @@ export type CodexApprovalPolicy =
   | "on-request"
   | "on-failure"
   | "never";
+export type CodexApprovalsReviewer =
+  | "user"
+  | "auto_review"
+  | "guardian_subagent";
 
 export type Provider = "claude" | "codex";
 
@@ -66,6 +70,7 @@ export type ClientMessage =
       permissionMode?: PermissionMode;
       executionMode?: ExecutionMode;
       approvalPolicy?: CodexApprovalPolicy;
+      approvalsReviewer?: CodexApprovalsReviewer;
       planMode?: boolean;
       sandboxMode?: string;
       model?: string;
@@ -108,6 +113,7 @@ export type ClientMessage =
       mode: PermissionMode;
       executionMode?: ExecutionMode;
       approvalPolicy?: CodexApprovalPolicy;
+      approvalsReviewer?: CodexApprovalsReviewer;
       planMode?: boolean;
       sessionId?: string;
     }
@@ -148,6 +154,7 @@ export type ClientMessage =
       permissionMode?: PermissionMode;
       executionMode?: ExecutionMode;
       approvalPolicy?: CodexApprovalPolicy;
+      approvalsReviewer?: CodexApprovalsReviewer;
       planMode?: boolean;
       provider?: Provider;
       sandboxMode?: string;
@@ -300,6 +307,7 @@ export type ServerMessage =
       provider?: Provider;
       projectPath?: string;
       approvalPolicy?: string;
+      approvalsReviewer?: string;
       executionMode?: ExecutionMode;
       planMode?: boolean;
       slashCommands?: string[];
@@ -659,6 +667,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
           )
         )
           return null;
+        if (
+          msg.approvalsReviewer !== undefined &&
+          !["user", "auto_review", "guardian_subagent"].includes(
+            String(msg.approvalsReviewer),
+          )
+        )
+          return null;
         if (msg.planMode !== undefined && typeof msg.planMode !== "boolean")
           return null;
         if (
@@ -734,6 +749,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
           msg.approvalPolicy !== undefined &&
           !["untrusted", "on-request", "on-failure", "never"].includes(
             String(msg.approvalPolicy),
+          )
+        )
+          return null;
+        if (
+          msg.approvalsReviewer !== undefined &&
+          !["user", "auto_review", "guardian_subagent"].includes(
+            String(msg.approvalsReviewer),
           )
         )
           return null;
@@ -847,6 +869,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
           msg.approvalPolicy !== undefined &&
           !["untrusted", "on-request", "on-failure", "never"].includes(
             String(msg.approvalPolicy),
+          )
+        )
+          return null;
+        if (
+          msg.approvalsReviewer !== undefined &&
+          !["user", "auto_review", "guardian_subagent"].includes(
+            String(msg.approvalsReviewer),
           )
         )
           return null;

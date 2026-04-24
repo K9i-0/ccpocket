@@ -469,6 +469,7 @@ sealed class ServerMessage {
         claudeSessionId: json['claudeSessionId'] as String?,
         model: json['model'] as String?,
         approvalPolicy: json['approvalPolicy'] as String?,
+        approvalsReviewer: json['approvalsReviewer'] as String?,
         provider: json['provider'] as String?,
         projectPath: json['projectPath'] as String?,
         permissionMode: json['permissionMode'] as String?,
@@ -951,6 +952,7 @@ class SystemMessage implements ServerMessage {
   final String? claudeSessionId;
   final String? model;
   final String? approvalPolicy;
+  final String? approvalsReviewer;
   final String? provider;
   final String? projectPath;
   final String? permissionMode;
@@ -976,6 +978,7 @@ class SystemMessage implements ServerMessage {
     this.claudeSessionId,
     this.model,
     this.approvalPolicy,
+    this.approvalsReviewer,
     this.provider,
     this.projectPath,
     this.permissionMode,
@@ -2432,6 +2435,7 @@ class RecentSession {
   final String? resumeCwd;
   final bool isSidechain;
   final String? codexApprovalPolicy;
+  final String? codexApprovalsReviewer;
   final String? executionMode;
   final bool planMode;
   final String? codexSandboxMode;
@@ -2458,6 +2462,7 @@ class RecentSession {
     this.resumeCwd,
     required this.isSidechain,
     this.codexApprovalPolicy,
+    this.codexApprovalsReviewer,
     this.executionMode,
     this.planMode = false,
     this.codexSandboxMode,
@@ -2509,6 +2514,7 @@ class RecentSession {
         approvalPolicy: codexSettings?['approvalPolicy'] as String?,
         executionMode: json['executionMode'] as String?,
       ),
+      codexApprovalsReviewer: codexSettings?['approvalsReviewer'] as String?,
       executionMode:
           json['executionMode'] as String? ??
           deriveExecutionMode(
@@ -2563,6 +2569,7 @@ class RecentSession {
       resumeCwd: resumeCwd,
       isSidechain: isSidechain,
       codexApprovalPolicy: codexApprovalPolicy,
+      codexApprovalsReviewer: codexApprovalsReviewer,
       executionMode: executionMode,
       planMode: planMode,
       codexSandboxMode: codexSandboxMode,
@@ -2599,6 +2606,7 @@ class SessionInfo {
   final bool planMode;
   final String? model;
   final String? codexApprovalPolicy;
+  final String? codexApprovalsReviewer;
   final String? codexSandboxMode;
   final String? codexModel;
   final String? codexProfile;
@@ -2627,6 +2635,7 @@ class SessionInfo {
     this.planMode = false,
     this.model,
     this.codexApprovalPolicy,
+    this.codexApprovalsReviewer,
     this.codexSandboxMode,
     this.codexModel,
     this.codexProfile,
@@ -2664,6 +2673,7 @@ class SessionInfo {
     bool? planMode,
     String? model,
     String? codexApprovalPolicy,
+    String? codexApprovalsReviewer,
     String? codexSandboxMode,
     String? codexModel,
     String? codexProfile,
@@ -2693,6 +2703,8 @@ class SessionInfo {
       planMode: planMode ?? this.planMode,
       model: model ?? this.model,
       codexApprovalPolicy: codexApprovalPolicy ?? this.codexApprovalPolicy,
+      codexApprovalsReviewer:
+          codexApprovalsReviewer ?? this.codexApprovalsReviewer,
       codexSandboxMode: codexSandboxMode ?? this.codexSandboxMode,
       codexModel: codexModel ?? this.codexModel,
       codexProfile: codexProfile ?? this.codexProfile,
@@ -2742,6 +2754,7 @@ class SessionInfo {
         approvalPolicy: codexSettings?['approvalPolicy'] as String?,
         executionMode: json['executionMode'] as String?,
       ),
+      codexApprovalsReviewer: codexSettings?['approvalsReviewer'] as String?,
       codexSandboxMode: codexSettings?['sandboxMode'] as String?,
       codexModel: sanitizeCodexModelName(codexSettings?['model'] as String?),
       codexProfile: codexSettings?['profile'] as String?,
@@ -2776,6 +2789,7 @@ class ClientMessage {
     String? permissionMode,
     String? executionMode,
     String? approvalPolicy,
+    String? approvalsReviewer,
     bool? planMode,
     String? effort,
     int? maxTurns,
@@ -2802,6 +2816,7 @@ class ClientMessage {
       'permissionMode': ?permissionMode,
       'executionMode': ?executionMode,
       'approvalPolicy': ?approvalPolicy,
+      'approvalsReviewer': ?approvalsReviewer,
       'planMode': ?planMode,
       'effort': ?effort,
       'maxTurns': ?maxTurns,
@@ -2871,6 +2886,7 @@ class ClientMessage {
     required String legacyMode,
     String? executionMode,
     String? approvalPolicy,
+    String? approvalsReviewer,
     bool? planMode,
     String? sessionId,
   }) {
@@ -2879,6 +2895,7 @@ class ClientMessage {
       'mode': legacyMode,
       'executionMode': ?executionMode,
       'approvalPolicy': ?approvalPolicy,
+      'approvalsReviewer': ?approvalsReviewer,
       'planMode': ?planMode,
       'sessionId': ?sessionId,
     });
@@ -3008,6 +3025,7 @@ class ClientMessage {
     String? permissionMode,
     String? executionMode,
     String? approvalPolicy,
+    String? approvalsReviewer,
     bool? planMode,
     String? effort,
     int? maxTurns,
@@ -3030,6 +3048,7 @@ class ClientMessage {
       'permissionMode': ?permissionMode,
       'executionMode': ?executionMode,
       'approvalPolicy': ?approvalPolicy,
+      'approvalsReviewer': ?approvalsReviewer,
       'planMode': ?planMode,
       'effort': ?effort,
       'maxTurns': ?maxTurns,

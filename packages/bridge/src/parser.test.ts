@@ -53,7 +53,7 @@ describe("parseClientMessage", () => {
 
   it("parses start with optional fields", () => {
     const msg = parseClientMessage(
-      '{"type":"start","projectPath":"/p","sessionId":"s1","continue":true,"permissionMode":"acceptEdits","profile":"ccpocket"}',
+      '{"type":"start","projectPath":"/p","sessionId":"s1","continue":true,"permissionMode":"acceptEdits","profile":"ccpocket","approvalPolicy":"on-request","approvalsReviewer":"auto_review"}',
     );
     expect(msg).toEqual({
       type: "start",
@@ -62,6 +62,8 @@ describe("parseClientMessage", () => {
       continue: true,
       permissionMode: "acceptEdits",
       profile: "ccpocket",
+      approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
     });
   });
 
@@ -142,18 +144,27 @@ describe("parseClientMessage", () => {
 
   it("parses set_permission_mode message", () => {
     const msg = parseClientMessage(
-      '{"type":"set_permission_mode","mode":"plan","sessionId":"s1"}',
+      '{"type":"set_permission_mode","mode":"plan","sessionId":"s1","approvalsReviewer":"guardian_subagent"}',
     );
     expect(msg).toEqual({
       type: "set_permission_mode",
       mode: "plan",
       sessionId: "s1",
+      approvalsReviewer: "guardian_subagent",
     });
   });
 
   it("rejects set_permission_mode with invalid mode", () => {
     expect(
       parseClientMessage('{"type":"set_permission_mode","mode":"unsupported"}'),
+    ).toBeNull();
+  });
+
+  it("rejects invalid approvalsReviewer", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"start","projectPath":"/p","approvalsReviewer":"bot"}',
+      ),
     ).toBeNull();
   });
 
@@ -256,7 +267,7 @@ describe("parseClientMessage", () => {
 
   it("parses resume_session with provider", () => {
     const msg = parseClientMessage(
-      '{"type":"resume_session","sessionId":"s3","projectPath":"/p","provider":"codex","profile":"ccpocket"}',
+      '{"type":"resume_session","sessionId":"s3","projectPath":"/p","provider":"codex","profile":"ccpocket","approvalsReviewer":"auto_review"}',
     );
     expect(msg).toEqual({
       type: "resume_session",
@@ -264,6 +275,7 @@ describe("parseClientMessage", () => {
       projectPath: "/p",
       provider: "codex",
       profile: "ccpocket",
+      approvalsReviewer: "auto_review",
     });
   });
 

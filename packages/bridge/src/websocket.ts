@@ -415,6 +415,7 @@ export class BridgeWebSocketServer {
     permissionMode?: string;
     executionMode?: string;
     planMode?: boolean;
+    approvalsReviewer?: string;
     sandboxMode?: string;
     slashCommands?: string[];
     skills?: string[];
@@ -431,6 +432,7 @@ export class BridgeWebSocketServer {
       permissionMode,
       executionMode,
       planMode,
+      approvalsReviewer,
       sandboxMode,
       slashCommands,
       skills,
@@ -454,6 +456,12 @@ export class BridgeWebSocketServer {
               | "acceptEdits"
               | "bypassPermissions"
               | "plan",
+          }
+        : {}),
+      ...((approvalsReviewer ?? session?.codexSettings?.approvalsReviewer)
+        ? {
+            approvalsReviewer:
+              approvalsReviewer ?? session?.codexSettings?.approvalsReviewer,
           }
         : {}),
       ...((executionMode ??
@@ -814,6 +822,7 @@ export class BridgeWebSocketServer {
                             ? "never"
                             : "on-request",
                         ),
+                      approvalsReviewer: msg.approvalsReviewer,
                       sandboxMode: sandboxModeToInternal(msg.sandboxMode),
                       model: msg.model,
                       modelReasoningEffort:
@@ -864,6 +873,8 @@ export class BridgeWebSocketServer {
                     : executionMode,
                 planMode: provider === "claude" ? effectivePlanMode : planMode,
                 sandboxMode: msg.sandboxMode,
+                approvalsReviewer:
+                  createdSession?.codexSettings?.approvalsReviewer,
                 ...(cached
                   ? {
                       slashCommands: cached.slashCommands,
@@ -1231,10 +1242,14 @@ export class BridgeWebSocketServer {
             : "default";
           const currentApproval = (session.process as CodexProcess)
             .approvalPolicy;
+          const currentReviewer = (session.process as CodexProcess)
+            .approvalsReviewer;
+          const newReviewer = msg.approvalsReviewer ?? currentReviewer;
           const currentCollaboration = (session.process as CodexProcess)
             .collaborationMode;
           if (
             newApproval === currentApproval &&
+            newReviewer === currentReviewer &&
             newCollaboration === currentCollaboration
           ) {
             break; // No change needed
@@ -1245,6 +1260,9 @@ export class BridgeWebSocketServer {
             const process = session.process as CodexProcess;
             if (newApproval !== currentApproval) {
               process.setApprovalPolicy(newApproval);
+            }
+            if (newReviewer !== currentReviewer) {
+              process.setApprovalsReviewer(newReviewer);
             }
             if (newCollaboration !== currentCollaboration) {
               process.setCollaborationMode(newCollaboration);
@@ -1257,6 +1275,7 @@ export class BridgeWebSocketServer {
               permissionMode: legacyPermissionMode,
               executionMode,
               approvalPolicy: newApproval,
+              approvalsReviewer: newReviewer,
               planMode,
             });
             this.broadcastSessionList();
@@ -1264,15 +1283,15 @@ export class BridgeWebSocketServer {
               direction: "internal" as const,
               channel: "bridge" as const,
               type: "permission_mode_changed",
-              detail: `mode=${msg.mode} approval=${newApproval} collaboration=${newCollaboration} applied=in-place`,
+              detail: `mode=${msg.mode} approval=${newApproval} reviewer=${newReviewer} collaboration=${newCollaboration} applied=in-place`,
             });
             console.log(
-              `[ws] set_permission_mode(codex): execution=${executionMode} plan=${planMode} → approval=${newApproval}, collaboration=${newCollaboration} (in-place)`,
+              `[ws] set_permission_mode(codex): execution=${executionMode} plan=${planMode} → approval=${newApproval}, reviewer=${newReviewer}, collaboration=${newCollaboration} (in-place)`,
             );
             break;
           }
           console.log(
-            `[ws] set_permission_mode(codex): execution=${executionMode} plan=${planMode} → approval=${newApproval}, collaboration=${newCollaboration} (restart)`,
+            `[ws] set_permission_mode(codex): execution=${executionMode} plan=${planMode} → approval=${newApproval}, reviewer=${newReviewer}, collaboration=${newCollaboration} (restart)`,
           );
 
           const oldSessionId = session.id;
@@ -1305,6 +1324,10 @@ export class BridgeWebSocketServer {
               "codex",
               {
                 approvalPolicy: newApproval,
+                approvalsReviewer: newReviewer as
+                  | "user"
+                  | "auto_review"
+                  | "guardian_subagent",
                 sandboxMode: oldSettings.sandboxMode as
                   | "workspace-write"
                   | "danger-full-access"
@@ -1342,6 +1365,7 @@ export class BridgeWebSocketServer {
                 sandboxMode: oldSettings.sandboxMode
                   ? sandboxModeToExternal(oldSettings.sandboxMode)
                   : undefined,
+                approvalsReviewer: newReviewer,
                 sourceSessionId: oldSessionId,
               }),
             );
@@ -1392,6 +1416,10 @@ export class BridgeWebSocketServer {
                 {
                   threadId,
                   approvalPolicy: newApproval,
+                  approvalsReviewer: newReviewer as
+                    | "user"
+                    | "auto_review"
+                    | "guardian_subagent",
                   sandboxMode: oldSettings.sandboxMode as
                     | "workspace-write"
                     | "danger-full-access"
@@ -1439,6 +1467,7 @@ export class BridgeWebSocketServer {
                     sandboxMode: oldSettings.sandboxMode
                       ? sandboxModeToExternal(oldSettings.sandboxMode)
                       : undefined,
+                    approvalsReviewer: newReviewer,
                     sourceSessionId: oldSessionId,
                   }),
                 );
@@ -1450,7 +1479,7 @@ export class BridgeWebSocketServer {
                 direction: "internal" as const,
                 channel: "bridge" as const,
                 type: "permission_mode_changed",
-                detail: `mode=${msg.mode} approval=${newApproval} collaboration=${newCollaboration} thread=${threadId} oldSession=${oldSessionId}`,
+                detail: `mode=${msg.mode} approval=${newApproval} reviewer=${newReviewer} collaboration=${newCollaboration} thread=${threadId} oldSession=${oldSessionId}`,
               });
               console.log(
                 `[ws] Permission mode change: created new session ${newId} (thread=${threadId}, mode=${msg.mode})`,
@@ -2283,6 +2312,7 @@ export class BridgeWebSocketServer {
                     normalizeCodexApprovalPolicy(
                       executionMode === "fullAccess" ? "never" : "on-request",
                     ),
+                  approvalsReviewer: msg.approvalsReviewer,
                   sandboxMode: sandboxModeToInternal(msg.sandboxMode),
                   model: msg.model,
                   modelReasoningEffort:
@@ -2320,6 +2350,8 @@ export class BridgeWebSocketServer {
                           createdSession.codexSettings.sandboxMode,
                         )
                       : undefined,
+                    approvalsReviewer:
+                      createdSession?.codexSettings?.approvalsReviewer,
                     permissionMode: legacyPermissionMode,
                     executionMode,
                     planMode,
@@ -4666,6 +4698,9 @@ export class BridgeWebSocketServer {
     if (session.provider === "codex" && session.codexSettings) {
       if (session.codexSettings.approvalPolicy !== undefined) {
         msg.approvalPolicy = session.codexSettings.approvalPolicy;
+      }
+      if (session.codexSettings.approvalsReviewer !== undefined) {
+        msg.approvalsReviewer = session.codexSettings.approvalsReviewer;
       }
       if (session.codexSettings.sandboxMode !== undefined) {
         msg.sandboxMode = session.codexSettings.sandboxMode;

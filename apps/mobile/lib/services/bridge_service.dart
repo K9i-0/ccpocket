@@ -380,6 +380,7 @@ class BridgeService implements BridgeServiceBase {
                     executionMode: msg.executionMode,
                     planMode: msg.planMode,
                     approvalPolicy: msg.approvalPolicy,
+                    approvalsReviewer: msg.approvalsReviewer,
                   );
                 }
                 if (sessionId != null) {
@@ -573,6 +574,7 @@ class BridgeService implements BridgeServiceBase {
     String? permissionMode,
     String? executionMode,
     String? approvalPolicy,
+    String? approvalsReviewer,
     bool? planMode,
     String? effort,
     int? maxTurns,
@@ -595,6 +597,7 @@ class BridgeService implements BridgeServiceBase {
         permissionMode: permissionMode,
         executionMode: executionMode,
         approvalPolicy: approvalPolicy,
+        approvalsReviewer: approvalsReviewer,
         planMode: planMode,
         effort: effort,
         maxTurns: maxTurns,
@@ -828,6 +831,7 @@ class BridgeService implements BridgeServiceBase {
     String? executionMode,
     bool? planMode,
     String? approvalPolicy,
+    String? approvalsReviewer,
   }) {
     final idx = _sessions.indexWhere((s) => s.id == sessionId);
     if (idx < 0) return;
@@ -846,6 +850,8 @@ class BridgeService implements BridgeServiceBase {
       planMode:
           planMode ??
           derivePlanMode(planMode: planMode, permissionMode: permissionMode),
+      approvalPolicy: approvalPolicy,
+      approvalsReviewer: approvalsReviewer,
     );
   }
 
@@ -855,6 +861,7 @@ class BridgeService implements BridgeServiceBase {
     required String executionMode,
     required bool planMode,
     String? approvalPolicy,
+    String? approvalsReviewer,
   }) {
     _patchSessionModes(
       sessionId,
@@ -862,6 +869,7 @@ class BridgeService implements BridgeServiceBase {
       executionMode: executionMode,
       planMode: planMode,
       approvalPolicy: approvalPolicy,
+      approvalsReviewer: approvalsReviewer,
     );
   }
 
@@ -871,13 +879,16 @@ class BridgeService implements BridgeServiceBase {
     required String executionMode,
     required bool planMode,
     String? approvalPolicy,
+    String? approvalsReviewer,
   }) {
     final idx = _sessions.indexWhere((s) => s.id == sessionId);
     if (idx < 0) return;
     final current = _sessions[idx];
     if (current.permissionMode == permissionMode &&
         current.executionMode == executionMode &&
-        current.planMode == planMode) {
+        current.planMode == planMode &&
+        (approvalsReviewer == null ||
+            current.codexApprovalsReviewer == approvalsReviewer)) {
       return;
     }
     _sessions = List.of(_sessions)
@@ -886,6 +897,8 @@ class BridgeService implements BridgeServiceBase {
         executionMode: executionMode,
         planMode: planMode,
         codexApprovalPolicy: approvalPolicy ?? current.codexApprovalPolicy,
+        codexApprovalsReviewer:
+            approvalsReviewer ?? current.codexApprovalsReviewer,
       );
     _sessionListController.add(_sessions);
   }
@@ -905,6 +918,8 @@ class BridgeService implements BridgeServiceBase {
           approvalPolicy: message.approvalPolicy ?? current.codexApprovalPolicy,
           executionMode: message.executionMode ?? current.executionMode,
         ),
+        codexApprovalsReviewer:
+            message.approvalsReviewer ?? current.codexApprovalsReviewer,
         codexSandboxMode: message.provider == Provider.codex.value
             ? (message.sandboxMode ?? current.codexSandboxMode)
             : current.codexSandboxMode,

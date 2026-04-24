@@ -622,6 +622,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get codexApprovalNeverDescription => '永不请求确认，失败会立即返回';
 
   @override
+  String get codexAutoReview => '自动审查';
+
+  @override
+  String get codexAutoReviewDescription => '让 Codex 自动审查审批请求';
+
+  @override
+  String get codexAutoReviewUnavailableDescription => '关闭审批时不可用';
+
+  @override
   String get enablePlanModeTitle => '启用 Plan Mode';
 
   @override

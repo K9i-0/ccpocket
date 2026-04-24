@@ -86,8 +86,18 @@ vi.mock("./session.js", () => ({
       const process = {
         isWaitingForInput: true,
         setPermissionMode: vi.fn(async () => {}),
-        setApprovalPolicy: vi.fn(),
-        setCollaborationMode: vi.fn(),
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        collaborationMode: "default",
+        setApprovalPolicy: vi.fn(function (this: any, value: string) {
+          this.approvalPolicy = value;
+        }),
+        setApprovalsReviewer: vi.fn(function (this: any, value: string) {
+          this.approvalsReviewer = value;
+        }),
+        setCollaborationMode: vi.fn(function (this: any, value: string) {
+          this.collaborationMode = value;
+        }),
         listThreads: vi.fn(async () => ({ data: [], nextCursor: null })),
         sendInput: vi.fn(() => false),
         sendInputWithImage: vi.fn(),
@@ -161,8 +171,18 @@ vi.mock("./session.js", () => ({
       const process = {
         isWaitingForInput: true,
         setPermissionMode: vi.fn(async () => {}),
-        setApprovalPolicy: vi.fn(),
-        setCollaborationMode: vi.fn(),
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        collaborationMode: "default",
+        setApprovalPolicy: vi.fn(function (this: any, value: string) {
+          this.approvalPolicy = value;
+        }),
+        setApprovalsReviewer: vi.fn(function (this: any, value: string) {
+          this.approvalsReviewer = value;
+        }),
+        setCollaborationMode: vi.fn(function (this: any, value: string) {
+          this.collaborationMode = value;
+        }),
         listThreads: vi.fn(async () => ({ data: [], nextCursor: null })),
         sendInput: vi.fn(() => false),
         sendInputWithImage: vi.fn(),
@@ -939,6 +959,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         type: "set_permission_mode",
         sessionId,
         mode: "bypassPermissions",
+        approvalsReviewer: "auto_review",
       },
       ws,
     );
@@ -947,6 +968,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const errors = lastMessages.filter((m: any) => m.type === "error");
     // No errors should be produced for valid permission mode on codex
     expect(errors.length).toBe(0);
+    const session = (bridge as any).sessionManager.get(sessionId);
+    expect(session.process.setApprovalsReviewer).toHaveBeenCalledWith(
+      "auto_review",
+    );
 
     bridge.close();
   });

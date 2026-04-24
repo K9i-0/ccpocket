@@ -1276,6 +1276,24 @@ abstract class AppLocalizations {
   /// **'確認せず実行し、失敗時も承認を求めません'**
   String get codexApprovalNeverDescription;
 
+  /// No description provided for @codexAutoReview.
+  ///
+  /// In ja, this message translates to:
+  /// **'自動レビュー'**
+  String get codexAutoReview;
+
+  /// No description provided for @codexAutoReviewDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'承認リクエストを Codex が自動レビューします'**
+  String get codexAutoReviewDescription;
+
+  /// No description provided for @codexAutoReviewUnavailableDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'Never Ask では承認リクエストが発生しないため利用できません'**
+  String get codexAutoReviewUnavailableDescription;
+
   /// No description provided for @enablePlanModeTitle.
   ///
   /// In ja, this message translates to:

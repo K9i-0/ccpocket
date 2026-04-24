@@ -65,6 +65,7 @@ describe("CodexProcess (app-server)", () => {
     proc.start("/tmp/project-a", {
       sandboxMode: "workspace-write",
       approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
       model: "gpt-5.3-codex",
     });
 
@@ -94,6 +95,7 @@ describe("CodexProcess (app-server)", () => {
     expect(startReq.params).toMatchObject({
       cwd: "/tmp/project-a",
       approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
       sandbox: "workspace-write",
       model: "gpt-5.3-codex",
     });
@@ -106,6 +108,7 @@ describe("CodexProcess (app-server)", () => {
           thread: { id: "thr_1" },
           model: "gpt-5.3-codex",
           approvalPolicy: "on-request",
+          approvalsReviewer: "auto_review",
           sandbox: {
             type: "workspaceWrite",
             networkAccess: false,
@@ -123,6 +126,7 @@ describe("CodexProcess (app-server)", () => {
         sessionId: "thr_1",
         model: "gpt-5.3-codex",
         approvalPolicy: "on-request",
+        approvalsReviewer: "auto_review",
         sandboxMode: "workspace-write",
         networkAccessEnabled: false,
       }),

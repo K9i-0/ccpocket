@@ -591,6 +591,9 @@ class _SessionListScreenState extends State<SessionListScreen>
         approvalPolicy: result.provider == Provider.codex
             ? (useCodexProfile ? null : result.codexApprovalPolicy.value)
             : null,
+        approvalsReviewer: result.provider == Provider.codex
+            ? (useCodexProfile ? null : result.codexApprovalsReviewer)
+            : null,
         planMode: result.provider == Provider.codex && useCodexProfile
             ? null
             : result.planMode,
@@ -846,8 +849,10 @@ class _SessionListScreenState extends State<SessionListScreen>
           codexApprovalPolicyFromLegacyExecutionMode(
             sessionSettings?['executionMode'] as String?,
           ),
+      codexAutoReviewEnabled: session.codexApprovalsReviewer == 'auto_review',
       codexProfile: provider == Provider.codex ? session.codexProfile : null,
       codexApprovalPolicyOverridden: provider == Provider.codex,
+      codexAutoReviewOverridden: provider == Provider.codex,
       codexModelOverridden: provider == Provider.codex,
       codexSandboxModeOverridden: provider == Provider.codex,
       codexReasoningEffortOverridden: provider == Provider.codex,
@@ -1283,6 +1288,9 @@ class _SessionListScreenState extends State<SessionListScreen>
           : edited.executionMode.value,
       approvalPolicy: isCodex
           ? (useCodexProfile ? null : edited.codexApprovalPolicy.value)
+          : null,
+      approvalsReviewer: isCodex
+          ? (useCodexProfile ? null : edited.codexApprovalsReviewer)
           : null,
       planMode: isCodex && useCodexProfile ? null : edited.planMode,
       effort: !isCodex ? edited.claudeEffort?.value : null,
