@@ -1153,6 +1153,9 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
     if (entry.type === "session_meta") {
       const payload = entry.payload as Record<string, unknown> | undefined;
       if (payload) {
+        if (isCodexInternalSessionSource(payload.source)) {
+          return null;
+        }
         if (typeof payload.id === "string" && payload.id.length > 0) {
           threadId = payload.id;
         }
@@ -1237,6 +1240,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
     }
   }
 
+  if (model === "codex-auto-review") return null;
   if (!projectPath || !hasMessages) return null;
   summary = lastAssistantText || summary;
 
@@ -1279,6 +1283,11 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       codexSettings,
     },
   };
+}
+
+function isCodexInternalSessionSource(source: unknown): boolean {
+  const sourceObj = asObject(source);
+  return sourceObj?.subagent !== undefined;
 }
 
 /**

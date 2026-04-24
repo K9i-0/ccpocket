@@ -498,6 +498,103 @@ describe("codex sessions integration", () => {
     expect(entry?.firstPrompt).toBe("hello codex");
   });
 
+  it("excludes codex subagent sessions from recent sessions", async () => {
+    const userThreadId = "019c56c0-d4d8-7b22-9e3c-200664d68020";
+    const subagentThreadId = "019c56c0-d4d8-7b22-9e3c-200664d68021";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-00-00-${userThreadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.000Z",
+          type: "session_meta",
+          payload: { id: userThreadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:01.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: "user visible session" },
+        }),
+      ].join("\n"),
+    );
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-01-00-${subagentThreadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:01:00.000Z",
+          type: "session_meta",
+          payload: {
+            id: subagentThreadId,
+            cwd: "/tmp/project-a",
+            source: { subagent: { other: "guardian" } },
+          },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:01:01.000Z",
+          type: "turn_context",
+          payload: { model: "codex-auto-review" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:01:02.000Z",
+          type: "event_msg",
+          payload: {
+            type: "user_message",
+            message: "The following is the Codex agent history...",
+          },
+        }),
+      ].join("\n"),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "codex",
+      limit: 200,
+    });
+
+    expect(result.sessions.map((s) => s.sessionId)).toEqual([userThreadId]);
+  });
+
+  it("excludes codex auto review sessions by model as a fallback", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68022";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-02-00-${threadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:02:00.000Z",
+          type: "session_meta",
+          payload: { id: threadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:02:01.000Z",
+          type: "turn_context",
+          payload: {
+            model: "codex-auto-review",
+            collaboration_mode: {
+              mode: "default",
+              settings: { model: "codex-auto-review", reasoning_effort: "low" },
+            },
+          },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:02:02.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: "approval review prompt" },
+        }),
+      ].join("\n"),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "codex",
+      limit: 200,
+    });
+
+    expect(result.sessions.some((s) => s.sessionId === threadId)).toBe(false);
+  });
+
   it("normalizes codex worktree projectPath and keeps resumeCwd for resume targets", async () => {
     const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68077";
     const mainProjectPath = "/tmp/project-a";
