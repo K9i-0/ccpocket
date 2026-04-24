@@ -55,7 +55,7 @@ void main() {
 
         final service = AppUpdateService.test(
           httpClient: client,
-          gateway: const _FakeAppUpdateGateway(),
+          gateway: const _FakeAppUpdateGateway(nativeUpdaterAvailable: false),
           packageInfoLoader: () async => _packageInfo(version: '1.42.0'),
         );
 
@@ -74,6 +74,28 @@ void main() {
         );
       },
     );
+
+    test('uses native updater action when Sparkle is configured', () async {
+      final client = MockClient((_) async {
+        return http.Response(jsonEncode(_mockReleases), 200);
+      });
+
+      final service = AppUpdateService.test(
+        httpClient: client,
+        gateway: const _FakeAppUpdateGateway(nativeUpdaterAvailable: true),
+        packageInfoLoader: () async => _packageInfo(version: '1.42.0'),
+      );
+
+      final update = await service.checkForUpdate(force: true);
+
+      expect(update, isNotNull);
+      expect(update!.latestVersion, '1.44.0');
+      expect(update.canInstallInApp, isTrue);
+      expect(
+        update.downloadUrl,
+        'https://github.com/K9i-0/ccpocket/releases/download/macos/v1.44.0%2B74/CC-Pocket-macos-v1.44.0.dmg',
+      );
+    });
 
     test('ignores macOS releases without the expected DMG asset', () async {
       final client = MockClient((_) async {
@@ -96,7 +118,7 @@ void main() {
 
       final service = AppUpdateService.test(
         httpClient: client,
-        gateway: const _FakeAppUpdateGateway(),
+        gateway: const _FakeAppUpdateGateway(nativeUpdaterAvailable: false),
         packageInfoLoader: () async => _packageInfo(version: '1.42.0'),
       );
 
@@ -109,15 +131,22 @@ void main() {
 }
 
 class _FakeAppUpdateGateway implements AppUpdateGateway {
-  const _FakeAppUpdateGateway({this.probeResult});
+  const _FakeAppUpdateGateway({
+    this.probeResult,
+    this.nativeUpdaterAvailable = true,
+  });
 
   final Map<String, dynamic>? probeResult;
+  final bool nativeUpdaterAvailable;
 
   @override
   Future<void> performUpdate() async {}
 
   @override
   Future<Map<String, dynamic>?> probeForUpdate() async => probeResult;
+
+  @override
+  Future<bool> canUseNativeUpdater() async => nativeUpdaterAvailable;
 }
 
 PackageInfo _packageInfo({required String version}) {

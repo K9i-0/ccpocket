@@ -31,6 +31,7 @@ class AppUpdateInfo {
 abstract class AppUpdateGateway {
   Future<Map<String, dynamic>?> probeForUpdate();
   Future<void> performUpdate();
+  Future<bool> canUseNativeUpdater();
 }
 
 class MethodChannelAppUpdateGateway implements AppUpdateGateway {
@@ -51,6 +52,19 @@ class MethodChannelAppUpdateGateway implements AppUpdateGateway {
   @override
   Future<void> performUpdate() {
     return _channel.invokeMethod<void>('performUpdate');
+  }
+
+  @override
+  Future<bool> canUseNativeUpdater() async {
+    try {
+      final feedUrl = await _channel.invokeMethod<String>('getFeedURL');
+      return feedUrl != null && feedUrl.trim().isNotEmpty;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException catch (e) {
+      debugPrint('Native app updater unavailable: ${e.code}');
+      return false;
+    }
   }
 }
 
@@ -147,7 +161,13 @@ class AppUpdateService {
         return nativeUpdate;
       }
 
-      final fallbackUpdate = await _fetchGitHubReleaseUpdate(currentVersion);
+      final canUseNativeUpdater = await _gateway.canUseNativeUpdater();
+      final fallbackUpdate = await _fetchGitHubReleaseUpdate(
+        currentVersion,
+        installMode: canUseNativeUpdater
+            ? AppUpdateInstallMode.nativeUpdater
+            : AppUpdateInstallMode.externalDownload,
+      );
       await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
       _cachedUpdate = fallbackUpdate;
       _isDismissed =
@@ -215,8 +235,9 @@ class AppUpdateService {
   }
 
   Future<AppUpdateInfo?> _fetchGitHubReleaseUpdate(
-    String currentVersion,
-  ) async {
+    String currentVersion, {
+    required AppUpdateInstallMode installMode,
+  }) async {
     final release = await _fetchLatestMacOSRelease();
     if (release == null || !_isNewer(release.version, currentVersion)) {
       return null;
@@ -227,7 +248,7 @@ class AppUpdateService {
       currentVersion: currentVersion,
       downloadUrl: release.downloadUrl,
       releaseUrl: release.releaseUrl,
-      installMode: AppUpdateInstallMode.externalDownload,
+      installMode: installMode,
     );
   }
 

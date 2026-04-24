@@ -331,6 +331,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get update => '更新';
 
   @override
+  String get download => 'ダウンロード';
+
+  @override
+  String appUpdateAvailable(String version) {
+    return 'v$version が利用可能です';
+  }
+
+  @override
   String get supportBannerTitle => 'CC Pocketが役に立っていたら';
 
   @override

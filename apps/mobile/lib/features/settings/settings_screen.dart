@@ -930,17 +930,18 @@ class _AppUpdateTile extends StatelessWidget {
     if (update == null) return const SizedBox.shrink();
 
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     return ListTile(
       leading: Icon(Icons.upgrade, color: cs.primary),
       title: Text(
-        'v${update.latestVersion} が利用可能',
+        l.appUpdateAvailable(update.latestVersion),
         style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600),
       ),
       trailing: TextButton(
         onPressed: () async {
           await AppUpdateService.instance.performUpdate(update);
         },
-        child: Text(update.canInstallInApp ? 'Update' : 'Download'),
+        child: Text(update.canInstallInApp ? l.update : l.download),
       ),
     );
   }

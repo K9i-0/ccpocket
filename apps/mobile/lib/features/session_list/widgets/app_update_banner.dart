@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../services/app_update_service.dart';
 
 /// Banner shown on the home screen when a newer macOS app version is available.
@@ -16,6 +17,7 @@ class AppUpdateBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = colorScheme.primary;
+    final l = AppLocalizations.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -30,7 +32,7 @@ class AppUpdateBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'v${updateInfo.latestVersion} が利用可能です',
+              l.appUpdateAvailable(updateInfo.latestVersion),
               style: TextStyle(fontSize: 13, color: color),
             ),
           ),
@@ -43,7 +45,7 @@ class AppUpdateBanner extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                updateInfo.canInstallInApp ? 'Update' : 'Download',
+                updateInfo.canInstallInApp ? l.update : l.download,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

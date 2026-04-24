@@ -706,6 +706,18 @@ abstract class AppLocalizations {
   /// **'更新'**
   String get update;
 
+  /// No description provided for @download.
+  ///
+  /// In ja, this message translates to:
+  /// **'ダウンロード'**
+  String get download;
+
+  /// No description provided for @appUpdateAvailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'v{version} が利用可能です'**
+  String appUpdateAvailable(String version);
+
   /// No description provided for @supportBannerTitle.
   ///
   /// In ja, this message translates to:

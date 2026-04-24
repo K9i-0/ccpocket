@@ -328,6 +328,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get update => '更新';
 
   @override
+  String get download => '下载';
+
+  @override
+  String appUpdateAvailable(String version) {
+    return 'v$version 可用';
+  }
+
+  @override
   String get supportBannerTitle => '如果 CC Pocket 对你有帮助';
 
   @override

@@ -333,6 +333,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get update => 'Update';
 
   @override
+  String get download => 'Download';
+
+  @override
+  String appUpdateAvailable(String version) {
+    return 'v$version is available';
+  }
+
+  @override
   String get supportBannerTitle => 'CC Pocket has been useful';
 
   @override

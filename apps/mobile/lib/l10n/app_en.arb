@@ -119,6 +119,13 @@
   "updateBridge": "Update Bridge",
   "stopServer": "Stop Server",
   "update": "Update",
+  "download": "Download",
+  "appUpdateAvailable": "v{version} is available",
+  "@appUpdateAvailable": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
   "supportBannerTitle": "CC Pocket has been useful",
   "supportBannerSubtitle": "Support can help keep development moving.",
   "supportBannerAction": "View support",

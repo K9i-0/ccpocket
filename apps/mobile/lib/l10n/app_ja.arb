@@ -142,6 +142,13 @@
   "updateBridge": "Bridge を更新",
   "stopServer": "サーバーを停止",
   "update": "更新",
+  "download": "ダウンロード",
+  "appUpdateAvailable": "v{version} が利用可能です",
+  "@appUpdateAvailable": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
   "supportBannerTitle": "CC Pocketが役に立っていたら",
   "supportBannerSubtitle": "サポートで継続開発を後押しできます",
   "supportBannerAction": "サポートを見る",

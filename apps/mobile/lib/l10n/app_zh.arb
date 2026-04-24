@@ -119,6 +119,13 @@
   "updateBridge": "更新 Bridge",
   "stopServer": "停止服务器",
   "update": "更新",
+  "download": "下载",
+  "appUpdateAvailable": "v{version} 可用",
+  "@appUpdateAvailable": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
   "supportBannerTitle": "如果 CC Pocket 对你有帮助",
   "supportBannerSubtitle": "你的支持可以帮助持续开发。",
   "supportBannerAction": "查看支持",
