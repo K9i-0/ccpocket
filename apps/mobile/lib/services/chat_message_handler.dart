@@ -29,6 +29,7 @@ class ChatStateUpdate {
   final PermissionMode? permissionMode;
   final ExecutionMode? executionMode;
   final CodexApprovalPolicy? codexApprovalPolicy;
+  final String? codexApprovalsReviewer;
   final bool? planMode;
   final List<ChatEntry> entriesToAdd;
   final List<ChatEntry> entriesToPrepend;
@@ -71,6 +72,7 @@ class ChatStateUpdate {
     this.permissionMode,
     this.executionMode,
     this.codexApprovalPolicy,
+    this.codexApprovalsReviewer,
     this.planMode,
     this.entriesToAdd = const [],
     this.entriesToPrepend = const [],
@@ -621,6 +623,7 @@ class ChatMessageHandler {
     PermissionMode? permissionMode;
     ExecutionMode? executionMode;
     CodexApprovalPolicy? codexApprovalPolicy;
+    String? codexApprovalsReviewer;
     bool? inPlanMode;
     bool? planMode;
     bool hasExecutionSignals(SystemMessage message) =>
@@ -643,6 +646,7 @@ class ChatMessageHandler {
       );
     }
     if (msg is SystemMessage && msg.permissionMode != null) {
+      codexApprovalsReviewer = msg.approvalsReviewer;
       permissionMode = PermissionMode.values.cast<PermissionMode?>().firstWhere(
         (mode) => mode?.value == msg.permissionMode,
         orElse: () => null,
@@ -673,6 +677,7 @@ class ChatMessageHandler {
         inPlanMode = planMode;
       }
     } else if (msg is SystemMessage) {
+      codexApprovalsReviewer = msg.approvalsReviewer;
       if (hasExecutionSignals(msg)) {
         executionMode = deriveExecutionMode(
           provider: msg.provider,
@@ -711,6 +716,7 @@ class ChatMessageHandler {
       permissionMode: permissionMode,
       executionMode: executionMode,
       codexApprovalPolicy: codexApprovalPolicy,
+      codexApprovalsReviewer: codexApprovalsReviewer,
       planMode: planMode,
       inPlanMode: inPlanMode,
       slashCommands: commands,

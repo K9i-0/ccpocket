@@ -649,7 +649,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: Text(l.setupGuide),
                       subtitle: Text(l.setupGuideSubtitle),
                       trailing: const Icon(Icons.chevron_right, size: 20),
-                      onTap: () => context.router.push(const SetupGuideRoute()),
+                      onTap: () => context.router.push(SetupGuideRoute()),
                     ),
                     Divider(
                       height: 1,

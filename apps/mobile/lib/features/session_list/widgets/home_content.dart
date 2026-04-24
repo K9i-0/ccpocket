@@ -49,6 +49,8 @@ class HomeContent extends StatefulWidget {
     String? provider,
     String? permissionMode,
     String? sandboxMode,
+    String? approvalPolicy,
+    String? approvalsReviewer,
   })
   onTapRunning;
   final ValueChanged<String> onStopSession;
@@ -446,6 +448,8 @@ class HomeContentState extends State<HomeContent> {
                   provider: session.provider,
                   permissionMode: session.permissionMode,
                   sandboxMode: session.codexSandboxMode,
+                  approvalPolicy: session.codexApprovalPolicy,
+                  approvalsReviewer: session.codexApprovalsReviewer,
                 ),
                 onApprove: (toolUseId, {bool clearContext = false}) => widget
                     .onApprovePermission

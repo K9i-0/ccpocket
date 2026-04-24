@@ -95,7 +95,10 @@ class NewSessionParams {
        planMode = planMode ?? (permissionMode == PermissionMode.plan);
 
   String get codexApprovalsReviewer =>
-      codexAutoReviewEnabled ? 'auto_review' : 'user';
+      codexApprovalPolicy == CodexApprovalPolicy.onRequest &&
+          codexAutoReviewEnabled
+      ? 'auto_review'
+      : 'user';
 
   PermissionMode get permissionMode {
     if (provider == Provider.claude && claudePermissionMode != null) {
@@ -380,6 +383,37 @@ enum _WorktreeMode {
   useExisting,
 }
 
+enum _CodexApprovalChoice {
+  untrusted,
+  onRequest,
+  autoReview,
+  never;
+
+  static _CodexApprovalChoice from({
+    required CodexApprovalPolicy policy,
+    required bool autoReviewEnabled,
+  }) {
+    if (policy == CodexApprovalPolicy.onRequest && autoReviewEnabled) {
+      return _CodexApprovalChoice.autoReview;
+    }
+    return switch (policy) {
+      CodexApprovalPolicy.untrusted => _CodexApprovalChoice.untrusted,
+      CodexApprovalPolicy.onRequest ||
+      CodexApprovalPolicy.onFailure => _CodexApprovalChoice.onRequest,
+      CodexApprovalPolicy.never => _CodexApprovalChoice.never,
+    };
+  }
+
+  CodexApprovalPolicy get policy => switch (this) {
+    _CodexApprovalChoice.untrusted => CodexApprovalPolicy.untrusted,
+    _CodexApprovalChoice.onRequest ||
+    _CodexApprovalChoice.autoReview => CodexApprovalPolicy.onRequest,
+    _CodexApprovalChoice.never => CodexApprovalPolicy.never,
+  };
+
+  bool get autoReviewEnabled => this == _CodexApprovalChoice.autoReview;
+}
+
 /// Fallback Codex models when Bridge hasn't delivered a list yet.
 const _defaultCodexModels = defaultCodexModels;
 
@@ -620,8 +654,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _claudePermissionMode = p.provider == Provider.claude
         ? p.permissionMode
         : PermissionMode.defaultMode;
-    _codexApprovalPolicy = p.codexApprovalPolicy;
-    _codexAutoReviewEnabled = p.codexAutoReviewEnabled;
+    _codexApprovalPolicy =
+        p.codexApprovalPolicy == CodexApprovalPolicy.onFailure
+        ? CodexApprovalPolicy.onRequest
+        : p.codexApprovalPolicy;
+    _codexAutoReviewEnabled =
+        _codexApprovalPolicy == CodexApprovalPolicy.onRequest &&
+        p.codexAutoReviewEnabled;
     _planMode = p.planMode;
     _useWorktree = p.useWorktree || p.existingWorktreePath != null;
     _branchController.text = p.worktreeBranch ?? "";
@@ -778,7 +817,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       codexApprovalPolicy: _codexApprovalPolicy,
       codexAutoReviewEnabled:
           isCodex &&
-          _codexApprovalPolicy != CodexApprovalPolicy.never &&
+          _codexApprovalPolicy == CodexApprovalPolicy.onRequest &&
           _codexAutoReviewEnabled,
       codexProfile: isCodex ? _selectedCodexProfile : null,
       codexApprovalPolicyOverridden: isCodex && _codexApprovalPolicyTouched,
@@ -915,19 +954,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
               setState(() => _executionMode = value);
             },
             codexApprovalPolicy: _codexApprovalPolicy,
-            onCodexApprovalPolicyChanged: (value) {
-              setState(() {
-                _codexApprovalPolicy = value;
-                if (value == CodexApprovalPolicy.never) {
-                  _codexAutoReviewEnabled = false;
-                }
-                _codexApprovalPolicyTouched = true;
-              });
-            },
             codexAutoReviewEnabled: _codexAutoReviewEnabled,
-            onCodexAutoReviewChanged: (value) {
+            onCodexApprovalChoiceChanged: (value) {
               setState(() {
-                _codexAutoReviewEnabled = value;
+                _codexApprovalPolicy = value.policy;
+                _codexAutoReviewEnabled = value.autoReviewEnabled;
+                _codexApprovalPolicyTouched = true;
                 _codexAutoReviewTouched = true;
               });
             },
@@ -1501,9 +1533,8 @@ class _OptionsSection extends StatelessWidget {
   final ExecutionMode executionMode;
   final ValueChanged<ExecutionMode> onExecutionModeChanged;
   final CodexApprovalPolicy codexApprovalPolicy;
-  final ValueChanged<CodexApprovalPolicy> onCodexApprovalPolicyChanged;
   final bool codexAutoReviewEnabled;
-  final ValueChanged<bool> onCodexAutoReviewChanged;
+  final ValueChanged<_CodexApprovalChoice> onCodexApprovalChoiceChanged;
   final List<String> codexProfiles;
   final String? selectedCodexProfile;
   final ValueChanged<String?> onCodexProfileChanged;
@@ -1565,9 +1596,8 @@ class _OptionsSection extends StatelessWidget {
     required this.executionMode,
     required this.onExecutionModeChanged,
     required this.codexApprovalPolicy,
-    required this.onCodexApprovalPolicyChanged,
     required this.codexAutoReviewEnabled,
-    required this.onCodexAutoReviewChanged,
+    required this.onCodexApprovalChoiceChanged,
     required this.codexProfiles,
     required this.selectedCodexProfile,
     required this.onCodexProfileChanged,
@@ -1653,26 +1683,31 @@ class _OptionsSection extends StatelessWidget {
 
     // -- Icon helpers --
 
-    IconData codexApprovalIcon(CodexApprovalPolicy policy) => switch (policy) {
-      CodexApprovalPolicy.untrusted => Icons.verified_user_outlined,
-      CodexApprovalPolicy.onRequest => Icons.tune,
-      CodexApprovalPolicy.onFailure => Icons.auto_mode_outlined,
-      CodexApprovalPolicy.never => Icons.flash_on,
+    final codexApprovalChoice = _CodexApprovalChoice.from(
+      policy: codexApprovalPolicy,
+      autoReviewEnabled: codexAutoReviewEnabled,
+    );
+
+    IconData codexApprovalIcon(_CodexApprovalChoice choice) => switch (choice) {
+      _CodexApprovalChoice.untrusted => Icons.verified_user_outlined,
+      _CodexApprovalChoice.onRequest => Icons.tune,
+      _CodexApprovalChoice.autoReview => Icons.auto_mode_outlined,
+      _CodexApprovalChoice.never => Icons.flash_on,
     };
 
-    String codexApprovalLabel(CodexApprovalPolicy policy) => switch (policy) {
-      CodexApprovalPolicy.untrusted => 'Untrusted',
-      CodexApprovalPolicy.onRequest => 'On Request',
-      CodexApprovalPolicy.onFailure => 'On Failure',
-      CodexApprovalPolicy.never => 'Never Ask',
+    String codexApprovalLabel(_CodexApprovalChoice choice) => switch (choice) {
+      _CodexApprovalChoice.untrusted => 'Untrusted',
+      _CodexApprovalChoice.onRequest => 'On Request',
+      _CodexApprovalChoice.autoReview => 'Auto Review',
+      _CodexApprovalChoice.never => 'Never Ask',
     };
 
-    String codexApprovalDescription(CodexApprovalPolicy policy) {
-      return switch (policy) {
-        CodexApprovalPolicy.untrusted => l.codexApprovalUntrustedDescription,
-        CodexApprovalPolicy.onRequest => l.codexApprovalOnRequestDescription,
-        CodexApprovalPolicy.onFailure => l.codexApprovalOnFailureDescription,
-        CodexApprovalPolicy.never => l.codexApprovalNeverDescription,
+    String codexApprovalDescription(_CodexApprovalChoice choice) {
+      return switch (choice) {
+        _CodexApprovalChoice.untrusted => l.codexApprovalUntrustedDescription,
+        _CodexApprovalChoice.onRequest => l.codexApprovalOnRequestDescription,
+        _CodexApprovalChoice.autoReview => l.codexAutoReviewDescription,
+        _CodexApprovalChoice.never => l.codexApprovalNeverDescription,
       };
     }
 
@@ -1907,26 +1942,26 @@ class _OptionsSection extends StatelessWidget {
               ? modeSelectorField(
                   key: const ValueKey('dialog_codex_approval_policy'),
                   label: l.approval,
-                  icon: codexApprovalIcon(codexApprovalPolicy),
-                  title: codexApprovalLabel(codexApprovalPolicy),
-                  subtitle: codexApprovalDescription(codexApprovalPolicy),
-                  onTap: () => showModeSheet<CodexApprovalPolicy>(
+                  icon: codexApprovalIcon(codexApprovalChoice),
+                  title: codexApprovalLabel(codexApprovalChoice),
+                  subtitle: codexApprovalDescription(codexApprovalChoice),
+                  onTap: () => showModeSheet<_CodexApprovalChoice>(
                     title: l.approval,
                     subtitle: l.sheetSubtitleApproval,
                     modes: const [
-                      CodexApprovalPolicy.untrusted,
-                      CodexApprovalPolicy.onRequest,
-                      CodexApprovalPolicy.onFailure,
-                      CodexApprovalPolicy.never,
+                      _CodexApprovalChoice.untrusted,
+                      _CodexApprovalChoice.onRequest,
+                      _CodexApprovalChoice.autoReview,
+                      _CodexApprovalChoice.never,
                     ],
-                    currentMode: codexApprovalPolicy,
+                    currentMode: codexApprovalChoice,
                     iconFor: codexApprovalIcon,
                     labelFor: codexApprovalLabel,
                     descriptionFor: codexApprovalDescription,
-                    onSelected: onCodexApprovalPolicyChanged,
+                    onSelected: onCodexApprovalChoiceChanged,
                     colorFor: (mode, cs) => switch (mode) {
-                      CodexApprovalPolicy.never => cs.error,
-                      CodexApprovalPolicy.onFailure => cs.tertiary,
+                      _CodexApprovalChoice.never => cs.error,
+                      _CodexApprovalChoice.autoReview => cs.primary,
                       _ => cs.primary,
                     },
                   ),
@@ -1980,14 +2015,6 @@ class _OptionsSection extends StatelessWidget {
                   ),
                 ),
           const SizedBox(height: 8),
-          if (provider == Provider.codex) ...[
-            _AutoReviewToggleTile(
-              enabled: codexAutoReviewEnabled,
-              isAvailable: codexApprovalPolicy != CodexApprovalPolicy.never,
-              onChanged: onCodexAutoReviewChanged,
-            ),
-            const SizedBox(height: 8),
-          ],
           modeSelectorField(
             key: const ValueKey('dialog_sandbox'),
             label: l.sandbox,
@@ -2563,83 +2590,6 @@ class _CodexAdvancedOptions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(children: buildChildren(context));
-  }
-}
-
-class _AutoReviewToggleTile extends StatelessWidget {
-  final bool enabled;
-  final bool isAvailable;
-  final ValueChanged<bool> onChanged;
-
-  const _AutoReviewToggleTile({
-    required this.enabled,
-    required this.isAvailable,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    final cs = Theme.of(context).colorScheme;
-    final active = enabled && isAvailable;
-
-    return Opacity(
-      opacity: isAvailable ? 1 : 0.55,
-      child: InkWell(
-        key: const ValueKey('dialog_codex_auto_review_toggle'),
-        borderRadius: BorderRadius.circular(12),
-        onTap: isAvailable ? () => onChanged(!enabled) : null,
-        child: Container(
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              Icon(
-                Icons.rate_review_outlined,
-                size: 18,
-                color: active ? cs.primary : cs.onSurfaceVariant,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      l.codexAutoReview,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      isAvailable
-                          ? l.codexAutoReviewDescription
-                          : l.codexAutoReviewUnavailableDescription,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: cs.onSurfaceVariant,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                key: const ValueKey('dialog_codex_auto_review_switch'),
-                value: active,
-                onChanged: isAvailable ? onChanged : null,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

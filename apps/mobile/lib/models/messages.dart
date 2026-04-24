@@ -3,6 +3,10 @@ import 'dart:typed_data';
 
 import '../utils/request_user_input.dart';
 
+bool isCodexAutoReviewApprovalsReviewer(String? value) {
+  return value == 'auto_review' || value == 'guardian_subagent';
+}
+
 // ---- Assistant content types ----
 
 sealed class AssistantContent {
@@ -201,6 +205,9 @@ enum CodexApprovalPolicy {
 
 CodexApprovalPolicy? codexApprovalPolicyFromRaw(String? raw) {
   if (raw == null || raw.isEmpty) return null;
+  if (raw == CodexApprovalPolicy.onFailure.value) {
+    return CodexApprovalPolicy.onRequest;
+  }
   for (final value in CodexApprovalPolicy.values) {
     if (value.value == raw) return value;
   }

@@ -226,6 +226,8 @@ class _SessionListScreenState extends State<SessionListScreen>
                   .firstOrNull,
               permissionMode: msg.permissionMode,
               sandboxMode: msg.sandboxMode,
+              approvalPolicy: msg.approvalPolicy,
+              approvalsReviewer: msg.approvalsReviewer,
             );
           }
           _pendingResumeProjectPath = null;
@@ -653,6 +655,9 @@ class _SessionListScreenState extends State<SessionListScreen>
       approvalPolicy: result.provider == Provider.codex
           ? result.codexApprovalPolicy.value
           : null,
+      approvalsReviewer: result.provider == Provider.codex
+          ? result.codexApprovalsReviewer
+          : null,
     );
   }
 
@@ -849,7 +854,9 @@ class _SessionListScreenState extends State<SessionListScreen>
           codexApprovalPolicyFromLegacyExecutionMode(
             sessionSettings?['executionMode'] as String?,
           ),
-      codexAutoReviewEnabled: session.codexApprovalsReviewer == 'auto_review',
+      codexAutoReviewEnabled: isCodexAutoReviewApprovalsReviewer(
+        session.codexApprovalsReviewer,
+      ),
       codexProfile: provider == Provider.codex ? session.codexProfile : null,
       codexApprovalPolicyOverridden: provider == Provider.codex,
       codexAutoReviewOverridden: provider == Provider.codex,
@@ -1067,6 +1074,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     String? permissionMode,
     String? sandboxMode,
     String? approvalPolicy,
+    String? approvalsReviewer,
   }) {
     // Mark session as seen when navigating into it.
     _unseenCubit.markSeen(sessionId);
@@ -1087,6 +1095,7 @@ class _SessionListScreenState extends State<SessionListScreen>
           permissionMode: permissionMode,
           sandboxMode: sandboxMode,
           approvalPolicy: approvalPolicy,
+          approvalsReviewer: approvalsReviewer,
           pendingSessionCreated: pendingNotifier,
         ),
       );
@@ -1103,6 +1112,7 @@ class _SessionListScreenState extends State<SessionListScreen>
         initialSandboxMode: sandboxMode,
         initialPermissionMode: permissionMode,
         initialApprovalPolicy: approvalPolicy,
+        initialApprovalsReviewer: approvalsReviewer,
         pendingSessionCreated: pendingNotifier,
       ),
       _ => ClaudeSessionRoute(
@@ -1203,6 +1213,9 @@ class _SessionListScreenState extends State<SessionListScreen>
             ).value,
       approvalPolicy: isCodex
           ? (useCodexProfile ? null : session.codexApprovalPolicy)
+          : null,
+      approvalsReviewer: isCodex
+          ? (useCodexProfile ? null : session.codexApprovalsReviewer)
           : null,
       planMode: isCodex
           ? (useCodexProfile ? null : session.planMode)
@@ -1570,6 +1583,8 @@ class _SessionListScreenState extends State<SessionListScreen>
                 String? provider,
                 String? permissionMode,
                 String? sandboxMode,
+                String? approvalPolicy,
+                String? approvalsReviewer,
               }) => _navigateToChat(
                 sessionId,
                 projectPath: projectPath,
@@ -1578,6 +1593,8 @@ class _SessionListScreenState extends State<SessionListScreen>
                 provider: provider == 'codex' ? Provider.codex : null,
                 permissionMode: permissionMode,
                 sandboxMode: sandboxMode,
+                approvalPolicy: approvalPolicy,
+                approvalsReviewer: approvalsReviewer,
               ),
           onStopSession: _stopSession,
           onApprovePermission:
@@ -1678,7 +1695,7 @@ class _SessionListScreenState extends State<SessionListScreen>
           shell.openSetupGuideCenter();
           return;
         }
-        context.router.push(const SetupGuideRoute());
+        context.router.push(SetupGuideRoute());
       },
       onConnectToDiscovered: _connectToDiscovered,
       onConnectToMachine: _connectToMachine,

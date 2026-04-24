@@ -144,18 +144,45 @@ void main() {
       },
     );
 
-    test('codex initial approval policy is preserved in state', () {
+    test(
+      'codex initial on-failure approval policy falls back to on-request',
+      () {
+        final cubit = ChatSessionCubit(
+          sessionId: 's1',
+          provider: Provider.codex,
+          bridge: mockBridge,
+          streamingCubit: streamingCubit,
+          initialPermissionMode: PermissionMode.acceptEdits,
+          initialCodexApprovalPolicy: CodexApprovalPolicy.onFailure,
+        );
+        addTearDown(cubit.close);
+
+        expect(cubit.state.codexApprovalPolicy, CodexApprovalPolicy.onRequest);
+      },
+    );
+
+    test('codex auto review mode sends on-request with auto reviewer', () {
       final cubit = ChatSessionCubit(
         sessionId: 's1',
         provider: Provider.codex,
         bridge: mockBridge,
         streamingCubit: streamingCubit,
         initialPermissionMode: PermissionMode.acceptEdits,
-        initialCodexApprovalPolicy: CodexApprovalPolicy.onFailure,
       );
       addTearDown(cubit.close);
 
-      expect(cubit.state.codexApprovalPolicy, CodexApprovalPolicy.onFailure);
+      cubit.setCodexApprovalPolicy(
+        CodexApprovalPolicy.onRequest,
+        approvalsReviewer: 'auto_review',
+      );
+
+      expect(cubit.state.codexApprovalPolicy, CodexApprovalPolicy.onRequest);
+      expect(cubit.state.codexApprovalsReviewer, 'auto_review');
+      final payload =
+          jsonDecode(mockBridge.sentMessages.last.toJson())
+              as Map<String, dynamic>;
+      expect(payload['approvalPolicy'], 'on-request');
+      expect(payload['approvalsReviewer'], 'auto_review');
     });
 
     test(

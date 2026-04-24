@@ -147,6 +147,7 @@ class WorkspaceSessionSelection {
   final String? permissionMode;
   final String? sandboxMode;
   final String? approvalPolicy;
+  final String? approvalsReviewer;
   final ValueNotifier<SystemMessage?>? pendingSessionCreated;
 
   const WorkspaceSessionSelection({
@@ -159,6 +160,7 @@ class WorkspaceSessionSelection {
     this.permissionMode,
     this.sandboxMode,
     this.approvalPolicy,
+    this.approvalsReviewer,
     this.pendingSessionCreated,
   });
 }
@@ -758,6 +760,7 @@ class _WorkspaceContentHost extends StatelessWidget {
         initialSandboxMode: selection.sandboxMode,
         initialPermissionMode: selection.permissionMode,
         initialApprovalPolicy: selection.approvalPolicy,
+        initialApprovalsReviewer: selection.approvalsReviewer,
         pendingSessionCreated: selection.pendingSessionCreated,
         onBackToSessions: WorkspaceShellScreen.maybeOf(
           context,
@@ -927,9 +930,7 @@ class WorkspaceLandingScreen extends StatelessWidget {
                             key: const ValueKey('workspace_setup_guide_button'),
                             onPressed:
                                 currentShell?.openSetupGuideCenter ??
-                                () => context.router.push(
-                                  const SetupGuideRoute(),
-                                ),
+                                () => context.router.push(SetupGuideRoute()),
                             icon: const Icon(Icons.lightbulb_outline),
                             label: Text('${l.setupGuide} →'),
                           ),

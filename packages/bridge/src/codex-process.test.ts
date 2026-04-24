@@ -95,7 +95,7 @@ describe("CodexProcess (app-server)", () => {
     expect(startReq.params).toMatchObject({
       cwd: "/tmp/project-a",
       approvalPolicy: "on-request",
-      approvalsReviewer: "auto_review",
+      approvalsReviewer: "guardian_subagent",
       sandbox: "workspace-write",
       model: "gpt-5.3-codex",
     });
@@ -108,7 +108,7 @@ describe("CodexProcess (app-server)", () => {
           thread: { id: "thr_1" },
           model: "gpt-5.3-codex",
           approvalPolicy: "on-request",
-          approvalsReviewer: "auto_review",
+          approvalsReviewer: "guardian_subagent",
           sandbox: {
             type: "workspaceWrite",
             networkAccess: false,
@@ -129,6 +129,62 @@ describe("CodexProcess (app-server)", () => {
         approvalsReviewer: "auto_review",
         sandboxMode: "workspace-write",
         networkAccessEnabled: false,
+      }),
+    );
+
+    proc.stop();
+  });
+
+  it("falls back to requested approval reviewer in init when thread response omits it", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-auto-review", {
+      sandboxMode: "workspace-write",
+      approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+
+    const startReq = nextOutgoingRequest(child);
+    expect(startReq.params).toMatchObject({
+      approvalPolicy: "on-request",
+      approvalsReviewer: "guardian_subagent",
+      sandbox: "workspace-write",
+    });
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: startReq.id,
+        result: {
+          thread: { id: "thr_auto_review" },
+          model: "gpt-5.5",
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "init",
+        provider: "codex",
+        sessionId: "thr_auto_review",
+        approvalPolicy: "on-request",
+        approvalsReviewer: "auto_review",
+        sandboxMode: "workspace-write",
       }),
     );
 

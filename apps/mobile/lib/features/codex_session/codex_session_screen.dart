@@ -83,6 +83,7 @@ class CodexSessionScreen extends StatefulWidget {
   final String? initialSandboxMode;
   final String? initialPermissionMode;
   final String? initialApprovalPolicy;
+  final String? initialApprovalsReviewer;
   final VoidCallback? onBackToSessions;
   final bool hideSessionBackButton;
 
@@ -100,6 +101,7 @@ class CodexSessionScreen extends StatefulWidget {
     this.initialSandboxMode,
     this.initialPermissionMode,
     this.initialApprovalPolicy,
+    this.initialApprovalsReviewer,
     this.pendingSessionCreated,
     this.onBackToSessions,
     this.hideSessionBackButton = false,
@@ -119,6 +121,7 @@ class WorkspaceCodexSessionScreen extends StatelessWidget {
   final String? initialSandboxMode;
   final String? initialPermissionMode;
   final String? initialApprovalPolicy;
+  final String? initialApprovalsReviewer;
   final ValueNotifier<SystemMessage?>? pendingSessionCreated;
   final VoidCallback? onBackToSessions;
   final bool hideSessionBackButton;
@@ -133,6 +136,7 @@ class WorkspaceCodexSessionScreen extends StatelessWidget {
     this.initialSandboxMode,
     this.initialPermissionMode,
     this.initialApprovalPolicy,
+    this.initialApprovalsReviewer,
     this.pendingSessionCreated,
     this.onBackToSessions,
     this.hideSessionBackButton = false,
@@ -149,6 +153,7 @@ class WorkspaceCodexSessionScreen extends StatelessWidget {
       initialSandboxMode: initialSandboxMode,
       initialPermissionMode: initialPermissionMode,
       initialApprovalPolicy: initialApprovalPolicy,
+      initialApprovalsReviewer: initialApprovalsReviewer,
       pendingSessionCreated: pendingSessionCreated,
       onBackToSessions: onBackToSessions,
       hideSessionBackButton: hideSessionBackButton,
@@ -167,6 +172,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   SandboxMode? _sandboxMode;
   PermissionMode? _permissionMode;
   CodexApprovalPolicy? _codexApprovalPolicy;
+  String? _codexApprovalsReviewer;
   StreamSubscription<ServerMessage>? _pendingSub;
   StreamSubscription<ServerMessage>? _sandboxRestartSub;
   StreamSubscription<String>? _sessionStoppedSub;
@@ -185,6 +191,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
     _codexApprovalPolicy = codexApprovalPolicyFromRaw(
       widget.initialApprovalPolicy,
     );
+    _codexApprovalsReviewer = widget.initialApprovalsReviewer;
     final explorerHistory = bridge.getExplorerHistory(_sessionId);
     _explorerCurrentPath = explorerHistory.currentPath;
     _recentPeekedFiles = explorerHistory.recentPeekedFiles;
@@ -267,6 +274,8 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       _codexApprovalPolicy =
           codexApprovalPolicyFromRaw(msg.approvalPolicy) ??
           _codexApprovalPolicy;
+      _codexApprovalsReviewer =
+          msg.approvalsReviewer ?? _codexApprovalsReviewer;
       _explorerCurrentPath = explorerHistory.currentPath;
       _recentPeekedFiles = explorerHistory.recentPeekedFiles;
     });
@@ -291,6 +300,8 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       _codexApprovalPolicy =
           codexApprovalPolicyFromRaw(msg.approvalPolicy) ??
           _codexApprovalPolicy;
+      _codexApprovalsReviewer =
+          msg.approvalsReviewer ?? _codexApprovalsReviewer;
       _isPending = false;
     });
     _pendingSub?.cancel();
@@ -333,7 +344,8 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
         oldWidget.isPending == widget.isPending &&
         oldWidget.initialPermissionMode == widget.initialPermissionMode &&
         oldWidget.initialSandboxMode == widget.initialSandboxMode &&
-        oldWidget.initialApprovalPolicy == widget.initialApprovalPolicy) {
+        oldWidget.initialApprovalPolicy == widget.initialApprovalPolicy &&
+        oldWidget.initialApprovalsReviewer == widget.initialApprovalsReviewer) {
       return;
     }
 
@@ -351,6 +363,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       _codexApprovalPolicy = codexApprovalPolicyFromRaw(
         widget.initialApprovalPolicy,
       );
+      _codexApprovalsReviewer = widget.initialApprovalsReviewer;
       _explorerCurrentPath = explorerHistory.currentPath;
       _recentPeekedFiles = explorerHistory.recentPeekedFiles;
     });
@@ -415,6 +428,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       sandboxMode: _sandboxMode,
       permissionMode: _permissionMode,
       codexApprovalPolicy: _codexApprovalPolicy,
+      codexApprovalsReviewer: _codexApprovalsReviewer,
       onBackToSessions: widget.onBackToSessions,
       hideSessionBackButton: widget.hideSessionBackButton,
     );
@@ -435,6 +449,7 @@ class _CodexProviders extends StatelessWidget {
   final SandboxMode? sandboxMode;
   final PermissionMode? permissionMode;
   final CodexApprovalPolicy? codexApprovalPolicy;
+  final String? codexApprovalsReviewer;
   final VoidCallback? onBackToSessions;
   final bool hideSessionBackButton;
 
@@ -449,6 +464,7 @@ class _CodexProviders extends StatelessWidget {
     this.sandboxMode,
     this.permissionMode,
     this.codexApprovalPolicy,
+    this.codexApprovalsReviewer,
     this.onBackToSessions,
     this.hideSessionBackButton = false,
   });
@@ -470,6 +486,7 @@ class _CodexProviders extends StatelessWidget {
             initialSandboxMode: sandboxMode,
             initialPermissionMode: permissionMode,
             initialCodexApprovalPolicy: codexApprovalPolicy,
+            initialCodexApprovalsReviewer: codexApprovalsReviewer,
           ),
         ),
         BlocProvider.value(value: streamingCubit),

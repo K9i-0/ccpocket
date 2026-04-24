@@ -39,6 +39,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   PermissionMode? _pendingPermissionRollback;
   ExecutionMode? _pendingExecutionRollback;
+  CodexApprovalPolicy? _pendingCodexApprovalRollback;
+  String? _pendingCodexApprovalsReviewerRollback;
   bool? _pendingPlanRollback;
   SandboxMode? _pendingSandboxRollback;
 
@@ -55,6 +57,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     PermissionMode? initialPermissionMode,
     SandboxMode? initialSandboxMode,
     CodexApprovalPolicy? initialCodexApprovalPolicy,
+    String? initialCodexApprovalsReviewer,
   }) : _bridge = bridge,
        _streamingCubit = streamingCubit,
        super(
@@ -65,14 +68,23 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
              permissionMode: initialPermissionMode?.value,
            ),
            codexApprovalPolicy: provider == Provider.codex
-               ? (initialCodexApprovalPolicy ??
-                     codexApprovalPolicyFromLegacyExecutionMode(
-                       deriveExecutionMode(
-                         provider: provider?.value,
-                         permissionMode: initialPermissionMode?.value,
-                       ).value,
-                     ))
+               ? (initialCodexApprovalPolicy == CodexApprovalPolicy.onFailure
+                     ? CodexApprovalPolicy.onRequest
+                     : initialCodexApprovalPolicy ??
+                           codexApprovalPolicyFromLegacyExecutionMode(
+                             deriveExecutionMode(
+                               provider: provider?.value,
+                               permissionMode: initialPermissionMode?.value,
+                             ).value,
+                           ))
                : CodexApprovalPolicy.onRequest,
+           codexApprovalsReviewer:
+               provider == Provider.codex &&
+                   isCodexAutoReviewApprovalsReviewer(
+                     initialCodexApprovalsReviewer,
+                   )
+               ? 'auto_review'
+               : 'user',
            planMode: initialPermissionMode == PermissionMode.plan,
            sandboxMode:
                initialSandboxMode ??
@@ -419,6 +431,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         executionMode: update.executionMode ?? current.executionMode,
         codexApprovalPolicy:
             update.codexApprovalPolicy ?? current.codexApprovalPolicy,
+        codexApprovalsReviewer:
+            update.codexApprovalsReviewer ?? current.codexApprovalsReviewer,
         planMode: update.planMode ?? current.planMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
         claudeSessionId: newClaudeSessionId,
@@ -764,10 +778,20 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
   }
 
-  void setCodexApprovalPolicy(CodexApprovalPolicy policy) {
+  void setCodexApprovalPolicy(
+    CodexApprovalPolicy policy, {
+    String approvalsReviewer = 'user',
+  }) {
+    final normalizedReviewer =
+        policy == CodexApprovalPolicy.onRequest &&
+            isCodexAutoReviewApprovalsReviewer(approvalsReviewer)
+        ? 'auto_review'
+        : 'user';
     logger.info('[session:$sessionId] setCodexApprovalPolicy=${policy.value}');
     _pendingPermissionRollback = state.permissionMode;
     _pendingExecutionRollback = state.executionMode;
+    _pendingCodexApprovalRollback = state.codexApprovalPolicy;
+    _pendingCodexApprovalsReviewerRollback = state.codexApprovalsReviewer;
     _pendingPlanRollback = state.planMode;
 
     const legacyMode = PermissionMode.acceptEdits;
@@ -780,6 +804,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         permissionMode: legacyMode,
         executionMode: derivedExecution,
         codexApprovalPolicy: policy,
+        codexApprovalsReviewer: normalizedReviewer,
         planMode: false,
         inPlanMode: false,
       ),
@@ -790,12 +815,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       executionMode: derivedExecution.value,
       planMode: false,
       approvalPolicy: policy.value,
+      approvalsReviewer: normalizedReviewer,
     );
     _bridge.send(
       ClientMessage.setSessionMode(
         legacyMode: legacyMode.value,
         executionMode: derivedExecution.value,
         approvalPolicy: policy.value,
+        approvalsReviewer: normalizedReviewer,
         planMode: false,
         sessionId: sessionId,
       ),
@@ -829,6 +856,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           state.copyWith(
             permissionMode: previous,
             executionMode: _pendingExecutionRollback ?? state.executionMode,
+            codexApprovalPolicy:
+                _pendingCodexApprovalRollback ?? state.codexApprovalPolicy,
+            codexApprovalsReviewer:
+                _pendingCodexApprovalsReviewerRollback ??
+                state.codexApprovalsReviewer,
             planMode: _pendingPlanRollback ?? (previous == PermissionMode.plan),
             inPlanMode:
                 _pendingPlanRollback ?? (previous == PermissionMode.plan),
@@ -840,6 +872,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           executionMode:
               (_pendingExecutionRollback ?? state.executionMode).value,
           planMode: _pendingPlanRollback ?? (previous == PermissionMode.plan),
+          approvalPolicy:
+              (_pendingCodexApprovalRollback ?? state.codexApprovalPolicy)
+                  .value,
+          approvalsReviewer:
+              _pendingCodexApprovalsReviewerRollback ??
+              state.codexApprovalsReviewer,
         );
         final claudeSid = state.claudeSessionId;
         if (claudeSid != null && claudeSid.isNotEmpty) {
@@ -853,6 +891,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         }
       }
       _pendingExecutionRollback = null;
+      _pendingCodexApprovalRollback = null;
+      _pendingCodexApprovalsReviewerRollback = null;
       _pendingPlanRollback = null;
     }
 

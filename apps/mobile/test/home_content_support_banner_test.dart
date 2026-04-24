@@ -121,6 +121,8 @@ Widget _buildHomeContent({
                   provider,
                   permissionMode,
                   sandboxMode,
+                  approvalPolicy,
+                  approvalsReviewer,
                 }) {},
             onStopSession: (_) {},
             onResumeSession: (_) {},

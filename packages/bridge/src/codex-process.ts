@@ -296,7 +296,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   get approvalsReviewer(): string {
-    return this._approvalsReviewer;
+    return normalizeApprovalsReviewerForClient(
+      this._approvalsReviewer as CodexStartOptions["approvalsReviewer"],
+    );
   }
 
   /**
@@ -313,11 +315,11 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
    * Takes effect on the next `turn/start` RPC call.
    */
   setApprovalsReviewer(reviewer: string): void {
-    this._approvalsReviewer = normalizeApprovalsReviewer(
+    this._approvalsReviewer = normalizeApprovalsReviewerForAppServer(
       reviewer as CodexStartOptions["approvalsReviewer"],
     );
     console.log(
-      `[codex-process] Approvals reviewer changed to: ${this._approvalsReviewer}`,
+      `[codex-process] Approvals reviewer changed to: ${this.approvalsReviewer}`,
     );
   }
 
@@ -441,7 +443,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.lastTokenUsage = null;
     this.startModel = sanitizeCodexModel(options?.model);
     this._approvalPolicy = options?.approvalPolicy ?? "never";
-    this._approvalsReviewer = normalizeApprovalsReviewer(
+    this._approvalsReviewer = normalizeApprovalsReviewerForAppServer(
       options?.approvalsReviewer,
     );
     this._collaborationMode = options?.collaborationMode ?? "default";
@@ -458,7 +460,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   ): void {
     const spawnSpec = buildCodexSpawnSpec(projectPath, this.platform);
     console.log(
-      `[codex-process] Starting app-server (cwd: ${spawnSpec.options.cwd}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, reviewer: ${this._approvalsReviewer}, model: ${options?.model ?? "default"}, collaboration: ${this._collaborationMode})`,
+      `[codex-process] Starting app-server (cwd: ${spawnSpec.options.cwd}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, reviewer: ${this.approvalsReviewer}, model: ${options?.model ?? "default"}, collaboration: ${this._collaborationMode})`,
     );
 
     const child = spawn(
@@ -866,17 +868,23 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     try {
       await this.initializeRpcConnection();
 
+      const requestedApprovalPolicy = normalizeApprovalPolicy(
+        options?.approvalPolicy ?? "never",
+      );
+      const requestedApprovalsReviewer = normalizeApprovalsReviewerForAppServer(
+        options?.approvalsReviewer,
+      );
+      const requestedClientApprovalsReviewer =
+        normalizeApprovalsReviewerForClient(options?.approvalsReviewer);
+      const requestedSandboxMode = normalizeSandboxMode(
+        options?.sandboxMode ?? "workspace-write",
+      );
+
       const threadParams: Record<string, unknown> = {
         cwd: projectPath,
-        approvalPolicy: normalizeApprovalPolicy(
-          options?.approvalPolicy ?? "never",
-        ),
-        approvalsReviewer: normalizeApprovalsReviewer(
-          options?.approvalsReviewer,
-        ),
-        sandbox: normalizeSandboxMode(
-          options?.sandboxMode ?? "workspace-write",
-        ),
+        approvalPolicy: requestedApprovalPolicy,
+        approvalsReviewer: requestedApprovalsReviewer,
+        sandbox: requestedSandboxMode,
         experimentalRawEvents: false,
         persistExtendedHistory: true,
       };
@@ -950,14 +958,25 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         ...(sanitizeCodexModel(this.startModel)
           ? { model: sanitizeCodexModel(this.startModel) }
           : {}),
-        ...(resolvedSettings.approvalPolicy
-          ? { approvalPolicy: resolvedSettings.approvalPolicy }
+        ...(resolvedSettings.approvalPolicy ?? options?.approvalPolicy
+          ? {
+              approvalPolicy:
+                resolvedSettings.approvalPolicy ?? requestedApprovalPolicy,
+            }
           : {}),
-        ...(resolvedSettings.approvalsReviewer
-          ? { approvalsReviewer: resolvedSettings.approvalsReviewer }
+        ...(resolvedSettings.approvalsReviewer ?? options?.approvalsReviewer
+          ? {
+              approvalsReviewer: resolvedSettings.approvalsReviewer
+                ? normalizeApprovalsReviewerForClient(
+                    resolvedSettings.approvalsReviewer as CodexStartOptions[
+                      "approvalsReviewer"
+                    ],
+                  )
+                : requestedClientApprovalsReviewer,
+            }
           : {}),
-        ...(resolvedSettings.sandboxMode
-          ? { sandboxMode: resolvedSettings.sandboxMode }
+        ...(resolvedSettings.sandboxMode ?? options?.sandboxMode
+          ? { sandboxMode: resolvedSettings.sandboxMode ?? requestedSandboxMode }
           : {}),
         ...(resolvedSettings.modelReasoningEffort
           ? { modelReasoningEffort: resolvedSettings.modelReasoningEffort }
@@ -1206,7 +1225,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           approvalPolicy: normalizeApprovalPolicy(
             this._approvalPolicy as CodexStartOptions["approvalPolicy"],
           ),
-          approvalsReviewer: normalizeApprovalsReviewer(
+          approvalsReviewer: normalizeApprovalsReviewerForAppServer(
             this._approvalsReviewer as CodexStartOptions["approvalsReviewer"],
           ),
         };
@@ -2255,7 +2274,20 @@ function normalizeApprovalPolicy(
   }
 }
 
-function normalizeApprovalsReviewer(
+function normalizeApprovalsReviewerForAppServer(
+  value: CodexStartOptions["approvalsReviewer"],
+): string {
+  switch (value) {
+    case "auto_review":
+    case "guardian_subagent":
+      return "guardian_subagent";
+    case "user":
+    default:
+      return "user";
+  }
+}
+
+function normalizeApprovalsReviewerForClient(
   value: CodexStartOptions["approvalsReviewer"],
 ): string {
   switch (value) {

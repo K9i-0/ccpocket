@@ -7,6 +7,7 @@ class CodexEnvironmentSummary extends StatelessWidget {
   final String? model;
   final String? reasoningEffort;
   final String? approvalPolicy;
+  final String? approvalsReviewer;
   final String? sandboxMode;
   final bool showDefaultReasoning;
   final bool compact;
@@ -17,6 +18,7 @@ class CodexEnvironmentSummary extends StatelessWidget {
     this.model,
     this.reasoningEffort,
     this.approvalPolicy,
+    this.approvalsReviewer,
     this.sandboxMode,
     this.showDefaultReasoning = false,
     this.compact = false,
@@ -42,10 +44,16 @@ class CodexEnvironmentSummary extends StatelessWidget {
           )
           case final modelText?)
         Text(modelText, style: textStyle, overflow: TextOverflow.ellipsis),
-      if (_executionLabel(approvalPolicy: approvalPolicy)
+      if (_executionLabel(
+            approvalPolicy: approvalPolicy,
+            approvalsReviewer: approvalsReviewer,
+          )
           case final executionLabel?)
         _EnvironmentMeta(
-          icon: _executionIcon(approvalPolicy: approvalPolicy),
+          icon: _executionIcon(
+            approvalPolicy: approvalPolicy,
+            approvalsReviewer: approvalsReviewer,
+          ),
           label: executionLabel,
           compact: compact,
         ),
@@ -123,21 +131,29 @@ String? _displayModelSummary(
   return '$model $effortLabel';
 }
 
-IconData _executionIcon({String? approvalPolicy}) {
+IconData _executionIcon({String? approvalPolicy, String? approvalsReviewer}) {
+  if (approvalPolicy == 'on-request' &&
+      isCodexAutoReviewApprovalsReviewer(approvalsReviewer)) {
+    return Icons.auto_mode_outlined;
+  }
   return switch (approvalPolicy) {
     'never' => Icons.flash_on,
-    'on-failure' => Icons.auto_mode_outlined,
+    'on-failure' => Icons.tune,
     'untrusted' => Icons.verified_user_outlined,
     'on-request' || null || '' => Icons.tune,
     _ => Icons.tune,
   };
 }
 
-String? _executionLabel({String? approvalPolicy}) {
+String? _executionLabel({String? approvalPolicy, String? approvalsReviewer}) {
+  if (approvalPolicy == 'on-request' &&
+      isCodexAutoReviewApprovalsReviewer(approvalsReviewer)) {
+    return 'Auto Review';
+  }
   return switch (approvalPolicy) {
     'untrusted' => 'Untrusted',
     'on-request' => 'On Request',
-    'on-failure' => 'On Failure',
+    'on-failure' => 'On Request',
     'never' => 'Never Ask',
     null || '' => null,
     final other => other,
