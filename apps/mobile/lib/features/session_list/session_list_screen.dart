@@ -1733,6 +1733,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      constraints: macOSModalBottomSheetConstraints(context),
       backgroundColor: Colors.transparent,
       builder: (ctx) => MachineEditSheet(
         machine: Machine(
@@ -1928,6 +1929,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      constraints: macOSModalBottomSheetConstraints(context),
       backgroundColor: Colors.transparent,
       builder: (ctx) => MachineEditSheet(
         machine: m.machine,
@@ -1980,6 +1982,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      constraints: macOSModalBottomSheetConstraints(context),
       backgroundColor: Colors.transparent,
       builder: (ctx) => MachineEditSheet(
         onSave: ({required machine, apiKey, sshPassword, sshPrivateKey}) async {

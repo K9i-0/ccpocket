@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/app_icon.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
 
 Future<void> showAppIconBottomSheet({
   required BuildContext context,
@@ -13,6 +14,7 @@ Future<void> showAppIconBottomSheet({
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     showDragHandle: true,
     builder: (ctx) => _AppIconBottomSheetContent(
       current: current,

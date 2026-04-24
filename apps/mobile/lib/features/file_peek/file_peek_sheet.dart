@@ -15,6 +15,7 @@ import '../../theme/markdown_style.dart'
         handleMarkdownLink,
         highlightToTextSpans,
         markdownBuilders;
+import '../../widgets/workspace_pane_chrome.dart';
 
 /// Resolves a potentially partial file path against the project's file list,
 /// then shows the file peek sheet.
@@ -183,6 +184,7 @@ Future<void> showFilePeekSheet(
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     useSafeArea: true,
     backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(

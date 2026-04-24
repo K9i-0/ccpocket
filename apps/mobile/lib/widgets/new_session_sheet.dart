@@ -12,6 +12,7 @@ import '../models/new_session_tab.dart';
 import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
+import 'workspace_pane_chrome.dart';
 
 /// Result returned when the user submits the new session sheet.
 class NewSessionParams {
@@ -331,6 +332,7 @@ Future<NewSessionParams?> showNewSessionSheet({
   return showModalBottomSheet<NewSessionParams>(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     useSafeArea: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

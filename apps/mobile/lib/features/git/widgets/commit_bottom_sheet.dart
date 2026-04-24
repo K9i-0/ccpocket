@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../widgets/workspace_pane_chrome.dart';
 import '../state/commit_cubit.dart';
 import '../state/commit_state.dart';
 
@@ -9,6 +10,7 @@ void showCommitBottomSheet(BuildContext context) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     builder: (_) => BlocProvider.value(
       value: context.read<CommitCubit>(),
       child: const _CommitBottomSheetContent(),

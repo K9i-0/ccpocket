@@ -4,6 +4,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/provider_style.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
 
 /// Shows a bottom sheet for configuring visible new-session tabs and their order.
 Future<void> showNewSessionTabsBottomSheet({
@@ -14,6 +15,7 @@ Future<void> showNewSessionTabsBottomSheet({
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     useSafeArea: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

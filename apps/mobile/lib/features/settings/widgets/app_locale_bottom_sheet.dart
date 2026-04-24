@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
 
 /// Available app display locales.
 /// id is empty string for system default, otherwise a language code
@@ -22,6 +23,7 @@ Future<void> showAppLocaleBottomSheet({
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     useSafeArea: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

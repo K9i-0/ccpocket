@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_theme.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
 
 /// Shows a bottom sheet for selecting the app theme mode.
 Future<void> showThemeBottomSheet({
@@ -11,6 +12,7 @@ Future<void> showThemeBottomSheet({
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     useSafeArea: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/terminal_app.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
 
 const _kCustomKey = '__custom__';
 
@@ -16,6 +17,7 @@ Future<void> showTerminalAppBottomSheet({
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     useSafeArea: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

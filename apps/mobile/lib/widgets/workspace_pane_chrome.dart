@@ -20,6 +20,25 @@ const _windowChromeChannelName = 'ccpocket/window_chrome';
 
 enum WorkspacePaneSlot { left, center, right }
 
+BoxConstraints? macOSModalBottomSheetConstraints(
+  BuildContext context, {
+  double? maxHeight,
+}) {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.macOS) {
+    return maxHeight == null ? null : BoxConstraints(maxHeight: maxHeight);
+  }
+
+  final screenHeight = MediaQuery.sizeOf(context).height;
+  const reservedTopHeight = kToolbarHeight;
+  final macOSMaxHeight = (screenHeight - reservedTopHeight)
+      .clamp(0.0, screenHeight)
+      .toDouble();
+  final effectiveMaxHeight = maxHeight == null || maxHeight > macOSMaxHeight
+      ? macOSMaxHeight
+      : maxHeight;
+  return BoxConstraints(maxHeight: effectiveMaxHeight);
+}
+
 class _WindowChromeGateway {
   const _WindowChromeGateway();
 

@@ -3,12 +3,14 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/markdown_style.dart';
+import 'workspace_pane_chrome.dart';
 
 /// Shows a full-screen bottom sheet with the complete plan text.
 Future<void> showPlanDetailSheet(BuildContext context, String planText) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     useSafeArea: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

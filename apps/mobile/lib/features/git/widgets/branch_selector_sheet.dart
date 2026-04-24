@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
 import '../state/branch_cubit.dart';
 import '../state/branch_state.dart';
 
@@ -11,6 +12,7 @@ void showBranchSelectorSheet(BuildContext context, String projectPath) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     builder: (_) => BlocProvider(
       create: (_) => BranchCubit(
         bridge: context.read<BridgeService>(),

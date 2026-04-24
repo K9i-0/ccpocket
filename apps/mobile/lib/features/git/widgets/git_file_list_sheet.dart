@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../state/git_view_state.dart';
 import '../../../utils/diff_parser.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
+import '../state/git_view_state.dart';
 
 Future<int?> showGitFileListSheet(
   BuildContext context, {
@@ -11,6 +12,7 @@ Future<int?> showGitFileListSheet(
   return showModalBottomSheet<int>(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     useSafeArea: true,
     backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(

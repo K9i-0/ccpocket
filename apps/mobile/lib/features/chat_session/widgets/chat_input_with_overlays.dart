@@ -19,6 +19,7 @@ import '../../../utils/diff_parser.dart';
 import '../../../widgets/chat_input_bar.dart';
 import '../../../widgets/file_mention_overlay.dart';
 import '../../../widgets/slash_command_overlay.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
 import '../../settings/state/settings_cubit.dart';
 import '../../../services/draft_service.dart';
 import '../../prompt_history/widgets/prompt_history_sheet.dart';
@@ -730,9 +731,9 @@ class ChatInputWithOverlays extends HookWidget {
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
-        ),
+        constraints:
+            macOSModalBottomSheetConstraints(context) ??
+            BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
         builder: (_) => PromptHistorySheet(
           service: service,
           currentProjectPath: projectPath,

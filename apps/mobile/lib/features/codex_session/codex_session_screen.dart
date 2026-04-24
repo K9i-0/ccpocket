@@ -1395,6 +1395,7 @@ void _showUserMessageHistory(
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     useSafeArea: true,
     builder: (_) => UserMessageHistorySheet(
       messages: messages,

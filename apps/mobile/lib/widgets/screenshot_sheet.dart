@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/messages.dart';
 import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
+import 'workspace_pane_chrome.dart';
 
 /// Shows a bottom sheet for taking screenshots of the macOS desktop or
 /// individual windows. Captured images are automatically saved to the gallery.
@@ -18,6 +19,7 @@ Future<void> showScreenshotSheet({
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    constraints: macOSModalBottomSheetConstraints(context),
     useSafeArea: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
