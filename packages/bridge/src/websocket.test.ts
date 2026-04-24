@@ -353,7 +353,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
 
     const session = (bridge as any).sessionManager.get("s-1");
     expect(session.codexOptions).toMatchObject({
-      additionalWritableRoots: ["/tmp/shared"],
+      additionalWritableRoots: [resolve("/tmp/shared")],
     });
 
     bridge.close();
@@ -496,7 +496,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const session = (bridge as any).sessionManager.get("s-1");
     expect(session.codexOptions).toMatchObject({
       threadId: "thr_123",
-      additionalWritableRoots: ["/tmp/shared"],
+      additionalWritableRoots: [resolve("/tmp/shared")],
     });
 
     bridge.close();
