@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.42.1] - 2026-04-24
+
+### Changed
+- Bump `@anthropic-ai/claude-agent-sdk` from 0.2.112 to 0.2.119
+
 ## [1.42.0] - 2026-04-24
 
 ### Added

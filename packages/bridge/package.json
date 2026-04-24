@@ -1,6 +1,6 @@
 {
   "name": "@ccpocket/bridge",
-  "version": "1.42.0",
+  "version": "1.42.1",
   "description": "Bridge server that connects Claude Agent SDK and Codex CLI sessions to mobile devices via WebSocket",
   "private": false,
   "type": "module",
@@ -51,7 +51,7 @@
     "doctor": "tsx src/cli.ts doctor"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.112",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.119",
     "bonjour-service": "^1.3.0",
     "qrcode": "^1.5.4",
     "socks": "^2.8.7",
