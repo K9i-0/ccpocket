@@ -6,6 +6,10 @@ import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/widgets/new_session_sheet.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const _additionalWritableRootHistoryKey =
+    'new_session_additional_writable_root_history';
 
 class _BridgeWithCodexProfiles extends BridgeService {
   _BridgeWithCodexProfiles({
@@ -174,6 +178,101 @@ void main() {
   });
 
   group('NewSessionSheet - worktree UI', () {
+    testWidgets(
+      'additional writable root free input is saved as a suggestion',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        _enlargeViewport(tester);
+        await tester.pumpWidget(
+          _wrap(
+            Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showNewSessionSheet(
+                    context: context,
+                    recentProjects: [
+                      (path: '/Users/me/Workspace/main', name: 'main'),
+                    ],
+                    initialParams: NewSessionParams(
+                      projectPath: '/Users/me/Workspace/main',
+                    ),
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        final addButton = find.byKey(
+          const ValueKey('additional_writable_root_add_button'),
+        );
+        await tester.ensureVisible(addButton);
+        await tester.tap(addButton);
+        await tester.pumpAndSettle();
+
+        const extraProject = '/Users/me/Workspace/codex';
+        await tester.enterText(
+          find.byKey(const ValueKey('additional_writable_root_field')),
+          extraProject,
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('additional_writable_root_submit_button')),
+        );
+        await tester.pumpAndSettle();
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getStringList(_additionalWritableRootHistoryKey), [
+          extraProject,
+        ]);
+      },
+    );
+
+    testWidgets('additional writable root history appears in add sheet', (
+      tester,
+    ) async {
+      const extraProject = '/Users/me/Workspace/codex';
+      SharedPreferences.setMockInitialValues({
+        _additionalWritableRootHistoryKey: [extraProject],
+      });
+      _enlargeViewport(tester);
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                showNewSessionSheet(
+                  context: context,
+                  recentProjects: [
+                    (path: '/Users/me/Workspace/main', name: 'main'),
+                  ],
+                  initialParams: NewSessionParams(
+                    projectPath: '/Users/me/Workspace/main',
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final addButton = find.byKey(
+        const ValueKey('additional_writable_root_add_button'),
+      );
+      await tester.ensureVisible(addButton);
+      await tester.tap(addButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text(extraProject), findsOneWidget);
+    });
+
     testWidgets('Codex profile picker stays hidden when no profiles exist', (
       tester,
     ) async {

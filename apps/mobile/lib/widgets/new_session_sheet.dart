@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/session_list/session_list_screen.dart'
     show recentProjects, shortenPath;
@@ -359,6 +360,10 @@ const _defaultRecentProjects = 5;
 /// Maximum number of recent projects shown when expanded.
 const _maxRecentProjects = 20;
 
+const _additionalWritableRootHistoryKey =
+    'new_session_additional_writable_root_history';
+const _maxAdditionalWritableRootHistory = 20;
+
 class _NewSessionSheetContent extends StatefulWidget {
   final List<({String path, String name})> recentProjects;
   final List<String> projectHistory;
@@ -489,6 +494,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   bool _codexNetworkAccessTouched = false;
   bool _codexWebSearchTouched = false;
   var _additionalWritableRoots = <String>[];
+  var _additionalWritableRootHistory = <String>[];
 
   // Project list expansion
   bool _isProjectListExpanded = false;
@@ -604,6 +610,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         setState(() => _liveProjectHistory = projects);
       }
     });
+    unawaited(_loadAdditionalWritableRootHistory());
     _applyInitialParams();
     // Pre-fill project path with allowedDirs prefix when the path is empty
     // and the server has exactly one allowed directory.
@@ -746,8 +753,10 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   List<String> get _addDirSuggestions {
     final selectedProject = _pathController.text.trim();
     final seen = <String>{..._additionalWritableRoots, selectedProject};
-    return _allMergedProjects
-        .map((project) => project.path)
+    return _uniquePaths([
+          ..._additionalWritableRootHistory,
+          ..._allMergedProjects.map((project) => project.path),
+        ])
         .where((path) => path.trim().isNotEmpty && !seen.contains(path))
         .take(8)
         .toList();
@@ -756,6 +765,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   void _addWritableRoot(String path) {
     final normalized = path.trim();
     if (normalized.isEmpty) return;
+    _rememberAdditionalWritableRoot(normalized);
     if (_additionalWritableRoots.contains(normalized)) return;
     setState(() {
       _additionalWritableRoots = [..._additionalWritableRoots, normalized];
@@ -813,6 +823,52 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     final match = RegExp(r'^/Users/[^/]+').firstMatch(path);
     if (match != null) return match.group(0)!;
     return '';
+  }
+
+  Future<void> _loadAdditionalWritableRootHistory() async {
+    final SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    final stored = prefs.getStringList(_additionalWritableRootHistoryKey) ?? [];
+    setState(() {
+      _additionalWritableRootHistory = _uniquePaths([
+        ..._additionalWritableRootHistory,
+        ...stored,
+      ]).take(_maxAdditionalWritableRootHistory).toList();
+    });
+  }
+
+  void _rememberAdditionalWritableRoot(String path) {
+    final nextHistory = _uniquePaths([
+      path,
+      ..._additionalWritableRootHistory,
+    ]).take(_maxAdditionalWritableRootHistory).toList();
+    setState(() => _additionalWritableRootHistory = nextHistory);
+    unawaited(_saveAdditionalWritableRootHistory(nextHistory));
+  }
+
+  Future<void> _saveAdditionalWritableRootHistory(List<String> history) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_additionalWritableRootHistoryKey, history);
+    } catch (_) {
+      // SharedPreferences can be unavailable in widget tests.
+    }
+  }
+
+  List<String> _uniquePaths(Iterable<String> paths) {
+    final seen = <String>{};
+    final result = <String>[];
+    for (final path in paths) {
+      final normalized = path.trim();
+      if (normalized.isEmpty || !seen.add(normalized)) continue;
+      result.add(normalized);
+    }
+    return result;
   }
 
   Future<void> _onProjectRemoved(String path) async {
