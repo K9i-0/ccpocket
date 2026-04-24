@@ -638,6 +638,9 @@ class _SessionListScreenState extends State<SessionListScreen>
         webSearchMode: result.provider == Provider.codex && useCodexProfile
             ? null
             : result.webSearchMode?.value,
+        additionalWritableRoots: result.provider == Provider.codex
+            ? result.additionalWritableRoots
+            : null,
       ),
     );
     // Navigate immediately to chat with pending state
@@ -886,6 +889,9 @@ class _SessionListScreenState extends State<SessionListScreen>
       ),
       networkAccessEnabled: session.codexNetworkAccessEnabled,
       webSearchMode: webSearchModeFromRaw(session.codexWebSearchMode),
+      additionalWritableRoots: provider == Provider.codex
+          ? session.codexAdditionalWritableRoots
+          : const [],
       claudeModel: sessionSettings?['claudeModel'] as String?,
       claudeEffort: claudeEffortFromRaw(
         sessionSettings?['claudeEffort'] as String?,
@@ -1244,6 +1250,9 @@ class _SessionListScreenState extends State<SessionListScreen>
       webSearchMode: isCodex
           ? (useCodexProfile ? null : session.codexWebSearchMode)
           : null,
+      additionalWritableRoots: isCodex
+          ? session.codexAdditionalWritableRoots
+          : null,
     );
 
     // Persist settings for this session (so the next resume uses them too).
@@ -1335,6 +1344,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       webSearchMode: isCodex && useCodexProfile
           ? null
           : (isCodex ? edited.webSearchMode?.value : null),
+      additionalWritableRoots: isCodex ? edited.additionalWritableRoots : null,
     );
 
     // Persist per-session Claude settings for future resumes.

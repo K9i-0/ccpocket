@@ -589,6 +589,7 @@ class BridgeService implements BridgeServiceBase {
     String? modelReasoningEffort,
     bool? networkAccessEnabled,
     String? webSearchMode,
+    List<String>? additionalWritableRoots,
   }) {
     send(
       ClientMessage.resumeSession(
@@ -612,6 +613,7 @@ class BridgeService implements BridgeServiceBase {
         modelReasoningEffort: modelReasoningEffort,
         networkAccessEnabled: networkAccessEnabled,
         webSearchMode: webSearchMode,
+        additionalWritableRoots: additionalWritableRoots,
       ),
     );
   }

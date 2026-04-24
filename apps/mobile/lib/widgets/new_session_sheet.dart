@@ -39,6 +39,7 @@ class NewSessionParams {
   final ReasoningEffort? modelReasoningEffort;
   final bool? networkAccessEnabled;
   final WebSearchMode? webSearchMode;
+  final List<String> additionalWritableRoots;
   final String? claudeModel;
   final ClaudeEffort? claudeEffort;
   final int? claudeMaxTurns;
@@ -72,6 +73,7 @@ class NewSessionParams {
     this.modelReasoningEffort,
     this.networkAccessEnabled,
     this.webSearchMode,
+    this.additionalWritableRoots = const [],
     this.claudeModel,
     this.claudeEffort,
     this.claudeMaxTurns,
@@ -136,6 +138,7 @@ class NewSessionParams {
     ReasoningEffort? modelReasoningEffort,
     bool? networkAccessEnabled,
     WebSearchMode? webSearchMode,
+    List<String>? additionalWritableRoots,
     String? claudeModel,
     ClaudeEffort? claudeEffort,
     int? claudeMaxTurns,
@@ -175,6 +178,8 @@ class NewSessionParams {
       modelReasoningEffort: modelReasoningEffort ?? this.modelReasoningEffort,
       networkAccessEnabled: networkAccessEnabled ?? this.networkAccessEnabled,
       webSearchMode: webSearchMode ?? this.webSearchMode,
+      additionalWritableRoots:
+          additionalWritableRoots ?? this.additionalWritableRoots,
       claudeModel: claudeModel ?? this.claudeModel,
       claudeEffort: claudeEffort ?? this.claudeEffort,
       claudeMaxTurns: claudeMaxTurns ?? this.claudeMaxTurns,
@@ -434,6 +439,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   final _branchController = TextEditingController();
   final _claudeMaxTurnsController = TextEditingController();
   final _claudeMaxBudgetController = TextEditingController();
+  final _additionalWritableRootController = TextEditingController();
   late final PageController _pageController;
   var _provider = Provider.codex;
   var _claudePermissionMode = PermissionMode.defaultMode;
@@ -482,6 +488,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   bool _codexReasoningEffortTouched = false;
   bool _codexNetworkAccessTouched = false;
   bool _codexWebSearchTouched = false;
+  var _additionalWritableRoots = <String>[];
 
   // Project list expansion
   bool _isProjectListExpanded = false;
@@ -626,6 +633,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _branchController.dispose();
     _claudeMaxTurnsController.dispose();
     _claudeMaxBudgetController.dispose();
+    _additionalWritableRootController.dispose();
     super.dispose();
   }
 
@@ -684,6 +692,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _modelReasoningEffort = p.modelReasoningEffort ?? _modelReasoningEffort;
     _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
     _webSearchMode = p.webSearchMode;
+    _additionalWritableRoots = [...p.additionalWritableRoots];
     _selectedClaudeModel = _claudeModelList.contains(p.claudeModel)
         ? p.claudeModel
         : null;
@@ -732,6 +741,45 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
         widget.bridge?.requestWorktreeList(path);
       }
     });
+  }
+
+  List<String> get _addDirSuggestions {
+    final selectedProject = _pathController.text.trim();
+    final seen = <String>{..._additionalWritableRoots, selectedProject};
+    return _allMergedProjects
+        .map((project) => project.path)
+        .where((path) => path.trim().isNotEmpty && !seen.contains(path))
+        .take(8)
+        .toList();
+  }
+
+  void _addWritableRoot(String path) {
+    final normalized = path.trim();
+    if (normalized.isEmpty) return;
+    if (_additionalWritableRoots.contains(normalized)) return;
+    setState(() {
+      _additionalWritableRoots = [..._additionalWritableRoots, normalized];
+    });
+  }
+
+  void _removeWritableRoot(String path) {
+    setState(() {
+      _additionalWritableRoots = [
+        for (final root in _additionalWritableRoots)
+          if (root != path) root,
+      ];
+    });
+  }
+
+  Future<void> _openAddWritableRootSheet() async {
+    _additionalWritableRootController.clear();
+    final selected = await _showAddWritableRootSheet(
+      context: context,
+      controller: _additionalWritableRootController,
+      suggestions: _addDirSuggestions,
+    );
+    if (selected == null || !mounted) return;
+    _addWritableRoot(selected);
   }
 
   Future<void> _onProjectRemoved(String path) async {
@@ -842,6 +890,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
       networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
       webSearchMode: isCodex ? _webSearchMode : null,
+      additionalWritableRoots: isCodex ? _additionalWritableRoots : const [],
       claudeModel: !isCodex ? _selectedClaudeModel : null,
       claudeEffort: !isCodex ? _claudeEffort : null,
       claudeMaxTurns: !isCodex ? claudeMaxTurns : null,
@@ -943,6 +992,16 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             ),
             onChanged: () => setState(() {}),
           ),
+          if (pageProvider == Provider.codex) ...[
+            const SizedBox(height: 12),
+            _AdditionalWritableRootsSection(
+              roots: _additionalWritableRoots,
+              suggestions: _addDirSuggestions,
+              onAddPressed: _openAddWritableRootSheet,
+              onSuggestionSelected: _addWritableRoot,
+              onDeleted: _removeWritableRoot,
+            ),
+          ],
           const SizedBox(height: 12),
           _OptionsSection(
             appColors: appColors,
@@ -1522,6 +1581,235 @@ class _PathInput extends StatelessWidget {
         controller: controller,
         decoration: decoration,
         onChanged: (_) => onChanged(),
+      ),
+    );
+  }
+}
+
+class _AdditionalWritableRootsSection extends StatelessWidget {
+  final List<String> roots;
+  final List<String> suggestions;
+  final VoidCallback onAddPressed;
+  final ValueChanged<String> onSuggestionSelected;
+  final ValueChanged<String> onDeleted;
+
+  const _AdditionalWritableRootsSection({
+    required this.roots,
+    required this.suggestions,
+    required this.onAddPressed,
+    required this.onSuggestionSelected,
+    required this.onDeleted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final visibleSuggestions = suggestions.take(3).toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.create_new_folder_outlined,
+                  size: 18,
+                  color: cs.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l.additionalWritableRootsTitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Tooltip(
+                  message: l.additionalWritableRootsTooltip,
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              l.additionalWritableRootsDescription,
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final root in roots)
+                  InputChip(
+                    key: ValueKey('additional_writable_root_${root.hashCode}'),
+                    label: Text(shortenPath(root)),
+                    tooltip: root,
+                    onDeleted: () => onDeleted(root),
+                  ),
+                ActionChip(
+                  key: const ValueKey('additional_writable_root_add_button'),
+                  avatar: const Icon(Icons.add, size: 18),
+                  label: Text(l.addDirectory),
+                  onPressed: onAddPressed,
+                ),
+              ],
+            ),
+            if (visibleSuggestions.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                l.additionalWritableRootsSuggestions,
+                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final suggestion in visibleSuggestions)
+                    ActionChip(
+                      key: ValueKey(
+                        'additional_writable_root_suggestion_${suggestion.hashCode}',
+                      ),
+                      label: Text(shortenPath(suggestion)),
+                      tooltip: suggestion,
+                      onPressed: () => onSuggestionSelected(suggestion),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<String?> _showAddWritableRootSheet({
+  required BuildContext context,
+  required TextEditingController controller,
+  required List<String> suggestions,
+}) {
+  return showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (sheetContext) =>
+        _AddWritableRootSheet(controller: controller, suggestions: suggestions),
+  );
+}
+
+class _AddWritableRootSheet extends StatelessWidget {
+  final TextEditingController controller;
+  final List<String> suggestions;
+
+  const _AddWritableRootSheet({
+    required this.controller,
+    required this.suggestions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final cs = Theme.of(context).colorScheme;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l.addDirectory,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l.additionalWritableRootsTooltip,
+              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('additional_writable_root_field'),
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: l.directoryPath,
+                hintText: '/Users/me/Workspace/other-project',
+                border: const OutlineInputBorder(),
+              ),
+              onSubmitted: (value) {
+                final trimmed = value.trim();
+                if (trimmed.isNotEmpty) Navigator.pop(context, trimmed);
+              },
+            ),
+            if (suggestions.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                l.additionalWritableRootsSuggestions,
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final suggestion in suggestions)
+                    ActionChip(
+                      label: Text(shortenPath(suggestion)),
+                      tooltip: suggestion,
+                      onPressed: () => Navigator.pop(context, suggestion),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(l.cancel),
+                ),
+                const Spacer(),
+                FilledButton.icon(
+                  key: const ValueKey('additional_writable_root_submit_button'),
+                  onPressed: () {
+                    final trimmed = controller.text.trim();
+                    if (trimmed.isNotEmpty) Navigator.pop(context, trimmed);
+                  },
+                  icon: const Icon(Icons.add),
+                  label: Text(l.add),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

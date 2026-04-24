@@ -12,6 +12,7 @@ const DEFAULT_CODEX_MODEL = "gpt-5.5";
 export interface CodexStartOptions {
   threadId?: string;
   profile?: string;
+  additionalWritableRoots?: string[];
   approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
   approvalsReviewer?: "user" | "auto_review" | "guardian_subagent";
   sandboxMode?: "read-only" | "workspace-write" | "danger-full-access";
@@ -921,6 +922,15 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       if (options?.profile) {
         threadConfig.profile = options.profile;
       }
+      const writableRoots = await this.resolveWritableRootsConfig(
+        projectPath,
+        options?.additionalWritableRoots,
+      );
+      if (writableRoots) {
+        threadConfig.sandbox_workspace_write = {
+          writable_roots: writableRoots,
+        };
+      }
       if (Object.keys(threadConfig).length > 0) {
         threadParams.config = {
           ...(threadParams.config as Record<string, unknown> | undefined),
@@ -989,6 +999,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         ...(resolvedSettings.webSearchMode
           ? { webSearchMode: resolvedSettings.webSearchMode }
           : {}),
+        ...(options?.additionalWritableRoots?.length
+          ? { additionalWritableRoots: options.additionalWritableRoots }
+          : {}),
       });
       this.setStatus("idle");
 
@@ -1016,6 +1029,27 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.setStatus("idle");
       this.emit("exit", 1);
     }
+  }
+
+  private async resolveWritableRootsConfig(
+    projectPath: string,
+    additionalWritableRoots?: string[],
+  ): Promise<string[] | undefined> {
+    const normalizedAdditional = normalizeWritableRoots(
+      additionalWritableRoots ?? [],
+      this.platform,
+    );
+    if (normalizedAdditional.length === 0) return undefined;
+
+    const response = (await this.request("config/read", {
+      includeLayers: false,
+      cwd: projectPath,
+    })) as unknown;
+    const configuredRoots = extractWritableRootsFromConfigRead(response);
+    return normalizeWritableRoots(
+      [...configuredRoots, ...normalizedAdditional],
+      this.platform,
+    );
   }
 
   private async initializeRpcConnection(): Promise<void> {
@@ -2256,6 +2290,38 @@ function buildUserInputResponse(
   }
 
   return buildElicitationResponse(pending, rawResult);
+}
+
+function extractWritableRootsFromConfigRead(response: unknown): string[] {
+  if (!response || typeof response !== "object") return [];
+  const config = (response as Record<string, unknown>).config;
+  if (!config || typeof config !== "object") return [];
+  const workspaceWrite = (config as Record<string, unknown>)
+    .sandbox_workspace_write;
+  if (!workspaceWrite || typeof workspaceWrite !== "object") return [];
+  const writableRoots = (workspaceWrite as Record<string, unknown>)
+    .writable_roots;
+  if (!Array.isArray(writableRoots)) return [];
+  return writableRoots.filter(
+    (root): root is string => typeof root === "string",
+  );
+}
+
+function normalizeWritableRoots(
+  roots: string[],
+  platform: NodeJS.Platform,
+): string[] {
+  const normalized = new Map<string, string>();
+  for (const root of roots) {
+    const trimmed = root.trim();
+    if (!trimmed) continue;
+    const resolved = resolvePlatformPath(trimmed, platform);
+    const key = platform === "win32" ? resolved.toLowerCase() : resolved;
+    if (!normalized.has(key)) {
+      normalized.set(key, resolved);
+    }
+  }
+  return [...normalized.values()];
 }
 
 function normalizeApprovalPolicy(

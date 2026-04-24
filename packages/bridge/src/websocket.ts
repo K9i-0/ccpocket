@@ -73,6 +73,7 @@ import { getPackageVersion } from "./version.js";
 import {
   isPathWithinAllowedDirectory,
   resolvePlatformPath,
+  resolvePlatformPathFrom,
 } from "./path-utils.js";
 
 type SystemServerMessage = Extract<ServerMessage, { type: "system" }>;
@@ -407,6 +408,31 @@ export class BridgeWebSocketServer {
     };
   }
 
+  private normalizeAdditionalWritableRoots(
+    roots: string[] | undefined,
+    projectPath: string,
+  ): { roots?: string[]; deniedRoot?: string } {
+    if (!roots || roots.length === 0) return {};
+    const normalized = new Map<string, string>();
+    for (const root of roots) {
+      const trimmed = root.trim();
+      if (!trimmed) continue;
+      const resolved = resolvePlatformPathFrom(
+        projectPath,
+        trimmed,
+        this.platform,
+      );
+      if (!this.isPathAllowed(resolved)) {
+        return { deniedRoot: root };
+      }
+      const key = this.platform === "win32" ? resolved.toLowerCase() : resolved;
+      if (!normalized.has(key)) {
+        normalized.set(key, resolved);
+      }
+    }
+    return { roots: [...normalized.values()] };
+  }
+
   private buildSessionCreatedMessage(params: {
     sessionId: string;
     provider: Provider;
@@ -547,6 +573,10 @@ export class BridgeWebSocketServer {
       }
       if (session.codexSettings.webSearchMode !== undefined) {
         msg.webSearchMode = session.codexSettings.webSearchMode;
+      }
+      if (session.codexSettings.additionalWritableRoots !== undefined) {
+        msg.additionalWritableRoots =
+          session.codexSettings.additionalWritableRoots;
       }
     }
 
@@ -767,6 +797,20 @@ export class BridgeWebSocketServer {
               break;
             }
           }
+          const additionalWritableRoots =
+            provider === "codex"
+              ? this.normalizeAdditionalWritableRoots(
+                  msg.additionalWritableRoots,
+                  projectPath,
+                )
+              : {};
+          if (additionalWritableRoots.deniedRoot) {
+            this.send(
+              ws,
+              this.buildPathNotAllowedError(additionalWritableRoots.deniedRoot),
+            );
+            break;
+          }
           const cached =
             provider === "claude"
               ? this.sessionManager.getCachedCommands(projectPath)
@@ -836,6 +880,7 @@ export class BridgeWebSocketServer {
                       webSearchMode:
                         (msg.webSearchMode as "disabled" | "cached" | "live") ??
                         undefined,
+                      additionalWritableRoots: additionalWritableRoots.roots,
                       threadId: msg.sessionId,
                       collaborationMode: planMode
                         ? ("plan" as const)
@@ -2275,6 +2320,18 @@ export class BridgeWebSocketServer {
               wtMapping?.projectPath ?? resumeProjectPath,
               this.platform,
             );
+          const additionalWritableRoots =
+            this.normalizeAdditionalWritableRoots(
+              msg.additionalWritableRoots,
+              effectiveProjectPath,
+            );
+          if (additionalWritableRoots.deniedRoot) {
+            this.send(
+              ws,
+              this.buildPathNotAllowedError(additionalWritableRoots.deniedRoot),
+            );
+            break;
+          }
           let worktreeOpts:
             | {
                 useWorktree?: boolean;
@@ -2326,6 +2383,7 @@ export class BridgeWebSocketServer {
                   webSearchMode:
                     (msg.webSearchMode as "disabled" | "cached" | "live") ??
                     undefined,
+                  additionalWritableRoots: additionalWritableRoots.roots,
                   collaborationMode: planMode
                     ? ("plan" as const)
                     : ("default" as const),
@@ -4716,6 +4774,10 @@ export class BridgeWebSocketServer {
       }
       if (session.codexSettings.webSearchMode !== undefined) {
         msg.webSearchMode = session.codexSettings.webSearchMode;
+      }
+      if (session.codexSettings.additionalWritableRoots !== undefined) {
+        msg.additionalWritableRoots =
+          session.codexSettings.additionalWritableRoots;
       }
     }
 

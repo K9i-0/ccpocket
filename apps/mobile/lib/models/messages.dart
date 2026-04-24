@@ -2451,6 +2451,7 @@ class RecentSession {
   final String? codexModelReasoningEffort;
   final bool? codexNetworkAccessEnabled;
   final String? codexWebSearchMode;
+  final List<String> codexAdditionalWritableRoots;
 
   const RecentSession({
     required this.sessionId,
@@ -2478,6 +2479,7 @@ class RecentSession {
     this.codexModelReasoningEffort,
     this.codexNetworkAccessEnabled,
     this.codexWebSearchMode,
+    this.codexAdditionalWritableRoots = const [],
   });
 
   ExecutionMode get resolvedExecutionMode => deriveExecutionMode(
@@ -2541,6 +2543,9 @@ class RecentSession {
       codexNetworkAccessEnabled:
           codexSettings?['networkAccessEnabled'] as bool?,
       codexWebSearchMode: codexSettings?['webSearchMode'] as String?,
+      codexAdditionalWritableRoots: _stringList(
+        codexSettings?['additionalWritableRoots'],
+      ),
     );
   }
 
@@ -2585,6 +2590,7 @@ class RecentSession {
       codexModelReasoningEffort: codexModelReasoningEffort,
       codexNetworkAccessEnabled: codexNetworkAccessEnabled,
       codexWebSearchMode: codexWebSearchMode,
+      codexAdditionalWritableRoots: codexAdditionalWritableRoots,
     );
   }
 }
@@ -2620,6 +2626,7 @@ class SessionInfo {
   final String? codexModelReasoningEffort;
   final bool? codexNetworkAccessEnabled;
   final String? codexWebSearchMode;
+  final List<String> codexAdditionalWritableRoots;
   final PermissionRequestMessage? pendingPermission;
 
   const SessionInfo({
@@ -2649,6 +2656,7 @@ class SessionInfo {
     this.codexModelReasoningEffort,
     this.codexNetworkAccessEnabled,
     this.codexWebSearchMode,
+    this.codexAdditionalWritableRoots = const [],
     this.pendingPermission,
   });
 
@@ -2687,6 +2695,7 @@ class SessionInfo {
     String? codexModelReasoningEffort,
     bool? codexNetworkAccessEnabled,
     String? codexWebSearchMode,
+    List<String>? codexAdditionalWritableRoots,
     PermissionRequestMessage? pendingPermission,
     bool clearPermission = false,
   }) {
@@ -2720,6 +2729,8 @@ class SessionInfo {
       codexNetworkAccessEnabled:
           codexNetworkAccessEnabled ?? this.codexNetworkAccessEnabled,
       codexWebSearchMode: codexWebSearchMode ?? this.codexWebSearchMode,
+      codexAdditionalWritableRoots:
+          codexAdditionalWritableRoots ?? this.codexAdditionalWritableRoots,
       pendingPermission: clearPermission
           ? null
           : (pendingPermission ?? this.pendingPermission),
@@ -2770,6 +2781,9 @@ class SessionInfo {
       codexNetworkAccessEnabled:
           codexSettings?['networkAccessEnabled'] as bool?,
       codexWebSearchMode: codexSettings?['webSearchMode'] as String?,
+      codexAdditionalWritableRoots: _stringList(
+        codexSettings?['additionalWritableRoots'],
+      ),
       pendingPermission: permJson != null
           ? PermissionRequestMessage(
               toolUseId: permJson['toolUseId'] as String,
@@ -2814,6 +2828,7 @@ class ClientMessage {
     String? modelReasoningEffort,
     bool? networkAccessEnabled,
     String? webSearchMode,
+    List<String>? additionalWritableRoots,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'start',
@@ -2842,6 +2857,8 @@ class ClientMessage {
       'modelReasoningEffort': ?modelReasoningEffort,
       'networkAccessEnabled': ?networkAccessEnabled,
       'webSearchMode': ?webSearchMode,
+      if (additionalWritableRoots != null && additionalWritableRoots.isNotEmpty)
+        'additionalWritableRoots': additionalWritableRoots,
     });
   }
 
@@ -3047,6 +3064,7 @@ class ClientMessage {
     String? modelReasoningEffort,
     bool? networkAccessEnabled,
     String? webSearchMode,
+    List<String>? additionalWritableRoots,
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'resume_session',
@@ -3070,6 +3088,8 @@ class ClientMessage {
       'modelReasoningEffort': ?modelReasoningEffort,
       'networkAccessEnabled': ?networkAccessEnabled,
       'webSearchMode': ?webSearchMode,
+      if (additionalWritableRoots != null && additionalWritableRoots.isNotEmpty)
+        'additionalWritableRoots': additionalWritableRoots,
     });
   }
 

@@ -53,7 +53,7 @@ describe("parseClientMessage", () => {
 
   it("parses start with optional fields", () => {
     const msg = parseClientMessage(
-      '{"type":"start","projectPath":"/p","sessionId":"s1","continue":true,"permissionMode":"acceptEdits","profile":"ccpocket","approvalPolicy":"on-request","approvalsReviewer":"auto_review"}',
+      '{"type":"start","projectPath":"/p","sessionId":"s1","continue":true,"permissionMode":"acceptEdits","profile":"ccpocket","approvalPolicy":"on-request","approvalsReviewer":"auto_review","additionalWritableRoots":["/tmp/extra"]}',
     );
     expect(msg).toEqual({
       type: "start",
@@ -64,6 +64,7 @@ describe("parseClientMessage", () => {
       profile: "ccpocket",
       approvalPolicy: "on-request",
       approvalsReviewer: "auto_review",
+      additionalWritableRoots: ["/tmp/extra"],
     });
   });
 
@@ -168,6 +169,19 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 
+  it("rejects invalid additionalWritableRoots", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"start","projectPath":"/p","additionalWritableRoots":"/tmp"}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"resume_session","sessionId":"s3","projectPath":"/p","additionalWritableRoots":[42]}',
+      ),
+    ).toBeNull();
+  });
+
   it("parses approve message", () => {
     const msg = parseClientMessage('{"type":"approve","id":"tu1"}');
     expect(msg).toEqual({ type: "approve", id: "tu1" });
@@ -267,7 +281,7 @@ describe("parseClientMessage", () => {
 
   it("parses resume_session with provider", () => {
     const msg = parseClientMessage(
-      '{"type":"resume_session","sessionId":"s3","projectPath":"/p","provider":"codex","profile":"ccpocket","approvalsReviewer":"auto_review"}',
+      '{"type":"resume_session","sessionId":"s3","projectPath":"/p","provider":"codex","profile":"ccpocket","approvalsReviewer":"auto_review","additionalWritableRoots":["/tmp/extra"]}',
     );
     expect(msg).toEqual({
       type: "resume_session",
@@ -276,6 +290,7 @@ describe("parseClientMessage", () => {
       provider: "codex",
       profile: "ccpocket",
       approvalsReviewer: "auto_review",
+      additionalWritableRoots: ["/tmp/extra"],
     });
   });
 

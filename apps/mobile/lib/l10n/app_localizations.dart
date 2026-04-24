@@ -916,6 +916,42 @@ abstract class AppLocalizations {
   /// **'ネットワークアクセス'**
   String get networkAccess;
 
+  /// No description provided for @additionalWritableRootsTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'追加で書き込めるディレクトリ'**
+  String get additionalWritableRootsTitle;
+
+  /// No description provided for @additionalWritableRootsDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'このセッションでは、Codex の config.toml の writable_roots に加えて有効になります。'**
+  String get additionalWritableRootsDescription;
+
+  /// No description provided for @additionalWritableRootsTooltip.
+  ///
+  /// In ja, this message translates to:
+  /// **'選択中のプロジェクトに加えて、別プロジェクトも Codex から編集したいときに使います。'**
+  String get additionalWritableRootsTooltip;
+
+  /// No description provided for @additionalWritableRootsSuggestions.
+  ///
+  /// In ja, this message translates to:
+  /// **'最近のプロジェクト'**
+  String get additionalWritableRootsSuggestions;
+
+  /// No description provided for @addDirectory.
+  ///
+  /// In ja, this message translates to:
+  /// **'ディレクトリを追加'**
+  String get addDirectory;
+
+  /// No description provided for @directoryPath.
+  ///
+  /// In ja, this message translates to:
+  /// **'ディレクトリパス'**
+  String get directoryPath;
+
   /// No description provided for @worktreeNew.
   ///
   /// In ja, this message translates to:

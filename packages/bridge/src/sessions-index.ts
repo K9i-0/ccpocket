@@ -32,6 +32,7 @@ export interface SessionIndexEntry {
     modelReasoningEffort?: string;
     networkAccessEnabled?: boolean;
     webSearchMode?: string;
+    additionalWritableRoots?: string[];
   };
 }
 
@@ -1496,6 +1497,77 @@ export async function saveCodexSessionProfile(
   await writeFile(path, JSON.stringify(next, null, 2), "utf-8");
 }
 
+export async function loadCodexSessionAdditionalWritableRoots(): Promise<
+  Map<string, string[]>
+> {
+  const path = join(
+    homedir(),
+    ".codex",
+    "ccpocket-session-additional-writable-roots.json",
+  );
+  let raw: string;
+  try {
+    raw = await readFile(path, "utf-8");
+  } catch {
+    return new Map();
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return new Map();
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return new Map();
+  }
+
+  const rootsByThread = new Map<string, string[]>();
+  for (const [threadId, roots] of Object.entries(
+    parsed as Record<string, unknown>,
+  )) {
+    const normalized = sanitizeAdditionalWritableRoots(roots);
+    if (normalized.length > 0) {
+      rootsByThread.set(threadId, normalized);
+    }
+  }
+  return rootsByThread;
+}
+
+export async function saveCodexSessionAdditionalWritableRoots(
+  threadId: string,
+  roots: string[] | null,
+): Promise<void> {
+  const path = join(
+    homedir(),
+    ".codex",
+    "ccpocket-session-additional-writable-roots.json",
+  );
+  const existing = await loadCodexSessionAdditionalWritableRoots();
+  const normalized = sanitizeAdditionalWritableRoots(roots);
+  if (normalized.length > 0) {
+    existing.set(threadId, normalized);
+  } else {
+    existing.delete(threadId);
+  }
+  const next = Object.fromEntries(existing.entries());
+  await writeFile(path, JSON.stringify(next, null, 2), "utf-8");
+}
+
+function sanitizeAdditionalWritableRoots(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const roots = new Map<string, string>();
+  for (const root of value) {
+    if (typeof root !== "string") continue;
+    const trimmed = root.trim();
+    if (!trimmed) continue;
+    if (!roots.has(trimmed)) {
+      roots.set(trimmed, trimmed);
+    }
+  }
+  return [...roots.values()];
+}
+
 /**
  * Rename a Codex session by appending to ~/.codex/session_index.jsonl.
  * Passing `null` or empty name writes an empty thread_name to effectively clear it.
@@ -1529,6 +1601,8 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
   // Load thread names from session_index.jsonl
   const threadNames = await loadCodexSessionNames();
   const threadProfiles = await loadCodexSessionProfiles();
+  const threadAdditionalWritableRoots =
+    await loadCodexSessionAdditionalWritableRoots();
 
   for (const filePath of files) {
     let raw: string;
@@ -1554,6 +1628,15 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
       parsed.entry.codexSettings = {
         ...(parsed.entry.codexSettings ?? {}),
         profile: threadProfile,
+      };
+    }
+    const additionalWritableRoots = threadAdditionalWritableRoots.get(
+      parsed.threadId,
+    );
+    if (additionalWritableRoots) {
+      parsed.entry.codexSettings = {
+        ...(parsed.entry.codexSettings ?? {}),
+        additionalWritableRoots,
       };
     }
     entries.push(parsed.entry);

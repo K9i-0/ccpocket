@@ -439,6 +439,26 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkAccess => 'ネットワークアクセス';
 
   @override
+  String get additionalWritableRootsTitle => '追加で書き込めるディレクトリ';
+
+  @override
+  String get additionalWritableRootsDescription =>
+      'このセッションでは、Codex の config.toml の writable_roots に加えて有効になります。';
+
+  @override
+  String get additionalWritableRootsTooltip =>
+      '選択中のプロジェクトに加えて、別プロジェクトも Codex から編集したいときに使います。';
+
+  @override
+  String get additionalWritableRootsSuggestions => '最近のプロジェクト';
+
+  @override
+  String get addDirectory => 'ディレクトリを追加';
+
+  @override
+  String get directoryPath => 'ディレクトリパス';
+
+  @override
   String get worktreeNew => '新規';
 
   @override

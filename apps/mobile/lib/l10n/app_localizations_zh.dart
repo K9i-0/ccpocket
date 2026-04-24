@@ -436,6 +436,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkAccess => '网络访问';
 
   @override
+  String get additionalWritableRootsTitle => '额外可写目录';
+
+  @override
+  String get additionalWritableRootsDescription =>
+      '此会话会在 Codex config.toml 的 writable_roots 之外追加这些目录。';
+
+  @override
+  String get additionalWritableRootsTooltip =>
+      '当这个 Codex 会话除了当前项目外还需要编辑其他项目时使用。';
+
+  @override
+  String get additionalWritableRootsSuggestions => '最近项目';
+
+  @override
+  String get addDirectory => '添加目录';
+
+  @override
+  String get directoryPath => '目录路径';
+
+  @override
   String get worktreeNew => '新建';
 
   @override

@@ -7,6 +7,7 @@ import {
   pathToSlug,
   renameClaudeSession,
   renameCodexSession,
+  saveCodexSessionAdditionalWritableRoots,
   saveCodexSessionProfile,
 } from "./sessions-index.js";
 import {
@@ -62,6 +63,7 @@ export interface SessionInfo {
     modelReasoningEffort?: string;
     networkAccessEnabled?: boolean;
     webSearchMode?: string;
+    additionalWritableRoots?: string[];
   };
   /** Claude sandbox enabled state (for resume). */
   sandboxEnabled?: boolean;
@@ -94,6 +96,7 @@ export interface SessionSummary {
     modelReasoningEffort?: string;
     networkAccessEnabled?: boolean;
     webSearchMode?: string;
+    additionalWritableRoots?: string[];
   };
   agentNickname?: string;
   agentRole?: string;
@@ -133,6 +136,9 @@ function mergeCodexSettings(
       : {}),
     ...(msg.webSearchMode !== undefined
       ? { webSearchMode: msg.webSearchMode }
+      : {}),
+    ...(msg.additionalWritableRoots !== undefined
+      ? { additionalWritableRoots: msg.additionalWritableRoots }
       : {}),
   };
 
@@ -324,6 +330,12 @@ export class SessionManager {
               void saveCodexSessionProfile(
                 msg.sessionId,
                 session.codexSettings.profile,
+              );
+            }
+            if (session.codexSettings?.additionalWritableRoots) {
+              void saveCodexSessionAdditionalWritableRoots(
+                msg.sessionId,
+                session.codexSettings.additionalWritableRoots,
               );
             }
           }
@@ -546,6 +558,7 @@ export class SessionManager {
         modelReasoningEffort: codexOptions.modelReasoningEffort,
         networkAccessEnabled: codexOptions.networkAccessEnabled,
         webSearchMode: codexOptions.webSearchMode,
+        additionalWritableRoots: codexOptions.additionalWritableRoots,
       };
       // Resume starts know the thread id up front.
       if (codexOptions.threadId) {
@@ -553,6 +566,12 @@ export class SessionManager {
         this.saveWorktreeMapping(session);
         if (codexOptions.profile) {
           void saveCodexSessionProfile(codexOptions.threadId, codexOptions.profile);
+        }
+        if (codexOptions.additionalWritableRoots) {
+          void saveCodexSessionAdditionalWritableRoots(
+            codexOptions.threadId,
+            codexOptions.additionalWritableRoots,
+          );
         }
       }
     }

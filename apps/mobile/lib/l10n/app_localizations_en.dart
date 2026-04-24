@@ -442,6 +442,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkAccess => 'Network Access';
 
   @override
+  String get additionalWritableRootsTitle => 'Additional writable directories';
+
+  @override
+  String get additionalWritableRootsDescription =>
+      'These are added on top of writable_roots from Codex config.toml for this session.';
+
+  @override
+  String get additionalWritableRootsTooltip =>
+      'Use this when this Codex session needs to edit another project in addition to the selected project.';
+
+  @override
+  String get additionalWritableRootsSuggestions => 'Recent projects';
+
+  @override
+  String get addDirectory => 'Add directory';
+
+  @override
+  String get directoryPath => 'Directory path';
+
+  @override
   String get worktreeNew => 'New';
 
   @override

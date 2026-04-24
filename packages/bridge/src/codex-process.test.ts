@@ -258,6 +258,70 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("merges additional writable roots with config/read roots on thread/start", async () => {
+    const proc = new CodexProcess("linux");
+
+    proc.start("/tmp/project-roots", {
+      sandboxMode: "workspace-write",
+      approvalPolicy: "on-request",
+      additionalWritableRoots: [
+        "/tmp/extra",
+        "/tmp/project-roots/../extra",
+        "/tmp/other",
+      ],
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child); // initialized
+
+    const configReq = nextOutgoingRequest(child);
+    expect(configReq.method).toBe("config/read");
+    expect(configReq.params).toEqual({
+      includeLayers: false,
+      cwd: "/tmp/project-roots",
+    });
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: configReq.id,
+        result: {
+          config: {
+            sandbox_workspace_write: {
+              writable_roots: ["/tmp/project-roots", "/tmp/extra"],
+            },
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+    const startReq = nextOutgoingRequest(child);
+    expect(startReq.method).toBe("thread/start");
+    expect(startReq.params).toMatchObject({
+      cwd: "/tmp/project-roots",
+      config: {
+        sandbox_workspace_write: {
+          writable_roots: [
+            "/tmp/project-roots",
+            "/tmp/extra",
+            "/tmp/other",
+          ],
+        },
+      },
+    });
+
+    proc.stop();
+  });
+
   it("uses cmd.exe to launch codex app-server on Windows", () => {
     const proc = new CodexProcess("win32");
 

@@ -84,6 +84,7 @@ export type ClientMessage =
       modelReasoningEffort?: string;
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
+      additionalWritableRoots?: string[];
       useWorktree?: boolean;
       worktreeBranch?: string;
       existingWorktreePath?: string;
@@ -169,6 +170,7 @@ export type ClientMessage =
       modelReasoningEffort?: string;
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
+      additionalWritableRoots?: string[];
     }
   | { type: "list_gallery"; project?: string; sessionId?: string }
   | {
@@ -339,6 +341,7 @@ export type ServerMessage =
       modelReasoningEffort?: string;
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
+      additionalWritableRoots?: string[];
       clearContext?: boolean;
       sourceSessionId?: string;
       tipCode?: string;
@@ -681,6 +684,15 @@ export function parseClientMessage(data: string): ClientMessage | null {
           !["disabled", "cached", "live"].includes(String(msg.webSearchMode))
         )
           return null;
+        if (msg.additionalWritableRoots !== undefined) {
+          if (!Array.isArray(msg.additionalWritableRoots)) return null;
+          if (
+            msg.additionalWritableRoots.some(
+              (root) => typeof root !== "string",
+            )
+          )
+            return null;
+        }
         break;
       case "input":
         if (typeof msg.text !== "string") return null;
@@ -886,6 +898,15 @@ export function parseClientMessage(data: string): ClientMessage | null {
           !["disabled", "cached", "live"].includes(String(msg.webSearchMode))
         )
           return null;
+        if (msg.additionalWritableRoots !== undefined) {
+          if (!Array.isArray(msg.additionalWritableRoots)) return null;
+          if (
+            msg.additionalWritableRoots.some(
+              (root) => typeof root !== "string",
+            )
+          )
+            return null;
+        }
         break;
       case "list_gallery":
         break;

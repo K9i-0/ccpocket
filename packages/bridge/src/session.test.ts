@@ -143,6 +143,30 @@ describe("SessionManager codex path", () => {
     expect(session?.provider).toBe("codex");
   });
 
+  it("stores codex additional writable roots for resume metadata", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      {
+        additionalWritableRoots: ["/tmp/shared"],
+      },
+    );
+
+    expect(codexInstances[0].start).toHaveBeenCalledWith(
+      "/tmp/project-codex",
+      expect.objectContaining({
+        additionalWritableRoots: ["/tmp/shared"],
+      }),
+    );
+    expect(manager.get(sessionId)?.codexSettings).toMatchObject({
+      additionalWritableRoots: ["/tmp/shared"],
+    });
+  });
+
   it("updates codex session settings from runtime init metadata", () => {
     const manager = new SessionManager(() => {});
     const sessionId = manager.create(

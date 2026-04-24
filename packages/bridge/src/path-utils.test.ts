@@ -3,6 +3,7 @@ import {
   isPathWithinAllowedDirectory,
   normalizePlatformPath,
   resolvePlatformPath,
+  resolvePlatformPathFrom,
   stripWindowsExtendedPathPrefix,
 } from "./path-utils.js";
 
@@ -48,5 +49,14 @@ describe("path-utils", () => {
     expect(
       isPathWithinAllowedDirectory("/tmp/repo/src", "/tmp/repo", "linux"),
     ).toBe(true);
+  });
+
+  it("resolves relative paths against an explicit base path", () => {
+    expect(resolvePlatformPathFrom("/tmp/repo", "../shared", "linux")).toBe(
+      "/tmp/shared",
+    );
+    expect(
+      resolvePlatformPathFrom("D:\\Users\\alice\\repo", "..\\shared", "win32"),
+    ).toBe("D:\\Users\\alice\\shared");
   });
 });

@@ -183,6 +183,12 @@
   "reasoning": "Reasoning",
   "webSearch": "Web Search",
   "networkAccess": "ネットワークアクセス",
+  "additionalWritableRootsTitle": "追加で書き込めるディレクトリ",
+  "additionalWritableRootsDescription": "このセッションでは、Codex の config.toml の writable_roots に加えて有効になります。",
+  "additionalWritableRootsTooltip": "選択中のプロジェクトに加えて、別プロジェクトも Codex から編集したいときに使います。",
+  "additionalWritableRootsSuggestions": "最近のプロジェクト",
+  "addDirectory": "ディレクトリを追加",
+  "directoryPath": "ディレクトリパス",
   "worktreeNew": "新規",
   "worktreeExisting": "既存 ({count})",
   "@worktreeExisting": {

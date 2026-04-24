@@ -33,6 +33,22 @@ export function resolvePlatformPath(
   return pathApi.resolve(normalizePlatformPath(input, platform));
 }
 
+export function resolvePlatformPathFrom(
+  basePath: string,
+  input: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  const pathApi = getPathApi(platform);
+  const normalizedInput = normalizePlatformPath(input, platform);
+  if (pathApi.isAbsolute(normalizedInput)) {
+    return pathApi.resolve(normalizedInput);
+  }
+  return pathApi.resolve(
+    resolvePlatformPath(basePath, platform),
+    normalizedInput,
+  );
+}
+
 export function isPathWithinAllowedDirectory(
   targetPath: string,
   allowedDir: string,

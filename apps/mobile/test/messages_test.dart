@@ -55,6 +55,7 @@ void main() {
         modelReasoningEffort: 'high',
         networkAccessEnabled: true,
         webSearchMode: 'live',
+        additionalWritableRoots: const ['/tmp/shared'],
       );
 
       final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
@@ -62,6 +63,21 @@ void main() {
       expect(json['modelReasoningEffort'], 'high');
       expect(json['networkAccessEnabled'], true);
       expect(json['webSearchMode'], 'live');
+      expect(json['additionalWritableRoots'], ['/tmp/shared']);
+    });
+
+    test('ClientMessage.resumeSession serializes codex add-dir roots', () {
+      final msg = ClientMessage.resumeSession(
+        'session-1',
+        '/tmp/project',
+        provider: 'codex',
+        additionalWritableRoots: const ['/tmp/shared', '/tmp/tools'],
+      );
+
+      final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(json['type'], 'resume_session');
+      expect(json['sessionId'], 'session-1');
+      expect(json['additionalWritableRoots'], ['/tmp/shared', '/tmp/tools']);
     });
 
     test('RecentSession parses codex thread options from codexSettings', () {
@@ -80,6 +96,7 @@ void main() {
           'modelReasoningEffort': 'medium',
           'networkAccessEnabled': false,
           'webSearchMode': 'cached',
+          'additionalWritableRoots': ['/tmp/shared'],
         },
       });
 
@@ -87,6 +104,7 @@ void main() {
       expect(session.codexModelReasoningEffort, 'medium');
       expect(session.codexNetworkAccessEnabled, false);
       expect(session.codexWebSearchMode, 'cached');
+      expect(session.codexAdditionalWritableRoots, ['/tmp/shared']);
     });
 
     test('SessionListMessage parses codex profiles', () {

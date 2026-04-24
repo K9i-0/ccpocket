@@ -327,6 +327,69 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("normalizes and forwards additional writable roots on codex start", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "codex",
+        additionalWritableRoots: ["../shared", "/tmp/project-a/../shared"],
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+
+    const session = (bridge as any).sessionManager.get("s-1");
+    expect(session.codexOptions).toMatchObject({
+      additionalWritableRoots: ["/tmp/shared"],
+    });
+
+    bridge.close();
+  });
+
+  it("rejects additional writable roots outside bridge allowed directories", async () => {
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: ["/tmp/project-a"],
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "codex",
+        additionalWritableRoots: ["/tmp/other"],
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+
+    expect((bridge as any).sessionManager.get("s-1")).toBeUndefined();
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        errorCode: "path_not_allowed",
+      }),
+    );
+
+    bridge.close();
+  });
+
   it("forwards selected codex profile on resume", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
@@ -354,6 +417,36 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(session.codexOptions).toMatchObject({
       threadId: "thr_123",
       profile: "ccpocket",
+    });
+
+    bridge.close();
+  });
+
+  it("forwards additional writable roots on codex resume", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "thr_123",
+        projectPath: "/tmp/project-a",
+        provider: "codex",
+        additionalWritableRoots: ["/tmp/shared"],
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const session = (bridge as any).sessionManager.get("s-1");
+    expect(session.codexOptions).toMatchObject({
+      threadId: "thr_123",
+      additionalWritableRoots: ["/tmp/shared"],
     });
 
     bridge.close();
