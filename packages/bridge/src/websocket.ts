@@ -31,6 +31,7 @@ import {
   loadCodexSessionNames,
   renameClaudeSession,
   renameCodexSession,
+  saveCodexSessionProfile,
 } from "./sessions-index.js";
 import type { ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
@@ -2304,22 +2305,19 @@ export class BridgeWebSocketServer {
         // Resume flow: keep past history in SessionInfo and deliver it only
         // via get_history(sessionId) to avoid duplicate/missed replay races.
         if (provider === "codex") {
-          if (
-            msg.profile &&
-            !(await this.validateCodexProfile(msg.profile, resumeProjectPath))
-          ) {
-            this.send(ws, {
-              type: "error",
-              message: `Codex profile not found: ${msg.profile}`,
-            });
-            break;
-          }
           const wtMapping = this.worktreeStore.get(sessionRefId);
           const effectiveProjectPath =
             resolvePlatformPath(
               wtMapping?.projectPath ?? resumeProjectPath,
               this.platform,
             );
+          const effectiveProfile = msg.profile
+            ? await this.resolveCodexResumeProfile(
+                msg.profile,
+                sessionRefId,
+                effectiveProjectPath,
+              )
+            : undefined;
           const additionalWritableRoots =
             this.normalizeAdditionalWritableRoots(
               msg.additionalWritableRoots,
@@ -2363,7 +2361,7 @@ export class BridgeWebSocketServer {
                 "codex",
                 {
                   threadId: sessionRefId,
-                  profile: msg.profile,
+                  profile: effectiveProfile,
                   approvalPolicy:
                     codexApprovalPolicy ??
                     normalizeCodexApprovalPolicy(
@@ -3911,6 +3909,35 @@ export class BridgeWebSocketServer {
     this.codexProfiles = snapshot.profiles;
     this.defaultCodexProfile = snapshot.defaultProfile;
     return snapshot.profiles.includes(profile);
+  }
+
+  private async resolveCodexResumeProfile(
+    requestedProfile: string,
+    threadId: string,
+    projectPath?: string,
+  ): Promise<string | undefined> {
+    const snapshot = await this.loadCodexProfiles(projectPath);
+    this.codexProfiles = snapshot.profiles;
+    this.defaultCodexProfile = snapshot.defaultProfile;
+    if (snapshot.profiles.includes(requestedProfile)) {
+      return requestedProfile;
+    }
+
+    const fallbackProfile =
+      snapshot.defaultProfile &&
+      snapshot.profiles.includes(snapshot.defaultProfile)
+        ? snapshot.defaultProfile
+        : undefined;
+    console.warn(
+      `[ws] Codex profile not found on resume: ${requestedProfile}; ` +
+        (fallbackProfile
+          ? `falling back to default profile: ${fallbackProfile}`
+          : "falling back to Codex config default"),
+    );
+    saveCodexSessionProfile(threadId, fallbackProfile ?? null).catch((err) => {
+      console.warn(`[ws] Failed to update Codex session profile cache: ${err}`);
+    });
+    return fallbackProfile;
   }
 
   private getActiveCodexProcess(): CodexProcess | null {

@@ -8,12 +8,14 @@ const {
   getSessionHistoryMock,
   getCodexSessionHistoryMock,
   getAllRecentSessionsMock,
+  saveCodexSessionProfileMock,
   generateCommitMessageMock,
   gitCommitMock,
 } = vi.hoisted(() => ({
   getSessionHistoryMock: vi.fn(),
   getCodexSessionHistoryMock: vi.fn(),
   getAllRecentSessionsMock: vi.fn(),
+  saveCodexSessionProfileMock: vi.fn(),
   generateCommitMessageMock: vi.fn(),
   gitCommitMock: vi.fn(),
 }));
@@ -22,6 +24,7 @@ vi.mock("./sessions-index.js", () => ({
   getSessionHistory: getSessionHistoryMock,
   getCodexSessionHistory: getCodexSessionHistoryMock,
   getAllRecentSessions: getAllRecentSessionsMock,
+  saveCodexSessionProfile: saveCodexSessionProfileMock,
 }));
 
 vi.mock("./debug-trace-store.js", () => ({
@@ -224,10 +227,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     getSessionHistoryMock.mockReset();
     getCodexSessionHistoryMock.mockReset();
     getAllRecentSessionsMock.mockReset();
+    saveCodexSessionProfileMock.mockReset();
     generateCommitMessageMock.mockReset();
     gitCommitMock.mockReset();
     getAllRecentSessionsMock.mockResolvedValue({ sessions: [], hasMore: false });
     getCodexSessionHistoryMock.mockResolvedValue([]);
+    saveCodexSessionProfileMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -397,9 +402,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       send: vi.fn(),
     } as any;
 
-    vi.spyOn(bridge as any, "validateCodexProfile").mockResolvedValue(true);
+    vi.spyOn(bridge as any, "loadCodexProfiles").mockResolvedValue({
+      profiles: ["ccpocket"],
+      defaultProfile: "ccpocket",
+    });
 
-    (bridge as any).handleClientMessage(
+    await (bridge as any).handleClientMessage(
       {
         type: "resume_session",
         sessionId: "thr_123",
@@ -418,6 +426,48 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       threadId: "thr_123",
       profile: "ccpocket",
     });
+
+    bridge.close();
+  });
+
+  it("falls back to the default codex profile on resume when the saved profile no longer exists", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    vi.spyOn(bridge as any, "loadCodexProfiles").mockResolvedValue({
+      profiles: ["ccpocket"],
+      defaultProfile: "ccpocket",
+    });
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "thr_123",
+        projectPath: "/tmp/project-a",
+        provider: "codex",
+        profile: "research",
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const session = (bridge as any).sessionManager.get("s-1");
+    expect(session.codexOptions).toMatchObject({
+      threadId: "thr_123",
+      profile: "ccpocket",
+    });
+    expect(saveCodexSessionProfileMock).toHaveBeenCalledWith(
+      "thr_123",
+      "ccpocket",
+    );
+    expect(ws.send).not.toHaveBeenCalledWith(
+      expect.stringContaining("Codex profile not found"),
+    );
 
     bridge.close();
   });
