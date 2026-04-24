@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0"
+     xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
+     xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>CC Pocket macOS Updates</title>
+    <link>https://k9i-0.github.io/ccpocket/sparkle/appcast.xml</link>
+    <description>Updates for CC Pocket macOS</description>
+    <language>en</language>
+    <item>
+      <title>Version 1.70.3</title>
+      <pubDate>Fri, 24 Apr 2026 08:28:55 +0000</pubDate>
+      <sparkle:version>124</sparkle:version>
+      <sparkle:shortVersionString>1.70.3</sparkle:shortVersionString>
+      <sparkle:releaseNotesLink>https://github.com/K9i-0/ccpocket/releases/tag/macos/v1.70.3%2B124</sparkle:releaseNotesLink>
+      <enclosure
+        url="https://github.com/K9i-0/ccpocket/releases/download/macos/v1.70.3%2B124/CC-Pocket-macos-v1.70.3.dmg"
+        sparkle:version="124"
+        sparkle:shortVersionString="1.70.3"
+        sparkle:edSignature="+n12ccN+WKiX7tr1yLXRtrVoLndRvIozTML222RAUyhMPIa+JPht8UZcywjmHafJXu375SPFN98SQN0/dUNmAw==" length="38559110"
+        type="application/octet-stream" />
+    </item>
+  </channel>
+</rss>
