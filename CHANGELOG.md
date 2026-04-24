@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.70.0] - 2026-04-24
+
+### Added
+- Add Codex Auto Review as an approval option in the new session flow
+
+### Changed
+- Update Codex approval display to show Auto Review consistently in session status
+- Require Bridge 1.42.0 for the latest Codex Auto Review session handling
+
 ## [1.69.0] - 2026-04-24
 
 ### Added
