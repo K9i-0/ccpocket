@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.70.3] - 2026-04-24
+
+### Fixed
+- Enable Sparkle's sandboxed installer launcher so macOS self-updates can complete installation and relaunch
+- Preserve the full Sparkle appcast URL in macOS release builds
+
+### Changed
+- Add more detailed macOS Sparkle update diagnostics and local validation scripts
+
 ## [1.70.2] - 2026-04-24
 
 ### Fixed

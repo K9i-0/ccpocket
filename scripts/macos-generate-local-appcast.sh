@@ -33,9 +33,26 @@ CONTENT_LENGTH="$(stat -f%z "$ARCHIVE_PATH")"
 PUB_DATE="$(LC_ALL=C date -Ru)"
 ARCHIVE_URL="${BASE_URL%/}/$ARCHIVE_NAME"
 NOTES_XML=""
+SIGNATURE_FRAGMENT=""
 
 if [[ -n "$RELEASE_NOTES_URL" ]]; then
   NOTES_XML="    <sparkle:releaseNotesLink>$RELEASE_NOTES_URL</sparkle:releaseNotesLink>"
+fi
+
+if [[ -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+  SIGN_UPDATE="${SIGN_UPDATE_PATH:-}"
+  if [[ -z "$SIGN_UPDATE" ]]; then
+    SIGN_UPDATE="$(command -v sign_update || true)"
+  fi
+
+  if [[ -z "$SIGN_UPDATE" || ! -x "$SIGN_UPDATE" ]]; then
+    echo "SPARKLE_PRIVATE_KEY is set, but sign_update was not found." >&2
+    echo "Set SIGN_UPDATE_PATH=/path/to/sign_update or put sign_update on PATH." >&2
+    exit 1
+  fi
+
+  SIGNATURE_FRAGMENT="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | \
+    "$SIGN_UPDATE" --ed-key-file - "$ARCHIVE_PATH")"
 fi
 
 cat >"$FEED_DIR/appcast.xml" <<EOF
@@ -58,6 +75,7 @@ $NOTES_XML
         url="$ARCHIVE_URL"
         sparkle:version="$BUILD_NUMBER"
         sparkle:shortVersionString="$VERSION"
+        $SIGNATURE_FRAGMENT
         length="$CONTENT_LENGTH"
         type="application/octet-stream" />
     </item>

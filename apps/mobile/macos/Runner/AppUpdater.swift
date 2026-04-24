@@ -68,6 +68,34 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
     NSLog("[CCPocket][Sparkle] \(message)")
   }
 
+  private func itemSummary(_ item: SUAppcastItem) -> String {
+    [
+      "displayVersion=\(item.displayVersionString)",
+      "version=\(item.versionString)",
+      "fileURL=\(item.fileURL?.absoluteString ?? "<nil>")",
+      "infoURL=\(item.infoURL?.absoluteString ?? "<nil>")",
+      "installationType=\(item.installationType)",
+    ].joined(separator: " ")
+  }
+
+  private func errorSummary(_ error: Error) -> String {
+    let nsError = error as NSError
+    var parts = [
+      "errorDomain=\(nsError.domain)",
+      "errorCode=\(nsError.code)",
+      "message=\(error.localizedDescription)",
+    ]
+
+    if let reason = nsError.localizedFailureReason {
+      parts.append("reason=\(reason)")
+    }
+    if let suggestion = nsError.localizedRecoverySuggestion {
+      parts.append("recoverySuggestion=\(suggestion)")
+    }
+
+    return parts.joined(separator: " ")
+  }
+
   private func errorDetails(_ extra: [String: String] = [:]) -> [String: String] {
     diagnostics.merging(extra) { _, new in new }
   }
@@ -194,11 +222,12 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
     false
   }
 
+  func updater(_ updater: SPUUpdater, didFinishLoading appcast: SUAppcast) {
+    log("appcast loaded")
+  }
+
   func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
-    log(
-      "probe found update displayVersion=\(item.displayVersionString) " +
-        "version=\(item.versionString) fileURL=\(item.fileURL?.absoluteString ?? "<nil>") " +
-        "infoURL=\(item.infoURL?.absoluteString ?? "<nil>")")
+    log("probe found update \(itemSummary(item))")
     resolveProbe(map: [
       "status": "foundUpdate",
       "latestVersion": item.displayVersionString,
@@ -211,9 +240,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
 
   func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
     let nsError = error as NSError
-    log(
-      "probe did not find update errorDomain=\(nsError.domain) " +
-        "errorCode=\(nsError.code) message=\(error.localizedDescription)")
+    log("probe did not find update \(errorSummary(error))")
     resolveProbe(map: [
       "status": "noUpdate",
       "currentVersion": currentDisplayVersion,
@@ -223,11 +250,56 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
     ])
   }
 
+  func updater(
+    _ updater: SPUUpdater,
+    willDownloadUpdate item: SUAppcastItem,
+    with request: NSMutableURLRequest
+  ) {
+    log(
+      "will download update \(itemSummary(item)) requestURL=" +
+        "\(request.url?.absoluteString ?? "<nil>")")
+  }
+
+  func updater(_ updater: SPUUpdater, didDownloadUpdate item: SUAppcastItem) {
+    log("did download update \(itemSummary(item))")
+  }
+
+  func updater(
+    _ updater: SPUUpdater,
+    failedToDownloadUpdate item: SUAppcastItem,
+    error: Error
+  ) {
+    log("failed to download update \(itemSummary(item)) \(errorSummary(error))")
+  }
+
+  func userDidCancelDownload(_ updater: SPUUpdater) {
+    log("user cancelled update download")
+  }
+
+  func updater(_ updater: SPUUpdater, willExtractUpdate item: SUAppcastItem) {
+    log("will extract update \(itemSummary(item))")
+  }
+
+  func updater(_ updater: SPUUpdater, didExtractUpdate item: SUAppcastItem) {
+    log("did extract update \(itemSummary(item))")
+  }
+
+  func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
+    log("will install update \(itemSummary(item))")
+  }
+
+  func updaterShouldRelaunchApplication(_ updater: SPUUpdater) -> Bool {
+    log("should relaunch application: true")
+    return true
+  }
+
+  func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
+    log("will relaunch application")
+  }
+
   func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
     let nsError = error as NSError
-    log(
-      "probe aborted errorDomain=\(nsError.domain) " +
-        "errorCode=\(nsError.code) message=\(error.localizedDescription)")
+    log("update cycle aborted \(errorSummary(error))")
     resolveProbe(error: FlutterError(
       code: "probe_failed",
       message: error.localizedDescription,
@@ -235,5 +307,21 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
         "errorDomain": nsError.domain,
         "errorCode": String(nsError.code),
       ])))
+  }
+
+  func updater(
+    _ updater: SPUUpdater,
+    didFinishUpdateCycleFor updateCheck: SPUUpdateCheck,
+    error: Error?
+  ) {
+    if let error {
+      log(
+        "update cycle finished updateCheck=\(String(describing: updateCheck)) " +
+          "\(errorSummary(error))")
+    } else {
+      log(
+        "update cycle finished updateCheck=\(String(describing: updateCheck)) " +
+          "error=<nil>")
+    }
   }
 }
