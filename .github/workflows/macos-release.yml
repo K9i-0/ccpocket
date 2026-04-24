@@ -7,10 +7,19 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   release:
     runs-on: macos-15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      semver: ${{ steps.version.outputs.semver }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      dmg_name: ${{ steps.rename.outputs.dmg_name }}
+      dmg_url: ${{ steps.release_urls.outputs.dmg_url }}
+      release_url: ${{ steps.release_urls.outputs.release_url }}
     env:
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
       APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
@@ -111,6 +120,30 @@ jobs:
             exit 1
           fi
           /usr/libexec/PlistBuddy -c "Delete :com.apple.security.get-task-allow" "$EXTRACTED_ENTITLEMENTS_PATH" || true
+
+          # CocoaPods embeds Sparkle with prebuilt helper binaries. Re-sign
+          # them with our Developer ID identity so notarization accepts the
+          # nested updater tools and sees secure timestamps on every binary.
+          SPARKLE_FRAMEWORK_PATH="$APP_PATH/Contents/Frameworks/Sparkle.framework"
+          if [ -d "$SPARKLE_FRAMEWORK_PATH" ]; then
+            SPARKLE_VERSION_DIR="$SPARKLE_FRAMEWORK_PATH/Versions/B"
+
+            for SPARKLE_HELPER in \
+              "$SPARKLE_VERSION_DIR/Autoupdate" \
+              "$SPARKLE_VERSION_DIR/XPCServices/Downloader.xpc" \
+              "$SPARKLE_VERSION_DIR/XPCServices/Installer.xpc" \
+              "$SPARKLE_VERSION_DIR/Updater.app"; do
+              if [ -e "$SPARKLE_HELPER" ]; then
+                codesign --force --timestamp --options runtime \
+                  --sign "$IDENTITY" \
+                  "$SPARKLE_HELPER"
+              fi
+            done
+
+            codesign --force --timestamp --options runtime \
+              --sign "$IDENTITY" \
+              "$SPARKLE_FRAMEWORK_PATH"
+          fi
 
           # Re-sign the final app bundle for notarization requirements while
           # keeping the provisioning-derived keychain entitlements intact.
@@ -214,7 +247,17 @@ jobs:
       - name: Extract version from tag
         if: startsWith(github.ref, 'refs/tags/')
         id: version
-        run: echo "version=${GITHUB_REF_NAME#macos/v}" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION="${GITHUB_REF_NAME#macos/v}"
+          if [[ "$VERSION" != *+* ]]; then
+            echo "::error::macOS release tags must include a build number, e.g. macos/v1.69.0+120"
+            exit 1
+          fi
+          {
+            echo "version=$VERSION"
+            echo "semver=${VERSION%%+*}"
+            echo "build_number=${VERSION#*+}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Extract changelog section
         if: startsWith(github.ref, 'refs/tags/')
@@ -233,11 +276,11 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         id: rename
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          SEMVER="${VERSION%%+*}"
+          SEMVER="${{ steps.version.outputs.semver }}"
           VERSIONED_DMG="CC-Pocket-macos-v${SEMVER}.dmg"
           mv "${{ steps.dmg.outputs.dmg_path }}" "$VERSIONED_DMG"
           echo "dmg_path=$VERSIONED_DMG" >> "$GITHUB_OUTPUT"
+          echo "dmg_name=$VERSIONED_DMG" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -246,7 +289,129 @@ jobs:
           RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
         run: |
           printf '%s\n' "$RELEASE_NOTES" > /tmp/release_notes.md
-          gh release create "$GITHUB_REF_NAME" \
-            "${{ steps.rename.outputs.dmg_path }}" \
-            --title "macOS ${{ steps.version.outputs.version }}" \
-            --notes-file /tmp/release_notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "macOS ${{ steps.version.outputs.version }}" \
+              --notes-file /tmp/release_notes.md
+            gh release upload "$GITHUB_REF_NAME" \
+              "${{ steps.rename.outputs.dmg_path }}" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "${{ steps.rename.outputs.dmg_path }}" \
+              --title "macOS ${{ steps.version.outputs.version }}" \
+              --notes-file /tmp/release_notes.md
+          fi
+
+      - name: Prepare release URLs
+        if: startsWith(github.ref, 'refs/tags/')
+        id: release_urls
+        run: |
+          TAG_URL="${GITHUB_REF_NAME//+/%2B}"
+          {
+            echo "release_url=https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG_URL}"
+            echo "dmg_url=https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG_URL}/${{ steps.rename.outputs.dmg_name }}"
+          } >> "$GITHUB_OUTPUT"
+
+  deploy-sparkle-appcast:
+    if: startsWith(github.ref, 'refs/tags/macos/v')
+    needs: release
+    runs-on: macos-15
+    environment:
+      name: github-pages
+      url: https://k9i-0.github.io/ccpocket/sparkle/appcast.xml
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SPARKLE_VERSION: 2.9.1
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download macOS release asset
+        id: asset
+        run: |
+          ASSET_DIR="$RUNNER_TEMP/sparkle-release"
+          mkdir -p "$ASSET_DIR"
+          gh release download "$GITHUB_REF_NAME" \
+            --pattern "${{ needs.release.outputs.dmg_name }}" \
+            --dir "$ASSET_DIR"
+          DMG_PATH="$ASSET_DIR/${{ needs.release.outputs.dmg_name }}"
+          if [[ ! -f "$DMG_PATH" ]]; then
+            echo "::error::Downloaded DMG not found at $DMG_PATH"
+            exit 1
+          fi
+          echo "dmg_path=$DMG_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Download Sparkle tools
+        id: sparkle
+        run: |
+          TOOLS_DIR="$RUNNER_TEMP/sparkle-tools"
+          mkdir -p "$TOOLS_DIR"
+          gh release download "$SPARKLE_VERSION" \
+            --repo sparkle-project/Sparkle \
+            --pattern "Sparkle-${SPARKLE_VERSION}.tar.xz" \
+            --dir "$TOOLS_DIR"
+          tar -xf "$TOOLS_DIR/Sparkle-${SPARKLE_VERSION}.tar.xz" -C "$TOOLS_DIR"
+          SIGN_UPDATE_PATH="$(find "$TOOLS_DIR" -type f -name sign_update | head -n 1)"
+          if [[ -z "$SIGN_UPDATE_PATH" ]]; then
+            echo "::error::sign_update not found in downloaded Sparkle tools"
+            find "$TOOLS_DIR" -maxdepth 4 -type f
+            exit 1
+          fi
+          echo "sign_update_path=$SIGN_UPDATE_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Sparkle appcast
+        run: |
+          if [[ -z "$SPARKLE_PRIVATE_KEY" ]]; then
+            echo "::error::SPARKLE_PRIVATE_KEY secret is not configured"
+            exit 1
+          fi
+
+          mkdir -p docs/sparkle
+
+          SIGNATURE_FRAGMENT="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | \
+            "${{ steps.sparkle.outputs.sign_update_path }}" \
+              --ed-key-file - \
+              "${{ steps.asset.outputs.dmg_path }}")"
+
+          PUB_DATE="$(LC_ALL=C date -Ru)"
+          printf '%s\n' \
+            '<?xml version="1.0" encoding="utf-8"?>' \
+            '<rss version="2.0"' \
+            '     xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"' \
+            '     xmlns:dc="http://purl.org/dc/elements/1.1/">' \
+            '  <channel>' \
+            '    <title>CC Pocket macOS Updates</title>' \
+            '    <link>https://k9i-0.github.io/ccpocket/sparkle/appcast.xml</link>' \
+            '    <description>Updates for CC Pocket macOS</description>' \
+            '    <language>en</language>' \
+            '    <item>' \
+            '      <title>Version ${{ needs.release.outputs.semver }}</title>' \
+            "      <pubDate>$PUB_DATE</pubDate>" \
+            '      <sparkle:version>${{ needs.release.outputs.build_number }}</sparkle:version>' \
+            '      <sparkle:shortVersionString>${{ needs.release.outputs.semver }}</sparkle:shortVersionString>' \
+            '      <sparkle:releaseNotesLink>${{ needs.release.outputs.release_url }}</sparkle:releaseNotesLink>' \
+            '      <enclosure' \
+            '        url="${{ needs.release.outputs.dmg_url }}"' \
+            '        sparkle:version="${{ needs.release.outputs.build_number }}"' \
+            '        sparkle:shortVersionString="${{ needs.release.outputs.semver }}"' \
+            "        $SIGNATURE_FRAGMENT" \
+            '        type="application/octet-stream" />' \
+            '    </item>' \
+            '  </channel>' \
+            '</rss>' \
+            > docs/sparkle/appcast.xml
+
+          cat docs/sparkle/appcast.xml
+
+      - name: Setup Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

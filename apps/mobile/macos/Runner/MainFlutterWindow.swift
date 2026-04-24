@@ -4,6 +4,7 @@ import FlutterMacOS
 class MainFlutterWindow: NSWindow, NSToolbarDelegate {
   private let windowToolbar = NSToolbar(identifier: "ccpocket.mainToolbar")
   private var windowChromeChannel: FlutterMethodChannel?
+  private var appUpdater: AppUpdater?
 
   override func awakeFromNib() {
     titleVisibility = .hidden
@@ -40,6 +41,7 @@ class MainFlutterWindow: NSWindow, NSToolbarDelegate {
       result(nil)
     }
     windowChromeChannel = chromeChannel
+    appUpdater = AppUpdater(binaryMessenger: flutterViewController.engine.binaryMessenger)
 
     let windowFrame = self.frame
     self.contentViewController = flutterViewController

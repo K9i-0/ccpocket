@@ -938,12 +938,9 @@ class _AppUpdateTile extends StatelessWidget {
       ),
       trailing: TextButton(
         onPressed: () async {
-          final uri = Uri.parse(update.downloadUrl);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
+          await AppUpdateService.instance.performUpdate(update);
         },
-        child: const Text('Download'),
+        child: Text(update.canInstallInApp ? 'Update' : 'Download'),
       ),
     );
   }
