@@ -289,10 +289,19 @@ jobs:
           RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
         run: |
           printf '%s\n' "$RELEASE_NOTES" > /tmp/release_notes.md
-          gh release create "$GITHUB_REF_NAME" \
-            "${{ steps.rename.outputs.dmg_path }}" \
-            --title "macOS ${{ steps.version.outputs.version }}" \
-            --notes-file /tmp/release_notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "macOS ${{ steps.version.outputs.version }}" \
+              --notes-file /tmp/release_notes.md
+            gh release upload "$GITHUB_REF_NAME" \
+              "${{ steps.rename.outputs.dmg_path }}" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "${{ steps.rename.outputs.dmg_path }}" \
+              --title "macOS ${{ steps.version.outputs.version }}" \
+              --notes-file /tmp/release_notes.md
+          fi
 
       - name: Prepare release URLs
         if: startsWith(github.ref, 'refs/tags/')
