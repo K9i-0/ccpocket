@@ -442,7 +442,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkAccess => 'Network Access';
 
   @override
-  String get additionalWritableRootsTitle => 'Additional writable directories';
+  String get additionalWritableRootsTitle =>
+      'Additional accessible directories';
 
   @override
   String get additionalWritableRootsDescription =>
@@ -450,7 +451,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get additionalWritableRootsTooltip =>
-      'Use this when this Codex session needs to edit another project in addition to the selected project.';
+      'Use this when this Codex session needs to read or edit files from another project in addition to the selected project.';
 
   @override
   String get additionalWritableRootsSuggestions => 'Recent projects';

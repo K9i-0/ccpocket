@@ -436,7 +436,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkAccess => '网络访问';
 
   @override
-  String get additionalWritableRootsTitle => '额外可写目录';
+  String get additionalWritableRootsTitle => '额外可用目录';
 
   @override
   String get additionalWritableRootsDescription =>
@@ -444,7 +444,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get additionalWritableRootsTooltip =>
-      '当这个 Codex 会话除了当前项目外还需要编辑其他项目时使用。';
+      '当这个 Codex 会话除了当前项目外还需要读取或编辑其他项目文件时使用。';
 
   @override
   String get additionalWritableRootsSuggestions => '最近项目';

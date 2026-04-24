@@ -919,7 +919,7 @@ abstract class AppLocalizations {
   /// No description provided for @additionalWritableRootsTitle.
   ///
   /// In ja, this message translates to:
-  /// **'追加で書き込めるディレクトリ'**
+  /// **'追加で利用できるディレクトリ'**
   String get additionalWritableRootsTitle;
 
   /// No description provided for @additionalWritableRootsDescription.
@@ -931,7 +931,7 @@ abstract class AppLocalizations {
   /// No description provided for @additionalWritableRootsTooltip.
   ///
   /// In ja, this message translates to:
-  /// **'選択中のプロジェクトに加えて、別プロジェクトも Codex から編集したいときに使います。'**
+  /// **'選択中のプロジェクトに加えて、別プロジェクトのファイルも読み書きしたいときに使います。'**
   String get additionalWritableRootsTooltip;
 
   /// No description provided for @additionalWritableRootsSuggestions.

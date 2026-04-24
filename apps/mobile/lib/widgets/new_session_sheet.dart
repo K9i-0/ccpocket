@@ -772,7 +772,11 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   }
 
   Future<void> _openAddWritableRootSheet() async {
-    _additionalWritableRootController.clear();
+    final prefix = _additionalWritableRootDefaultPrefix;
+    _additionalWritableRootController.text = prefix;
+    _additionalWritableRootController.selection = TextSelection.collapsed(
+      offset: prefix.length,
+    );
     final selected = await _showAddWritableRootSheet(
       context: context,
       controller: _additionalWritableRootController,
@@ -780,6 +784,35 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     );
     if (selected == null || !mounted) return;
     _addWritableRoot(selected);
+  }
+
+  String get _additionalWritableRootDefaultPrefix {
+    final selectedProject = _pathController.text.trim();
+    final allowedDirs = widget.bridge?.allowedDirs ?? const [];
+    final containingAllowedDirs = allowedDirs.where(
+      (dir) => _isSameOrChildPath(selectedProject, dir),
+    );
+    final base = containingAllowedDirs.isNotEmpty
+        ? containingAllowedDirs.reduce((a, b) => a.length >= b.length ? a : b)
+        : (allowedDirs.isNotEmpty
+              ? allowedDirs.first
+              : _homePrefixFromPath(selectedProject));
+    if (base.isEmpty) return '';
+    return base.endsWith('/') ? base : '$base/';
+  }
+
+  bool _isSameOrChildPath(String path, String parent) {
+    if (path.isEmpty || parent.isEmpty) return false;
+    final normalizedParent = parent.endsWith('/')
+        ? parent.substring(0, parent.length - 1)
+        : parent;
+    return path == normalizedParent || path.startsWith('$normalizedParent/');
+  }
+
+  String _homePrefixFromPath(String path) {
+    final match = RegExp(r'^/Users/[^/]+').firstMatch(path);
+    if (match != null) return match.group(0)!;
+    return '';
   }
 
   Future<void> _onProjectRemoved(String path) async {
@@ -996,9 +1029,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             const SizedBox(height: 12),
             _AdditionalWritableRootsSection(
               roots: _additionalWritableRoots,
-              suggestions: _addDirSuggestions,
               onAddPressed: _openAddWritableRootSheet,
-              onSuggestionSelected: _addWritableRoot,
               onDeleted: _removeWritableRoot,
             ),
           ],
@@ -1588,16 +1619,12 @@ class _PathInput extends StatelessWidget {
 
 class _AdditionalWritableRootsSection extends StatelessWidget {
   final List<String> roots;
-  final List<String> suggestions;
   final VoidCallback onAddPressed;
-  final ValueChanged<String> onSuggestionSelected;
   final ValueChanged<String> onDeleted;
 
   const _AdditionalWritableRootsSection({
     required this.roots,
-    required this.suggestions,
     required this.onAddPressed,
-    required this.onSuggestionSelected,
     required this.onDeleted,
   });
 
@@ -1605,13 +1632,22 @@ class _AdditionalWritableRootsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
-    final visibleSuggestions = suggestions.take(3).toList();
+    final infoButton = _AdditionalWritableRootsInfoButton(
+      message:
+          '${l.additionalWritableRootsDescription}\n${l.additionalWritableRootsTooltip}',
+    );
+    final addButton = ActionChip(
+      key: const ValueKey('additional_writable_root_add_button'),
+      avatar: const Icon(Icons.add, size: 18),
+      label: Text(l.add),
+      onPressed: onAddPressed,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: cs.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(12),
@@ -1637,70 +1673,64 @@ class _AdditionalWritableRootsSection extends StatelessWidget {
                     ),
                   ),
                 ),
-                Tooltip(
-                  message: l.additionalWritableRootsTooltip,
-                  child: Icon(
-                    Icons.info_outline,
-                    size: 16,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
+                infoButton,
+                const SizedBox(width: 8),
+                addButton,
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              l.additionalWritableRootsDescription,
-              style: TextStyle(
-                fontSize: 12,
-                color: cs.onSurfaceVariant,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final root in roots)
-                  InputChip(
-                    key: ValueKey('additional_writable_root_${root.hashCode}'),
-                    label: Text(shortenPath(root)),
-                    tooltip: root,
-                    onDeleted: () => onDeleted(root),
-                  ),
-                ActionChip(
-                  key: const ValueKey('additional_writable_root_add_button'),
-                  avatar: const Icon(Icons.add, size: 18),
-                  label: Text(l.addDirectory),
-                  onPressed: onAddPressed,
-                ),
-              ],
-            ),
-            if (visibleSuggestions.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                l.additionalWritableRootsSuggestions,
-                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-              ),
-              const SizedBox(height: 6),
+            if (roots.isNotEmpty) ...[
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final suggestion in visibleSuggestions)
-                    ActionChip(
+                  for (final root in roots)
+                    InputChip(
                       key: ValueKey(
-                        'additional_writable_root_suggestion_${suggestion.hashCode}',
+                        'additional_writable_root_${root.hashCode}',
                       ),
-                      label: Text(shortenPath(suggestion)),
-                      tooltip: suggestion,
-                      onPressed: () => onSuggestionSelected(suggestion),
+                      label: Text(shortenPath(root)),
+                      tooltip: root,
+                      onDeleted: () => onDeleted(root),
                     ),
                 ],
               ),
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AdditionalWritableRootsInfoButton extends StatefulWidget {
+  final String message;
+
+  const _AdditionalWritableRootsInfoButton({required this.message});
+
+  @override
+  State<_AdditionalWritableRootsInfoButton> createState() =>
+      _AdditionalWritableRootsInfoButtonState();
+}
+
+class _AdditionalWritableRootsInfoButtonState
+    extends State<_AdditionalWritableRootsInfoButton> {
+  final _tooltipKey = GlobalKey<TooltipState>();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Tooltip(
+      key: _tooltipKey,
+      message: widget.message,
+      triggerMode: TooltipTriggerMode.manual,
+      child: IconButton(
+        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        icon: Icon(Icons.info_outline, size: 16, color: cs.onSurfaceVariant),
+        onPressed: () => _tooltipKey.currentState?.ensureTooltipVisible(),
       ),
     );
   }

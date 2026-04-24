@@ -439,7 +439,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkAccess => 'ネットワークアクセス';
 
   @override
-  String get additionalWritableRootsTitle => '追加で書き込めるディレクトリ';
+  String get additionalWritableRootsTitle => '追加で利用できるディレクトリ';
 
   @override
   String get additionalWritableRootsDescription =>
@@ -447,7 +447,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get additionalWritableRootsTooltip =>
-      '選択中のプロジェクトに加えて、別プロジェクトも Codex から編集したいときに使います。';
+      '選択中のプロジェクトに加えて、別プロジェクトのファイルも読み書きしたいときに使います。';
 
   @override
   String get additionalWritableRootsSuggestions => '最近のプロジェクト';
