@@ -49,6 +49,29 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
       as? String) ?? "0.0.0"
   }
 
+  private var currentBuildNumber: String {
+    (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion")
+      as? String) ?? "0"
+  }
+
+  private var diagnostics: [String: String] {
+    [
+      "feedURL": effectiveFeedURLString ?? "",
+      "bundlePath": Bundle.main.bundleURL.path,
+      "currentVersion": currentDisplayVersion,
+      "currentBuild": currentBuildNumber,
+      "canCheckForUpdates": String(updaterController.updater.canCheckForUpdates),
+    ]
+  }
+
+  private func log(_ message: String) {
+    NSLog("[CCPocket][Sparkle] \(message)")
+  }
+
+  private func errorDetails(_ extra: [String: String] = [:]) -> [String: String] {
+    diagnostics.merging(extra) { _, new in new }
+  }
+
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "probeForUpdate":
@@ -68,40 +91,56 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
   }
 
   private func probeForUpdate(result: @escaping FlutterResult) {
+    log(
+      "probe requested version=\(currentDisplayVersion) build=\(currentBuildNumber) " +
+        "feedURL=\(effectiveFeedURLString ?? "<nil>") " +
+        "canCheckForUpdates=\(updaterController.updater.canCheckForUpdates) " +
+        "bundlePath=\(Bundle.main.bundleURL.path)")
+
     guard pendingProbeResult == nil else {
+      log("probe rejected: another probe is already pending")
       result(FlutterError(
         code: "probe_busy",
         message: "An update probe is already in progress.",
-        details: nil))
+        details: errorDetails()))
       return
     }
 
     guard effectiveFeedURLString != nil else {
+      log("probe rejected: missing feed URL")
       result(FlutterError(
         code: "missing_feed_url",
         message: "Sparkle feed URL is not configured.",
-        details: nil))
+        details: errorDetails()))
       return
     }
 
     guard updaterController.updater.canCheckForUpdates else {
+      log("probe rejected: Sparkle cannot check for updates right now")
       result(FlutterError(
         code: "cannot_check_for_updates",
         message: "The updater cannot check for updates right now.",
-        details: nil))
+        details: errorDetails()))
       return
     }
 
     pendingProbeResult = result
+    log("probe started with checkForUpdatesInBackground")
     updaterController.updater.checkForUpdatesInBackground()
   }
 
   private func performUpdate(result: @escaping FlutterResult) {
+    log(
+      "manual update requested feedURL=\(effectiveFeedURLString ?? "<nil>") " +
+        "canCheckForUpdates=\(updaterController.updater.canCheckForUpdates) " +
+        "bundlePath=\(Bundle.main.bundleURL.path)")
+
     guard effectiveFeedURLString != nil else {
+      log("manual update rejected: missing feed URL")
       result(FlutterError(
         code: "missing_feed_url",
         message: "Sparkle feed URL is not configured.",
-        details: nil))
+        details: errorDetails()))
       return
     }
 
@@ -123,8 +162,10 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
 
     if let rawURL, !rawURL.isEmpty {
       UserDefaults.standard.set(rawURL, forKey: Self.feedURLOverrideDefaultsKey)
+      log("feed URL override set: \(rawURL)")
     } else {
       UserDefaults.standard.removeObject(forKey: Self.feedURLOverrideDefaultsKey)
+      log("feed URL override cleared")
     }
     result(nil)
   }
@@ -144,7 +185,9 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
   }
 
   func feedURLString(for updater: SPUUpdater) -> String? {
-    effectiveFeedURLString
+    let feedURL = effectiveFeedURLString
+    log("Sparkle requested feed URL: \(feedURL ?? "<nil>")")
+    return feedURL
   }
 
   func updaterShouldPromptForPermissionToCheck(forUpdates updater: SPUUpdater) -> Bool {
@@ -152,7 +195,12 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
   }
 
   func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+    log(
+      "probe found update displayVersion=\(item.displayVersionString) " +
+        "version=\(item.versionString) fileURL=\(item.fileURL?.absoluteString ?? "<nil>") " +
+        "infoURL=\(item.infoURL?.absoluteString ?? "<nil>")")
     resolveProbe(map: [
+      "status": "foundUpdate",
       "latestVersion": item.displayVersionString,
       "currentVersion": currentDisplayVersion,
       "downloadUrl": item.fileURL?.absoluteString ?? "",
@@ -162,13 +210,30 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
   }
 
   func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
-    resolveProbe(map: nil)
+    let nsError = error as NSError
+    log(
+      "probe did not find update errorDomain=\(nsError.domain) " +
+        "errorCode=\(nsError.code) message=\(error.localizedDescription)")
+    resolveProbe(map: [
+      "status": "noUpdate",
+      "currentVersion": currentDisplayVersion,
+      "errorDomain": nsError.domain,
+      "errorCode": String(nsError.code),
+      "errorMessage": error.localizedDescription,
+    ])
   }
 
   func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
+    let nsError = error as NSError
+    log(
+      "probe aborted errorDomain=\(nsError.domain) " +
+        "errorCode=\(nsError.code) message=\(error.localizedDescription)")
     resolveProbe(error: FlutterError(
       code: "probe_failed",
       message: error.localizedDescription,
-      details: nil))
+      details: errorDetails([
+        "errorDomain": nsError.domain,
+        "errorCode": String(nsError.code),
+      ])))
   }
 }

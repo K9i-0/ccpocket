@@ -162,12 +162,30 @@ class AppUpdateService {
       }
 
       final canUseNativeUpdater = await _gateway.canUseNativeUpdater();
+      debugPrint(
+        'Native app update probe did not return an installable update; '
+        'falling back to GitHub Releases. '
+        'nativeUpdaterAvailable=$canUseNativeUpdater',
+      );
       final fallbackUpdate = await _fetchGitHubReleaseUpdate(
         currentVersion,
         installMode: canUseNativeUpdater
             ? AppUpdateInstallMode.nativeUpdater
             : AppUpdateInstallMode.externalDownload,
       );
+      if (fallbackUpdate != null) {
+        debugPrint(
+          'GitHub Releases update detected: '
+          'current=${fallbackUpdate.currentVersion} '
+          'latest=${fallbackUpdate.latestVersion} '
+          'installMode=${fallbackUpdate.installMode.name} '
+          'downloadUrl=${fallbackUpdate.downloadUrl}',
+        );
+      } else {
+        debugPrint(
+          'GitHub Releases update check did not find a newer macOS release.',
+        );
+      }
       await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
       _cachedUpdate = fallbackUpdate;
       _isDismissed =
@@ -206,13 +224,32 @@ class AppUpdateService {
   Future<AppUpdateInfo?> _probeNativeUpdate(String currentVersion) async {
     try {
       final result = await _gateway.probeForUpdate();
-      if (result == null) return null;
-
-      final latestVersion = result['latestVersion'] as String?;
-      if (latestVersion == null || !_isNewer(latestVersion, currentVersion)) {
+      if (result == null) {
+        debugPrint('Native app update probe returned no result.');
         return null;
       }
 
+      final latestVersion = result['latestVersion'] as String?;
+      if (latestVersion == null) {
+        debugPrint(
+          'Native app update probe returned ${_formatProbeResult(result)}.',
+        );
+        return null;
+      }
+      if (!_isNewer(latestVersion, currentVersion)) {
+        debugPrint(
+          'Native app update probe did not find a newer version: '
+          'current=$currentVersion latest=$latestVersion '
+          'result=${_formatProbeResult(result)}',
+        );
+        return null;
+      }
+
+      debugPrint(
+        'Native app update probe found update: '
+        'current=$currentVersion latest=$latestVersion '
+        'downloadUrl=${result['downloadUrl'] ?? ''}',
+      );
       return AppUpdateInfo(
         latestVersion: latestVersion,
         currentVersion: result['currentVersion'] as String? ?? currentVersion,
@@ -227,9 +264,14 @@ class AppUpdateService {
         installMode: AppUpdateInstallMode.nativeUpdater,
       );
     } on MissingPluginException {
+      debugPrint('Native app update probe unavailable: missing plugin');
       return null;
     } on PlatformException catch (e) {
-      debugPrint('Native app update probe unavailable: ${e.code}');
+      debugPrint(
+        'Native app update probe failed: ${e.code}'
+        '${e.message == null ? '' : ': ${e.message}'}'
+        '${_formatPlatformDetails(e.details)}',
+      );
       return null;
     }
   }
@@ -314,6 +356,24 @@ class AppUpdateService {
     }
     return false;
   }
+}
+
+String _formatProbeResult(Map<String, dynamic> result) {
+  final sortedKeys = result.keys.toList()..sort();
+  return sortedKeys.map((key) => '$key=${result[key]}').join(', ');
+}
+
+String _formatPlatformDetails(Object? details) {
+  if (details == null) return '';
+  if (details is Map) {
+    final entries = details.entries.toList()
+      ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
+    final pairs = entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(', ');
+    return ' details={$pairs}';
+  }
+  return ' details=$details';
 }
 
 class _MacOSRelease {
