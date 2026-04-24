@@ -352,7 +352,13 @@ jobs:
             --pattern "Sparkle-${SPARKLE_VERSION}.tar.xz" \
             --dir "$TOOLS_DIR"
           tar -xf "$TOOLS_DIR/Sparkle-${SPARKLE_VERSION}.tar.xz" -C "$TOOLS_DIR"
-          echo "bin_dir=$TOOLS_DIR/Sparkle-${SPARKLE_VERSION}/bin" >> "$GITHUB_OUTPUT"
+          SIGN_UPDATE_PATH="$(find "$TOOLS_DIR" -type f -name sign_update | head -n 1)"
+          if [[ -z "$SIGN_UPDATE_PATH" ]]; then
+            echo "::error::sign_update not found in downloaded Sparkle tools"
+            find "$TOOLS_DIR" -maxdepth 4 -type f
+            exit 1
+          fi
+          echo "sign_update_path=$SIGN_UPDATE_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Generate Sparkle appcast
         run: |
@@ -364,7 +370,7 @@ jobs:
           mkdir -p docs/sparkle
 
           SIGNATURE_FRAGMENT="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | \
-            "${{ steps.sparkle.outputs.bin_dir }}/sign_update" \
+            "${{ steps.sparkle.outputs.sign_update_path }}" \
               --ed-key-file - \
               "${{ steps.asset.outputs.dmg_path }}")"
 
