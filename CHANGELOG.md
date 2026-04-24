@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.70.1] - 2026-04-24
+
+### Fixed
+- Use Sparkle's native update flow for macOS update actions when the signed appcast is configured
+
+### Changed
+- Add Sparkle update diagnostics to help identify why native update probes fall back to GitHub Releases
+
 ## [1.70.0] - 2026-04-24
 
 ### Added
