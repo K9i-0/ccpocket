@@ -121,6 +121,30 @@ jobs:
           fi
           /usr/libexec/PlistBuddy -c "Delete :com.apple.security.get-task-allow" "$EXTRACTED_ENTITLEMENTS_PATH" || true
 
+          # CocoaPods embeds Sparkle with prebuilt helper binaries. Re-sign
+          # them with our Developer ID identity so notarization accepts the
+          # nested updater tools and sees secure timestamps on every binary.
+          SPARKLE_FRAMEWORK_PATH="$APP_PATH/Contents/Frameworks/Sparkle.framework"
+          if [ -d "$SPARKLE_FRAMEWORK_PATH" ]; then
+            SPARKLE_VERSION_DIR="$SPARKLE_FRAMEWORK_PATH/Versions/B"
+
+            for SPARKLE_HELPER in \
+              "$SPARKLE_VERSION_DIR/Autoupdate" \
+              "$SPARKLE_VERSION_DIR/XPCServices/Downloader.xpc" \
+              "$SPARKLE_VERSION_DIR/XPCServices/Installer.xpc" \
+              "$SPARKLE_VERSION_DIR/Updater.app"; do
+              if [ -e "$SPARKLE_HELPER" ]; then
+                codesign --force --timestamp --options runtime \
+                  --sign "$IDENTITY" \
+                  "$SPARKLE_HELPER"
+              fi
+            done
+
+            codesign --force --timestamp --options runtime \
+              --sign "$IDENTITY" \
+              "$SPARKLE_FRAMEWORK_PATH"
+          fi
+
           # Re-sign the final app bundle for notarization requirements while
           # keeping the provisioning-derived keychain entitlements intact.
           codesign --force --timestamp --options runtime \
