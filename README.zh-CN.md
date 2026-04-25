@@ -91,11 +91,11 @@ npx @ccpocket/bridge@latest
 <a href="https://apps.apple.com/us/app/cc-pocket-code-anywhere/id6759188790"><img height="40" alt="Download on the App Store" src="docs/images/app-store-badge.svg" /></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Get it on Google Play" src="docs/images/google-play-badge-en.svg" /></a>
 </div>
 
-### macOS 桌面版（Beta）
+### macOS 桌面版
 
 我们也提供了原生的 macOS 应用。它最初只是一个实验，因为有些用户非常喜欢移动端优先的 UI，于是希望在 Mac 上也能获得同样的体验。
 
-它目前仍然是 Beta，但已经可以正常使用。你可以从 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos) 下载最新的 `.dmg`（查找带有 `macos/v*` 标签的发行版）。
+如果你在 Mac 上使用，推荐安装针对 macOS 优化的原生版。你可以从 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos) 下载最新的 `.dmg`（查找带有 `macos/v*` 标签的发行版）。
 
 ### 3. 连接并开始编码
 

@@ -20,6 +20,7 @@ import '../../router/app_router.dart';
 import '../../services/app_update_service.dart';
 import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
+import '../../services/platform_environment_service.dart';
 import '../../services/server_discovery_service.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../../widgets/new_session_sheet.dart';
@@ -182,12 +183,15 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   // macOS app update
   AppUpdateInfo? _appUpdateInfo;
+  bool _showMacOSNativeAppBanner = false;
 
   // Unseen session tracking
   final _unseenCubit = UnseenSessionsCubit();
   StreamSubscription<List<SessionInfo>>? _activeSessionsSub;
 
   static const _prefKeyUrl = 'bridge_url';
+  static const _prefKeyMacOSNativeAppBannerDismissed =
+      'macos_native_app_banner.dismissed';
   static const _prefKeySessionStartDefaults = 'session_start_defaults_v1';
   static const _prefKeyClaudeSessionSettingsPrefix = 'claude_session_settings_';
   static const _prefKeyCodexProfileByProject = 'codex_profile_by_project_v1';
@@ -273,7 +277,20 @@ class _SessionListScreenState extends State<SessionListScreen>
     _unseenCubit.updateSessions(activeCubit.state);
     _activeSessionsSub = activeCubit.stream.listen(_unseenCubit.updateSessions);
     unawaited(_loadSessionStartDefaultsIntoState());
+    unawaited(_loadMacOSNativeAppBannerState());
     _checkAppUpdate();
+  }
+
+  Future<void> _loadMacOSNativeAppBannerState() async {
+    final isIOSAppOnMac = await PlatformEnvironmentService.instance
+        .isIOSAppOnMac();
+    if (!isIOSAppOnMac) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final dismissed =
+        prefs.getBool(_prefKeyMacOSNativeAppBannerDismissed) ?? false;
+    if (!mounted || dismissed) return;
+    setState(() => _showMacOSNativeAppBanner = true);
   }
 
   Future<void> _checkAppUpdate() async {
@@ -288,6 +305,13 @@ class _SessionListScreenState extends State<SessionListScreen>
   void _dismissAppUpdate() {
     AppUpdateService.instance.dismissUpdate();
     setState(() => _appUpdateInfo = null);
+  }
+
+  Future<void> _dismissMacOSNativeAppBanner() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKeyMacOSNativeAppBannerDismissed, true);
+    if (!mounted) return;
+    setState(() => _showMacOSNativeAppBanner = false);
   }
 
   void _onDeepLink() {
@@ -1710,6 +1734,8 @@ class _SessionListScreenState extends State<SessionListScreen>
               context.read<SessionListCubit>().toggleNamedOnly(),
           appUpdateInfo: _appUpdateInfo,
           onDismissAppUpdate: _dismissAppUpdate,
+          showMacOSNativeAppBanner: _showMacOSNativeAppBanner,
+          onDismissMacOSNativeAppBanner: _dismissMacOSNativeAppBanner,
           onOpenSupportSettings: _openSupportSettings,
         ),
       );

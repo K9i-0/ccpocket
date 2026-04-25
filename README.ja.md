@@ -91,11 +91,11 @@ npx @ccpocket/bridge@latest
 <a href="https://apps.apple.com/jp/app/cc-pocket-%E3%81%A9%E3%81%93%E3%81%A7%E3%82%82%E3%82%B3%E3%83%BC%E3%83%87%E3%82%A3%E3%83%B3%E3%82%B0/id6759188790"><img height="40" alt="App Storeからダウンロード" src="docs/images/app-store-badge.svg" /></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Google Play で手に入れよう" src="docs/images/google-play-badge-ja.svg" /></a>
 </div>
 
-### macOS デスクトップ版（ベータ）
+### macOS デスクトップ版
 
 macOS ネイティブアプリもあります。モバイル版の UI/UX を気に入ったユーザーから「同じ体験を Mac でも使いたい」という声があり、実験的に作ったのが始まりです。
 
-まだベータ版ですが、十分に実用可能です。最新の `.dmg` は [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos) からダウンロードできます（`macos/v*` タグのリリースが対象です）。
+Mac で使う場合は、macOS に最適化されたネイティブ版がおすすめです。最新の `.dmg` は [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos) からダウンロードできます（`macos/v*` タグのリリースが対象です）。
 
 ### 3. 接続してコーディング開始
 

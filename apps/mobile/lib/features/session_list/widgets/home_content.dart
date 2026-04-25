@@ -24,6 +24,7 @@ import 'session_filter_bar.dart';
 import 'session_list_empty_state.dart';
 import 'app_update_banner.dart';
 import 'bridge_update_banner.dart';
+import 'macos_native_app_banner.dart';
 import 'session_reconnect_banner.dart';
 import 'support_banner.dart';
 
@@ -73,6 +74,9 @@ class HomeContent extends StatefulWidget {
   final VoidCallback onToggleNamed;
   final AppUpdateInfo? appUpdateInfo;
   final VoidCallback? onDismissAppUpdate;
+  final bool showMacOSNativeAppBanner;
+  final VoidCallback? onDismissMacOSNativeAppBanner;
+  final VoidCallback? onOpenMacOSNativeAppReleases;
   final VoidCallback? onOpenSupportSettings;
 
   const HomeContent({
@@ -108,6 +112,9 @@ class HomeContent extends StatefulWidget {
     required this.onToggleNamed,
     this.appUpdateInfo,
     this.onDismissAppUpdate,
+    this.showMacOSNativeAppBanner = false,
+    this.onDismissMacOSNativeAppBanner,
+    this.onOpenMacOSNativeAppReleases,
     this.onOpenSupportSettings,
   });
 
@@ -234,6 +241,14 @@ class HomeContentState extends State<HomeContent> {
     );
   }
 
+  Widget? _buildMacOSNativeAppBanner() {
+    if (!widget.showMacOSNativeAppBanner) return null;
+    return MacOSNativeAppBanner(
+      onDismiss: widget.onDismissMacOSNativeAppBanner,
+      onOpen: widget.onOpenMacOSNativeAppReleases,
+    );
+  }
+
   Widget? _buildUpdateBanner() {
     if (_updateBannerDismissed) return null;
     if (!BridgeUpdateBanner.shouldShow(
@@ -314,6 +329,7 @@ class HomeContentState extends State<HomeContent> {
         ? _buildSupportBanner()
         : null;
     final appUpdateBanner = _buildAppUpdateBanner();
+    final macOSNativeAppBanner = _buildMacOSNativeAppBanner();
     final shell = WorkspaceShellScreen.maybeOf(context);
     final selectedSession = shell?.selectedSession;
     final selectedSessionId = selectedSession?.sessionId;
@@ -364,6 +380,7 @@ class HomeContentState extends State<HomeContent> {
             ?updateBanner,
             ?supportBanner,
             ?appUpdateBanner,
+            ?macOSNativeAppBanner,
             SectionHeader(
               icon: Icons.history,
               label: l.recentSessions,
@@ -382,6 +399,7 @@ class HomeContentState extends State<HomeContent> {
           if (isReconnecting) const SessionReconnectBanner(),
           ?updateBanner,
           ?supportBanner,
+          ?macOSNativeAppBanner,
           const SizedBox(height: 80),
           SessionListEmptyState(onNewSession: widget.onNewSession),
         ],
@@ -397,6 +415,7 @@ class HomeContentState extends State<HomeContent> {
         if (isReconnecting) const SessionReconnectBanner(),
         ?updateBanner,
         ?supportBanner,
+        ?macOSNativeAppBanner,
         if (hasRunningSessions) ...[
           SectionHeader(
             icon: Icons.play_circle_filled,

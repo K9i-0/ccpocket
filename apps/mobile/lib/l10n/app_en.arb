@@ -126,6 +126,11 @@
       "version": { "type": "String" }
     }
   },
+  "macosNativeAppBannerTitle": "Use the native macOS app",
+  "macosNativeAppBannerSubtitle": "CC Pocket is optimized for macOS in the native desktop app. Install it from GitHub Releases.",
+  "openGitHubReleases": "Open GitHub Releases",
+  "macosNativeAppSettingsTitle": "macOS native app",
+  "macosNativeAppSettingsSubtitle": "Recommended on Mac because it is optimized for macOS.",
   "supportBannerTitle": "CC Pocket has been useful",
   "supportBannerSubtitle": "Support can help keep development moving.",
   "supportBannerAction": "View support",

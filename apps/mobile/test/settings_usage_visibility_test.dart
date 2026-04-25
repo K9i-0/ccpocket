@@ -11,6 +11,7 @@ import 'package:ccpocket/services/database_service.dart';
 import 'package:ccpocket/services/machine_manager_service.dart';
 import 'package:ccpocket/services/revenuecat_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -128,6 +129,9 @@ Future<Widget> _buildScreen({
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  const platformEnvironmentChannel = MethodChannel(
+    'ccpocket/platform_environment',
+  );
 
   setUp(() {
     PackageInfo.setMockInitialValues(
@@ -137,6 +141,8 @@ void main() {
       buildNumber: '1',
       buildSignature: '',
     );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(platformEnvironmentChannel, null);
   });
 
   group('Settings usage visibility', () {
@@ -375,6 +381,80 @@ void main() {
           .dy;
       expect(supportDy, greaterThanOrEqualTo(0));
       expect(supportDy, lessThan(560));
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+  });
+
+  group('Settings macOS native app link', () {
+    testWidgets('shows link when iOS app is running on Mac', (tester) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(platformEnvironmentChannel, (call) async {
+            if (call.method == 'isIOSAppOnMac') return true;
+            return null;
+          });
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = MachineManagerCubit(manager, null);
+      final bridge = _FakeBridgeService(connected: false);
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('macos_native_app_settings_tile')),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(
+        find.byKey(const ValueKey('macos_native_app_settings_tile')),
+        findsOneWidget,
+      );
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('hides link when not running as an iOS app on Mac', (
+      tester,
+    ) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(platformEnvironmentChannel, (call) async {
+            if (call.method == 'isIOSAppOnMac') return false;
+            return null;
+          });
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = MachineManagerCubit(manager, null);
+      final bridge = _FakeBridgeService(connected: false);
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('macos_native_app_settings_tile')),
+        findsNothing,
+      );
 
       await settingsCubit.close();
       await machineManagerCubit.close();

@@ -20,6 +20,7 @@ import '../../providers/machine_manager_cubit.dart';
 import '../../router/app_router.dart';
 import '../../services/bridge_service.dart';
 import '../../services/database_service.dart';
+import '../../services/platform_environment_service.dart';
 import '../../services/revenuecat_service.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../../models/machine.dart';
@@ -60,6 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Timer? _supportHighlightTimer;
   bool _didHandleSupportFocus = false;
   bool _highlightSupportSection = false;
+  bool _isIOSAppOnMac = false;
 
   void _maybeFocusSupportSection() {
     if (!widget.focusSupport || _didHandleSupportFocus) return;
@@ -99,6 +101,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         });
       });
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadPlatformEnvironment());
+  }
+
+  Future<void> _loadPlatformEnvironment() async {
+    final isIOSAppOnMac = await PlatformEnvironmentService.instance
+        .isIOSAppOnMac();
+    if (!mounted || isIOSAppOnMac == _isIOSAppOnMac) return;
+    setState(() => _isIOSAppOnMac = isIOSAppOnMac);
   }
 
   @override
@@ -605,6 +620,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     // Version
                     const _VersionTile(),
                     const _AppUpdateTile(),
+                    if (_isIOSAppOnMac) ...[
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: cs.outlineVariant,
+                      ),
+                      const _MacOSNativeAppTile(),
+                    ],
                     Divider(
                       height: 1,
                       indent: 16,
@@ -942,6 +966,27 @@ class _AppUpdateTile extends StatelessWidget {
           await AppUpdateService.instance.performUpdate(update);
         },
         child: Text(update.canInstallInApp ? l.update : l.download),
+      ),
+    );
+  }
+}
+
+class _MacOSNativeAppTile extends StatelessWidget {
+  const _MacOSNativeAppTile();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    return ListTile(
+      key: const ValueKey('macos_native_app_settings_tile'),
+      leading: Icon(Icons.desktop_mac_outlined, color: cs.onSurfaceVariant),
+      title: Text(l.macosNativeAppSettingsTitle),
+      subtitle: Text(l.macosNativeAppSettingsSubtitle),
+      trailing: const Icon(Icons.open_in_new, size: 18),
+      onTap: () => launchUrl(
+        Uri.parse(AppConstants.macOSReleasesUrl),
+        mode: LaunchMode.externalApplication,
       ),
     );
   }

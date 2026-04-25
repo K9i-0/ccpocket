@@ -339,6 +339,23 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get macosNativeAppBannerTitle => 'macOS ネイティブ版をおすすめします';
+
+  @override
+  String get macosNativeAppBannerSubtitle =>
+      'Mac では、macOS に最適化された CC Pocket ネイティブ版を GitHub Releases からインストールできます。';
+
+  @override
+  String get openGitHubReleases => 'GitHub Releases を開く';
+
+  @override
+  String get macosNativeAppSettingsTitle => 'macOS ネイティブ版';
+
+  @override
+  String get macosNativeAppSettingsSubtitle =>
+      'macOS に最適化されているため、Mac ではネイティブ版がおすすめです。';
+
+  @override
   String get supportBannerTitle => 'CC Pocketが役に立っていたら';
 
   @override

@@ -336,6 +336,22 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get macosNativeAppBannerTitle => '建议使用 macOS 原生版';
+
+  @override
+  String get macosNativeAppBannerSubtitle =>
+      '在 Mac 上，CC Pocket 原生桌面版针对 macOS 做了优化。可从 GitHub Releases 安装。';
+
+  @override
+  String get openGitHubReleases => '打开 GitHub Releases';
+
+  @override
+  String get macosNativeAppSettingsTitle => 'macOS 原生版';
+
+  @override
+  String get macosNativeAppSettingsSubtitle => '在 Mac 上推荐使用针对 macOS 优化的原生版。';
+
+  @override
   String get supportBannerTitle => '如果 CC Pocket 对你有帮助';
 
   @override

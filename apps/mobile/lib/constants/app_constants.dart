@@ -24,6 +24,10 @@ class AppConstants {
   /// GitHub repository URL
   static const String githubUrl = 'https://github.com/K9i-0/ccpocket';
 
+  /// GitHub Releases filtered to macOS desktop builds
+  static const String macOSReleasesUrl =
+      'https://github.com/K9i-0/ccpocket/releases?q=macos';
+
   /// Claude API billing settings page
   static const String claudeApiBillingUrl =
       'https://platform.claude.com/settings/billing';

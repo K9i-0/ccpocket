@@ -4,6 +4,7 @@ import UIKit
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let appIconChannelName = "ccpocket/app_icon"
+  private let platformEnvironmentChannelName = "ccpocket/platform_environment"
 
   override func application(
     _ application: UIApplication,
@@ -21,6 +22,13 @@ import UIKit
       )
       channel.setMethodCallHandler(handleAppIconMethodCall)
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PlatformEnvironmentChannel") {
+      let channel = FlutterMethodChannel(
+        name: platformEnvironmentChannelName,
+        binaryMessenger: registrar.messenger()
+      )
+      channel.setMethodCallHandler(handlePlatformEnvironmentMethodCall)
+    }
   }
 
   private func handleAppIconMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -36,6 +44,19 @@ import UIKit
       }
       let icon = args["icon"] as? String
       setAlternateIcon(icon: icon, result: result)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func handlePlatformEnvironmentMethodCall(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "isIOSAppOnMac":
+      if #available(iOS 14.0, *) {
+        result(ProcessInfo.processInfo.isiOSAppOnMac)
+      } else {
+        result(false)
+      }
     default:
       result(FlutterMethodNotImplemented)
     }

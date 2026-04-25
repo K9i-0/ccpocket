@@ -718,6 +718,36 @@ abstract class AppLocalizations {
   /// **'v{version} が利用可能です'**
   String appUpdateAvailable(String version);
 
+  /// No description provided for @macosNativeAppBannerTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'macOS ネイティブ版をおすすめします'**
+  String get macosNativeAppBannerTitle;
+
+  /// No description provided for @macosNativeAppBannerSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Mac では、macOS に最適化された CC Pocket ネイティブ版を GitHub Releases からインストールできます。'**
+  String get macosNativeAppBannerSubtitle;
+
+  /// No description provided for @openGitHubReleases.
+  ///
+  /// In ja, this message translates to:
+  /// **'GitHub Releases を開く'**
+  String get openGitHubReleases;
+
+  /// No description provided for @macosNativeAppSettingsTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'macOS ネイティブ版'**
+  String get macosNativeAppSettingsTitle;
+
+  /// No description provided for @macosNativeAppSettingsSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'macOS に最適化されているため、Mac ではネイティブ版がおすすめです。'**
+  String get macosNativeAppSettingsSubtitle;
+
   /// No description provided for @supportBannerTitle.
   ///
   /// In ja, this message translates to:

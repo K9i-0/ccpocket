@@ -92,6 +92,8 @@ Widget _buildHomeContent({
   List<SessionInfo> sessions = const [],
   List<RecentSession> recentSessions = const [],
   bool isInitialLoading = false,
+  bool showMacOSNativeAppBanner = false,
+  VoidCallback? onDismissMacOSNativeAppBanner,
   required SessionListCubit cubit,
   required DraftService draftService,
   required RevenueCatService revenueCatService,
@@ -147,6 +149,8 @@ Widget _buildHomeContent({
             namedOnly: false,
             onToggleProvider: () {},
             onToggleNamed: () {},
+            showMacOSNativeAppBanner: showMacOSNativeAppBanner,
+            onDismissMacOSNativeAppBanner: onDismissMacOSNativeAppBanner,
           ),
         ),
       ),
@@ -315,6 +319,57 @@ void main() {
       // While loading, skeleton should be preferred over stale cards.
       expect(find.byType(SkeletonizerScope), findsOneWidget);
       expect(find.text('test prompt for s1'), findsNothing);
+    });
+
+    testWidgets('shows macOS native app banner when requested', (tester) async {
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [_session(id: 's1')],
+          showMacOSNativeAppBanner: true,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('macos_native_app_banner')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('macos_native_app_banner_open_button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('macos_native_app_banner_dismiss_button')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('calls dismiss callback from macOS native app banner', (
+      tester,
+    ) async {
+      var dismissed = false;
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [_session(id: 's1')],
+          showMacOSNativeAppBanner: true,
+          onDismissMacOSNativeAppBanner: () => dismissed = true,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(
+        find.byKey(const ValueKey('macos_native_app_banner_dismiss_button')),
+      );
+
+      expect(dismissed, isTrue);
     });
   });
 }

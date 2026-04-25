@@ -341,6 +341,23 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get macosNativeAppBannerTitle => 'Use the native macOS app';
+
+  @override
+  String get macosNativeAppBannerSubtitle =>
+      'CC Pocket is optimized for macOS in the native desktop app. Install it from GitHub Releases.';
+
+  @override
+  String get openGitHubReleases => 'Open GitHub Releases';
+
+  @override
+  String get macosNativeAppSettingsTitle => 'macOS native app';
+
+  @override
+  String get macosNativeAppSettingsSubtitle =>
+      'Recommended on Mac because it is optimized for macOS.';
+
+  @override
   String get supportBannerTitle => 'CC Pocket has been useful';
 
   @override

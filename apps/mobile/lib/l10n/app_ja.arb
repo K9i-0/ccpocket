@@ -149,6 +149,11 @@
       "version": { "type": "String" }
     }
   },
+  "macosNativeAppBannerTitle": "macOS ネイティブ版をおすすめします",
+  "macosNativeAppBannerSubtitle": "Mac では、macOS に最適化された CC Pocket ネイティブ版を GitHub Releases からインストールできます。",
+  "openGitHubReleases": "GitHub Releases を開く",
+  "macosNativeAppSettingsTitle": "macOS ネイティブ版",
+  "macosNativeAppSettingsSubtitle": "macOS に最適化されているため、Mac ではネイティブ版がおすすめです。",
   "supportBannerTitle": "CC Pocketが役に立っていたら",
   "supportBannerSubtitle": "サポートで継続開発を後押しできます",
   "supportBannerAction": "サポートを見る",
