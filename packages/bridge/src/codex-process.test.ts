@@ -1621,7 +1621,85 @@ describe("CodexProcess (app-server)", () => {
 
     proc.stop();
   });
+
+  it("ignores completion entity update echoes during fetch cooldown", async () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    fakeChildren.push(child);
+    const internal = proc as any;
+    internal.child = child;
+    internal._projectPath = "/tmp/project-completions";
+    const emitRpc = (message: Record<string, unknown>) => {
+      internal.handleStdoutChunk(`${JSON.stringify(message)}\n`);
+    };
+
+    const fetchPromise = internal.fetchCompletionEntities(
+      "/tmp/project-completions",
+    ) as Promise<void>;
+
+    const skillsReq = await waitForOutgoingRequest(child, "skills/list");
+    expect(skillsReq.method).toBe("skills/list");
+    emitRpc({ id: skillsReq.id, result: { data: [] } });
+    await tick();
+
+    const appsReq = await waitForOutgoingRequest(child, "app/list");
+    expect(appsReq.method).toBe("app/list");
+    emitRpc({ method: "app/list/updated", params: {} });
+    emitRpc({ id: appsReq.id, result: { data: [] } });
+    await fetchPromise;
+    await tick();
+
+    expect(outgoingRequests(child)).toHaveLength(0);
+
+    emitRpc({ method: "app/list/updated", params: {} });
+    await tick();
+    expect(outgoingRequests(child)).toHaveLength(0);
+
+    internal._completionFetchCooldownUntil = 0;
+    emitRpc({ method: "app/list/updated", params: {} });
+    await tick();
+
+    const refetchSkillsReq = await waitForOutgoingRequest(
+      child,
+      "skills/list",
+    );
+    expect(refetchSkillsReq.method).toBe("skills/list");
+    emitRpc({ id: refetchSkillsReq.id, result: { data: [] } });
+    const refetchAppsReq = await waitForOutgoingRequest(child, "app/list");
+    expect(refetchAppsReq.method).toBe("app/list");
+    emitRpc({ id: refetchAppsReq.id, result: { data: [] } });
+    await tick();
+
+    proc.stop();
+  });
 });
+
+function outgoingRequests(child: FakeChildProcess): Record<string, unknown>[] {
+  return child.stdin.writes
+    .flatMap((chunk) => chunk.split("\n"))
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
+    .filter(
+      (value) => typeof value.method === "string" && value.id !== undefined,
+    );
+}
+
+async function waitForOutgoingRequest(
+  child: FakeChildProcess,
+  method: string,
+): Promise<Record<string, unknown>> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const match = outgoingRequests(child).some(
+      (value) => value.method === method,
+    );
+    if (match) {
+      return consumeOutgoing(child, (value) => value.method === method);
+    }
+    await tick();
+  }
+  throw new Error(`Expected outgoing ${method} request was not found`);
+}
 
 function consumeOutgoing(
   child: FakeChildProcess,
