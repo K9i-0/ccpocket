@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.44.1] - 2026-04-25
+
+### Fixed
+- Suppress Codex `conversation_queue` server messages for clients that have not opted in
+
 ## [1.44.0] - 2026-04-25
 
 ### Added

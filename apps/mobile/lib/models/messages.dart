@@ -2915,6 +2915,20 @@ class ClientMessage {
 
   String get type => _json['type'] as String;
 
+  factory ClientMessage.clientCapabilities({
+    String? appVersion,
+    int protocolVersion = 1,
+    List<String> supportedServerMessages = const ['conversation_queue'],
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'client_capabilities',
+      'protocolVersion': protocolVersion,
+      'appVersion': ?appVersion,
+      if (supportedServerMessages.isNotEmpty)
+        'supportedServerMessages': supportedServerMessages,
+    });
+  }
+
   factory ClientMessage.start(
     String projectPath, {
     String? sessionId,

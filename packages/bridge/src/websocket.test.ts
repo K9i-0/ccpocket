@@ -341,6 +341,35 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("suppresses conversation_queue for clients that did not opt in", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const msg = {
+      type: "conversation_queue",
+      sessionId: "s-1",
+      limit: 1,
+      items: [],
+    };
+
+    (bridge as any).send(ws, msg);
+    expect(ws.send).not.toHaveBeenCalled();
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "client_capabilities",
+        supportedServerMessages: ["conversation_queue"],
+      },
+      ws,
+    );
+    (bridge as any).send(ws, msg);
+    expect(ws.send).toHaveBeenCalledWith(JSON.stringify(msg));
+
+    bridge.close();
+  });
+
   it("rejects start when selected codex profile does not exist", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

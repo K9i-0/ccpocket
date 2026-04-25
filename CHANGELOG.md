@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.72.1] - 2026-04-25
+
+### Fixed
+- Prevent older apps from showing unknown-message errors when connected to a Bridge with Codex queue support
+
+### Changed
+- Require Bridge 1.44.1 for Codex conversation queue compatibility handling
+
 ## [1.72.0] - 2026-04-25
 
 ### Added

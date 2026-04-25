@@ -72,6 +72,12 @@ export interface QueuedInputItem {
 
 export type ClientMessage =
   | {
+      type: "client_capabilities";
+      appVersion?: string;
+      protocolVersion?: number;
+      supportedServerMessages?: string[];
+    }
+  | {
       type: "start";
       projectPath: string;
       provider?: Provider;
@@ -625,6 +631,25 @@ export function parseClientMessage(data: string): ClientMessage | null {
     };
 
     switch (msg.type) {
+      case "client_capabilities":
+        if (msg.appVersion !== undefined && typeof msg.appVersion !== "string")
+          return null;
+        if (
+          msg.protocolVersion !== undefined &&
+          (!Number.isInteger(msg.protocolVersion) ||
+            Number(msg.protocolVersion) < 1)
+        )
+          return null;
+        if (msg.supportedServerMessages !== undefined) {
+          if (!Array.isArray(msg.supportedServerMessages)) return null;
+          if (
+            msg.supportedServerMessages.some(
+              (type) => typeof type !== "string",
+            )
+          )
+            return null;
+        }
+        break;
       case "start":
         if (typeof msg.projectPath !== "string") return null;
         if (msg.model !== undefined && typeof msg.model !== "string")

@@ -47,6 +47,16 @@ void main() {
   });
 
   group('Codex thread options', () {
+    test('ClientMessage.clientCapabilities advertises conversation queue', () {
+      final msg = ClientMessage.clientCapabilities(appVersion: '1.72.1');
+
+      final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(json['type'], 'client_capabilities');
+      expect(json['appVersion'], '1.72.1');
+      expect(json['protocolVersion'], 1);
+      expect(json['supportedServerMessages'], ['conversation_queue']);
+    });
+
     test('ClientMessage.start serializes codex thread options', () {
       final msg = ClientMessage.start(
         '/tmp/project',

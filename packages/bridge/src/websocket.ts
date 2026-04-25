@@ -304,6 +304,7 @@ export class BridgeWebSocketServer {
   );
   private failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
   private platform: NodeJS.Platform;
+  private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
 
   constructor(options: BridgeServerOptions) {
     const {
@@ -725,6 +726,14 @@ export class BridgeWebSocketServer {
     msg: ClientMessage,
     ws: WebSocket,
   ): Promise<void> {
+    if (msg.type === "client_capabilities") {
+      this.clientSupportedServerMessages.set(
+        ws,
+        new Set(msg.supportedServerMessages ?? []),
+      );
+      return;
+    }
+
     const incomingSessionId = this.extractSessionIdFromClientMessage(msg);
     const isActiveRuntimeSession =
       incomingSessionId != null &&
@@ -2175,7 +2184,7 @@ export class BridgeWebSocketServer {
           } as Record<string, unknown>);
           if (session.provider === "codex") {
             const item = session.codexQueuedInput;
-            this.send(ws, {
+            this.sendConversationQueue(ws, {
               type: "conversation_queue",
               sessionId: msg.sessionId,
               limit: 1,
@@ -3996,6 +4005,7 @@ export class BridgeWebSocketServer {
     const data = JSON.stringify({ ...msg, sessionId });
     for (const client of this.wss.clients) {
       if (client.readyState === WebSocket.OPEN) {
+        if (!this.shouldSendToClient(client, msg)) continue;
         client.send(data);
       }
     }
@@ -4363,15 +4373,39 @@ export class BridgeWebSocketServer {
     const data = JSON.stringify(msg);
     for (const client of this.wss.clients) {
       if (client.readyState === WebSocket.OPEN) {
+        if (!this.shouldSendToClient(client, msg)) continue;
         client.send(data);
       }
     }
+  }
+
+  private shouldSendToClient(
+    ws: WebSocket,
+    msg: ServerMessage | Record<string, unknown>,
+  ): boolean {
+    if (msg.type !== "conversation_queue") return true;
+    return (
+      this.clientSupportedServerMessages
+        .get(ws)
+        ?.has("conversation_queue") ?? false
+    );
+  }
+
+  private sendConversationQueue(
+    ws: WebSocket,
+    msg:
+      | Extract<ServerMessage, { type: "conversation_queue" }>
+      | Record<string, unknown>,
+  ): void {
+    if (!this.shouldSendToClient(ws, msg)) return;
+    this.send(ws, msg);
   }
 
   private send(
     ws: WebSocket,
     msg: ServerMessage | Record<string, unknown>,
   ): void {
+    if (!this.shouldSendToClient(ws, msg)) return;
     const sessionId = this.extractSessionIdFromServerMessage(msg);
     if (sessionId) {
       this.recordDebugEvent(sessionId, {

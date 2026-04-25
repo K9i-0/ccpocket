@@ -243,6 +243,7 @@ class BridgeService implements BridgeServiceBase {
       _channel = WebSocketChannel.connect(Uri.parse(url));
       _setBridgeConnectionState(BridgeConnectionState.connected);
       _reconnectAttempt = 0;
+      send(ClientMessage.clientCapabilities());
       _flushMessageQueue();
 
       _channelSub = _channel!.stream.listen(
