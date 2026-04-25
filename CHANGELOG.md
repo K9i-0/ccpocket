@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.71.0] - 2026-04-25
+
+### Added
+- Add Codex additional writable directories to new sessions so another project can be available alongside the selected project
+- Remember manually added directories and show them as suggestions next time
+
+### Changed
+- Compact the Codex additional directory controls and move explanatory text into the info tooltip
+- Require Bridge 1.43.1 for Codex additional writable directory support and latest Codex approval mode handling
+
+### Fixed
+- Keep Codex approval mode consistent when resuming recent sessions by using the latest new-session defaults
+- Hide Codex approval mode on Recent Sessions cards while keeping it visible for running sessions
+
 ## [1.70.3] - 2026-04-24
 
 ### Fixed
