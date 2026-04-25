@@ -79,19 +79,19 @@ sealed class _WorkspaceToolPaneData {
 
   String get id;
   String get title;
+  String? get sessionId;
 }
 
 class _GitToolPaneData extends _WorkspaceToolPaneData {
   final String projectPath;
+  @override
   final String? sessionId;
   final String? worktreePath;
-  final ValueNotifier<DiffSelection?>? diffSelectionNotifier;
 
   const _GitToolPaneData({
     required this.projectPath,
     this.sessionId,
     this.worktreePath,
-    this.diffSelectionNotifier,
   });
 
   @override
@@ -102,12 +102,12 @@ class _GitToolPaneData extends _WorkspaceToolPaneData {
 }
 
 class _ExploreToolPaneData extends _WorkspaceToolPaneData {
+  @override
   final String sessionId;
   final String projectPath;
   final List<String> initialFiles;
   final String initialPath;
   final List<String> recentPeekedFiles;
-  final ValueChanged<ExploreScreenResult>? onResultChanged;
 
   const _ExploreToolPaneData({
     required this.sessionId,
@@ -115,7 +115,6 @@ class _ExploreToolPaneData extends _WorkspaceToolPaneData {
     required this.initialFiles,
     required this.initialPath,
     required this.recentPeekedFiles,
-    this.onResultChanged,
   });
 
   @override
@@ -126,6 +125,7 @@ class _ExploreToolPaneData extends _WorkspaceToolPaneData {
 }
 
 class _GalleryToolPaneData extends _WorkspaceToolPaneData {
+  @override
   final String sessionId;
 
   const _GalleryToolPaneData({required this.sessionId});
@@ -135,6 +135,74 @@ class _GalleryToolPaneData extends _WorkspaceToolPaneData {
 
   @override
   String get title => 'Gallery';
+}
+
+sealed class _WorkspaceToolPaneSnapshot {
+  const _WorkspaceToolPaneSnapshot();
+
+  _WorkspaceToolPaneData restore();
+}
+
+class _GitToolPaneSnapshot extends _WorkspaceToolPaneSnapshot {
+  final String projectPath;
+  final String? sessionId;
+  final String? worktreePath;
+
+  const _GitToolPaneSnapshot({
+    required this.projectPath,
+    this.sessionId,
+    this.worktreePath,
+  });
+
+  @override
+  _WorkspaceToolPaneData restore() => _GitToolPaneData(
+    projectPath: projectPath,
+    sessionId: sessionId,
+    worktreePath: worktreePath,
+  );
+}
+
+class _ExploreToolPaneSnapshot extends _WorkspaceToolPaneSnapshot {
+  final String sessionId;
+  final String projectPath;
+  final String initialPath;
+  final List<String> recentPeekedFiles;
+
+  const _ExploreToolPaneSnapshot({
+    required this.sessionId,
+    required this.projectPath,
+    required this.initialPath,
+    required this.recentPeekedFiles,
+  });
+
+  @override
+  _WorkspaceToolPaneData restore() => _ExploreToolPaneData(
+    sessionId: sessionId,
+    projectPath: projectPath,
+    initialFiles: const [],
+    initialPath: initialPath,
+    recentPeekedFiles: recentPeekedFiles,
+  );
+}
+
+class _GalleryToolPaneSnapshot extends _WorkspaceToolPaneSnapshot {
+  final String sessionId;
+
+  const _GalleryToolPaneSnapshot({required this.sessionId});
+
+  @override
+  _WorkspaceToolPaneData restore() =>
+      _GalleryToolPaneData(sessionId: sessionId);
+}
+
+class _WorkspaceToolPaneBindings {
+  final ValueNotifier<DiffSelection?>? diffSelectionNotifier;
+  final ValueChanged<ExploreScreenResult>? onExploreResultChanged;
+
+  const _WorkspaceToolPaneBindings({
+    this.diffSelectionNotifier,
+    this.onExploreResultChanged,
+  });
 }
 
 class WorkspaceSessionSelection {
@@ -184,6 +252,8 @@ class WorkspaceShellScreen extends StatefulWidget {
 
 class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   _WorkspaceToolPaneData? _toolPane;
+  final Map<String, _WorkspaceToolPaneSnapshot> _toolPaneSnapshots = {};
+  final Map<String, _WorkspaceToolPaneBindings> _toolPaneBindings = {};
   bool _showLeftPane = true;
   bool _shouldRestoreLeftPaneOnToolClose = false;
   _WorkspaceLayoutMode _layoutMode = _WorkspaceLayoutMode.single;
@@ -209,18 +279,39 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
 
   bool isToolPaneOpen(String paneId) => _toolPane?.id == paneId;
 
+  void registerSessionToolPaneBindings({
+    required String sessionId,
+    ValueNotifier<DiffSelection?>? diffSelectionNotifier,
+    ValueChanged<ExploreScreenResult>? onExploreResultChanged,
+  }) {
+    _toolPaneBindings[sessionId] = _WorkspaceToolPaneBindings(
+      diffSelectionNotifier: diffSelectionNotifier,
+      onExploreResultChanged: onExploreResultChanged,
+    );
+  }
+
+  void unregisterSessionToolPaneBindings(String sessionId) {
+    _toolPaneBindings.remove(sessionId);
+  }
+
   void openGitPane({
     required String projectPath,
     String? sessionId,
     String? worktreePath,
     ValueNotifier<DiffSelection?>? diffSelectionNotifier,
   }) {
+    if (sessionId != null && diffSelectionNotifier != null) {
+      final current = _toolPaneBindings[sessionId];
+      _toolPaneBindings[sessionId] = _WorkspaceToolPaneBindings(
+        diffSelectionNotifier: diffSelectionNotifier,
+        onExploreResultChanged: current?.onExploreResultChanged,
+      );
+    }
     _openToolPane(
       _GitToolPaneData(
         projectPath: projectPath,
         sessionId: sessionId,
         worktreePath: worktreePath,
-        diffSelectionNotifier: diffSelectionNotifier,
       ),
     );
   }
@@ -233,6 +324,13 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     List<String> recentPeekedFiles = const [],
     ValueChanged<ExploreScreenResult>? onResultChanged,
   }) {
+    if (onResultChanged != null) {
+      final current = _toolPaneBindings[sessionId];
+      _toolPaneBindings[sessionId] = _WorkspaceToolPaneBindings(
+        diffSelectionNotifier: current?.diffSelectionNotifier,
+        onExploreResultChanged: onResultChanged,
+      );
+    }
     _openToolPane(
       _ExploreToolPaneData(
         sessionId: sessionId,
@@ -240,7 +338,6 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
         initialFiles: initialFiles,
         initialPath: initialPath,
         recentPeekedFiles: recentPeekedFiles,
-        onResultChanged: onResultChanged,
       ),
     );
   }
@@ -292,6 +389,64 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     _notifyPresentationChanged();
   }
 
+  _WorkspaceToolPaneSnapshot? _snapshotForPane(
+    _WorkspaceToolPaneData pane, {
+    String? fallbackSessionId,
+  }) {
+    return switch (pane) {
+      _GitToolPaneData(
+        :final projectPath,
+        :final sessionId,
+        :final worktreePath,
+      )
+          when sessionId != null || fallbackSessionId != null =>
+        _GitToolPaneSnapshot(
+          projectPath: projectPath,
+          sessionId: sessionId ?? fallbackSessionId,
+          worktreePath: worktreePath,
+        ),
+      _GitToolPaneData() => null,
+      _ExploreToolPaneData(
+        :final sessionId,
+        :final projectPath,
+        :final initialPath,
+        :final recentPeekedFiles,
+      ) =>
+        _ExploreToolPaneSnapshot(
+          sessionId: sessionId,
+          projectPath: projectPath,
+          initialPath: initialPath,
+          recentPeekedFiles: List.unmodifiable(recentPeekedFiles),
+        ),
+      _GalleryToolPaneData(:final sessionId) => _GalleryToolPaneSnapshot(
+        sessionId: sessionId,
+      ),
+    };
+  }
+
+  void _rememberToolPaneForSession(String? sessionId) {
+    final pane = _toolPane;
+    if (pane == null || sessionId == null) return;
+    final snapshot = _snapshotForPane(pane, fallbackSessionId: sessionId);
+    if (snapshot == null) return;
+    _toolPaneSnapshots[sessionId] = snapshot;
+  }
+
+  void _rememberVisibleToolPane() {
+    _rememberToolPaneForSession(
+      _selectedSession?.sessionId ?? _toolPane?.sessionId,
+    );
+  }
+
+  void _forgetToolPaneForSession(String? sessionId) {
+    if (sessionId == null) return;
+    _toolPaneSnapshots.remove(sessionId);
+  }
+
+  _WorkspaceToolPaneData? _restoreToolPaneForSession(String sessionId) {
+    return _toolPaneSnapshots[sessionId]?.restore();
+  }
+
   void _openToolPane(_WorkspaceToolPaneData pane) {
     if (_layoutMode == _WorkspaceLayoutMode.single) {
       return;
@@ -302,6 +457,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     }
     setState(() {
       _toolPane = pane;
+      _rememberVisibleToolPane();
       if (_layoutMode == _WorkspaceLayoutMode.doublePane) {
         _shouldRestoreLeftPaneOnToolClose = _showLeftPane;
         _showLeftPane = false;
@@ -328,6 +484,9 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   void closeToolPane() {
     if (_toolPane == null) return;
     setState(() {
+      _forgetToolPaneForSession(
+        _selectedSession?.sessionId ?? _toolPane?.sessionId,
+      );
       _toolPane = null;
       if (_shouldRestoreLeftPaneOnToolClose) {
         _showLeftPane = true;
@@ -341,6 +500,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     final hadSelection = _selectedSession != null;
     final alreadyReset =
         _toolPane == null &&
+        _toolPaneSnapshots.isEmpty &&
         _showLeftPane &&
         !hadSelection &&
         _centerRoot == _WorkspaceCenterRoot.offline &&
@@ -348,6 +508,8 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     if (alreadyReset) return;
     setState(() {
       _toolPane = null;
+      _toolPaneSnapshots.clear();
+      _toolPaneBindings.clear();
       _showLeftPane = true;
       _shouldRestoreLeftPaneOnToolClose = false;
       _selectedSession = null;
@@ -363,6 +525,9 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   void toggleLeftPaneVisibility() {
     setState(() {
       if (_layoutMode == _WorkspaceLayoutMode.doublePane && _toolPane != null) {
+        _forgetToolPaneForSession(
+          _selectedSession?.sessionId ?? _toolPane?.sessionId,
+        );
         _toolPane = null;
         _showLeftPane = true;
         _shouldRestoreLeftPaneOnToolClose = false;
@@ -377,24 +542,46 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   void _handleExploreResult(ExploreScreenResult result) {
     final pane = _toolPane;
     if (pane is! _ExploreToolPaneData) return;
-    pane.onResultChanged?.call(result);
+    _toolPane = _ExploreToolPaneData(
+      sessionId: pane.sessionId,
+      projectPath: pane.projectPath,
+      initialFiles: pane.initialFiles,
+      initialPath: result.currentPath,
+      recentPeekedFiles: result.recentPeekedFiles,
+    );
+    _rememberToolPaneForSession(pane.sessionId);
+    _toolPaneBindings[pane.sessionId]?.onExploreResultChanged?.call(result);
   }
 
   void _handleDiffSelection(DiffSelection selection) {
     final pane = _toolPane;
     if (pane is! _GitToolPaneData) return;
-    pane.diffSelectionNotifier?.value = selection.isEmpty ? null : selection;
+    final sessionId = _selectedSession?.sessionId ?? pane.sessionId;
+    _toolPaneBindings[sessionId]?.diffSelectionNotifier?.value =
+        selection.isEmpty ? null : selection;
     closeToolPane();
   }
 
   void selectSession(WorkspaceSessionSelection selection) {
     setState(() {
+      final previousShouldRestoreLeftPane =
+          _layoutMode == _WorkspaceLayoutMode.doublePane &&
+          _toolPane != null &&
+          _shouldRestoreLeftPaneOnToolClose;
+      _rememberVisibleToolPane();
+      final restoredToolPane = _restoreToolPaneForSession(selection.sessionId);
       _selectedSession = selection;
+      _toolPane = restoredToolPane;
       _centerRoot = _WorkspaceCenterRoot.session;
       _centerOverlay = _WorkspaceCenterOverlay.none;
-      if (_layoutMode == _WorkspaceLayoutMode.doublePane && _toolPane != null) {
-        _showLeftPane = false;
-        _shouldRestoreLeftPaneOnToolClose = true;
+      if (_layoutMode == _WorkspaceLayoutMode.doublePane) {
+        if (_toolPane != null) {
+          _showLeftPane = false;
+          _shouldRestoreLeftPaneOnToolClose = true;
+        } else if (previousShouldRestoreLeftPane) {
+          _showLeftPane = true;
+          _shouldRestoreLeftPaneOnToolClose = false;
+        }
       }
     });
     NotificationService.instance.setActiveSession(
@@ -409,6 +596,8 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     setState(() {
       _selectedSession = null;
       _toolPane = null;
+      _toolPaneSnapshots.clear();
+      _toolPaneBindings.clear();
       _showLeftPane = true;
       _shouldRestoreLeftPaneOnToolClose = false;
       _centerRoot = _WorkspaceCenterRoot.offline;

@@ -362,9 +362,7 @@ void main() {
     await _pumpUi(tester);
 
     expect(
-      find.text(
-        'Create a session from New in the left pane.',
-      ),
+      find.text('Create a session from New in the left pane.'),
       findsOneWidget,
     );
   });
@@ -484,9 +482,7 @@ void main() {
       await _pumpUi(tester);
 
       expect(
-        find.text(
-          'Create a session from New in the left pane.',
-        ),
+        find.text('Create a session from New in the left pane.'),
         findsOneWidget,
       );
     },
@@ -675,6 +671,279 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'right pane hides for other sessions and restores when returning',
+    (tester) async {
+      final bridge = _MockBridgeService();
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+      final shellKey = GlobalKey<WorkspaceShellScreenState>();
+
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          shellKey: shellKey,
+        ),
+      );
+      await _pumpUi(tester);
+
+      shellKey.currentState!.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'session-a',
+          projectPath: '/Users/demo/project-a',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      shellKey.currentState!.openExplorePane(
+        sessionId: 'session-a',
+        projectPath: '/Users/demo/project-a',
+        initialFiles: const ['lib/main.dart'],
+      );
+      await _pumpUi(tester);
+
+      expect(
+        find.byKey(const ValueKey('close_explore_pane_button')),
+        findsOneWidget,
+      );
+
+      shellKey.currentState!.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'session-b',
+          projectPath: '/Users/demo/project-b',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      await _pumpUi(tester);
+
+      expect(
+        find.byKey(const ValueKey('close_explore_pane_button')),
+        findsNothing,
+      );
+
+      shellKey.currentState!.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'session-a',
+          projectPath: '/Users/demo/project-a',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      await _pumpUi(tester);
+
+      expect(
+        find.byKey(const ValueKey('close_explore_pane_button')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('git right pane snapshot follows selected session', (
+    tester,
+  ) async {
+    final bridge = _MockBridgeService();
+    final settingsCubit = await _createSettingsCubit(bridge);
+    final draftService = DraftService(await SharedPreferences.getInstance());
+    final revenueCatService = _FakeRevenueCatService();
+    final supportBannerService = await _createSupportBannerService();
+    final shellKey = GlobalKey<WorkspaceShellScreenState>();
+
+    await tester.pumpWidget(
+      _buildWorkspaceApp(
+        bridge: bridge,
+        settingsCubit: settingsCubit,
+        draftService: draftService,
+        revenueCatService: revenueCatService,
+        supportBannerService: supportBannerService,
+        shellKey: shellKey,
+      ),
+    );
+    await _pumpUi(tester);
+
+    shellKey.currentState!.selectSession(
+      const WorkspaceSessionSelection(
+        sessionId: 'session-a',
+        projectPath: '/Users/demo/project-a',
+        provider: Provider.codex,
+        isPending: true,
+      ),
+    );
+    shellKey.currentState!.openGitPane(
+      projectPath: '/Users/demo/project-a',
+      sessionId: 'session-a',
+    );
+
+    expect(
+      shellKey.currentState!.isToolPaneOpen(
+        'git:/Users/demo/project-a:session-a:',
+      ),
+      isTrue,
+    );
+
+    shellKey.currentState!.selectSession(
+      const WorkspaceSessionSelection(
+        sessionId: 'session-b',
+        projectPath: '/Users/demo/project-b',
+        provider: Provider.codex,
+        isPending: true,
+      ),
+    );
+
+    expect(
+      shellKey.currentState!.isToolPaneOpen(
+        'git:/Users/demo/project-a:session-a:',
+      ),
+      isFalse,
+    );
+
+    shellKey.currentState!.selectSession(
+      const WorkspaceSessionSelection(
+        sessionId: 'session-a',
+        projectPath: '/Users/demo/project-a',
+        provider: Provider.codex,
+        isPending: true,
+      ),
+    );
+
+    expect(
+      shellKey.currentState!.isToolPaneOpen(
+        'git:/Users/demo/project-a:session-a:',
+      ),
+      isTrue,
+    );
+
+    shellKey.currentState!.selectSession(
+      const WorkspaceSessionSelection(
+        sessionId: 'session-b',
+        projectPath: '/Users/demo/project-b',
+        provider: Provider.codex,
+        isPending: true,
+      ),
+    );
+    await _pumpUi(tester);
+  });
+
+  testWidgets(
+    'right pane remembers one pane per session and forgets closed pane',
+    (tester) async {
+      final bridge = _MockBridgeService();
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+      final shellKey = GlobalKey<WorkspaceShellScreenState>();
+
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          shellKey: shellKey,
+        ),
+      );
+      await _pumpUi(tester);
+
+      shellKey.currentState!.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'session-a',
+          projectPath: '/Users/demo/project-a',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      shellKey.currentState!.openExplorePane(
+        sessionId: 'session-a',
+        projectPath: '/Users/demo/project-a',
+        initialFiles: const ['lib/main.dart'],
+      );
+      await _pumpUi(tester);
+
+      shellKey.currentState!.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'session-b',
+          projectPath: '/Users/demo/project-b',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      shellKey.currentState!.openSessionGalleryPane(sessionId: 'session-b');
+      await _pumpUi(tester);
+
+      expect(
+        find.byKey(const ValueKey('embedded_gallery_close_button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('close_explore_pane_button')),
+        findsNothing,
+      );
+
+      shellKey.currentState!.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'session-a',
+          projectPath: '/Users/demo/project-a',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      await _pumpUi(tester);
+
+      expect(
+        find.byKey(const ValueKey('close_explore_pane_button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('embedded_gallery_close_button')),
+        findsNothing,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('close_explore_pane_button')));
+      await _pumpUi(tester);
+
+      shellKey.currentState!.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'session-b',
+          projectPath: '/Users/demo/project-b',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      await _pumpUi(tester);
+      expect(
+        find.byKey(const ValueKey('embedded_gallery_close_button')),
+        findsOneWidget,
+      );
+
+      shellKey.currentState!.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'session-a',
+          projectPath: '/Users/demo/project-a',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      await _pumpUi(tester);
+
+      expect(
+        find.byKey(const ValueKey('close_explore_pane_button')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('embedded_gallery_close_button')),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets(
     'workspace session keeps show sessions button when left pane is collapsed',

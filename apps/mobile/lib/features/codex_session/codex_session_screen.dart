@@ -588,6 +588,28 @@ class _CodexChatBody extends HookWidget {
     final chatSessionCubit = context.read<ChatSessionCubit>();
     final sessionState = context.watch<ChatSessionCubit>().state;
     final bridgeState = context.watch<ConnectionCubit>().state;
+    final parentState = context
+        .findAncestorStateOfType<_CodexSessionScreenState>();
+    void handleExploreResult(ExploreScreenResult result) {
+      if (!context.mounted) return;
+      parentState?.updateExplorerState(
+        currentPath: result.currentPath,
+        recentPeekedFiles: result.recentPeekedFiles,
+      );
+      final cubit = context.read<ChatSessionCubit>();
+      cubit.setExplorerCurrentPath(result.currentPath);
+      cubit.setRecentPeekedFiles(result.recentPeekedFiles);
+    }
+
+    useEffect(() {
+      final shell = WorkspaceShellScreen.maybeOf(context);
+      shell?.registerSessionToolPaneBindings(
+        sessionId: sessionId,
+        diffSelectionNotifier: diffSelectionFromNav,
+        onExploreResultChanged: handleExploreResult,
+      );
+      return () => shell?.unregisterSessionToolPaneBindings(sessionId);
+    }, [sessionId]);
 
     // --- Side effects subscription ---
     useEffect(() {
@@ -813,23 +835,6 @@ class _CodexChatBody extends HookWidget {
                           ),
                           tooltip: 'Explore',
                           onPressed: () async {
-                            final parentState = context
-                                .findAncestorStateOfType<
-                                  _CodexSessionScreenState
-                                >();
-                            void handleResult(ExploreScreenResult result) {
-                              if (!context.mounted) return;
-                              parentState?.updateExplorerState(
-                                currentPath: result.currentPath,
-                                recentPeekedFiles: result.recentPeekedFiles,
-                              );
-                              final cubit = context.read<ChatSessionCubit>();
-                              cubit.setExplorerCurrentPath(result.currentPath);
-                              cubit.setRecentPeekedFiles(
-                                result.recentPeekedFiles,
-                              );
-                            }
-
                             final shell = WorkspaceShellScreen.maybeOf(context);
                             final initialPath =
                                 parentState?._explorerCurrentPath ??
@@ -846,7 +851,7 @@ class _CodexChatBody extends HookWidget {
                                     .state,
                                 initialPath: initialPath,
                                 recentPeekedFiles: recentPeekedFiles,
-                                onResultChanged: handleResult,
+                                onResultChanged: handleExploreResult,
                               );
                               return;
                             }
@@ -865,7 +870,7 @@ class _CodexChatBody extends HookWidget {
                                 !context.mounted) {
                               return;
                             }
-                            handleResult(result);
+                            handleExploreResult(result);
                           },
                         ),
                       if ((projectPath ?? '').isNotEmpty)
