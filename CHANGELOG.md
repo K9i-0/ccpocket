@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.71.1] - 2026-04-25
+
+### Fixed
+- Keep the workspace right pane synced with the selected center session and restore each session's last tool pane when returning to it
+
 ## [1.71.0] - 2026-04-25
 
 ### Added
