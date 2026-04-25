@@ -17,7 +17,9 @@ class VoiceInputService {
       _isAvailable = false;
       return false;
     }
-    _isAvailable = await _speech.initialize();
+    _isAvailable = await _speech.initialize(
+      options: [SpeechToText.androidNoBluetooth],
+    );
     return _isAvailable;
   }
 
