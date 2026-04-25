@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.45.0] - 2026-04-25
+
+### Added
+- Add Codex app-server image generation result support, including saved file and base64 image extraction paths
+
 ## [1.44.1] - 2026-04-25
 
 ### Fixed
