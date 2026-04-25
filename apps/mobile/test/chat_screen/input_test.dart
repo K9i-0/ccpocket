@@ -1,6 +1,7 @@
 import 'package:ccpocket/features/chat_session/widgets/chat_input_with_overlays.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol_finders/patrol_finders.dart';
 
@@ -115,5 +116,39 @@ void main() {
 
       expect($(ChatInputWithOverlays), findsNothing);
     });
+
+    patrolWidgetTest(
+      'H6: Arrow keys navigate file completion and Tab selects',
+      ($) async {
+        await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+        await pumpN($.tester);
+
+        await emitAndPump($.tester, bridge, [
+          const StatusMessage(status: ProcessStatus.idle),
+        ]);
+        bridge.emitFileList(['a.dart', 'bb.dart', 'ccc.dart']);
+        await pumpN($.tester);
+
+        await $.tester.enterText(
+          find.byKey(const ValueKey('message_input')),
+          '@',
+        );
+        await pumpN($.tester);
+
+        expect(find.text('a.dart'), findsOneWidget);
+        expect(find.text('bb.dart'), findsOneWidget);
+
+        await $.tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+        await $.tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+        await $.tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+        await $.tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+        await pumpN($.tester);
+
+        final textField = $.tester.widget<TextField>(
+          find.byKey(const ValueKey('message_input')),
+        );
+        expect(textField.controller?.text, '@bb.dart ');
+      },
+    );
   });
 }

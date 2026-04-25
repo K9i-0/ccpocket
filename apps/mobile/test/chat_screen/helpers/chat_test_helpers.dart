@@ -38,6 +38,10 @@ class MockBridgeService extends BridgeService {
     _messageController.add(msg);
   }
 
+  void emitFileList(List<String> files) {
+    _fileListController.add(files);
+  }
+
   @override
   Stream<ServerMessage> get messages => _messageController.stream;
 

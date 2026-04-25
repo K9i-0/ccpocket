@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/l10n/app_localizations.dart';
@@ -36,6 +37,7 @@ void main() {
     bool isInMentionContext = false,
     bool showDollarButton = false,
     DiffSelection? attachedDiffSelection,
+    KeyEventResult Function(KeyEvent event)? onCompletionKeyEvent,
   }) {
     return MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -62,6 +64,7 @@ void main() {
           isInMentionContext: isInMentionContext,
           showDollarButton: showDollarButton,
           attachedDiffSelection: attachedDiffSelection,
+          onCompletionKeyEvent: onCompletionKeyEvent,
         ),
       ),
     );
@@ -242,6 +245,75 @@ void main() {
       await tester.pumpWidget(buildSubject());
 
       expect(find.byKey(const ValueKey('message_input')), findsOneWidget);
+    });
+
+    testWidgets('completion handler suppresses Tab indentation', (
+      tester,
+    ) async {
+      var indented = false;
+      var handledTab = false;
+      await tester.pumpWidget(
+        buildSubject(
+          onIndent: () => indented = true,
+          onCompletionKeyEvent: (event) {
+            if (event.logicalKey == LogicalKeyboardKey.tab) {
+              handledTab = true;
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+
+      expect(handledTab, isTrue);
+      expect(indented, isFalse);
+    });
+
+    testWidgets('Tab still indents when completion ignores key', (
+      tester,
+    ) async {
+      var indented = false;
+      await tester.pumpWidget(
+        buildSubject(
+          onIndent: () => indented = true,
+          onCompletionKeyEvent: (_) => KeyEventResult.ignored,
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+
+      expect(indented, isTrue);
+    });
+
+    testWidgets('completion handler suppresses Enter send', (tester) async {
+      var sent = false;
+      var handledEnter = false;
+      await tester.pumpWidget(
+        buildSubject(
+          hasInputText: true,
+          onSend: () => sent = true,
+          onCompletionKeyEvent: (event) {
+            if (event.logicalKey == LogicalKeyboardKey.enter) {
+              handledEnter = true;
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.enter);
+
+      expect(handledEnter, isTrue);
+      expect(sent, isFalse);
     });
 
     testWidgets('text field supports multiline input', (tester) async {

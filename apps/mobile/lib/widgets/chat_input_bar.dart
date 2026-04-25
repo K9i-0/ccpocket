@@ -14,6 +14,7 @@ import 'bubbles/image_preview.dart';
 /// Desktop keyboard shortcuts (handled in [_InputTextField]):
 /// - Tab: indent current line(s)
 /// - Shift+Tab: dedent current line(s)
+/// - Active completion overlays handle navigation/selection first.
 class ChatInputBar extends StatelessWidget {
   final TextEditingController inputController;
   final ProcessStatus status;
@@ -47,6 +48,9 @@ class ChatInputBar extends StatelessWidget {
   /// Returns true if an image was found and pasted.
   final Future<bool> Function()? onPasteImage;
 
+  /// Handles keyboard events while an input completion overlay is open.
+  final KeyEventResult Function(KeyEvent event)? onCompletionKeyEvent;
+
   const ChatInputBar({
     super.key,
     required this.inputController,
@@ -76,6 +80,7 @@ class ChatInputBar extends StatelessWidget {
     this.onTapDiffPreview,
     this.hintText,
     this.onPasteImage,
+    this.onCompletionKeyEvent,
   });
 
   @override
@@ -116,6 +121,7 @@ class ChatInputBar extends StatelessWidget {
             onSend: onSend,
             hasInputText: hasInputText,
             onPasteImage: onPasteImage,
+            onCompletionKeyEvent: onCompletionKeyEvent,
             onIndent: onIndent,
             onDedent: onDedent,
           ),
@@ -621,7 +627,7 @@ class _DiffPreview extends StatelessWidget {
   }
 }
 
-class _InputTextField extends StatelessWidget {
+class _InputTextField extends StatefulWidget {
   const _InputTextField({
     required this.controller,
     required this.status,
@@ -629,6 +635,7 @@ class _InputTextField extends StatelessWidget {
     required this.onSend,
     required this.hasInputText,
     this.onPasteImage,
+    this.onCompletionKeyEvent,
     this.onIndent,
     this.onDedent,
   });
@@ -643,29 +650,58 @@ class _InputTextField extends StatelessWidget {
   /// to text paste if no image is found. Returns true if an image was pasted.
   final Future<bool> Function()? onPasteImage;
 
+  /// Gives active completion overlays first chance to handle navigation,
+  /// dismissal, and selection shortcuts.
+  final KeyEventResult Function(KeyEvent event)? onCompletionKeyEvent;
+
   /// Callback for Tab key (indent).
   final VoidCallback? onIndent;
 
   /// Callback for Shift+Tab key (dedent).
   final VoidCallback? onDedent;
 
+  @override
+  State<_InputTextField> createState() => _InputTextFieldState();
+}
+
+class _InputTextFieldState extends State<_InputTextField> {
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode(onKeyEvent: _handleKeyEvent);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
   /// On desktop: Enter sends, Shift+Enter inserts newline,
   /// Tab indents, Shift+Tab dedents.
   /// Cmd/Ctrl+V: attempt image paste, fall back to text paste.
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    if (!isDesktopPlatform) return KeyEventResult.ignored;
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
     final isImeComposing =
-        controller.value.composing.isValid &&
-        !controller.value.composing.isCollapsed;
+        widget.controller.value.composing.isValid &&
+        !widget.controller.value.composing.isCollapsed;
+    if (!isImeComposing && widget.onCompletionKeyEvent != null) {
+      final completionResult = widget.onCompletionKeyEvent!(event);
+      if (completionResult == KeyEventResult.handled) {
+        return completionResult;
+      }
+    }
+    if (!isDesktopPlatform) return KeyEventResult.ignored;
 
     // Cmd+V (macOS) or Ctrl+V (Windows/Linux): try image paste first
     final isModifier =
         HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
-    if (onPasteImage != null &&
+    if (widget.onPasteImage != null &&
         event.logicalKey == LogicalKeyboardKey.keyV &&
         isModifier &&
         !HardwareKeyboard.instance.isShiftPressed) {
@@ -679,9 +715,9 @@ class _InputTextField extends StatelessWidget {
         return KeyEventResult.ignored;
       }
       if (HardwareKeyboard.instance.isShiftPressed) {
-        onDedent?.call();
+        widget.onDedent?.call();
       } else {
-        onIndent?.call();
+        widget.onIndent?.call();
       }
       return KeyEventResult.handled;
     }
@@ -699,28 +735,28 @@ class _InputTextField extends StatelessWidget {
       return KeyEventResult.ignored;
     }
     // Enter without Shift: send message
-    if (hasInputText) {
-      onSend();
+    if (widget.hasInputText) {
+      widget.onSend();
     }
     return KeyEventResult.handled;
   }
 
   Future<void> _handlePaste() async {
     // Try image paste first
-    final pasted = await onPasteImage!();
+    final pasted = await widget.onPasteImage!();
     if (pasted) return;
 
     // Fall back to text paste from system clipboard
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (data?.text != null && data!.text!.isNotEmpty) {
-      final text = controller.text;
-      final selection = controller.selection;
+      final text = widget.controller.text;
+      final selection = widget.controller.selection;
       final start = selection.start < 0 ? text.length : selection.start;
       final end = selection.end < 0 ? text.length : selection.end;
       final newText =
           text.substring(0, start) + data.text! + text.substring(end);
       final newCursor = start + data.text!.length;
-      controller.value = TextEditingValue(
+      widget.controller.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(offset: newCursor),
       );
@@ -731,43 +767,41 @@ class _InputTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
-    return Focus(
-      onKeyEvent: _handleKeyEvent,
-      child: TextField(
-        key: const ValueKey('message_input'),
-        controller: controller,
-        decoration: InputDecoration(
-          hintText: hintText ?? l.messagePlaceholder,
-          filled: true,
-          fillColor: cs.surfaceContainerLow,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide(
-              color: cs.primary.withValues(alpha: 0.5),
-              width: 1.5,
-            ),
-          ),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 10,
+    return TextField(
+      key: const ValueKey('message_input'),
+      focusNode: _focusNode,
+      controller: widget.controller,
+      decoration: InputDecoration(
+        hintText: widget.hintText ?? l.messagePlaceholder,
+        filled: true,
+        fillColor: cs.surfaceContainerLow,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide(color: cs.outlineVariant, width: 0.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide(
+            color: cs.primary.withValues(alpha: 0.5),
+            width: 1.5,
           ),
         ),
-        enabled: status != ProcessStatus.starting,
-        autofillHints: null,
-        maxLines: 6,
-        minLines: 1,
-        keyboardType: TextInputType.multiline,
-        textInputAction: TextInputAction.newline,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
       ),
+      enabled: widget.status != ProcessStatus.starting,
+      autofillHints: null,
+      maxLines: 6,
+      minLines: 1,
+      keyboardType: TextInputType.multiline,
+      textInputAction: TextInputAction.newline,
     );
   }
 }

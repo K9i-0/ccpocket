@@ -31,6 +31,8 @@ import '../../../widgets/slash_command_sheet.dart'
         fallbackSlashCommands;
 import '../state/chat_session_cubit.dart';
 
+enum _CompletionOverlay { slash, dollar, file }
+
 /// Manages the chat input bar together with slash-command and @-mention
 /// overlays using [OverlayPortal].
 ///
@@ -106,6 +108,8 @@ class ChatInputWithOverlays extends HookWidget {
     final filteredSlash = useState<List<SlashCommand>>(const []);
     final filteredDollar = useState<List<SlashCommand>>(const []);
     final filteredFiles = useState<List<String>>(const []);
+    final activeCompletion = useState<_CompletionOverlay?>(null);
+    final selectedCompletionIndex = useState(0);
 
     // Image attachment state (multiple images)
     final attachedImages = useState<List<({Uint8List bytes, String mimeType})>>(
@@ -187,6 +191,35 @@ class ChatInputWithOverlays extends HookWidget {
       );
     }
 
+    void showCompletion(
+      _CompletionOverlay overlay,
+      int itemCount,
+      OverlayPortalController controller,
+    ) {
+      if (itemCount <= 0) {
+        _setPortalVisibility(controller, visible: false);
+        if (activeCompletion.value == overlay) {
+          activeCompletion.value = null;
+          selectedCompletionIndex.value = 0;
+        }
+        return;
+      }
+      activeCompletion.value = overlay;
+      selectedCompletionIndex.value = 0;
+      _setPortalVisibility(controller, visible: true);
+    }
+
+    void hideCompletion(
+      _CompletionOverlay overlay,
+      OverlayPortalController controller,
+    ) {
+      _setPortalVisibility(controller, visible: false);
+      if (activeCompletion.value == overlay) {
+        activeCompletion.value = null;
+        selectedCompletionIndex.value = 0;
+      }
+    }
+
     // Input change listener
     useEffect(() {
       void onChange() {
@@ -215,14 +248,18 @@ class ChatInputWithOverlays extends HookWidget {
               .toList();
           if (filtered.isNotEmpty) {
             filteredSlash.value = filtered;
-            _setPortalVisibility(slashPortalController, visible: true);
+            showCompletion(
+              _CompletionOverlay.slash,
+              filtered.length,
+              slashPortalController,
+            );
           } else {
-            _setPortalVisibility(slashPortalController, visible: false);
+            hideCompletion(_CompletionOverlay.slash, slashPortalController);
           }
-          _setPortalVisibility(dollarPortalController, visible: false);
-          _setPortalVisibility(filePortalController, visible: false);
+          hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
+          hideCompletion(_CompletionOverlay.file, filePortalController);
         } else {
-          _setPortalVisibility(slashPortalController, visible: false);
+          hideCompletion(_CompletionOverlay.slash, slashPortalController);
           final dollarQuery = isCodex
               ? _extractTriggerQuery(
                   text,
@@ -242,14 +279,18 @@ class ChatInputWithOverlays extends HookWidget {
                   ..sort((a, b) => a.command.compareTo(b.command));
             if (filtered.isNotEmpty) {
               filteredDollar.value = filtered;
-              _setPortalVisibility(dollarPortalController, visible: true);
+              showCompletion(
+                _CompletionOverlay.dollar,
+                filtered.length,
+                dollarPortalController,
+              );
             } else {
-              _setPortalVisibility(dollarPortalController, visible: false);
+              hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
             }
-            _setPortalVisibility(filePortalController, visible: false);
+            hideCompletion(_CompletionOverlay.file, filePortalController);
             return;
           }
-          _setPortalVisibility(dollarPortalController, visible: false);
+          hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
           // @-mention filtering
           final mentionQuery = _extractMentionQuery(
             text,
@@ -276,12 +317,16 @@ class ChatInputWithOverlays extends HookWidget {
             final filtered = scored.take(15).map((e) => e.file).toList();
             if (filtered.isNotEmpty) {
               filteredFiles.value = filtered;
-              _setPortalVisibility(filePortalController, visible: true);
+              showCompletion(
+                _CompletionOverlay.file,
+                filtered.length,
+                filePortalController,
+              );
             } else {
-              _setPortalVisibility(filePortalController, visible: false);
+              hideCompletion(_CompletionOverlay.file, filePortalController);
             }
           } else {
-            _setPortalVisibility(filePortalController, visible: false);
+            hideCompletion(_CompletionOverlay.file, filePortalController);
           }
         }
       }
@@ -329,7 +374,7 @@ class ChatInputWithOverlays extends HookWidget {
 
     // Callbacks
     void onSlashCommandSelected(SlashCommand command) {
-      _setPortalVisibility(slashPortalController, visible: false);
+      hideCompletion(_CompletionOverlay.slash, slashPortalController);
       _replaceActiveTriggerQuery(
         inputController,
         trigger: '/',
@@ -338,7 +383,7 @@ class ChatInputWithOverlays extends HookWidget {
     }
 
     void onDollarEntitySelected(SlashCommand command) {
-      _setPortalVisibility(dollarPortalController, visible: false);
+      hideCompletion(_CompletionOverlay.dollar, dollarPortalController);
       _replaceActiveTriggerQuery(
         inputController,
         trigger: r'$',
@@ -347,7 +392,7 @@ class ChatInputWithOverlays extends HookWidget {
     }
 
     void onFileMentionSelected(String filePath) {
-      _setPortalVisibility(filePortalController, visible: false);
+      hideCompletion(_CompletionOverlay.file, filePortalController);
       final text = inputController.text;
       final cursorPos = inputController.selection.baseOffset;
       final beforeCursor = text.substring(0, cursorPos);
@@ -360,6 +405,79 @@ class ChatInputWithOverlays extends HookWidget {
       inputController.selection = TextSelection.fromPosition(
         TextPosition(offset: newCursor),
       );
+    }
+
+    int activeCompletionCount() {
+      return switch (activeCompletion.value) {
+        _CompletionOverlay.slash => filteredSlash.value.length,
+        _CompletionOverlay.dollar => filteredDollar.value.length,
+        _CompletionOverlay.file => filteredFiles.value.length,
+        null => 0,
+      };
+    }
+
+    int boundedCompletionIndex(int count) {
+      if (count <= 0) return 0;
+      return selectedCompletionIndex.value.clamp(0, count - 1).toInt();
+    }
+
+    void moveCompletionSelection(int delta) {
+      final count = activeCompletionCount();
+      if (count <= 0) return;
+      final current = boundedCompletionIndex(count);
+      selectedCompletionIndex.value = (current + delta + count) % count;
+    }
+
+    void hideAllCompletions() {
+      _setPortalVisibility(slashPortalController, visible: false);
+      _setPortalVisibility(dollarPortalController, visible: false);
+      _setPortalVisibility(filePortalController, visible: false);
+      activeCompletion.value = null;
+      selectedCompletionIndex.value = 0;
+    }
+
+    bool selectActiveCompletion() {
+      final active = activeCompletion.value;
+      if (active == null) return false;
+      final count = activeCompletionCount();
+      if (count <= 0) {
+        hideAllCompletions();
+        return false;
+      }
+      final index = boundedCompletionIndex(count);
+      switch (active) {
+        case _CompletionOverlay.slash:
+          onSlashCommandSelected(filteredSlash.value[index]);
+        case _CompletionOverlay.dollar:
+          onDollarEntitySelected(filteredDollar.value[index]);
+        case _CompletionOverlay.file:
+          onFileMentionSelected(filteredFiles.value[index]);
+      }
+      return true;
+    }
+
+    KeyEventResult handleCompletionKeyEvent(KeyEvent event) {
+      if (activeCompletion.value == null) return KeyEventResult.ignored;
+      final key = event.logicalKey;
+      if (key == LogicalKeyboardKey.arrowDown) {
+        moveCompletionSelection(1);
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.arrowUp) {
+        moveCompletionSelection(-1);
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.tab ||
+          (key == LogicalKeyboardKey.enter &&
+              !HardwareKeyboard.instance.isShiftPressed)) {
+        selectActiveCompletion();
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.escape) {
+        hideAllCompletions();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
     }
 
     /// Add image bytes to attachment list (shared by paste and drag-and-drop).
@@ -770,8 +888,10 @@ class ChatInputWithOverlays extends HookWidget {
         child: buildFollowerOverlay(
           child: SlashCommandOverlay(
             filteredCommands: filteredSlash.value,
+            selectedIndex: selectedCompletionIndex.value,
             onSelect: onSlashCommandSelected,
-            onDismiss: slashPortalController.hide,
+            onDismiss: () =>
+                hideCompletion(_CompletionOverlay.slash, slashPortalController),
           ),
         ),
       ),
@@ -782,8 +902,12 @@ class ChatInputWithOverlays extends HookWidget {
           child: buildFollowerOverlay(
             child: SlashCommandOverlay(
               filteredCommands: filteredDollar.value,
+              selectedIndex: selectedCompletionIndex.value,
               onSelect: onDollarEntitySelected,
-              onDismiss: dollarPortalController.hide,
+              onDismiss: () => hideCompletion(
+                _CompletionOverlay.dollar,
+                dollarPortalController,
+              ),
             ),
           ),
         ),
@@ -794,8 +918,12 @@ class ChatInputWithOverlays extends HookWidget {
             child: buildFollowerOverlay(
               child: FileMentionOverlay(
                 filteredFiles: filteredFiles.value,
+                selectedIndex: selectedCompletionIndex.value,
                 onSelect: onFileMentionSelected,
-                onDismiss: filePortalController.hide,
+                onDismiss: () => hideCompletion(
+                  _CompletionOverlay.file,
+                  filePortalController,
+                ),
               ),
             ),
           ),
@@ -840,6 +968,7 @@ class ChatInputWithOverlays extends HookWidget {
                     : null,
                 hintText: hintText,
                 onPasteImage: isDesktopPlatform ? tryPasteImage : null,
+                onCompletionKeyEvent: handleCompletionKeyEvent,
               ),
             ),
           ),
