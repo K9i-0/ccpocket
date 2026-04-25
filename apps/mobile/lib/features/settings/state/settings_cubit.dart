@@ -45,6 +45,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keySelectedAppIcon = 'settings_selected_app_icon';
   static const _keyTerminalApp = 'settings_terminal_app';
   static const _keyNewSessionTabs = 'settings_new_session_tabs';
+  static const _keyUsageDisplayMode = 'settings_usage_display_mode';
   // Legacy key for migration
   static const _keyIndentSize = 'settings_indent_size';
   // Legacy key for migration
@@ -168,6 +169,9 @@ class SettingsCubit extends Cubit<SettingsState> {
     final selectedAppIcon = appIconVariantFromId(
       prefs.getString(_keySelectedAppIcon),
     );
+    final usageDisplayMode = _usageDisplayModeFromRaw(
+      prefs.getString(_keyUsageDisplayMode),
+    );
 
     // Load terminal app config
     var terminalApp = TerminalAppConfig.empty;
@@ -205,7 +209,15 @@ class SettingsCubit extends Cubit<SettingsState> {
       selectedAppIcon: selectedAppIcon,
       terminalApp: terminalApp,
       newSessionTabs: newSessionTabs,
+      usageDisplayMode: usageDisplayMode,
     );
+  }
+
+  static UsageDisplayMode _usageDisplayModeFromRaw(String? raw) {
+    return switch (raw) {
+      'used' => UsageDisplayMode.used,
+      _ => UsageDisplayMode.remaining,
+    };
   }
 
   Future<void> _initializeAppIconSupport() async {
@@ -306,6 +318,18 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setNewSessionTabs(List<NewSessionTab> tabs) {
     _prefs.setString(_keyNewSessionTabs, tabsToJson(tabs));
     emit(state.copyWith(newSessionTabs: tabs));
+  }
+
+  void setUsageDisplayMode(UsageDisplayMode mode) {
+    _prefs.setString(_keyUsageDisplayMode, mode.name);
+    emit(state.copyWith(usageDisplayMode: mode));
+  }
+
+  void toggleUsageDisplayMode() {
+    final next = state.usageDisplayMode == UsageDisplayMode.remaining
+        ? UsageDisplayMode.used
+        : UsageDisplayMode.remaining;
+    setUsageDisplayMode(next);
   }
 
   Future<void> toggleFcm(bool enabled) async {

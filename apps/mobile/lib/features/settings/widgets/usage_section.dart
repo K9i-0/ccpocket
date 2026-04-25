@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../services/bridge_service.dart';
+import '../state/settings_cubit.dart';
+import '../state/settings_state.dart';
 
 /// Settings セクション: Codex 利用量表示 + Claude 公式ページ導線
 class UsageSection extends StatefulWidget {
@@ -89,6 +92,9 @@ class _UsageSectionState extends State<UsageSection> {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     final codexInfo = _codexInfo;
+    final usageDisplayMode = context.select(
+      (SettingsCubit cubit) => cubit.state.usageDisplayMode,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -107,6 +113,8 @@ class _UsageSectionState extends State<UsageSection> {
                 ),
               ),
               const Spacer(),
+              _UsageDisplayModeButton(mode: usageDisplayMode),
+              const SizedBox(width: 8),
               if (_loading)
                 SizedBox(
                   width: 14,
@@ -132,7 +140,10 @@ class _UsageSectionState extends State<UsageSection> {
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             key: const ValueKey('codex_usage_card'),
-            child: _ProviderUsageTile(info: codexInfo),
+            child: _ProviderUsageTile(
+              info: codexInfo,
+              displayMode: usageDisplayMode,
+            ),
           )
         else if (_providers == null)
           Card(
@@ -175,6 +186,39 @@ class _UsageSectionState extends State<UsageSection> {
         const SizedBox(height: 8),
         const _ClaudeUsageLinksCard(),
       ],
+    );
+  }
+}
+
+class _UsageDisplayModeButton extends StatelessWidget {
+  final UsageDisplayMode mode;
+
+  const _UsageDisplayModeButton({required this.mode});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    final label = switch (mode) {
+      UsageDisplayMode.remaining => l.usageDisplayModeRemaining,
+      UsageDisplayMode.used => l.usageDisplayModeUsed,
+    };
+
+    return Tooltip(
+      message: label,
+      child: TextButton(
+        key: const ValueKey('usage_display_mode_button'),
+        onPressed: context.read<SettingsCubit>().toggleUsageDisplayMode,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 28),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          foregroundColor: cs.onSurfaceVariant,
+          visualDensity: VisualDensity.compact,
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        child: Text(label),
+      ),
     );
   }
 }
@@ -247,7 +291,8 @@ class _ClaudeUsageLinksCard extends StatelessWidget {
 
 class _ProviderUsageTile extends StatelessWidget {
   final UsageInfo info;
-  const _ProviderUsageTile({required this.info});
+  final UsageDisplayMode displayMode;
+  const _ProviderUsageTile({required this.info, required this.displayMode});
 
   @override
   Widget build(BuildContext context) {
@@ -286,6 +331,7 @@ class _ProviderUsageTile extends StatelessWidget {
               _UsageBar(
                 label: AppLocalizations.of(context).usageFiveHour,
                 window: info.fiveHour!,
+                displayMode: displayMode,
               ),
             if (info.fiveHour != null && info.sevenDay != null)
               const SizedBox(height: 10),
@@ -293,6 +339,7 @@ class _ProviderUsageTile extends StatelessWidget {
               _UsageBar(
                 label: AppLocalizations.of(context).usageSevenDay,
                 window: info.sevenDay!,
+                displayMode: displayMode,
               ),
           ],
         ],
@@ -304,7 +351,12 @@ class _ProviderUsageTile extends StatelessWidget {
 class _UsageBar extends StatefulWidget {
   final String label;
   final UsageWindow window;
-  const _UsageBar({required this.label, required this.window});
+  final UsageDisplayMode displayMode;
+  const _UsageBar({
+    required this.label,
+    required this.window,
+    required this.displayMode,
+  });
 
   @override
   State<_UsageBar> createState() => _UsageBarState();
@@ -323,7 +375,7 @@ class _UsageBarState extends State<_UsageBar>
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    _oldPct = widget.window.utilization.clamp(0, 100).toDouble();
+    _oldPct = _targetPct;
     _newPct = _oldPct;
     // Show initial value immediately without animation
     _controller.value = 1.0;
@@ -332,7 +384,7 @@ class _UsageBarState extends State<_UsageBar>
   @override
   void didUpdateWidget(covariant _UsageBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final incoming = widget.window.utilization.clamp(0, 100).toDouble();
+    final incoming = _targetPct;
     if (incoming != _newPct) {
       _oldPct = _currentPct;
       _newPct = incoming;
@@ -345,6 +397,14 @@ class _UsageBarState extends State<_UsageBar>
   double get _currentPct {
     final curved = Curves.easeInOut.transform(_controller.value);
     return _oldPct + (_newPct - _oldPct) * curved;
+  }
+
+  double get _targetPct {
+    final used = widget.window.utilization.clamp(0, 100).toDouble();
+    return switch (widget.displayMode) {
+      UsageDisplayMode.remaining => 100 - used,
+      UsageDisplayMode.used => used,
+    };
   }
 
   @override
@@ -369,11 +429,7 @@ class _UsageBarState extends State<_UsageBar>
       animation: _controller,
       builder: (context, _) {
         final pct = _currentPct;
-        final barColor = pct >= 90
-            ? cs.error
-            : pct >= 70
-            ? Colors.orange
-            : cs.primary;
+        final barColor = _barColor(cs, pct);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,6 +472,23 @@ class _UsageBarState extends State<_UsageBar>
         );
       },
     );
+  }
+
+  Color _barColor(ColorScheme cs, double pct) {
+    return switch (widget.displayMode) {
+      UsageDisplayMode.used =>
+        pct >= 90
+            ? cs.error
+            : pct >= 70
+            ? Colors.orange
+            : cs.primary,
+      UsageDisplayMode.remaining =>
+        pct <= 10
+            ? cs.error
+            : pct <= 30
+            ? Colors.orange
+            : cs.primary,
+    };
   }
 
   String? _formatResetTime(DateTime dt) {

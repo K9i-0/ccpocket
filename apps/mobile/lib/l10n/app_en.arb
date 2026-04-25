@@ -542,6 +542,8 @@
   "usageSevenDay": "7 days",
   "settingsUsageSectionTitle": "Usage",
   "settingsUsageNoCodexData": "No Codex usage data found.",
+  "usageDisplayModeRemaining": "Remaining",
+  "usageDisplayModeUsed": "Used",
   "settingsClaudeUsageDescription": "Open Claude's official billing pages in your browser.",
   "settingsClaudeApiBilling": "API Key billing",
   "settingsClaudeSubscriptionUsage": "Subscription usage",

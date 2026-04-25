@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:ccpocket/features/settings/settings_screen.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
+import 'package:ccpocket/features/settings/state/settings_state.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/machine_manager_cubit.dart';
@@ -239,6 +240,85 @@ void main() {
       await settingsCubit.close();
       await machineManagerCubit.close();
       bridge.dispose();
+    });
+
+    testWidgets('defaults to remaining mode and toggles to used', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(
+        prefs,
+        activeMachineId: 'machine-1',
+      );
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = MachineManagerCubit(manager, null);
+      final bridge = _FakeBridgeService(
+        connected: true,
+        fakeLastUrl: 'ws://127.0.0.1:8765',
+        cachedUsage: const UsageResultMessage(
+          providers: [
+            UsageInfo(
+              provider: 'codex',
+              fiveHour: UsageWindow(
+                utilization: 14,
+                resetsAt: '2026-04-12T10:19:42Z',
+              ),
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('codex_usage_card')),
+        300,
+        scrollable: find.byType(Scrollable),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(l.usageDisplayModeRemaining), findsOneWidget);
+      expect(find.text('86%'), findsOneWidget);
+
+      await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('usage_display_mode_button'))),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('usage_display_mode_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l.usageDisplayModeUsed), findsOneWidget);
+      expect(find.text('14%'), findsOneWidget);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    test('usage display mode persists through SettingsCubit reload', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final firstCubit = SettingsCubit(prefs);
+
+      expect(firstCubit.state.usageDisplayMode, UsageDisplayMode.remaining);
+
+      firstCubit.setUsageDisplayMode(UsageDisplayMode.used);
+      await firstCubit.close();
+
+      final secondCubit = SettingsCubit(prefs);
+      expect(secondCubit.state.usageDisplayMode, UsageDisplayMode.used);
+
+      await secondCubit.close();
     });
 
     testWidgets('focusSupport scrolls support entry into view', (tester) async {

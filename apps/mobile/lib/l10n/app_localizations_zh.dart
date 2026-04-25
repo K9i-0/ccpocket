@@ -1326,6 +1326,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsUsageNoCodexData => '未找到 Codex 的用量数据。';
 
   @override
+  String get usageDisplayModeRemaining => '剩余';
+
+  @override
+  String get usageDisplayModeUsed => '已用';
+
+  @override
   String get settingsClaudeUsageDescription => '在浏览器中打开 Claude 的官方计费页面。';
 
   @override

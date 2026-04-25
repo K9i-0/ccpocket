@@ -1391,6 +1391,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsUsageNoCodexData => 'No Codex usage data found.';
 
   @override
+  String get usageDisplayModeRemaining => 'Remaining';
+
+  @override
+  String get usageDisplayModeUsed => 'Used';
+
+  @override
   String get settingsClaudeUsageDescription =>
       'Open Claude\'s official billing pages in your browser.';
 

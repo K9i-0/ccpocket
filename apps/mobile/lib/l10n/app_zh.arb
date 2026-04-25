@@ -650,6 +650,8 @@
   "usageSevenDay": "7 天",
   "settingsUsageSectionTitle": "用量",
   "settingsUsageNoCodexData": "未找到 Codex 的用量数据。",
+  "usageDisplayModeRemaining": "剩余",
+  "usageDisplayModeUsed": "已用",
   "settingsClaudeUsageDescription": "在浏览器中打开 Claude 的官方计费页面。",
   "settingsClaudeApiBilling": "API Key 计费",
   "settingsClaudeSubscriptionUsage": "订阅用量",

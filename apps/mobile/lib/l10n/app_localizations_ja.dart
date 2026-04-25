@@ -1339,6 +1339,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsUsageNoCodexData => 'Codex の利用量データが見つかりませんでした。';
 
   @override
+  String get usageDisplayModeRemaining => '残量';
+
+  @override
+  String get usageDisplayModeUsed => '使用量';
+
+  @override
   String get settingsClaudeUsageDescription => 'Claude の公式課金ページをブラウザで開きます。';
 
   @override

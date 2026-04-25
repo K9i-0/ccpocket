@@ -32,7 +32,8 @@ mixin _$SettingsState {
  AppIconVariant get selectedAppIcon;/// Whether app icon switching is supported on the current platform.
  bool get appIconSupported;/// External terminal app configuration (preset or custom URL template).
  TerminalAppConfig get terminalApp;/// Visible tabs (and their order) in the new session sheet.
- List<NewSessionTab> get newSessionTabs;
+ List<NewSessionTab> get newSessionTabs;/// Whether Codex usage limits are shown as remaining quota or used quota.
+ UsageDisplayMode get usageDisplayMode;
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -43,16 +44,16 @@ $SettingsStateCopyWith<SettingsState> get copyWith => _$SettingsStateCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SettingsState&&(identical(other.themeMode, themeMode) || other.themeMode == themeMode)&&(identical(other.appLocaleId, appLocaleId) || other.appLocaleId == appLocaleId)&&(identical(other.speechLocaleId, speechLocaleId) || other.speechLocaleId == speechLocaleId)&&const DeepCollectionEquality().equals(other.fcmEnabledMachines, fcmEnabledMachines)&&const DeepCollectionEquality().equals(other.fcmPrivacyMachines, fcmPrivacyMachines)&&(identical(other.activeMachineId, activeMachineId) || other.activeMachineId == activeMachineId)&&(identical(other.fcmAvailable, fcmAvailable) || other.fcmAvailable == fcmAvailable)&&(identical(other.fcmSyncInProgress, fcmSyncInProgress) || other.fcmSyncInProgress == fcmSyncInProgress)&&(identical(other.fcmStatusKey, fcmStatusKey) || other.fcmStatusKey == fcmStatusKey)&&(identical(other.shorebirdTrack, shorebirdTrack) || other.shorebirdTrack == shorebirdTrack)&&(identical(other.indentSize, indentSize) || other.indentSize == indentSize)&&(identical(other.hideVoiceInput, hideVoiceInput) || other.hideVoiceInput == hideVoiceInput)&&(identical(other.selectedAppIcon, selectedAppIcon) || other.selectedAppIcon == selectedAppIcon)&&(identical(other.appIconSupported, appIconSupported) || other.appIconSupported == appIconSupported)&&(identical(other.terminalApp, terminalApp) || other.terminalApp == terminalApp)&&const DeepCollectionEquality().equals(other.newSessionTabs, newSessionTabs));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SettingsState&&(identical(other.themeMode, themeMode) || other.themeMode == themeMode)&&(identical(other.appLocaleId, appLocaleId) || other.appLocaleId == appLocaleId)&&(identical(other.speechLocaleId, speechLocaleId) || other.speechLocaleId == speechLocaleId)&&const DeepCollectionEquality().equals(other.fcmEnabledMachines, fcmEnabledMachines)&&const DeepCollectionEquality().equals(other.fcmPrivacyMachines, fcmPrivacyMachines)&&(identical(other.activeMachineId, activeMachineId) || other.activeMachineId == activeMachineId)&&(identical(other.fcmAvailable, fcmAvailable) || other.fcmAvailable == fcmAvailable)&&(identical(other.fcmSyncInProgress, fcmSyncInProgress) || other.fcmSyncInProgress == fcmSyncInProgress)&&(identical(other.fcmStatusKey, fcmStatusKey) || other.fcmStatusKey == fcmStatusKey)&&(identical(other.shorebirdTrack, shorebirdTrack) || other.shorebirdTrack == shorebirdTrack)&&(identical(other.indentSize, indentSize) || other.indentSize == indentSize)&&(identical(other.hideVoiceInput, hideVoiceInput) || other.hideVoiceInput == hideVoiceInput)&&(identical(other.selectedAppIcon, selectedAppIcon) || other.selectedAppIcon == selectedAppIcon)&&(identical(other.appIconSupported, appIconSupported) || other.appIconSupported == appIconSupported)&&(identical(other.terminalApp, terminalApp) || other.terminalApp == terminalApp)&&const DeepCollectionEquality().equals(other.newSessionTabs, newSessionTabs)&&(identical(other.usageDisplayMode, usageDisplayMode) || other.usageDisplayMode == usageDisplayMode));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,themeMode,appLocaleId,speechLocaleId,const DeepCollectionEquality().hash(fcmEnabledMachines),const DeepCollectionEquality().hash(fcmPrivacyMachines),activeMachineId,fcmAvailable,fcmSyncInProgress,fcmStatusKey,shorebirdTrack,indentSize,hideVoiceInput,selectedAppIcon,appIconSupported,terminalApp,const DeepCollectionEquality().hash(newSessionTabs));
+int get hashCode => Object.hash(runtimeType,themeMode,appLocaleId,speechLocaleId,const DeepCollectionEquality().hash(fcmEnabledMachines),const DeepCollectionEquality().hash(fcmPrivacyMachines),activeMachineId,fcmAvailable,fcmSyncInProgress,fcmStatusKey,shorebirdTrack,indentSize,hideVoiceInput,selectedAppIcon,appIconSupported,terminalApp,const DeepCollectionEquality().hash(newSessionTabs),usageDisplayMode);
 
 @override
 String toString() {
-  return 'SettingsState(themeMode: $themeMode, appLocaleId: $appLocaleId, speechLocaleId: $speechLocaleId, fcmEnabledMachines: $fcmEnabledMachines, fcmPrivacyMachines: $fcmPrivacyMachines, activeMachineId: $activeMachineId, fcmAvailable: $fcmAvailable, fcmSyncInProgress: $fcmSyncInProgress, fcmStatusKey: $fcmStatusKey, shorebirdTrack: $shorebirdTrack, indentSize: $indentSize, hideVoiceInput: $hideVoiceInput, selectedAppIcon: $selectedAppIcon, appIconSupported: $appIconSupported, terminalApp: $terminalApp, newSessionTabs: $newSessionTabs)';
+  return 'SettingsState(themeMode: $themeMode, appLocaleId: $appLocaleId, speechLocaleId: $speechLocaleId, fcmEnabledMachines: $fcmEnabledMachines, fcmPrivacyMachines: $fcmPrivacyMachines, activeMachineId: $activeMachineId, fcmAvailable: $fcmAvailable, fcmSyncInProgress: $fcmSyncInProgress, fcmStatusKey: $fcmStatusKey, shorebirdTrack: $shorebirdTrack, indentSize: $indentSize, hideVoiceInput: $hideVoiceInput, selectedAppIcon: $selectedAppIcon, appIconSupported: $appIconSupported, terminalApp: $terminalApp, newSessionTabs: $newSessionTabs, usageDisplayMode: $usageDisplayMode)';
 }
 
 
@@ -63,7 +64,7 @@ abstract mixin class $SettingsStateCopyWith<$Res>  {
   factory $SettingsStateCopyWith(SettingsState value, $Res Function(SettingsState) _then) = _$SettingsStateCopyWithImpl;
 @useResult
 $Res call({
- ThemeMode themeMode, String appLocaleId, String speechLocaleId, Set<String> fcmEnabledMachines, Set<String> fcmPrivacyMachines, String? activeMachineId, bool fcmAvailable, bool fcmSyncInProgress, FcmStatusKey? fcmStatusKey, String shorebirdTrack, int indentSize, bool hideVoiceInput, AppIconVariant selectedAppIcon, bool appIconSupported, TerminalAppConfig terminalApp, List<NewSessionTab> newSessionTabs
+ ThemeMode themeMode, String appLocaleId, String speechLocaleId, Set<String> fcmEnabledMachines, Set<String> fcmPrivacyMachines, String? activeMachineId, bool fcmAvailable, bool fcmSyncInProgress, FcmStatusKey? fcmStatusKey, String shorebirdTrack, int indentSize, bool hideVoiceInput, AppIconVariant selectedAppIcon, bool appIconSupported, TerminalAppConfig terminalApp, List<NewSessionTab> newSessionTabs, UsageDisplayMode usageDisplayMode
 });
 
 
@@ -80,7 +81,7 @@ class _$SettingsStateCopyWithImpl<$Res>
 
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? themeMode = null,Object? appLocaleId = null,Object? speechLocaleId = null,Object? fcmEnabledMachines = null,Object? fcmPrivacyMachines = null,Object? activeMachineId = freezed,Object? fcmAvailable = null,Object? fcmSyncInProgress = null,Object? fcmStatusKey = freezed,Object? shorebirdTrack = null,Object? indentSize = null,Object? hideVoiceInput = null,Object? selectedAppIcon = null,Object? appIconSupported = null,Object? terminalApp = null,Object? newSessionTabs = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? themeMode = null,Object? appLocaleId = null,Object? speechLocaleId = null,Object? fcmEnabledMachines = null,Object? fcmPrivacyMachines = null,Object? activeMachineId = freezed,Object? fcmAvailable = null,Object? fcmSyncInProgress = null,Object? fcmStatusKey = freezed,Object? shorebirdTrack = null,Object? indentSize = null,Object? hideVoiceInput = null,Object? selectedAppIcon = null,Object? appIconSupported = null,Object? terminalApp = null,Object? newSessionTabs = null,Object? usageDisplayMode = null,}) {
   return _then(_self.copyWith(
 themeMode: null == themeMode ? _self.themeMode : themeMode // ignore: cast_nullable_to_non_nullable
 as ThemeMode,appLocaleId: null == appLocaleId ? _self.appLocaleId : appLocaleId // ignore: cast_nullable_to_non_nullable
@@ -98,7 +99,8 @@ as bool,selectedAppIcon: null == selectedAppIcon ? _self.selectedAppIcon : selec
 as AppIconVariant,appIconSupported: null == appIconSupported ? _self.appIconSupported : appIconSupported // ignore: cast_nullable_to_non_nullable
 as bool,terminalApp: null == terminalApp ? _self.terminalApp : terminalApp // ignore: cast_nullable_to_non_nullable
 as TerminalAppConfig,newSessionTabs: null == newSessionTabs ? _self.newSessionTabs : newSessionTabs // ignore: cast_nullable_to_non_nullable
-as List<NewSessionTab>,
+as List<NewSessionTab>,usageDisplayMode: null == usageDisplayMode ? _self.usageDisplayMode : usageDisplayMode // ignore: cast_nullable_to_non_nullable
+as UsageDisplayMode,
   ));
 }
 
@@ -183,10 +185,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ThemeMode themeMode,  String appLocaleId,  String speechLocaleId,  Set<String> fcmEnabledMachines,  Set<String> fcmPrivacyMachines,  String? activeMachineId,  bool fcmAvailable,  bool fcmSyncInProgress,  FcmStatusKey? fcmStatusKey,  String shorebirdTrack,  int indentSize,  bool hideVoiceInput,  AppIconVariant selectedAppIcon,  bool appIconSupported,  TerminalAppConfig terminalApp,  List<NewSessionTab> newSessionTabs)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ThemeMode themeMode,  String appLocaleId,  String speechLocaleId,  Set<String> fcmEnabledMachines,  Set<String> fcmPrivacyMachines,  String? activeMachineId,  bool fcmAvailable,  bool fcmSyncInProgress,  FcmStatusKey? fcmStatusKey,  String shorebirdTrack,  int indentSize,  bool hideVoiceInput,  AppIconVariant selectedAppIcon,  bool appIconSupported,  TerminalAppConfig terminalApp,  List<NewSessionTab> newSessionTabs,  UsageDisplayMode usageDisplayMode)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SettingsState() when $default != null:
-return $default(_that.themeMode,_that.appLocaleId,_that.speechLocaleId,_that.fcmEnabledMachines,_that.fcmPrivacyMachines,_that.activeMachineId,_that.fcmAvailable,_that.fcmSyncInProgress,_that.fcmStatusKey,_that.shorebirdTrack,_that.indentSize,_that.hideVoiceInput,_that.selectedAppIcon,_that.appIconSupported,_that.terminalApp,_that.newSessionTabs);case _:
+return $default(_that.themeMode,_that.appLocaleId,_that.speechLocaleId,_that.fcmEnabledMachines,_that.fcmPrivacyMachines,_that.activeMachineId,_that.fcmAvailable,_that.fcmSyncInProgress,_that.fcmStatusKey,_that.shorebirdTrack,_that.indentSize,_that.hideVoiceInput,_that.selectedAppIcon,_that.appIconSupported,_that.terminalApp,_that.newSessionTabs,_that.usageDisplayMode);case _:
   return orElse();
 
 }
@@ -204,10 +206,10 @@ return $default(_that.themeMode,_that.appLocaleId,_that.speechLocaleId,_that.fcm
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ThemeMode themeMode,  String appLocaleId,  String speechLocaleId,  Set<String> fcmEnabledMachines,  Set<String> fcmPrivacyMachines,  String? activeMachineId,  bool fcmAvailable,  bool fcmSyncInProgress,  FcmStatusKey? fcmStatusKey,  String shorebirdTrack,  int indentSize,  bool hideVoiceInput,  AppIconVariant selectedAppIcon,  bool appIconSupported,  TerminalAppConfig terminalApp,  List<NewSessionTab> newSessionTabs)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ThemeMode themeMode,  String appLocaleId,  String speechLocaleId,  Set<String> fcmEnabledMachines,  Set<String> fcmPrivacyMachines,  String? activeMachineId,  bool fcmAvailable,  bool fcmSyncInProgress,  FcmStatusKey? fcmStatusKey,  String shorebirdTrack,  int indentSize,  bool hideVoiceInput,  AppIconVariant selectedAppIcon,  bool appIconSupported,  TerminalAppConfig terminalApp,  List<NewSessionTab> newSessionTabs,  UsageDisplayMode usageDisplayMode)  $default,) {final _that = this;
 switch (_that) {
 case _SettingsState():
-return $default(_that.themeMode,_that.appLocaleId,_that.speechLocaleId,_that.fcmEnabledMachines,_that.fcmPrivacyMachines,_that.activeMachineId,_that.fcmAvailable,_that.fcmSyncInProgress,_that.fcmStatusKey,_that.shorebirdTrack,_that.indentSize,_that.hideVoiceInput,_that.selectedAppIcon,_that.appIconSupported,_that.terminalApp,_that.newSessionTabs);case _:
+return $default(_that.themeMode,_that.appLocaleId,_that.speechLocaleId,_that.fcmEnabledMachines,_that.fcmPrivacyMachines,_that.activeMachineId,_that.fcmAvailable,_that.fcmSyncInProgress,_that.fcmStatusKey,_that.shorebirdTrack,_that.indentSize,_that.hideVoiceInput,_that.selectedAppIcon,_that.appIconSupported,_that.terminalApp,_that.newSessionTabs,_that.usageDisplayMode);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -224,10 +226,10 @@ return $default(_that.themeMode,_that.appLocaleId,_that.speechLocaleId,_that.fcm
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ThemeMode themeMode,  String appLocaleId,  String speechLocaleId,  Set<String> fcmEnabledMachines,  Set<String> fcmPrivacyMachines,  String? activeMachineId,  bool fcmAvailable,  bool fcmSyncInProgress,  FcmStatusKey? fcmStatusKey,  String shorebirdTrack,  int indentSize,  bool hideVoiceInput,  AppIconVariant selectedAppIcon,  bool appIconSupported,  TerminalAppConfig terminalApp,  List<NewSessionTab> newSessionTabs)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ThemeMode themeMode,  String appLocaleId,  String speechLocaleId,  Set<String> fcmEnabledMachines,  Set<String> fcmPrivacyMachines,  String? activeMachineId,  bool fcmAvailable,  bool fcmSyncInProgress,  FcmStatusKey? fcmStatusKey,  String shorebirdTrack,  int indentSize,  bool hideVoiceInput,  AppIconVariant selectedAppIcon,  bool appIconSupported,  TerminalAppConfig terminalApp,  List<NewSessionTab> newSessionTabs,  UsageDisplayMode usageDisplayMode)?  $default,) {final _that = this;
 switch (_that) {
 case _SettingsState() when $default != null:
-return $default(_that.themeMode,_that.appLocaleId,_that.speechLocaleId,_that.fcmEnabledMachines,_that.fcmPrivacyMachines,_that.activeMachineId,_that.fcmAvailable,_that.fcmSyncInProgress,_that.fcmStatusKey,_that.shorebirdTrack,_that.indentSize,_that.hideVoiceInput,_that.selectedAppIcon,_that.appIconSupported,_that.terminalApp,_that.newSessionTabs);case _:
+return $default(_that.themeMode,_that.appLocaleId,_that.speechLocaleId,_that.fcmEnabledMachines,_that.fcmPrivacyMachines,_that.activeMachineId,_that.fcmAvailable,_that.fcmSyncInProgress,_that.fcmStatusKey,_that.shorebirdTrack,_that.indentSize,_that.hideVoiceInput,_that.selectedAppIcon,_that.appIconSupported,_that.terminalApp,_that.newSessionTabs,_that.usageDisplayMode);case _:
   return null;
 
 }
@@ -239,7 +241,7 @@ return $default(_that.themeMode,_that.appLocaleId,_that.speechLocaleId,_that.fcm
 
 
 class _SettingsState extends SettingsState {
-  const _SettingsState({this.themeMode = ThemeMode.system, this.appLocaleId = '', this.speechLocaleId = 'ja-JP', final  Set<String> fcmEnabledMachines = const {}, final  Set<String> fcmPrivacyMachines = const {}, this.activeMachineId, this.fcmAvailable = false, this.fcmSyncInProgress = false, this.fcmStatusKey, this.shorebirdTrack = 'stable', this.indentSize = 2, this.hideVoiceInput = false, this.selectedAppIcon = AppIconVariant.defaultIcon, this.appIconSupported = false, this.terminalApp = TerminalAppConfig.empty, final  List<NewSessionTab> newSessionTabs = defaultNewSessionTabs}): _fcmEnabledMachines = fcmEnabledMachines,_fcmPrivacyMachines = fcmPrivacyMachines,_newSessionTabs = newSessionTabs,super._();
+  const _SettingsState({this.themeMode = ThemeMode.system, this.appLocaleId = '', this.speechLocaleId = 'ja-JP', final  Set<String> fcmEnabledMachines = const {}, final  Set<String> fcmPrivacyMachines = const {}, this.activeMachineId, this.fcmAvailable = false, this.fcmSyncInProgress = false, this.fcmStatusKey, this.shorebirdTrack = 'stable', this.indentSize = 2, this.hideVoiceInput = false, this.selectedAppIcon = AppIconVariant.defaultIcon, this.appIconSupported = false, this.terminalApp = TerminalAppConfig.empty, final  List<NewSessionTab> newSessionTabs = defaultNewSessionTabs, this.usageDisplayMode = UsageDisplayMode.remaining}): _fcmEnabledMachines = fcmEnabledMachines,_fcmPrivacyMachines = fcmPrivacyMachines,_newSessionTabs = newSessionTabs,super._();
   
 
 /// Theme mode: system, light, or dark.
@@ -297,6 +299,8 @@ class _SettingsState extends SettingsState {
   return EqualUnmodifiableListView(_newSessionTabs);
 }
 
+/// Whether Codex usage limits are shown as remaining quota or used quota.
+@override@JsonKey() final  UsageDisplayMode usageDisplayMode;
 
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
@@ -308,16 +312,16 @@ _$SettingsStateCopyWith<_SettingsState> get copyWith => __$SettingsStateCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SettingsState&&(identical(other.themeMode, themeMode) || other.themeMode == themeMode)&&(identical(other.appLocaleId, appLocaleId) || other.appLocaleId == appLocaleId)&&(identical(other.speechLocaleId, speechLocaleId) || other.speechLocaleId == speechLocaleId)&&const DeepCollectionEquality().equals(other._fcmEnabledMachines, _fcmEnabledMachines)&&const DeepCollectionEquality().equals(other._fcmPrivacyMachines, _fcmPrivacyMachines)&&(identical(other.activeMachineId, activeMachineId) || other.activeMachineId == activeMachineId)&&(identical(other.fcmAvailable, fcmAvailable) || other.fcmAvailable == fcmAvailable)&&(identical(other.fcmSyncInProgress, fcmSyncInProgress) || other.fcmSyncInProgress == fcmSyncInProgress)&&(identical(other.fcmStatusKey, fcmStatusKey) || other.fcmStatusKey == fcmStatusKey)&&(identical(other.shorebirdTrack, shorebirdTrack) || other.shorebirdTrack == shorebirdTrack)&&(identical(other.indentSize, indentSize) || other.indentSize == indentSize)&&(identical(other.hideVoiceInput, hideVoiceInput) || other.hideVoiceInput == hideVoiceInput)&&(identical(other.selectedAppIcon, selectedAppIcon) || other.selectedAppIcon == selectedAppIcon)&&(identical(other.appIconSupported, appIconSupported) || other.appIconSupported == appIconSupported)&&(identical(other.terminalApp, terminalApp) || other.terminalApp == terminalApp)&&const DeepCollectionEquality().equals(other._newSessionTabs, _newSessionTabs));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SettingsState&&(identical(other.themeMode, themeMode) || other.themeMode == themeMode)&&(identical(other.appLocaleId, appLocaleId) || other.appLocaleId == appLocaleId)&&(identical(other.speechLocaleId, speechLocaleId) || other.speechLocaleId == speechLocaleId)&&const DeepCollectionEquality().equals(other._fcmEnabledMachines, _fcmEnabledMachines)&&const DeepCollectionEquality().equals(other._fcmPrivacyMachines, _fcmPrivacyMachines)&&(identical(other.activeMachineId, activeMachineId) || other.activeMachineId == activeMachineId)&&(identical(other.fcmAvailable, fcmAvailable) || other.fcmAvailable == fcmAvailable)&&(identical(other.fcmSyncInProgress, fcmSyncInProgress) || other.fcmSyncInProgress == fcmSyncInProgress)&&(identical(other.fcmStatusKey, fcmStatusKey) || other.fcmStatusKey == fcmStatusKey)&&(identical(other.shorebirdTrack, shorebirdTrack) || other.shorebirdTrack == shorebirdTrack)&&(identical(other.indentSize, indentSize) || other.indentSize == indentSize)&&(identical(other.hideVoiceInput, hideVoiceInput) || other.hideVoiceInput == hideVoiceInput)&&(identical(other.selectedAppIcon, selectedAppIcon) || other.selectedAppIcon == selectedAppIcon)&&(identical(other.appIconSupported, appIconSupported) || other.appIconSupported == appIconSupported)&&(identical(other.terminalApp, terminalApp) || other.terminalApp == terminalApp)&&const DeepCollectionEquality().equals(other._newSessionTabs, _newSessionTabs)&&(identical(other.usageDisplayMode, usageDisplayMode) || other.usageDisplayMode == usageDisplayMode));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,themeMode,appLocaleId,speechLocaleId,const DeepCollectionEquality().hash(_fcmEnabledMachines),const DeepCollectionEquality().hash(_fcmPrivacyMachines),activeMachineId,fcmAvailable,fcmSyncInProgress,fcmStatusKey,shorebirdTrack,indentSize,hideVoiceInput,selectedAppIcon,appIconSupported,terminalApp,const DeepCollectionEquality().hash(_newSessionTabs));
+int get hashCode => Object.hash(runtimeType,themeMode,appLocaleId,speechLocaleId,const DeepCollectionEquality().hash(_fcmEnabledMachines),const DeepCollectionEquality().hash(_fcmPrivacyMachines),activeMachineId,fcmAvailable,fcmSyncInProgress,fcmStatusKey,shorebirdTrack,indentSize,hideVoiceInput,selectedAppIcon,appIconSupported,terminalApp,const DeepCollectionEquality().hash(_newSessionTabs),usageDisplayMode);
 
 @override
 String toString() {
-  return 'SettingsState(themeMode: $themeMode, appLocaleId: $appLocaleId, speechLocaleId: $speechLocaleId, fcmEnabledMachines: $fcmEnabledMachines, fcmPrivacyMachines: $fcmPrivacyMachines, activeMachineId: $activeMachineId, fcmAvailable: $fcmAvailable, fcmSyncInProgress: $fcmSyncInProgress, fcmStatusKey: $fcmStatusKey, shorebirdTrack: $shorebirdTrack, indentSize: $indentSize, hideVoiceInput: $hideVoiceInput, selectedAppIcon: $selectedAppIcon, appIconSupported: $appIconSupported, terminalApp: $terminalApp, newSessionTabs: $newSessionTabs)';
+  return 'SettingsState(themeMode: $themeMode, appLocaleId: $appLocaleId, speechLocaleId: $speechLocaleId, fcmEnabledMachines: $fcmEnabledMachines, fcmPrivacyMachines: $fcmPrivacyMachines, activeMachineId: $activeMachineId, fcmAvailable: $fcmAvailable, fcmSyncInProgress: $fcmSyncInProgress, fcmStatusKey: $fcmStatusKey, shorebirdTrack: $shorebirdTrack, indentSize: $indentSize, hideVoiceInput: $hideVoiceInput, selectedAppIcon: $selectedAppIcon, appIconSupported: $appIconSupported, terminalApp: $terminalApp, newSessionTabs: $newSessionTabs, usageDisplayMode: $usageDisplayMode)';
 }
 
 
@@ -328,7 +332,7 @@ abstract mixin class _$SettingsStateCopyWith<$Res> implements $SettingsStateCopy
   factory _$SettingsStateCopyWith(_SettingsState value, $Res Function(_SettingsState) _then) = __$SettingsStateCopyWithImpl;
 @override @useResult
 $Res call({
- ThemeMode themeMode, String appLocaleId, String speechLocaleId, Set<String> fcmEnabledMachines, Set<String> fcmPrivacyMachines, String? activeMachineId, bool fcmAvailable, bool fcmSyncInProgress, FcmStatusKey? fcmStatusKey, String shorebirdTrack, int indentSize, bool hideVoiceInput, AppIconVariant selectedAppIcon, bool appIconSupported, TerminalAppConfig terminalApp, List<NewSessionTab> newSessionTabs
+ ThemeMode themeMode, String appLocaleId, String speechLocaleId, Set<String> fcmEnabledMachines, Set<String> fcmPrivacyMachines, String? activeMachineId, bool fcmAvailable, bool fcmSyncInProgress, FcmStatusKey? fcmStatusKey, String shorebirdTrack, int indentSize, bool hideVoiceInput, AppIconVariant selectedAppIcon, bool appIconSupported, TerminalAppConfig terminalApp, List<NewSessionTab> newSessionTabs, UsageDisplayMode usageDisplayMode
 });
 
 
@@ -345,7 +349,7 @@ class __$SettingsStateCopyWithImpl<$Res>
 
 /// Create a copy of SettingsState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? themeMode = null,Object? appLocaleId = null,Object? speechLocaleId = null,Object? fcmEnabledMachines = null,Object? fcmPrivacyMachines = null,Object? activeMachineId = freezed,Object? fcmAvailable = null,Object? fcmSyncInProgress = null,Object? fcmStatusKey = freezed,Object? shorebirdTrack = null,Object? indentSize = null,Object? hideVoiceInput = null,Object? selectedAppIcon = null,Object? appIconSupported = null,Object? terminalApp = null,Object? newSessionTabs = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? themeMode = null,Object? appLocaleId = null,Object? speechLocaleId = null,Object? fcmEnabledMachines = null,Object? fcmPrivacyMachines = null,Object? activeMachineId = freezed,Object? fcmAvailable = null,Object? fcmSyncInProgress = null,Object? fcmStatusKey = freezed,Object? shorebirdTrack = null,Object? indentSize = null,Object? hideVoiceInput = null,Object? selectedAppIcon = null,Object? appIconSupported = null,Object? terminalApp = null,Object? newSessionTabs = null,Object? usageDisplayMode = null,}) {
   return _then(_SettingsState(
 themeMode: null == themeMode ? _self.themeMode : themeMode // ignore: cast_nullable_to_non_nullable
 as ThemeMode,appLocaleId: null == appLocaleId ? _self.appLocaleId : appLocaleId // ignore: cast_nullable_to_non_nullable
@@ -363,7 +367,8 @@ as bool,selectedAppIcon: null == selectedAppIcon ? _self.selectedAppIcon : selec
 as AppIconVariant,appIconSupported: null == appIconSupported ? _self.appIconSupported : appIconSupported // ignore: cast_nullable_to_non_nullable
 as bool,terminalApp: null == terminalApp ? _self.terminalApp : terminalApp // ignore: cast_nullable_to_non_nullable
 as TerminalAppConfig,newSessionTabs: null == newSessionTabs ? _self._newSessionTabs : newSessionTabs // ignore: cast_nullable_to_non_nullable
-as List<NewSessionTab>,
+as List<NewSessionTab>,usageDisplayMode: null == usageDisplayMode ? _self.usageDisplayMode : usageDisplayMode // ignore: cast_nullable_to_non_nullable
+as UsageDisplayMode,
   ));
 }
 

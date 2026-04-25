@@ -18,6 +18,8 @@ enum FcmStatusKey {
   disabledPending,
 }
 
+enum UsageDisplayMode { remaining, used }
+
 /// Application-wide user settings.
 @freezed
 abstract class SettingsState with _$SettingsState {
@@ -73,6 +75,9 @@ abstract class SettingsState with _$SettingsState {
 
     /// Visible tabs (and their order) in the new session sheet.
     @Default(defaultNewSessionTabs) List<NewSessionTab> newSessionTabs,
+
+    /// Whether Codex usage limits are shown as remaining quota or used quota.
+    @Default(UsageDisplayMode.remaining) UsageDisplayMode usageDisplayMode,
   }) = _SettingsState;
 
   /// Whether push notifications are enabled for the currently connected machine.

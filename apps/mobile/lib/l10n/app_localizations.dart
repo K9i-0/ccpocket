@@ -2590,6 +2590,18 @@ abstract class AppLocalizations {
   /// **'Codex の利用量データが見つかりませんでした。'**
   String get settingsUsageNoCodexData;
 
+  /// No description provided for @usageDisplayModeRemaining.
+  ///
+  /// In ja, this message translates to:
+  /// **'残量'**
+  String get usageDisplayModeRemaining;
+
+  /// No description provided for @usageDisplayModeUsed.
+  ///
+  /// In ja, this message translates to:
+  /// **'使用量'**
+  String get usageDisplayModeUsed;
+
   /// No description provided for @settingsClaudeUsageDescription.
   ///
   /// In ja, this message translates to:
