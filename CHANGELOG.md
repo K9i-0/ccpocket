@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.73.0] - 2026-04-25
+
+### Added
+- Add a dedicated Codex image generation UI that keeps generated images visible by default
+
+### Changed
+- Require Bridge 1.45.0 for Codex app-server image generation result support
+
 ## [1.72.1] - 2026-04-25
 
 ### Fixed
