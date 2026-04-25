@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.45.1] - 2026-04-25
+
+### Fixed
+- Prevent Codex app-server completion metadata update notifications from causing an `app/list` refetch loop
+
 ## [1.45.0] - 2026-04-25
 
 ### Added
