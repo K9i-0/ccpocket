@@ -166,6 +166,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   String? _pendingResumeProjectPath;
   String? _pendingResumeGitBranch;
   NewSessionParams? _pendingClaudeDefaultsCorrection;
+  NewSessionParams? _sessionStartDefaults;
 
   // Flag: already navigated to chat for pending session creation
   bool _pendingNavigation = false;
@@ -271,6 +272,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     final activeCubit = context.read<ActiveSessionsCubit>();
     _unseenCubit.updateSessions(activeCubit.state);
     _activeSessionsSub = activeCubit.stream.listen(_unseenCubit.updateSessions);
+    unawaited(_loadSessionStartDefaultsIntoState());
     _checkAppUpdate();
   }
 
@@ -676,10 +678,19 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
   }
 
+  Future<void> _loadSessionStartDefaultsIntoState() async {
+    final defaults = await _loadSessionStartDefaults();
+    if (!mounted) return;
+    setState(() => _sessionStartDefaults = defaults);
+  }
+
   Future<void> _saveSessionStartDefaults(NewSessionParams params) async {
     final prefs = await SharedPreferences.getInstance();
     final json = sessionStartDefaultsToJson(params);
     await prefs.setString(_prefKeySessionStartDefaults, jsonEncode(json));
+    if (mounted) {
+      setState(() => _sessionStartDefaults = params);
+    }
   }
 
   void _trackPendingClaudeDefaultsCorrection(NewSessionParams params) {
@@ -772,6 +783,27 @@ class _SessionListScreenState extends State<SessionListScreen>
     return _saveProjectCodexProfile(params.projectPath, selected);
   }
 
+  List<RecentSession> _recentSessionsWithCodexApprovalDefaults(
+    List<RecentSession> sessions,
+  ) {
+    final defaults = _sessionStartDefaults;
+    if (defaults == null) {
+      return sessions;
+    }
+    final approvalPolicy = defaults.codexApprovalPolicy.value;
+    final approvalsReviewer = defaults.codexApprovalsReviewer;
+    return [
+      for (final session in sessions)
+        if (session.provider == Provider.codex.value)
+          session.copyWithCodexApprovalDefaults(
+            approvalPolicy: approvalPolicy,
+            approvalsReviewer: approvalsReviewer,
+          )
+        else
+          session,
+    ];
+  }
+
   // ---- Per-session Claude settings persistence ----
 
   static Future<void> saveClaudeSessionSettings(
@@ -842,6 +874,19 @@ class _SessionListScreenState extends State<SessionListScreen>
     final sessionSettings = provider == Provider.claude
         ? await loadClaudeSessionSettings(session.sessionId)
         : null;
+    final defaults = provider == Provider.codex
+        ? await _loadSessionStartDefaults()
+        : null;
+    final codexDefaults = defaults;
+    final codexApprovalPolicy =
+        codexDefaults?.codexApprovalPolicy ??
+        codexApprovalPolicyFromRaw(session.codexApprovalPolicy) ??
+        codexApprovalPolicyFromLegacyExecutionMode(
+          sessionSettings?['executionMode'] as String?,
+        );
+    final codexAutoReviewEnabled =
+        codexDefaults?.codexAutoReviewEnabled ??
+        isCodexAutoReviewApprovalsReviewer(session.codexApprovalsReviewer);
 
     return NewSessionParams(
       projectPath: session.projectPath,
@@ -852,14 +897,8 @@ class _SessionListScreenState extends State<SessionListScreen>
         permissionMode: sessionSettings?['permissionMode'] as String?,
         approvalPolicy: session.codexApprovalPolicy,
       ),
-      codexApprovalPolicy:
-          codexApprovalPolicyFromRaw(session.codexApprovalPolicy) ??
-          codexApprovalPolicyFromLegacyExecutionMode(
-            sessionSettings?['executionMode'] as String?,
-          ),
-      codexAutoReviewEnabled: isCodexAutoReviewApprovalsReviewer(
-        session.codexApprovalsReviewer,
-      ),
+      codexApprovalPolicy: codexApprovalPolicy,
+      codexAutoReviewEnabled: codexAutoReviewEnabled,
       codexProfile: provider == Provider.codex ? session.codexProfile : null,
       codexApprovalPolicyOverridden: provider == Provider.codex,
       codexAutoReviewOverridden: provider == Provider.codex,
@@ -1155,6 +1194,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     // For Claude sessions, prefer per-session settings over global defaults.
     Map<String, dynamic>? sessionSettings;
     NewSessionParams? claudeDefaults;
+    NewSessionParams? codexDefaults;
     if (!isCodex) {
       sessionSettings = await loadClaudeSessionSettings(session.sessionId);
       final defaults = await _loadSessionStartDefaults();
@@ -1162,6 +1202,10 @@ class _SessionListScreenState extends State<SessionListScreen>
       if (defaults?.provider == Provider.claude) {
         claudeDefaults = defaults;
       }
+    } else {
+      final defaults = await _loadSessionStartDefaults();
+      if (!mounted) return;
+      codexDefaults = defaults;
     }
 
     // Resolve each setting: per-session > global defaults > null
@@ -1192,6 +1236,11 @@ class _SessionListScreenState extends State<SessionListScreen>
           context.read<BridgeService>().codexModels,
         ) ??
         sanitizeCodexModelName(session.codexModel);
+    final codexApprovalPolicy =
+        codexDefaults?.codexApprovalPolicy.value ?? session.codexApprovalPolicy;
+    final codexApprovalsReviewer = codexDefaults != null
+        ? codexDefaults.codexApprovalsReviewer
+        : session.codexApprovalsReviewer;
 
     context.read<BridgeService>().resumeSession(
       session.sessionId,
@@ -1199,7 +1248,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       permissionMode: isCodex
           ? (useCodexProfile
                 ? null
-                : (session.codexApprovalPolicy == 'never'
+                : (codexApprovalPolicy == CodexApprovalPolicy.never.value
                       ? 'bypassPermissions'
                       : 'acceptEdits'))
           : permissionMode,
@@ -1210,7 +1259,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                     provider: Provider.codex.value,
                     executionMode: session.executionMode,
                     permissionMode: session.permissionMode,
-                    approvalPolicy: session.codexApprovalPolicy,
+                    approvalPolicy: codexApprovalPolicy,
                   ).value)
           : deriveExecutionMode(
               provider: Provider.claude.value,
@@ -1218,10 +1267,10 @@ class _SessionListScreenState extends State<SessionListScreen>
               permissionMode: permissionMode,
             ).value,
       approvalPolicy: isCodex
-          ? (useCodexProfile ? null : session.codexApprovalPolicy)
+          ? (useCodexProfile ? null : codexApprovalPolicy)
           : null,
       approvalsReviewer: isCodex
-          ? (useCodexProfile ? null : session.codexApprovalsReviewer)
+          ? (useCodexProfile ? null : codexApprovalsReviewer)
           : null,
       planMode: isCodex
           ? (useCodexProfile ? null : session.planMode)
@@ -1372,7 +1421,9 @@ class _SessionListScreenState extends State<SessionListScreen>
         ? BridgeConnectionState.connected
         : context.watch<ConnectionCubit>().state;
     final sessions = context.watch<ActiveSessionsCubit>().state;
-    final recentSessionsList = widget.debugRecentSessions ?? slState.sessions;
+    final recentSessionsList = _recentSessionsWithCodexApprovalDefaults(
+      widget.debugRecentSessions ?? slState.sessions,
+    );
     final discoveredServers = context.watch<ServerDiscoveryCubit>().state;
 
     final isConnected = connectionState == BridgeConnectionState.connected;

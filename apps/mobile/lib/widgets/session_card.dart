@@ -2527,6 +2527,7 @@ class RecentSessionCard extends StatelessWidget {
                       approvalsReviewer: session.codexApprovalsReviewer,
                       sandboxMode: session.codexSandboxMode,
                       showDefaultReasoning: true,
+                      showApprovalMode: false,
                       compact: true,
                     ),
                   ],

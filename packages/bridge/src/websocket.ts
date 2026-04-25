@@ -1313,6 +1313,11 @@ export class BridgeWebSocketServer {
             if (newCollaboration !== currentCollaboration) {
               process.setCollaborationMode(newCollaboration);
             }
+            session.codexSettings = {
+              ...(session.codexSettings ?? {}),
+              approvalPolicy: newApproval,
+              approvalsReviewer: newReviewer,
+            };
             session.lastActivityAt = new Date();
             this.broadcast({
               type: "system",

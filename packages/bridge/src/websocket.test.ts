@@ -145,6 +145,7 @@ vi.mock("./session.js", () => ({
         lastActivityAt: "",
         gitBranch: "",
         lastMessage: "",
+        codexSettings: s.codexSettings,
       }));
     }
 
@@ -1080,6 +1081,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       readyState: OPEN_STATE,
       send: vi.fn(),
     } as any;
+    (bridge as any).wss.clients.add(ws);
 
     (bridge as any).handleClientMessage(
       {
@@ -1095,6 +1097,8 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const created = sends.find((m: any) => m.type === "system" && m.subtype === "session_created");
     expect(created).toBeDefined();
     const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    ws.send.mockClear();
 
     // Should not return an error — it maps to approval_policy internally
     (bridge as any).handleClientMessage(
@@ -1111,10 +1115,19 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const errors = lastMessages.filter((m: any) => m.type === "error");
     // No errors should be produced for valid permission mode on codex
     expect(errors.length).toBe(0);
-    const session = (bridge as any).sessionManager.get(sessionId);
     expect(session.process.setApprovalsReviewer).toHaveBeenCalledWith(
       "auto_review",
     );
+    expect(session.codexSettings).toMatchObject({
+      approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
+    });
+    const sessionList = lastMessages.find(
+      (m: any) => m.type === "session_list",
+    );
+    expect(sessionList?.sessions[0].codexSettings).toMatchObject({
+      approvalsReviewer: "auto_review",
+    });
 
     bridge.close();
   });

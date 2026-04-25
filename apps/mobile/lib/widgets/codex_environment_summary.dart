@@ -10,6 +10,7 @@ class CodexEnvironmentSummary extends StatelessWidget {
   final String? approvalsReviewer;
   final String? sandboxMode;
   final bool showDefaultReasoning;
+  final bool showApprovalMode;
   final bool compact;
   final String? leadingLabel;
 
@@ -21,6 +22,7 @@ class CodexEnvironmentSummary extends StatelessWidget {
     this.approvalsReviewer,
     this.sandboxMode,
     this.showDefaultReasoning = false,
+    this.showApprovalMode = true,
     this.compact = false,
     this.leadingLabel,
   });
@@ -34,6 +36,12 @@ class CodexEnvironmentSummary extends StatelessWidget {
       color: appColors.subtleText,
       height: 1.2,
     );
+    final executionLabel = showApprovalMode
+        ? _executionLabel(
+            approvalPolicy: approvalPolicy,
+            approvalsReviewer: approvalsReviewer,
+          )
+        : null;
 
     final children = <Widget>[
       if (leadingLabel != null) Text(leadingLabel!, style: textStyle),
@@ -44,11 +52,7 @@ class CodexEnvironmentSummary extends StatelessWidget {
           )
           case final modelText?)
         Text(modelText, style: textStyle, overflow: TextOverflow.ellipsis),
-      if (_executionLabel(
-            approvalPolicy: approvalPolicy,
-            approvalsReviewer: approvalsReviewer,
-          )
-          case final executionLabel?)
+      if (executionLabel != null)
         _EnvironmentMeta(
           icon: _executionIcon(
             approvalPolicy: approvalPolicy,

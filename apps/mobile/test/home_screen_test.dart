@@ -333,7 +333,27 @@ void main() {
       expect(restored.existingWorktreePath, isNull);
       expect(restored.worktreeBranch, isNull);
       // Provider settings ARE persisted
+      expect(restored.codexApprovalPolicy, CodexApprovalPolicy.onRequest);
+      expect(restored.codexAutoReviewEnabled, isFalse);
       expect(restored.webSearchMode, WebSearchMode.live);
+    });
+
+    test('serializes and restores codex auto review default', () {
+      final params = NewSessionParams(
+        projectPath: '/tmp/project-auto-review',
+        provider: Provider.codex,
+        codexApprovalPolicy: CodexApprovalPolicy.onRequest,
+        codexAutoReviewEnabled: true,
+      );
+
+      final json = sessionStartDefaultsToJson(params);
+      final restored = sessionStartDefaultsFromJson(json);
+
+      expect(restored, isNotNull);
+      expect(restored!.provider, Provider.codex);
+      expect(restored.codexApprovalPolicy, CodexApprovalPolicy.onRequest);
+      expect(restored.codexAutoReviewEnabled, isTrue);
+      expect(restored.codexApprovalsReviewer, 'auto_review');
     });
 
     test('does not persist session-specific fields', () {

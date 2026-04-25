@@ -978,8 +978,9 @@ void main() {
       );
 
       expect(find.text('gpt-5-codex Default'), findsOneWidget);
-      expect(find.byIcon(Icons.auto_mode_outlined), findsOneWidget);
-      expect(find.text('Auto Review'), findsOneWidget);
+      expect(find.byIcon(Icons.auto_mode_outlined), findsNothing);
+      expect(find.text('Auto Review'), findsNothing);
+      expect(find.text('On Request'), findsNothing);
       expect(find.text('Sandbox Off'), findsOneWidget);
       expect(find.byIcon(Icons.warning_amber), findsOneWidget);
     });

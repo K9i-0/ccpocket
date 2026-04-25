@@ -2593,6 +2593,40 @@ class RecentSession {
       codexAdditionalWritableRoots: codexAdditionalWritableRoots,
     );
   }
+
+  RecentSession copyWithCodexApprovalDefaults({
+    required String approvalPolicy,
+    required String approvalsReviewer,
+  }) {
+    return RecentSession(
+      sessionId: sessionId,
+      provider: provider,
+      rawPermissionMode: rawPermissionMode,
+      name: name,
+      agentNickname: agentNickname,
+      agentRole: agentRole,
+      summary: summary,
+      firstPrompt: firstPrompt,
+      lastPrompt: lastPrompt,
+      created: created,
+      modified: modified,
+      gitBranch: gitBranch,
+      projectPath: projectPath,
+      resumeCwd: resumeCwd,
+      isSidechain: isSidechain,
+      codexApprovalPolicy: approvalPolicy,
+      codexApprovalsReviewer: approvalsReviewer,
+      executionMode: executionMode,
+      planMode: planMode,
+      codexSandboxMode: codexSandboxMode,
+      codexModel: codexModel,
+      codexProfile: codexProfile,
+      codexModelReasoningEffort: codexModelReasoningEffort,
+      codexNetworkAccessEnabled: codexNetworkAccessEnabled,
+      codexWebSearchMode: codexWebSearchMode,
+      codexAdditionalWritableRoots: codexAdditionalWritableRoots,
+    );
+  }
 }
 
 // ---- Session info (for multi-session) ----
