@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.44.0] - 2026-04-25
+
+### Added
+- Add a Bridge-managed Codex conversation queue with synchronized queue state across clients
+- Add queued Codex input steering through app-server `turn/steer`
+
+### Changed
+- Drain queued Codex input automatically when the active turn becomes ready
+
 ## [1.43.1] - 2026-04-25
 
 ### Fixed
