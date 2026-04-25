@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.74.0] - 2026-04-25
+
+### Added
+- Add a usage display mode toggle for switching how usage limits are shown
+
+### Changed
+- Improve completion keyboard navigation in the chat composer
+
+### Fixed
+- Enable Android voice input by declaring the required speech recognition permissions and service query
+- Avoid macOS app bar overlap with window controls
+
 ## [1.73.0] - 2026-04-25
 
 ### Added
