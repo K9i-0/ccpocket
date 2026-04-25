@@ -9,6 +9,15 @@ import { resolvePlatformPath } from "./path-utils.js";
 
 const DEFAULT_CODEX_MODEL = "gpt-5.5";
 
+/**
+ * After we run skills/list + app/list, codex often re-emits
+ * `app/list/updated` / `skills/changed` notifications as a side effect of our
+ * own RPCs. Reacting to those without a cooldown causes a tight feedback
+ * loop that pegs codex app-server at 100% CPU. Ignore notification-driven
+ * refetches for this many ms after each fetch completes.
+ */
+const COMPLETION_FETCH_COOLDOWN_MS = 1000;
+
 export interface CodexStartOptions {
   threadId?: string;
   profile?: string;
@@ -223,6 +232,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private _completionFetchInFlight: Promise<void> | null = null;
   private _completionFetchQueued = false;
   private _lastCompletionEntitiesSignature: string | null = null;
+  /**
+   * Cooldown timestamp; ignore notification-driven refetches before this.
+   * Prevents `app/list/updated` / `skills/changed` echoes from our own
+   * `app/list` / `skills/list` calls from causing a 100% CPU storm in codex.
+   */
+  private _completionFetchCooldownUntil = 0;
 
   /** Expose skill metadata so session/websocket can access it. */
   get skills(): CodexSkillMetadata[] {
@@ -1145,11 +1160,21 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       await this._completionFetchInFlight;
     } finally {
       this._completionFetchInFlight = null;
-      if (this._completionFetchQueued && !this.stopped && this._projectPath) {
-        this._completionFetchQueued = false;
-        void this.fetchCompletionEntities(this._projectPath);
-      }
+      this._completionFetchCooldownUntil =
+        Date.now() + COMPLETION_FETCH_COOLDOWN_MS;
+      // Drop queued: any notification that fired during the in-flight fetch
+      // is almost certainly a self-echo from our own `app/list` /
+      // `skills/list` RPCs. Honoring it here re-arms an infinite refetch
+      // loop. Real future changes will arrive as fresh notifications after
+      // the cooldown window and be picked up via the notification path.
+      this._completionFetchQueued = false;
     }
+  }
+
+  private scheduleCompletionFetchFromNotification(): void {
+    if (!this._projectPath || this.stopped) return;
+    if (Date.now() < this._completionFetchCooldownUntil) return;
+    void this.fetchCompletionEntities(this._projectPath);
   }
 
   private async _fetchCompletionEntitiesInternal(
@@ -1727,16 +1752,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
       case "skills/changed": {
         // Re-fetch skills/apps when Codex notifies us of changes
-        if (this._projectPath) {
-          void this.fetchCompletionEntities(this._projectPath);
-        }
+        this.scheduleCompletionFetchFromNotification();
         break;
       }
 
       case "app/list/updated": {
-        if (this._projectPath) {
-          void this.fetchCompletionEntities(this._projectPath);
-        }
+        this.scheduleCompletionFetchFromNotification();
         break;
       }
 
