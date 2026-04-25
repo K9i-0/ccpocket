@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.72.0] - 2026-04-25
+
+### Added
+- Add Codex conversation queue support while a Codex turn is running
+- Add queued Codex message steering, editing back into the composer, and cancellation controls
+
+### Changed
+- Require Bridge 1.44.0 for synchronized Codex conversation queue support
+- Remove Codex failed-message tap retry behavior in favor of the Bridge-managed queue flow
+
 ## [1.71.1] - 2026-04-25
 
 ### Fixed
