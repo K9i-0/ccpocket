@@ -27,6 +27,7 @@ export interface CodexProcessEvents {
   message: [ServerMessage];
   status: [ProcessStatus];
   exit: [number | null];
+  input_ready: [];
 }
 
 interface PendingInput {
@@ -257,6 +258,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   } | null = null;
   /** Queued plan execution text when inputResolve wasn't ready at approval time. */
   private _pendingPlanInput: string | null = null;
+  private steerTempPaths: string[] = [];
   private readonly platform: NodeJS.Platform;
 
   constructor(platform: NodeJS.Platform = process.platform) {
@@ -418,6 +420,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
     this.pendingApprovals.clear();
     this.pendingUserInputs.clear();
+    this.cleanupSteerTempPaths();
     this.rejectAllPending(new Error("stopped"));
 
     if (this.child) {
@@ -441,6 +444,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.pendingTurnCompletion = null;
     this.pendingApprovals.clear();
     this.pendingUserInputs.clear();
+    this.cleanupSteerTempPaths();
     this.lastTokenUsage = null;
     this.startModel = sanitizeCodexModel(options?.model);
     this._approvalPolicy = options?.approvalPolicy ?? "never";
@@ -579,6 +583,46 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       skills: options?.skills,
       mentions: options?.mentions,
     });
+  }
+
+  async steerInputStructured(
+    text: string,
+    options?: {
+      images?: Array<{ base64: string; mimeType: string }>;
+      skills?: Array<{ name: string; path: string }>;
+      mentions?: Array<{ name: string; path: string }>;
+    },
+  ): Promise<void> {
+    if (!this._threadId || !this.pendingTurnId) {
+      throw new Error("No active Codex turn to steer");
+    }
+
+    const expectedTurnId = this.pendingTurnId;
+    const { input, tempPaths } = await this.toRpcInput({
+      text,
+      images: options?.images,
+      skills: options?.skills,
+      mentions: options?.mentions,
+    });
+    this.steerTempPaths.push(...tempPaths);
+    try {
+      if (!input) {
+        throw new Error("No Codex input to steer");
+      }
+      await this.request("turn/steer", {
+        threadId: this._threadId,
+        input,
+        expectedTurnId,
+      });
+    } catch (err) {
+      this.steerTempPaths = this.steerTempPaths.filter(
+        (path) => !tempPaths.includes(path),
+      );
+      await Promise.all(
+        tempPaths.map((path) => rm(path, { force: true }).catch(() => {})),
+      );
+      throw err;
+    }
   }
 
   approve(toolUseId?: string): void {
@@ -1231,7 +1275,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           this._pendingPlanInput = null;
           this.inputResolve = null;
           resolve({ text });
+          return;
         }
+        this.emit("input_ready");
       });
       if (this.stopped || !pendingInput.text) break;
       if (!this._threadId) {
@@ -1791,6 +1837,14 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.pendingTurnCompletion.resolve();
       this.pendingTurnCompletion = null;
     }
+    this.cleanupSteerTempPaths();
+  }
+
+  private cleanupSteerTempPaths(): void {
+    const tempPaths = this.steerTempPaths.splice(0);
+    void Promise.all(
+      tempPaths.map((path) => rm(path, { force: true }).catch(() => {})),
+    );
   }
 
   private processItemStarted(item: Record<string, unknown> | undefined): void {

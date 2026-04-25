@@ -691,6 +691,79 @@ void main() {
         MessageStatus.sent,
       ]);
     });
+
+    test('codex busy send waits for bridge queue state', () async {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      mockBridge.emitMessage(
+        const StatusMessage(status: ProcessStatus.running),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      cubit.sendMessage('Follow up');
+
+      expect(cubit.state.entries.whereType<UserChatEntry>(), isEmpty);
+      expect(mockBridge.sentMessages.last.type, 'input');
+
+      mockBridge.emitMessage(
+        const ConversationQueueMessage(
+          sessionId: 's1',
+          limit: 1,
+          items: [
+            QueuedInputItem(
+              itemId: 'q1',
+              text: 'Follow up',
+              createdAt: '2026-04-25T00:00:00.000Z',
+            ),
+          ],
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.queuedInput?.itemId, 'q1');
+      expect(cubit.state.queuedInput?.text, 'Follow up');
+    });
+
+    test(
+      'codex queued input update steer and cancel send client messages',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+
+        const item = QueuedInputItem(
+          itemId: 'q1',
+          text: 'Original',
+          createdAt: '2026-04-25T00:00:00.000Z',
+        );
+
+        cubit.updateQueuedInput(item, 'Edited');
+        var payload =
+            jsonDecode(mockBridge.sentMessages.last.toJson())
+                as Map<String, dynamic>;
+        expect(payload['type'], 'update_queued_input');
+        expect(payload['itemId'], 'q1');
+        expect(payload['text'], 'Edited');
+
+        cubit.steerQueuedInput(item);
+        payload =
+            jsonDecode(mockBridge.sentMessages.last.toJson())
+                as Map<String, dynamic>;
+        expect(payload['type'], 'steer_queued_input');
+        expect(payload['itemId'], 'q1');
+
+        cubit.cancelQueuedInput(item);
+        payload =
+            jsonDecode(mockBridge.sentMessages.last.toJson())
+                as Map<String, dynamic>;
+        expect(payload['type'], 'cancel_queued_input');
+        expect(payload['itemId'], 'q1');
+      },
+    );
   });
 
   group('StreamingStateCubit', () {

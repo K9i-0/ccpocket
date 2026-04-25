@@ -353,6 +353,15 @@ class BridgeService implements BridgeServiceBase {
                 }
               case WorktreeRemovedMessage():
                 _messageController.add(msg);
+              case ConversationQueueMessage(:final items):
+                if (sessionId != null) {
+                  _patchSessionQueuedInput(
+                    sessionId,
+                    items.isNotEmpty ? items.first : null,
+                  );
+                }
+                _taggedMessageController.add((msg, sessionId));
+                _messageController.add(msg);
               case AssistantServerMessage(:final message):
                 if (sessionId != null) {
                   _patchSessionLastMessage(sessionId, message);
@@ -972,6 +981,17 @@ class BridgeService implements BridgeServiceBase {
     if (idx < 0) return;
     _sessions = List.of(_sessions)
       ..[idx] = _sessions[idx].copyWith(clearPermission: true);
+    _sessionListController.add(_sessions);
+  }
+
+  void _patchSessionQueuedInput(String sessionId, QueuedInputItem? item) {
+    final idx = _sessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) return;
+    _sessions = List.of(_sessions)
+      ..[idx] = _sessions[idx].copyWith(
+        queuedInput: item,
+        clearQueuedInput: item == null,
+      );
     _sessionListController.add(_sessions);
   }
 

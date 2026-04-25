@@ -1,4 +1,5 @@
 import type { Server as HttpServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { lstat, readFile, readlink, stat, unlink } from "node:fs/promises";
@@ -983,19 +984,8 @@ export class BridgeWebSocketServer {
           return;
         }
         const text = msg.text;
-
-        // Codex: reject if the process is not waiting for input (turn-based, no internal queue)
-        if (
-          session.provider === "codex" &&
-          !session.process.isWaitingForInput
-        ) {
-          this.send(ws, {
-            type: "input_rejected",
-            sessionId: session.id,
-            reason: "Process is busy",
-          });
-          break;
-        }
+        const codexSkills = msg.skills ?? (msg.skill ? [msg.skill] : []);
+        const codexMentions = msg.mentions ?? [];
 
         // Snapshot busy state before dispatch. We prefer the actual enqueue
         // result returned by SdkProcess sendInput* below, but keep this as a
@@ -1034,6 +1024,61 @@ export class BridgeWebSocketServer {
           }
           if (imageRefs.length === 0) imageRefs = undefined;
         }
+
+        if (
+          session.provider === "codex" &&
+          !session.process.isWaitingForInput
+        ) {
+          if (session.codexQueuedInput) {
+            this.send(ws, {
+              type: "input_rejected",
+              sessionId: session.id,
+              reason: "Queue is full",
+            });
+            break;
+          }
+
+          const queued = this.sessionManager.queueCodexInput(session.id, {
+            itemId: randomUUID(),
+            text,
+            createdAt: new Date().toISOString(),
+            ...(images.length > 0 ? { imageCount: images.length, images } : {}),
+            ...(imageRefs ? { imageRefs } : {}),
+            ...(codexSkills.length > 0 ? { skills: codexSkills } : {}),
+            ...(codexMentions.length > 0 ? { mentions: codexMentions } : {}),
+          });
+          if (!queued) {
+            this.send(ws, {
+              type: "input_rejected",
+              sessionId: session.id,
+              reason: "Queue is full",
+            });
+            break;
+          }
+          if (images.length > 0 && this.galleryStore && session.projectPath) {
+            for (const img of images) {
+              this.galleryStore
+                .addImageFromBase64(
+                  img.base64,
+                  img.mimeType,
+                  session.projectPath,
+                  msg.sessionId,
+                )
+                .catch((err) => {
+                  console.warn(
+                    `[ws] Failed to persist queued image to gallery: ${err}`,
+                  );
+                });
+            }
+          }
+          this.send(ws, {
+            type: "input_ack",
+            sessionId: session.id,
+            queued: true,
+          });
+          this.broadcastSessionList();
+          break;
+        }
         session.history.push({
           type: "user_input",
           text,
@@ -1066,13 +1111,11 @@ export class BridgeWebSocketServer {
             queued: false,
           });
           const codexProc = session.process as CodexProcess;
-          const skills = msg.skills ?? (msg.skill ? [msg.skill] : []);
-          const mentions = msg.mentions ?? [];
           if (images.length > 0) {
             codexProc.sendInputStructured(text, {
               images,
-              skills,
-              mentions,
+              skills: codexSkills,
+              mentions: codexMentions,
             });
           } else if (msg.imageId && this.galleryStore) {
             this.galleryStore
@@ -1081,20 +1124,29 @@ export class BridgeWebSocketServer {
                 if (imageData) {
                   codexProc.sendInputStructured(text, {
                     images: [imageData],
-                    skills,
-                    mentions,
+                    skills: codexSkills,
+                    mentions: codexMentions,
                   });
                 } else {
                   console.warn(`[ws] Image not found: ${msg.imageId}`);
-                  codexProc.sendInputStructured(text, { skills, mentions });
+                  codexProc.sendInputStructured(text, {
+                    skills: codexSkills,
+                    mentions: codexMentions,
+                  });
                 }
               })
               .catch((err) => {
                 console.error(`[ws] Failed to load image: ${err}`);
-                codexProc.sendInputStructured(text, { skills, mentions });
+                codexProc.sendInputStructured(text, {
+                  skills: codexSkills,
+                  mentions: codexMentions,
+                });
               });
-          } else if (skills.length > 0 || mentions.length > 0) {
-            codexProc.sendInputStructured(text, { skills, mentions });
+          } else if (codexSkills.length > 0 || codexMentions.length > 0) {
+            codexProc.sendInputStructured(text, {
+              skills: codexSkills,
+              mentions: codexMentions,
+            });
           } else {
             codexProc.sendInput(text);
           }
@@ -1178,6 +1230,84 @@ export class BridgeWebSocketServer {
           );
           claudeProc.interrupt();
         }
+        break;
+      }
+
+      case "update_queued_input": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session || session.provider !== "codex") {
+          this.send(ws, { type: "error", message: "No active Codex session." });
+          return;
+        }
+        if (!msg.text.trim()) {
+          this.send(ws, {
+            type: "error",
+            message: "Queued message cannot be empty.",
+          });
+          return;
+        }
+        const success = this.sessionManager.updateCodexQueuedInput(
+          session.id,
+          msg.itemId,
+          msg.text,
+          { skills: msg.skills ?? [], mentions: msg.mentions ?? [] },
+        );
+        if (!success) {
+          this.send(ws, {
+            type: "error",
+            message: "Queued message not found.",
+            errorCode: "queued_input_not_found",
+          });
+          return;
+        }
+        this.broadcastSessionList();
+        break;
+      }
+
+      case "cancel_queued_input": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session || session.provider !== "codex") {
+          this.send(ws, { type: "error", message: "No active Codex session." });
+          return;
+        }
+        const success = this.sessionManager.cancelCodexQueuedInput(
+          session.id,
+          msg.itemId,
+        );
+        if (!success) {
+          this.send(ws, {
+            type: "error",
+            message: "Queued message not found.",
+            errorCode: "queued_input_not_found",
+          });
+          return;
+        }
+        this.broadcastSessionList();
+        break;
+      }
+
+      case "steer_queued_input": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session || session.provider !== "codex") {
+          this.send(ws, { type: "error", message: "No active Codex session." });
+          return;
+        }
+        const result = await this.sessionManager.steerCodexQueuedInput(
+          session.id,
+          msg.itemId,
+        );
+        if (!result.ok) {
+          this.send(ws, {
+            type: "error",
+            message: result.error,
+            errorCode:
+              result.error === "Queued message not found."
+                ? "queued_input_not_found"
+                : "queued_input_steer_failed",
+          });
+          return;
+        }
+        this.broadcastSessionList();
         break;
       }
 
@@ -2043,6 +2173,31 @@ export class BridgeWebSocketServer {
             status: session.status,
             sessionId: msg.sessionId,
           } as Record<string, unknown>);
+          if (session.provider === "codex") {
+            const item = session.codexQueuedInput;
+            this.send(ws, {
+              type: "conversation_queue",
+              sessionId: msg.sessionId,
+              limit: 1,
+              items: item
+                ? [
+                    {
+                      itemId: item.itemId,
+                      text: item.text,
+                      createdAt: item.createdAt,
+                      ...(item.updatedAt ? { updatedAt: item.updatedAt } : {}),
+                      ...(item.imageCount
+                        ? { imageCount: item.imageCount }
+                        : {}),
+                      ...(item.skills?.length ? { skills: item.skills } : {}),
+                      ...(item.mentions?.length
+                        ? { mentions: item.mentions }
+                        : {}),
+                    },
+                  ]
+                : [],
+            } as Record<string, unknown>);
+          }
 
           // Send cached slash commands so the client can restore them even when
           // the original init/supported_commands message was evicted from the

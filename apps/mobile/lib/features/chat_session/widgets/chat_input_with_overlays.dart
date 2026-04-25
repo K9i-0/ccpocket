@@ -58,6 +58,9 @@ class ChatInputWithOverlays extends HookWidget {
   /// Custom hint text for the input field (e.g. provider-specific).
   final String? hintText;
 
+  /// When true, composing remains available but sending is disabled.
+  final bool inputBlocked;
+
   const ChatInputWithOverlays({
     super.key,
     required this.sessionId,
@@ -69,6 +72,7 @@ class ChatInputWithOverlays extends HookWidget {
     this.onDiffSelectionCleared,
     this.onOpenGitScreen,
     this.hintText,
+    this.inputBlocked = false,
   });
 
   @override
@@ -397,6 +401,7 @@ class ChatInputWithOverlays extends HookWidget {
     }
 
     void sendMessage() {
+      if (inputBlocked) return;
       final text = inputController.text.trim();
       if (text.isEmpty &&
           attachedImages.value.isEmpty &&
@@ -803,9 +808,10 @@ class ChatInputWithOverlays extends HookWidget {
                 inputController: inputController,
                 status: status,
                 hasInputText:
-                    hasInputText.value ||
-                    attachedImages.value.isNotEmpty ||
-                    attachedDiffSelection.value != null,
+                    !inputBlocked &&
+                    (hasInputText.value ||
+                        attachedImages.value.isNotEmpty ||
+                        attachedDiffSelection.value != null),
                 isInputEmpty: isInputEmpty.value,
                 isVoiceAvailable:
                     !context.watch<SettingsCubit>().state.hideVoiceInput &&

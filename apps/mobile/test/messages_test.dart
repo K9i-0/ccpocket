@@ -80,6 +80,18 @@ void main() {
       expect(json['additionalWritableRoots'], ['/tmp/shared', '/tmp/tools']);
     });
 
+    test('ClientMessage.steerQueuedInput serializes codex queued item', () {
+      final msg = ClientMessage.steerQueuedInput(
+        sessionId: 'session-1',
+        itemId: 'queued-1',
+      );
+
+      final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
+      expect(json['type'], 'steer_queued_input');
+      expect(json['sessionId'], 'session-1');
+      expect(json['itemId'], 'queued-1');
+    });
+
     test('RecentSession parses codex thread options from codexSettings', () {
       final session = RecentSession.fromJson({
         'sessionId': 's1',
@@ -318,6 +330,55 @@ void main() {
       final ack = msg as InputAckMessage;
       expect(ack.sessionId, 's1');
       expect(ack.queued, isFalse);
+    });
+  });
+
+  group('ConversationQueue message parsing', () {
+    test('parses queued items', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'conversation_queue',
+        'sessionId': 's1',
+        'limit': 1,
+        'items': [
+          {
+            'itemId': 'q1',
+            'text': 'Follow up',
+            'createdAt': '2026-04-25T00:00:00.000Z',
+            'imageCount': 1,
+            'skills': [
+              {'name': 'skill-a', 'path': '/tmp/skill-a'},
+            ],
+          },
+        ],
+      });
+
+      expect(msg, isA<ConversationQueueMessage>());
+      final queue = msg as ConversationQueueMessage;
+      expect(queue.sessionId, 's1');
+      expect(queue.limit, 1);
+      expect(queue.items.single.itemId, 'q1');
+      expect(queue.items.single.text, 'Follow up');
+      expect(queue.items.single.imageCount, 1);
+      expect(queue.items.single.skills.single['name'], 'skill-a');
+    });
+
+    test('parses queued input on session info', () {
+      final session = SessionInfo.fromJson({
+        'id': 's1',
+        'provider': 'codex',
+        'projectPath': '/tmp/project',
+        'status': 'running',
+        'createdAt': '',
+        'lastActivityAt': '',
+        'queuedInput': {
+          'itemId': 'q1',
+          'text': 'Queued',
+          'createdAt': '2026-04-25T00:00:00.000Z',
+        },
+      });
+
+      expect(session.queuedInput?.itemId, 'q1');
+      expect(session.queuedInput?.text, 'Queued');
     });
   });
 

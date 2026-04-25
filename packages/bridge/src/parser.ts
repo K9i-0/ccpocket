@@ -60,6 +60,16 @@ export type CodexApprovalsReviewer =
 
 export type Provider = "claude" | "codex";
 
+export interface QueuedInputItem {
+  itemId: string;
+  text: string;
+  createdAt: string;
+  updatedAt?: string;
+  imageCount?: number;
+  skills?: Array<{ name: string; path: string }>;
+  mentions?: Array<{ name: string; path: string }>;
+}
+
 export type ClientMessage =
   | {
       type: "start";
@@ -101,6 +111,16 @@ export type ClientMessage =
       skills?: Array<{ name: string; path: string }>;
       mentions?: Array<{ name: string; path: string }>;
     }
+  | {
+      type: "update_queued_input";
+      sessionId: string;
+      itemId: string;
+      text: string;
+      skills?: Array<{ name: string; path: string }>;
+      mentions?: Array<{ name: string; path: string }>;
+    }
+  | { type: "steer_queued_input"; sessionId: string; itemId: string }
+  | { type: "cancel_queued_input"; sessionId: string; itemId: string }
   | {
       type: "push_register";
       token: string;
@@ -374,6 +394,12 @@ export type ServerMessage =
   | { type: "error"; message: string; errorCode?: string }
   | { type: "status"; status: ProcessStatus }
   | { type: "history"; messages: ServerMessage[] }
+  | {
+      type: "conversation_queue";
+      sessionId?: string;
+      limit: number;
+      items: QueuedInputItem[];
+    }
   | {
       type: "permission_request";
       toolUseId: string;
@@ -729,6 +755,48 @@ export function parseClientMessage(data: string): ClientMessage | null {
         }
         // Legacy: imageBase64 requires mimeType
         if (msg.imageBase64 && typeof msg.mimeType !== "string") return null;
+        break;
+      case "update_queued_input":
+        if (
+          typeof msg.sessionId !== "string" ||
+          typeof msg.itemId !== "string" ||
+          typeof msg.text !== "string"
+        )
+          return null;
+        if (msg.skills !== undefined) {
+          if (!Array.isArray(msg.skills)) return null;
+          for (const skill of msg.skills) {
+            if (
+              typeof skill?.name !== "string" ||
+              typeof skill?.path !== "string"
+            )
+              return null;
+          }
+        }
+        if (msg.mentions !== undefined) {
+          if (!Array.isArray(msg.mentions)) return null;
+          for (const mention of msg.mentions) {
+            if (
+              typeof mention?.name !== "string" ||
+              typeof mention?.path !== "string"
+            )
+              return null;
+          }
+        }
+        break;
+      case "steer_queued_input":
+        if (
+          typeof msg.sessionId !== "string" ||
+          typeof msg.itemId !== "string"
+        )
+          return null;
+        break;
+      case "cancel_queued_input":
+        if (
+          typeof msg.sessionId !== "string" ||
+          typeof msg.itemId !== "string"
+        )
+          return null;
         break;
       case "push_register":
         if (typeof msg.token !== "string") return null;

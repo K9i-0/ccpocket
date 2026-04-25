@@ -359,6 +359,17 @@ describe("parseClientMessage", () => {
     expect(msg).toEqual({ type: "interrupt" });
   });
 
+  it("parses steer_queued_input message", () => {
+    const msg = parseClientMessage(
+      '{"type":"steer_queued_input","sessionId":"s1","itemId":"q1"}',
+    );
+    expect(msg).toEqual({
+      type: "steer_queued_input",
+      sessionId: "s1",
+      itemId: "q1",
+    });
+  });
+
   it("returns null for unknown type", () => {
     expect(parseClientMessage('{"type":"unknown_type"}')).toBeNull();
   });

@@ -681,6 +681,7 @@ class _CodexChatBody extends HookWidget {
     final status = sessionState.status;
     final approval = sessionState.approval;
     final inPlanMode = sessionState.inPlanMode;
+    final queuedInput = sessionState.queuedInput;
 
     // Approval state pattern matching (Codex: permission + ask-user only)
     String? pendingToolUseId;
@@ -1116,9 +1117,7 @@ class _CodexChatBody extends HookWidget {
                       scrollController: scroll.controller,
                       httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
                       projectPath: projectPath,
-                      onRetryMessage: (entry) {
-                        context.read<ChatSessionCubit>().retryMessage(entry);
-                      },
+                      onRetryMessage: null,
                       onRewindMessage: null,
                       scrollToUserEntry: scrollToUserEntry,
                       collapseToolResults: collapseToolResults,
@@ -1131,12 +1130,31 @@ class _CodexChatBody extends HookWidget {
                   ),
                 ),
                 if (approval is ApprovalNone)
+                  if (queuedInput != null)
+                    CodexQueuedInputPanel(
+                      item: queuedInput,
+                      onSteer: () => context
+                          .read<ChatSessionCubit>()
+                          .steerQueuedInput(queuedInput),
+                      onEdit: () => moveQueuedInputToComposer(
+                        inputController: chatInputController,
+                        item: queuedInput,
+                        cancelQueuedInput: () => context
+                            .read<ChatSessionCubit>()
+                            .cancelQueuedInput(queuedInput),
+                      ),
+                      onCancel: () => context
+                          .read<ChatSessionCubit>()
+                          .cancelQueuedInput(queuedInput),
+                    ),
+                if (approval is ApprovalNone)
                   ChatInputWithOverlays(
                     sessionId: sessionId,
                     status: status,
                     onScrollToBottom: scroll.scrollToBottom,
                     inputController: chatInputController,
                     hintText: 'Message Codex...',
+                    inputBlocked: queuedInput != null,
                     initialDiffSelection: diffSelectionFromNav.value,
                     onDiffSelectionConsumed: () {},
                     onDiffSelectionCleared: () =>
@@ -1410,6 +1428,105 @@ void _showUserMessageHistory(
       // No rewind for Codex sessions
     ),
   );
+}
+
+@visibleForTesting
+void moveQueuedInputToComposer({
+  required TextEditingController inputController,
+  required QueuedInputItem item,
+  required VoidCallback cancelQueuedInput,
+}) {
+  cancelQueuedInput();
+  inputController.value = TextEditingValue(
+    text: item.text,
+    selection: TextSelection.collapsed(offset: item.text.length),
+  );
+}
+
+class CodexQueuedInputPanel extends StatelessWidget {
+  const CodexQueuedInputPanel({
+    super.key,
+    required this.item,
+    required this.onSteer,
+    required this.onEdit,
+    required this.onCancel,
+  });
+
+  final QueuedInputItem item;
+  final VoidCallback onSteer;
+  final VoidCallback onEdit;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final imageLabel = item.imageCount > 0 ? ' · ${item.imageCount} image' : '';
+
+    return Material(
+      key: const ValueKey('codex_queue_panel'),
+      color: cs.surfaceContainerHighest,
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(Icons.schedule, size: 18, color: cs.primary),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Queued for next turn$imageLabel',
+                      style: textTheme.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      item.text,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                key: const ValueKey('codex_queue_steer_button'),
+                tooltip: 'Steer queued message',
+                icon: const Icon(Icons.subdirectory_arrow_left, size: 20),
+                onPressed: onSteer,
+              ),
+              IconButton(
+                key: const ValueKey('codex_queue_edit_button'),
+                tooltip: 'Move queued message to input',
+                icon: const Icon(Icons.edit_outlined, size: 20),
+                onPressed: onEdit,
+              ),
+              IconButton(
+                key: const ValueKey('codex_queue_cancel_button'),
+                tooltip: 'Cancel queued message',
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: onCancel,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 void _retryFailedMessages(BuildContext context) {

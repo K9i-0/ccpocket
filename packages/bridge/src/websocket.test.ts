@@ -105,6 +105,7 @@ vi.mock("./session.js", () => ({
         sendInput: vi.fn(() => false),
         sendInputWithImage: vi.fn(),
         sendInputWithImages: vi.fn(() => false),
+        steerInputStructured: vi.fn(async () => {}),
         approve: vi.fn(),
         approveAlways: vi.fn(),
         reject: vi.fn(),
@@ -134,6 +135,73 @@ vi.mock("./session.js", () => ({
       return this.sessions.get(id);
     }
 
+    queueCodexInput(id: string, input: any) {
+      const session = this.sessions.get(id);
+      if (!session || session.provider !== "codex" || session.codexQueuedInput) {
+        return false;
+      }
+      session.codexQueuedInput = input;
+      return true;
+    }
+
+    updateCodexQueuedInput(
+      id: string,
+      itemId: string,
+      text: string,
+      options?: { skills?: unknown[]; mentions?: unknown[] },
+    ) {
+      const session = this.sessions.get(id);
+      if (!session?.codexQueuedInput || session.codexQueuedInput.itemId !== itemId) {
+        return false;
+      }
+      session.codexQueuedInput = {
+        ...session.codexQueuedInput,
+        text,
+        skills: options?.skills,
+        mentions: options?.mentions,
+      };
+      return true;
+    }
+
+    cancelCodexQueuedInput(id: string, itemId: string) {
+      const session = this.sessions.get(id);
+      if (!session?.codexQueuedInput || session.codexQueuedInput.itemId !== itemId) {
+        return false;
+      }
+      session.codexQueuedInput = undefined;
+      return true;
+    }
+
+    async steerCodexQueuedInput(id: string, itemId: string) {
+      const session = this.sessions.get(id);
+      if (!session || session.provider !== "codex") {
+        return { ok: false, error: "No active Codex session." };
+      }
+      const queued = session.codexQueuedInput;
+      if (!queued || queued.itemId !== itemId) {
+        return { ok: false, error: "Queued message not found." };
+      }
+      try {
+        await session.process.steerInputStructured(queued.text, {
+          images: queued.images,
+          skills: queued.skills,
+          mentions: queued.mentions,
+        });
+      } catch (err) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+      session.codexQueuedInput = undefined;
+      session.history.push({
+        type: "user_input",
+        text: queued.text,
+        timestamp: new Date().toISOString(),
+      });
+      return { ok: true };
+    }
+
     list() {
       return Array.from(this.sessions.values()).map((s) => ({
         id: s.id,
@@ -146,6 +214,7 @@ vi.mock("./session.js", () => ({
         gitBranch: "",
         lastMessage: "",
         codexSettings: s.codexSettings,
+        queuedInput: s.codexQueuedInput,
       }));
     }
 
@@ -1641,7 +1710,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("codex busy input is rejected", async () => {
+  it("codex busy input is queued and included in session_list", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -1676,13 +1745,267 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ws,
     );
 
+    let sent = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    expect(sent.find((m: any) => m.type === "input_ack")).toMatchObject({
+      type: "input_ack",
+      sessionId,
+      queued: true,
+    });
+    expect(session.codexQueuedInput).toMatchObject({ text: "while busy" });
+    expect(session.process.sendInput).not.toHaveBeenCalled();
+    (bridge as any).sendSessionList(ws);
+    sent = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    const sessionList = sent.find((m: any) => m.type === "session_list");
+    expect(sessionList.sessions[0].queuedInput).toMatchObject({
+      text: "while busy",
+    });
+
+    bridge.close();
+  });
+
+  it("codex busy input is rejected when the queue is full", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.process.isWaitingForInput = false;
+    session.codexQueuedInput = {
+      itemId: "queued-1",
+      text: "already queued",
+      createdAt: new Date().toISOString(),
+    };
+
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId,
+        text: "second",
+      },
+      ws,
+    );
+
     const last = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
     expect(last).toMatchObject({
       type: "input_rejected",
       sessionId,
-      reason: "Process is busy",
+      reason: "Queue is full",
     });
     expect(session.process.sendInput).not.toHaveBeenCalled();
+
+    bridge.close();
+  });
+
+  it("updates and cancels codex queued input", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.codexQueuedInput = {
+      itemId: "queued-1",
+      text: "original",
+      createdAt: new Date().toISOString(),
+    };
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "update_queued_input",
+        sessionId,
+        itemId: "queued-1",
+        text: "edited",
+      },
+      ws,
+    );
+    expect(session.codexQueuedInput.text).toBe("edited");
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "cancel_queued_input",
+        sessionId,
+        itemId: "queued-1",
+      },
+      ws,
+    );
+    expect(session.codexQueuedInput).toBeUndefined();
+
+    bridge.close();
+  });
+
+  it("steers codex queued input and clears the queue", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.codexQueuedInput = {
+      itemId: "queued-1",
+      text: "steer now",
+      createdAt: new Date().toISOString(),
+      skills: [{ name: "skill", path: "/skills/skill" }],
+    };
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "steer_queued_input",
+        sessionId,
+        itemId: "queued-1",
+      },
+      ws,
+    );
+
+    expect(session.process.steerInputStructured).toHaveBeenCalledWith(
+      "steer now",
+      {
+        images: undefined,
+        skills: [{ name: "skill", path: "/skills/skill" }],
+        mentions: undefined,
+      },
+    );
+    expect(session.codexQueuedInput).toBeUndefined();
+
+    bridge.close();
+  });
+
+  it("keeps codex queued input when steer fails", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.codexQueuedInput = {
+      itemId: "queued-1",
+      text: "steer now",
+      createdAt: new Date().toISOString(),
+    };
+    session.process.steerInputStructured.mockRejectedValueOnce(
+      new Error("No active Codex turn to steer"),
+    );
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "steer_queued_input",
+        sessionId,
+        itemId: "queued-1",
+      },
+      ws,
+    );
+
+    expect(session.codexQueuedInput?.text).toBe("steer now");
+    const error = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "error");
+    expect(error).toMatchObject({
+      type: "error",
+      errorCode: "queued_input_steer_failed",
+    });
+
+    bridge.close();
+  });
+
+  it("rejects steer_queued_input for claude sessions", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-claude",
+        provider: "claude",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "steer_queued_input",
+        sessionId,
+        itemId: "queued-1",
+      },
+      ws,
+    );
+
+    const error = JSON.parse(ws.send.mock.calls.at(-1)?.[0] as string);
+    expect(error).toMatchObject({
+      type: "error",
+      message: "No active Codex session.",
+    });
 
     bridge.close();
   });

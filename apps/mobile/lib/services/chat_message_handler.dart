@@ -40,6 +40,8 @@ class ChatStateUpdate {
   final double? costDelta;
   final bool? inPlanMode;
   final List<SlashCommand>? slashCommands;
+  final QueuedInputItem? queuedInput;
+  final bool clearQueuedInput;
   final bool resetPending;
   final bool resetAsk;
   final bool resetStreaming;
@@ -83,6 +85,8 @@ class ChatStateUpdate {
     this.costDelta,
     this.inPlanMode,
     this.slashCommands,
+    this.queuedInput,
+    this.clearQueuedInput = false,
     this.resetPending = false,
     this.resetAsk = false,
     this.resetStreaming = false,
@@ -116,6 +120,7 @@ const _unsupportedActions = <String, UnsupportedAction>{
   'take_screenshot': UnsupportedAction.showUpdateHint,
   'archive_session': UnsupportedAction.showUpdateHint,
   'read_file': UnsupportedAction.showUpdateHint,
+  'steer_queued_input': UnsupportedAction.showUpdateHint,
   // Git Operations (Phase 1-3)
   'git_stage': UnsupportedAction.showUpdateHint,
   'git_unstage': UnsupportedAction.showUpdateHint,
@@ -164,6 +169,11 @@ class ChatMessageHandler {
         return _handlePastHistory(messages, claudeSessionId: claudeSessionId);
       case HistoryMessage(:final messages):
         return _handleHistory(messages);
+      case ConversationQueueMessage(:final items):
+        return ChatStateUpdate(
+          queuedInput: items.isNotEmpty ? items.first : null,
+          clearQueuedInput: items.isEmpty,
+        );
       case SystemMessage(
         :final subtype,
         :final slashCommands,

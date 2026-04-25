@@ -9,8 +9,11 @@ import { pathToSlug } from "./sessions-index.js";
 const { codexInstances, sdkInstances, fakeDirs, fakeFiles } = vi.hoisted(
   () => ({
     codexInstances: [] as Array<{
+      isWaitingForInput: boolean;
       start: ReturnType<typeof vi.fn>;
       stop: ReturnType<typeof vi.fn>;
+      sendInputStructured: ReturnType<typeof vi.fn>;
+      steerInputStructured: ReturnType<typeof vi.fn>;
       emit: (event: string, ...args: unknown[]) => boolean;
     }>,
     sdkInstances: [] as Array<{
@@ -72,8 +75,11 @@ vi.mock("node:fs", () => {
 
 vi.mock("./codex-process.js", () => ({
   CodexProcess: class MockCodexProcess extends EventEmitter {
+    public isWaitingForInput = false;
     public start = vi.fn((_: string, __?: unknown) => {});
     public stop = vi.fn(() => {});
+    public sendInputStructured = vi.fn();
+    public steerInputStructured = vi.fn(async () => {});
 
     constructor() {
       super();
@@ -397,6 +403,149 @@ describe("SessionManager codex path", () => {
 
     const summary = manager.list().find((s) => s.id === sessionId);
     expect(summary).toBeDefined();
+  });
+
+  it("drains queued codex input when the process becomes ready", () => {
+    const forwarded: Array<{ sessionId: string; msg: ServerMessage }> = [];
+    const manager = new SessionManager((sessionId, msg) => {
+      forwarded.push({ sessionId, msg });
+    });
+
+    const sessionId = manager.create(
+      "/tmp/project-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+    const queued = manager.queueCodexInput(sessionId, {
+      itemId: "queued-1",
+      text: "Follow up",
+      createdAt: "2026-04-25T00:00:00.000Z",
+      imageCount: 1,
+      images: [{ base64: "aGVsbG8=", mimeType: "image/png" }],
+      imageRefs: [{ id: "img-1", url: "/images/img-1", mimeType: "image/png" }],
+      skills: [{ name: "skill", path: "/skills/skill" }],
+      mentions: [{ name: "note", path: "/tmp/note.md" }],
+    });
+    expect(queued).toBe(true);
+
+    const proc = codexInstances[0];
+    proc.isWaitingForInput = true;
+    proc.emit("input_ready");
+
+    expect(manager.get(sessionId)?.codexQueuedInput).toBeUndefined();
+    expect(
+      manager.list().find((s) => s.id === sessionId)?.queuedInput,
+    ).toBeUndefined();
+    expect(proc.sendInputStructured).toHaveBeenCalledWith("Follow up", {
+      images: [{ base64: "aGVsbG8=", mimeType: "image/png" }],
+      skills: [{ name: "skill", path: "/skills/skill" }],
+      mentions: [{ name: "note", path: "/tmp/note.md" }],
+    });
+
+    const queueMessages = forwarded
+      .filter((entry) => entry.msg.type === "conversation_queue")
+      .map(
+        (entry) =>
+          entry.msg as Extract<ServerMessage, { type: "conversation_queue" }>,
+      );
+    expect(queueMessages).toHaveLength(2);
+    expect(queueMessages[0].items).toHaveLength(1);
+    expect(queueMessages[1].items).toEqual([]);
+
+    expect(
+      forwarded.some(
+        (entry) =>
+          entry.sessionId === sessionId &&
+          entry.msg.type === "user_input" &&
+          entry.msg.text === "Follow up" &&
+          "imageCount" in entry.msg &&
+          entry.msg.imageCount === 1,
+      ),
+    ).toBe(true);
+  });
+
+  it("steers queued codex input and broadcasts the promoted user message", async () => {
+    const forwarded: Array<{ sessionId: string; msg: ServerMessage }> = [];
+    const manager = new SessionManager((sessionId, msg) => {
+      forwarded.push({ sessionId, msg });
+    });
+
+    const sessionId = manager.create(
+      "/tmp/project-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+    expect(
+      manager.queueCodexInput(sessionId, {
+        itemId: "queued-1",
+        text: "Steer this",
+        createdAt: "2026-04-25T00:00:00.000Z",
+        skills: [{ name: "skill", path: "/skills/skill" }],
+        mentions: [{ name: "note", path: "/tmp/note.md" }],
+      }),
+    ).toBe(true);
+
+    const result = await manager.steerCodexQueuedInput(sessionId, "queued-1");
+
+    expect(result).toEqual({ ok: true });
+    expect(manager.get(sessionId)?.codexQueuedInput).toBeUndefined();
+    expect(codexInstances[0].steerInputStructured).toHaveBeenCalledWith(
+      "Steer this",
+      {
+        images: undefined,
+        skills: [{ name: "skill", path: "/skills/skill" }],
+        mentions: [{ name: "note", path: "/tmp/note.md" }],
+      },
+    );
+    expect(
+      forwarded.some(
+        (entry) =>
+          entry.sessionId === sessionId &&
+          entry.msg.type === "conversation_queue" &&
+          entry.msg.items.length === 0,
+      ),
+    ).toBe(true);
+    expect(
+      forwarded.some(
+        (entry) =>
+          entry.sessionId === sessionId &&
+          entry.msg.type === "user_input" &&
+          entry.msg.text === "Steer this",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps queued codex input when steer fails", async () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+    expect(
+      manager.queueCodexInput(sessionId, {
+        itemId: "queued-1",
+        text: "Steer this",
+        createdAt: "2026-04-25T00:00:00.000Z",
+      }),
+    ).toBe(true);
+    codexInstances[0].steerInputStructured.mockRejectedValueOnce(
+      new Error("No active Codex turn to steer"),
+    );
+
+    const result = await manager.steerCodexQueuedInput(sessionId, "queued-1");
+
+    expect(result).toEqual({
+      ok: false,
+      error: "No active Codex turn to steer",
+    });
+    expect(manager.get(sessionId)?.codexQueuedInput?.text).toBe("Steer this");
   });
 
   it("extracts Codex MCP base64 images into images for history and forwarding", async () => {

@@ -57,6 +57,9 @@ abstract class ChatSessionState with _$ChatSessionState {
 
     // Slash commands available in this session
     @Default([]) List<SlashCommand> slashCommands,
+
+    // Codex conversation queue (Bridge is the source of truth).
+    QueuedInputItem? queuedInput,
   }) = _ChatSessionState;
 }
 

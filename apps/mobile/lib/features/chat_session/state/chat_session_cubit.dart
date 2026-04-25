@@ -435,6 +435,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             update.codexApprovalsReviewer ?? current.codexApprovalsReviewer,
         planMode: update.planMode ?? current.planMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
+        queuedInput: update.clearQueuedInput
+            ? null
+            : (update.queuedInput ?? current.queuedInput),
         claudeSessionId: newClaudeSessionId,
         hiddenToolUseIds: hiddenToolUseIds,
       ),
@@ -527,12 +530,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     List<({Uint8List bytes, String mimeType})>? images,
   }) {
     if (text.trim().isEmpty && (images == null || images.isEmpty)) return;
-    final entry = UserChatEntry(
-      text,
-      sessionId: sessionId,
-      imageBytesList: images?.map((i) => i.bytes).toList(),
-    );
-    emit(state.copyWith(entries: [...state.entries, entry]));
+    if (isCodex && state.queuedInput != null) return;
+
+    final shouldAddLocalEntry = !isCodex || state.status == ProcessStatus.idle;
+    if (shouldAddLocalEntry) {
+      final entry = UserChatEntry(
+        text,
+        sessionId: sessionId,
+        imageBytesList: images?.map((i) => i.bytes).toList(),
+      );
+      emit(state.copyWith(entries: [...state.entries, entry]));
+    }
 
     // Encode images as Base64 for WebSocket transmission
     List<Map<String, String>>? imagePayloads;
@@ -559,6 +567,37 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             : null,
         skills: structuredMentions.skills,
         mentions: structuredMentions.mentions,
+      ),
+    );
+  }
+
+  void updateQueuedInput(QueuedInputItem item, String text) {
+    if (!isCodex || text.trim().isEmpty) return;
+    final structuredMentions = _extractCodexStructuredInputs(text);
+    _bridge.send(
+      ClientMessage.updateQueuedInput(
+        sessionId: sessionId,
+        itemId: item.itemId,
+        text: text,
+        skills: structuredMentions.skills,
+        mentions: structuredMentions.mentions,
+      ),
+    );
+  }
+
+  void steerQueuedInput(QueuedInputItem item) {
+    if (!isCodex) return;
+    _bridge.send(
+      ClientMessage.steerQueuedInput(sessionId: sessionId, itemId: item.itemId),
+    );
+  }
+
+  void cancelQueuedInput(QueuedInputItem item) {
+    if (!isCodex) return;
+    _bridge.send(
+      ClientMessage.cancelQueuedInput(
+        sessionId: sessionId,
+        itemId: item.itemId,
       ),
     );
   }

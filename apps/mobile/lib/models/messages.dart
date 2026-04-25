@@ -401,6 +401,38 @@ class GalleryImage {
   }
 }
 
+class QueuedInputItem {
+  final String itemId;
+  final String text;
+  final String createdAt;
+  final String? updatedAt;
+  final int imageCount;
+  final List<Map<String, String>> skills;
+  final List<Map<String, String>> mentions;
+
+  const QueuedInputItem({
+    required this.itemId,
+    required this.text,
+    required this.createdAt,
+    this.updatedAt,
+    this.imageCount = 0,
+    this.skills = const [],
+    this.mentions = const [],
+  });
+
+  factory QueuedInputItem.fromJson(Map<String, dynamic> json) {
+    return QueuedInputItem(
+      itemId: json['itemId'] as String? ?? '',
+      text: json['text'] as String? ?? '',
+      createdAt: json['createdAt'] as String? ?? '',
+      updatedAt: json['updatedAt'] as String?,
+      imageCount: json['imageCount'] as int? ?? 0,
+      skills: _stringMapList(json['skills']),
+      mentions: _stringMapList(json['mentions']),
+    );
+  }
+}
+
 // ---- Usage info ----
 
 class UsageWindow {
@@ -559,6 +591,18 @@ sealed class ServerMessage {
         messages: (json['messages'] as List)
             .map((m) => ServerMessage.fromJson(m as Map<String, dynamic>))
             .toList(),
+      ),
+      'conversation_queue' => ConversationQueueMessage(
+        sessionId: json['sessionId'] as String?,
+        limit: json['limit'] as int? ?? 1,
+        items:
+            (json['items'] as List?)
+                ?.map(
+                  (item) =>
+                      QueuedInputItem.fromJson(item as Map<String, dynamic>),
+                )
+                .toList() ??
+            const [],
       ),
       'permission_request' => PermissionRequestMessage(
         toolUseId: json['toolUseId'] as String,
@@ -1647,6 +1691,20 @@ List<String> _stringList(dynamic value) {
       .toList();
 }
 
+List<Map<String, String>> _stringMapList(dynamic value) {
+  if (value is! List) return const [];
+  return value
+      .whereType<Map>()
+      .map(
+        (entry) => {
+          'name': entry['name']?.toString() ?? '',
+          'path': entry['path']?.toString() ?? '',
+        },
+      )
+      .where((entry) => entry['name']!.isNotEmpty && entry['path']!.isNotEmpty)
+      .toList();
+}
+
 class PermissionResolvedMessage implements ServerMessage {
   final String toolUseId;
   const PermissionResolvedMessage({required this.toolUseId});
@@ -2076,6 +2134,17 @@ class InputAckMessage implements ServerMessage {
   /// promptly, but the client can show a brief "queued" indicator.
   final bool queued;
   const InputAckMessage({this.sessionId, this.queued = false});
+}
+
+class ConversationQueueMessage implements ServerMessage {
+  final String? sessionId;
+  final int limit;
+  final List<QueuedInputItem> items;
+  const ConversationQueueMessage({
+    this.sessionId,
+    required this.limit,
+    required this.items,
+  });
 }
 
 class InputRejectedMessage implements ServerMessage {
@@ -2662,6 +2731,7 @@ class SessionInfo {
   final String? codexWebSearchMode;
   final List<String> codexAdditionalWritableRoots;
   final PermissionRequestMessage? pendingPermission;
+  final QueuedInputItem? queuedInput;
 
   const SessionInfo({
     required this.id,
@@ -2692,6 +2762,7 @@ class SessionInfo {
     this.codexWebSearchMode,
     this.codexAdditionalWritableRoots = const [],
     this.pendingPermission,
+    this.queuedInput,
   });
 
   ExecutionMode get resolvedExecutionMode => deriveExecutionMode(
@@ -2732,6 +2803,8 @@ class SessionInfo {
     List<String>? codexAdditionalWritableRoots,
     PermissionRequestMessage? pendingPermission,
     bool clearPermission = false,
+    QueuedInputItem? queuedInput,
+    bool clearQueuedInput = false,
   }) {
     return SessionInfo(
       id: id,
@@ -2768,12 +2841,14 @@ class SessionInfo {
       pendingPermission: clearPermission
           ? null
           : (pendingPermission ?? this.pendingPermission),
+      queuedInput: clearQueuedInput ? null : (queuedInput ?? this.queuedInput),
     );
   }
 
   factory SessionInfo.fromJson(Map<String, dynamic> json) {
     final codexSettings = json['codexSettings'] as Map<String, dynamic>?;
     final permJson = json['pendingPermission'] as Map<String, dynamic>?;
+    final queueJson = json['queuedInput'] as Map<String, dynamic>?;
     return SessionInfo(
       id: json['id'] as String,
       provider: json['provider'] as String?,
@@ -2824,6 +2899,9 @@ class SessionInfo {
               toolName: permJson['toolName'] as String,
               input: Map<String, dynamic>.from(permJson['input'] as Map),
             )
+          : null,
+      queuedInput: queueJson != null
+          ? QueuedInputItem.fromJson(queueJson)
           : null,
     );
   }
@@ -2912,6 +2990,45 @@ class ClientMessage {
       'skill': ?skill,
       if (skills != null && skills.isNotEmpty) 'skills': skills,
       if (mentions != null && mentions.isNotEmpty) 'mentions': mentions,
+    });
+  }
+
+  factory ClientMessage.updateQueuedInput({
+    required String sessionId,
+    required String itemId,
+    required String text,
+    List<Map<String, String>>? skills,
+    List<Map<String, String>>? mentions,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'update_queued_input',
+      'sessionId': sessionId,
+      'itemId': itemId,
+      'text': text,
+      if (skills != null && skills.isNotEmpty) 'skills': skills,
+      if (mentions != null && mentions.isNotEmpty) 'mentions': mentions,
+    });
+  }
+
+  factory ClientMessage.steerQueuedInput({
+    required String sessionId,
+    required String itemId,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'steer_queued_input',
+      'sessionId': sessionId,
+      'itemId': itemId,
+    });
+  }
+
+  factory ClientMessage.cancelQueuedInput({
+    required String sessionId,
+    required String itemId,
+  }) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'cancel_queued_input',
+      'sessionId': sessionId,
+      'itemId': itemId,
     });
   }
 

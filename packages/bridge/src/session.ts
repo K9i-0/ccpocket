@@ -21,6 +21,7 @@ import type {
   ProcessStatus,
   AssistantToolUseContent,
   Provider,
+  QueuedInputItem,
 } from "./parser.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
@@ -67,6 +68,16 @@ export interface SessionInfo {
   };
   /** Claude sandbox enabled state (for resume). */
   sandboxEnabled?: boolean;
+  /** Codex-only pending input waiting for the next turn. */
+  codexQueuedInput?: QueuedCodexInput;
+}
+
+export interface QueuedCodexInput extends QueuedInputItem {
+  images?: Array<{
+    base64: string;
+    mimeType: string;
+  }>;
+  imageRefs?: ImageRef[];
 }
 
 export interface SessionSummary {
@@ -107,6 +118,7 @@ export interface SessionSummary {
     toolName: string;
     input: Record<string, unknown>;
   };
+  queuedInput?: QueuedInputItem;
 }
 
 const MAX_HISTORY_PER_SESSION = 100;
@@ -152,6 +164,19 @@ function sanitizeCodexModel(model: unknown): string | undefined {
   const normalized = model.trim();
   if (!normalized || normalized === "codex") return undefined;
   return normalized;
+}
+
+function publicQueuedInput(item?: QueuedCodexInput): QueuedInputItem | undefined {
+  if (!item) return undefined;
+  return {
+    itemId: item.itemId,
+    text: item.text,
+    createdAt: item.createdAt,
+    ...(item.updatedAt ? { updatedAt: item.updatedAt } : {}),
+    ...(item.imageCount ? { imageCount: item.imageCount } : {}),
+    ...(item.skills?.length ? { skills: item.skills } : {}),
+    ...(item.mentions?.length ? { mentions: item.mentions } : {}),
+  };
 }
 
 export class SessionManager {
@@ -511,10 +536,20 @@ export class SessionManager {
       session.status = status;
     });
 
+    if (proc instanceof CodexProcess) {
+      proc.on("input_ready", () => {
+        this.drainCodexQueue(session);
+      });
+    }
+
     proc.on("exit", () => {
       session.status = "idle";
+      session.codexQueuedInput = undefined;
       // Add status message to history so it stays in sync with session.status
       session.history.push({ type: "status", status: "idle" } as ServerMessage);
+      if (session.provider === "codex") {
+        this.broadcastCodexQueue(session);
+      }
     });
 
     // Re-persist customTitle after CLI finishes writing sessions-index.json.
@@ -666,6 +701,10 @@ export class SessionManager {
             : undefined,
         sandboxEnabled: s.sandboxEnabled,
         pendingPermission,
+        queuedInput:
+          s.provider === "codex"
+            ? publicQueuedInput(s.codexQueuedInput)
+            : undefined,
       };
     });
   }
@@ -703,6 +742,132 @@ export class SessionManager {
       }
     }
     return "";
+  }
+
+  queueCodexInput(id: string, input: QueuedCodexInput): boolean {
+    const session = this.sessions.get(id);
+    if (!session || session.provider !== "codex") return false;
+    if (session.codexQueuedInput) return false;
+    session.codexQueuedInput = input;
+    session.lastActivityAt = new Date();
+    this.broadcastCodexQueue(session);
+    return true;
+  }
+
+  updateCodexQueuedInput(
+    id: string,
+    itemId: string,
+    text: string,
+    options?: {
+      skills?: Array<{ name: string; path: string }>;
+      mentions?: Array<{ name: string; path: string }>;
+    },
+  ): boolean {
+    const session = this.sessions.get(id);
+    if (!session || session.provider !== "codex") return false;
+    const current = session.codexQueuedInput;
+    if (!current || current.itemId !== itemId) return false;
+    session.codexQueuedInput = {
+      ...current,
+      text,
+      updatedAt: new Date().toISOString(),
+      skills: options?.skills,
+      mentions: options?.mentions,
+    };
+    session.lastActivityAt = new Date();
+    this.broadcastCodexQueue(session);
+    return true;
+  }
+
+  cancelCodexQueuedInput(id: string, itemId: string): boolean {
+    const session = this.sessions.get(id);
+    if (!session || session.provider !== "codex") return false;
+    if (!session.codexQueuedInput || session.codexQueuedInput.itemId !== itemId) {
+      return false;
+    }
+    session.codexQueuedInput = undefined;
+    session.lastActivityAt = new Date();
+    this.broadcastCodexQueue(session);
+    return true;
+  }
+
+  async steerCodexQueuedInput(
+    id: string,
+    itemId: string,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    const session = this.sessions.get(id);
+    if (!session || session.provider !== "codex") {
+      return { ok: false, error: "No active Codex session." };
+    }
+    const queued = session.codexQueuedInput;
+    if (!queued || queued.itemId !== itemId) {
+      return { ok: false, error: "Queued message not found." };
+    }
+    if (!(session.process instanceof CodexProcess)) {
+      return { ok: false, error: "No active Codex process." };
+    }
+
+    try {
+      await session.process.steerInputStructured(queued.text, {
+        images: queued.images,
+        skills: queued.skills,
+        mentions: queued.mentions,
+      });
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+
+    session.codexQueuedInput = undefined;
+    session.lastActivityAt = new Date();
+    this.broadcastCodexQueue(session);
+
+    const userMsg = this.buildQueuedUserInputMessage(queued);
+    session.history.push(userMsg);
+    this.onMessage(session.id, userMsg);
+    return { ok: true };
+  }
+
+  private broadcastCodexQueue(session: SessionInfo): void {
+    const item = publicQueuedInput(session.codexQueuedInput);
+    this.onMessage(session.id, {
+      type: "conversation_queue",
+      sessionId: session.id,
+      limit: 1,
+      items: item ? [item] : [],
+    });
+  }
+
+  private drainCodexQueue(session: SessionInfo): void {
+    if (session.provider !== "codex") return;
+    const queued = session.codexQueuedInput;
+    if (!queued || !(session.process instanceof CodexProcess)) return;
+    if (!session.process.isWaitingForInput) return;
+
+    session.codexQueuedInput = undefined;
+    this.broadcastCodexQueue(session);
+
+    const userMsg = this.buildQueuedUserInputMessage(queued);
+    session.history.push(userMsg);
+    this.onMessage(session.id, userMsg);
+
+    session.process.sendInputStructured(queued.text, {
+      images: queued.images,
+      skills: queued.skills,
+      mentions: queued.mentions,
+    });
+  }
+
+  private buildQueuedUserInputMessage(queued: QueuedCodexInput): ServerMessage {
+    return {
+      type: "user_input",
+      text: queued.text,
+      timestamp: new Date().toISOString(),
+      ...(queued.imageCount ? { imageCount: queued.imageCount } : {}),
+      ...(queued.imageRefs ? { images: queued.imageRefs } : {}),
+    } as ServerMessage;
   }
 
   getCachedCommands(

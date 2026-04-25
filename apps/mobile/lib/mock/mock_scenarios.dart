@@ -77,6 +77,7 @@ final List<MockScenario> mockScenarios = [
   _codexAskUserQuestion,
   _codexWebSearch,
   _codexFullConversation,
+  _codexQueuedInput,
   // Session list scenarios — Claude
   _sessionListAllStatuses,
   _sessionListAllApprovals,
@@ -2003,6 +2004,62 @@ final _codexFullConversation = MockScenario(
       message: const StatusMessage(status: ProcessStatus.waitingApproval),
     ),
     // After approval, the tool result and completion would follow
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 6i. Codex Queued Input
+// ---------------------------------------------------------------------------
+final _codexQueuedInput = MockScenario(
+  name: 'Codex Queued Input',
+  icon: Icons.schedule_send_outlined,
+  description: 'Codex busy state with one queued follow-up message',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 200),
+      message: const SystemMessage(
+        subtype: 'init',
+        sessionId: 'mock-session-codex-queue',
+        model: 'gpt-5.5',
+        projectPath: '/Users/demo/project',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 400),
+      message: const AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-queue-1',
+          role: 'assistant',
+          content: [
+            TextContent(
+              text:
+                  'I am checking the current implementation before the next '
+                  'turn becomes available.',
+            ),
+          ],
+          model: 'gpt-5.5',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 500),
+      message: const ConversationQueueMessage(
+        sessionId: 'mock-codex-queued-input',
+        limit: 1,
+        items: [
+          QueuedInputItem(
+            itemId: 'queued-1',
+            text: 'Please also verify the queue panel on mobile.',
+            createdAt: '2026-04-25T00:00:00.000Z',
+          ),
+        ],
+      ),
+    ),
   ],
 );
 
