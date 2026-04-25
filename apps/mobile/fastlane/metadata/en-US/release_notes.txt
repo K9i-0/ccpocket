@@ -1,1 +1,5 @@
-- Added Codex Auto Review support for automatically reviewing approval requests while keeping sessions in On Request mode
+- You can now queue the next message while a Codex session is still running.
+- Added support for Codex's imagegen skill.
+- New Codex sessions can now include additional writable directories.
+- Added a setting to switch how usage limits are displayed.
+- Improved keyboard navigation for input completions, iPad workspace pane syncing, and setting restoration when resuming sessions.
