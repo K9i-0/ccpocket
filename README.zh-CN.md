@@ -109,8 +109,7 @@ CC Pocket 走的是另一条路：**会话从 CC Pocket 发起，并在 CC Pocke
 
 | 设置 | 选项 | 说明 |
 |------|------|------|
-| **Approval Policy** | `Untrusted` / `On Request` / `On Failure` / `Never Ask` | 控制 Codex 何时请求审批。`On Failure` 为兼容保留，已弃用。 |
-| **Approval Reviewer** | Default / `Auto Review` | 当 Bridge 支持时，可以让 Codex 使用 Auto Review 作为 approval reviewer。 |
+| **Approval Policy** | `Untrusted` / `On Request` / `Auto Review` / `Never Ask` | 控制 Codex 何时请求审批。Auto Review 也在这里选择。 |
 | **Plan** | 开 / 关 | 独立于 Approval Policy 切换规划模式。 |
 | **Sandbox** | 开（默认）/ 关 | 在受限环境中运行，偏向安全。 |
 | **Profile** | Codex config profiles | 使用选定的 Codex CLI profile 启动或恢复会话。 |

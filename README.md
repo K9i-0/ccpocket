@@ -109,8 +109,7 @@ On the Bridge side, **Claude sessions are powered by the Claude Agent SDK**. Ses
 
 | Setting | Options | Description |
 |---------|---------|-------------|
-| **Approval Policy** | `Untrusted` / `On Request` / `On Failure` / `Never Ask` | Controls when Codex asks for approval. `On Failure` is kept for compatibility and is deprecated. |
-| **Approval Reviewer** | Default / `Auto Review` | Lets Codex use Auto Review as the approval reviewer when supported by the Bridge. |
+| **Approval Policy** | `Untrusted` / `On Request` / `Auto Review` / `Never Ask` | Controls when Codex asks for approval, including the Auto Review flow. |
 | **Plan** | On / Off | Toggle planning mode independently of approval policy. |
 | **Sandbox** | On (default) / Off | Run in a restricted environment for safety. |
 | **Profile** | Codex config profiles | Start or resume with a selected Codex CLI profile. |
