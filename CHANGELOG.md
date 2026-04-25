@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.75.0] - 2026-04-25
+
+### Added
+- Recommend the macOS native app when the iOS app is running on Mac
+- Add a settings link to the macOS GitHub Releases download page for iOS-on-Mac users
+
+### Changed
+- Promote the macOS desktop app out of beta in README documentation
+
 ## [1.74.0] - 2026-04-25
 
 ### Added
