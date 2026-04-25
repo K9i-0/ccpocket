@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../utils/diff_parser.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
 
 /// Comparison mode for the full-screen diff image viewer.
 enum DiffCompareMode { sideBySide, slider, overlay, toggle }
@@ -55,6 +56,7 @@ class DiffImageViewer extends HookWidget {
 
     final l = AppLocalizations.of(context);
     final fileName = file.filePath.split('/').last;
+    final chrome = resolveStandalonePaneChrome(context);
 
     void toggleChrome() => chromeVisible.value = !chromeVisible.value;
 
@@ -62,11 +64,13 @@ class DiffImageViewer extends HookWidget {
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: chromeVisible.value
-          ? AppBar(
-              backgroundColor: Colors.black54,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              title: Text(fileName, style: const TextStyle(fontSize: 16)),
+          ? chrome.wrapAppBar(
+              AppBar(
+                backgroundColor: Colors.black54,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                title: Text(fileName, style: const TextStyle(fontSize: 16)),
+              ),
             )
           : null,
       body: Stack(

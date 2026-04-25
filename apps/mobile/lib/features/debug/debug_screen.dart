@@ -13,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../router/app_router.dart';
 import '../../services/support_banner_service.dart';
 import '../../utils/platform_helper.dart';
+import '../../widgets/workspace_pane_chrome.dart';
 
 @RoutePage()
 class DebugScreen extends StatelessWidget {
@@ -23,8 +24,9 @@ class DebugScreen extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     final supportBannerService = context.read<SupportBannerService>();
+    final chrome = resolveStandalonePaneChrome(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l.debug)),
+      appBar: chrome.wrapAppBar(AppBar(title: Text(l.debug))),
       body: BlocBuilder<SettingsCubit, SettingsState>(
         builder: (context, settings) {
           return ListenableBuilder(

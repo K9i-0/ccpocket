@@ -7,6 +7,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../services/bridge_service.dart';
 import '../../widgets/bubbles/image_preview.dart';
+import '../../widgets/workspace_pane_chrome.dart';
 
 /// Screen that loads and displays images attached to a specific message.
 ///
@@ -106,17 +107,20 @@ class _MessageImagesScreenState extends State<MessageImagesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final chrome = resolveStandalonePaneChrome(context);
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          widget.imageCount > 1
-              ? AppLocalizations.of(context).attachedImages(widget.imageCount)
-              : AppLocalizations.of(context).attachedImagesNoCount,
-          style: const TextStyle(fontSize: 16),
+      appBar: chrome.wrapAppBar(
+        AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          title: Text(
+            widget.imageCount > 1
+                ? AppLocalizations.of(context).attachedImages(widget.imageCount)
+                : AppLocalizations.of(context).attachedImagesNoCount,
+            style: const TextStyle(fontSize: 16),
+          ),
         ),
       ),
       body: _MessageImagesContent(

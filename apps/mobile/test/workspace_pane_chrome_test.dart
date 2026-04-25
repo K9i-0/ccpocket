@@ -37,4 +37,48 @@ void main() {
       expect(withoutLeftPane.leadingInset, kWorkspaceMacOSLeadingInset);
     },
   );
+
+  testWidgets('standalone chrome uses macOS top inset from theme', (
+    tester,
+  ) async {
+    late WorkspacePaneChrome chrome;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.macOS),
+        home: Builder(
+          builder: (context) {
+            chrome = resolveStandalonePaneChrome(context);
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    expect(chrome.topInset, kWorkspaceMacOSSinglePaneTopInset);
+    expect(chrome.toolbarHeight, kToolbarHeight);
+    expect(chrome.leadingInset, 0);
+  });
+
+  testWidgets('standalone chrome keeps default height off macOS', (
+    tester,
+  ) async {
+    late WorkspacePaneChrome chrome;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: Builder(
+          builder: (context) {
+            chrome = resolveStandalonePaneChrome(context);
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    expect(chrome.topInset, 0);
+    expect(chrome.toolbarHeight, kToolbarHeight);
+    expect(chrome.leadingInset, 0);
+  });
 }

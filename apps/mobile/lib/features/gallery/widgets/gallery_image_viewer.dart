@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
 
 const _kCacheMaxAge = Duration(days: 7);
 
@@ -62,6 +63,7 @@ class GalleryImageViewer extends HookWidget {
 
     final safeIndex = currentPage.value.clamp(0, imageList.value.length - 1);
     final currentImage = imageList.value[safeIndex];
+    final chrome = resolveStandalonePaneChrome(context);
 
     Future<void> handleDelete() async {
       if (onDelete == null || isDeleting.value) return;
@@ -138,37 +140,39 @@ class GalleryImageViewer extends HookWidget {
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
       appBar: chromeVisible.value
-          ? AppBar(
-              backgroundColor: Colors.black54,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              title: Text(
-                '${safeIndex + 1} / ${imageList.value.length}',
-                style: const TextStyle(fontSize: 16),
-              ),
-              centerTitle: true,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.share),
-                  onPressed: handleShare,
-                  tooltip: AppLocalizations.of(context).share,
+          ? chrome.wrapAppBar(
+              AppBar(
+                backgroundColor: Colors.black54,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                title: Text(
+                  '${safeIndex + 1} / ${imageList.value.length}',
+                  style: const TextStyle(fontSize: 16),
                 ),
-                if (onDelete != null)
+                centerTitle: true,
+                actions: [
                   IconButton(
-                    icon: isDeleting.value
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.delete_outline),
-                    onPressed: isDeleting.value ? null : handleDelete,
-                    tooltip: AppLocalizations.of(context).delete,
+                    icon: const Icon(Icons.share),
+                    onPressed: handleShare,
+                    tooltip: AppLocalizations.of(context).share,
                   ),
-              ],
+                  if (onDelete != null)
+                    IconButton(
+                      icon: isDeleting.value
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.delete_outline),
+                      onPressed: isDeleting.value ? null : handleDelete,
+                      tooltip: AppLocalizations.of(context).delete,
+                    ),
+                ],
+              ),
             )
           : null,
       body: Stack(

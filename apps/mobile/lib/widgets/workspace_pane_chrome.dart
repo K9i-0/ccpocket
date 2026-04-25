@@ -200,3 +200,12 @@ WorkspacePaneChrome resolveWorkspacePaneChrome({
     toolbarHeight: kWorkspaceMacOSToolbarHeight,
   );
 }
+
+WorkspacePaneChrome resolveStandalonePaneChrome(BuildContext context) {
+  return resolveWorkspacePaneChrome(
+    platform: Theme.of(context).platform,
+    isAdaptiveWorkspace: false,
+    isLeftPaneVisible: false,
+    slot: WorkspacePaneSlot.center,
+  );
+}

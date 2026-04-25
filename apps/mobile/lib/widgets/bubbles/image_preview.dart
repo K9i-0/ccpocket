@@ -4,6 +4,7 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/messages.dart';
+import '../workspace_pane_chrome.dart';
 
 const _kCacheMaxAge = Duration(days: 7);
 
@@ -165,12 +166,15 @@ class FullScreenImageViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final chrome = resolveStandalonePaneChrome(context);
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
+      appBar: chrome.wrapAppBar(
+        AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
       ),
       body: Center(
         child: InteractiveViewer(
