@@ -95,6 +95,35 @@ void main() {
     });
   });
 
+  group('ToolUseTile - ImageGeneration', () {
+    testWidgets('shows compact progress status without expansion controls', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const ToolUseTile(
+            name: 'ImageGeneration',
+            input: {
+              'status': 'in_progress',
+              'revisedPrompt': 'A cover image for a mobile agent app',
+            },
+          ),
+        ),
+      );
+
+      expect(
+        find.byKey(const ValueKey('image_generation_tool_use_status')),
+        findsOneWidget,
+      );
+      expect(find.text('Generating image'), findsOneWidget);
+      expect(find.text('A cover image for a mobile agent app'), findsOneWidget);
+      expect(find.text('ImageGeneration'), findsNothing);
+      expect(find.byIcon(Icons.chevron_right), findsNothing);
+      expect(find.byIcon(Icons.expand_more), findsNothing);
+      expect(find.byIcon(Icons.expand_less), findsNothing);
+    });
+  });
+
   group('ToolUseTile - 3-state expansion (non-edit tools)', () {
     testWidgets(
       'tap cycles collapsed → preview → expanded → collapsed for Bash',

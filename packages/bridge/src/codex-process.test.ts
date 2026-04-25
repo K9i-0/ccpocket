@@ -1288,6 +1288,171 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("maps image generation saved paths into tool_use and tool_result messages", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-image-generation-path");
+    const child = fakeChildren[0];
+
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+    await tick();
+    nextOutgoingNotification(child);
+    const threadReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_image_path" } } })}\n`,
+    );
+
+    await tick();
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "item/started",
+        params: {
+          item: {
+            type: "imageGeneration",
+            id: "ig_saved_1",
+            status: "inProgress",
+            revisedPrompt: "a small blue square",
+          },
+        },
+      })}\n`,
+    );
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "item/completed",
+        params: {
+          item: {
+            type: "imageGeneration",
+            id: "ig_saved_1",
+            status: "completed",
+            revisedPrompt: "a small blue square",
+            result: "base64-omitted-from-content",
+            savedPath: "/tmp/codex/generated_images/ig_saved_1.png",
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          content: expect.arrayContaining([
+            expect.objectContaining({
+              type: "tool_use",
+              id: "ig_saved_1",
+              name: "ImageGeneration",
+              input: {
+                status: "inProgress",
+                revisedPrompt: "a small blue square",
+              },
+            }),
+          ]),
+        }),
+      }),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "tool_result",
+        toolUseId: "ig_saved_1",
+        toolName: "ImageGeneration",
+        content: expect.stringContaining(
+          "savedPath: /tmp/codex/generated_images/ig_saved_1.png",
+        ),
+      }),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "tool_result",
+        toolUseId: "ig_saved_1",
+        content: expect.not.stringContaining("base64-omitted-from-content"),
+      }),
+    );
+
+    proc.stop();
+  });
+
+  it("preserves image generation base64 results as raw content blocks", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-image-generation-base64");
+    const child = fakeChildren[0];
+
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+    await tick();
+    nextOutgoingNotification(child);
+    const threadReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_image_base64" } } })}\n`,
+    );
+
+    await tick();
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "item/completed",
+        params: {
+          item: {
+            type: "imageGeneration",
+            id: "ig_base64_1",
+            status: "completed",
+            revised_prompt: "a small red square",
+            result: "data:image/png;base64,aGVsbG8=",
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "tool_result",
+        toolUseId: "ig_base64_1",
+        toolName: "ImageGeneration",
+        content: expect.stringContaining("Generated 1 image"),
+        rawContentBlocks: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              data: "aGVsbG8=",
+              media_type: "image/png",
+            },
+          },
+        ],
+      }),
+    );
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "tool_result",
+        toolUseId: "ig_base64_1",
+        content: expect.not.stringContaining("aGVsbG8="),
+      }),
+    );
+
+    proc.stop();
+  });
+
   it("preserves MCP image outputs as raw content blocks for downstream rendering", async () => {
     const proc = new CodexProcess("linux");
     const messages: unknown[] = [];

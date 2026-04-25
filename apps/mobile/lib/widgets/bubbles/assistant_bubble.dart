@@ -25,6 +25,8 @@ import 'plan_card.dart';
 import 'thinking_bubble.dart';
 import 'todo_write_widget.dart';
 
+const _imageGenerationToolName = 'ImageGeneration';
+
 class AssistantBubble extends StatefulWidget {
   final AssistantServerMessage message;
 
@@ -348,6 +350,13 @@ class _ToolUseTileState extends State<ToolUseTile> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.name == _imageGenerationToolName) {
+      return _ImageGenerationToolUseStatus(
+        input: widget.input,
+        onLongPress: _copyContent,
+      );
+    }
+
     if (_expansion == ToolUseExpansion.collapsed) {
       return _ToolUseCollapsed(
         name: widget.name,
@@ -391,6 +400,63 @@ class _ToolUseTileState extends State<ToolUseTile> {
     PageStorage.maybeOf(
       context,
     )?.writeState(context, _expansion.name, identifier: _storageKey);
+  }
+}
+
+class _ImageGenerationToolUseStatus extends StatelessWidget {
+  final Map<String, dynamic> input;
+  final VoidCallback onLongPress;
+
+  const _ImageGenerationToolUseStatus({
+    required this.input,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = Theme.of(context).extension<AppColors>()!;
+    final colorScheme = Theme.of(context).colorScheme;
+    final status = input['status']?.toString();
+    final revisedPrompt = input['revisedPrompt']?.toString();
+    final subtitle = revisedPrompt != null && revisedPrompt.isNotEmpty
+        ? revisedPrompt
+        : status?.replaceAll('_', ' ');
+
+    return Padding(
+      key: const ValueKey('image_generation_tool_use_status'),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.bubbleMarginH,
+        vertical: 1,
+      ),
+      child: InkWell(
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(
+            children: [
+              Icon(Icons.auto_awesome, size: 13, color: colorScheme.secondary),
+              const SizedBox(width: 7),
+              const Text(
+                'Generating image',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              if (subtitle != null && subtitle.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 11, color: appColors.subtleText),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ] else
+                const Spacer(),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

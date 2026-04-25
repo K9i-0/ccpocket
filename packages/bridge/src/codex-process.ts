@@ -1922,6 +1922,26 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         break;
       }
 
+      case "imagegeneration": {
+        this.emitMessage({
+          type: "assistant",
+          message: {
+            id: itemId,
+            role: "assistant",
+            content: [
+              {
+                type: "tool_use",
+                id: itemId,
+                name: "ImageGeneration",
+                input: toImageGenerationToolInput(item),
+              },
+            ],
+            model: this.getMessageModel(),
+          },
+        });
+        break;
+      }
+
       case "collabagenttoolcall": {
         const tool = typeof item.tool === "string" ? item.tool : "subagent";
         const toolName = "SubAgent";
@@ -2066,6 +2086,20 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           toolUseId: itemId,
           content,
           toolName: tool,
+        });
+        break;
+      }
+
+      case "imagegeneration": {
+        const normalized = formatImageGenerationResult(item);
+        this.emitMessage({
+          type: "tool_result",
+          toolUseId: itemId,
+          content: normalized.content,
+          toolName: "ImageGeneration",
+          ...(normalized.rawContentBlocks.length > 0
+            ? { rawContentBlocks: normalized.rawContentBlocks }
+            : {}),
         });
         break;
       }
@@ -2543,6 +2577,17 @@ function toToolUseInput(value: unknown): Record<string, unknown> {
   return { value };
 }
 
+function toImageGenerationToolInput(
+  item: Record<string, unknown>,
+): Record<string, unknown> {
+  const input: Record<string, unknown> = {};
+  const status = typeof item.status === "string" ? item.status : undefined;
+  const revisedPrompt = readStringField(item, "revisedPrompt", "revised_prompt");
+  if (status) input.status = status;
+  if (revisedPrompt) input.revisedPrompt = revisedPrompt;
+  return input;
+}
+
 function formatDynamicToolResult(item: Record<string, unknown>): string {
   const status = typeof item.status === "string" ? item.status : "completed";
   const success = typeof item.success === "boolean" ? item.success : null;
@@ -2572,6 +2617,60 @@ function formatDynamicToolResult(item: Record<string, unknown>): string {
   }
 
   return parts.join("\n");
+}
+
+function formatImageGenerationResult(item: Record<string, unknown>): {
+  content: string;
+  rawContentBlocks: Array<Record<string, unknown>>;
+} {
+  const status = typeof item.status === "string" ? item.status : "completed";
+  const revisedPrompt = readStringField(item, "revisedPrompt", "revised_prompt");
+  const savedPath = readStringField(item, "savedPath", "saved_path");
+  const result = typeof item.result === "string" ? item.result.trim() : "";
+  const parts = [`status: ${status}`];
+
+  if (revisedPrompt) parts.push(`revisedPrompt: ${revisedPrompt}`);
+  if (savedPath) {
+    parts.push(`savedPath: ${savedPath}`);
+    return { content: parts.join("\n"), rawContentBlocks: [] };
+  }
+
+  const rawContentBlocks: Array<Record<string, unknown>> = [];
+  if (result) {
+    const base64 = stripImageDataUrlPrefix(result);
+    rawContentBlocks.push({
+      type: "image",
+      source: {
+        type: "base64",
+        data: base64,
+        media_type: "image/png",
+      },
+    });
+    parts.push("Generated 1 image");
+  }
+
+  return { content: parts.join("\n"), rawContentBlocks };
+}
+
+function readStringField(
+  record: Record<string, unknown>,
+  camelName: string,
+  snakeName: string,
+): string | undefined {
+  const camelValue = record[camelName];
+  if (typeof camelValue === "string" && camelValue.trim().length > 0) {
+    return camelValue;
+  }
+  const snakeValue = record[snakeName];
+  if (typeof snakeValue === "string" && snakeValue.trim().length > 0) {
+    return snakeValue;
+  }
+  return undefined;
+}
+
+function stripImageDataUrlPrefix(value: string): string {
+  const match = value.match(/^data:image\/[a-z0-9.+-]+;base64,(.*)$/i);
+  return match ? match[1] : value;
 }
 
 function normalizeMcpToolResult(result: unknown): {

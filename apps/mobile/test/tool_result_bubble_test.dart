@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:ccpocket/widgets/bubbles/image_preview.dart';
 import 'package:ccpocket/widgets/bubbles/tool_result_bubble.dart';
 
 Widget _wrap(Widget child) {
@@ -195,6 +196,101 @@ void main() {
 
       // Should be collapsed again
       expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+    });
+  });
+
+  group('ToolResultBubble - ImageGeneration', () {
+    ToolResultMessage imageGenerationMessage() {
+      return _msg(
+        toolName: 'ImageGeneration',
+        content:
+            'status: completed\n'
+            'revisedPrompt: A neon bridge for mobile coding agents\n'
+            'savedPath: /tmp/generated-image.png',
+        images: const [
+          ImageRef(
+            id: 'img-generated',
+            url: '/images/generated.png',
+            mimeType: 'image/png',
+          ),
+        ],
+      );
+    }
+
+    testWidgets('renders a dedicated image-first card initially', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          ToolResultBubble(
+            message: imageGenerationMessage(),
+            httpBaseUrl: 'http://localhost',
+          ),
+        ),
+      );
+
+      expect(
+        find.byKey(const ValueKey('image_generation_result_card')),
+        findsOneWidget,
+      );
+      expect(find.byType(ImagePreviewWidget), findsOneWidget);
+      expect(find.text('Generated image'), findsOneWidget);
+      expect(find.text('completed'), findsOneWidget);
+      expect(
+        find.text('A neon bridge for mobile coding agents'),
+        findsOneWidget,
+      );
+      expect(find.text('ImageGeneration'), findsNothing);
+      expect(find.textContaining('savedPath'), findsNothing);
+    });
+
+    testWidgets('keeps details collapsed until explicitly opened', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          ToolResultBubble(
+            message: imageGenerationMessage(),
+            httpBaseUrl: 'http://localhost',
+          ),
+        ),
+      );
+
+      expect(find.textContaining('/tmp/generated-image.png'), findsNothing);
+
+      await tester.tap(
+        find.byKey(const ValueKey('image_generation_details_button')),
+      );
+      await tester.pump();
+
+      expect(find.textContaining('/tmp/generated-image.png'), findsOneWidget);
+      expect(find.text('Hide details'), findsOneWidget);
+    });
+
+    testWidgets('does not collapse the generated image on notifier updates', (
+      tester,
+    ) async {
+      final notifier = ValueNotifier<int>(0);
+
+      await tester.pumpWidget(
+        _wrap(
+          ToolResultBubble(
+            message: imageGenerationMessage(),
+            httpBaseUrl: 'http://localhost',
+            collapseNotifier: notifier,
+          ),
+        ),
+      );
+
+      notifier.value++;
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('image_generation_result_card')),
+        findsOneWidget,
+      );
+      expect(find.byType(ImagePreviewWidget), findsOneWidget);
+      expect(find.text('Generated image'), findsOneWidget);
     });
   });
 
