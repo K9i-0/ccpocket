@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.45.2] - 2026-04-26
+
+### Fixed
+- Restore Codex image generation results with image UI after stopping and reopening a session
+
 ## [1.45.1] - 2026-04-25
 
 ### Fixed
