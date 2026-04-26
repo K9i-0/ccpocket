@@ -53,6 +53,7 @@ import {
   unstageHunks,
   gitCommit,
   gitPush,
+  listGitFiles,
   listBranches,
   createBranch,
   checkoutBranch,
@@ -3001,30 +3002,24 @@ export class BridgeWebSocketServer {
           this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
           break;
         }
-        execFile(
-          "git",
-          ["ls-files", "--cached", "--others", "--exclude-standard"],
-          { cwd: msg.projectPath, maxBuffer: 10 * 1024 * 1024 },
-          (err, stdout) => {
-            if (err) {
-              if (/not a git repository/i.test(err.message)) {
-                // Non-git project: silently return empty list (file listing is auxiliary)
-                this.send(ws, { type: "file_list", files: [] });
-              } else {
-                this.send(ws, {
-                  type: "error",
-                  message: `Failed to list files: ${err.message}`,
-                });
-              }
-              return;
-            }
-            const files = stdout.trim().split("\n").filter(Boolean);
-            this.send(ws, { type: "file_list", files } as Record<
-              string,
-              unknown
-            >);
-          },
-        );
+        try {
+          const files = listGitFiles(msg.projectPath);
+          this.send(ws, { type: "file_list", files } as Record<
+            string,
+            unknown
+          >);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          if (/not a git repository/i.test(message)) {
+            // Non-git project: silently return empty list (file listing is auxiliary)
+            this.send(ws, { type: "file_list", files: [] });
+          } else {
+            this.send(ws, {
+              type: "error",
+              message: `Failed to list files: ${message}`,
+            });
+          }
+        }
         break;
       }
 

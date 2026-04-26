@@ -17,6 +17,7 @@ import {
   unstageHunks,
   gitCommit,
   getStagedDiff,
+  listGitFiles,
   listBranches,
   createBranch,
   checkoutBranch,
@@ -450,6 +451,41 @@ describe("getStagedDiff", () => {
 
     expect(diff).toContain("diff --git a/docs/空 白.md b/docs/空 白.md");
     expect(diff).not.toContain("\\347\\251\\272");
+  });
+});
+
+describe("listGitFiles", () => {
+  let repo: string;
+
+  beforeEach(() => {
+    repo = createTempRepo();
+    execFileSync("git", ["config", "core.quotePath", "true"], { cwd: repo });
+  });
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+
+  it("returns unescaped tracked and untracked non-ASCII paths", () => {
+    mkdirSync(join(repo, "docs"), { recursive: true });
+    writeFileSync(join(repo, "docs", "あいう.md"), "hello\n");
+    writeFileSync(join(repo, "docs", "空 白.md"), "space\n");
+    execFileSync("git", ["add", "docs/あいう.md"], { cwd: repo });
+
+    const files = listGitFiles(repo);
+
+    expect(files).toContain("docs/あいう.md");
+    expect(files).toContain("docs/空 白.md");
+    expect(files.join("\n")).not.toContain("\\343\\201");
+    expect(files.join("\n")).not.toContain("\\347\\251");
+  });
+
+  it("keeps paths with embedded newlines intact", () => {
+    mkdirSync(join(repo, "docs"), { recursive: true });
+    writeFileSync(join(repo, "docs", "line\nbreak.md"), "hello\n");
+
+    const files = listGitFiles(repo);
+
+    expect(files).toContain("docs/line\nbreak.md");
   });
 });
 

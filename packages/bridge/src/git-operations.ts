@@ -205,6 +205,27 @@ export function getStagedDiff(projectPath: string): string {
   );
 }
 
+/** Return tracked and untracked project files for autocomplete/explorer views. */
+export function listGitFiles(projectPath: string): string[] {
+  const cwd = resolveProject(projectPath);
+  const output = execFileSync(
+    "git",
+    withGitPathConfig([
+      "ls-files",
+      "-z",
+      "--cached",
+      "--others",
+      "--exclude-standard",
+    ]),
+    {
+      cwd,
+      encoding: "utf-8",
+      maxBuffer: 10 * 1024 * 1024,
+    },
+  );
+  return output.split("\0").filter(Boolean);
+}
+
 /** Push to remote. */
 export function gitPush(projectPath: string): void {
   const cwd = resolveProject(projectPath);
