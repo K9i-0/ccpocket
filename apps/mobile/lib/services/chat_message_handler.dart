@@ -429,7 +429,24 @@ class ChatMessageHandler {
       final ts = m.timestamp != null
           ? DateTime.tryParse(m.timestamp!)?.toLocal()
           : null;
-      if (m.role == 'user') {
+      if (m.role == 'tool_result') {
+        entries.add(
+          ServerChatEntry(
+            ToolResultMessage(
+              toolUseId: m.toolUseId ?? 'past-tool-result-${entries.length}',
+              content:
+                  m.toolResultContent ??
+                  m.content
+                      .whereType<TextContent>()
+                      .map((c) => c.text)
+                      .join('\n'),
+              toolName: m.toolName,
+              images: m.images,
+            ),
+            timestamp: ts,
+          ),
+        );
+      } else if (m.role == 'user') {
         // Skip meta messages (e.g. skill loading prompts)
         if (m.isMeta) continue;
         final texts = m.content

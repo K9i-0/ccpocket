@@ -887,6 +887,129 @@ describe("codex sessions integration", () => {
     });
   });
 
+  it("skips codex skill injections and restores image generation results", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68015";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const savedPath = "/tmp/project-a/generated.png";
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: { type: "user_message", message: "$imagegen make a hero" },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: "<skill>\n<name>imagegen</name>\nsecret instructions\n</skill>",
+            },
+          ],
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-02-13T11:27:00.000Z",
+        type: "event_msg",
+        payload: {
+          type: "image_generation_end",
+          call_id: "ig-1",
+          status: "completed",
+          revised_prompt: "polished mobile app hero",
+          saved_path: savedPath,
+          result: "large-base64-data",
+        },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "image_generation_call",
+          id: "ig-1",
+          status: "completed",
+          revised_prompt: "polished mobile app hero",
+          result: "large-base64-data",
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    const history = await getCodexSessionHistory(threadId);
+
+    expect(history).toEqual([
+      {
+        role: "user",
+        content: [{ type: "text", text: "$imagegen make a hero" }],
+      },
+      {
+        role: "tool_result",
+        toolUseId: "ig-1",
+        toolName: "ImageGeneration",
+        content:
+          "status: completed\nrevisedPrompt: polished mobile app hero\n" +
+          `savedPath: ${savedPath}`,
+        imagePaths: [savedPath],
+        timestamp: "2026-02-13T11:27:00.000Z",
+      },
+    ]);
+  });
+
+  it("restores image generation base64 result without leaking it into content", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68016";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      [
+        JSON.stringify({
+          type: "session_meta",
+          payload: { id: threadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          type: "event_msg",
+          payload: { type: "user_message", message: "$imagegen make a hero" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T11:27:00.000Z",
+          type: "response_item",
+          payload: {
+            type: "image_generation_call",
+            id: "ig-2",
+            status: "completed",
+            result: "data:image/png;base64,aGVsbG8=",
+          },
+        }),
+      ].join("\n"),
+    );
+
+    const history = await getCodexSessionHistory(threadId);
+
+    expect(history).toEqual([
+      {
+        role: "user",
+        content: [{ type: "text", text: "$imagegen make a hero" }],
+      },
+      {
+        role: "tool_result",
+        toolUseId: "ig-2",
+        toolName: "ImageGeneration",
+        content: "status: completed",
+        imageBase64: [{ data: "aGVsbG8=", mimeType: "image/png" }],
+        timestamp: "2026-02-13T11:27:00.000Z",
+      },
+    ]);
+  });
+
   it("renders placeholder text for image-only codex user messages", async () => {
     const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68013";
     const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");

@@ -1648,21 +1648,27 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
 
 // ---- Session history from JSONL files ----
 
+type SessionHistoryContentItem = {
+  type: string;
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+};
+
 export interface SessionHistoryMessage {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "tool_result";
   uuid?: string;
   timestamp?: string;
   /** Skill loading prompt or other meta message (rendered as a chip). */
   isMeta?: boolean;
   /** Number of images attached to this user message (for display indicator). */
   imageCount?: number;
-  content: Array<{
-    type: string;
-    text?: string;
-    id?: string;
-    name?: string;
-    input?: Record<string, unknown>;
-  }>;
+  toolUseId?: string;
+  toolName?: string;
+  imagePaths?: string[];
+  imageBase64?: Array<{ data: string; mimeType: string }>;
+  content: string | SessionHistoryContentItem[];
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -1697,6 +1703,7 @@ function appendTextMessage(
   if (
     last
     && last.role === role
+    && Array.isArray(last.content)
     && last.content.length === 1
     && last.content[0].type === "text"
     && typeof last.content[0].text === "string"
@@ -1712,6 +1719,62 @@ function appendTextMessage(
   });
 }
 
+function appendImageGenerationResult(
+  messages: SessionHistoryMessage[],
+  payload: Record<string, unknown>,
+  fallbackId: string,
+  timestamp?: string,
+): void {
+  const id =
+    typeof payload.call_id === "string"
+      ? payload.call_id
+      : typeof payload.id === "string"
+        ? payload.id
+        : fallbackId;
+  if (messages.some((m) => m.role === "tool_result" && m.toolUseId === id)) {
+    return;
+  }
+
+  const status = typeof payload.status === "string" ? payload.status : undefined;
+  const revisedPrompt =
+    typeof payload.revised_prompt === "string"
+      ? payload.revised_prompt
+      : typeof payload.revisedPrompt === "string"
+        ? payload.revisedPrompt
+        : undefined;
+  const savedPath =
+    typeof payload.saved_path === "string"
+      ? payload.saved_path
+      : typeof payload.savedPath === "string"
+        ? payload.savedPath
+        : undefined;
+  const result = typeof payload.result === "string" ? payload.result : undefined;
+  const base64Image =
+    !savedPath && result
+      ? { data: stripImageDataUrlPrefix(result), mimeType: "image/png" }
+      : undefined;
+
+  const contentLines: string[] = [];
+  if (status) contentLines.push(`status: ${status}`);
+  if (revisedPrompt) contentLines.push(`revisedPrompt: ${revisedPrompt}`);
+  if (savedPath) contentLines.push(`savedPath: ${savedPath}`);
+
+  messages.push({
+    role: "tool_result",
+    toolUseId: id,
+    toolName: "ImageGeneration",
+    content: contentLines.join("\n"),
+    ...(savedPath ? { imagePaths: [savedPath] } : {}),
+    ...(base64Image ? { imageBase64: [base64Image] } : {}),
+    ...(timestamp ? { timestamp } : {}),
+  });
+}
+
+function stripImageDataUrlPrefix(value: string): string {
+  const match = value.match(/^data:image\/[a-z0-9.+-]+;base64,(.*)$/i);
+  return match?.[1] ?? value;
+}
+
 function appendToolUseMessage(
   messages: SessionHistoryMessage[],
   id: string,
@@ -1725,6 +1788,7 @@ function appendToolUseMessage(
   if (
     last
     && last.role === "assistant"
+    && Array.isArray(last.content)
     && last.content.length === 1
     && last.content[0].type === "tool_use"
     && last.content[0].id === id
@@ -1768,6 +1832,11 @@ function isCodexInjectedUserContext(text: string): boolean {
     normalized.startsWith("# AGENTS.md instructions for ")
     || normalized.startsWith("<environment_context>")
     || normalized.startsWith("<permissions instructions>")
+    || normalized.startsWith("<collaboration_mode>")
+    || normalized.startsWith("<personality_spec>")
+    || normalized.startsWith("<skills_instructions>")
+    || normalized.startsWith("<plugins_instructions>")
+    || normalized.startsWith("<skill>")
   );
 }
 
@@ -1935,7 +2004,7 @@ export async function getSessionHistory(
     if (!Array.isArray(message.content)) continue;
 
     // Filter content to only text and tool_use (skip tool_result for cleaner display)
-    const content: SessionHistoryMessage["content"] = [];
+    const content: SessionHistoryContentItem[] = [];
     let imageCount = 0;
     for (const c of message.content) {
       if (typeof c !== "object" || c === null) continue;
@@ -2172,6 +2241,15 @@ export async function getCodexSessionHistory(
       if (payload.type === "agent_message" && typeof payload.message === "string") {
         appendTextMessage(messages, "assistant", payload.message, entryTimestamp);
       }
+
+      if (payload.type === "image_generation_end") {
+        appendImageGenerationResult(
+          messages,
+          payload,
+          `image-generation-${index}`,
+          entryTimestamp,
+        );
+      }
       continue;
     }
 
@@ -2235,6 +2313,16 @@ export async function getCodexSessionHistory(
           typeof payload.call_id === "string" ? payload.call_id : `web-search-${index}`,
           "WebSearch",
           getCodexSearchInput(payload),
+        );
+        continue;
+      }
+
+      if (payload.type === "image_generation_call") {
+        appendImageGenerationResult(
+          messages,
+          payload,
+          `image-generation-${index}`,
+          entryTimestamp,
         );
         continue;
       }

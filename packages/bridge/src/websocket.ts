@@ -34,7 +34,7 @@ import {
   renameCodexSession,
   saveCodexSessionProfile,
 } from "./sessions-index.js";
-import type { ImageStore } from "./image-store.js";
+import type { ImageRef, ImageStore } from "./image-store.js";
 import type { GalleryStore } from "./gallery-store.js";
 import type { ProjectHistory } from "./project-history.js";
 import { ArchiveStore } from "./archive-store.js";
@@ -600,6 +600,75 @@ export class BridgeWebSocketServer {
     } as ServerMessage;
     session?.history.push(tipMsg);
     this.send(ws, tipMsg);
+  }
+
+  private async splitPastHistoryMessages(
+    session: SessionInfo,
+  ): Promise<{ pastMessages: unknown[]; historyMessages: ServerMessage[] }> {
+    const messages = session.pastMessages ?? [];
+    const pastMessages: unknown[] = [];
+    const historyMessages: ServerMessage[] = [];
+
+    for (const raw of messages) {
+      const msg = raw as Record<string, unknown>;
+      if (msg.role !== "tool_result") {
+        pastMessages.push(raw);
+        continue;
+      }
+
+      const paths = new Set<string>();
+      if (Array.isArray(msg.imagePaths)) {
+        for (const path of msg.imagePaths) {
+          if (typeof path === "string" && path.length > 0) paths.add(path);
+        }
+      }
+
+      const content = typeof msg.content === "string" ? msg.content : "";
+      if (this.imageStore && content) {
+        for (const path of this.imageStore.extractImagePaths(content)) {
+          paths.add(path);
+        }
+      }
+
+      const images =
+        this.imageStore && paths.size > 0
+          ? await this.imageStore.registerImages([...paths], session.projectPath)
+          : [];
+      if (this.imageStore && Array.isArray(msg.imageBase64)) {
+        for (const image of msg.imageBase64) {
+          const rawImage = image as Record<string, unknown>;
+          if (
+            typeof rawImage.data !== "string"
+            || typeof rawImage.mimeType !== "string"
+          ) {
+            continue;
+          }
+          const ref = this.imageStore.registerFromBase64(
+            rawImage.data,
+            rawImage.mimeType,
+          );
+          if (ref) images.push(ref);
+        }
+      }
+      const existingImages = Array.isArray(msg.images)
+        ? (msg.images as ImageRef[])
+        : [];
+
+      historyMessages.push({
+        type: "tool_result",
+        toolUseId:
+          typeof msg.toolUseId === "string"
+            ? msg.toolUseId
+            : `past-tool-result-${historyMessages.length}`,
+        content,
+        ...(typeof msg.toolName === "string" ? { toolName: msg.toolName } : {}),
+        ...(existingImages.length > 0 || images.length > 0
+          ? { images: [...existingImages, ...images] }
+          : {}),
+      });
+    }
+
+    return { pastMessages, historyMessages };
   }
 
   private createClaudeSessionWithFallback(params: {
@@ -2163,18 +2232,22 @@ export class BridgeWebSocketServer {
       case "get_history": {
         const session = this.sessionManager.get(msg.sessionId);
         if (session) {
+          const splitPastHistory =
+            session.pastMessages && session.pastMessages.length > 0
+              ? await this.splitPastHistoryMessages(session)
+              : { pastMessages: [], historyMessages: [] };
           // Send past conversation from disk (resume) before in-memory history
-          if (session.pastMessages && session.pastMessages.length > 0) {
+          if (splitPastHistory.pastMessages.length > 0) {
             this.send(ws, {
               type: "past_history",
               claudeSessionId: session.claudeSessionId ?? msg.sessionId,
               sessionId: msg.sessionId,
-              messages: session.pastMessages,
+              messages: splitPastHistory.pastMessages,
             } as Record<string, unknown>);
           }
           this.send(ws, {
             type: "history",
-            messages: session.history,
+            messages: [...splitPastHistory.historyMessages, ...session.history],
             sessionId: msg.sessionId,
           } as Record<string, unknown>);
           this.send(ws, {

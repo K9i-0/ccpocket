@@ -636,7 +636,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const newSessionId = created.sessionId as string;
 
     ws.send.mockClear();
-    (bridge as any).handleClientMessage(
+    await (bridge as any).handleClientMessage(
       { type: "get_history", sessionId: newSessionId },
       ws,
     );
@@ -648,6 +648,153 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     });
     expect(historySends[1]).toMatchObject({ type: "history", sessionId: newSessionId });
     expect(historySends[2]).toMatchObject({ type: "status", sessionId: newSessionId });
+
+    bridge.close();
+  });
+
+  it("sends restored image generation results through regular history", async () => {
+    getSessionHistoryMock.mockResolvedValue([
+      {
+        role: "user",
+        content: [{ type: "text", text: "$imagegen make a hero" }],
+      },
+      {
+        role: "tool_result",
+        toolUseId: "ig-1",
+        toolName: "ImageGeneration",
+        content: "status: completed\nsavedPath: /tmp/generated.png",
+        imagePaths: ["/tmp/generated.png"],
+      },
+    ]);
+    const imageStore = {
+      extractImagePaths: vi.fn(() => []),
+      registerImages: vi.fn(async () => [
+        { id: "img-1", url: "/images/img-1", mimeType: "image/png" },
+      ]),
+    };
+
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      imageStore: imageStore as any,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "claude-session-1",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+    const resumeSends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    const created = resumeSends.find(
+      (m: any) => m.type === "system" && m.subtype === "session_created",
+    );
+    const newSessionId = created.sessionId as string;
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      { type: "get_history", sessionId: newSessionId },
+      ws,
+    );
+
+    const historySends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(historySends[0]).toMatchObject({
+      type: "past_history",
+      messages: [{ role: "user" }],
+    });
+    expect(historySends[1].messages[0]).toMatchObject({
+      type: "tool_result",
+      toolUseId: "ig-1",
+      toolName: "ImageGeneration",
+      images: [{ id: "img-1", url: "/images/img-1", mimeType: "image/png" }],
+    });
+
+    bridge.close();
+  });
+
+  it("registers restored image generation base64 results through regular history", async () => {
+    getSessionHistoryMock.mockResolvedValue([
+      {
+        role: "tool_result",
+        toolUseId: "ig-2",
+        toolName: "ImageGeneration",
+        content: "status: completed",
+        imageBase64: [{ data: "aGVsbG8=", mimeType: "image/png" }],
+      },
+    ]);
+    const imageStore = {
+      extractImagePaths: vi.fn(() => []),
+      registerImages: vi.fn(async () => []),
+      registerFromBase64: vi.fn(() => ({
+        id: "img-base64",
+        url: "/images/img-base64",
+        mimeType: "image/png",
+      })),
+    };
+
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      imageStore: imageStore as any,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "claude-session-1",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+    const resumeSends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    const created = resumeSends.find(
+      (m: any) => m.type === "system" && m.subtype === "session_created",
+    );
+    const newSessionId = created.sessionId as string;
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      { type: "get_history", sessionId: newSessionId },
+      ws,
+    );
+
+    const historySends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(imageStore.registerFromBase64).toHaveBeenCalledWith(
+      "aGVsbG8=",
+      "image/png",
+    );
+    expect(historySends[0].messages[0]).toMatchObject({
+      type: "tool_result",
+      toolUseId: "ig-2",
+      toolName: "ImageGeneration",
+      images: [
+        { id: "img-base64", url: "/images/img-base64", mimeType: "image/png" },
+      ],
+    });
 
     bridge.close();
   });

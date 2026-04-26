@@ -293,6 +293,38 @@ void main() {
       final userEntry = update.entriesToPrepend[0] as UserChatEntry;
       expect(userEntry.status, MessageStatus.sent);
     });
+
+    test('restores past tool result messages', () {
+      final update = handler.handle(
+        const PastHistoryMessage(
+          claudeSessionId: 'sess-1',
+          messages: [
+            PastMessage(
+              role: 'tool_result',
+              toolUseId: 'ig-1',
+              toolName: 'ImageGeneration',
+              toolResultContent: 'status: completed',
+              images: [
+                ImageRef(
+                  id: 'img-1',
+                  url: '/images/img-1',
+                  mimeType: 'image/png',
+                ),
+              ],
+              content: [TextContent(text: 'status: completed')],
+            ),
+          ],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.entriesToPrepend, hasLength(1));
+      final entry = update.entriesToPrepend[0] as ServerChatEntry;
+      final message = entry.message as ToolResultMessage;
+      expect(message.toolUseId, 'ig-1');
+      expect(message.toolName, 'ImageGeneration');
+      expect(message.images.single.id, 'img-1');
+    });
   });
 
   group('ResultMessage handling', () {

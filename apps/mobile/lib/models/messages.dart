@@ -2446,6 +2446,10 @@ class PastMessage {
 
   /// Number of images attached to this user message.
   final int imageCount;
+  final String? toolUseId;
+  final String? toolName;
+  final List<ImageRef> images;
+  final String? toolResultContent;
   final List<AssistantContent> content;
   const PastMessage({
     required this.role,
@@ -2453,6 +2457,10 @@ class PastMessage {
     this.timestamp,
     this.isMeta = false,
     this.imageCount = 0,
+    this.toolUseId,
+    this.toolName,
+    this.images = const [],
+    this.toolResultContent,
     required this.content,
   });
 
@@ -2475,6 +2483,14 @@ class PastMessage {
       timestamp: json['timestamp'] as String?,
       isMeta: json['isMeta'] as bool? ?? false,
       imageCount: json['imageCount'] as int? ?? 0,
+      toolUseId: json['toolUseId'] as String?,
+      toolName: json['toolName'] as String?,
+      images:
+          (json['images'] as List?)
+              ?.map((i) => ImageRef.fromJson(i as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      toolResultContent: rawContent is String ? rawContent : null,
       content: contentList,
     );
   }
