@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.45.3] - 2026-04-26
+
+### Fixed
+- Preserve non-ASCII, space-containing, and newline-containing file paths in file listings for Explorer and @-mention autocomplete
+
 ## [1.45.2] - 2026-04-26
 
 ### Fixed
