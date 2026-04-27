@@ -326,6 +326,54 @@ void main() {
       expect(sent, isFalse);
     });
 
+    testWidgets('Ctrl+K deletes from cursor to end of line', (tester) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      inputController.value = const TextEditingValue(
+        text: 'first line\nsecond line',
+        selection: TextSelection.collapsed(offset: 8),
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyK);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyK);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(inputController.text, 'first li\nsecond line');
+      expect(inputController.selection.baseOffset, 8);
+    });
+
+    testWidgets('Ctrl+K deletes selected text', (tester) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      inputController.value = const TextEditingValue(
+        text: 'delete selected text',
+        selection: TextSelection(baseOffset: 7, extentOffset: 15),
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyK);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyK);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(inputController.text, 'delete  text');
+      expect(inputController.selection.baseOffset, 7);
+    });
+
+    testWidgets('Ctrl+D deletes next character', (tester) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      inputController.value = const TextEditingValue(
+        text: 'abc',
+        selection: TextSelection.collapsed(offset: 1),
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyD);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+      expect(inputController.text, 'ac');
+      expect(inputController.selection.baseOffset, 1);
+    });
+
     testWidgets('text field supports multiline input', (tester) async {
       await tester.pumpWidget(buildSubject());
 

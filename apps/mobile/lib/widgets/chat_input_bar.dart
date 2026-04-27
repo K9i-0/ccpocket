@@ -682,6 +682,7 @@ class _InputTextFieldState extends State<_InputTextField> {
 
   /// On desktop: Enter sends, Shift+Enter inserts newline,
   /// Tab indents, Shift+Tab dedents.
+  /// Ctrl+K deletes to end of line, Ctrl+D deletes the next character.
   /// Cmd/Ctrl+V: attempt image paste, fall back to text paste.
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
@@ -697,6 +698,24 @@ class _InputTextFieldState extends State<_InputTextField> {
       }
     }
     if (!isDesktopPlatform) return KeyEventResult.ignored;
+
+    if (_isControlStyleTextShortcut(
+      event,
+      key: LogicalKeyboardKey.keyK,
+      controlCharacter: 0x0b,
+    )) {
+      _deleteToEndOfLine();
+      return KeyEventResult.handled;
+    }
+
+    if (_isControlStyleTextShortcut(
+      event,
+      key: LogicalKeyboardKey.keyD,
+      controlCharacter: 0x04,
+    )) {
+      _deleteForwardCharacter();
+      return KeyEventResult.handled;
+    }
 
     // Cmd+V (macOS) or Ctrl+V (Windows/Linux): try image paste first
     final isModifier =
@@ -740,6 +759,94 @@ class _InputTextFieldState extends State<_InputTextField> {
       widget.onSend();
     }
     return KeyEventResult.handled;
+  }
+
+  bool _isControlStyleTextShortcut(
+    KeyEvent event, {
+    required LogicalKeyboardKey key,
+    required int controlCharacter,
+  }) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    if (event.logicalKey != key) return false;
+
+    final hardware = HardwareKeyboard.instance;
+    if (hardware.isMetaPressed ||
+        hardware.isAltPressed ||
+        hardware.isShiftPressed) {
+      return false;
+    }
+    if (hardware.isControlPressed) return true;
+
+    // macOS can deliver Ctrl+letter text-editing bindings without the control
+    // modifier set. Treat non-printing variants as shortcut input, while
+    // allowing normal printable letters to be typed.
+    final character = event.character;
+    if (character == null) return true;
+    final runes = character.runes.toList(growable: false);
+    return runes.length == 1 && runes.single == controlCharacter;
+  }
+
+  void _deleteToEndOfLine() {
+    final value = widget.controller.value;
+    final selection = value.selection;
+    if (!selection.isValid) return;
+
+    final text = value.text;
+    if (!selection.isCollapsed) {
+      widget.controller.value = _replaceRange(
+        value,
+        selection.start,
+        selection.end,
+        '',
+      );
+      return;
+    }
+
+    final cursor = selection.baseOffset;
+    final lineEnd = text.indexOf('\n', cursor);
+    final end = lineEnd < 0 ? text.length : lineEnd;
+    if (end == cursor) return;
+    widget.controller.value = _replaceRange(value, cursor, end, '');
+  }
+
+  void _deleteForwardCharacter() {
+    final value = widget.controller.value;
+    final selection = value.selection;
+    if (!selection.isValid) return;
+
+    if (!selection.isCollapsed) {
+      widget.controller.value = _replaceRange(
+        value,
+        selection.start,
+        selection.end,
+        '',
+      );
+      return;
+    }
+
+    final cursor = selection.baseOffset;
+    if (cursor >= value.text.length) return;
+    widget.controller.value = _replaceRange(value, cursor, cursor + 1, '');
+  }
+
+  TextEditingValue _replaceRange(
+    TextEditingValue value,
+    int start,
+    int end,
+    String replacement,
+  ) {
+    final text = value.text;
+    final normalizedStart = start.clamp(0, text.length);
+    final normalizedEnd = end.clamp(normalizedStart, text.length);
+    final newText =
+        text.substring(0, normalizedStart) +
+        replacement +
+        text.substring(normalizedEnd);
+    final newCursor = normalizedStart + replacement.length;
+    return TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newCursor),
+    );
   }
 
   Future<void> _handlePaste() async {
