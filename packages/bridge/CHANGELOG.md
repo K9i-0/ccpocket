@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.46.0] - 2026-04-27
+
+### Added
+- Add Codex plugin completion metadata from `plugin/list` and emit plugin mention paths as `plugin://...`
+- Include Codex plugin completion metadata in command cache and resumed session command replay
+
+### Fixed
+- Normalize Codex plugin interface fields so array-valued starter prompts do not break mobile parsing
+
 ## [1.45.4] - 2026-04-27
 
 ### Fixed
