@@ -1058,6 +1058,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         if (seenMentions.add(key)) mentions.add(payload);
       }
     }
+    final pluginMatches = RegExp(
+      r'(?<![A-Za-z0-9_-])@([A-Za-z0-9][A-Za-z0-9_-]*)',
+    ).allMatches(text);
+    for (final match in pluginMatches) {
+      final token = '@${match.group(1)!}';
+      final item = entityByToken[token];
+      if (item?.pluginInfo == null) continue;
+      final payload = item!.pluginInfo!.toJson();
+      final key = '${payload['name']}|${payload['path']}';
+      if (seenMentions.add(key)) mentions.add(payload);
+    }
     return (skills: skills, mentions: mentions);
   }
 

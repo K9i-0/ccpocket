@@ -149,6 +149,43 @@ describe("SessionManager codex path", () => {
     expect(session?.provider).toBe("codex");
   });
 
+  it("caches codex plugin completion metadata", () => {
+    const manager = new SessionManager(() => {});
+    manager.create(
+      "/tmp/project-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+
+    codexInstances[0].emit("message", {
+      type: "system",
+      subtype: "supported_commands",
+      plugins: ["sample"],
+      pluginMetadata: [
+        {
+          id: "sample@test",
+          name: "sample",
+          path: "plugin://sample@test",
+          marketplaceName: "test",
+          installed: true,
+          enabled: true,
+        },
+      ],
+    } satisfies ServerMessage);
+
+    expect(manager.getCachedCommands("/tmp/project-codex")).toMatchObject({
+      plugins: ["sample"],
+      pluginMetadata: [
+        expect.objectContaining({
+          id: "sample@test",
+          path: "plugin://sample@test",
+        }),
+      ],
+    });
+  });
+
   it("stores codex additional writable roots for resume metadata", () => {
     const manager = new SessionManager(() => {});
     const sessionId = manager.create(

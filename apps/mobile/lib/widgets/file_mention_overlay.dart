@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'slash_command_sheet.dart';
 
 class FileMentionOverlay extends StatefulWidget {
+  final List<SlashCommand> filteredPlugins;
   final List<String> filteredFiles;
   final int selectedIndex;
+  final void Function(SlashCommand plugin)? onSelectPlugin;
   final void Function(String filePath) onSelect;
   final VoidCallback onDismiss;
 
   const FileMentionOverlay({
     super.key,
+    this.filteredPlugins = const [],
     required this.filteredFiles,
     this.selectedIndex = 0,
+    this.onSelectPlugin,
     required this.onSelect,
     required this.onDismiss,
   });
@@ -70,7 +75,10 @@ class _FileMentionOverlayState extends State<FileMentionOverlay> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final appColors = Theme.of(context).extension<AppColors>()!;
+    final appColors = Theme.of(context).extension<AppColors>();
+    final subtleText = appColors?.subtleText ?? cs.onSurfaceVariant;
+    final itemCount =
+        widget.filteredPlugins.length + widget.filteredFiles.length;
     return Material(
       elevation: 4,
       borderRadius: BorderRadius.circular(12),
@@ -86,9 +94,64 @@ class _FileMentionOverlayState extends State<FileMentionOverlay> {
           shrinkWrap: true,
           itemExtent: _itemExtent,
           padding: const EdgeInsets.symmetric(vertical: 4),
-          itemCount: widget.filteredFiles.length,
+          itemCount: itemCount,
           itemBuilder: (context, index) {
-            final file = widget.filteredFiles[index];
+            final pluginCount = widget.filteredPlugins.length;
+            if (index < pluginCount) {
+              final plugin = widget.filteredPlugins[index];
+              final isSelected = index == widget.selectedIndex;
+              return InkWell(
+                key: ValueKey('plugin_completion_item_$index'),
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => widget.onSelectPlugin?.call(plugin),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? cs.primaryContainer.withValues(alpha: 0.55)
+                        : null,
+                    border: Border(
+                      left: BorderSide(
+                        color: isSelected ? cs.primary : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(9, 6, 12, 6),
+                  child: Row(
+                    children: [
+                      Icon(
+                        plugin.icon,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              plugin.command,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: cs.primary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              plugin.description,
+                              style: TextStyle(fontSize: 10, color: subtleText),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            final file = widget.filteredFiles[index - pluginCount];
             final fileName = file.split('/').last;
             final dirPath = file.contains('/')
                 ? file.substring(0, file.lastIndexOf('/'))
@@ -113,11 +176,7 @@ class _FileMentionOverlayState extends State<FileMentionOverlay> {
                 padding: const EdgeInsets.fromLTRB(9, 6, 12, 6),
                 child: Row(
                   children: [
-                    Icon(
-                      _fileIcon(file),
-                      size: 16,
-                      color: appColors.subtleText,
-                    ),
+                    Icon(_fileIcon(file), size: 16, color: subtleText),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -135,10 +194,7 @@ class _FileMentionOverlayState extends State<FileMentionOverlay> {
                           if (dirPath.isNotEmpty)
                             Text(
                               dirPath,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: appColors.subtleText,
-                              ),
+                              style: TextStyle(fontSize: 10, color: subtleText),
                               overflow: TextOverflow.ellipsis,
                             ),
                         ],

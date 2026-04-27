@@ -330,8 +330,9 @@ class _DollarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     return Tooltip(
-      message: 'Skills & Apps',
+      message: l.tooltipDollarMention,
       child: Material(
         color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),

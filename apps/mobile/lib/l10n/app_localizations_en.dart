@@ -1547,16 +1547,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tooltipNamedOnly => 'Only sessions you\'ve named';
 
   @override
-  String get tooltipIndent => 'Indent';
+  String get tooltipIndent => 'Increase indent';
 
   @override
-  String get tooltipDedent => 'Dedent';
+  String get tooltipDedent => 'Decrease indent';
 
   @override
-  String get tooltipSlashCommand => 'Slash commands';
+  String get tooltipSlashCommand => 'Insert command or skill';
 
   @override
-  String get tooltipMention => 'Mention file';
+  String get tooltipMention => 'Mention file or plugin';
+
+  @override
+  String get tooltipDollarMention => 'Insert skill or app';
 
   @override
   String get tooltipPermissionMode => 'Permission mode';
@@ -1565,10 +1568,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tooltipAttachImage => 'Attach image';
 
   @override
-  String get tooltipPromptHistory => 'Prompt history';
+  String get tooltipPromptHistory => 'Open prompt history';
 
   @override
-  String get tooltipVoiceInput => 'Voice input';
+  String get tooltipVoiceInput => 'Start voice input';
 
   @override
   String get tooltipStopRecording => 'Stop recording';

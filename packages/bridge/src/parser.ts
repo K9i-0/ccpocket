@@ -360,6 +360,23 @@ export type ServerMessage =
         isAccessible: boolean;
         isEnabled: boolean;
       }>;
+      plugins?: string[];
+      pluginMetadata?: Array<{
+        id: string;
+        name: string;
+        path: string;
+        marketplaceName: string;
+        marketplacePath?: string;
+        installed: boolean;
+        enabled: boolean;
+        displayName?: string;
+        shortDescription?: string;
+        longDescription?: string;
+        defaultPrompt?: string;
+        brandColor?: string;
+        composerIcon?: string;
+        composerIconUrl?: string;
+      }>;
       worktreePath?: string;
       worktreeBranch?: string;
       permissionMode?: PermissionMode;

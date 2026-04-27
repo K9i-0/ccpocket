@@ -107,6 +107,7 @@ class ChatInputWithOverlays extends HookWidget {
     // Filtered overlay items
     final filteredSlash = useState<List<SlashCommand>>(const []);
     final filteredDollar = useState<List<SlashCommand>>(const []);
+    final filteredPlugins = useState<List<SlashCommand>>(const []);
     final filteredFiles = useState<List<String>>(const []);
     final activeCompletion = useState<_CompletionOverlay?>(null);
     final selectedCompletionIndex = useState(0);
@@ -173,11 +174,16 @@ class ChatInputWithOverlays extends HookWidget {
         .where((c) => c.category == SlashCommandCategory.app)
         .map((c) => c.command)
         .toSet();
+    final pluginEntities = completionItems
+        .where((c) => c.category == SlashCommandCategory.plugin)
+        .toList();
+    final pluginTokens = pluginEntities.map((c) => c.command).toSet();
     final composerTokenConfig = ComposerTokenConfig(
       provider: isCodex ? Provider.codex : Provider.claude,
       slashCommands: commands.map((c) => c.command).toSet(),
       skillTokens: skillTokens,
       appTokens: appTokens,
+      pluginTokens: pluginTokens,
       fileMentions: projectFiles.toSet(),
     );
     final composerTokenPalette = ComposerTokenPalette.fromTheme(
@@ -301,8 +307,14 @@ class ChatInputWithOverlays extends HookWidget {
           if (inMention != isInMentionContext.value) {
             isInMentionContext.value = inMention;
           }
-          if (mentionQuery != null && projectFiles.isNotEmpty) {
+          if (mentionQuery != null &&
+              (projectFiles.isNotEmpty || pluginEntities.isNotEmpty)) {
             final q = mentionQuery.toLowerCase();
+            final filteredPluginItems =
+                pluginEntities
+                    .where((c) => c.command.toLowerCase().startsWith('@$q'))
+                    .toList()
+                  ..sort((a, b) => a.command.compareTo(b.command));
             final scored =
                 projectFiles
                     .map((f) => (file: f, score: _fileScore(f, q)))
@@ -315,17 +327,20 @@ class ChatInputWithOverlays extends HookWidget {
                         : a.file.length.compareTo(b.file.length);
                   });
             final filtered = scored.take(15).map((e) => e.file).toList();
-            if (filtered.isNotEmpty) {
+            if (filteredPluginItems.isNotEmpty || filtered.isNotEmpty) {
+              filteredPlugins.value = filteredPluginItems;
               filteredFiles.value = filtered;
               showCompletion(
                 _CompletionOverlay.file,
-                filtered.length,
+                filteredPluginItems.length + filtered.length,
                 filePortalController,
               );
             } else {
+              filteredPlugins.value = const [];
               hideCompletion(_CompletionOverlay.file, filePortalController);
             }
           } else {
+            filteredPlugins.value = const [];
             hideCompletion(_CompletionOverlay.file, filePortalController);
           }
         }
@@ -333,7 +348,7 @@ class ChatInputWithOverlays extends HookWidget {
 
       inputController.addListener(onChange);
       return () => inputController.removeListener(onChange);
-    }, [commands, dollarEntities, isCodex, projectFiles]);
+    }, [commands, dollarEntities, pluginEntities, isCodex, projectFiles]);
 
     // Update canDedent on cursor/text changes
     useEffect(() {
@@ -391,6 +406,15 @@ class ChatInputWithOverlays extends HookWidget {
       );
     }
 
+    void onPluginMentionSelected(SlashCommand command) {
+      hideCompletion(_CompletionOverlay.file, filePortalController);
+      _replaceActiveTriggerQuery(
+        inputController,
+        trigger: '@',
+        replacement: '${command.command} ',
+      );
+    }
+
     void onFileMentionSelected(String filePath) {
       hideCompletion(_CompletionOverlay.file, filePortalController);
       final text = inputController.text;
@@ -411,7 +435,8 @@ class ChatInputWithOverlays extends HookWidget {
       return switch (activeCompletion.value) {
         _CompletionOverlay.slash => filteredSlash.value.length,
         _CompletionOverlay.dollar => filteredDollar.value.length,
-        _CompletionOverlay.file => filteredFiles.value.length,
+        _CompletionOverlay.file =>
+          filteredPlugins.value.length + filteredFiles.value.length,
         null => 0,
       };
     }
@@ -451,7 +476,12 @@ class ChatInputWithOverlays extends HookWidget {
         case _CompletionOverlay.dollar:
           onDollarEntitySelected(filteredDollar.value[index]);
         case _CompletionOverlay.file:
-          onFileMentionSelected(filteredFiles.value[index]);
+          final pluginCount = filteredPlugins.value.length;
+          if (index < pluginCount) {
+            onPluginMentionSelected(filteredPlugins.value[index]);
+          } else {
+            onFileMentionSelected(filteredFiles.value[index - pluginCount]);
+          }
       }
       return true;
     }
@@ -917,8 +947,10 @@ class ChatInputWithOverlays extends HookWidget {
             left: 8,
             child: buildFollowerOverlay(
               child: FileMentionOverlay(
+                filteredPlugins: filteredPlugins.value,
                 filteredFiles: filteredFiles.value,
                 selectedIndex: selectedCompletionIndex.value,
+                onSelectPlugin: onPluginMentionSelected,
                 onSelect: onFileMentionSelected,
                 onDismiss: () => hideCompletion(
                   _CompletionOverlay.file,

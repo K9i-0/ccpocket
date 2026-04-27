@@ -4,6 +4,7 @@ import '../widgets/slash_command_sheet.dart'
     show
         SlashCommand,
         SlashCommandCategory,
+        buildAtPlugin,
         buildDollarApp,
         buildDollarSkill,
         buildSlashCommand,
@@ -181,6 +182,8 @@ class ChatMessageHandler {
         :final skillMetadata,
         :final apps,
         :final appMetadata,
+        :final plugins,
+        :final pluginMetadata,
       ):
         return _handleSystem(
           msg,
@@ -190,6 +193,8 @@ class ChatMessageHandler {
           skillMetadata,
           apps,
           appMetadata,
+          plugins: plugins,
+          pluginMetadata: pluginMetadata,
           isCodex: isCodex,
         );
       case PermissionRequestMessage(
@@ -644,6 +649,8 @@ class ChatMessageHandler {
     List<CodexSkillMetadata> skillMetadata,
     List<String> apps,
     List<CodexAppMetadata> appMetadata, {
+    List<String> plugins = const [],
+    List<CodexPluginMetadata> pluginMetadata = const [],
     required bool isCodex,
   }) {
     List<SlashCommand>? commands;
@@ -662,13 +669,18 @@ class ChatMessageHandler {
     if ((subtype == 'init' ||
             subtype == 'session_created' ||
             subtype == 'supported_commands') &&
-        (slashCommands.isNotEmpty || skills.isNotEmpty || apps.isNotEmpty)) {
+        (slashCommands.isNotEmpty ||
+            skills.isNotEmpty ||
+            apps.isNotEmpty ||
+            plugins.isNotEmpty)) {
       commands = _buildCommandList(
         slashCommands,
         skills,
         skillMetadata,
         apps,
         appMetadata,
+        plugins: plugins,
+        pluginMetadata: pluginMetadata,
         includeDollarEntities: isCodex,
       );
     }
@@ -805,6 +817,8 @@ class ChatMessageHandler {
     List<CodexSkillMetadata> skillMetadata,
     List<String> apps,
     List<CodexAppMetadata> appMetadata, {
+    List<String> plugins = const [],
+    List<CodexPluginMetadata> pluginMetadata = const [],
     required bool includeDollarEntities,
   }) {
     final skillSet = skills.toSet();
@@ -818,6 +832,11 @@ class ChatMessageHandler {
     final appMetaMap = <String, CodexAppMetadata>{};
     for (final meta in appMetadata) {
       appMetaMap[meta.id] = meta;
+    }
+    final pluginSet = plugins.toSet();
+    final pluginMetaMap = <String, CodexPluginMetadata>{};
+    for (final meta in pluginMetadata) {
+      pluginMetaMap[meta.name] = meta;
     }
     final result = commands.map((name) {
       final category = skillSet.contains(name)
@@ -848,6 +867,12 @@ class ChatMessageHandler {
         final meta = appMetaMap[id];
         if (meta != null && appSet.contains(id)) {
           result.add(buildDollarApp(meta));
+        }
+      }
+      for (final name in plugins) {
+        final meta = pluginMetaMap[name];
+        if (meta != null && pluginSet.contains(name)) {
+          result.add(buildAtPlugin(meta));
         }
       }
     }

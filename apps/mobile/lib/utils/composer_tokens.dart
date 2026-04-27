@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/messages.dart';
 
-enum ComposerTokenCategory { slashCommand, fileMention, skill, app }
+enum ComposerTokenCategory { slashCommand, fileMention, skill, app, plugin }
 
 @immutable
 class ComposerToken {
@@ -28,6 +28,7 @@ class ComposerTokenConfig {
   final Set<String> slashCommands;
   final Set<String> skillTokens;
   final Set<String> appTokens;
+  final Set<String> pluginTokens;
   final Set<String> fileMentions;
 
   const ComposerTokenConfig({
@@ -35,6 +36,7 @@ class ComposerTokenConfig {
     this.slashCommands = const {},
     this.skillTokens = const {},
     this.appTokens = const {},
+    this.pluginTokens = const {},
     this.fileMentions = const {},
   });
 
@@ -55,6 +57,7 @@ class ComposerTokenConfig {
             equality.equals(other.slashCommands, slashCommands) &&
             equality.equals(other.skillTokens, skillTokens) &&
             equality.equals(other.appTokens, appTokens) &&
+            equality.equals(other.pluginTokens, pluginTokens) &&
             equality.equals(other.fileMentions, fileMentions);
   }
 
@@ -66,6 +69,7 @@ class ComposerTokenConfig {
       equality.hash(slashCommands),
       equality.hash(skillTokens),
       equality.hash(appTokens),
+      equality.hash(pluginTokens),
       equality.hash(fileMentions),
     );
   }
@@ -140,6 +144,7 @@ class ComposerTokenPalette {
       ComposerTokenCategory.fileMention => (fileForeground, fileBackground),
       ComposerTokenCategory.skill => (skillForeground, skillBackground),
       ComposerTokenCategory.app => (appForeground, appBackground),
+      ComposerTokenCategory.plugin => (appForeground, appBackground),
     };
     return baseStyle.copyWith(
       color: foreground,
@@ -352,7 +357,10 @@ ComposerTokenCategory? _resolveCategory(
 ) {
   return switch (rawText[0]) {
     '/' => ComposerTokenCategory.slashCommand,
-    '@' => ComposerTokenCategory.fileMention,
+    '@' =>
+      config.pluginTokens.contains(rawText)
+          ? ComposerTokenCategory.plugin
+          : ComposerTokenCategory.fileMention,
     r'$' =>
       config.provider == Provider.codex
           ? resolveDollarTokenCategory(rawText, config)
@@ -375,6 +383,7 @@ bool _isTokenValid(
     ),
     ComposerTokenCategory.skill => config.skillTokens.contains(rawText),
     ComposerTokenCategory.app => config.appTokens.contains(rawText),
+    ComposerTokenCategory.plugin => config.pluginTokens.contains(rawText),
   };
 }
 

@@ -2869,26 +2869,32 @@ abstract class AppLocalizations {
   /// No description provided for @tooltipIndent.
   ///
   /// In ja, this message translates to:
-  /// **'インデント'**
+  /// **'インデントを増やす'**
   String get tooltipIndent;
 
   /// No description provided for @tooltipDedent.
   ///
   /// In ja, this message translates to:
-  /// **'インデント解除'**
+  /// **'インデントを減らす'**
   String get tooltipDedent;
 
   /// No description provided for @tooltipSlashCommand.
   ///
   /// In ja, this message translates to:
-  /// **'スラッシュコマンド'**
+  /// **'コマンド・スキルを入力'**
   String get tooltipSlashCommand;
 
   /// No description provided for @tooltipMention.
   ///
   /// In ja, this message translates to:
-  /// **'ファイルをメンション'**
+  /// **'ファイル・プラグインをメンション'**
   String get tooltipMention;
+
+  /// No description provided for @tooltipDollarMention.
+  ///
+  /// In ja, this message translates to:
+  /// **'スキル・アプリを入力'**
+  String get tooltipDollarMention;
 
   /// No description provided for @tooltipPermissionMode.
   ///
@@ -2905,13 +2911,13 @@ abstract class AppLocalizations {
   /// No description provided for @tooltipPromptHistory.
   ///
   /// In ja, this message translates to:
-  /// **'プロンプト履歴'**
+  /// **'プロンプト履歴を開く'**
   String get tooltipPromptHistory;
 
   /// No description provided for @tooltipVoiceInput.
   ///
   /// In ja, this message translates to:
-  /// **'音声入力'**
+  /// **'音声入力を開始'**
   String get tooltipVoiceInput;
 
   /// No description provided for @tooltipStopRecording.

@@ -1742,6 +1742,9 @@ describe("CodexProcess (app-server)", () => {
     expect(appsReq.method).toBe("app/list");
     emitRpc({ method: "app/list/updated", params: {} });
     emitRpc({ id: appsReq.id, result: { data: [] } });
+    const pluginsReq = await waitForOutgoingRequest(child, "plugin/list");
+    expect(pluginsReq.method).toBe("plugin/list");
+    emitRpc({ id: pluginsReq.id, result: { marketplaces: [] } });
     await fetchPromise;
     await tick();
 
@@ -1764,7 +1767,173 @@ describe("CodexProcess (app-server)", () => {
     const refetchAppsReq = await waitForOutgoingRequest(child, "app/list");
     expect(refetchAppsReq.method).toBe("app/list");
     emitRpc({ id: refetchAppsReq.id, result: { data: [] } });
+    const refetchPluginsReq = await waitForOutgoingRequest(
+      child,
+      "plugin/list",
+    );
+    expect(refetchPluginsReq.method).toBe("plugin/list");
+    emitRpc({ id: refetchPluginsReq.id, result: { marketplaces: [] } });
     await tick();
+
+    proc.stop();
+  });
+
+  it("emits installed enabled plugins from plugin/list as completion entities", async () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    fakeChildren.push(child);
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+    const internal = proc as any;
+    internal.child = child;
+    internal._projectPath = "/tmp/project-plugins";
+    const emitRpc = (message: Record<string, unknown>) => {
+      internal.handleStdoutChunk(`${JSON.stringify(message)}\n`);
+    };
+
+    const fetchPromise = internal.fetchCompletionEntities(
+      "/tmp/project-plugins",
+    ) as Promise<void>;
+
+    const skillsReq = await waitForOutgoingRequest(child, "skills/list");
+    emitRpc({ id: skillsReq.id, result: { data: [] } });
+    const appsReq = await waitForOutgoingRequest(child, "app/list");
+    emitRpc({ id: appsReq.id, result: { data: [] } });
+    const pluginsReq = await waitForOutgoingRequest(child, "plugin/list");
+    emitRpc({
+      id: pluginsReq.id,
+      result: {
+        marketplaces: [
+          {
+            name: "test",
+            path: "/tmp/marketplace",
+            plugins: [
+              {
+                id: "sample@test",
+                name: "sample",
+                installed: true,
+                enabled: true,
+                interface: {
+                  displayName: "Sample Plugin",
+                  shortDescription: "Example plugin",
+                  longDescription: "Long plugin description",
+                  defaultPrompt: ["Use sample", "Try another prompt"],
+                  brandColor: "#123456",
+                  composerIcon: ["unexpected", "path"],
+                  composerIconUrl: "https://example.test/icon.png",
+                },
+              },
+              {
+                id: "disabled@test",
+                name: "disabled",
+                installed: true,
+                enabled: false,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    await fetchPromise;
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "supported_commands",
+        plugins: ["sample"],
+        pluginMetadata: [
+          expect.objectContaining({
+            id: "sample@test",
+            name: "sample",
+            path: "plugin://sample@test",
+            marketplaceName: "test",
+            marketplacePath: "/tmp/marketplace",
+            displayName: "Sample Plugin",
+            shortDescription: "Example plugin",
+            defaultPrompt: "Use sample",
+          }),
+        ],
+      }),
+    );
+    const supportedCommands = messages.find(
+      (msg): msg is { pluginMetadata: Array<Record<string, unknown>> } =>
+        typeof msg === "object" &&
+        msg !== null &&
+        (msg as { subtype?: unknown }).subtype === "supported_commands",
+    );
+    expect(supportedCommands?.pluginMetadata[0]?.composerIcon).toBeUndefined();
+
+    proc.stop();
+  });
+
+  it("keeps skills and apps when plugin/list fails", async () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    fakeChildren.push(child);
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+    const internal = proc as any;
+    internal.child = child;
+    internal._projectPath = "/tmp/project-plugin-error";
+    const emitRpc = (message: Record<string, unknown>) => {
+      internal.handleStdoutChunk(`${JSON.stringify(message)}\n`);
+    };
+
+    const fetchPromise = internal.fetchCompletionEntities(
+      "/tmp/project-plugin-error",
+    ) as Promise<void>;
+
+    const skillsReq = await waitForOutgoingRequest(child, "skills/list");
+    emitRpc({
+      id: skillsReq.id,
+      result: {
+        data: [
+          {
+            cwd: "/tmp/project-plugin-error",
+            skills: [
+              {
+                name: "review",
+                path: "/tmp/review/SKILL.md",
+                description: "Review code",
+                enabled: true,
+                scope: "user",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const appsReq = await waitForOutgoingRequest(child, "app/list");
+    emitRpc({
+      id: appsReq.id,
+      result: {
+        data: [
+          {
+            id: "demo-app",
+            name: "Demo App",
+            description: "Example connector",
+            isAccessible: true,
+            isEnabled: true,
+          },
+        ],
+      },
+    });
+    const pluginsReq = await waitForOutgoingRequest(child, "plugin/list");
+    emitRpc({
+      id: pluginsReq.id,
+      error: { code: -32601, message: "unknown method" },
+    });
+    await fetchPromise;
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "supported_commands",
+        skills: ["review"],
+        apps: ["demo-app"],
+        plugins: [],
+      }),
+    );
 
     proc.stop();
   });

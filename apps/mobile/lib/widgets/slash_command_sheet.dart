@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../models/messages.dart' show CodexAppMetadata, CodexSkillMetadata;
+import '../models/messages.dart'
+    show CodexAppMetadata, CodexPluginMetadata, CodexSkillMetadata;
 import '../theme/app_theme.dart';
 
 // ---- Model ----
 
-enum SlashCommandCategory { builtin, project, skill, app }
+enum SlashCommandCategory { builtin, project, skill, app, plugin }
 
 class SlashCommand {
   final String command;
@@ -18,6 +19,7 @@ class SlashCommand {
   /// Codex skill metadata (null for non-skill commands).
   final CodexSkillInfo? skillInfo;
   final CodexAppInfo? appInfo;
+  final CodexPluginInfo? pluginInfo;
 
   const SlashCommand({
     required this.command,
@@ -27,6 +29,7 @@ class SlashCommand {
     this.category = SlashCommandCategory.builtin,
     this.skillInfo,
     this.appInfo,
+    this.pluginInfo,
   }) : insertText = insertText ?? '$command ';
 }
 
@@ -52,6 +55,21 @@ class CodexAppInfo {
   final String path;
 
   const CodexAppInfo({
+    required this.id,
+    required this.name,
+    required this.path,
+  });
+
+  Map<String, String> toJson() => {'name': name, 'path': path};
+}
+
+/// Lightweight plugin info attached to a [SlashCommand] for Codex plugin mentions.
+class CodexPluginInfo {
+  final String id;
+  final String name;
+  final String path;
+
+  const CodexPluginInfo({
     required this.id,
     required this.name,
     required this.path,
@@ -174,6 +192,20 @@ SlashCommand buildDollarApp(CodexAppMetadata appMeta) {
   );
 }
 
+SlashCommand buildAtPlugin(CodexPluginMetadata pluginMeta) {
+  return SlashCommand(
+    command: '@${pluginMeta.name}',
+    description: pluginMeta.summary,
+    icon: Icons.extension_outlined,
+    category: SlashCommandCategory.plugin,
+    pluginInfo: CodexPluginInfo(
+      id: pluginMeta.id,
+      name: pluginMeta.label,
+      path: pluginMeta.path,
+    ),
+  );
+}
+
 // ---- Fallback (used before server provides slash_commands via system.init) ----
 // Only includes commands known to work through the SDK query API.
 
@@ -249,6 +281,9 @@ class SlashCommandSheet extends StatelessWidget {
     final apps = commands
         .where((c) => c.category == SlashCommandCategory.app)
         .toList();
+    final plugins = commands
+        .where((c) => c.category == SlashCommandCategory.plugin)
+        .toList();
 
     return SafeArea(
       child: Column(
@@ -305,10 +340,19 @@ class SlashCommandSheet extends StatelessWidget {
                     for (final cmd in apps)
                       _CommandTile(command: cmd, onSelect: onSelect),
                   ],
+                  if (plugins.isNotEmpty) ...[
+                    _SectionHeader(
+                      label: 'Plugins',
+                      accentColor: Theme.of(context).colorScheme.primary,
+                    ),
+                    for (final cmd in plugins)
+                      _CommandTile(command: cmd, onSelect: onSelect),
+                  ],
                   if (builtin.isNotEmpty) ...[
                     if (project.isNotEmpty ||
                         skills.isNotEmpty ||
-                        apps.isNotEmpty)
+                        apps.isNotEmpty ||
+                        plugins.isNotEmpty)
                       const _SectionHeader(label: 'Built-in'),
                     for (final cmd in builtin)
                       _CommandTile(command: cmd, onSelect: onSelect),
@@ -362,6 +406,7 @@ class _CommandTile extends StatelessWidget {
       SlashCommandCategory.project => colorScheme.secondary,
       SlashCommandCategory.skill => colorScheme.tertiary,
       SlashCommandCategory.app => colorScheme.primary,
+      SlashCommandCategory.plugin => colorScheme.primary,
       SlashCommandCategory.builtin => null,
     };
     return ListTile(
@@ -391,6 +436,8 @@ class _CommandTile extends StatelessWidget {
                     ? 'project'
                     : command.category == SlashCommandCategory.app
                     ? 'app'
+                    : command.category == SlashCommandCategory.plugin
+                    ? 'plugin'
                     : 'skill',
                 style: TextStyle(
                   fontSize: 9,

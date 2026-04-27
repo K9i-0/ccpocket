@@ -24,19 +24,21 @@ void main() {
       expect(tokens[1].isValid, isTrue);
     });
 
-    test('parses valid Codex skill and app tokens', () {
+    test('parses valid Codex skill, app, and plugin tokens', () {
       final tokens = parseComposerTokens(
-        r'$flutter-ui-design ask $demo-app for context',
+        r'$flutter-ui-design ask $demo-app and @sample for context',
         const ComposerTokenConfig(
           provider: Provider.codex,
           skillTokens: {r'$flutter-ui-design'},
           appTokens: {r'$demo-app'},
+          pluginTokens: {'@sample'},
         ),
       );
 
-      expect(tokens, hasLength(2));
+      expect(tokens, hasLength(3));
       expect(tokens[0].category, ComposerTokenCategory.skill);
       expect(tokens[1].category, ComposerTokenCategory.app);
+      expect(tokens[2].category, ComposerTokenCategory.plugin);
       expect(tokens.every((token) => token.isValid), isTrue);
     });
 

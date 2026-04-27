@@ -452,6 +452,8 @@ export class BridgeWebSocketServer {
     skillMetadata?: Array<Record<string, unknown>>;
     apps?: string[];
     appMetadata?: Array<Record<string, unknown>>;
+    plugins?: string[];
+    pluginMetadata?: Array<Record<string, unknown>>;
     sourceSessionId?: string;
   }): SystemServerMessage {
     const {
@@ -469,6 +471,8 @@ export class BridgeWebSocketServer {
       skillMetadata,
       apps,
       appMetadata,
+      plugins,
+      pluginMetadata,
       sourceSessionId,
     } = params;
 
@@ -551,6 +555,13 @@ export class BridgeWebSocketServer {
         ? {
             appMetadata:
               appMetadata as SystemServerMessage["appMetadata"],
+          }
+        : {}),
+      ...(plugins ? { plugins } : {}),
+      ...(pluginMetadata
+        ? {
+            pluginMetadata:
+              pluginMetadata as SystemServerMessage["pluginMetadata"],
           }
         : {}),
       ...(session?.worktreePath
@@ -1011,6 +1022,10 @@ export class BridgeWebSocketServer {
                       apps: cached.apps,
                       ...(cached.appMetadata
                         ? { appMetadata: cached.appMetadata }
+                        : {}),
+                      plugins: cached.plugins,
+                      ...(cached.pluginMetadata
+                        ? { pluginMetadata: cached.pluginMetadata }
                         : {}),
                     }
                   : {}),
@@ -2292,7 +2307,8 @@ export class BridgeWebSocketServer {
             cached &&
             (cached.slashCommands.length > 0 ||
                 cached.skills.length > 0 ||
-                cached.apps.length > 0)
+                cached.apps.length > 0 ||
+                cached.plugins.length > 0)
           ) {
             this.send(ws, {
               type: "system",
@@ -2305,6 +2321,10 @@ export class BridgeWebSocketServer {
                 : {}),
               apps: cached.apps,
               ...(cached.appMetadata ? { appMetadata: cached.appMetadata } : {}),
+              plugins: cached.plugins,
+              ...(cached.pluginMetadata
+                ? { pluginMetadata: cached.pluginMetadata }
+                : {}),
             });
           }
         } else {
@@ -2758,6 +2778,10 @@ export class BridgeWebSocketServer {
                         apps: cached.apps,
                         ...(cached.appMetadata
                           ? { appMetadata: cached.appMetadata }
+                          : {}),
+                        plugins: cached.plugins,
+                        ...(cached.pluginMetadata
+                          ? { pluginMetadata: cached.pluginMetadata }
                           : {}),
                       }
                     : {}),

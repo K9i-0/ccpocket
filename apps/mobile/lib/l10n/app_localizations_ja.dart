@@ -1493,16 +1493,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tooltipNamedOnly => '名前を付けたセッションのみ';
 
   @override
-  String get tooltipIndent => 'インデント';
+  String get tooltipIndent => 'インデントを増やす';
 
   @override
-  String get tooltipDedent => 'インデント解除';
+  String get tooltipDedent => 'インデントを減らす';
 
   @override
-  String get tooltipSlashCommand => 'スラッシュコマンド';
+  String get tooltipSlashCommand => 'コマンド・スキルを入力';
 
   @override
-  String get tooltipMention => 'ファイルをメンション';
+  String get tooltipMention => 'ファイル・プラグインをメンション';
+
+  @override
+  String get tooltipDollarMention => 'スキル・アプリを入力';
 
   @override
   String get tooltipPermissionMode => 'パーミッションモード';
@@ -1511,10 +1514,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tooltipAttachImage => '画像を添付';
 
   @override
-  String get tooltipPromptHistory => 'プロンプト履歴';
+  String get tooltipPromptHistory => 'プロンプト履歴を開く';
 
   @override
-  String get tooltipVoiceInput => '音声入力';
+  String get tooltipVoiceInput => '音声入力を開始';
 
   @override
   String get tooltipStopRecording => '録音を停止';

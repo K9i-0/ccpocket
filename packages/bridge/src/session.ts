@@ -196,6 +196,8 @@ export class SessionManager {
       skillMetadata?: Array<Record<string, unknown>>;
       apps: string[];
       appMetadata?: Array<Record<string, unknown>>;
+      plugins: string[];
+      pluginMetadata?: Array<Record<string, unknown>>;
     }
   >();
 
@@ -292,10 +294,12 @@ export class SessionManager {
           msg.type === "system" &&
           (msg.subtype === "init" || msg.subtype === "supported_commands") &&
           (msg.slashCommands ||
-              msg.skills ||
-              msg.skillMetadata ||
-              msg.apps ||
-              msg.appMetadata)
+            msg.skills ||
+            msg.skillMetadata ||
+            msg.apps ||
+            msg.appMetadata ||
+            msg.plugins ||
+            msg.pluginMetadata)
         ) {
           this.commandCache.set(projectPath, {
             slashCommands:
@@ -315,6 +319,13 @@ export class SessionManager {
                 | Array<Record<string, unknown>>
                 | undefined) ??
               this.commandCache.get(projectPath)?.appMetadata,
+            plugins:
+              msg.plugins ?? this.commandCache.get(projectPath)?.plugins ?? [],
+            pluginMetadata:
+              (msg.pluginMetadata as
+                | Array<Record<string, unknown>>
+                | undefined) ??
+              this.commandCache.get(projectPath)?.pluginMetadata,
           });
         }
 
@@ -879,6 +890,8 @@ export class SessionManager {
         skillMetadata?: Array<Record<string, unknown>>;
         apps: string[];
         appMetadata?: Array<Record<string, unknown>>;
+        plugins: string[];
+        pluginMetadata?: Array<Record<string, unknown>>;
       }
     | undefined {
     return this.commandCache.get(projectPath);

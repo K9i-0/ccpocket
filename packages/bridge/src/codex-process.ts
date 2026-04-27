@@ -70,6 +70,24 @@ export interface CodexAppMetadata {
   isEnabled: boolean;
 }
 
+/** Plugin metadata returned by the Codex `plugin/list` RPC. */
+export interface CodexPluginMetadata {
+  id: string;
+  name: string;
+  path: string;
+  marketplaceName: string;
+  marketplacePath?: string;
+  installed: boolean;
+  enabled: boolean;
+  displayName?: string;
+  shortDescription?: string;
+  longDescription?: string;
+  defaultPrompt?: string;
+  brandColor?: string;
+  composerIcon?: string;
+  composerIconUrl?: string;
+}
+
 export interface CodexThreadSummary {
   id: string;
   preview: string;
@@ -1189,6 +1207,41 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         isAccessible?: boolean | null;
         isEnabled?: boolean | null;
       }
+      interface PluginRaw {
+        id: string;
+        name: string;
+        installed: boolean;
+        enabled: boolean;
+        interface?: {
+          displayName?: unknown;
+          shortDescription?: unknown;
+          longDescription?: unknown;
+          defaultPrompt?: unknown;
+          brandColor?: unknown;
+          composerIcon?: unknown;
+          composerIconUrl?: unknown;
+        } | null;
+      }
+      interface PluginMarketplaceRaw {
+        name: string;
+        path?: string | null;
+        plugins: PluginRaw[];
+      }
+      const requestOrNull = <T>(
+        method: string,
+        params: Record<string, unknown>,
+      ): Promise<T | null> =>
+        Promise.race([
+          this.request(method, params).catch((err) => {
+            console.log(
+              `[codex-process] ${method} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            );
+            return null;
+          }),
+          new Promise<null>((resolve) =>
+            setTimeout(() => resolve(null), TIMEOUT_MS),
+          ),
+        ]) as Promise<T | null>;
       const skillsResult = (await Promise.race([
         this.request("skills/list", { cwds: [projectPath] }),
         new Promise<null>((resolve) =>
@@ -1206,6 +1259,16 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           setTimeout(() => resolve(null), TIMEOUT_MS),
         ),
       ])) as { data?: AppRaw[] } | null;
+      const pluginsResult = await requestOrNull<{
+        marketplaces?: PluginMarketplaceRaw[];
+      }>("plugin/list", { cwds: [projectPath] });
+      const optionalString = (value: unknown): string | undefined =>
+        typeof value === "string" ? value : undefined;
+      const optionalFirstString = (value: unknown): string | undefined => {
+        if (typeof value === "string") return value;
+        if (!Array.isArray(value)) return undefined;
+        return value.find((entry): entry is string => typeof entry === "string");
+      };
 
       const skills: string[] = [];
       const skillMetadata: CodexSkillMetadata[] = [];
@@ -1244,20 +1307,49 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           isEnabled: app.isEnabled ?? true,
         }));
       this._apps = appMetadata;
+      const pluginMetadata: CodexPluginMetadata[] = [];
+      for (const marketplace of pluginsResult?.marketplaces ?? []) {
+        for (const plugin of marketplace.plugins ?? []) {
+          if (!plugin.installed || !plugin.enabled) continue;
+          pluginMetadata.push({
+            id: plugin.id,
+            name: plugin.name,
+            path: `plugin://${plugin.id}`,
+            marketplaceName: marketplace.name,
+            marketplacePath: marketplace.path ?? undefined,
+            installed: plugin.installed,
+            enabled: plugin.enabled,
+            displayName: optionalString(plugin.interface?.displayName),
+            shortDescription: optionalString(plugin.interface?.shortDescription),
+            longDescription: optionalString(plugin.interface?.longDescription),
+            defaultPrompt: optionalFirstString(plugin.interface?.defaultPrompt),
+            brandColor: optionalString(plugin.interface?.brandColor),
+            composerIcon: optionalString(plugin.interface?.composerIcon),
+            composerIconUrl: optionalString(plugin.interface?.composerIconUrl),
+          });
+        }
+      }
+      const plugins = pluginMetadata.map((plugin) => plugin.name);
       if (this.stopped) return;
       const signature = JSON.stringify({
         skills,
         skillMetadata,
         apps: appMetadata.map((app) => app.id),
         appMetadata,
+        plugins,
+        pluginMetadata,
       });
       if (signature === this._lastCompletionEntitiesSignature) {
         return;
       }
       this._lastCompletionEntitiesSignature = signature;
-      if (skills.length > 0 || appMetadata.length > 0) {
+      if (
+        skills.length > 0 ||
+        appMetadata.length > 0 ||
+        pluginMetadata.length > 0
+      ) {
         console.log(
-          `[codex-process] completion entities loaded: ${skills.length} skills, ${appMetadata.length} apps`,
+          `[codex-process] completion entities loaded: ${skills.length} skills, ${appMetadata.length} apps, ${pluginMetadata.length} plugins`,
         );
         this.emitMessage({
           type: "system",
@@ -1266,6 +1358,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           skillMetadata,
           apps: appMetadata.map((app) => app.id),
           appMetadata,
+          plugins,
+          pluginMetadata,
         });
       }
     } catch (err) {

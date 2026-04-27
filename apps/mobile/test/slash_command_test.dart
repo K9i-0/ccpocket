@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/chat_message_handler.dart';
+import 'package:ccpocket/widgets/file_mention_overlay.dart';
 import 'package:ccpocket/widgets/slash_command_sheet.dart';
 
 void main() {
@@ -22,6 +23,32 @@ void main() {
       expect(sys.skills, ['review']);
     });
 
+    test('parses plugin metadata from JSON', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'system',
+        'subtype': 'supported_commands',
+        'plugins': ['sample'],
+        'pluginMetadata': [
+          {
+            'id': 'sample@test',
+            'name': 'sample',
+            'path': 'plugin://sample@test',
+            'marketplaceName': 'test',
+            'displayName': 'Sample Plugin',
+            'shortDescription': 'Example plugin',
+            'defaultPrompt': ['Use sample'],
+            'composerIcon': ['unexpected', 'path'],
+          },
+        ],
+      });
+      final sys = msg as SystemMessage;
+      expect(sys.plugins, ['sample']);
+      expect(sys.pluginMetadata.single.label, 'Sample Plugin');
+      expect(sys.pluginMetadata.single.path, 'plugin://sample@test');
+      expect(sys.pluginMetadata.single.defaultPrompt, 'Use sample');
+      expect(sys.pluginMetadata.single.composerIcon, isNull);
+    });
+
     test('defaults to empty lists when fields missing', () {
       final msg = ServerMessage.fromJson({
         'type': 'system',
@@ -31,6 +58,7 @@ void main() {
       final sys = msg as SystemMessage;
       expect(sys.slashCommands, isEmpty);
       expect(sys.skills, isEmpty);
+      expect(sys.plugins, isEmpty);
     });
 
     test('handles null slashCommands gracefully', () {
@@ -310,6 +338,17 @@ void main() {
                 description: 'Example connector',
               ),
             ],
+            plugins: ['sample'],
+            pluginMetadata: [
+              CodexPluginMetadata(
+                id: 'sample@test',
+                name: 'sample',
+                path: 'plugin://sample@test',
+                marketplaceName: 'test',
+                displayName: 'Sample Plugin',
+                shortDescription: 'Example plugin',
+              ),
+            ],
           ),
           isBackground: false,
           isCodex: true,
@@ -320,6 +359,7 @@ void main() {
         expect(names, contains('/flutter-ui-design'));
         expect(names, contains(r'$flutter-ui-design'));
         expect(names, contains(r'$demo-app'));
+        expect(names, contains('@sample'));
 
         final slashSkill = update.slashCommands!.firstWhere(
           (c) => c.command == '/flutter-ui-design',
@@ -330,7 +370,47 @@ void main() {
           (c) => c.command == r'$demo-app',
         );
         expect(app.category, SlashCommandCategory.app);
+
+        final plugin = update.slashCommands!.firstWhere(
+          (c) => c.command == '@sample',
+        );
+        expect(plugin.category, SlashCommandCategory.plugin);
+        expect(plugin.pluginInfo?.path, 'plugin://sample@test');
       },
     );
+  });
+
+  group('FileMentionOverlay', () {
+    testWidgets('shows plugin completions before file completions', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: FileMentionOverlay(
+              filteredPlugins: [
+                buildAtPlugin(
+                  const CodexPluginMetadata(
+                    id: 'sample@test',
+                    name: 'sample',
+                    path: 'plugin://sample@test',
+                    marketplaceName: 'test',
+                    shortDescription: 'Example plugin',
+                  ),
+                ),
+              ],
+              filteredFiles: const ['lib/main.dart'],
+              onSelectPlugin: (_) {},
+              onSelect: (_) {},
+              onDismiss: () {},
+            ),
+          ),
+        ),
+      );
+
+      final pluginTop = tester.getTopLeft(find.text('@sample')).dy;
+      final fileTop = tester.getTopLeft(find.text('main.dart')).dy;
+      expect(pluginTop, lessThan(fileTop));
+    });
   });
 }

@@ -85,6 +85,7 @@ class _SlashCommandOverlayState extends State<SlashCommandOverlay> {
               SlashCommandCategory.project => cs.secondary,
               SlashCommandCategory.skill => cs.tertiary,
               SlashCommandCategory.app => cs.primary,
+              SlashCommandCategory.plugin => cs.primary,
               SlashCommandCategory.builtin => appColors.subtleText,
             };
             final isSelected = index == widget.selectedIndex;
@@ -134,6 +135,7 @@ class _SlashCommandOverlayState extends State<SlashCommandOverlay> {
                             SlashCommandCategory.project => 'project',
                             SlashCommandCategory.skill => 'skill',
                             SlashCommandCategory.app => 'app',
+                            SlashCommandCategory.plugin => 'plugin',
                             SlashCommandCategory.builtin => 'builtin',
                           },
                           style: TextStyle(

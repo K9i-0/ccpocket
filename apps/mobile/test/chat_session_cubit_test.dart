@@ -281,13 +281,24 @@ void main() {
                 description: 'Example connector',
               ),
             ],
+            plugins: ['sample'],
+            pluginMetadata: [
+              CodexPluginMetadata(
+                id: 'sample@test',
+                name: 'sample',
+                path: 'plugin://sample@test',
+                marketplaceName: 'test',
+                displayName: 'Sample Plugin',
+                shortDescription: 'Example plugin',
+              ),
+            ],
           ),
           sessionId: 's1',
         );
         await Future.microtask(() {});
 
         cubit.sendMessage(
-          r'$skill-creator draft a skill and ask $demo-app for context',
+          r'$skill-creator draft a skill and ask $demo-app with @sample',
         );
 
         expect(mockBridge.sentMessages, hasLength(1));
@@ -299,6 +310,7 @@ void main() {
         ]);
         expect(json['mentions'], [
           {'name': 'Demo App', 'path': 'app://demo-app'},
+          {'name': 'Sample Plugin', 'path': 'plugin://sample@test'},
         ]);
       },
     );

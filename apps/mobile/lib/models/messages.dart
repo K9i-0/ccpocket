@@ -543,6 +543,17 @@ sealed class ServerMessage {
                 )
                 .toList() ??
             const [],
+        plugins:
+            (json['plugins'] as List?)?.whereType<String>().toList() ??
+            const [],
+        pluginMetadata:
+            (json['pluginMetadata'] as List?)
+                ?.map(
+                  (e) =>
+                      CodexPluginMetadata.fromJson(e as Map<String, dynamic>),
+                )
+                .toList() ??
+            const [],
         worktreePath: json['worktreePath'] as String?,
         worktreeBranch: json['worktreeBranch'] as String?,
         clearContext: json['clearContext'] as bool? ?? false,
@@ -994,6 +1005,79 @@ class CodexAppMetadata {
   String get label => name.isNotEmpty ? name : id;
 }
 
+/// Metadata for a Codex plugin, returned by the `plugin/list` RPC.
+class CodexPluginMetadata {
+  final String id;
+  final String name;
+  final String path;
+  final String marketplaceName;
+  final String? marketplacePath;
+  final bool installed;
+  final bool enabled;
+  final String? displayName;
+  final String? shortDescription;
+  final String? longDescription;
+  final String? defaultPrompt;
+  final String? brandColor;
+  final String? composerIcon;
+  final String? composerIconUrl;
+
+  const CodexPluginMetadata({
+    required this.id,
+    required this.name,
+    required this.path,
+    required this.marketplaceName,
+    this.marketplacePath,
+    this.installed = true,
+    this.enabled = true,
+    this.displayName,
+    this.shortDescription,
+    this.longDescription,
+    this.defaultPrompt,
+    this.brandColor,
+    this.composerIcon,
+    this.composerIconUrl,
+  });
+
+  factory CodexPluginMetadata.fromJson(Map<String, dynamic> json) {
+    final id = _nonEmptyString(json['id']) ?? '';
+    return CodexPluginMetadata(
+      id: id,
+      name: _nonEmptyString(json['name']) ?? '',
+      path: _nonEmptyString(json['path']) ?? 'plugin://$id',
+      marketplaceName: _nonEmptyString(json['marketplaceName']) ?? '',
+      marketplacePath: _nonEmptyString(json['marketplacePath']),
+      installed: json['installed'] as bool? ?? true,
+      enabled: json['enabled'] as bool? ?? true,
+      displayName: _nonEmptyString(json['displayName']),
+      shortDescription: _nonEmptyString(json['shortDescription']),
+      longDescription: _nonEmptyString(json['longDescription']),
+      defaultPrompt: _firstString(json['defaultPrompt']),
+      brandColor: _nonEmptyString(json['brandColor']),
+      composerIcon: _nonEmptyString(json['composerIcon']),
+      composerIconUrl: _nonEmptyString(json['composerIconUrl']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'name': label, 'path': path};
+
+  String get label => displayName ?? name;
+
+  String get summary =>
+      shortDescription ?? longDescription ?? (name.isNotEmpty ? name : id);
+}
+
+String? _firstString(dynamic value) {
+  final text = _nonEmptyString(value);
+  if (text != null) return text;
+  if (value is! List) return null;
+  for (final entry in value) {
+    final text = _nonEmptyString(entry);
+    if (text != null) return text;
+  }
+  return null;
+}
+
 class SystemMessage implements ServerMessage {
   final String subtype;
   final String? sessionId;
@@ -1018,6 +1102,8 @@ class SystemMessage implements ServerMessage {
   final List<CodexSkillMetadata> skillMetadata;
   final List<String> apps;
   final List<CodexAppMetadata> appMetadata;
+  final List<String> plugins;
+  final List<CodexPluginMetadata> pluginMetadata;
   final String? worktreePath;
   final String? worktreeBranch;
   final bool clearContext;
@@ -1044,6 +1130,8 @@ class SystemMessage implements ServerMessage {
     this.skillMetadata = const [],
     this.apps = const [],
     this.appMetadata = const [],
+    this.plugins = const [],
+    this.pluginMetadata = const [],
     this.worktreePath,
     this.worktreeBranch,
     this.clearContext = false,

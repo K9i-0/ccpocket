@@ -1483,10 +1483,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tooltipDedent => '减少缩进';
 
   @override
-  String get tooltipSlashCommand => '斜杠命令';
+  String get tooltipSlashCommand => '输入命令或技能';
 
   @override
-  String get tooltipMention => '提及文件';
+  String get tooltipMention => '提及文件或插件';
+
+  @override
+  String get tooltipDollarMention => '输入技能或应用';
 
   @override
   String get tooltipPermissionMode => '权限模式';
@@ -1495,10 +1498,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tooltipAttachImage => '附加图片';
 
   @override
-  String get tooltipPromptHistory => '提示词历史';
+  String get tooltipPromptHistory => '打开提示词历史';
 
   @override
-  String get tooltipVoiceInput => '语音输入';
+  String get tooltipVoiceInput => '开始语音输入';
 
   @override
   String get tooltipStopRecording => '停止录音';

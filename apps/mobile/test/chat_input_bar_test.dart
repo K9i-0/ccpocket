@@ -214,6 +214,16 @@ void main() {
       );
 
       expect(find.byKey(const ValueKey('dollar_button')), findsOneWidget);
+      final tooltip = tester.widget<Tooltip>(
+        find
+            .ancestor(
+              of: find.byKey(const ValueKey('dollar_button')),
+              matching: find.byType(Tooltip),
+            )
+            .first,
+      );
+      expect(tooltip.message, 'Insert skill or app');
+
       await tester.tap(find.byKey(const ValueKey('dollar_button')));
       expect(tapped, isTrue);
     });
@@ -369,6 +379,20 @@ void main() {
         expect(tapped, isTrue);
       });
 
+      testWidgets('mention button tooltip includes plugins', (tester) async {
+        await tester.pumpWidget(buildSubject());
+
+        final tooltip = tester.widget<Tooltip>(
+          find
+              .ancestor(
+                of: find.byKey(const ValueKey('mention_button')),
+                matching: find.byType(Tooltip),
+              )
+              .first,
+        );
+        expect(tooltip.message, 'Mention file or plugin');
+      });
+
       testWidgets(
         'mention button is disabled when isInMentionContext is true',
         (tester) async {
@@ -397,6 +421,11 @@ void main() {
           find.byKey(const ValueKey('slash_command_button')),
           findsOneWidget,
         );
+        final tooltipMessages = tester
+            .widgetList<Tooltip>(find.byType(Tooltip))
+            .map((tooltip) => tooltip.message)
+            .toList();
+        expect(tooltipMessages, contains('Insert command or skill'));
         expect(find.byKey(const ValueKey('dedent_button')), findsNothing);
       });
 
