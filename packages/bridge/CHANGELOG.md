@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.46.1] - 2026-04-27
+
+### Fixed
+- Restore Codex MCP tool result screenshots from session JSONL in the original conversation order
+
 ## [1.46.0] - 2026-04-27
 
 ### Added
