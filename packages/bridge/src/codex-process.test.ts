@@ -1073,6 +1073,102 @@ describe("CodexProcess (app-server)", () => {
       toolName: "McpElicitation",
     });
 
+    proc.reject("req-mcp-approval-2");
+    await tick();
+
+    const response = nextOutgoingResponse(child);
+    expect(response).toMatchObject({
+      id: "req-mcp-approval-2",
+      result: {
+        action: "cancel",
+        content: null,
+        _meta: null,
+      },
+    });
+
+    proc.stop();
+  });
+
+  it("maps message-only MCP elicitations to approval actions", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-computer-use");
+    const child = fakeChildren[0];
+
+    await tick();
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+    await tick();
+    nextOutgoingNotification(child);
+    const threadReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: threadReq.id, result: { thread: { id: "thr_computer_use" } } })}\n`,
+    );
+
+    await tick();
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: "req-computer-use-1",
+        method: "mcpServer/elicitation/request",
+        params: {
+          threadId: "thr_computer_use",
+          turnId: "turn_computer_use",
+          serverName: "computer-use",
+          mode: "form",
+          _meta: null,
+          message: "Allow Codex to use Safari?",
+          requestedSchema: {
+            type: "object",
+            properties: {},
+          },
+        },
+      })}\n`,
+    );
+
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "permission_request",
+        toolUseId: "req-computer-use-1",
+        toolName: "McpElicitation",
+        input: expect.objectContaining({
+          availableDecisions: ["accept", "decline"],
+          questions: [
+            expect.objectContaining({
+              header: "Approve app tool call?",
+              question: "Allow Codex to use Safari?",
+              options: [
+                expect.objectContaining({ label: "Allow" }),
+                expect.objectContaining({ label: "Deny" }),
+                expect.objectContaining({ label: "Cancel" }),
+              ],
+            }),
+          ],
+        }),
+      }),
+    );
+
+    proc.approve("req-computer-use-1");
+    await tick();
+
+    const response = nextOutgoingResponse(child);
+    expect(response).toMatchObject({
+      id: "req-computer-use-1",
+      result: {
+        action: "accept",
+        content: null,
+        _meta: null,
+      },
+    });
+
     proc.stop();
   });
 

@@ -662,7 +662,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     const pending = this.resolvePendingApproval(toolUseId);
     if (!pending) {
       // Fallback: McpElicitation lives in pendingUserInputs
-      if (this.approveUserInput(toolUseId, "Accept")) return;
+      if (this.approveUserInput(toolUseId, "Allow for this session")) return;
       console.log(
         "[codex-process] approveAlways() called but no pending permission requests",
       );
@@ -704,7 +704,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.pendingApprovals.delete(pending.toolUseId);
     this.respondToServerRequest(
       pending.requestId,
-      buildApprovalResponse(pending, "decline"),
+      buildApprovalResponse(pending, resolveApprovalRejectDecision(pending)),
     );
     this.emitToolResult(pending.toolUseId, "Rejected");
 
@@ -833,7 +833,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.pendingUserInputs.delete(pending.toolUseId);
     this.respondToServerRequest(
       pending.requestId,
-      buildUserInputResponse(pending, result),
+      buildUserInputResponse(
+        pending,
+        resolveUserInputRejectResult(pending, result),
+      ),
     );
     this.emitToolResult(pending.toolUseId, "Rejected");
 
@@ -2355,7 +2358,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
 function buildApprovalResponse(
   pending: PendingApproval,
-  decision: "accept" | "acceptForSession" | "decline",
+  decision: "accept" | "acceptForSession" | "decline" | "cancel",
 ): Record<string, unknown> {
   if (pending.kind === "permissions") {
     return {
@@ -2370,6 +2373,22 @@ function buildApprovalResponse(
   };
 }
 
+function resolveApprovalRejectDecision(
+  pending: PendingApproval,
+): "decline" | "cancel" {
+  const availableDecisions = pending.input.availableDecisions;
+  if (!Array.isArray(availableDecisions)) return "decline";
+  const decisions = new Set(
+    availableDecisions.filter(
+      (entry): entry is string => typeof entry === "string",
+    ),
+  );
+  if (decisions.has("cancel") && !decisions.has("decline")) {
+    return "cancel";
+  }
+  return "decline";
+}
+
 function buildUserInputResponse(
   pending: PendingUserInputRequest,
   rawResult: string,
@@ -2381,6 +2400,24 @@ function buildUserInputResponse(
   }
 
   return buildElicitationResponse(pending, rawResult);
+}
+
+function resolveUserInputRejectResult(
+  pending: PendingUserInputRequest,
+  fallback: string,
+): string {
+  if (pending.kind !== "elicitation_approval") return fallback;
+  const availableDecisions = pending.input.availableDecisions;
+  if (!Array.isArray(availableDecisions)) return fallback;
+  const decisions = new Set(
+    availableDecisions.filter(
+      (entry): entry is string => typeof entry === "string",
+    ),
+  );
+  if (decisions.has("cancel") && !decisions.has("decline")) {
+    return "Cancel";
+  }
+  return fallback;
 }
 
 function extractWritableRootsFromConfigRead(response: unknown): string[] {
@@ -3139,8 +3176,9 @@ function createElicitationInput(params: Record<string, unknown>): {
 
   const schema = asRecord(params.requestedSchema);
   const elicitationMeta = asRecord(params._meta);
-  if (isToolApprovalElicitation(schema, elicitationMeta)) {
+  if (isApprovalActionElicitation(schema, elicitationMeta)) {
     const questionId = "approval";
+    const isToolApproval = isToolApprovalElicitation(elicitationMeta);
     return {
       kind: "elicitation_approval",
       questions: [{ id: questionId, question: message }],
@@ -3149,12 +3187,20 @@ function createElicitationInput(params: Record<string, unknown>): {
         serverName,
         message,
         _meta: elicitationMeta ?? null,
+        availableDecisions:
+          buildApprovalActionElicitationAvailableDecisions(
+            elicitationMeta,
+            isToolApproval,
+          ),
         questions: [
           {
             id: questionId,
             header: "Approve app tool call?",
             question: message,
-            options: buildToolApprovalElicitationOptions(elicitationMeta),
+            options: buildApprovalActionElicitationOptions(
+              elicitationMeta,
+              isToolApproval,
+            ),
             multiSelect: false,
             isOther: false,
             isSecret: false,
@@ -3243,12 +3289,11 @@ function createElicitationInput(params: Record<string, unknown>): {
   };
 }
 
-function isToolApprovalElicitation(
+function isApprovalActionElicitation(
   schema: Record<string, unknown> | undefined,
   meta: Record<string, unknown> | undefined,
 ): boolean {
-  if (meta?.codex_approval_kind !== "mcp_tool_call") return false;
-  return isEmptyObjectSchema(schema);
+  return isEmptyObjectSchema(schema) && !isToolSuggestionElicitation(meta);
 }
 
 function isEmptyObjectSchema(
@@ -3260,30 +3305,77 @@ function isEmptyObjectSchema(
   return properties != null && Object.keys(properties).length === 0;
 }
 
-function buildToolApprovalElicitationOptions(
+function isToolApprovalElicitation(
   meta: Record<string, unknown> | undefined,
+): boolean {
+  return meta?.codex_approval_kind === "mcp_tool_call";
+}
+
+function isToolSuggestionElicitation(
+  meta: Record<string, unknown> | undefined,
+): boolean {
+  return meta?.codex_approval_kind === "tool_suggestion";
+}
+
+function buildApprovalActionElicitationOptions(
+  meta: Record<string, unknown> | undefined,
+  isToolApproval: boolean,
 ): Array<{ label: string; description: string }> {
   const persistModes = extractPersistModes(meta);
   const options = [
-    { label: "Allow", description: "Run the tool and continue." },
+    {
+      label: "Allow",
+      description: isToolApproval
+        ? "Run the tool and continue."
+        : "Allow this request and continue.",
+    },
   ];
   if (persistModes.has("session")) {
     options.push({
       label: "Allow for this session",
-      description: "Run the tool and remember this choice for this session.",
+      description: isToolApproval
+        ? "Run the tool and remember this choice for this session."
+        : "Allow this request and remember this choice for this session.",
     });
   }
   if (persistModes.has("always")) {
     options.push({
       label: "Always allow",
-      description: "Run the tool and remember this choice for future tool calls.",
+      description: isToolApproval
+        ? "Run the tool and remember this choice for future tool calls."
+        : "Allow this request and remember this choice for future requests.",
     });
   }
-  options.push({
-    label: "Cancel",
-    description: "Cancel this tool call.",
-  });
+  if (!isToolApproval) {
+    options.push({
+      label: "Deny",
+      description: "Decline this request and continue.",
+    });
+  }
+  options.push(
+    isToolApproval
+      ? {
+          label: "Cancel",
+          description: "Cancel this tool call.",
+        }
+      : {
+          label: "Cancel",
+          description: "Cancel this request.",
+        },
+  );
   return options;
+}
+
+function buildApprovalActionElicitationAvailableDecisions(
+  meta: Record<string, unknown> | undefined,
+  isToolApproval: boolean,
+): string[] {
+  const persistModes = extractPersistModes(meta);
+  return [
+    "accept",
+    ...(persistModes.has("session") ? ["acceptForSession"] : []),
+    isToolApproval ? "cancel" : "decline",
+  ];
 }
 
 function extractPersistModes(
