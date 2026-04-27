@@ -447,25 +447,35 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
                 ),
               ),
             ] else ...[
-              _AskQuestionLayout(
-                question: questions.first as Map<String, dynamic>,
-                questionIndex: 0,
-                isMultiQuestion: false,
-                scrollable: widget.scrollable,
-                allowsCustomInput: _singleQuestionAllowsCustomInput,
-                singleAnswers: _singleAnswers,
-                multiAnswers: _multiAnswers,
-                customInputs: _customInputs,
-                getOrCreateController: _getOrCreateController,
-                onAnswerSingle: _onAnswerSingle,
-                onToggleMultiSelectLabel: _toggleMultiSelectLabel,
-                onConfirmMultiSelect: _confirmMultiSelect,
-                onSubmitCustomText: _submitCustomText,
-                onCustomTextChanged: _onCustomTextChanged,
-                onShowCustomInput: _showCustomInput,
-                alwaysShowTextInput:
-                    !_singleQuestionIsMultiSelect &&
-                    _singleQuestionAllowsCustomInput,
+              // Mirror the multi-question layout so that long option lists
+              // remain scrollable inside the bubble even when the surrounding
+              // container is mounted as a non-scrolling overlay.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: (availableHeight - keyboardHeight) * 0.42,
+                ),
+                child: SingleChildScrollView(
+                  child: _AskQuestionLayout(
+                    question: questions.first as Map<String, dynamic>,
+                    questionIndex: 0,
+                    isMultiQuestion: false,
+                    scrollable: false,
+                    allowsCustomInput: _singleQuestionAllowsCustomInput,
+                    singleAnswers: _singleAnswers,
+                    multiAnswers: _multiAnswers,
+                    customInputs: _customInputs,
+                    getOrCreateController: _getOrCreateController,
+                    onAnswerSingle: _onAnswerSingle,
+                    onToggleMultiSelectLabel: _toggleMultiSelectLabel,
+                    onConfirmMultiSelect: _confirmMultiSelect,
+                    onSubmitCustomText: _submitCustomText,
+                    onCustomTextChanged: _onCustomTextChanged,
+                    onShowCustomInput: _showCustomInput,
+                    alwaysShowTextInput:
+                        !_singleQuestionIsMultiSelect &&
+                        _singleQuestionAllowsCustomInput,
+                  ),
+                ),
               ),
             ],
             if (_singleQuestionIsMultiSelect) ...[
