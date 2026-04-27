@@ -46,6 +46,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyTerminalApp = 'settings_terminal_app';
   static const _keyNewSessionTabs = 'settings_new_session_tabs';
   static const _keyUsageDisplayMode = 'settings_usage_display_mode';
+  static const _keyTextScale = 'settings_text_scale';
   // Legacy key for migration
   static const _keyIndentSize = 'settings_indent_size';
   // Legacy key for migration
@@ -165,6 +166,8 @@ class SettingsCubit extends Cubit<SettingsState> {
 
     final shorebirdTrack = prefs.getString(keyShorebirdTrack) ?? 'stable';
     final indentSize = prefs.getInt(_keyIndentSize) ?? 2;
+    final textScale = (prefs.getDouble(_keyTextScale) ?? textScaleDefault)
+        .clamp(textScaleMin, textScaleMax);
     final hideVoiceInput = prefs.getBool(_keyHideVoiceInput) ?? false;
     final selectedAppIcon = appIconVariantFromId(
       prefs.getString(_keySelectedAppIcon),
@@ -205,6 +208,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       fcmPrivacyMachines: fcmPrivacyMachines,
       shorebirdTrack: shorebirdTrack,
       indentSize: indentSize.clamp(1, 4),
+      textScale: textScale,
       hideVoiceInput: hideVoiceInput,
       selectedAppIcon: selectedAppIcon,
       terminalApp: terminalApp,
@@ -282,6 +286,14 @@ class SettingsCubit extends Cubit<SettingsState> {
     final clamped = size.clamp(1, 4);
     _prefs.setInt(_keyIndentSize, clamped);
     emit(state.copyWith(indentSize: clamped));
+  }
+
+  /// Updates the global text scale used to render text throughout the app.
+  /// Values outside the supported range are clamped before being persisted.
+  void setTextScale(double scale) {
+    final clamped = scale.clamp(textScaleMin, textScaleMax);
+    _prefs.setDouble(_keyTextScale, clamped);
+    emit(state.copyWith(textScale: clamped));
   }
 
   void setShorebirdTrack(String track) {

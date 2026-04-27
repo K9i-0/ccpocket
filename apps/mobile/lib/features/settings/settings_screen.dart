@@ -217,6 +217,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             context.read<SettingsCubit>().setThemeMode(mode),
                       ),
                     ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    // Text size
+                    _TextSizeTile(
+                      value: state.textScale,
+                      onChanged: (value) =>
+                          context.read<SettingsCubit>().setTextScale(value),
+                    ),
                     if (state.appIconSupported) ...[
                       Divider(
                         height: 1,
@@ -1068,6 +1080,61 @@ class _MacOSNativeAppTile extends StatelessWidget {
         Uri.parse(AppConstants.macOSReleasesUrl),
         mode: LaunchMode.externalApplication,
       ),
+    );
+  }
+}
+
+/// A General-section row that lets the user adjust the global text scale
+/// with a slider. Mirrors the visual layout of the surrounding ListTiles
+/// so it sits naturally inside the General card.
+class _TextSizeTile extends StatelessWidget {
+  const _TextSizeTile({required this.value, required this.onChanged});
+
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    final percent = (value * 100).round();
+    final percentLabel = '$percent%';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              Icon(Icons.format_size, color: cs.primary),
+              const SizedBox(width: 32),
+              Expanded(
+                child: Text(
+                  l.textSize,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+              Text(
+                percentLabel,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(56, 0, 16, 8),
+          child: Slider(
+            min: textScaleMin,
+            max: textScaleMax,
+            divisions: 10,
+            label: percentLabel,
+            value: value,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
     );
   }
 }

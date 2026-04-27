@@ -462,6 +462,7 @@
   "themeSystem": "System",
   "themeLight": "Light",
   "themeDark": "Dark",
+  "textSize": "Text size",
   "appIconTitle": "App Icon",
   "appIconMonthlySupporterPerk": "This is a Monthly Supporter perk.",
   "appIconSupporterDialogTitle": "Monthly Supporter Perk",
