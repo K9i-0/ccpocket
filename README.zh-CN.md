@@ -4,22 +4,26 @@ CC Pocket 是一款用于 Codex / Claude 编程代理会话的移动客户端。
 
 [English README](README.md) | [日本語 README](README.ja.md)
 
-## 安装
+## 快速开始
 
-CC Pocket 只需要三步即可开始使用：
+只需三步即可试用 CC Pocket：
 
-1. 在 iOS、Android 或 macOS 上安装 App
-2. 在已安装 Codex / Claude 的主机上启动 Bridge Server
-3. 用 App 扫描终端二维码并开始会话
+1. 在 Mac 或 Linux 主机上运行 Bridge Server：
+
+```bash
+npx @ccpocket/bridge@latest
+```
+
+2. 在 iOS、Android 或 macOS 上安装 CC Pocket，并扫描终端中显示的二维码。
+3. 选择项目，再选择 Codex 或 Claude，然后从 App 启动会话。
 
 | 平台 | 安装 |
 |------|------|
 | **iOS / iPadOS** | <a href="https://apps.apple.com/us/app/cc-pocket-code-anywhere/id6759188790"><img height="40" alt="Download on the App Store" src="docs/images/app-store-badge.svg" /></a> |
 | **Android** | <a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Get it on Google Play" src="docs/images/google-play-badge-en.svg" /></a> |
 | **macOS** | 从 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos) 下载最新 `.dmg`。请查找带有 `macos/v*` 标签的发行版。 |
-| **Bridge Server** | 在运行 Codex 或 Claude 的主机上执行 `npx @ccpocket/bridge@latest`。 |
 
-Bridge Server 启动后会在终端打印二维码。用 App 扫描即可连接。
+Bridge Server 运行在已安装 Codex 或 Claude 的主机上。如果需要在本地网络之外访问，请使用 Tailscale，并连接到主机的 Tailscale 地址。
 
 <p align="center">
   <img src="docs/images/screenshots-zh-CN.png" alt="CC Pocket 截图" width="800">
