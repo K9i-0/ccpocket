@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../../utils/diff_parser.dart';
+import '../../../widgets/adaptive_context_menu.dart';
 import 'git_swipe_action_background.dart';
 
 const _codeFontSize = 12.0;
@@ -70,6 +71,7 @@ class DiffHunkWidget extends StatefulWidget {
   final bool lineWrapEnabled;
   final String dismissKey;
   final VoidCallback? onLongPress;
+  final ValueChanged<Offset?>? onShowActions;
   final VoidCallback? onSwipeStage;
   final VoidCallback? onSwipeUnstage;
   final VoidCallback? onSwipeRevert;
@@ -81,6 +83,7 @@ class DiffHunkWidget extends StatefulWidget {
     required this.dismissKey,
     this.lineWrapEnabled = false,
     this.onLongPress,
+    this.onShowActions,
     this.onSwipeStage,
     this.onSwipeUnstage,
     this.onSwipeRevert,
@@ -121,13 +124,15 @@ class _DiffHunkWidgetState extends State<DiffHunkWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final content = Column(
+    Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.hunk.header.isNotEmpty)
           _DiffHunkHeader(
             header: widget.hunk.header,
-            onLongPress: widget.onLongPress,
+            onLongPress: widget.onShowActions == null
+                ? widget.onLongPress
+                : null,
           ),
         if (widget.hunk.lines.isNotEmpty)
           _DiffHunkBody(
@@ -135,11 +140,21 @@ class _DiffHunkWidgetState extends State<DiffHunkWidget> {
             maxContentWidth: _maxContentWidth,
             lineNumberWidth: widget.lineNumberWidth,
             lineWrapEnabled: widget.lineWrapEnabled,
-            onLongPress: widget.onLongPress,
+            onLongPress: widget.onShowActions == null
+                ? widget.onLongPress
+                : null,
           ),
         const SizedBox(height: 4),
       ],
     );
+
+    final onShowActions = widget.onShowActions;
+    if (onShowActions != null) {
+      content = AdaptiveContextMenuRegion(
+        onOpen: onShowActions,
+        child: content,
+      );
+    }
 
     if (!widget.lineWrapEnabled ||
         (widget.onSwipeStage == null &&

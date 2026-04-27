@@ -8,6 +8,7 @@ import '../../services/bridge_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/diff_parser.dart'
     show DiffSelection, reconstructDiff, reconstructUnifiedDiff;
+import '../../widgets/adaptive_context_menu.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../session_list/workspace_shell_screen.dart';
 import 'state/commit_cubit.dart';
@@ -262,84 +263,64 @@ class _GitScreenBody extends StatelessWidget {
     GitViewCubit cubit,
     GitViewState state,
     int fileIdx,
-  ) {
+    Offset? position,
+  ) async {
     if (fileIdx >= state.files.length) return;
     final file = state.files[fileIdx];
-    final cs = Theme.of(context).colorScheme;
     final isStaged = state.viewMode == GitViewMode.staged;
 
-    showModalBottomSheet<void>(
+    final action = await showAdaptiveActionMenu<String>(
       context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                file.filePath,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const Divider(height: 1),
-            // Stage (only in Changes tab)
-            if (!isStaged)
-              ListTile(
-                leading: Icon(Icons.add_circle_outline, color: cs.primary),
-                title: const Text('Stage'),
-                onTap: () {
-                  Navigator.pop(context);
-                  cubit.stageFile(fileIdx);
-                },
-              ),
-            // Unstage (only in Staged tab)
-            if (isStaged)
-              ListTile(
-                leading: Icon(Icons.remove_circle_outline, color: cs.tertiary),
-                title: const Text('Unstage'),
-                onTap: () {
-                  Navigator.pop(context);
-                  cubit.unstageFile(fileIdx);
-                },
-              ),
-            // Revert (only in Changes tab)
-            if (!isStaged)
-              ListTile(
-                leading: Icon(Icons.undo, color: cs.error),
-                title: const Text('Revert'),
-                subtitle: const Text('Discard all changes in this file'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmRevert(
-                    context,
-                    title: 'この変更を破棄しますか',
-                    message: 'このファイルの未ステージ変更をすべて破棄します。',
-                    onConfirm: () => cubit.revertFile(fileIdx),
-                  );
-                },
-              ),
-            // Request Change (always available)
-            ListTile(
-              leading: Icon(Icons.rate_review_outlined, color: cs.secondary),
-              title: const Text('Request Change'),
-              subtitle: const Text('Send this file back to AI with feedback'),
-              onTap: () {
-                Navigator.pop(context);
-                _requestChange(
-                  context,
-                  DiffSelection(diffText: reconstructUnifiedDiff(file)),
-                );
-              },
-            ),
-          ],
+      position: position,
+      header: _DiffActionMenuHeader(filePath: file.filePath),
+      items: [
+        if (!isStaged)
+          const AdaptiveActionMenuItem(
+            value: 'stage',
+            icon: Icons.add_circle_outline,
+            label: 'Stage',
+          ),
+        if (isStaged)
+          const AdaptiveActionMenuItem(
+            value: 'unstage',
+            icon: Icons.remove_circle_outline,
+            label: 'Unstage',
+          ),
+        if (!isStaged)
+          const AdaptiveActionMenuItem(
+            value: 'revert',
+            icon: Icons.undo,
+            label: 'Revert',
+            subtitle: 'Discard all changes in this file',
+            destructive: true,
+          ),
+        const AdaptiveActionMenuItem(
+          value: 'request_change',
+          icon: Icons.rate_review_outlined,
+          label: 'Request Change',
+          subtitle: 'Send this file back to AI with feedback',
         ),
-      ),
+      ],
     );
+    if (!context.mounted || action == null) return;
+    switch (action) {
+      case 'stage':
+        cubit.stageFile(fileIdx);
+      case 'unstage':
+        cubit.unstageFile(fileIdx);
+      case 'revert':
+        _confirmRevert(
+          context,
+          title: 'この変更を破棄しますか',
+          message: 'このファイルの未ステージ変更をすべて破棄します。',
+          onConfirm: () => cubit.revertFile(fileIdx),
+        );
+      case 'request_change':
+        _requestChange(
+          context,
+          DiffSelection(diffText: reconstructUnifiedDiff(file)),
+        );
+    }
   }
 
   void _showHunkActionSheet(
@@ -348,93 +329,69 @@ class _GitScreenBody extends StatelessWidget {
     GitViewState state,
     int fileIdx,
     int hunkIdx,
-  ) {
+    Offset? position,
+  ) async {
     if (fileIdx >= state.files.length) return;
     final file = state.files[fileIdx];
     if (hunkIdx >= file.hunks.length) return;
     final hunk = file.hunks[hunkIdx];
-    final cs = Theme.of(context).colorScheme;
     final isStaged = state.viewMode == GitViewMode.staged;
 
-    showModalBottomSheet<void>(
+    final action = await showAdaptiveActionMenu<String>(
       context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-              child: Text(
-                file.filePath,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(
-                hunk.header,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  color: Theme.of(context).extension<AppColors>()!.subtleText,
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-            if (!isStaged)
-              ListTile(
-                leading: Icon(Icons.add_circle_outline, color: cs.primary),
-                title: const Text('Stage'),
-                onTap: () {
-                  Navigator.pop(context);
-                  cubit.stageHunk(fileIdx, hunkIdx);
-                },
-              ),
-            if (isStaged)
-              ListTile(
-                leading: Icon(Icons.remove_circle_outline, color: cs.tertiary),
-                title: const Text('Unstage'),
-                onTap: () {
-                  Navigator.pop(context);
-                  cubit.unstageHunk(fileIdx, hunkIdx);
-                },
-              ),
-            if (!isStaged)
-              ListTile(
-                leading: Icon(Icons.undo, color: cs.error),
-                title: const Text('Revert'),
-                subtitle: const Text('Discard changes in this hunk'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmRevert(
-                    context,
-                    title: 'この変更を破棄しますか',
-                    message: 'このハンクの未ステージ変更を破棄します。',
-                    onConfirm: () => cubit.revertHunk(fileIdx, hunkIdx),
-                  );
-                },
-              ),
-            ListTile(
-              leading: Icon(Icons.rate_review_outlined, color: cs.secondary),
-              title: const Text('Request Change'),
-              subtitle: const Text('Send this hunk back to AI with feedback'),
-              onTap: () {
-                Navigator.pop(context);
-                _requestChange(
-                  context,
-                  reconstructDiff(state.files, {'$fileIdx:$hunkIdx'}),
-                );
-              },
-            ),
-          ],
-        ),
+      position: position,
+      header: _DiffActionMenuHeader(
+        filePath: file.filePath,
+        subtitle: hunk.header,
       ),
+      items: [
+        if (!isStaged)
+          const AdaptiveActionMenuItem(
+            value: 'stage',
+            icon: Icons.add_circle_outline,
+            label: 'Stage',
+          ),
+        if (isStaged)
+          const AdaptiveActionMenuItem(
+            value: 'unstage',
+            icon: Icons.remove_circle_outline,
+            label: 'Unstage',
+          ),
+        if (!isStaged)
+          const AdaptiveActionMenuItem(
+            value: 'revert',
+            icon: Icons.undo,
+            label: 'Revert',
+            subtitle: 'Discard changes in this hunk',
+            destructive: true,
+          ),
+        const AdaptiveActionMenuItem(
+          value: 'request_change',
+          icon: Icons.rate_review_outlined,
+          label: 'Request Change',
+          subtitle: 'Send this hunk back to AI with feedback',
+        ),
+      ],
     );
+    if (!context.mounted || action == null) return;
+    switch (action) {
+      case 'stage':
+        cubit.stageHunk(fileIdx, hunkIdx);
+      case 'unstage':
+        cubit.unstageHunk(fileIdx, hunkIdx);
+      case 'revert':
+        _confirmRevert(
+          context,
+          title: 'この変更を破棄しますか',
+          message: 'このハンクの未ステージ変更を破棄します。',
+          onConfirm: () => cubit.revertHunk(fileIdx, hunkIdx),
+        );
+      case 'request_change':
+        _requestChange(
+          context,
+          reconstructDiff(state.files, {'$fileIdx:$hunkIdx'}),
+        );
+    }
   }
 
   Future<void> _confirmRevert(
@@ -472,6 +429,47 @@ class _GitScreenBody extends StatelessWidget {
       return;
     }
     context.router.maybePop(selection);
+  }
+}
+
+class _DiffActionMenuHeader extends StatelessWidget {
+  final String filePath;
+  final String? subtitle;
+
+  const _DiffActionMenuHeader({required this.filePath, this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    final subtleText = Theme.of(context).extension<AppColors>()!.subtleText;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          filePath,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              color: subtleText,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 }
 
@@ -538,6 +536,7 @@ class _GitScreenContent extends StatelessWidget {
     GitViewCubit cubit,
     GitViewState state,
     int fileIdx,
+    Offset? position,
   )
   onShowFileActionSheet;
   final void Function(
@@ -546,6 +545,7 @@ class _GitScreenContent extends StatelessWidget {
     GitViewState state,
     int fileIdx,
     int hunkIdx,
+    Offset? position,
   )
   onShowHunkActionSheet;
 
@@ -609,11 +609,18 @@ class _GitScreenContent extends StatelessWidget {
             )
           : null,
       onLongPressFile: isProjectMode
-          ? (fileIdx) => onShowFileActionSheet(context, cubit, state, fileIdx)
+          ? (fileIdx, position) =>
+                onShowFileActionSheet(context, cubit, state, fileIdx, position)
           : null,
       onLongPressHunk: isProjectMode
-          ? (fileIdx, hunkIdx) =>
-                onShowHunkActionSheet(context, cubit, state, fileIdx, hunkIdx)
+          ? (fileIdx, hunkIdx, position) => onShowHunkActionSheet(
+              context,
+              cubit,
+              state,
+              fileIdx,
+              hunkIdx,
+              position,
+            )
           : null,
       lineWrapEnabled: state.lineWrapEnabled,
     );

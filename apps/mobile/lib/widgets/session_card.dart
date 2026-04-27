@@ -6,6 +6,7 @@ import '../models/messages.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
 import '../utils/command_parser.dart';
+import 'adaptive_context_menu.dart';
 import 'codex_environment_summary.dart';
 import 'plan_detail_sheet.dart';
 import 'expandable_summary_text.dart';
@@ -19,6 +20,7 @@ class RunningSessionCard extends StatefulWidget {
   final SessionInfo session;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final ValueChanged<Offset?>? onShowActions;
   final void Function(String toolUseId, {bool clearContext})? onApprove;
   final ValueChanged<String>? onApproveAlways;
   final void Function(String toolUseId, {String? message})? onReject;
@@ -32,6 +34,7 @@ class RunningSessionCard extends StatefulWidget {
     required this.session,
     required this.onTap,
     this.onLongPress,
+    this.onShowActions,
     this.onApprove,
     this.onApproveAlways,
     this.onReject,
@@ -126,7 +129,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
       session.lastMessage.replaceAll(RegExp(r'\s+'), ' ').trim(),
     );
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
+    final card = Card(
       margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 0),
       elevation: 0,
       color: colorScheme.surfaceContainerHigh,
@@ -142,7 +145,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: widget.onTap,
-        onLongPress: widget.onLongPress,
+        onLongPress: widget.onShowActions == null ? widget.onLongPress : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -491,6 +494,10 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
         ),
       ),
     );
+
+    final onShowActions = widget.onShowActions;
+    if (onShowActions == null) return card;
+    return AdaptiveContextMenuRegion(onOpen: onShowActions, child: card);
   }
 
   String _formatElapsed(String isoDate) {
@@ -2368,6 +2375,7 @@ class RecentSessionCard extends StatelessWidget {
   final RecentSession session;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final ValueChanged<Offset?>? onShowActions;
   final bool hideProjectBadge;
   final SessionDisplayMode displayMode;
   final String? draftText;
@@ -2379,6 +2387,7 @@ class RecentSessionCard extends StatelessWidget {
     required this.session,
     required this.onTap,
     this.onLongPress,
+    this.onShowActions,
     this.hideProjectBadge = false,
     this.displayMode = SessionDisplayMode.first,
     this.draftText,
@@ -2400,7 +2409,7 @@ class RecentSessionCard extends StatelessWidget {
     );
     final dateStr = _formatDateRange(session.created, session.modified);
 
-    return Card(
+    final card = Card(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
       elevation: 0,
       color: colorScheme.surfaceContainerHigh,
@@ -2416,7 +2425,7 @@ class RecentSessionCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: isProcessing ? null : onTap,
-        onLongPress: isProcessing ? null : onLongPress,
+        onLongPress: isProcessing || onShowActions != null ? null : onLongPress,
         child: Stack(
           children: [
             Padding(
@@ -2626,6 +2635,9 @@ class RecentSessionCard extends StatelessWidget {
         ),
       ),
     );
+
+    if (isProcessing || onShowActions == null) return card;
+    return AdaptiveContextMenuRegion(onOpen: onShowActions!, child: card);
   }
 
   static String _displayTextForMode(

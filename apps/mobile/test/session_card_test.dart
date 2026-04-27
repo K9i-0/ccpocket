@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/l10n/app_localizations.dart';
@@ -1012,6 +1013,40 @@ void main() {
       await tester.longPress(find.byType(InkWell));
       await tester.pumpAndSettle();
       expect(longPressed, isTrue);
+    });
+
+    testWidgets('calls onShowActions callback on secondary click', (
+      tester,
+    ) async {
+      Offset? menuPosition;
+      final session = RecentSession(
+        sessionId: 'recent-secondary-click',
+        provider: 'codex',
+        summary: 'summary',
+        firstPrompt: 'prompt',
+        created: DateTime.now().toIso8601String(),
+        modified: DateTime.now().toIso8601String(),
+        gitBranch: 'main',
+        projectPath: '/home/user/my-app',
+        isSidechain: false,
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RecentSessionCard(
+            session: session,
+            onTap: () {},
+            onShowActions: (position) => menuPosition = position,
+          ),
+        ),
+      );
+
+      await tester.tapAt(
+        tester.getCenter(find.byType(RecentSessionCard)),
+        buttons: kSecondaryMouseButton,
+      );
+
+      expect(menuPosition, isNotNull);
     });
   });
 }

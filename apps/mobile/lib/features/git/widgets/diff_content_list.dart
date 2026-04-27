@@ -18,11 +18,12 @@ class DiffContentList extends StatelessWidget {
   final ValueChanged<int>? onSwipeStage;
   final ValueChanged<int>? onSwipeUnstage;
   final ValueChanged<int>? onSwipeRevert;
-  final ValueChanged<int>? onLongPressFile;
+  final void Function(int fileIdx, Offset? position)? onLongPressFile;
   final void Function(int fileIdx, int hunkIdx)? onSwipeStageHunk;
   final void Function(int fileIdx, int hunkIdx)? onSwipeUnstageHunk;
   final void Function(int fileIdx, int hunkIdx)? onSwipeRevertHunk;
-  final void Function(int fileIdx, int hunkIdx)? onLongPressHunk;
+  final void Function(int fileIdx, int hunkIdx, Offset? position)?
+  onLongPressHunk;
   final bool lineWrapEnabled;
   final Set<String> stagedFilePaths;
 
@@ -99,7 +100,10 @@ class DiffContentList extends StatelessWidget {
       onToggleCollapse: () => onToggleCollapse(fileIdx),
       stageStatus: _stageStatusFor(file),
       onLongPress: onLongPressFile != null
-          ? () => onLongPressFile!(fileIdx)
+          ? () => onLongPressFile!(fileIdx, null)
+          : null,
+      onShowActions: onLongPressFile != null
+          ? (position) => onLongPressFile!(fileIdx, position)
           : null,
     );
 
@@ -155,7 +159,10 @@ class DiffContentList extends StatelessWidget {
           dismissKey: '${file.filePath}:$hunkIdx',
           lineWrapEnabled: lineWrapEnabled,
           onLongPress: onLongPressHunk != null
-              ? () => onLongPressHunk!(fileIdx, hunkIdx)
+              ? () => onLongPressHunk!(fileIdx, hunkIdx, null)
+              : null,
+          onShowActions: onLongPressHunk != null
+              ? (position) => onLongPressHunk!(fileIdx, hunkIdx, position)
               : null,
           onSwipeStage: onSwipeStageHunk != null
               ? () => onSwipeStageHunk!(fileIdx, hunkIdx)

@@ -63,9 +63,11 @@ class HomeContent extends StatefulWidget {
   final void Function(String sessionId, String toolUseId, String result)?
   onAnswerQuestion;
   final ValueChanged<RecentSession> onResumeSession;
-  final ValueChanged<RecentSession> onLongPressRecentSession;
+  final void Function(RecentSession session, Offset? position)
+  onLongPressRecentSession;
   final ValueChanged<RecentSession> onArchiveSession;
-  final ValueChanged<SessionInfo> onLongPressRunningSession;
+  final void Function(SessionInfo session, Offset? position)
+  onLongPressRunningSession;
   final ValueChanged<String?> onSelectProject;
   final VoidCallback onLoadMore;
   final ProviderFilter providerFilter;
@@ -457,7 +459,10 @@ class HomeContentState extends State<HomeContent> {
                 isSelected:
                     selectedSessionId == session.id &&
                     selectedSessionProvider == session.provider,
-                onLongPress: () => widget.onLongPressRunningSession(session),
+                onLongPress: () =>
+                    widget.onLongPressRunningSession(session, null),
+                onShowActions: (position) =>
+                    widget.onLongPressRunningSession(session, position),
                 onStop: showInlineStopButton
                     ? () => widget.onStopSession(session.id)
                     : null,
@@ -614,7 +619,10 @@ class HomeContentState extends State<HomeContent> {
                       session.sessionId,
                     ),
                     onTap: () => widget.onResumeSession(session),
-                    onLongPress: () => widget.onLongPressRecentSession(session),
+                    onLongPress: () =>
+                        widget.onLongPressRecentSession(session, null),
+                    onShowActions: (position) =>
+                        widget.onLongPressRecentSession(session, position),
                   ),
                 ),
             if (widget.hasMoreSessions) ...[

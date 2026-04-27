@@ -23,6 +23,7 @@ import '../../services/connection_url_parser.dart';
 import '../../services/platform_environment_service.dart';
 import '../../services/server_discovery_service.dart';
 import '../../widgets/workspace_pane_chrome.dart';
+import '../../widgets/adaptive_context_menu.dart';
 import '../../widgets/new_session_sheet.dart';
 import '../../widgets/rename_session_dialog.dart';
 import '../settings/state/settings_cubit.dart';
@@ -965,31 +966,27 @@ class _SessionListScreenState extends State<SessionListScreen>
     );
   }
 
-  void _showRunningSessionActions(SessionInfo session) async {
+  void _showRunningSessionActions(
+    SessionInfo session, [
+    Offset? position,
+  ]) async {
     final l = AppLocalizations.of(context);
-    final action = await showModalBottomSheet<String>(
+    final action = await showAdaptiveActionMenu<String>(
       context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.label_outline),
-              title: Text(l.rename),
-              onTap: () => Navigator.pop(ctx, 'rename'),
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.stop_circle_outlined,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              title: Text(l.stopSession),
-              onTap: () => Navigator.pop(ctx, 'stop'),
-            ),
-          ],
+      position: position,
+      items: [
+        AdaptiveActionMenuItem(
+          value: 'rename',
+          icon: Icons.label_outline,
+          label: l.rename,
         ),
-      ),
+        AdaptiveActionMenuItem(
+          value: 'stop',
+          icon: Icons.stop_circle_outlined,
+          label: l.stopSession,
+          destructive: true,
+        ),
+      ],
     );
     if (action == null || !mounted) return;
 
@@ -1012,51 +1009,43 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
   }
 
-  void _showRecentSessionActions(RecentSession session) async {
+  void _showRecentSessionActions(
+    RecentSession session, [
+    Offset? position,
+  ]) async {
     final l = AppLocalizations.of(context);
-    final action = await showModalBottomSheet<String>(
+    final action = await showAdaptiveActionMenu<String>(
       context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.label_outline),
-              title: Text(l.rename),
-              onTap: () => Navigator.pop(ctx, 'rename'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.play_arrow),
-              title: Text(l.startNewWithSameSettings),
-              onTap: () => Navigator.pop(ctx, 'start_same'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.terminal),
-              title: Text(l.copyResumeCommand),
-              subtitle: Text(l.copyResumeCommandSubtitle),
-              onTap: () => Navigator.pop(ctx, 'copy_resume_command'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.tune),
-              title: Text(l.editSettingsThenStart),
-              onTap: () => Navigator.pop(ctx, 'start_edit'),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: Icon(
-                Icons.archive_outlined,
-                color: Theme.of(ctx).colorScheme.error,
-              ),
-              title: Text(
-                l.archive,
-                style: TextStyle(color: Theme.of(ctx).colorScheme.error),
-              ),
-              onTap: () => Navigator.pop(ctx, 'archive'),
-            ),
-          ],
+      position: position,
+      items: [
+        AdaptiveActionMenuItem(
+          value: 'rename',
+          icon: Icons.label_outline,
+          label: l.rename,
         ),
-      ),
+        AdaptiveActionMenuItem(
+          value: 'start_same',
+          icon: Icons.play_arrow,
+          label: l.startNewWithSameSettings,
+        ),
+        AdaptiveActionMenuItem(
+          value: 'copy_resume_command',
+          icon: Icons.terminal,
+          label: l.copyResumeCommand,
+          subtitle: l.copyResumeCommandSubtitle,
+        ),
+        AdaptiveActionMenuItem(
+          value: 'start_edit',
+          icon: Icons.tune,
+          label: l.editSettingsThenStart,
+        ),
+        AdaptiveActionMenuItem(
+          value: 'archive',
+          icon: Icons.archive_outlined,
+          label: l.archive,
+          destructive: true,
+        ),
+      ],
     );
     if (action == null || !mounted) return;
 

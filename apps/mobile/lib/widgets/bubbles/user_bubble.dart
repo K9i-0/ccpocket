@@ -6,6 +6,7 @@ import '../../models/messages.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/command_parser.dart';
+import '../adaptive_context_menu.dart';
 
 class UserBubble extends StatelessWidget {
   final String text;
@@ -42,7 +43,8 @@ class UserBubble extends StatelessWidget {
         text: text,
         onRetry: onRetry,
         onRewind: onRewind,
-        onShowContextMenu: () => _showContextMenu(context),
+        onShowContextMenu: (position) =>
+            _showContextMenu(context, position: position),
       );
     }
 
@@ -54,71 +56,43 @@ class UserBubble extends StatelessWidget {
       imageBytesList: imageBytesList,
       imageUrls: imageUrls,
       httpBaseUrl: httpBaseUrl,
-      onShowContextMenu: () => _showContextMenu(context),
+      onShowContextMenu: (position) =>
+          _showContextMenu(context, position: position),
     );
   }
 
-  void _showContextMenu(BuildContext context) {
-    showModalBottomSheet<void>(
+  void _showContextMenu(BuildContext context, {Offset? position}) async {
+    final action = await showAdaptiveActionMenu<String>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 32,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(ctx).colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.copy, size: 20),
-                title: Text(AppLocalizations.of(context).copy),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: text));
-                  Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(AppLocalizations.of(context).copied),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                },
-              ),
-              if (onRewind != null)
-                ListTile(
-                  dense: true,
-                  leading: Icon(
-                    Icons.history,
-                    size: 20,
-                    color: Theme.of(ctx).colorScheme.primary,
-                  ),
-                  title: Text(AppLocalizations.of(context).rewindToHere),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    onRewind!();
-                  },
-                ),
-            ],
-          ),
+      position: position,
+      items: [
+        AdaptiveActionMenuItem(
+          value: 'copy',
+          icon: Icons.copy,
+          label: AppLocalizations.of(context).copy,
         ),
-      ),
+        if (onRewind != null)
+          AdaptiveActionMenuItem(
+            value: 'rewind',
+            icon: Icons.history,
+            label: AppLocalizations.of(context).rewindToHere,
+          ),
+      ],
     );
+    if (!context.mounted || action == null) return;
+    if (action == 'copy') {
+      Clipboard.setData(ClipboardData(text: text));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).copied),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+      return;
+    }
+    if (action == 'rewind') {
+      onRewind?.call();
+    }
   }
 }
 
@@ -131,7 +105,7 @@ class _StandardBubble extends StatelessWidget {
   final List<Uint8List> imageBytesList;
   final List<String> imageUrls;
   final String? httpBaseUrl;
-  final VoidCallback onShowContextMenu;
+  final ValueChanged<Offset?> onShowContextMenu;
 
   const _StandardBubble({
     required this.displayText,
@@ -150,70 +124,52 @@ class _StandardBubble extends StatelessWidget {
 
     return Align(
       alignment: Alignment.centerRight,
-      child: GestureDetector(
-        onLongPress: onShowContextMenu,
-        onTap: status == MessageStatus.failed ? onRetry : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(
-                vertical: AppSpacing.bubbleMarginV,
-                horizontal: AppSpacing.bubbleMarginH,
-              ),
-              padding: const EdgeInsets.symmetric(
-                vertical: AppSpacing.bubblePaddingV,
-                horizontal: AppSpacing.bubblePaddingH,
-              ),
-              constraints: BoxConstraints(
-                maxWidth:
-                    MediaQuery.of(context).size.width *
-                    AppSpacing.maxBubbleWidthFraction,
-              ),
-              decoration: BoxDecoration(
-                color: appColors.userBubble,
-                borderRadius: AppSpacing.userBubbleBorderRadius,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (imageBytesList.isNotEmpty ||
-                      (imageUrls.isNotEmpty && httpBaseUrl != null))
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: [
-                          for (final bytes in imageBytesList)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.memory(
-                                bytes,
-                                width: imageBytesList.length == 1 ? 200 : 120,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Container(
-                                      width: imageBytesList.length == 1
-                                          ? 200
-                                          : 120,
-                                      height: 80,
-                                      color: Colors.grey[300],
-                                      child: const Icon(Icons.broken_image),
-                                    ),
-                              ),
-                            ),
-                          if (imageBytesList.isEmpty)
-                            for (final url in imageUrls)
+      child: AdaptiveContextMenuRegion(
+        onOpen: onShowContextMenu,
+        child: GestureDetector(
+          onTap: status == MessageStatus.failed ? onRetry : null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.bubbleMarginV,
+                  horizontal: AppSpacing.bubbleMarginH,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.bubblePaddingV,
+                  horizontal: AppSpacing.bubblePaddingH,
+                ),
+                constraints: BoxConstraints(
+                  maxWidth:
+                      MediaQuery.of(context).size.width *
+                      AppSpacing.maxBubbleWidthFraction,
+                ),
+                decoration: BoxDecoration(
+                  color: appColors.userBubble,
+                  borderRadius: AppSpacing.userBubbleBorderRadius,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (imageBytesList.isNotEmpty ||
+                        (imageUrls.isNotEmpty && httpBaseUrl != null))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            for (final bytes in imageBytesList)
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  '$httpBaseUrl$url',
-                                  width: imageUrls.length == 1 ? 200 : 120,
+                                child: Image.memory(
+                                  bytes,
+                                  width: imageBytesList.length == 1 ? 200 : 120,
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) =>
                                       Container(
-                                        width: imageUrls.length == 1
+                                        width: imageBytesList.length == 1
                                             ? 200
                                             : 120,
                                         height: 80,
@@ -222,22 +178,45 @@ class _StandardBubble extends StatelessWidget {
                                       ),
                                 ),
                               ),
-                        ],
+                            if (imageBytesList.isEmpty)
+                              for (final url in imageUrls)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    '$httpBaseUrl$url',
+                                    width: imageUrls.length == 1 ? 200 : 120,
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            Container(
+                                              width: imageUrls.length == 1
+                                                  ? 200
+                                                  : 120,
+                                              height: 80,
+                                              color: Colors.grey[300],
+                                              child: const Icon(
+                                                Icons.broken_image,
+                                              ),
+                                            ),
+                                  ),
+                                ),
+                          ],
+                        ),
                       ),
-                    ),
-                  if (displayText.isNotEmpty)
-                    Text(
-                      displayText,
-                      style: TextStyle(color: appColors.userBubbleText),
-                    ),
-                ],
+                    if (displayText.isNotEmpty)
+                      Text(
+                        displayText,
+                        style: TextStyle(color: appColors.userBubbleText),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.bubbleMarginH),
-              child: _StatusIndicator(status: status),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.bubbleMarginH),
+                child: _StatusIndicator(status: status),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -251,7 +230,7 @@ class _CommandBubble extends StatelessWidget {
   final String text;
   final VoidCallback? onRetry;
   final VoidCallback? onRewind;
-  final VoidCallback onShowContextMenu;
+  final ValueChanged<Offset?> onShowContextMenu;
 
   const _CommandBubble({
     required this.command,
@@ -269,56 +248,58 @@ class _CommandBubble extends StatelessWidget {
 
     return Align(
       alignment: Alignment.centerRight,
-      child: GestureDetector(
-        onLongPress: onShowContextMenu,
-        onTap: status == MessageStatus.failed ? onRetry : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(
-                vertical: AppSpacing.bubbleMarginV,
-                horizontal: AppSpacing.bubbleMarginH,
-              ),
-              padding: const EdgeInsets.symmetric(
-                vertical: AppSpacing.bubblePaddingV,
-                horizontal: AppSpacing.bubblePaddingH,
-              ),
-              constraints: BoxConstraints(
-                maxWidth:
-                    MediaQuery.of(context).size.width *
-                    AppSpacing.maxBubbleWidthFraction,
-              ),
-              decoration: BoxDecoration(
-                color: appColors.userBubble,
-                borderRadius: AppSpacing.userBubbleBorderRadius,
-              ),
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: command.commandName,
-                      style: TextStyle(
-                        color: appColors.userBubbleText,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                    if (hasArgs) ...[
+      child: AdaptiveContextMenuRegion(
+        onOpen: onShowContextMenu,
+        child: GestureDetector(
+          onTap: status == MessageStatus.failed ? onRetry : null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.bubbleMarginV,
+                  horizontal: AppSpacing.bubbleMarginH,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.bubblePaddingV,
+                  horizontal: AppSpacing.bubblePaddingH,
+                ),
+                constraints: BoxConstraints(
+                  maxWidth:
+                      MediaQuery.of(context).size.width *
+                      AppSpacing.maxBubbleWidthFraction,
+                ),
+                decoration: BoxDecoration(
+                  color: appColors.userBubble,
+                  borderRadius: AppSpacing.userBubbleBorderRadius,
+                ),
+                child: Text.rich(
+                  TextSpan(
+                    children: [
                       TextSpan(
-                        text: ' ${command.args}',
-                        style: TextStyle(color: appColors.userBubbleText),
+                        text: command.commandName,
+                        style: TextStyle(
+                          color: appColors.userBubbleText,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'monospace',
+                        ),
                       ),
+                      if (hasArgs) ...[
+                        TextSpan(
+                          text: ' ${command.args}',
+                          style: TextStyle(color: appColors.userBubbleText),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.bubbleMarginH),
-              child: _StatusIndicator(status: status),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.bubbleMarginH),
+                child: _StatusIndicator(status: status),
+              ),
+            ],
+          ),
         ),
       ),
     );
