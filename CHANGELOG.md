@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.78.0] - 2026-04-27
+
+### Added
+- Add keyboard shortcuts for completion navigation in the chat composer
+- Add keyboard shortcuts for prompt editing in the chat composer
+
+### Fixed
+- Pad macOS workspace pane actions so controls do not overlap window chrome
+- Remove the empty native toolbar from the macOS app window
+
 ## [1.77.0] - 2026-04-27
 
 ### Added
