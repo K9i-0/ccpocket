@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.77.0] - 2026-04-27
+
+### Added
+- Add desktop context menus for session cards, user messages, and Git diff actions
+
+### Fixed
+- Clear the workspace session pane after stopping a session
+
 ## [1.76.0] - 2026-04-27
 
 ### Added
