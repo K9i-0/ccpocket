@@ -20,6 +20,15 @@ enum FcmStatusKey {
 
 enum UsageDisplayMode { remaining, used }
 
+/// Minimum allowed value for [SettingsState.textScale].
+const double textScaleMin = 0.5;
+
+/// Maximum allowed value for [SettingsState.textScale].
+const double textScaleMax = 1.5;
+
+/// Default text scale (1.0 = follow the system default with no extra scaling).
+const double textScaleDefault = 1.0;
+
 /// Application-wide user settings.
 @freezed
 abstract class SettingsState with _$SettingsState {
@@ -60,6 +69,11 @@ abstract class SettingsState with _$SettingsState {
 
     /// Indent size for list formatting (1-4 spaces).
     @Default(2) int indentSize,
+
+    /// Global text scale factor applied to the whole app.
+    /// Range: [textScaleMin] - [textScaleMax]. 1.0 means no extra scaling
+    /// on top of the system default font size.
+    @Default(textScaleDefault) double textScale,
 
     /// Whether to hide the voice input button in the chat input bar.
     @Default(false) bool hideVoiceInput,

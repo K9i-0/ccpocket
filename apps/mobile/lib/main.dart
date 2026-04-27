@@ -436,6 +436,16 @@ class _CcpocketAppState extends State<CcpocketApp> {
             navigatorObservers: () => [SessionRouteObserver()],
           ),
           debugShowCheckedModeBanner: false,
+          builder: (context, child) {
+            if (child == null) return const SizedBox.shrink();
+            final mq = MediaQuery.of(context);
+            return MediaQuery(
+              data: mq.copyWith(
+                textScaler: TextScaler.linear(settings.textScale),
+              ),
+              child: child,
+            );
+          },
         );
       },
     );
