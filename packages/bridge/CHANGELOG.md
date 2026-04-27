@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.45.4] - 2026-04-27
+
+### Fixed
+- Handle Codex MCP message-only elicitation approvals, including computer-use prompts, as approval actions instead of free-form questions
+- Return the correct cancel/session decisions for Codex MCP elicitation approval responses
+
 ## [1.45.3] - 2026-04-26
 
 ### Fixed
