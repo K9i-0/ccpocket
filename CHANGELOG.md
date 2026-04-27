@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.76.0] - 2026-04-27
+
+### Added
+- Add Codex plugin completions to the `@` mention overlay and send selected plugins as `plugin://...` mentions
+- Add Codex plugin metadata parsing and composer highlighting for plugin mentions
+
+### Changed
+- Require Bridge 1.46.0 for Codex plugin completion support
+- Keep Codex apps under `$` and plugins under `@`, with updated input helper tooltips
+- Relax review appeal eligibility and improve appeal action ordering
+
+### Fixed
+- Handle Codex plugin metadata whose starter prompts arrive as arrays without showing parse errors
+- Restore Codex image generation history rendering
+
 ## [1.75.0] - 2026-04-25
 
 ### Added
