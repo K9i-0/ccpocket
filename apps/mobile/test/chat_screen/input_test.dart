@@ -150,5 +150,106 @@ void main() {
         expect(textField.controller?.text, '@bb.dart ');
       },
     );
+
+    patrolWidgetTest('H7: Ctrl+N/P navigate file completion and Tab selects', (
+      $,
+    ) async {
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+      await pumpN($.tester);
+
+      await emitAndPump($.tester, bridge, [
+        const StatusMessage(status: ProcessStatus.idle),
+      ]);
+      bridge.emitFileList(['a.dart', 'bb.dart', 'ccc.dart']);
+      await pumpN($.tester);
+
+      await $.tester.enterText(
+        find.byKey(const ValueKey('message_input')),
+        '@',
+      );
+      await pumpN($.tester);
+
+      await $.tester.sendKeyDownEvent(
+        LogicalKeyboardKey.keyN,
+        character: '\u000e',
+      );
+      await $.tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+      await $.tester.sendKeyDownEvent(
+        LogicalKeyboardKey.keyN,
+        character: '\u000e',
+      );
+      await $.tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
+      await $.tester.sendKeyDownEvent(
+        LogicalKeyboardKey.keyP,
+        character: '\u0010',
+      );
+      await $.tester.sendKeyUpEvent(LogicalKeyboardKey.keyP);
+      await $.tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await $.tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+      await pumpN($.tester);
+
+      final textField = $.tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      expect(textField.controller?.text, '@bb.dart ');
+    });
+
+    patrolWidgetTest('H8: Ctrl+A/E jump to first and last file completions', (
+      $,
+    ) async {
+      await $.pumpWidget(await buildTestChatScreen(bridge: bridge));
+      await pumpN($.tester);
+
+      await emitAndPump($.tester, bridge, [
+        const StatusMessage(status: ProcessStatus.idle),
+      ]);
+      bridge.emitFileList(['a.dart', 'bb.dart', 'ccc.dart']);
+      await pumpN($.tester);
+
+      await $.tester.enterText(
+        find.byKey(const ValueKey('message_input')),
+        '@',
+      );
+      await pumpN($.tester);
+
+      await $.tester.sendKeyDownEvent(
+        LogicalKeyboardKey.keyE,
+        character: '\u0005',
+      );
+      await $.tester.sendKeyUpEvent(LogicalKeyboardKey.keyE);
+      await $.tester.sendKeyDownEvent(
+        LogicalKeyboardKey.keyA,
+        character: '\u0001',
+      );
+      await $.tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+      await $.tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await $.tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+      await pumpN($.tester);
+
+      var textField = $.tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      expect(textField.controller?.text, '@a.dart ');
+
+      await $.tester.enterText(
+        find.byKey(const ValueKey('message_input')),
+        '@',
+      );
+      await pumpN($.tester);
+
+      await $.tester.sendKeyDownEvent(
+        LogicalKeyboardKey.keyE,
+        character: '\u0005',
+      );
+      await $.tester.sendKeyUpEvent(LogicalKeyboardKey.keyE);
+      await $.tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+      await $.tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+      await pumpN($.tester);
+
+      textField = $.tester.widget<TextField>(
+        find.byKey(const ValueKey('message_input')),
+      );
+      expect(textField.controller?.text, '@ccc.dart ');
+    });
   });
 }

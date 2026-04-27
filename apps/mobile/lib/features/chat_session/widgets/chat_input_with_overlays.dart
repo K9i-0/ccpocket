@@ -453,6 +453,17 @@ class ChatInputWithOverlays extends HookWidget {
       selectedCompletionIndex.value = (current + delta + count) % count;
     }
 
+    void moveCompletionSelectionToStart() {
+      if (activeCompletionCount() <= 0) return;
+      selectedCompletionIndex.value = 0;
+    }
+
+    void moveCompletionSelectionToEnd() {
+      final count = activeCompletionCount();
+      if (count <= 0) return;
+      selectedCompletionIndex.value = count - 1;
+    }
+
     void hideAllCompletions() {
       _setPortalVisibility(slashPortalController, visible: false);
       _setPortalVisibility(dollarPortalController, visible: false);
@@ -489,6 +500,22 @@ class ChatInputWithOverlays extends HookWidget {
     KeyEventResult handleCompletionKeyEvent(KeyEvent event) {
       if (activeCompletion.value == null) return KeyEventResult.ignored;
       final key = event.logicalKey;
+      if (_isCompletionNextShortcut(event)) {
+        moveCompletionSelection(1);
+        return KeyEventResult.handled;
+      }
+      if (_isCompletionPreviousShortcut(event)) {
+        moveCompletionSelection(-1);
+        return KeyEventResult.handled;
+      }
+      if (_isCompletionStartShortcut(event)) {
+        moveCompletionSelectionToStart();
+        return KeyEventResult.handled;
+      }
+      if (_isCompletionEndShortcut(event)) {
+        moveCompletionSelectionToEnd();
+        return KeyEventResult.handled;
+      }
       if (key == LogicalKeyboardKey.arrowDown) {
         moveCompletionSelection(1);
         return KeyEventResult.handled;
@@ -1031,6 +1058,63 @@ Widget _wrapWithDropRegion({
     onPerformDrop: onPerformDrop,
     child: child,
   );
+}
+
+bool _isCompletionNextShortcut(KeyEvent event) {
+  return _isControlStyleTextShortcut(
+    event,
+    key: LogicalKeyboardKey.keyN,
+    controlCharacter: 0x0e,
+  );
+}
+
+bool _isCompletionPreviousShortcut(KeyEvent event) {
+  return _isControlStyleTextShortcut(
+    event,
+    key: LogicalKeyboardKey.keyP,
+    controlCharacter: 0x10,
+  );
+}
+
+bool _isCompletionStartShortcut(KeyEvent event) {
+  return _isControlStyleTextShortcut(
+    event,
+    key: LogicalKeyboardKey.keyA,
+    controlCharacter: 0x01,
+  );
+}
+
+bool _isCompletionEndShortcut(KeyEvent event) {
+  return _isControlStyleTextShortcut(
+    event,
+    key: LogicalKeyboardKey.keyE,
+    controlCharacter: 0x05,
+  );
+}
+
+bool _isControlStyleTextShortcut(
+  KeyEvent event, {
+  required LogicalKeyboardKey key,
+  required int controlCharacter,
+}) {
+  if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+  if (event.logicalKey != key) return false;
+
+  final hardware = HardwareKeyboard.instance;
+  if (hardware.isMetaPressed ||
+      hardware.isAltPressed ||
+      hardware.isShiftPressed) {
+    return false;
+  }
+  if (hardware.isControlPressed) return true;
+
+  // macOS can deliver Ctrl+letter text-editing bindings without the control
+  // modifier set. Treat non-printing variants as shortcut input, while allowing
+  // normal printable letters to keep filtering completion results.
+  final character = event.character;
+  if (character == null) return true;
+  final runes = character.runes.toList(growable: false);
+  return runes.length == 1 && runes.single == controlCharacter;
 }
 
 /// Detect MIME type from image bytes using magic bytes.
