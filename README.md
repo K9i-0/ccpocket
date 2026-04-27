@@ -4,22 +4,26 @@ CC Pocket is a mobile client for Codex and Claude coding-agent sessions. Start o
 
 [日本語版 README](README.ja.md) | [简体中文版 README](README.zh-CN.md)
 
-## Install
+## Quick Start
 
-Set up CC Pocket in three steps:
+Try CC Pocket in three steps:
 
-1. Install the app on iOS, Android, or macOS.
-2. Run the Bridge Server on the machine that has Codex or Claude installed.
-3. Scan the terminal QR code from the app and start a session.
+1. Run the Bridge Server on your Mac or Linux machine:
+
+```bash
+npx @ccpocket/bridge@latest
+```
+
+2. Install CC Pocket on iOS, Android, or macOS and scan the QR code printed in your terminal.
+3. Pick a project, choose Codex or Claude, and start a session from the app.
 
 | Platform | Install |
 |----------|---------|
 | **iOS / iPadOS** | <a href="https://apps.apple.com/us/app/cc-pocket-code-anywhere/id6759188790"><img height="40" alt="Download on the App Store" src="docs/images/app-store-badge.svg" /></a> |
 | **Android** | <a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Get it on Google Play" src="docs/images/google-play-badge-en.svg" /></a> |
 | **macOS** | Download the latest `.dmg` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos). Look for releases tagged `macos/v*`. |
-| **Bridge Server** | Run `npx @ccpocket/bridge@latest` on the machine that will run Codex or Claude. |
 
-The Bridge Server prints a QR code in your terminal. Scan it from the app to connect.
+The Bridge Server runs on the machine that has Codex or Claude installed. For access away from your local network, use Tailscale and connect to your machine's Tailscale address.
 
 <p align="center">
   <img src="docs/images/screenshots.png" alt="CC Pocket screenshots" width="800">
