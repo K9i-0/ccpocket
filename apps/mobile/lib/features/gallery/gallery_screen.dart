@@ -83,7 +83,7 @@ class GalleryScreen extends HookWidget {
                     ).galleryWithCount(images.length),
             ),
           ),
-          actions: [
+          actions: chrome.padActions([
             if (embedded && onClose != null)
               IconButton(
                 key: const ValueKey('embedded_gallery_close_button'),
@@ -94,7 +94,7 @@ class GalleryScreen extends HookWidget {
                 tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                 icon: const Icon(Icons.close),
               ),
-          ],
+          ]),
         ),
       ),
       body: images.isEmpty

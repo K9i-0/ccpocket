@@ -195,7 +195,7 @@ class _GitScreenBody extends StatelessWidget {
           title: chrome.wrapTitle(
             Text(screenTitle, overflow: TextOverflow.ellipsis),
           ),
-          actions: [
+          actions: chrome.padActions([
             if (isProjectMode && !state.loading)
               _FileListAppBarButton(
                 state: state,
@@ -222,7 +222,7 @@ class _GitScreenBody extends StatelessWidget {
                     : null,
                 onPressed: cubit.refresh,
               ),
-          ],
+          ]),
         ),
       ),
       bottomNavigationBar: isProjectMode

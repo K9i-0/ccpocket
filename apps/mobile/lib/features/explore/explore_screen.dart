@@ -189,7 +189,7 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
                     : kToolbarHeight,
               ),
               titleSpacing: chrome.resolveTitleSpacing(hasLeading: true),
-              actions: [
+              actions: chrome.padActions([
                 IconButton(
                   key: const ValueKey('explore_recent_files_button'),
                   onPressed: () => _openRecentFilesSheet(cubit),
@@ -199,7 +199,7 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
                   icon: const Icon(Icons.history),
                   tooltip: 'Recent files',
                 ),
-              ],
+              ]),
             ),
           ),
           body: Column(

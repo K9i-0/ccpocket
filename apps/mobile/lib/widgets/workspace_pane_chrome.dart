@@ -146,6 +146,11 @@ class WorkspacePaneChrome {
     );
   }
 
+  List<Widget> padActions(List<Widget> actions) {
+    if (actions.isEmpty || !useMacOSAdaptiveChrome) return actions;
+    return [...actions, const SizedBox(width: kWorkspacePaneHorizontalPadding)];
+  }
+
   PreferredSizeWidget wrapAppBar(PreferredSizeWidget appBar) {
     if (topInset == 0) return appBar;
     return PreferredSize(
