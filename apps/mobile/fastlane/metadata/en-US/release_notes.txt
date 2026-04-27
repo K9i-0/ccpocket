@@ -1,5 +1,2 @@
-- You can now queue the next message while a Codex session is still running.
-- Added support for Codex's imagegen skill.
-- New Codex sessions can now include additional writable directories.
-- Added a setting to switch how usage limits are displayed.
-- Improved keyboard navigation for input completions, iPad workspace pane syncing, and setting restoration when resuming sessions.
+- You can now select and send Codex plugins from @ mentions. This lets you direct tools like Computer Use from your phone.
+- Other minor fixes and improvements.
