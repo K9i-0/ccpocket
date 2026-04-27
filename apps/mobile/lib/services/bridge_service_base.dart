@@ -7,6 +7,7 @@ abstract class BridgeServiceBase {
   String? get httpBaseUrl;
   bool get isConnected;
   Stream<BridgeConnectionState> get connectionStatus;
+  Stream<String> get stoppedSessions;
   void send(ClientMessage message);
   void requestSessionHistory(String sessionId);
   void stopSession(String sessionId);

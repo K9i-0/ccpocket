@@ -334,6 +334,7 @@ class HomeContentState extends State<HomeContent> {
     final selectedSession = shell?.selectedSession;
     final selectedSessionId = selectedSession?.sessionId;
     final selectedSessionProvider = selectedSession?.provider?.value;
+    final showInlineStopButton = shell != null;
 
     // Compute derived state
     // Exclude running sessions from recent list to avoid duplicates
@@ -457,6 +458,9 @@ class HomeContentState extends State<HomeContent> {
                     selectedSessionId == session.id &&
                     selectedSessionProvider == session.provider,
                 onLongPress: () => widget.onLongPressRunningSession(session),
+                onStop: showInlineStopButton
+                    ? () => widget.onStopSession(session.id)
+                    : null,
                 onTap: () => widget.onTapRunning(
                   session.id,
                   projectPath: session.projectPath,

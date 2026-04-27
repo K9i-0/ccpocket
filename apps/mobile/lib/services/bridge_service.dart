@@ -130,6 +130,7 @@ class BridgeService implements BridgeServiceBase {
       _connectionController.stream;
   @override
   Stream<List<SessionInfo>> get sessionList => _sessionListController.stream;
+  @override
   Stream<String> get stoppedSessions => _sessionStoppedController.stream;
   Stream<List<RecentSession>> get recentSessionsStream =>
       _recentSessionsController.stream;
@@ -403,6 +404,18 @@ class BridgeService implements BridgeServiceBase {
                 // reflects status changes in real-time.
                 if (sessionId != null) {
                   _patchSessionStatus(sessionId, status);
+                }
+                _taggedMessageController.add((msg, sessionId));
+                _messageController.add(msg);
+              case ResultMessage(:final subtype) when subtype == 'stopped':
+                if (sessionId != null) {
+                  clearExplorerHistory(sessionId);
+                  _sessions = _sessions
+                      .where((session) => session.id != sessionId)
+                      .toList();
+                  _sessionListController.add(_sessions);
+                  _sessionStoppedController.add(sessionId);
+                  clearDiffImageCache();
                 }
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);

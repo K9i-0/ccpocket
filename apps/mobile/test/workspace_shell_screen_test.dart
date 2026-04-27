@@ -28,6 +28,7 @@ class _MockBridgeService extends BridgeService {
   final _messageController = StreamController<ServerMessage>.broadcast();
   final _activeSessionsController =
       StreamController<List<SessionInfo>>.broadcast();
+  final _stoppedSessionsController = StreamController<String>.broadcast();
   final _recentSessionsController =
       StreamController<List<RecentSession>>.broadcast();
   final _galleryController = StreamController<List<GalleryImage>>.broadcast();
@@ -35,6 +36,7 @@ class _MockBridgeService extends BridgeService {
   final _fileListController = StreamController<List<String>>.broadcast();
 
   BridgeConnectionState _state;
+  List<SessionInfo> _sessions = const [];
   List<GalleryImage> _images = const [];
 
   _MockBridgeService({
@@ -50,6 +52,9 @@ class _MockBridgeService extends BridgeService {
 
   @override
   Stream<List<SessionInfo>> get sessionList => _activeSessionsController.stream;
+
+  @override
+  Stream<String> get stoppedSessions => _stoppedSessionsController.stream;
 
   @override
   Stream<List<RecentSession>> get recentSessionsStream =>
@@ -69,6 +74,9 @@ class _MockBridgeService extends BridgeService {
   bool get isConnected => _state == BridgeConnectionState.connected;
 
   @override
+  List<SessionInfo> get sessions => _sessions;
+
+  @override
   String? get httpBaseUrl => 'http://localhost:8765';
 
   @override
@@ -86,7 +94,12 @@ class _MockBridgeService extends BridgeService {
   }
 
   void emitSessions(List<SessionInfo> sessions) {
+    _sessions = sessions;
     _activeSessionsController.add(sessions);
+  }
+
+  void emitStopped(String sessionId) {
+    _stoppedSessionsController.add(sessionId);
   }
 
   void setGalleryImages(List<GalleryImage> images) {
@@ -121,7 +134,9 @@ class _MockBridgeService extends BridgeService {
   }
 
   @override
-  void stopSession(String sessionId) {}
+  void stopSession(String sessionId) {
+    emitStopped(sessionId);
+  }
 
   @override
   void requestSessionHistory(String sessionId) {}
@@ -140,6 +155,7 @@ class _MockBridgeService extends BridgeService {
     _connectionController.close();
     _messageController.close();
     _activeSessionsController.close();
+    _stoppedSessionsController.close();
     _recentSessionsController.close();
     _galleryController.close();
     _projectHistoryController.close();
@@ -1160,6 +1176,106 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'stopping selected running session clears center pane in workspace layout',
+    (tester) async {
+      final bridge = _MockBridgeService();
+      final settingsCubit = await _createSettingsCubit(bridge);
+      final draftService = DraftService(await SharedPreferences.getInstance());
+      final revenueCatService = _FakeRevenueCatService();
+      final supportBannerService = await _createSupportBannerService();
+      final shellKey = GlobalKey<WorkspaceShellScreenState>();
+      final session = _runningSession(
+        id: 'session-1',
+        provider: Provider.codex,
+      );
+
+      await tester.pumpWidget(
+        _buildWorkspaceApp(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+          shellKey: shellKey,
+        ),
+      );
+      await _pumpUi(tester);
+
+      bridge.emitSessions([session]);
+      await _pumpUi(tester);
+
+      shellKey.currentState!.selectSession(
+        const WorkspaceSessionSelection(
+          sessionId: 'session-1',
+          projectPath: '/Users/demo/project-session-1',
+          provider: Provider.codex,
+          isPending: true,
+        ),
+      );
+      await _pumpUi(tester);
+
+      expect(find.text('Creating session...'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('running_session_stop_button')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('running_session_stop_button')),
+      );
+      await _pumpUi(tester);
+
+      expect(find.text('Creating session...'), findsNothing);
+      expect(find.text('Select a session in the left pane.'), findsOneWidget);
+      expect(NotificationService.instance.activeSessionId, isNull);
+    },
+  );
+
+  testWidgets('remote stopped notification clears selected workspace session', (
+    tester,
+  ) async {
+    final bridge = _MockBridgeService();
+    final settingsCubit = await _createSettingsCubit(bridge);
+    final draftService = DraftService(await SharedPreferences.getInstance());
+    final revenueCatService = _FakeRevenueCatService();
+    final supportBannerService = await _createSupportBannerService();
+    final shellKey = GlobalKey<WorkspaceShellScreenState>();
+
+    await tester.pumpWidget(
+      _buildWorkspaceApp(
+        bridge: bridge,
+        settingsCubit: settingsCubit,
+        draftService: draftService,
+        revenueCatService: revenueCatService,
+        supportBannerService: supportBannerService,
+        shellKey: shellKey,
+      ),
+    );
+    await _pumpUi(tester);
+
+    shellKey.currentState!.selectSession(
+      const WorkspaceSessionSelection(
+        sessionId: 'session-remote',
+        projectPath: '/Users/demo/project-remote',
+        provider: Provider.codex,
+        isPending: true,
+      ),
+    );
+    await _pumpUi(tester);
+
+    expect(find.text('Creating session...'), findsOneWidget);
+
+    bridge.emitStopped('session-remote');
+    await _pumpUi(tester);
+
+    expect(find.text('Creating session...'), findsNothing);
+    expect(
+      find.text('Create a session from New in the left pane.'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('disconnected connect form opens setup guide in center pane', (
     tester,

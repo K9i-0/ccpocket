@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -260,6 +262,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   _WorkspaceCenterRoot _centerRoot = _WorkspaceCenterRoot.offline;
   _WorkspaceCenterOverlay _centerOverlay = _WorkspaceCenterOverlay.none;
   WorkspaceSessionSelection? _selectedSession;
+  StreamSubscription<String>? _stoppedSessionSub;
   bool _settingsFocusSupport = false;
   int _settingsPresentationVersion = 0;
   double? _rightPaneUserWidth;
@@ -278,6 +281,14 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   }
 
   bool isToolPaneOpen(String paneId) => _toolPane?.id == paneId;
+
+  @override
+  void initState() {
+    super.initState();
+    _stoppedSessionSub = context.read<BridgeService>().stoppedSessions.listen(
+      _clearSelectedSessionIfStopped,
+    );
+  }
 
   void registerSessionToolPaneBindings({
     required String sessionId,
@@ -607,6 +618,11 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
     _notifyPresentationChanged();
   }
 
+  void _clearSelectedSessionIfStopped(String sessionId) {
+    if (_selectedSession?.sessionId != sessionId) return;
+    clearSelectedSession();
+  }
+
   void _syncLayoutState(_WorkspaceLayoutMode nextMode) {
     if (nextMode == _layoutMode) {
       return;
@@ -650,6 +666,7 @@ class WorkspaceShellScreenState extends State<WorkspaceShellScreen> {
   @override
   void dispose() {
     NotificationService.instance.clearActiveSession();
+    _stoppedSessionSub?.cancel();
     _presentationVersion.dispose();
     super.dispose();
   }

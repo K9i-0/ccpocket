@@ -23,6 +23,7 @@ class RunningSessionCard extends StatefulWidget {
   final ValueChanged<String>? onApproveAlways;
   final void Function(String toolUseId, {String? message})? onReject;
   final void Function(String toolUseId, String result)? onAnswer;
+  final VoidCallback? onStop;
   final bool isUnseen;
   final bool isSelected;
 
@@ -35,6 +36,7 @@ class RunningSessionCard extends StatefulWidget {
     this.onApproveAlways,
     this.onReject,
     this.onAnswer,
+    this.onStop,
     this.isUnseen = false,
     this.isSelected = false,
   });
@@ -191,6 +193,10 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                  ],
+                  if (widget.onStop != null) ...[
+                    const Spacer(),
+                    _RunningSessionStopButton(onPressed: widget.onStop!),
                   ],
                 ],
               ),
@@ -499,6 +505,32 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     } catch (_) {
       return '';
     }
+  }
+}
+
+class _RunningSessionStopButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _RunningSessionStopButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    return IconButton(
+      key: const ValueKey('running_session_stop_button'),
+      onPressed: onPressed,
+      tooltip: l.stopSession,
+      icon: const Icon(Icons.stop_circle_outlined),
+      iconSize: 18,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 32, height: 28),
+      style: IconButton.styleFrom(
+        foregroundColor: colorScheme.error,
+        backgroundColor: colorScheme.errorContainer.withValues(alpha: 0.26),
+      ),
+    );
   }
 }
 

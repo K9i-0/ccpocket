@@ -2235,7 +2235,7 @@ export class BridgeWebSocketServer {
           });
           this.debugEvents.delete(msg.sessionId);
           this.notifiedPermissionToolUses.delete(msg.sessionId);
-          this.sendSessionList(ws);
+          this.broadcastSessionList();
         } else {
           this.send(ws, {
             type: "error",
