@@ -1622,7 +1622,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get spreadAppealMessage =>
-      'CC Pocket はまだ利用者が少なく、このままだと開発を続けるのが難しい状況です。気に入っていたら、ストア評価（星だけでOK）、GitHub スター、知り合いへの紹介で応援してください。';
+      'CC Pocket はまだ利用者が少なく、このままだと開発を続けるのが難しい状況です。気に入っていたら、ストア評価（星だけでOK）や知り合いへの紹介で応援してください。';
 
   @override
   String get shareApp => 'SNSでシェア';

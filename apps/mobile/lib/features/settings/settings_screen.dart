@@ -554,6 +554,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     children: [
                       const _SpreadAppealMessage(),
+                      // Rate on Store (mobile only)
+                      if (isMobilePlatform) ...[
+                        ListTile(
+                          leading: Icon(
+                            Icons.rate_review_outlined,
+                            color: cs.primary,
+                          ),
+                          title: Text(
+                            Platform.isIOS
+                                ? l.rateOnStore
+                                : l.rateOnStoreAndroid,
+                          ),
+                          trailing: const Icon(Icons.open_in_new, size: 18),
+                          onTap: () => launchUrl(
+                            Uri.parse(
+                              Platform.isIOS
+                                  ? AppConstants.appStoreUrl
+                                  : AppConstants.playStoreUrl,
+                            ),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                        ),
+                        Divider(
+                          height: 1,
+                          indent: 16,
+                          endIndent: 16,
+                          color: cs.outlineVariant,
+                        ),
+                      ],
                       // Share on SNS
                       ListTile(
                         leading: Icon(Icons.share, color: cs.primary),
@@ -579,35 +608,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           mode: LaunchMode.externalApplication,
                         ),
                       ),
-                      // Rate on Store (mobile only)
-                      if (isMobilePlatform) ...[
-                        Divider(
-                          height: 1,
-                          indent: 16,
-                          endIndent: 16,
-                          color: cs.outlineVariant,
-                        ),
-                        ListTile(
-                          leading: Icon(
-                            Icons.rate_review_outlined,
-                            color: cs.primary,
-                          ),
-                          title: Text(
-                            Platform.isIOS
-                                ? l.rateOnStore
-                                : l.rateOnStoreAndroid,
-                          ),
-                          trailing: const Icon(Icons.open_in_new, size: 18),
-                          onTap: () => launchUrl(
-                            Uri.parse(
-                              Platform.isIOS
-                                  ? AppConstants.appStoreUrl
-                                  : AppConstants.playStoreUrl,
-                            ),
-                            mode: LaunchMode.externalApplication,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),

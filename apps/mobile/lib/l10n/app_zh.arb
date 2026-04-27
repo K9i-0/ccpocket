@@ -818,7 +818,7 @@
   "terminalAppExperimentalNote": "此功能仍为实验性功能。预设不一定适用于所有应用或配置。欢迎在 GitHub 上贡献新的预设！",
 
   "sectionSpread": "喜欢 CC POCKET 吗？",
-  "spreadAppealMessage": "CC Pocket 的用户还不多，继续开发需要更多人支持。如果你喜欢它，给商店评分（只点星也可以）、给 GitHub 点星，或推荐给朋友都会很有帮助。",
+  "spreadAppealMessage": "CC Pocket 的用户还不多，继续开发需要更多人支持。如果你喜欢它，给商店评分（只点星也可以）或推荐给朋友都会很有帮助。",
   "shareApp": "分享给朋友",
   "shareAppSubtitle": "告诉你的朋友和同事",
   "shareText": "CC Pocket: Claude & Codex\n用手机控制你的编程 Agent \ud83d\udcf1\n#ccpocket\n{url}",

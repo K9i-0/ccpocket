@@ -1606,7 +1606,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get spreadAppealMessage =>
-      'CC Pocket 的用户还不多，继续开发需要更多人支持。如果你喜欢它，给商店评分（只点星也可以）、给 GitHub 点星，或推荐给朋友都会很有帮助。';
+      'CC Pocket 的用户还不多，继续开发需要更多人支持。如果你喜欢它，给商店评分（只点星也可以）或推荐给朋友都会很有帮助。';
 
   @override
   String get shareApp => '分享给朋友';

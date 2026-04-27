@@ -434,8 +434,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(l.spreadAppealMessage), findsOneWidget);
+      expect(l.spreadAppealMessage, isNot(contains('GitHub')));
       expect(find.text(l.shareApp), findsOneWidget);
       expect(find.text(l.starOnGithub), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text(l.shareApp)).dy,
+        lessThan(tester.getTopLeft(find.text(l.starOnGithub)).dy),
+      );
 
       await settingsCubit.close();
       await machineManagerCubit.close();
