@@ -729,6 +729,7 @@
   "terminalAppExperimentalNote": "この機能はプレビュー版です。プリセットはアプリや環境によって動作しない場合があります。新しいプリセットの追加は GitHub で歓迎しています！",
 
   "sectionSpread": "CC Pocket を広める",
+  "spreadAppealMessage": "CC Pocket はまだ利用者が少なく、このままだと開発を続けるのが難しい状況です。気に入っていたら、ストア評価（星だけでOK）、GitHub スター、知り合いへの紹介で応援してください。",
   "shareApp": "SNSでシェア",
   "shareAppSubtitle": "同僚や友人に紹介する",
   "shareText": "CC Pocket: Claude & Codex\nスマホからコーディングエージェントを操作できるアプリ \ud83d\udcf1\n#ccpocket\n{url}",

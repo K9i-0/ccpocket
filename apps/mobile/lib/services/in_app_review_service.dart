@@ -26,7 +26,6 @@ class InAppReviewService {
 
   static const minSuccessfulConnections = 3;
   static const minCreatedSessions = 3;
-  static const minApprovalActions = 5;
   static const minUsageDays = 2;
 
   static const _keyFirstSeenAt = 'review.first_seen_at_ms';
@@ -53,7 +52,7 @@ class InAppReviewService {
     ReviewMetric(
       key: _keyApprovalActions,
       label: 'approval_actions',
-      target: minApprovalActions,
+      target: null,
     ),
     ReviewMetric(key: _keyUsageDays, label: 'usage_days', target: minUsageDays),
   ];
@@ -193,10 +192,6 @@ class InAppReviewService {
       return const InAppReviewEligibility.ineligible('created_sessions');
     }
 
-    if ((_prefs.getInt(_keyApprovalActions) ?? 0) < minApprovalActions) {
-      return const InAppReviewEligibility.ineligible('approval_actions');
-    }
-
     final usageDays = _prefs.getStringList(_keyUsageDays) ?? const [];
     if (usageDays.length < minUsageDays) {
       return const InAppReviewEligibility.ineligible('usage_days');
@@ -236,19 +231,26 @@ class InAppReviewService {
 
   String buildProgressSummary() {
     return _trackedMetrics
-        .map(
-          (metric) =>
-              '${metric.label}:${_currentValue(metric.key)}/${metric.target}',
-        )
+        .map((metric) {
+          final current = _currentValue(metric.key);
+          final target = metric.target;
+          if (target == null) {
+            return '${metric.label}:$current';
+          }
+          return '${metric.label}:$current/$target';
+        })
         .join(' ');
   }
 
   void _logMetricProgress(String key) {
     final metric = _trackedMetrics.where((m) => m.key == key).firstOrNull;
     if (metric == null) return;
+    final current = _currentValue(key);
+    final target = metric.target;
+    final progress = target == null ? '$current' : '$current/$target';
     logger.info(
       '[review] ${metric.label} '
-      '${_currentValue(metric.key)}/${metric.target} '
+      '$progress '
       'progress=${buildProgressSummary()}',
     );
   }
@@ -303,5 +305,5 @@ class ReviewMetric {
 
   final String key;
   final String label;
-  final int target;
+  final int? target;
 }

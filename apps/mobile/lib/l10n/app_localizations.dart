@@ -3118,6 +3118,12 @@ abstract class AppLocalizations {
   /// **'CC Pocket を広める'**
   String get sectionSpread;
 
+  /// No description provided for @spreadAppealMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'CC Pocket はまだ利用者が少なく、このままだと開発を続けるのが難しい状況です。気に入っていたら、ストア評価（星だけでOK）、GitHub スター、知り合いへの紹介で応援してください。'**
+  String get spreadAppealMessage;
+
   /// No description provided for @shareApp.
   ///
   /// In ja, this message translates to:

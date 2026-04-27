@@ -671,6 +671,7 @@
   "terminalAppExperimentalNote": "This feature is in preview. Presets may not work with all apps or configurations. Contributions for new presets are welcome on GitHub!",
 
   "sectionSpread": "ENJOYING CC POCKET?",
+  "spreadAppealMessage": "CC Pocket still has a small user base, and continued development is hard without more users. If you like it, a quick store rating, GitHub star, or sharing it with someone would really help.",
   "shareApp": "Share with Friends",
   "shareAppSubtitle": "Tell your friends & colleagues",
   "shareText": "CC Pocket: Claude & Codex\nControl your coding agent from your phone \ud83d\udcf1\n#ccpocket\n{url}",

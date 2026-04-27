@@ -1,40 +1,59 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/in_app_review_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('InAppReviewService', () {
-    test('requests review when all thresholds are met', () async {
-      final now = DateTime(2026, 3, 7, 12);
-      SharedPreferences.setMockInitialValues({
-        'review.first_seen_at_ms': now
-            .subtract(const Duration(days: 5))
-            .millisecondsSinceEpoch,
-        'review.successful_connections': 3,
-        'review.created_sessions': 3,
-        'review.approval_actions': 5,
-        'review.usage_days': ['2026-03-05', '2026-03-07'],
-      });
+    test(
+      'requests review without approval actions when other thresholds are met',
+      () async {
+        final now = DateTime(2026, 3, 7, 12);
+        SharedPreferences.setMockInitialValues({
+          'review.first_seen_at_ms': now
+              .subtract(const Duration(days: 5))
+              .millisecondsSinceEpoch,
+          'review.successful_connections': 3,
+          'review.created_sessions': 3,
+          'review.usage_days': ['2026-03-05', '2026-03-07'],
+        });
+        final prefs = await SharedPreferences.getInstance();
+        final gateway = _FakeInAppReviewGateway(available: true);
+        final service = InAppReviewService(
+          prefs: prefs,
+          gateway: gateway,
+          appVersionLoader: () async => '1.30.0',
+          now: () => now,
+        );
+
+        await service.maybeRequestReview(trigger: 'test');
+
+        expect(gateway.requestCount, 1);
+        expect(prefs.getString('review.last_prompt_version'), '1.30.0');
+        expect(
+          prefs.getInt('review.last_prompt_at_ms'),
+          now.millisecondsSinceEpoch,
+        );
+      },
+    );
+
+    test('continues counting approval actions for telemetry', () async {
+      SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      final gateway = _FakeInAppReviewGateway(available: true);
       final service = InAppReviewService(
         prefs: prefs,
-        gateway: gateway,
         appVersionLoader: () async => '1.30.0',
-        now: () => now,
+        now: () => DateTime(2026, 3, 7, 12),
       );
 
-      await service.maybeRequestReview(trigger: 'test');
+      service.recordOutgoingMessage(ClientMessage.approve('tool-1'));
+      await Future<void>.delayed(Duration.zero);
 
-      expect(gateway.requestCount, 1);
-      expect(prefs.getString('review.last_prompt_version'), '1.30.0');
-      expect(
-        prefs.getInt('review.last_prompt_at_ms'),
-        now.millisecondsSinceEpoch,
-      );
+      expect(prefs.getInt('review.approval_actions'), 1);
+      expect(service.buildProgressSummary(), contains('approval_actions:1'));
     });
 
     test('does not request review when a recent error exists', () async {

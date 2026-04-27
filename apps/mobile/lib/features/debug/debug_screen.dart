@@ -65,9 +65,9 @@ class DebugScreen extends StatelessWidget {
                   SwitchListTile(
                     key: const ValueKey('debug_force_support_banner_toggle'),
                     secondary: Icon(Icons.favorite_border, color: cs.primary),
-                    title: const Text('Force support banner'),
+                    title: const Text('Force support prompts'),
                     subtitle: const Text(
-                      'Show the home support banner regardless of eligibility.',
+                      'Show the home support banner and settings spread appeal regardless of eligibility.',
                     ),
                     value: supportBannerService.debugForceShowOverride,
                     onChanged: supportBannerService.setDebugForceShowOverride,

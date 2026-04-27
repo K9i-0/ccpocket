@@ -9,35 +9,37 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('SupportBannerService', () {
-    test('shows banner when engagement thresholds are met', () async {
-      final now = DateTime(2026, 4, 15, 12);
-      SharedPreferences.setMockInitialValues({
-        'review.first_seen_at_ms': now
-            .subtract(const Duration(days: 5))
-            .millisecondsSinceEpoch,
-        'review.successful_connections': 3,
-        'review.created_sessions': 3,
-        'review.approval_actions': 5,
-        'review.usage_days': const ['2026-04-13', '2026-04-15'],
-      });
-      final prefs = await SharedPreferences.getInstance();
-      final reviewService = InAppReviewService(
-        prefs: prefs,
-        now: () => now,
-        appVersionLoader: () async => '1.50.0',
-      );
-      final service = SupportBannerService(
-        prefs: prefs,
-        reviewService: reviewService,
-      );
+    test(
+      'shows banner without approval actions when engagement thresholds are met',
+      () async {
+        final now = DateTime(2026, 4, 15, 12);
+        SharedPreferences.setMockInitialValues({
+          'review.first_seen_at_ms': now
+              .subtract(const Duration(days: 5))
+              .millisecondsSinceEpoch,
+          'review.successful_connections': 3,
+          'review.created_sessions': 3,
+          'review.usage_days': const ['2026-04-13', '2026-04-15'],
+        });
+        final prefs = await SharedPreferences.getInstance();
+        final reviewService = InAppReviewService(
+          prefs: prefs,
+          now: () => now,
+          appVersionLoader: () async => '1.50.0',
+        );
+        final service = SupportBannerService(
+          prefs: prefs,
+          reviewService: reviewService,
+        );
 
-      final shouldShow = await service.shouldShow(
-        hasBridgeUpdate: false,
-        catalog: _inactiveCatalog,
-      );
+        final shouldShow = await service.shouldShow(
+          hasBridgeUpdate: false,
+          catalog: _inactiveCatalog,
+        );
 
-      expect(shouldShow, isTrue);
-    });
+        expect(shouldShow, isTrue);
+      },
+    );
 
     test('does not show banner after dismissal', () async {
       final now = DateTime(2026, 4, 15, 12);
