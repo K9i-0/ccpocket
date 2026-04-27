@@ -652,7 +652,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("sends restored image generation results through regular history", async () => {
+  it("keeps restored image generation results in past history order", async () => {
     getSessionHistoryMock.mockResolvedValue([
       {
         role: "user",
@@ -713,14 +713,17 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     );
     expect(historySends[0]).toMatchObject({
       type: "past_history",
-      messages: [{ role: "user" }],
+      messages: [
+        { role: "user" },
+        {
+          role: "tool_result",
+          toolUseId: "ig-1",
+          toolName: "ImageGeneration",
+          images: [{ id: "img-1", url: "/images/img-1", mimeType: "image/png" }],
+        },
+      ],
     });
-    expect(historySends[1].messages[0]).toMatchObject({
-      type: "tool_result",
-      toolUseId: "ig-1",
-      toolName: "ImageGeneration",
-      images: [{ id: "img-1", url: "/images/img-1", mimeType: "image/png" }],
-    });
+    expect(historySends[1]).toMatchObject({ type: "history", messages: [] });
 
     bridge.close();
   });
@@ -787,14 +790,24 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       "aGVsbG8=",
       "image/png",
     );
-    expect(historySends[0].messages[0]).toMatchObject({
-      type: "tool_result",
-      toolUseId: "ig-2",
-      toolName: "ImageGeneration",
-      images: [
-        { id: "img-base64", url: "/images/img-base64", mimeType: "image/png" },
+    expect(historySends[0]).toMatchObject({
+      type: "past_history",
+      messages: [
+        {
+          role: "tool_result",
+          toolUseId: "ig-2",
+          toolName: "ImageGeneration",
+          images: [
+            {
+              id: "img-base64",
+              url: "/images/img-base64",
+              mimeType: "image/png",
+            },
+          ],
+        },
       ],
     });
+    expect(historySends[1]).toMatchObject({ type: "history", messages: [] });
 
     bridge.close();
   });

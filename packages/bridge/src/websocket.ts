@@ -666,12 +666,12 @@ export class BridgeWebSocketServer {
         ? (msg.images as ImageRef[])
         : [];
 
-      historyMessages.push({
-        type: "tool_result",
+      pastMessages.push({
+        role: "tool_result",
         toolUseId:
           typeof msg.toolUseId === "string"
             ? msg.toolUseId
-            : `past-tool-result-${historyMessages.length}`,
+            : `past-tool-result-${pastMessages.length}`,
         content,
         ...(typeof msg.toolName === "string" ? { toolName: msg.toolName } : {}),
         ...(existingImages.length > 0 || images.length > 0

@@ -1775,6 +1775,33 @@ function stripImageDataUrlPrefix(value: string): string {
   return match?.[1] ?? value;
 }
 
+function appendToolResultMessage(
+  messages: SessionHistoryMessage[],
+  id: string,
+  name: string | undefined,
+  content: string,
+  options?: {
+    imageBase64?: Array<{ data: string; mimeType: string }>;
+    timestamp?: string;
+  },
+): void {
+  if (messages.some((m) => m.role === "tool_result" && m.toolUseId === id)) {
+    return;
+  }
+
+  const imageBase64 = options?.imageBase64 ?? [];
+  if (!content.trim() && imageBase64.length === 0) return;
+
+  messages.push({
+    role: "tool_result",
+    toolUseId: id,
+    ...(name ? { toolName: name } : {}),
+    content,
+    ...(imageBase64.length > 0 ? { imageBase64 } : {}),
+    ...(options?.timestamp ? { timestamp: options.timestamp } : {}),
+  });
+}
+
 function appendToolUseMessage(
   messages: SessionHistoryMessage[],
   id: string,
@@ -1824,6 +1851,93 @@ function normalizeCodexToolName(name: string): string {
   }
 
   return name;
+}
+
+function normalizeCodexMcpResult(result: unknown): {
+  content: string;
+  imageBase64: Array<{ data: string; mimeType: string }>;
+} {
+  const wrapper = asObject(result);
+  let value = result;
+  if (wrapper && Object.prototype.hasOwnProperty.call(wrapper, "Ok")) {
+    value = wrapper.Ok;
+  } else if (wrapper && Object.prototype.hasOwnProperty.call(wrapper, "Err")) {
+    value = wrapper.Err;
+  }
+
+  if (typeof value === "string") {
+    return { content: value, imageBase64: [] };
+  }
+
+  const record = asObject(value);
+  const contentItems = Array.isArray(record?.content) ? record.content : null;
+  if (!contentItems) {
+    return {
+      content: value == null ? "MCP call completed" : JSON.stringify(value),
+      imageBase64: [],
+    };
+  }
+
+  const textParts: string[] = [];
+  const imageBase64: Array<{ data: string; mimeType: string }> = [];
+
+  for (const entry of contentItems) {
+    const item = asObject(entry);
+    if (!item) continue;
+    const type = typeof item.type === "string" ? item.type : "";
+
+    if (type === "text" && typeof item.text === "string") {
+      textParts.push(item.text);
+      continue;
+    }
+
+    if (type === "image") {
+      const source = asObject(item.source);
+      const rawData =
+        typeof item.data === "string"
+          ? item.data
+          : source?.type === "base64" && typeof source.data === "string"
+            ? source.data
+            : undefined;
+      if (rawData) {
+        const mimeType =
+          typeof item.mimeType === "string"
+            ? item.mimeType
+            : typeof item.mediaType === "string"
+              ? item.mediaType
+              : typeof item.media_type === "string"
+                ? item.media_type
+                : typeof source?.media_type === "string"
+                  ? source.media_type
+                  : "image/png";
+        imageBase64.push({
+          data: stripImageDataUrlPrefix(rawData),
+          mimeType,
+        });
+      }
+      continue;
+    }
+
+    textParts.push(JSON.stringify(item));
+  }
+
+  const content = textParts.join("\n").trim();
+  if (content) return { content, imageBase64 };
+
+  if (imageBase64.length > 0) {
+    return {
+      content:
+        imageBase64.length === 1
+          ? "Generated 1 image"
+          : `Generated ${imageBase64.length} images`,
+      imageBase64,
+    };
+  }
+
+  return {
+    content: value == null ? "MCP call completed" : JSON.stringify(value),
+    imageBase64,
+  };
 }
 
 function isCodexInjectedUserContext(text: string): boolean {
@@ -2248,6 +2362,29 @@ export async function getCodexSessionHistory(
           payload,
           `image-generation-${index}`,
           entryTimestamp,
+        );
+      }
+
+      if (payload.type === "mcp_tool_call_end") {
+        const invocation = asObject(payload.invocation);
+        const id =
+          typeof payload.call_id === "string"
+            ? payload.call_id
+            : `mcp-result-${index}`;
+        const server =
+          typeof invocation?.server === "string" ? invocation.server : "mcp";
+        const tool =
+          typeof invocation?.tool === "string" ? invocation.tool : "tool";
+        const normalized = normalizeCodexMcpResult(payload.result);
+        appendToolResultMessage(
+          messages,
+          id,
+          `mcp:${server}/${tool}`,
+          normalized.content,
+          {
+            imageBase64: normalized.imageBase64,
+            ...(entryTimestamp ? { timestamp: entryTimestamp } : {}),
+          },
         );
       }
       continue;

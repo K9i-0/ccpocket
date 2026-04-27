@@ -887,6 +887,75 @@ describe("codex sessions integration", () => {
     });
   });
 
+  it("restores codex MCP tool result images from event_msg entries", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68016";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const imageData = "iVBORw0KGgo=";
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: { type: "user_message", message: "inspect chrome" },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "function_call",
+          name: "mcp__computer-use__get_app_state",
+          call_id: "call-1",
+          arguments: "{\"app\":\"Google Chrome\"}",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-02-13T11:28:00.000Z",
+        type: "event_msg",
+        payload: {
+          type: "mcp_tool_call_end",
+          call_id: "call-1",
+          invocation: {
+            server: "computer-use",
+            tool: "get_app_state",
+            arguments: { app: "Google Chrome" },
+          },
+          result: {
+            Ok: {
+              content: [
+                { type: "text", text: "Computer Use state" },
+                { type: "image", data: imageData, mimeType: "image/png" },
+              ],
+            },
+          },
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    const history = await getCodexSessionHistory(threadId);
+
+    expect(history).toHaveLength(3);
+    expect(history[0]).toEqual({
+      role: "user",
+      content: [{ type: "text", text: "inspect chrome" }],
+    });
+    expect(history[1].content[0].type).toBe("tool_use");
+    expect(history[2]).toEqual({
+      role: "tool_result",
+      toolUseId: "call-1",
+      toolName: "mcp:computer-use/get_app_state",
+      content: "Computer Use state",
+      imageBase64: [{ data: imageData, mimeType: "image/png" }],
+      timestamp: "2026-02-13T11:28:00.000Z",
+    });
+  });
+
   it("skips codex skill injections and restores image generation results", async () => {
     const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68015";
     const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
