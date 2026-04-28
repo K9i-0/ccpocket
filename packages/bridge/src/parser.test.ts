@@ -271,6 +271,28 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage('{"type":"get_history"}')).toBeNull();
   });
 
+  it("parses get_history_delta message", () => {
+    const msg = parseClientMessage(
+      '{"type":"get_history_delta","sessionId":"s2","sinceSeq":12}',
+    );
+    expect(msg).toEqual({
+      type: "get_history_delta",
+      sessionId: "s2",
+      sinceSeq: 12,
+    });
+  });
+
+  it("rejects get_history_delta without valid sinceSeq", () => {
+    expect(
+      parseClientMessage('{"type":"get_history_delta","sessionId":"s2"}'),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"get_history_delta","sessionId":"s2","sinceSeq":-1}',
+      ),
+    ).toBeNull();
+  });
+
   it("parses list_recent_sessions message", () => {
     const msg = parseClientMessage('{"type":"list_recent_sessions"}');
     expect(msg).toEqual({ type: "list_recent_sessions" });

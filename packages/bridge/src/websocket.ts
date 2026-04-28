@@ -610,7 +610,9 @@ export class BridgeWebSocketServer {
       tipCode,
       sessionId,
     } as ServerMessage;
-    session?.history.push(tipMsg);
+    if (session) {
+      this.sessionManager.appendHistory(session.id, tipMsg);
+    }
     this.send(ws, tipMsg);
   }
 
@@ -1173,7 +1175,7 @@ export class BridgeWebSocketServer {
           this.broadcastSessionList();
           break;
         }
-        session.history.push({
+        this.sessionManager.appendHistory(session.id, {
           type: "user_input",
           text,
           timestamp: new Date().toISOString(),
@@ -2326,6 +2328,59 @@ export class BridgeWebSocketServer {
                 ? { pluginMetadata: cached.pluginMetadata }
                 : {}),
             });
+          }
+        } else {
+          this.send(ws, {
+            type: "error",
+            message: `Session ${msg.sessionId} not found`,
+          });
+        }
+        break;
+      }
+
+      case "get_history_delta": {
+        const session = this.sessionManager.get(msg.sessionId);
+        const result = this.sessionManager.getHistorySince(
+          msg.sessionId,
+          msg.sinceSeq,
+        );
+        if (session && result) {
+          this.send(ws, {
+            type:
+              result.kind === "snapshot"
+                ? "history_snapshot"
+                : "history_delta",
+            sessionId: msg.sessionId,
+            fromSeq: result.fromSeq,
+            toSeq: result.toSeq,
+            messages: result.entries,
+            status: session.status,
+            ...(result.kind === "snapshot" ? { reason: result.reason } : {}),
+          } as ServerMessage);
+          if (session.provider === "codex") {
+            const item = session.codexQueuedInput;
+            this.sendConversationQueue(ws, {
+              type: "conversation_queue",
+              sessionId: msg.sessionId,
+              limit: 1,
+              items: item
+                ? [
+                    {
+                      itemId: item.itemId,
+                      text: item.text,
+                      createdAt: item.createdAt,
+                      ...(item.updatedAt ? { updatedAt: item.updatedAt } : {}),
+                      ...(item.imageCount
+                        ? { imageCount: item.imageCount }
+                        : {}),
+                      ...(item.skills?.length ? { skills: item.skills } : {}),
+                      ...(item.mentions?.length
+                        ? { mentions: item.mentions }
+                        : {}),
+                    },
+                  ]
+                : [],
+            } as Record<string, unknown>);
           }
         } else {
           this.send(ws, {

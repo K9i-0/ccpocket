@@ -122,6 +122,9 @@ vi.mock("./session.js", () => ({
         codexOptions,
         codexSettings: codexOptions,
         history: [],
+        historyEntries: [],
+        historyRevision: 0,
+        historyLowWatermark: 1,
         status: "idle",
         provider,
         createdAt: new Date(),
@@ -194,12 +197,62 @@ vi.mock("./session.js", () => ({
         };
       }
       session.codexQueuedInput = undefined;
-      session.history.push({
+      this.appendHistory(id, {
         type: "user_input",
         text: queued.text,
         timestamp: new Date().toISOString(),
       });
       return { ok: true };
+    }
+
+    appendHistory(id: string, msg: any) {
+      const session = this.sessions.get(id);
+      if (!session) return undefined;
+      const entry = {
+        seq: session.historyRevision + 1,
+        message: msg,
+      };
+      session.historyRevision = entry.seq;
+      session.history.push(msg);
+      session.historyEntries.push(entry);
+      if (session.history.length > 100) {
+        session.history.shift();
+        session.historyEntries.shift();
+      }
+      session.historyLowWatermark =
+        session.historyEntries[0]?.seq ?? session.historyRevision + 1;
+      return entry;
+    }
+
+    getHistorySince(id: string, sinceSeq: number) {
+      const session = this.sessions.get(id);
+      if (!session) return undefined;
+      const entries = session.historyEntries;
+      if (entries.length === 0) {
+        return {
+          kind: "delta",
+          fromSeq: session.historyRevision + 1,
+          toSeq: session.historyRevision,
+          entries: [],
+        };
+      }
+      const firstSeq = entries[0].seq;
+      if (sinceSeq < firstSeq - 1) {
+        return {
+          kind: "snapshot",
+          fromSeq: firstSeq,
+          toSeq: session.historyRevision,
+          entries,
+          reason: "compacted",
+        };
+      }
+      const deltaEntries = entries.filter((entry: any) => entry.seq > sinceSeq);
+      return {
+        kind: "delta",
+        fromSeq: deltaEntries[0]?.seq ?? session.historyRevision + 1,
+        toSeq: session.historyRevision,
+        entries: deltaEntries,
+      };
     }
 
     list() {
@@ -273,6 +326,9 @@ vi.mock("./session.js", () => ({
         startOptions: session.startOptions,
         claudeSessionId: session.claudeSessionId,
         history: [],
+        historyEntries: [],
+        historyRevision: 0,
+        historyLowWatermark: 1,
         status: "idle",
         provider: session.provider,
         createdAt: new Date(),
@@ -648,6 +704,61 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     });
     expect(historySends[1]).toMatchObject({ type: "history", sessionId: newSessionId });
     expect(historySends[2]).toMatchObject({ type: "status", sessionId: newSessionId });
+
+    bridge.close();
+  });
+
+  it("serves get_history_delta with sequenced messages", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const manager = (bridge as any).sessionManager;
+    const first = manager.appendHistory(sessionId, {
+      type: "status",
+      status: "running",
+    });
+    const second = manager.appendHistory(sessionId, {
+      type: "status",
+      status: "idle",
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: first.seq,
+      },
+      ws,
+    );
+
+    const delta = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "history_delta");
+    expect(delta).toMatchObject({
+      sessionId,
+      fromSeq: second.seq,
+      toSeq: second.seq,
+      messages: [{ seq: second.seq, message: { type: "status", status: "idle" } }],
+      status: "idle",
+    });
 
     bridge.close();
   });
@@ -1571,7 +1682,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sessionId = created.sessionId as string;
 
     const session = (bridge as any).sessionManager.get(sessionId);
-    session.history.push({ type: "status", status: "running" });
+    (bridge as any).sessionManager.appendHistory(session.id, {
+      type: "status",
+      status: "running",
+    });
 
     ws.send.mockClear();
     (bridge as any).handleClientMessage(

@@ -165,6 +165,7 @@ export type ClientMessage =
       projectPath?: string;
     }
   | { type: "get_history"; sessionId: string }
+  | { type: "get_history_delta"; sessionId: string; sinceSeq: number }
   | {
       type: "list_recent_sessions";
       limit?: number;
@@ -417,6 +418,23 @@ export type ServerMessage =
   | { type: "error"; message: string; errorCode?: string }
   | { type: "status"; status: ProcessStatus }
   | { type: "history"; messages: ServerMessage[] }
+  | {
+      type: "history_delta";
+      sessionId?: string;
+      fromSeq: number;
+      toSeq: number;
+      messages: Array<{ seq: number; message: ServerMessage }>;
+      status?: ProcessStatus;
+    }
+  | {
+      type: "history_snapshot";
+      sessionId?: string;
+      fromSeq: number;
+      toSeq: number;
+      messages: Array<{ seq: number; message: ServerMessage }>;
+      status?: ProcessStatus;
+      reason: "compacted" | "reset";
+    }
   | {
       type: "conversation_queue";
       sessionId?: string;
@@ -910,6 +928,15 @@ export function parseClientMessage(data: string): ClientMessage | null {
         break;
       case "get_history":
         if (typeof msg.sessionId !== "string") return null;
+        break;
+      case "get_history_delta":
+        if (typeof msg.sessionId !== "string") return null;
+        if (
+          typeof msg.sinceSeq !== "number" ||
+          !Number.isInteger(msg.sinceSeq) ||
+          msg.sinceSeq < 0
+        )
+          return null;
         break;
       case "list_recent_sessions":
         break;

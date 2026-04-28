@@ -40,6 +40,9 @@ export interface SessionInfo {
   process: SdkProcess | CodexProcess;
   provider: Provider;
   history: ServerMessage[];
+  historyEntries: HistoryEntry[];
+  historyRevision: number;
+  historyLowWatermark: number;
   /** Past conversation loaded from disk on resume (SessionHistoryMessage[]). */
   pastMessages?: unknown[];
   projectPath: string;
@@ -71,6 +74,26 @@ export interface SessionInfo {
   /** Codex-only pending input waiting for the next turn. */
   codexQueuedInput?: QueuedCodexInput;
 }
+
+export interface HistoryEntry {
+  seq: number;
+  message: ServerMessage;
+}
+
+export type HistoryDeltaResult =
+  | {
+      kind: "delta";
+      fromSeq: number;
+      toSeq: number;
+      entries: HistoryEntry[];
+    }
+  | {
+      kind: "snapshot";
+      fromSeq: number;
+      toSeq: number;
+      entries: HistoryEntry[];
+      reason: "compacted" | "reset";
+    };
 
 export interface QueuedCodexInput extends QueuedInputItem {
   images?: Array<{
@@ -269,6 +292,9 @@ export class SessionManager {
       process: proc,
       provider: effectiveProvider,
       history: [],
+      historyEntries: [],
+      historyRevision: 0,
+      historyLowWatermark: 1,
       pastMessages:
         pastMessages && pastMessages.length > 0 ? pastMessages : undefined,
       projectPath,
@@ -497,10 +523,14 @@ export class SessionManager {
                 // take the UUID from the SDK echo.  The SDK may return a
                 // transformed/translated version of the user's message, so
                 // we must not overwrite the original text.
-                session.history[i] = {
+                const mergedMsg = {
                   ...m,
                   userMessageUuid: msg.userMessageUuid,
                 };
+                session.history[i] = mergedMsg;
+                if (session.historyEntries[i]) {
+                  session.historyEntries[i].message = mergedMsg;
+                }
                 merged = true;
                 break;
               }
@@ -508,21 +538,7 @@ export class SessionManager {
           }
 
           if (!merged) {
-            session.history.push(msg);
-          }
-          if (session.history.length > MAX_HISTORY_PER_SESSION) {
-            // Protect user_input and system messages from eviction so they
-            // remain available when the client requests history after
-            // reconnecting. System messages carry slash commands, permission
-            // modes, and other metadata needed to restore client state.
-            const idx = session.history.findIndex(
-              (m) => m.type !== "user_input" && m.type !== "system",
-            );
-            if (idx >= 0) {
-              session.history.splice(idx, 1);
-            } else {
-              session.history.shift();
-            }
+            this.appendHistoryToSession(session, msg);
           }
         }
 
@@ -557,7 +573,10 @@ export class SessionManager {
       session.status = "idle";
       session.codexQueuedInput = undefined;
       // Add status message to history so it stays in sync with session.status
-      session.history.push({ type: "status", status: "idle" } as ServerMessage);
+      this.appendHistoryToSession(session, {
+        type: "status",
+        status: "idle",
+      } as ServerMessage);
       if (session.provider === "codex") {
         this.broadcastCodexQueue(session);
       }
@@ -642,6 +661,50 @@ export class SessionManager {
     return this.sessions.get(id);
   }
 
+  appendHistory(sessionId: string, msg: ServerMessage): HistoryEntry | undefined {
+    const session = this.sessions.get(sessionId);
+    if (!session) return undefined;
+    return this.appendHistoryToSession(session, msg);
+  }
+
+  getHistorySince(
+    sessionId: string,
+    sinceSeq: number,
+  ): HistoryDeltaResult | undefined {
+    const session = this.sessions.get(sessionId);
+    if (!session) return undefined;
+
+    const toSeq = session.historyRevision;
+    const entries = session.historyEntries;
+    if (entries.length === 0) {
+      return {
+        kind: "delta",
+        fromSeq: toSeq + 1,
+        toSeq,
+        entries: [],
+      };
+    }
+
+    const firstSeq = entries[0].seq;
+    if (sinceSeq < firstSeq - 1) {
+      return {
+        kind: "snapshot",
+        fromSeq: firstSeq,
+        toSeq,
+        entries: [...entries],
+        reason: "compacted",
+      };
+    }
+
+    const deltaEntries = entries.filter((entry) => entry.seq > sinceSeq);
+    return {
+      kind: "delta",
+      fromSeq: deltaEntries[0]?.seq ?? toSeq + 1,
+      toSeq,
+      entries: deltaEntries,
+    };
+  }
+
   list(): SessionSummary[] {
     return Array.from(this.sessions.values()).map((s) => {
       const processWithPending = s.process as {
@@ -718,6 +781,38 @@ export class SessionManager {
             : undefined,
       };
     });
+  }
+
+  private appendHistoryToSession(
+    session: SessionInfo,
+    msg: ServerMessage,
+  ): HistoryEntry {
+    const entry = {
+      seq: session.historyRevision + 1,
+      message: msg,
+    };
+    session.historyRevision = entry.seq;
+    session.history.push(msg);
+    session.historyEntries.push(entry);
+    this.trimHistory(session);
+    return entry;
+  }
+
+  private trimHistory(session: SessionInfo): void {
+    while (session.history.length > MAX_HISTORY_PER_SESSION) {
+      // Protect user_input and system messages from eviction so they remain
+      // available when the client reconnects. System messages carry slash
+      // commands, permission modes, and other metadata needed to restore state.
+      const idx = session.history.findIndex(
+        (m) => m.type !== "user_input" && m.type !== "system",
+      );
+      const removeIndex = idx >= 0 ? idx : 0;
+      session.history.splice(removeIndex, 1);
+      session.historyEntries.splice(removeIndex, 1);
+    }
+
+    session.historyLowWatermark =
+      session.historyEntries[0]?.seq ?? session.historyRevision + 1;
   }
 
   private extractLastMessage(s: SessionInfo): string {
@@ -836,7 +931,7 @@ export class SessionManager {
     this.broadcastCodexQueue(session);
 
     const userMsg = this.buildQueuedUserInputMessage(queued);
-    session.history.push(userMsg);
+    this.appendHistoryToSession(session, userMsg);
     this.onMessage(session.id, userMsg);
     return { ok: true };
   }
@@ -861,7 +956,7 @@ export class SessionManager {
     this.broadcastCodexQueue(session);
 
     const userMsg = this.buildQueuedUserInputMessage(queued);
-    session.history.push(userMsg);
+    this.appendHistoryToSession(session, userMsg);
     this.onMessage(session.id, userMsg);
 
     session.process.sendInputStructured(queued.text, {

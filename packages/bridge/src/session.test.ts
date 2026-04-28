@@ -210,6 +210,85 @@ describe("SessionManager codex path", () => {
     });
   });
 
+  it("returns only newer retained history entries for a history delta", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create("/tmp/project-history-delta");
+
+    const first = manager.appendHistory(sessionId, {
+      type: "status",
+      status: "running",
+    } as ServerMessage);
+    const second = manager.appendHistory(sessionId, {
+      type: "assistant",
+      message: {
+        id: "msg-1",
+        role: "assistant",
+        content: [{ type: "text", text: "hello" }],
+        model: "test",
+      },
+    } as ServerMessage);
+
+    const result = manager.getHistorySince(sessionId, first?.seq ?? 0);
+
+    expect(result).toMatchObject({
+      kind: "delta",
+      fromSeq: second?.seq,
+      toSeq: second?.seq,
+    });
+    expect(result?.entries).toHaveLength(1);
+    expect(result?.entries[0]).toMatchObject({
+      seq: second?.seq,
+      message: { type: "assistant" },
+    });
+  });
+
+  it("returns a history snapshot when the requested sequence was compacted", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create("/tmp/project-history-snapshot");
+
+    for (let i = 0; i < 105; i++) {
+      manager.appendHistory(sessionId, {
+        type: "status",
+        status: i % 2 === 0 ? "running" : "idle",
+      } as ServerMessage);
+    }
+
+    const session = manager.get(sessionId);
+    const result = manager.getHistorySince(sessionId, 0);
+
+    expect(session?.history).toHaveLength(100);
+    expect(result).toMatchObject({
+      kind: "snapshot",
+      fromSeq: 6,
+      toSeq: 105,
+      reason: "compacted",
+    });
+    expect(result?.entries).toHaveLength(100);
+    expect(result?.entries[0].seq).toBe(6);
+  });
+
+  it("keeps history delta sequences isolated per running session", () => {
+    const manager = new SessionManager(() => {});
+    const sessionA = manager.create("/tmp/project-history-a");
+    const sessionB = manager.create("/tmp/project-history-b");
+
+    manager.appendHistory(sessionA, {
+      type: "status",
+      status: "running",
+    } as ServerMessage);
+    manager.appendHistory(sessionB, {
+      type: "status",
+      status: "running",
+    } as ServerMessage);
+    manager.appendHistory(sessionA, {
+      type: "status",
+      status: "idle",
+    } as ServerMessage);
+
+    expect(manager.getHistorySince(sessionA, 0)?.toSeq).toBe(2);
+    expect(manager.getHistorySince(sessionB, 0)?.toSeq).toBe(1);
+  });
+
   it("updates codex session settings from runtime init metadata", () => {
     const manager = new SessionManager(() => {});
     const sessionId = manager.create(
@@ -709,7 +788,7 @@ describe("SessionManager claude UUID backfill", () => {
     if (!session) return;
 
     session.claudeSessionId = threadId;
-    session.history.push({
+    manager.appendHistory(sessionId, {
       type: "user_input",
       text: "hello from worktree",
     } as ServerMessage);
@@ -749,7 +828,7 @@ describe("SessionManager claude UUID backfill", () => {
     if (!session) return;
 
     // Simulate websocket.ts pushing user_input with imageCount
-    session.history.push({
+    manager.appendHistory(sessionId, {
       type: "user_input",
       text: "check this screenshot",
       imageCount: 2,
@@ -781,7 +860,7 @@ describe("SessionManager claude UUID backfill", () => {
     if (!session) return;
 
     // Text-only user_input (no imageCount)
-    session.history.push({
+    manager.appendHistory(sessionId, {
       type: "user_input",
       text: "hello world",
     } as ServerMessage);
@@ -824,7 +903,7 @@ describe("SessionManager claude UUID backfill", () => {
     if (!session) return;
 
     session.claudeSessionId = threadId;
-    session.history.push({
+    manager.appendHistory(sessionId, {
       type: "user_input",
       text: "fallback match",
     } as ServerMessage);
