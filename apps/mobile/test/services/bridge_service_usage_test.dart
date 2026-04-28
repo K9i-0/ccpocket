@@ -261,6 +261,89 @@ void main() {
       },
     );
 
+    test('tracks connected start as pending until session_created', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+      final received = <Map<String, dynamic>>[];
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+        socket.listen((data) {
+          received.add(jsonDecode(data as String) as Map<String, dynamic>);
+        });
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final socket = await socketReady.future;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      bridge.send(ClientMessage.start('/home/user/app', provider: 'codex'));
+      bridge.send(ClientMessage.start('/home/user/app', provider: 'codex'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(bridge.offlinePendingActions, hasLength(1));
+      expect(
+        bridge.offlinePendingActions.single.kind,
+        OfflinePendingActionKind.start,
+      );
+      expect(bridge.offlinePendingActions.single.canCancel, isFalse);
+      expect(
+        received.where((message) => message['type'] == 'start'),
+        hasLength(1),
+      );
+
+      socket.add(
+        jsonEncode({
+          'type': 'system',
+          'subtype': 'session_created',
+          'sessionId': 'running-1',
+          'provider': 'codex',
+          'projectPath': '/home/user/app',
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(bridge.offlinePendingActions, isEmpty);
+
+      bridge.disconnect();
+      await socket.close();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test('requeues in-flight pending start when socket closes', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final socketReady = Completer<WebSocket>();
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        socketReady.complete(socket);
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+      final socket = await socketReady.future;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      bridge.send(ClientMessage.start('/home/user/app', provider: 'codex'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(bridge.offlinePendingActions.single.canCancel, isFalse);
+
+      await socket.close();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(bridge.offlinePendingActions, hasLength(1));
+      expect(bridge.offlinePendingActions.single.canCancel, isTrue);
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList('bridge_offline_pending_messages_v1');
+      expect(raw, hasLength(1));
+      expect(jsonDecode(raw!.single), containsPair('type', 'start'));
+
+      bridge.disconnect();
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
     test(
       'cancelOfflinePendingAction removes queued action and persistence',
       () async {

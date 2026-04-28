@@ -678,6 +678,9 @@ class _SessionListScreenState extends State<SessionListScreen>
       );
       return;
     }
+    if (_hasPendingStart(bridge, result)) {
+      return;
+    }
     // Navigate immediately to chat with pending state
     final pendingId = 'pending_${DateTime.now().millisecondsSinceEpoch}';
     _pendingNavigation = true;
@@ -1460,6 +1463,14 @@ class _SessionListScreenState extends State<SessionListScreen>
       return action.kind == OfflinePendingActionKind.resume &&
           action.sessionId == session.sessionId &&
           action.provider == provider;
+    });
+  }
+
+  bool _hasPendingStart(BridgeService bridge, NewSessionParams params) {
+    return bridge.offlinePendingActions.any((action) {
+      return action.kind == OfflinePendingActionKind.start &&
+          action.projectPath == params.projectPath &&
+          action.provider == params.provider.value;
     });
   }
 

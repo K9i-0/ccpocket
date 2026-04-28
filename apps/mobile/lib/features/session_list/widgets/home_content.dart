@@ -443,7 +443,9 @@ class HomeContentState extends State<HomeContent> {
             OfflinePendingSessionCard(
               key: ValueKey('pending_session_${action.id}'),
               action: action,
-              onCancel: widget.onCancelOfflinePendingAction == null
+              onCancel:
+                  widget.onCancelOfflinePendingAction == null ||
+                      !action.canCancel
                   ? null
                   : () => widget.onCancelOfflinePendingAction!(action.id),
             ),

@@ -7,6 +7,7 @@ class OfflinePendingAction {
     required this.projectPath,
     required this.provider,
     required this.createdAt,
+    this.canCancel = true,
     this.sessionId,
   });
 
@@ -15,6 +16,7 @@ class OfflinePendingAction {
   final String projectPath;
   final String provider;
   final DateTime createdAt;
+  final bool canCancel;
   final String? sessionId;
 
   String get projectName {

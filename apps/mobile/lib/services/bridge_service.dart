@@ -98,6 +98,7 @@ class BridgeService implements BridgeServiceBase {
   UsageResultMessage? _lastUsageResult;
   final SessionRuntimeStore _runtimeStore = SessionRuntimeStore();
   final Map<String, int> _pendingHistoryDeltaSinceSeq = {};
+  final Map<String, ClientMessage> _inFlightPendingMessages = {};
   List<OfflinePendingAction> _offlinePendingActions = const [];
 
   // Diff image cache: survives screen navigation, cleared on session stop.
@@ -408,6 +409,9 @@ class BridgeService implements BridgeServiceBase {
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
               case SystemMessage(:final permissionMode):
+                if (msg.subtype == 'session_created') {
+                  _clearPendingSessionActionFor(msg);
+                }
                 if (sessionId != null && permissionMode != null) {
                   _patchSessionPermissionMode(
                     sessionId,
@@ -466,6 +470,7 @@ class BridgeService implements BridgeServiceBase {
         onError: (error, stackTrace) {
           logger.error('WS stream error', error, stackTrace);
           _setBridgeConnectionState(BridgeConnectionState.disconnected);
+          _requeueInFlightPendingMessages();
           _messageController.add(
             ErrorMessage(message: 'WebSocket error: $error'),
           );
@@ -475,6 +480,7 @@ class BridgeService implements BridgeServiceBase {
           _channel = null;
           if (!_intentionalDisconnect) {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
+            _requeueInFlightPendingMessages();
             _scheduleReconnect();
           } else {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
@@ -571,21 +577,74 @@ class BridgeService implements BridgeServiceBase {
   void send(ClientMessage message) {
     onOutgoingMessage?.call(message);
     if (_channel != null && isConnected) {
-      _channel!.sink.add(message.toJson());
+      if (!_trackInFlightPendingMessage(message)) return;
+      try {
+        _channel!.sink.add(message.toJson());
+      } catch (error, stackTrace) {
+        logger.warning('WS send failed; queued message', error, stackTrace);
+        _queueOfflineMessage(message);
+        _setBridgeConnectionState(BridgeConnectionState.disconnected);
+        _scheduleReconnect();
+      }
     } else {
-      final dedupeKey = _offlineMessageDedupeKey(message);
-      final shouldSkip =
-          dedupeKey != null &&
-          _messageQueue.any((queued) {
-            return _offlineMessageDedupeKey(queued) == dedupeKey;
-          });
-      if (!shouldSkip) {
-        _messageQueue.add(message);
-      }
-      if (_isPersistableOfflineMessage(message)) {
-        _publishOfflinePendingActions();
-        unawaited(_persistOfflinePendingMessages());
-      }
+      _queueOfflineMessage(message);
+    }
+  }
+
+  void _queueOfflineMessage(ClientMessage message) {
+    final dedupeKey = _offlineMessageDedupeKey(message);
+    if (dedupeKey != null) {
+      _inFlightPendingMessages.remove(dedupeKey);
+    }
+    final didAdd = _addQueuedMessageIfAbsent(message);
+    if (didAdd || _isPersistableOfflineMessage(message)) {
+      _publishOfflinePendingActions();
+    }
+    if (_isPersistableOfflineMessage(message)) {
+      unawaited(_persistOfflinePendingMessages());
+    }
+  }
+
+  bool _addQueuedMessageIfAbsent(ClientMessage message) {
+    final dedupeKey = _offlineMessageDedupeKey(message);
+    final shouldSkip =
+        dedupeKey != null &&
+        _messageQueue.any((queued) {
+          return _offlineMessageDedupeKey(queued) == dedupeKey;
+        });
+    if (shouldSkip) return false;
+    _messageQueue.add(message);
+    return true;
+  }
+
+  bool _trackInFlightPendingMessage(ClientMessage message) {
+    final dedupeKey = _offlineMessageDedupeKey(message);
+    if (dedupeKey == null || _offlinePendingActionFor(message) == null) {
+      return true;
+    }
+    final isQueued = _messageQueue.any((queued) {
+      return _offlineMessageDedupeKey(queued) == dedupeKey;
+    });
+    if (isQueued || _inFlightPendingMessages.containsKey(dedupeKey)) {
+      _publishOfflinePendingActions();
+      return false;
+    }
+    _inFlightPendingMessages[dedupeKey] = message;
+    _publishOfflinePendingActions();
+    return true;
+  }
+
+  void _requeueInFlightPendingMessages() {
+    if (_inFlightPendingMessages.isEmpty) return;
+    final messages = List<ClientMessage>.from(_inFlightPendingMessages.values);
+    _inFlightPendingMessages.clear();
+    var didAdd = false;
+    for (final message in messages) {
+      didAdd = _addQueuedMessageIfAbsent(message) || didAdd;
+    }
+    _publishOfflinePendingActions();
+    if (didAdd) {
+      unawaited(_persistOfflinePendingMessages());
     }
   }
 
@@ -662,7 +721,10 @@ class BridgeService implements BridgeServiceBase {
     return value;
   }
 
-  OfflinePendingAction? _offlinePendingActionFor(ClientMessage message) {
+  OfflinePendingAction? _offlinePendingActionFor(
+    ClientMessage message, {
+    bool canCancel = true,
+  }) {
     final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
     final projectPath = json['projectPath'] as String?;
     if (projectPath == null || projectPath.isEmpty) return null;
@@ -675,6 +737,7 @@ class BridgeService implements BridgeServiceBase {
         projectPath: projectPath,
         provider: provider,
         createdAt: createdAt,
+        canCancel: canCancel,
       ),
       'resume_session' => OfflinePendingAction(
         id: _offlinePendingActionId(message),
@@ -682,6 +745,7 @@ class BridgeService implements BridgeServiceBase {
         projectPath: projectPath,
         provider: provider,
         createdAt: createdAt,
+        canCancel: canCancel,
         sessionId: json['sessionId'] as String?,
       ),
       _ => null,
@@ -696,6 +760,11 @@ class BridgeService implements BridgeServiceBase {
       if (action == null || !seen.add(action.id)) continue;
       actions.add(action);
     }
+    for (final message in _inFlightPendingMessages.values) {
+      final action = _offlinePendingActionFor(message, canCancel: false);
+      if (action == null || !seen.add(action.id)) continue;
+      actions.add(action);
+    }
     _offlinePendingActions = List.unmodifiable(actions);
     _offlinePendingActionsController.add(_offlinePendingActions);
   }
@@ -706,8 +775,55 @@ class BridgeService implements BridgeServiceBase {
       final action = _offlinePendingActionFor(message);
       return action?.id == actionId;
     });
+    _inFlightPendingMessages.removeWhere((_, message) {
+      final action = _offlinePendingActionFor(message, canCancel: false);
+      return action?.id == actionId;
+    });
     _publishOfflinePendingActions();
     await _persistOfflinePendingMessages();
+  }
+
+  void _clearPendingSessionActionFor(SystemMessage message) {
+    final provider = message.provider ?? Provider.claude.value;
+    final projectPath = message.projectPath;
+    final claudeSessionId = message.claudeSessionId;
+    final sourceSessionId = message.sourceSessionId;
+
+    bool matches(ClientMessage pending) {
+      final action = _offlinePendingActionFor(pending);
+      if (action == null || action.provider != provider) return false;
+      if (projectPath != null && action.projectPath != projectPath) {
+        return false;
+      }
+      if (action.kind == OfflinePendingActionKind.start) return true;
+      return action.sessionId == claudeSessionId ||
+          action.sessionId == sourceSessionId ||
+          (claudeSessionId == null && sourceSessionId == null);
+    }
+
+    var removed = false;
+    for (final entry in List.of(_inFlightPendingMessages.entries)) {
+      if (!matches(entry.value)) continue;
+      _inFlightPendingMessages.remove(entry.key);
+      removed = true;
+      break;
+    }
+    if (!removed) {
+      final before = _messageQueue.length;
+      var didRemove = false;
+      _messageQueue.removeWhere((pending) {
+        if (didRemove || !matches(pending)) return false;
+        didRemove = true;
+        return true;
+      });
+      removed = before != _messageQueue.length;
+      if (removed) {
+        unawaited(_persistOfflinePendingMessages());
+      }
+    }
+    if (removed) {
+      _publishOfflinePendingActions();
+    }
   }
 
   Future<void> _restoreOfflinePendingMessages() async {
@@ -723,6 +839,7 @@ class BridgeService implements BridgeServiceBase {
           .map(_offlineMessageDedupeKey)
           .whereType<String>()
           .toSet();
+      existingDedupeKeys.addAll(_inFlightPendingMessages.keys);
       for (final raw in encoded) {
         try {
           final json = jsonDecode(raw);
