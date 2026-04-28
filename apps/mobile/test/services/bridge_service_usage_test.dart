@@ -5,11 +5,16 @@ import 'dart:io';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('BridgeService usage cache', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
     test('disconnect clears last usage result cache', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final sockets = <WebSocket>[];
@@ -181,5 +186,97 @@ void main() {
       await server.close(force: true);
       bridge.dispose();
     });
+
+    test(
+      'persists selected offline messages and excludes transient reads',
+      () async {
+        final bridge = BridgeService();
+
+        bridge.send(
+          ClientMessage.input(
+            'offline',
+            sessionId: 's1',
+            clientMessageId: 'cm-1',
+            baseSeq: 4,
+          ),
+        );
+        bridge.send(ClientMessage.getHistory('s1'));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getStringList('bridge_offline_pending_messages_v1');
+        expect(raw, isNotNull);
+        expect(raw, hasLength(1));
+        expect(jsonDecode(raw!.single), {
+          'type': 'input',
+          'text': 'offline',
+          'sessionId': 's1',
+          'clientMessageId': 'cm-1',
+          'baseSeq': 4,
+        });
+
+        bridge.dispose();
+      },
+    );
+
+    test(
+      'restores persisted offline messages and clears them after flush',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'bridge_offline_pending_messages_v1': [
+            jsonEncode({
+              'type': 'rename_session',
+              'sessionId': 's1',
+              'name': 'Renamed',
+            }),
+          ],
+        });
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final received = <Map<String, dynamic>>[];
+        final sawRename = Completer<void>();
+
+        server.transform(WebSocketTransformer()).listen((socket) {
+          socket.listen((data) {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            received.add(json);
+            if (json['type'] == 'rename_session' && !sawRename.isCompleted) {
+              sawRename.complete();
+            }
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${server.port}');
+
+        await sawRename.future.timeout(const Duration(seconds: 2));
+        expect(
+          received.any(
+            (message) =>
+                message['type'] == 'client_capabilities' &&
+                message['supportedServerMessages'] is List,
+          ),
+          isTrue,
+        );
+        expect(
+          received.any(
+            (message) =>
+                message['type'] == 'rename_session' &&
+                message['sessionId'] == 's1' &&
+                message['name'] == 'Renamed',
+          ),
+          isTrue,
+        );
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getStringList('bridge_offline_pending_messages_v1'),
+          isNull,
+        );
+
+        bridge.disconnect();
+        await server.close(force: true);
+        bridge.dispose();
+      },
+    );
   });
 }

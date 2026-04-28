@@ -3104,6 +3104,8 @@ class SessionInfo {
 class ClientMessage {
   final Map<String, dynamic> _json;
   ClientMessage._(this._json);
+  factory ClientMessage.raw(Map<String, dynamic> json) =>
+      ClientMessage._(Map<String, dynamic>.from(json));
 
   String get type => _json['type'] as String;
 

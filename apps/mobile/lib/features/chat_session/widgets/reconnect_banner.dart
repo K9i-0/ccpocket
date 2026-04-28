@@ -25,12 +25,17 @@ class ReconnectBanner extends StatelessWidget {
           else
             Icon(Icons.cloud_off, size: 16, color: errorColor),
           const SizedBox(width: 8),
-          Text(
-            isReconnecting ? 'Reconnecting...' : 'Disconnected',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: errorColor,
+          Expanded(
+            child: Text(
+              isReconnecting
+                  ? 'Reconnecting... queued messages will be sent automatically'
+                  : 'Disconnected - messages can be queued for reconnect',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: errorColor,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

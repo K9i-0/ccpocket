@@ -214,6 +214,10 @@ class BridgeService implements BridgeServiceBase {
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyApiKey = 'bridge_api_key';
+  static const _prefKeyOfflinePendingMessages =
+      'bridge_offline_pending_messages_v1';
+
+  Future<void>? _offlineQueueRestore;
 
   void _setBridgeConnectionState(BridgeConnectionState state) {
     _connectionState = state;
@@ -558,15 +562,96 @@ class BridgeService implements BridgeServiceBase {
       _channel!.sink.add(message.toJson());
     } else {
       _messageQueue.add(message);
+      if (_isPersistableOfflineMessage(message)) {
+        unawaited(_persistOfflinePendingMessages());
+      }
     }
   }
 
   void _flushMessageQueue() {
+    unawaited(_flushMessageQueueAsync());
+  }
+
+  Future<void> _flushMessageQueueAsync() async {
+    await _ensureOfflineQueueRestored();
     if (_messageQueue.isEmpty || !isConnected) return;
     final queued = List<ClientMessage>.from(_messageQueue);
     _messageQueue.clear();
+    await _persistOfflinePendingMessages();
     for (final msg in queued) {
       send(msg);
+    }
+  }
+
+  Future<void> _ensureOfflineQueueRestored() {
+    return _offlineQueueRestore ??= _restoreOfflinePendingMessages();
+  }
+
+  bool _isPersistableOfflineMessage(ClientMessage message) {
+    return switch (message.type) {
+      'input' ||
+      'start' ||
+      'resume_session' ||
+      'rename_session' ||
+      'update_queued_input' ||
+      'cancel_queued_input' => true,
+      _ => false,
+    };
+  }
+
+  Future<void> _restoreOfflinePendingMessages() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = prefs.getStringList(_prefKeyOfflinePendingMessages);
+      if (encoded == null || encoded.isEmpty) return;
+
+      final existing = _messageQueue.map((message) => message.toJson()).toSet();
+      for (final raw in encoded) {
+        try {
+          final json = jsonDecode(raw);
+          if (json is! Map<String, dynamic>) continue;
+          final message = ClientMessage.raw(json);
+          if (!_isPersistableOfflineMessage(message)) continue;
+          final key = message.toJson();
+          if (existing.add(key)) {
+            _messageQueue.add(message);
+          }
+        } catch (error, stackTrace) {
+          logger.warning(
+            'Failed to restore offline pending message',
+            error,
+            stackTrace,
+          );
+        }
+      }
+    } catch (error, stackTrace) {
+      logger.warning(
+        'Failed to load offline pending messages',
+        error,
+        stackTrace,
+      );
+    }
+  }
+
+  Future<void> _persistOfflinePendingMessages() async {
+    await _ensureOfflineQueueRestored();
+    final pending = _messageQueue
+        .where(_isPersistableOfflineMessage)
+        .map((message) => message.toJson())
+        .toList();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (pending.isEmpty) {
+        await prefs.remove(_prefKeyOfflinePendingMessages);
+      } else {
+        await prefs.setStringList(_prefKeyOfflinePendingMessages, pending);
+      }
+    } catch (error, stackTrace) {
+      logger.warning(
+        'Failed to persist offline pending messages',
+        error,
+        stackTrace,
+      );
     }
   }
 
