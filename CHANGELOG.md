@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.79.0] - 2026-04-28
+
+### Added
+- Add runtime session state caching so active sessions can reopen without refetching full history
+- Add delta-based session history refresh for lower-bandwidth session screen entry
+- Add offline pending actions for starting and resuming sessions
+- Add offline Codex chat input queuing with base sequence conflict protection
+- Add a scroll-first Git diff view mode
+
+### Changed
+- Require Bridge 1.47.0 for history delta sync and strict input acknowledgement support
+- Improve offline pending session and queued input UX across Running and session screens
+
+### Fixed
+- Keep pending delivery input visible across session screen recreation and Running list refreshes
+- Separate pending delivery input handling from the Bridge-managed Codex conversation queue
+- Restore delivered pending input bubbles after reconnect acknowledgements or assistant responses
+- Dedupe restored chat history entries
+
 ## [1.78.0] - 2026-04-27
 
 ### Added
