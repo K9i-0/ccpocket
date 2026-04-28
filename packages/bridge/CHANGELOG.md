@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.47.0] - 2026-04-28
+
+### Added
+- Add session history delta sync for lower-bandwidth reconnects and session refreshes
+- Add strict input acknowledgements with client message IDs and accepted history sequence metadata
+
+### Fixed
+- Include resumed session history in delta sync responses
+
 ## [1.46.2] - 2026-04-27
 
 ### Fixed
