@@ -374,6 +374,62 @@ void main() {
     );
 
     test(
+      'updates and cancels offline pending input by clientMessageId',
+      () async {
+        final bridge = BridgeService();
+        await pumpEventQueue();
+
+        bridge.send(
+          ClientMessage.input(
+            'Original',
+            sessionId: 's1',
+            clientMessageId: 'cm-1',
+            baseSeq: 2,
+            skills: const [
+              {'name': 'skill-a', 'path': '/tmp/skill-a/SKILL.md'},
+            ],
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        final updated = await bridge.updateOfflinePendingInput(
+          sessionId: 's1',
+          clientMessageId: 'cm-1',
+          text: 'Edited',
+          mentions: const [
+            {'name': 'Demo App', 'path': 'app://demo'},
+          ],
+        );
+        expect(updated, isTrue);
+
+        var prefs = await SharedPreferences.getInstance();
+        var raw = prefs.getStringList('bridge_offline_pending_messages_v1');
+        expect(raw, hasLength(1));
+        expect(jsonDecode(raw!.single), {
+          'type': 'input',
+          'text': 'Edited',
+          'sessionId': 's1',
+          'clientMessageId': 'cm-1',
+          'baseSeq': 2,
+          'mentions': [
+            {'name': 'Demo App', 'path': 'app://demo'},
+          ],
+        });
+
+        final canceled = await bridge.cancelOfflinePendingInput(
+          sessionId: 's1',
+          clientMessageId: 'cm-1',
+        );
+        expect(canceled, isTrue);
+        prefs = await SharedPreferences.getInstance();
+        raw = prefs.getStringList('bridge_offline_pending_messages_v1');
+        expect(raw, isNull);
+
+        bridge.dispose();
+      },
+    );
+
+    test(
       'restores persisted offline messages and clears them after flush',
       () async {
         SharedPreferences.setMockInitialValues({

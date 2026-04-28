@@ -14,6 +14,8 @@ class MockBridgeService extends BridgeService {
   final _taggedController =
       StreamController<(ServerMessage, String?)>.broadcast();
   final sentMessages = <ClientMessage>[];
+  final updatedOfflineInputs = <Map<String, dynamic>>[];
+  final canceledOfflineInputs = <Map<String, dynamic>>[];
   final cachedMessagesBySession = <String, List<ServerMessage>>{};
   final historySeqBySession = <String, int>{};
   bool connected = true;
@@ -39,6 +41,36 @@ class MockBridgeService extends BridgeService {
   @override
   void send(ClientMessage message) {
     sentMessages.add(message);
+  }
+
+  @override
+  Future<bool> updateOfflinePendingInput({
+    required String sessionId,
+    required String clientMessageId,
+    required String text,
+    List<Map<String, String>>? skills,
+    List<Map<String, String>>? mentions,
+  }) async {
+    updatedOfflineInputs.add({
+      'sessionId': sessionId,
+      'clientMessageId': clientMessageId,
+      'text': text,
+      'skills': skills,
+      'mentions': mentions,
+    });
+    return true;
+  }
+
+  @override
+  Future<bool> cancelOfflinePendingInput({
+    required String sessionId,
+    required String clientMessageId,
+  }) async {
+    canceledOfflineInputs.add({
+      'sessionId': sessionId,
+      'clientMessageId': clientMessageId,
+    });
+    return true;
   }
 
   @override
@@ -296,6 +328,52 @@ void main() {
       expect(payload['clientMessageId'], entry.clientMessageId);
       expect(payload['baseSeq'], 9);
     });
+
+    test(
+      'codex sendMessage while disconnected uses queued input panel state',
+      () async {
+        mockBridge.connected = false;
+        mockBridge.historySeqBySession['s1'] = 7;
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+
+        cubit.sendMessage('Offline Codex input');
+        cubit.sendMessage('Second input is blocked');
+
+        expect(cubit.state.entries.whereType<UserChatEntry>(), isEmpty);
+        expect(cubit.state.queuedInput?.text, 'Offline Codex input');
+        expect(
+          ChatSessionCubit.isOfflineQueuedInput(cubit.state.queuedInput),
+          isTrue,
+        );
+        expect(mockBridge.sentMessages, hasLength(1));
+
+        final payload =
+            jsonDecode(mockBridge.sentMessages.single.toJson())
+                as Map<String, dynamic>;
+        expect(payload['type'], 'input');
+        expect(payload['text'], 'Offline Codex input');
+        expect(payload['baseSeq'], 7);
+        expect(
+          ChatSessionCubit.offlineQueuedClientMessageId(
+            cubit.state.queuedInput,
+          ),
+          payload['clientMessageId'],
+        );
+
+        mockBridge.emitMessage(
+          InputAckMessage(
+            sessionId: 's1',
+            clientMessageId: payload['clientMessageId'] as String,
+            acceptedSeq: 8,
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        expect(cubit.state.queuedInput, isNull);
+      },
+    );
 
     test(
       'codex sendMessage includes structured skills and app mentions',
@@ -928,6 +1006,49 @@ void main() {
                 as Map<String, dynamic>;
         expect(payload['type'], 'cancel_queued_input');
         expect(payload['itemId'], 'q1');
+      },
+    );
+
+    test(
+      'offline codex queued input update and cancel mutate local pending input',
+      () async {
+        mockBridge.connected = false;
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+
+        cubit.sendMessage('Original offline');
+        final item = cubit.state.queuedInput!;
+        final clientMessageId = ChatSessionCubit.offlineQueuedClientMessageId(
+          item,
+        );
+
+        cubit.updateQueuedInput(item, 'Edited offline');
+        expect(cubit.state.queuedInput?.text, 'Edited offline');
+        expect(mockBridge.updatedOfflineInputs.single, {
+          'sessionId': 's1',
+          'clientMessageId': clientMessageId,
+          'text': 'Edited offline',
+          'skills': <Map<String, String>>[],
+          'mentions': <Map<String, String>>[],
+        });
+        expect(
+          mockBridge.sentMessages.map((message) => message.type),
+          isNot(contains('update_queued_input')),
+        );
+
+        cubit.steerQueuedInput(cubit.state.queuedInput!);
+        expect(
+          mockBridge.sentMessages.map((message) => message.type),
+          isNot(contains('steer_queued_input')),
+        );
+
+        cubit.cancelQueuedInput(cubit.state.queuedInput!);
+        expect(cubit.state.queuedInput, isNull);
+        expect(mockBridge.canceledOfflineInputs.single, {
+          'sessionId': 's1',
+          'clientMessageId': clientMessageId,
+        });
       },
     );
   });

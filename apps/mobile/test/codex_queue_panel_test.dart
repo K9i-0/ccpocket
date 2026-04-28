@@ -45,6 +45,43 @@ void main() {
     expect(canceled, isTrue);
   });
 
+  testWidgets('CodexQueuedInputPanel shows reconnect copy for offline queue', (
+    tester,
+  ) async {
+    var edited = false;
+    var canceled = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CodexQueuedInputPanel(
+            item: const QueuedInputItem(
+              itemId: 'offline:cm1',
+              text: 'Offline pending message',
+              createdAt: '2026-04-25T00:00:00.000Z',
+            ),
+            isOfflinePending: true,
+            onSteer: null,
+            onEdit: () => edited = true,
+            onCancel: () => canceled = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Queued for reconnect'), findsOneWidget);
+    final steerButton = tester.widget<IconButton>(
+      find.byKey(const ValueKey('codex_queue_steer_button')),
+    );
+    expect(steerButton.onPressed, isNull);
+
+    await tester.tap(find.byKey(const ValueKey('codex_queue_edit_button')));
+    expect(edited, isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('codex_queue_cancel_button')));
+    expect(canceled, isTrue);
+  });
+
   test('moveQueuedInputToComposer cancels queue and overwrites input text', () {
     var canceled = false;
     final controller = TextEditingController(text: 'existing draft');

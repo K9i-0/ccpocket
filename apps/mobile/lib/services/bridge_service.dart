@@ -1059,6 +1059,64 @@ class BridgeService implements BridgeServiceBase {
     );
   }
 
+  Future<bool> updateOfflinePendingInput({
+    required String sessionId,
+    required String clientMessageId,
+    required String text,
+    List<Map<String, String>>? skills,
+    List<Map<String, String>>? mentions,
+  }) async {
+    await _ensureOfflineQueueRestored();
+    var updated = false;
+    for (var i = 0; i < _messageQueue.length; i++) {
+      final json =
+          jsonDecode(_messageQueue[i].toJson()) as Map<String, dynamic>;
+      if (json['type'] != 'input' ||
+          json['sessionId'] != sessionId ||
+          json['clientMessageId'] != clientMessageId) {
+        continue;
+      }
+      json['text'] = text;
+      if (skills != null && skills.isNotEmpty) {
+        json['skills'] = skills;
+        json['skill'] = skills.first;
+      } else {
+        json.remove('skills');
+        json.remove('skill');
+      }
+      if (mentions != null && mentions.isNotEmpty) {
+        json['mentions'] = mentions;
+      } else {
+        json.remove('mentions');
+      }
+      _messageQueue[i] = ClientMessage.raw(json);
+      updated = true;
+      break;
+    }
+    if (!updated) return false;
+    _publishOfflinePendingActions();
+    await _persistOfflinePendingMessages();
+    return true;
+  }
+
+  Future<bool> cancelOfflinePendingInput({
+    required String sessionId,
+    required String clientMessageId,
+  }) async {
+    await _ensureOfflineQueueRestored();
+    final before = _messageQueue.length;
+    _messageQueue.removeWhere((message) {
+      final json = jsonDecode(message.toJson()) as Map<String, dynamic>;
+      return json['type'] == 'input' &&
+          json['sessionId'] == sessionId &&
+          json['clientMessageId'] == clientMessageId;
+    });
+    if (before == _messageQueue.length) return false;
+    _publishOfflinePendingActions();
+    await _persistOfflinePendingMessages();
+    return true;
+  }
+
   @override
   void stopSession(String sessionId) {
     send(ClientMessage.stopSession(sessionId));

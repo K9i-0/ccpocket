@@ -1133,9 +1133,15 @@ class _CodexChatBody extends HookWidget {
                   if (queuedInput != null)
                     CodexQueuedInputPanel(
                       item: queuedInput,
-                      onSteer: () => context
-                          .read<ChatSessionCubit>()
-                          .steerQueuedInput(queuedInput),
+                      isOfflinePending: ChatSessionCubit.isOfflineQueuedInput(
+                        queuedInput,
+                      ),
+                      onSteer:
+                          ChatSessionCubit.isOfflineQueuedInput(queuedInput)
+                          ? null
+                          : () => context
+                                .read<ChatSessionCubit>()
+                                .steerQueuedInput(queuedInput),
                       onEdit: () => moveQueuedInputToComposer(
                         inputController: chatInputController,
                         item: queuedInput,
@@ -1450,18 +1456,23 @@ class CodexQueuedInputPanel extends StatelessWidget {
     required this.onSteer,
     required this.onEdit,
     required this.onCancel,
+    this.isOfflinePending = false,
   });
 
   final QueuedInputItem item;
-  final VoidCallback onSteer;
+  final VoidCallback? onSteer;
   final VoidCallback onEdit;
   final VoidCallback onCancel;
+  final bool isOfflinePending;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final imageLabel = item.imageCount > 0 ? ' · ${item.imageCount} image' : '';
+    final title = isOfflinePending
+        ? 'Queued for reconnect$imageLabel'
+        : 'Queued for next turn$imageLabel';
 
     return Material(
       key: const ValueKey('codex_queue_panel'),
@@ -1485,7 +1496,7 @@ class CodexQueuedInputPanel extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Queued for next turn$imageLabel',
+                      title,
                       style: textTheme.labelMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                         fontWeight: FontWeight.w600,

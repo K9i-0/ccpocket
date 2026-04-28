@@ -20,6 +20,7 @@ import 'streaming_state_cubit.dart';
 /// applied to the immutable [ChatSessionState].
 class ChatSessionCubit extends Cubit<ChatSessionState> {
   static const _uuid = Uuid();
+  static const offlineQueuedInputPrefix = 'offline:';
 
   final String sessionId;
   final Provider? provider;
@@ -49,6 +50,14 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   /// Whether this session is a Codex session.
   bool get isCodex => provider == Provider.codex;
+
+  static bool isOfflineQueuedInput(QueuedInputItem? item) =>
+      item?.itemId.startsWith(offlineQueuedInputPrefix) ?? false;
+
+  static String? offlineQueuedClientMessageId(QueuedInputItem? item) {
+    if (!isOfflineQueuedInput(item)) return null;
+    return item!.itemId.substring(offlineQueuedInputPrefix.length);
+  }
 
   ChatSessionCubit({
     required this.sessionId,
@@ -460,6 +469,16 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     // --- Apply state update ---
     final newClaudeSessionId =
         update.claudeSessionId ?? current.claudeSessionId;
+    var nextQueuedInput = update.clearQueuedInput
+        ? null
+        : (update.queuedInput ?? current.queuedInput);
+    if (originalMsg is InputAckMessage &&
+        originalMsg.queued == false &&
+        offlineQueuedClientMessageId(nextQueuedInput) ==
+            originalMsg.clientMessageId) {
+      nextQueuedInput = null;
+    }
+
     emit(
       current.copyWith(
         status: update.status ?? current.status,
@@ -476,9 +495,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             update.codexApprovalsReviewer ?? current.codexApprovalsReviewer,
         planMode: update.planMode ?? current.planMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
-        queuedInput: update.clearQueuedInput
-            ? null
-            : (update.queuedInput ?? current.queuedInput),
+        queuedInput: nextQueuedInput,
         claudeSessionId: newClaudeSessionId,
         hiddenToolUseIds: hiddenToolUseIds,
       ),
@@ -578,7 +595,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     final baseSeq = isOffline
         ? _bridge.cachedSessionHistorySeq(sessionId)
         : null;
-    final shouldAddLocalEntry = !isCodex || state.status == ProcessStatus.idle;
+    final structuredMentions = isCodex
+        ? _extractCodexStructuredInputs(text)
+        : (
+            skills: const <Map<String, String>>[],
+            mentions: const <Map<String, String>>[],
+          );
+
+    final shouldUseOfflineQueuePanel = isCodex && isOffline;
+    final shouldAddLocalEntry =
+        !isCodex ||
+        (!shouldUseOfflineQueuePanel && state.status == ProcessStatus.idle);
     if (shouldAddLocalEntry) {
       final entry = UserChatEntry(
         text,
@@ -588,6 +615,19 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         status: isOffline ? MessageStatus.queued : MessageStatus.sending,
       );
       emit(state.copyWith(entries: [...state.entries, entry]));
+    } else if (shouldUseOfflineQueuePanel) {
+      emit(
+        state.copyWith(
+          queuedInput: QueuedInputItem(
+            itemId: '$offlineQueuedInputPrefix$clientMessageId',
+            text: text,
+            createdAt: DateTime.now().toUtc().toIso8601String(),
+            imageCount: images?.length ?? 0,
+            skills: structuredMentions.skills,
+            mentions: structuredMentions.mentions,
+          ),
+        ),
+      );
     }
 
     // Encode images as Base64 for WebSocket transmission
@@ -597,13 +637,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           .map((i) => {'base64': base64Encode(i.bytes), 'mimeType': i.mimeType})
           .toList();
     }
-
-    final structuredMentions = isCodex
-        ? _extractCodexStructuredInputs(text)
-        : (
-            skills: const <Map<String, String>>[],
-            mentions: const <Map<String, String>>[],
-          );
 
     _bridge.send(
       ClientMessage.input(
@@ -624,6 +657,29 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   void updateQueuedInput(QueuedInputItem item, String text) {
     if (!isCodex || text.trim().isEmpty) return;
     final structuredMentions = _extractCodexStructuredInputs(text);
+    final offlineClientMessageId = offlineQueuedClientMessageId(item);
+    if (offlineClientMessageId != null) {
+      final updated = QueuedInputItem(
+        itemId: item.itemId,
+        text: text,
+        createdAt: item.createdAt,
+        updatedAt: DateTime.now().toUtc().toIso8601String(),
+        imageCount: item.imageCount,
+        skills: structuredMentions.skills,
+        mentions: structuredMentions.mentions,
+      );
+      emit(state.copyWith(queuedInput: updated));
+      unawaited(
+        _bridge.updateOfflinePendingInput(
+          sessionId: sessionId,
+          clientMessageId: offlineClientMessageId,
+          text: text,
+          skills: structuredMentions.skills,
+          mentions: structuredMentions.mentions,
+        ),
+      );
+      return;
+    }
     _bridge.send(
       ClientMessage.updateQueuedInput(
         sessionId: sessionId,
@@ -636,7 +692,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   void steerQueuedInput(QueuedInputItem item) {
-    if (!isCodex) return;
+    if (!isCodex || isOfflineQueuedInput(item)) return;
     _bridge.send(
       ClientMessage.steerQueuedInput(sessionId: sessionId, itemId: item.itemId),
     );
@@ -644,6 +700,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   void cancelQueuedInput(QueuedInputItem item) {
     if (!isCodex) return;
+    final offlineClientMessageId = offlineQueuedClientMessageId(item);
+    if (offlineClientMessageId != null) {
+      emit(state.copyWith(queuedInput: null));
+      unawaited(
+        _bridge.cancelOfflinePendingInput(
+          sessionId: sessionId,
+          clientMessageId: offlineClientMessageId,
+        ),
+      );
+      return;
+    }
     _bridge.send(
       ClientMessage.cancelQueuedInput(
         sessionId: sessionId,
