@@ -527,6 +527,10 @@ export class SessionManager {
                   ...m,
                   userMessageUuid: msg.userMessageUuid,
                 };
+                if (session.historyEntries[i]) {
+                  (mergedMsg as Record<string, unknown>).historySeq =
+                    session.historyEntries[i].seq;
+                }
                 session.history[i] = mergedMsg;
                 if (session.historyEntries[i]) {
                   session.historyEntries[i].message = mergedMsg;
@@ -791,6 +795,7 @@ export class SessionManager {
       seq: session.historyRevision + 1,
       message: msg,
     };
+    (msg as Record<string, unknown>).historySeq = entry.seq;
     session.historyRevision = entry.seq;
     session.history.push(msg);
     session.historyEntries.push(entry);

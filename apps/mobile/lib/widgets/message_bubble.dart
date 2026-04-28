@@ -186,6 +186,8 @@ class ServerMessageWidget extends StatelessWidget {
       final ErrorMessage msg => ErrorBubble(message: msg),
       final StatusMessage msg => StatusChip(message: msg),
       HistoryMessage() => const SizedBox.shrink(),
+      HistoryDeltaMessage() => const SizedBox.shrink(),
+      HistorySnapshotMessage() => const SizedBox.shrink(),
       final PermissionRequestMessage msg =>
         msg.toolName == 'ExitPlanMode' ||
                 msg.toolName == 'AskUserQuestion' ||

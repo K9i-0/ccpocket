@@ -74,6 +74,89 @@ void main() {
             .text,
         'new',
       );
+      expect(store.latestHistorySeq('s1'), 0);
+    });
+
+    test('history delta appends newer sequenced entries', () {
+      final store = SessionRuntimeStore();
+      store.applyServerMessage(
+        's1',
+        const HistoryDeltaMessage(
+          fromSeq: 1,
+          toSeq: 2,
+          entries: [
+            HistoryEntry(
+              seq: 2,
+              message: StatusMessage(status: ProcessStatus.running),
+            ),
+          ],
+        ),
+      );
+
+      expect(store.messages('s1'), hasLength(1));
+      expect(store.latestHistorySeq('s1'), 2);
+    });
+
+    test('bootstrap history delta replaces unsequenced cached timeline', () {
+      final store = SessionRuntimeStore();
+      store.applyServerMessage(
+        's1',
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'cached',
+            role: 'assistant',
+            content: const [TextContent(text: 'cached')],
+            model: 'claude',
+          ),
+        ),
+      );
+
+      store.applyServerMessage(
+        's1',
+        const HistoryDeltaMessage(
+          fromSeq: 1,
+          toSeq: 1,
+          entries: [
+            HistoryEntry(
+              seq: 1,
+              message: StatusMessage(status: ProcessStatus.idle),
+            ),
+          ],
+        ),
+      );
+
+      final messages = store.messages('s1');
+      expect(messages, hasLength(1));
+      expect(messages.single, isA<StatusMessage>());
+      expect(store.latestHistorySeq('s1'), 1);
+    });
+
+    test('history snapshot replaces cached timeline and records sequence', () {
+      final store = SessionRuntimeStore();
+      store.applyServerMessage(
+        's1',
+        const StatusMessage(status: ProcessStatus.running),
+      );
+
+      store.applyServerMessage(
+        's1',
+        const HistorySnapshotMessage(
+          fromSeq: 5,
+          toSeq: 7,
+          reason: 'compacted',
+          entries: [
+            HistoryEntry(
+              seq: 7,
+              message: StatusMessage(status: ProcessStatus.idle),
+            ),
+          ],
+        ),
+      );
+
+      final messages = store.messages('s1').cast<StatusMessage>();
+      expect(messages, hasLength(1));
+      expect(messages.single.status, ProcessStatus.idle);
+      expect(store.latestHistorySeq('s1'), 7);
     });
 
     test('ignores transient stream deltas', () {
@@ -103,6 +186,7 @@ void main() {
       expect(store.getExplorerHistory('pending').currentPath, isEmpty);
       expect(store.messages('real'), hasLength(1));
       expect(store.getExplorerHistory('real').currentPath, '/repo');
+      expect(store.latestHistorySeq('real'), 0);
     });
 
     test('trims old messages per session', () {

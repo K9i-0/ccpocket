@@ -47,14 +47,76 @@ void main() {
   });
 
   group('Codex thread options', () {
-    test('ClientMessage.clientCapabilities advertises conversation queue', () {
+    test('ClientMessage.clientCapabilities advertises supported messages', () {
       final msg = ClientMessage.clientCapabilities(appVersion: '1.72.1');
 
       final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
       expect(json['type'], 'client_capabilities');
       expect(json['appVersion'], '1.72.1');
       expect(json['protocolVersion'], 1);
-      expect(json['supportedServerMessages'], ['conversation_queue']);
+      expect(json['supportedServerMessages'], [
+        'conversation_queue',
+        'history_delta',
+        'history_snapshot',
+      ]);
+    });
+
+    test('ClientMessage.getHistoryDelta serializes sinceSeq', () {
+      final msg = ClientMessage.getHistoryDelta('s1', sinceSeq: 42);
+
+      expect(jsonDecode(msg.toJson()), {
+        'type': 'get_history_delta',
+        'sessionId': 's1',
+        'sinceSeq': 42,
+      });
+    });
+
+    test('ServerMessage parses history_delta', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'history_delta',
+        'sessionId': 's1',
+        'fromSeq': 4,
+        'toSeq': 5,
+        'status': 'running',
+        'messages': [
+          {
+            'seq': 5,
+            'message': {'type': 'status', 'status': 'running'},
+          },
+        ],
+      });
+
+      expect(msg, isA<HistoryDeltaMessage>());
+      final delta = msg as HistoryDeltaMessage;
+      expect(delta.sessionId, 's1');
+      expect(delta.fromSeq, 4);
+      expect(delta.toSeq, 5);
+      expect(delta.status, ProcessStatus.running);
+      expect(delta.entries.single.seq, 5);
+      expect(delta.entries.single.message, isA<StatusMessage>());
+    });
+
+    test('ServerMessage parses history_snapshot', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'history_snapshot',
+        'sessionId': 's1',
+        'fromSeq': 10,
+        'toSeq': 12,
+        'reason': 'compacted',
+        'messages': [
+          {
+            'seq': 12,
+            'message': {'type': 'status', 'status': 'idle'},
+          },
+        ],
+      });
+
+      expect(msg, isA<HistorySnapshotMessage>());
+      final snapshot = msg as HistorySnapshotMessage;
+      expect(snapshot.fromSeq, 10);
+      expect(snapshot.toSeq, 12);
+      expect(snapshot.reason, 'compacted');
+      expect(snapshot.entries.single.message, isA<StatusMessage>());
     });
 
     test('ClientMessage.start serializes codex thread options', () {

@@ -94,6 +94,7 @@ class BridgeService implements BridgeServiceBase {
   String? _bridgeVersion;
   UsageResultMessage? _lastUsageResult;
   final SessionRuntimeStore _runtimeStore = SessionRuntimeStore();
+  final Map<String, int> _pendingHistoryDeltaSinceSeq = {};
 
   // Diff image cache: survives screen navigation, cleared on session stop.
   // Key: "$projectPath\n$filePath"
@@ -244,8 +245,20 @@ class BridgeService implements BridgeServiceBase {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
             final sessionId = json['sessionId'] as String?;
             final msg = ServerMessage.fromJson(json);
+            if (sessionId != null && msg is HistoryDeltaMessage) {
+              _handleHistoryDelta(sessionId, msg);
+              return;
+            }
+            if (sessionId != null && msg is HistorySnapshotMessage) {
+              _handleHistorySnapshot(sessionId, msg);
+              return;
+            }
             if (sessionId != null) {
-              _runtimeStore.applyServerMessage(sessionId, msg);
+              _runtimeStore.applyServerMessage(
+                sessionId,
+                msg,
+                historySeq: _readHistorySeq(json['historySeq']),
+              );
             }
             switch (msg) {
               case SessionListMessage(
@@ -414,6 +427,10 @@ class BridgeService implements BridgeServiceBase {
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
               case ErrorMessage(:final message):
+                if (msg.errorCode == 'unsupported_message' &&
+                    message == 'get_history_delta') {
+                  _fallbackPendingHistoryDeltaRequests();
+                }
                 logger.error('Bridge error: $message');
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
@@ -451,6 +468,71 @@ class BridgeService implements BridgeServiceBase {
       _setBridgeConnectionState(BridgeConnectionState.disconnected);
       _messageController.add(ErrorMessage(message: 'Connection failed: $e'));
       _scheduleReconnect();
+    }
+  }
+
+  int? _readHistorySeq(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return null;
+  }
+
+  void _handleHistoryDelta(String sessionId, HistoryDeltaMessage msg) {
+    final hadCachedTimeline = _runtimeStore.messages(sessionId).isNotEmpty;
+    final previousSeq = _runtimeStore.latestHistorySeq(sessionId);
+    final shouldReplace =
+        previousSeq == 0 && hadCachedTimeline && msg.fromSeq <= 1;
+    _pendingHistoryDeltaSinceSeq.remove(sessionId);
+    _runtimeStore.applyServerMessage(sessionId, msg);
+
+    final messages = msg.entries.map((entry) => entry.message).toList();
+    if (shouldReplace) {
+      final history = HistoryMessage(messages: messages);
+      _taggedMessageController.add((history, sessionId));
+      _messageController.add(history);
+    } else {
+      for (final message in messages) {
+        _taggedMessageController.add((message, sessionId));
+        _messageController.add(message);
+      }
+    }
+
+    final status = msg.status;
+    if (status != null) {
+      _patchSessionStatus(sessionId, status);
+      final statusMessage = StatusMessage(status: status);
+      _runtimeStore.applyServerMessage(sessionId, statusMessage);
+      _taggedMessageController.add((statusMessage, sessionId));
+      _messageController.add(statusMessage);
+    }
+  }
+
+  void _handleHistorySnapshot(String sessionId, HistorySnapshotMessage msg) {
+    _pendingHistoryDeltaSinceSeq.remove(sessionId);
+    _runtimeStore.applyServerMessage(sessionId, msg);
+
+    final history = HistoryMessage(
+      messages: msg.entries.map((entry) => entry.message).toList(),
+    );
+    _taggedMessageController.add((history, sessionId));
+    _messageController.add(history);
+
+    final status = msg.status;
+    if (status != null) {
+      _patchSessionStatus(sessionId, status);
+      final statusMessage = StatusMessage(status: status);
+      _runtimeStore.applyServerMessage(sessionId, statusMessage);
+      _taggedMessageController.add((statusMessage, sessionId));
+      _messageController.add(statusMessage);
+    }
+  }
+
+  void _fallbackPendingHistoryDeltaRequests() {
+    if (_pendingHistoryDeltaSinceSeq.isEmpty) return;
+    final sessionIds = List<String>.from(_pendingHistoryDeltaSinceSeq.keys);
+    _pendingHistoryDeltaSinceSeq.clear();
+    for (final sessionId in sessionIds) {
+      send(ClientMessage.getHistory(sessionId));
     }
   }
 
@@ -566,6 +648,14 @@ class BridgeService implements BridgeServiceBase {
 
   @override
   void requestSessionHistory(String sessionId) {
+    final snapshot = _runtimeStore.snapshot(sessionId);
+    if (snapshot.messages.isNotEmpty) {
+      _pendingHistoryDeltaSinceSeq[sessionId] = snapshot.historySeq;
+      send(
+        ClientMessage.getHistoryDelta(sessionId, sinceSeq: snapshot.historySeq),
+      );
+      return;
+    }
     send(ClientMessage.getHistory(sessionId));
   }
 
@@ -649,6 +739,10 @@ class BridgeService implements BridgeServiceBase {
 
   List<ServerMessage> cachedSessionMessages(String sessionId) {
     return _runtimeStore.messages(sessionId);
+  }
+
+  int cachedSessionHistorySeq(String sessionId) {
+    return _runtimeStore.latestHistorySeq(sessionId);
   }
 
   void setExplorerHistory(

@@ -453,9 +453,10 @@ describe("SessionManager codex path", () => {
     proc.emit("exit", 0);
     const afterExit = manager.get(sessionId);
     expect(afterExit?.status).toBe("idle");
-    expect(afterExit?.history.at(-1)).toEqual({
+    expect(afterExit?.history.at(-1)).toMatchObject({
       type: "status",
       status: "idle",
+      historySeq: 1,
     });
   });
 

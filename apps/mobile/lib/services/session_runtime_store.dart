@@ -14,11 +14,13 @@ class SessionRuntimeSnapshot {
   const SessionRuntimeSnapshot({
     required this.sessionId,
     this.messages = const [],
+    this.historySeq = 0,
     this.explorerHistory = const ExplorerHistorySnapshot(),
   });
 
   final String sessionId;
   final List<ServerMessage> messages;
+  final int historySeq;
   final ExplorerHistorySnapshot explorerHistory;
 }
 
@@ -27,6 +29,7 @@ class SessionRuntimeState {
 
   final String sessionId;
   final List<ServerMessage> _messages = [];
+  int historySeq = 0;
   ExplorerHistorySnapshot explorerHistory = const ExplorerHistorySnapshot();
 
   List<ServerMessage> get messages => List.unmodifiable(_messages);
@@ -46,6 +49,7 @@ class SessionRuntimeStore {
     return SessionRuntimeSnapshot(
       sessionId: sessionId,
       messages: state.messages,
+      historySeq: state.historySeq,
       explorerHistory: state.explorerHistory,
     );
   }
@@ -53,18 +57,55 @@ class SessionRuntimeStore {
   List<ServerMessage> messages(String sessionId) =>
       snapshot(sessionId).messages;
 
-  void applyServerMessage(String sessionId, ServerMessage message) {
+  int latestHistorySeq(String sessionId) => snapshot(sessionId).historySeq;
+
+  void applyServerMessage(
+    String sessionId,
+    ServerMessage message, {
+    int? historySeq,
+  }) {
     if (_shouldIgnore(message)) return;
     final state = _stateFor(sessionId);
     if (message is HistoryMessage) {
       state._messages
         ..clear()
         ..addAll(message.messages.where((m) => !_shouldIgnore(m)));
+      state.historySeq = 0;
+      _trim(state);
+      return;
+    }
+    if (message is HistorySnapshotMessage) {
+      state._messages
+        ..clear()
+        ..addAll(
+          message.entries
+              .map((entry) => entry.message)
+              .where((m) => !_shouldIgnore(m)),
+        );
+      state.historySeq = message.toSeq;
+      _trim(state);
+      return;
+    }
+    if (message is HistoryDeltaMessage) {
+      if (state.historySeq == 0 &&
+          state._messages.isNotEmpty &&
+          message.fromSeq <= 1) {
+        state._messages.clear();
+      }
+      state._messages.addAll(
+        message.entries
+            .map((entry) => entry.message)
+            .where((m) => !_shouldIgnore(m)),
+      );
+      state.historySeq = message.toSeq;
       _trim(state);
       return;
     }
 
     state._messages.add(message);
+    if (historySeq != null && historySeq > state.historySeq) {
+      state.historySeq = historySeq;
+    }
     _trim(state);
   }
 
@@ -105,6 +146,7 @@ class SessionRuntimeStore {
         ..clear()
         ..addAll(source._messages);
     }
+    target.historySeq = source.historySeq;
     target.explorerHistory = source.explorerHistory;
     _trim(target);
   }

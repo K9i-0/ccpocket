@@ -603,6 +603,29 @@ sealed class ServerMessage {
             .map((m) => ServerMessage.fromJson(m as Map<String, dynamic>))
             .toList(),
       ),
+      'history_delta' => HistoryDeltaMessage(
+        sessionId: json['sessionId'] as String?,
+        fromSeq: json['fromSeq'] as int? ?? 0,
+        toSeq: json['toSeq'] as int? ?? 0,
+        entries: (json['messages'] as List)
+            .map((m) => HistoryEntry.fromJson(m as Map<String, dynamic>))
+            .toList(),
+        status: json['status'] != null
+            ? ProcessStatus.fromString(json['status'] as String)
+            : null,
+      ),
+      'history_snapshot' => HistorySnapshotMessage(
+        sessionId: json['sessionId'] as String?,
+        fromSeq: json['fromSeq'] as int? ?? 0,
+        toSeq: json['toSeq'] as int? ?? 0,
+        entries: (json['messages'] as List)
+            .map((m) => HistoryEntry.fromJson(m as Map<String, dynamic>))
+            .toList(),
+        status: json['status'] != null
+            ? ProcessStatus.fromString(json['status'] as String)
+            : null,
+        reason: json['reason'] as String? ?? 'compacted',
+      ),
       'conversation_queue' => ConversationQueueMessage(
         sessionId: json['sessionId'] as String?,
         limit: json['limit'] as int? ?? 1,
@@ -1204,6 +1227,53 @@ class StatusMessage implements ServerMessage {
 class HistoryMessage implements ServerMessage {
   final List<ServerMessage> messages;
   const HistoryMessage({required this.messages});
+}
+
+class HistoryEntry {
+  final int seq;
+  final ServerMessage message;
+  const HistoryEntry({required this.seq, required this.message});
+
+  factory HistoryEntry.fromJson(Map<String, dynamic> json) {
+    return HistoryEntry(
+      seq: json['seq'] as int? ?? 0,
+      message: ServerMessage.fromJson(json['message'] as Map<String, dynamic>),
+    );
+  }
+}
+
+class HistoryDeltaMessage implements ServerMessage {
+  final String? sessionId;
+  final int fromSeq;
+  final int toSeq;
+  final List<HistoryEntry> entries;
+  final ProcessStatus? status;
+
+  const HistoryDeltaMessage({
+    this.sessionId,
+    required this.fromSeq,
+    required this.toSeq,
+    required this.entries,
+    this.status,
+  });
+}
+
+class HistorySnapshotMessage implements ServerMessage {
+  final String? sessionId;
+  final int fromSeq;
+  final int toSeq;
+  final List<HistoryEntry> entries;
+  final ProcessStatus? status;
+  final String reason;
+
+  const HistorySnapshotMessage({
+    this.sessionId,
+    required this.fromSeq,
+    required this.toSeq,
+    required this.entries,
+    this.status,
+    required this.reason,
+  });
 }
 
 class PermissionRequestMessage implements ServerMessage {
@@ -3022,7 +3092,11 @@ class ClientMessage {
   factory ClientMessage.clientCapabilities({
     String? appVersion,
     int protocolVersion = 1,
-    List<String> supportedServerMessages = const ['conversation_queue'],
+    List<String> supportedServerMessages = const [
+      'conversation_queue',
+      'history_delta',
+      'history_snapshot',
+    ],
   }) {
     return ClientMessage._(<String, dynamic>{
       'type': 'client_capabilities',
@@ -3253,6 +3327,15 @@ class ClientMessage {
 
   factory ClientMessage.getHistory(String sessionId) =>
       ClientMessage._({'type': 'get_history', 'sessionId': sessionId});
+
+  factory ClientMessage.getHistoryDelta(
+    String sessionId, {
+    required int sinceSeq,
+  }) => ClientMessage._({
+    'type': 'get_history_delta',
+    'sessionId': sessionId,
+    'sinceSeq': sinceSeq,
+  });
 
   factory ClientMessage.refreshBranch(String sessionId) =>
       ClientMessage._({'type': 'refresh_branch', 'sessionId': sessionId});
