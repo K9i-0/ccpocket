@@ -2,7 +2,7 @@
 name: release-app
 description: アプリのリリース（バージョンbump + CHANGELOG + タグ → GH Actions で自動ビルド・配布）。iOS / Android / macOS の任意の組み合わせでリリースできる。「リリース」「バージョン上げて」「リリースして」と言われたときに使う。
 disable-model-invocation: true
-allowed-tools: Bash(git:*), Bash(grep:*), Bash(dart analyze:*), Bash(cd apps/mobile && flutter test), Read, Edit, AskUserQuestion
+allowed-tools: Bash(git:*), Bash(grep:*), Bash(gh:*), Bash(dart analyze:*), Bash(cd apps/mobile && flutter test), Read, Edit, AskUserQuestion
 ---
 
 # アプリ リリース
@@ -139,3 +139,24 @@ gh run list --workflow=macos-release.yml --limit 1
 ```
 
 成功を確認したら完了。
+
+#### 待機の目安
+
+リリース CD は Shorebird release、署名、公証、ストア配布を含むため、通常 15 分前後かかる。
+タグ push 直後から `gh run watch` で張り付くと出力が大きくなりやすいので、効率よく待つ場合は低頻度ポーリングにする。
+
+推奨:
+
+```bash
+# 起動確認
+gh run list --workflow=ios-release.yml --limit 1
+gh run list --workflow=android-release.yml --limit 1
+gh run list --workflow=macos-release.yml --limit 1
+
+# 10〜15分ほど待ってから再確認
+gh run list --workflow=ios-release.yml --limit 1
+gh run list --workflow=android-release.yml --limit 1
+gh run list --workflow=macos-release.yml --limit 1
+```
+
+途中確認する場合も 2〜3 分間隔を目安にする。`failure` / `cancelled` が出た場合だけ `gh run view <run-id> --log-failed` で詳細を確認する。
