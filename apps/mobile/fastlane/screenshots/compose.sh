@@ -26,10 +26,11 @@ FONT_JA_BOLD="$(resolve_font Hiragino-Sans-W7 '/System/Library/Fonts/ヒラギ�
 FONT_JA_REG="$(resolve_font Hiragino-Sans-W3 '/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc')"
 FONT_ZH_BOLD="$(resolve_font PingFang-SC-Semibold /System/Library/Fonts/PingFang.ttc)"
 FONT_ZH_REG="$(resolve_font PingFang-SC-Regular /System/Library/Fonts/PingFang.ttc)"
+HERO_ILLUSTRATION="${SCRIPT_DIR}/assets/remote-agent-train-laptop.png"
 
 # Screenshot definitions: key, keyword_en, title_en, keyword_ja, title_ja, keyword_zh, title_zh
 SCREENSHOTS=(
-  "01_session_list|Code anywhere|On the couch, on the train|どこでもコーディング|ソファーでも電車でも|随时随地编程|沙发上、地铁里"
+  "01_session_list|Code Agents, From Your Phone|They run on your computer. You control them anywhere.|コードエージェントをスマホから|PCで実行。どこからでも操作。|用手机操控编程代理|在电脑上运行，随时随地控制"
   "02_approval_list|Multiple sessions|Approve at a glance|複数セッション一覧|まとめて承認対応|多会话一览|一目了然，批量审批"
   "03_multi_question|Mobile-first UI|Questions, answered instantly|モバイル最適化|承認UIで素早く回答|移动端优化|快速回答审批请求"
   "04_markdown_input|Write rich prompts|Bullet lists made easy|リッチなプロンプト|箇条書きが簡単|丰富的提示|轻松编写列表"
@@ -47,6 +48,71 @@ IPAD_SCREENSHOTS=(
   "05_dark_workspace|Built for focus|An immersive layout like your desktop IDE|iPad でも集中して開発|デスクトップ IDE のような没入感|专注开发而生|像桌面 IDE 一样沉浸的布局"
 )
 
+compose_hero_screenshot() {
+  local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6"
+  local input="${SCRIPT_DIR}/${lang_dir}/${key}.png"
+  local output="${SCRIPT_DIR}/${lang_dir}/${key}_framed.png"
+
+  local text_fill="#111111"
+  local subtitle_fill="rgba(17,17,17,0.75)"
+  local bg_gradient="gradient:#FFFFFF-#F4F4F5"
+
+  local src_w src_h
+  read -r src_w src_h <<< "$(magick identify -format '%w %h' "$input")"
+
+  local ss_y=1010
+  local max_w=1020
+  local scale_ratio
+  scale_ratio=$(echo "scale=6; $max_w / $src_w" | bc)
+  local scaled_w=$max_w
+  local scaled_h
+  scaled_h=$(echo "$src_h * $scale_ratio / 1" | bc)
+
+  local ss_x=$(( (CANVAS_W - scaled_w) / 2 ))
+  local corner_radius=125
+
+  echo "Composing hero: $key ($lang_dir)"
+
+  magick -size "${scaled_w}x${scaled_h}" xc:none \
+    -fill white -draw "roundrectangle 0,0 $((scaled_w-1)),$((scaled_h-1)) ${corner_radius},${corner_radius}" \
+    /tmp/mask_$$.png
+
+  magick "$input" -resize "${scaled_w}x${scaled_h}" \
+    /tmp/mask_$$.png -alpha off -compose CopyOpacity -composite \
+    /tmp/ss_$$.png
+
+  magick -size "${scaled_w}x${scaled_h}" xc:none \
+    -fill none -stroke "#333333" -strokewidth 12 \
+    -draw "roundrectangle 6,6 $((scaled_w-7)),$((scaled_h-7)) ${corner_radius},${corner_radius}" \
+    /tmp/bezel_$$.png
+
+  magick /tmp/ss_$$.png /tmp/bezel_$$.png -composite /tmp/framed_ss_$$.png
+
+  magick "$HERO_ILLUSTRATION" -fuzz 4% -trim +repage -resize "900x620>" /tmp/hero_illustration_$$.png
+  local hero_w hero_h
+  read -r hero_w hero_h <<< "$(magick identify -format '%w %h' /tmp/hero_illustration_$$.png)"
+  local hero_x=$(( (CANVAS_W - hero_w) / 2 ))
+
+  magick -background none -size "1180x120" -gravity center \
+    -font "$font_bold" -pointsize 74 -fill "$text_fill" \
+    caption:"$keyword" /tmp/hero_keyword_$$.png
+
+  magick -background none -size "1120x150" -gravity center \
+    -font "$font_reg" -pointsize 44 -fill "$subtitle_fill" \
+    caption:"$title" /tmp/hero_title_$$.png
+
+  magick -size "${CANVAS_W}x${CANVAS_H}" "$bg_gradient" \
+    /tmp/hero_keyword_$$.png -geometry "+70+104" -composite \
+    /tmp/hero_title_$$.png -geometry "+100+230" -composite \
+    /tmp/hero_illustration_$$.png -geometry "+${hero_x}+340" -composite \
+    /tmp/framed_ss_$$.png -geometry "+${ss_x}+${ss_y}" -composite \
+    -depth 8 $PNG_STRIP "$output"
+
+  rm -f /tmp/mask_$$.png /tmp/ss_$$.png /tmp/bezel_$$.png /tmp/framed_ss_$$.png \
+    /tmp/hero_illustration_$$.png /tmp/hero_keyword_$$.png /tmp/hero_title_$$.png
+  echo "  -> $output"
+}
+
 compose_screenshot() {
   local key="$1" keyword="$2" title="$3" lang_dir="$4" font_bold="$5" font_reg="$6"
   local input="${SCRIPT_DIR}/${lang_dir}/${key}.png"
@@ -58,6 +124,11 @@ compose_screenshot() {
 
   if [ ! -f "$input" ]; then
     echo "SKIP: $input not found"
+    return
+  fi
+
+  if [ "$key" = "01_session_list" ] && [ -f "$HERO_ILLUSTRATION" ]; then
+    compose_hero_screenshot "$key" "$keyword" "$title" "$lang_dir" "$font_bold" "$font_reg"
     return
   fi
 
