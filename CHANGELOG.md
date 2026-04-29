@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.79.1] - 2026-04-29
+
+### Fixed
+- Use production APNs entitlements for iOS release builds and verify the signed IPA before TestFlight upload.
+
 ## [1.79.0] - 2026-04-28
 
 ### Added
