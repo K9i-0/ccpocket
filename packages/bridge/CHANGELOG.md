@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.48.1] - 2026-04-30
+
+### Fixed
+- Keep compacted session history snapshots in chronological order instead of preserving user messages without assistant replies.
+
 ## [1.48.0] - 2026-04-30
 
 ### Added

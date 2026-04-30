@@ -805,15 +805,12 @@ export class SessionManager {
 
   private trimHistory(session: SessionInfo): void {
     while (session.history.length > MAX_HISTORY_PER_SESSION) {
-      // Protect user_input and system messages from eviction so they remain
-      // available when the client reconnects. System messages carry slash
-      // commands, permission modes, and other metadata needed to restore state.
-      const idx = session.history.findIndex(
-        (m) => m.type !== "user_input" && m.type !== "system",
-      );
-      const removeIndex = idx >= 0 ? idx : 0;
-      session.history.splice(removeIndex, 1);
-      session.historyEntries.splice(removeIndex, 1);
+      // Keep the retained in-memory history as a chronological tail.  The
+      // mobile client renders history snapshots directly; preferentially
+      // preserving user_input/system entries makes long sessions degrade into
+      // a run of user bubbles after compaction.
+      session.history.shift();
+      session.historyEntries.shift();
     }
 
     session.historyLowWatermark =

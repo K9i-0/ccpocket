@@ -267,6 +267,50 @@ describe("SessionManager codex path", () => {
     expect(result?.entries[0].seq).toBe(6);
   });
 
+  it("trims history as a chronological tail instead of preserving only user inputs", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create("/tmp/project-history-tail");
+
+    for (let i = 0; i < 60; i++) {
+      manager.appendHistory(sessionId, {
+        type: "user_input",
+        text: `question ${i}`,
+      } as ServerMessage);
+      manager.appendHistory(sessionId, {
+        type: "assistant",
+        message: {
+          id: `answer-${i}`,
+          role: "assistant",
+          content: [{ type: "text", text: `answer ${i}` }],
+          model: "test",
+        },
+      } as ServerMessage);
+    }
+
+    const session = manager.get(sessionId);
+    const result = manager.getHistorySince(sessionId, 0);
+
+    expect(session?.history).toHaveLength(100);
+    expect(result).toMatchObject({
+      kind: "snapshot",
+      fromSeq: 21,
+      toSeq: 120,
+    });
+    expect(result?.entries.map((entry) => entry.seq)).toEqual(
+      Array.from({ length: 100 }, (_, i) => i + 21),
+    );
+    expect(
+      result?.entries.slice(0, 6).map((entry) => entry.message.type),
+    ).toEqual([
+      "user_input",
+      "assistant",
+      "user_input",
+      "assistant",
+      "user_input",
+      "assistant",
+    ]);
+  });
+
   it("keeps history delta sequences isolated per running session", () => {
     const manager = new SessionManager(() => {});
     const sessionA = manager.create("/tmp/project-history-a");
