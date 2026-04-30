@@ -1,3 +1,3 @@
-• Improved reliability on spotty connections, with multiple fixes for session restore, pending actions, and queued Codex messages.
-• Added a scroll-first option for Git diffs.
-• Added keyboard shortcuts for chat input completion and editing.
+• You can now update Bridge from Settings.
+• Added a setting to make in-app text smaller than the OS text size.
+• Fixed an issue where long questions could overflow the screen.
