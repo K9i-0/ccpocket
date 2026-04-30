@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.83.0] - 2026-04-30
+
+### Added
+- Add Korean app localization, authentication help, store metadata, and store screenshots.
+
+### Changed
+- Require Bridge 1.48.0 for Korean push notification localization.
+
 ## [1.82.0] - 2026-04-30
 
 ### Added
