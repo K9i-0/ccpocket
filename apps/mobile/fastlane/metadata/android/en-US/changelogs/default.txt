@@ -1,3 +1,4 @@
 • You can now update Bridge from Settings.
 • Added a setting to make in-app text smaller than the OS text size.
 • Fixed an issue where long questions could overflow the screen.
+• Added Korean language support.
