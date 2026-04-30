@@ -4,13 +4,16 @@ import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
 import 'package:ccpocket/features/session_list/workspace_shell_screen.dart';
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/models/machine.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/bridge_cubits.dart';
+import 'package:ccpocket/providers/machine_manager_cubit.dart';
 import 'package:ccpocket/providers/server_discovery_cubit.dart';
 import 'package:ccpocket/services/app_icon_service.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/services/in_app_review_service.dart';
+import 'package:ccpocket/services/machine_manager_service.dart';
 import 'package:ccpocket/services/notification_service.dart';
 import 'package:ccpocket/services/revenuecat_service.dart';
 import 'package:ccpocket/services/support_banner_service.dart';
@@ -171,6 +174,109 @@ class _FakeRevenueCatService extends RevenueCatService {
   }
 }
 
+class _StaticMachineManagerService implements MachineManagerService {
+  final _controller = StreamController<List<MachineWithStatus>>.broadcast();
+
+  @override
+  Stream<List<MachineWithStatus>> get machines => _controller.stream;
+
+  @override
+  List<Machine> get currentMachines => const [];
+
+  @override
+  List<MachineWithStatus> get machinesWithStatus => const [];
+
+  @override
+  Future<void> init() async {
+    _controller.add(const []);
+  }
+
+  @override
+  Future<void> checkAllHealth() async {
+    _controller.add(const []);
+  }
+
+  @override
+  Future<MachineStatus> checkHealth(String machineId) async =>
+      MachineStatus.unknown;
+
+  @override
+  Future<Machine> recordConnection({
+    required String host,
+    required int port,
+    String? apiKey,
+    String? name,
+    bool? useSsl,
+  }) async => Machine(
+    id: 'recorded',
+    host: host,
+    port: port,
+    name: name,
+    useSsl: useSsl ?? false,
+  );
+
+  @override
+  Future<void> addMachine(
+    Machine machine, {
+    String? apiKey,
+    String? sshPassword,
+    String? sshPrivateKey,
+  }) async {}
+
+  @override
+  Future<void> updateMachine(
+    Machine machine, {
+    String? apiKey,
+    String? sshPassword,
+    String? sshPrivateKey,
+    bool clearApiKey = false,
+    bool clearCredentials = false,
+  }) async {}
+
+  @override
+  Future<void> deleteMachine(String id) async {}
+
+  @override
+  Future<void> toggleFavorite(String machineId) async {}
+
+  @override
+  Machine? getMachine(String id) => null;
+
+  @override
+  Future<String?> getApiKey(String machineId) async => null;
+
+  @override
+  Future<String?> getSshPassword(String machineId) async => null;
+
+  @override
+  Future<String?> getSshPrivateKey(String machineId) async => null;
+
+  @override
+  Future<String> buildWsUrl(String machineId) async => 'ws://127.0.0.1:8765';
+
+  @override
+  Machine createNew({
+    String? name,
+    required String host,
+    int port = 8765,
+    bool useSsl = false,
+  }) => Machine(id: 'new', host: host, port: port, name: name, useSsl: useSsl);
+
+  @override
+  Machine? findByHostPort(String host, int port) => null;
+
+  @override
+  void startPeriodicHealthCheck({Duration? interval}) {}
+
+  @override
+  void stopPeriodicHealthCheck() {}
+
+  @override
+  void dispose() {
+    _controller.close();
+  }
+}
+
 Widget _buildWorkspaceApp({
   required _MockBridgeService bridge,
   required SettingsCubit settingsCubit,
@@ -195,6 +301,10 @@ Widget _buildWorkspaceApp({
     const [],
     bridge.projectHistoryStream,
   );
+  final machineManagerCubit = MachineManagerCubit(
+    _StaticMachineManagerService(),
+    null,
+  );
 
   return MultiRepositoryProvider(
     providers: [
@@ -213,6 +323,7 @@ Widget _buildWorkspaceApp({
         BlocProvider<FileListCubit>.value(value: fileListCubit),
         BlocProvider<ProjectHistoryCubit>.value(value: projectHistoryCubit),
         BlocProvider<SessionListCubit>.value(value: sessionListCubit),
+        BlocProvider<MachineManagerCubit>.value(value: machineManagerCubit),
         BlocProvider<SettingsCubit>.value(value: settingsCubit),
         BlocProvider<ServerDiscoveryCubit>(
           create: (_) => ServerDiscoveryCubit(),

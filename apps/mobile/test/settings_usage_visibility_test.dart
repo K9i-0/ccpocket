@@ -366,7 +366,7 @@ void main() {
             sshUsername: 'k9i',
           ),
           status: MachineStatus.online,
-          versionInfo: BridgeVersionInfo(version: '1.47.0'),
+          versionInfo: BridgeVersionInfo(version: '1.47.1'),
         ),
       ]);
       final latestCubit = MachineManagerCubit(latestService, null);

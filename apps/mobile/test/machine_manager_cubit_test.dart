@@ -537,7 +537,7 @@ void main() {
         const MachineWithStatus(
           machine: Machine(id: 'm1', host: '10.0.0.1'),
           status: MachineStatus.online,
-          versionInfo: BridgeVersionInfo(version: '1.47.0'),
+          versionInfo: BridgeVersionInfo(version: '1.47.1'),
         ),
       ];
       final cubit = createCubit();

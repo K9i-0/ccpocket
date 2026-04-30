@@ -119,7 +119,7 @@ void main() {
         await _pumpCard(
           tester,
           status: MachineStatus.online,
-          version: '1.47.0',
+          version: '1.47.1',
         );
         expect(
           find.byKey(const ValueKey('machine_update_bridge_button')),

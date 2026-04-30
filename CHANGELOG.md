@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.80.0] - 2026-04-30
+
+### Added
+- Add setup-based Bridge update actions from the machine card and connection settings
+- Show Bridge version status in connection settings, including update availability and setup requirements
+
+### Changed
+- Require Bridge 1.47.1 so setup service restarts use non-interactive `npx --yes`
+- Hide Bridge update actions unless the connected machine is online, SSH-configured, and running an older Bridge version
+
+### Fixed
+- Hide the server stop action when the Bridge server is not running
+- Verify health and refreshed version after remote Bridge start or update before reporting success
+
 ## [1.79.2] - 2026-04-29
 
 ### Fixed
