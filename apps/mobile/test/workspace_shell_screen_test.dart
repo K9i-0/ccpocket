@@ -197,8 +197,10 @@ class _StaticMachineManagerService implements MachineManagerService {
   }
 
   @override
-  Future<MachineStatus> checkHealth(String machineId) async =>
-      MachineStatus.unknown;
+  Future<MachineStatus> checkHealth(
+    String machineId, {
+    Duration timeout = const Duration(seconds: 5),
+  }) async => MachineStatus.unknown;
 
   @override
   Future<Machine> recordConnection({

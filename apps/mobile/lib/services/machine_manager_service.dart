@@ -490,15 +490,16 @@ class MachineManagerService {
   // ---- Health Check ----
 
   /// Check health of a specific machine and fetch version info
-  Future<MachineStatus> checkHealth(String machineId) async {
+  Future<MachineStatus> checkHealth(
+    String machineId, {
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
     final machine = getMachine(machineId);
     if (machine == null) return MachineStatus.unknown;
 
     try {
       final healthUrl = '${machine.httpUrl}/health';
-      final response = await http
-          .get(Uri.parse(healthUrl))
-          .timeout(const Duration(seconds: 5));
+      final response = await http.get(Uri.parse(healthUrl)).timeout(timeout);
 
       if (response.statusCode == 200) {
         _statusCache[machineId] = MachineStatus.online;

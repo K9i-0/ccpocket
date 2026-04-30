@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ccpocket/constants/app_constants.dart';
 import 'package:ccpocket/models/machine.dart';
 import 'package:ccpocket/providers/machine_manager_cubit.dart';
 import 'package:ccpocket/services/machine_manager_service.dart';
@@ -18,6 +19,7 @@ class MockMachineManagerService implements MachineManagerService {
   bool deleteMachineShouldFail = false;
   List<MachineStatus> checkHealthResults = [];
   MachineStatus defaultCheckHealthResult = MachineStatus.online;
+  final List<Duration> checkHealthTimeouts = [];
   List<MachineWithStatus> machineStatuses = [];
 
   final Map<String, Machine> _machines = {};
@@ -40,8 +42,12 @@ class MockMachineManagerService implements MachineManagerService {
   }
 
   @override
-  Future<MachineStatus> checkHealth(String machineId) async {
+  Future<MachineStatus> checkHealth(
+    String machineId, {
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
     calls.add('checkHealth:$machineId');
+    checkHealthTimeouts.add(timeout);
     if (checkHealthResults.isNotEmpty) {
       return checkHealthResults.removeAt(0);
     }
@@ -510,6 +516,10 @@ void main() {
         mockService.calls.where((call) => call == 'checkHealth:m1'),
         hasLength(2),
       );
+      expect(
+        mockService.checkHealthTimeouts,
+        everyElement(const Duration(seconds: 2)),
+      );
     });
 
     test('returns command failure before health check', () async {
@@ -534,10 +544,12 @@ void main() {
         MachineStatus.online,
       ];
       mockService.machineStatuses = [
-        const MachineWithStatus(
+        MachineWithStatus(
           machine: Machine(id: 'm1', host: '10.0.0.1'),
           status: MachineStatus.online,
-          versionInfo: BridgeVersionInfo(version: '1.47.1'),
+          versionInfo: BridgeVersionInfo(
+            version: AppConstants.expectedBridgeVersion,
+          ),
         ),
       ];
       final cubit = createCubit();

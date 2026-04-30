@@ -38,20 +38,32 @@ abstract class MachineManagerState with _$MachineManagerState {
 class MachineManagerCubit extends Cubit<MachineManagerState> {
   final MachineManagerService _service;
   final SshStartupService? _sshService;
-  final Duration _healthTimeout;
+  final Duration _startHealthTimeout;
+  final Duration _updateHealthTimeout;
   final Duration _healthRetryDelay;
+  final Duration _postStartHealthRequestTimeout;
   StreamSubscription? _machinesSub;
 
-  static const _defaultHealthTimeout = Duration(seconds: 30);
+  static const _defaultStartHealthTimeout = Duration(seconds: 20);
+  static const _defaultUpdateHealthTimeout = Duration(seconds: 30);
   static const _defaultHealthRetryDelay = Duration(seconds: 1);
+  static const _defaultPostStartHealthRequestTimeout = Duration(seconds: 2);
 
   MachineManagerCubit(
     this._service,
     this._sshService, {
-    Duration healthTimeout = _defaultHealthTimeout,
+    Duration? healthTimeout,
+    Duration? startHealthTimeout,
+    Duration? updateHealthTimeout,
     Duration healthRetryDelay = _defaultHealthRetryDelay,
-  }) : _healthTimeout = healthTimeout,
+    Duration postStartHealthRequestTimeout =
+        _defaultPostStartHealthRequestTimeout,
+  }) : _startHealthTimeout =
+           startHealthTimeout ?? healthTimeout ?? _defaultStartHealthTimeout,
+       _updateHealthTimeout =
+           updateHealthTimeout ?? healthTimeout ?? _defaultUpdateHealthTimeout,
        _healthRetryDelay = healthRetryDelay,
+       _postStartHealthRequestTimeout = postStartHealthRequestTimeout,
        super(const MachineManagerState()) {
     _machinesSub = _service.machines.listen((machines) {
       emit(state.copyWith(machines: machines, isLoading: false));
@@ -194,7 +206,10 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
       );
 
       if (result.success) {
-        final status = await _waitForOnline(machineId, timeout: _healthTimeout);
+        final status = await _waitForOnline(
+          machineId,
+          timeout: _startHealthTimeout,
+        );
 
         if (status == MachineStatus.online) {
           emit(
@@ -233,12 +248,18 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
     required Duration timeout,
   }) async {
     final deadline = DateTime.now().add(timeout);
-    var status = await _service.checkHealth(machineId);
+    var status = await _service.checkHealth(
+      machineId,
+      timeout: _postStartHealthRequestTimeout,
+    );
 
     while (status != MachineStatus.online &&
         DateTime.now().isBefore(deadline)) {
       await Future.delayed(_healthRetryDelay);
-      status = await _service.checkHealth(machineId);
+      status = await _service.checkHealth(
+        machineId,
+        timeout: _postStartHealthRequestTimeout,
+      );
     }
 
     return status;
@@ -304,7 +325,10 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
       );
 
       if (result.success) {
-        final status = await _waitForOnline(machineId, timeout: _healthTimeout);
+        final status = await _waitForOnline(
+          machineId,
+          timeout: _updateHealthTimeout,
+        );
 
         if (status != MachineStatus.online) {
           emit(
