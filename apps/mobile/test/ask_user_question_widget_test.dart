@@ -241,6 +241,78 @@ void main() {
       expect(find.text('Other answer...'), findsNothing);
       expect(find.byType(TextField), findsNothing);
     });
+
+    testWidgets(
+      'scrollable constrained area reaches final option when parent disables scroll',
+      (tester) async {
+        String? answeredResult;
+
+        await tester.pumpWidget(
+          _wrap(
+            AskUserQuestionWidget(
+              toolUseId: 'test-overflow',
+              scrollable: false,
+              input: {
+                'questions': [
+                  {
+                    'question':
+                        'Which onboarding strategy should I implement for the next release, given that first-time users need setup guidance while returning users want shortcuts?',
+                    'header': 'Onboarding',
+                    'options': [
+                      {
+                        'label': 'Guided setup',
+                        'description':
+                            'Connection setup, project selection, permission guidance, first prompt education, and recovery hints shown in sequence before the first chat.',
+                      },
+                      {
+                        'label': 'Progressive disclosure',
+                        'description':
+                            'Minimum setup first, then reveal permissions, prompt tips, workspace switching, and recovery actions as users encounter each feature.',
+                      },
+                      {
+                        'label': 'Power-user shortcuts',
+                        'description':
+                            'Quick connect, recent projects, direct session start, saved machines, and compact troubleshooting entry points for returning users.',
+                      },
+                      {
+                        'label': 'Diagnostic-first flow',
+                        'description':
+                            'Environment checks and remediation steps for Bridge, network, shell path, and permission issues before creating a session.',
+                      },
+                    ],
+                    'multiSelect': false,
+                  },
+                ],
+              },
+              onAnswer: (_, result) {
+                answeredResult = result;
+              },
+            ),
+          ),
+        );
+
+        final scrollView = find.byKey(
+          const ValueKey('ask_single_question_scroll_view'),
+        );
+        expect(scrollView, findsOneWidget);
+        final screenHeight =
+            tester.view.physicalSize.height / tester.view.devicePixelRatio;
+        expect(
+          tester.getSize(scrollView).height,
+          closeTo(screenHeight * 0.42, 0.1),
+        );
+
+        await tester.drag(scrollView, const Offset(0, -420));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey('ask_option_0_Diagnostic-first flow')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(answeredResult, 'Diagnostic-first flow');
+      },
+    );
   });
 
   group('AskUserQuestionWidget - multiple questions', () {

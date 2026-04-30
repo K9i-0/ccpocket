@@ -53,6 +53,7 @@ final List<MockScenario> mockScenarios = [
   _approvalFlow,
   _multipleApprovalFlow,
   _askUserQuestion,
+  _askUserQuestionOverflow,
   _askUserSingleMultiSelect,
   _askUserMultiQuestion,
   _todoWrite,
@@ -615,6 +616,124 @@ final _askUserQuestion = MockScenario(
                         'label': 'Circuit breaker',
                         'description':
                             'Track failure rate and temporarily disable requests when threshold is reached.',
+                      },
+                    ],
+                    'multiSelect': false,
+                  },
+                ],
+              },
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 2a. AskUserQuestion Overflow
+// ---------------------------------------------------------------------------
+final _askUserQuestionOverflow = MockScenario(
+  name: 'AskUserQuestion Overflow',
+  icon: Icons.vertical_align_bottom,
+  description: 'Single Claude question with long options that must scroll',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 300),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 500),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-ask-overflow-pre-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  'I inspected the onboarding flow and found several ways to reduce friction. '
+                  'Before changing the implementation, I need to choose the product direction.',
+            ),
+            const ToolUseContent(
+              id: 'tool-ask-overflow-read-1',
+              name: 'Read',
+              input: {'file_path': 'lib/features/onboarding/onboarding.dart'},
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 700),
+      message: const ToolResultMessage(
+        toolUseId: 'tool-ask-overflow-read-1',
+        toolName: 'Read',
+        content:
+            'class OnboardingFlow {\n'
+            '  // Current flow has connection setup, project selection,\n'
+            '  // permission guidance, and first prompt education.\n'
+            '}',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 900),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-ask-overflow-pre-2',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  'The current flow mixes first-run setup with ongoing education. '
+                  'There are four viable strategies with different tradeoffs.',
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1100),
+      message: AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-ask-overflow-1',
+          role: 'assistant',
+          content: [
+            const TextContent(
+              text:
+                  'I need a product decision before implementing the onboarding changes.',
+            ),
+            const ToolUseContent(
+              id: 'tool-ask-overflow-1',
+              name: 'AskUserQuestion',
+              input: {
+                'questions': [
+                  {
+                    'question':
+                        'Which onboarding strategy should I implement for the next release, given that first-time users often need setup guidance while returning users want to start sessions quickly?',
+                    'header': 'Onboarding',
+                    'options': [
+                      {
+                        'label': 'Guided setup (Recommended)',
+                        'description':
+                            'Keep users in a single guided path with connection setup, project selection, permission guidance, first prompt education, and recovery hints shown in sequence. This is easiest to understand, but it takes more space and asks users to read each step before reaching the first session.',
+                      },
+                      {
+                        'label': 'Progressive disclosure',
+                        'description':
+                            'Show only the minimum setup first, then reveal permissions, prompt tips, workspace switching, and recovery actions as users encounter each feature naturally. This keeps the first screen lighter, but it requires careful timing so hints appear before users get stuck.',
+                      },
+                      {
+                        'label': 'Power-user shortcuts',
+                        'description':
+                            'Prioritize returning users with quick connect, recent projects, direct session start, saved machines, and compact troubleshooting entry points. This makes daily use faster, but first-time users may need to open help when their Bridge or project setup is incomplete.',
+                      },
+                      {
+                        'label': 'Diagnostic-first flow',
+                        'description':
+                            'Start with environment checks and clear remediation steps so users fix Bridge, network, shell path, and permission issues before creating a session. This reduces failed starts, but it puts troubleshooting ahead of the core chat experience.',
                       },
                     ],
                     'multiSelect': false,
