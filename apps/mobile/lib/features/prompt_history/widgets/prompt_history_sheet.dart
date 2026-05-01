@@ -242,7 +242,6 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
                     final entry = state.prompts[index];
                     return PromptHistoryTile(
                       entry: entry,
-                      showProjectBadge: !state.filters.currentProjectOnly,
                       onTap: () {
                         Navigator.pop(context);
                         widget.onSelect(entry.text);

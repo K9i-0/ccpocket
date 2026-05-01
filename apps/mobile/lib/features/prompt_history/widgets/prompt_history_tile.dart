@@ -7,11 +7,10 @@ import '../../../utils/command_parser.dart';
 
 /// A single row in the prompt history list.
 ///
-/// Shows the prompt text, use count badge, project name badge (when showing
-/// all projects), a favorite star toggle, and supports swipe-to-delete.
+/// Shows the prompt text, use count badge, a favorite star toggle, and supports
+/// swipe-to-delete.
 class PromptHistoryTile extends StatelessWidget {
   final PromptHistoryEntry entry;
-  final bool showProjectBadge;
   final VoidCallback onTap;
   final VoidCallback onToggleFavorite;
   final VoidCallback onDelete;
@@ -19,7 +18,6 @@ class PromptHistoryTile extends StatelessWidget {
   const PromptHistoryTile({
     super.key,
     required this.entry,
-    required this.showProjectBadge,
     required this.onTap,
     required this.onToggleFavorite,
     required this.onDelete,
@@ -69,7 +67,6 @@ class PromptHistoryTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 14),
         ),
-        subtitle: _buildSubtitle(cs),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -104,33 +101,6 @@ class PromptHistoryTile extends StatelessWidget {
           ],
         ),
         dense: true,
-      ),
-    );
-  }
-
-  Widget? _buildSubtitle(ColorScheme cs) {
-    if (!showProjectBadge || entry.projectPath.isEmpty) return null;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: cs.secondaryContainer,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              entry.projectName,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: cs.onSecondaryContainer,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

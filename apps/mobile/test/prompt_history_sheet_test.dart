@@ -138,11 +138,9 @@ void main() {
     expect(find.text('other prompt'), findsNothing);
   });
 
-  testWidgets('hides project labels when open project filter is on', (
-    tester,
-  ) async {
+  testWidgets('hides project labels in history rows', (tester) async {
     final service = _FakePromptHistoryService(
-      defaultFilters: const PromptHistoryFilters(currentProjectOnly: true),
+      defaultFilters: const PromptHistoryFilters(),
       entries: [
         _entry(
           id: 'current',
