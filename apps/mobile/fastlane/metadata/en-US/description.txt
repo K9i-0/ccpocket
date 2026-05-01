@@ -1,52 +1,47 @@
-AI coding agents can now write entire features autonomously. Your job? Approve, answer, review. That doesn't need a laptop — it needs your phone.
+AI coding agents can now implement complete features. You still need to guide the work, approve actions, answer questions, and review the results. CC Pocket brings that workflow to your phone, tablet, and Mac.
 
-CC Pocket is a mobile client for OpenAI Codex and Claude Code. Start Codex sessions from iPhone, iPad, or Mac, make decisions on the go, and keep the agent running on your own machine.
+CC Pocket is a mobile and desktop companion for OpenAI Codex and Claude Code. Your agents run through a self-hosted Bridge Server on your own Mac or Linux machine, while you start sessions, make decisions, inspect files, and manage changes from iPhone, iPad, Android, or macOS.
 
 This app is not affiliated with, endorsed by, or associated with Anthropic or OpenAI.
 
-START SESSIONS FROM YOUR PHONE
-Launch new Codex or Claude Code sessions directly from your phone — no need to open a laptop first. Pick a project, set a permission mode, and start coding in seconds.
+SELF-HOSTED BY DESIGN
+Run the Bridge Server on your own machine. Your projects, shell access, git repository, and agent sessions stay under your control, with no telemetry or tracking.
 
-BATCH APPROVAL AT A GLANCE
-Multiple agents running? See all pending approvals across sessions in one list. Review and approve file edits, command executions, and tool calls without switching context.
+START AND RESUME SESSIONS
+Start new Codex or Claude Code sessions from the app. Pick a project, choose a permission mode, and begin in seconds. Sessions started from Codex CLI, the Codex app, or Claude Code also appear in Recent Sessions so you can pick them up from another device.
 
-MOBILE-OPTIMIZED UI
-Built for touch. Answer agent questions, approve tools, and provide feedback through a UI designed for mobile — not a shrunken desktop terminal.
+APPROVALS BUILT FOR MOBILE
+Review command execution requests, file edits, MCP requests, and agent questions in a touch-first UI. When multiple sessions need attention, the session list shows pending approvals across them, so you do not have to jump between terminals.
 
-RICH PROMPTS
-Write with Markdown formatting and auto-completing bullet lists. Attach images from your clipboard or photo gallery to give visual context to your agent.
+WORKSPACE ON LARGER SCREENS
+On iPad and macOS, an adaptive workspace layout lets chat, session list, Git, Explorer, images, and screenshots sit side by side when space allows.
 
-ORGANIZE YOUR SESSIONS
-Name your sessions and browse by project. Find past conversations instantly with search and project-based filtering.
+EXPLORE YOUR PROJECT
+Use Explorer to browse project files from your phone or tablet. See what the agent is changing without opening a laptop.
 
-REVIEW DIFFS
-See every code change at once with syntax-highlighted diffs. Review file statistics, select specific change blocks, and send feedback.
+GIT REVIEW AND ACTIONS
+Inspect syntax-highlighted diffs and image diffs, review file statistics, then stage changes, generate commit messages, commit, push, or revert from the app.
 
-REAL-TIME STREAMING
-Watch your agent think and code live. View inline diffs, thinking blocks, and structured plans as they stream in.
+RESILIENT MOBILE WORKFLOW
+Built for spotty mobile networks. CC Pocket can recover missed streaming updates, keep outgoing messages queued while offline, and send them after reconnecting.
 
-PUSH NOTIFICATIONS
-Get notified instantly when your agent needs approval or completes a task. Never miss a permission request again.
-
-OPTIONAL SUPPORTER
-CC Pocket remains fully usable for free. If you want to support ongoing development, the app also includes optional one-time and monthly Supporter purchases, a Support screen with purchase history summaries, and alternate app icon perks for monthly supporters.
+RICH CONTEXT
+Write prompts with Markdown, completions, voice input, and image attachments. View images captured by MCP tools, or request screenshots from your Mac when visual context matters.
 
 FLEXIBLE CONNECTIONS
-Connect to your self-hosted Bridge Server via saved machines, QR code, mDNS auto-discovery, or manual URL. Optionally manage remote servers over SSH.
+Connect using saved machines, QR codes, mDNS auto-discovery, or a manual URL. Use Tailscale for secure access away from home or the office, and optionally manage remote servers over SSH.
 
-PRIVACY FIRST
-Your code and conversations stay on your own server. No telemetry, no tracking. CC Pocket collects no personal data.
+OPTIONAL SUPPORTER
+CC Pocket remains fully usable for free. Optional one-time and monthly Supporter purchases are available if you want to support ongoing development.
 
 HOW IT WORKS
 1. Install the Bridge Server: npx @ccpocket/bridge@latest
 2. Scan the QR code or enter the URL in the app
-3. Start coding from your phone
-
-That's it — you're ready to go in under 5 minutes.
+3. Start coding from your phone, tablet, or Mac
 
 REQUIREMENTS
-- A Mac or Linux machine with OpenAI Codex or Claude Code CLI installed
-- Network connectivity between your phone and the server (local network or Tailscale recommended)
+- A Mac or Linux machine with OpenAI Codex CLI, Claude Code CLI, or both installed
+- Network connectivity between your device and the server (local network or Tailscale recommended)
 
 SOURCE CODE
 https://github.com/K9i-0/ccpocket

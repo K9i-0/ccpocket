@@ -1,1 +1,1 @@
-Codex와 Claude 코딩 에이전트용 모바일 클라이언트
+휴대폰에서 Codex와 Claude 제어

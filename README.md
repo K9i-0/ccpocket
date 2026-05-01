@@ -1,9 +1,9 @@
 # CC Pocket
 
-CC Pocket is a mobile and desktop client for Codex and Claude coding-agent sessions.
-Use it as a Codex mobile client when you want to control Codex from your phone:
-run the agents on your own Mac or Linux machine, then start sessions, approve actions,
-answer questions, and review diffs from iPhone, iPad, Android, or the native macOS app.
+CC Pocket is a mobile and desktop app for controlling Codex and Claude coding-agent sessions.
+Run the agents through a self-hosted Bridge Server on your own Mac or Linux machine,
+then start sessions, approve actions, answer questions, review changes, and pick up work
+from iPhone, iPad, Android, or the native macOS app.
 
 [日本語版 README](README.ja.md) | [简体中文版 README](README.zh-CN.md) | [한국어 README](README.ko.md)
 
@@ -31,17 +31,22 @@ npx @ccpocket/bridge@latest
 | **Android** | <a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Get it on Google Play" src="docs/images/google-play-badge-en.svg" /></a> |
 | **macOS** | Download the latest `.dmg` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos). Look for releases tagged `macos/v*`. |
 
+## Free to Use
+
+CC Pocket is free to use. If it helps your workflow, please consider becoming a Supporter in the app. Supporter purchases help cover development and AI tooling costs.
+
 New to mobile coding agents? See [How to run Codex from iPhone or Android](https://k9i-0.github.io/ccpocket/how-to-run-codex-from-iphone-android/).
 
 ## What You Can Do
 
-- **Control Codex from your phone**: start, resume, and monitor Codex or Claude sessions from phone, tablet, or Mac.
-- **Stay in the approval loop**: approve commands, file edits, MCP requests, and agent questions without returning to your keyboard.
-- **Review changes before they land**: inspect files, browse git diffs, preview image diffs, stage or revert files, and generate commit messages.
+- **Control Codex and Claude anywhere**: start sessions from the app, resume recent sessions created in the CLI or app, and move between phone, tablet, and Mac without losing context.
+- **Stay in the approval loop**: approve commands, file edits, MCP requests, and agent questions from a mobile-first UI without returning to your keyboard.
+- **Explore and review the workspace**: browse project files with Explorer, inspect git diffs and image diffs, stage changes, commit, push, or revert them.
 - **Write rich prompts on mobile**: use Markdown, completions, voice input, and image attachments.
+- **Keep working on spotty networks**: recover missed streaming updates, queue outgoing messages while offline, and resend automatically after reconnecting.
 - **Work in parallel safely**: run sessions in separate git worktrees and keep long-running work isolated.
-- **Manage your machines**: save hosts, use QR codes or mDNS discovery, start/stop/update over SSH, and receive push notifications.
-- **Use larger screens when helpful**: CC Pocket adapts to iPad and macOS with multi-pane layouts.
+- **Manage your machines**: save hosts, connect with QR codes or mDNS discovery, use Tailscale, start/stop/update over SSH, and receive push notifications.
+- **Use larger screens when helpful**: CC Pocket adapts to iPad and macOS with workspace layouts for chat, Git, Explorer, screenshots, and images.
 
 ## How It Works
 
@@ -51,13 +56,9 @@ CC Pocket has two parts:
 CC Pocket app  <->  Bridge Server on your machine  <->  Codex / Claude
 ```
 
-The app is the control surface. The Bridge Server runs locally on the machine that
+The app is the interface you use. The Bridge Server runs locally on the machine that
 has access to your projects, shell, git repository, and agent CLI. Your code stays
 on your own machine instead of moving into a hosted IDE.
-
-This is different from Claude Code Remote Control. Remote Control hands off a
-terminal session that started on your Mac. CC Pocket starts sessions from the app
-and uses your host machine as the background runner.
 
 ## Remote Access
 

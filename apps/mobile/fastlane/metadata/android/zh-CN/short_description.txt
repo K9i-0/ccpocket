@@ -1,1 +1,1 @@
-在手机上启动 Codex / Claude 会话。随时随地编写代码、审批操作。
+从手机控制 Codex 和 Claude

@@ -1,1 +1,1 @@
-휴대폰에서 Codex와 Claude 세션을 시작하고 승인하고 리뷰하세요.
+내 Mac/Linux에서 실행되는 Codex / Claude를 휴대폰에서 제어하세요. 승인, Explorer, Git 리뷰, 기기 간 이어가기를 지원합니다.

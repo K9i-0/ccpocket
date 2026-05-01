@@ -1,1 +1,1 @@
-Control Codex and Claude Code from your phone. Start sessions, approve commands, answer questions, and review diffs while work stays on your machine.
+Run Codex and Claude Code from your phone while agents stay on your Mac or Linux machine. Approve, browse files, review diffs, and continue anywhere.

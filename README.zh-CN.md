@@ -1,8 +1,9 @@
 # CC Pocket
 
-CC Pocket 是一款用于 Codex / Claude 编程代理会话的移动与桌面客户端。
-代理运行在你自己的 Mac 或 Linux 主机上，你可以从 iPhone、iPad、
-Android 或原生 macOS App 启动会话、批准操作、回答问题并审查 diff。
+CC Pocket 是一款用于控制 Codex / Claude 编程代理会话的移动与桌面客户端。
+代理通过你自己的 Mac 或 Linux 主机上的自托管 Bridge Server 运行，你可以从
+iPhone、iPad、Android 或原生 macOS App 启动会话、批准操作、回答问题、
+审查变更并继续工作。
 
 [English README](README.md) | [日本語 README](README.ja.md) | [한국어 README](README.ko.md)
 
@@ -30,15 +31,20 @@ npx @ccpocket/bridge@latest
 | **Android** | <a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Get it on Google Play" src="docs/images/google-play-badge-en.svg" /></a> |
 | **macOS** | 从 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos) 下载最新 `.dmg`。请查找带有 `macos/v*` 标签的发行版。 |
 
+## 免费使用
+
+CC Pocket 可以免费使用。如果它对你的开发流程有帮助，欢迎在应用内成为 Supporter。Supporter 购买会用于覆盖 AI 工具费用，并帮助持续开发。
+
 ## 可以做什么
 
-- **随时运行代理会话**：从手机、平板或 Mac 启动、恢复并监控 Codex / Claude 会话。
-- **及时处理审批**：不用回到键盘前，也能批准命令、文件编辑、MCP 请求和代理提问。
-- **先审查再落地**：查看文件、浏览 git diff、预览图片 diff、stage / revert，并生成提交信息。
+- **随时控制 Codex / Claude**：从 App 启动会话，也能恢复 CLI / App 创建的 Recent Sessions，并在手机、平板和 Mac 之间继续工作。
+- **及时处理审批**：通过移动端优先的 UI 批准命令、文件编辑、MCP 请求，并回答代理问题。
+- **查看工作区并落地变更**：用 Explorer 浏览项目文件，查看 git diff 和图片 diff，并执行 stage、commit、push 或 revert。
 - **在移动端编写丰富提示词**：支持 Markdown、补全、语音输入和图片附件。
+- **在网络不稳定时继续工作**：支持恢复消息增量、暂存离线消息，并在重新联网后自动重发。
 - **安全地并行工作**：用 git worktree 将不同会话隔离到独立工作目录。
-- **管理你的机器**：支持保存主机、二维码、mDNS、SSH start/stop/update 和推送通知。
-- **适配大屏工作流**：在 iPad / macOS 上使用多窗格布局。
+- **管理你的机器**：支持保存主机、二维码、mDNS、Tailscale 连接、SSH start/stop/update 和推送通知。
+- **适配大屏工作流**：在 iPad / macOS 上使用适合聊天、Git、Explorer、图片和截图的工作区布局。
 
 ## 工作方式
 
@@ -50,9 +56,6 @@ CC Pocket app  <->  你自己机器上的 Bridge Server  <->  Codex / Claude
 
 App 是操作界面。Bridge Server 在能够访问你的项目、shell、git 仓库和代理 CLI
 的主机上运行。你的代码留在自己的机器上，不需要迁移到托管 IDE。
-
-这和 Claude Code Remote Control 不同。Remote Control 会把已经在 Mac 上启动的
-终端会话交接到手机上；CC Pocket 则是从 App 发起会话，并把主机作为后台执行环境。
 
 ## 远程访问
 

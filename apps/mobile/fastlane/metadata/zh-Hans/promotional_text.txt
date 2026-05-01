@@ -1,1 +1,1 @@
-从手机启动 Codex / Claude，会话、审批、差异审查随时处理。Supporter 也已支持。
+从手机控制运行在自己 Mac/Linux 上的 Codex / Claude。审批、Explorer、Git 审查和跨设备继续工作。

@@ -1,9 +1,10 @@
 # CC Pocket
 
-CC Pocket は、Codex / Claude のコーディングエージェントセッションを扱う
+CC Pocket は、Codex / Claude のコーディングエージェントセッションを操作する
 モバイル・デスクトップクライアントです。エージェントは自分の Mac / Linux
-マシンで実行し、iPhone、iPad、Android、macOS ネイティブアプリから
-セッション開始、承認、質問への回答、差分レビューを行えます。
+マシン上のセルフホスト Bridge Server で実行し、iPhone、iPad、Android、
+macOS ネイティブアプリからセッション開始、承認、質問への回答、変更レビュー、
+作業の引き継ぎを行えます。
 
 [English README](README.md) | [简体中文版 README](README.zh-CN.md) | [한국어 README](README.ko.md)
 
@@ -31,15 +32,20 @@ npx @ccpocket/bridge@latest
 | **Android** | <a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Google Play で手に入れよう" src="docs/images/google-play-badge-ja.svg" /></a> |
 | **macOS** | 最新の `.dmg` は [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos) からダウンロードできます。`macos/v*` タグのリリースを探してください。 |
 
+## 無料で利用できます
+
+CC Pocket は無料で利用できます。もし開発ワークフローに役立ったら、アプリ内の Supporter から応援してもらえると助かります。いただいた支援は、AI ツール利用料や継続開発の維持に使われます。
+
 ## できること
 
-- **どこからでもエージェントセッションを実行**: スマホ、タブレット、Mac から Codex / Claude セッションを開始・再開・監視できます。
-- **承認待ちにすぐ対応**: コマンド、ファイル編集、MCP リクエスト、エージェントの質問にキーボードなしで応答できます。
-- **変更をレビューしてから反映**: ファイル確認、git diff、画像 diff、stage / revert、コミットメッセージ生成に対応しています。
+- **どこからでも Codex / Claude を操作**: アプリからセッションを開始し、CLI / App で作った Recent Sessions も再開できます。スマホ、タブレット、Mac 間で状態を引き継げます。
+- **承認待ちにすぐ対応**: コマンド、ファイル編集、MCP リクエスト、エージェントの質問に、モバイル向け UI で応答できます。
+- **ワークスペースを確認して反映**: Explorer でプロジェクトファイルを閲覧し、git diff / 画像 diff、stage、commit、push、revert に対応します。
 - **モバイルでもリッチにプロンプト作成**: Markdown、補完、音声入力、画像添付を使えます。
+- **通信が不安定でも作業を継続**: メッセージ差分の復元、オフライン中の pending 送信、オンライン復帰後の自動再送に対応しています。
 - **並列作業を安全に分離**: git worktree でセッションごとの作業ディレクトリを分けられます。
-- **マシンを管理**: 保存済みホスト、QR、mDNS、SSH start/stop/update、プッシュ通知に対応しています。
-- **大きな画面でも使いやすく**: iPad / macOS ではマルチペインレイアウトに適応します。
+- **マシンを管理**: 保存済みホスト、QR、mDNS、Tailscale 接続、SSH start/stop/update、プッシュ通知に対応しています。
+- **大きな画面でも使いやすく**: iPad / macOS ではチャット、Git、Explorer、画像、スクリーンショットを扱いやすいワークスペースレイアウトに適応します。
 
 ## 仕組み
 
@@ -52,10 +58,6 @@ CC Pocket app  <->  自分のマシン上の Bridge Server  <->  Codex / Claude
 アプリは操作画面です。Bridge Server は、プロジェクト、シェル、git リポジトリ、
 エージェント CLI にアクセスできる自分のマシン上で動きます。コードはホスト型 IDE
 へ移さず、自分のマシンに置いたまま使えます。
-
-Claude Code の Remote Control は、Mac で開始したターミナルセッションをスマホへ
-引き継ぐ機能です。CC Pocket はアプリからセッションを開始し、ホストマシンを
-バックグラウンドの実行環境として使います。
 
 ## リモートアクセス
 

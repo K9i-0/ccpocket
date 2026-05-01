@@ -1,8 +1,9 @@
 # CC Pocket
 
-CC Pocket은 Codex / Claude 코딩 에이전트 세션을 다루는 모바일 및 데스크톱 클라이언트입니다.
-에이전트는 사용자의 Mac 또는 Linux 머신에서 실행하고, iPhone, iPad, Android, macOS 네이티브 앱에서
-세션 시작, 승인, 질문 응답, diff 검토를 할 수 있습니다.
+CC Pocket은 Codex / Claude 코딩 에이전트 세션을 제어하는 모바일 및 데스크톱 클라이언트입니다.
+에이전트는 사용자의 Mac 또는 Linux 머신에 셀프 호스팅한 Bridge Server에서 실행하고,
+iPhone, iPad, Android, macOS 네이티브 앱에서 세션 시작, 승인, 질문 응답, 변경 리뷰,
+작업 이어받기를 할 수 있습니다.
 
 [English README](README.md) | [日本語 README](README.ja.md) | [简体中文 README](README.zh-CN.md)
 
@@ -30,15 +31,20 @@ npx @ccpocket/bridge@latest
 | **Android** | <a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Google Play에서 받기" src="docs/images/google-play-badge-en.svg" /></a> |
 | **macOS** | 최신 `.dmg`는 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos)에서 다운로드할 수 있습니다. `macos/v*` 태그가 붙은 릴리스를 찾으세요. |
 
+## 무료로 사용할 수 있습니다
+
+CC Pocket은 무료로 사용할 수 있습니다. 개발 워크플로에 도움이 된다면 앱 안에서 Supporter가 되어 주세요. Supporter 구매는 AI 도구 비용을 감당하고 지속적인 개발을 이어가는 데 사용됩니다.
+
 ## 할 수 있는 일
 
-- **어디서든 에이전트 세션 실행**: 휴대폰, 태블릿, Mac에서 Codex / Claude 세션을 시작, 재개, 모니터링할 수 있습니다.
-- **승인 흐름을 놓치지 않기**: 키보드 앞에 돌아가지 않아도 명령, 파일 편집, MCP 요청, 에이전트 질문에 응답할 수 있습니다.
-- **반영 전 변경 검토**: 파일 확인, git diff 탐색, 이미지 diff 미리보기, stage / revert, 커밋 메시지 생성을 지원합니다.
+- **어디서든 Codex / Claude 제어**: 앱에서 세션을 시작하고, CLI / App에서 만든 Recent Sessions도 다시 열며, 휴대폰, 태블릿, Mac 사이에서 작업을 이어갈 수 있습니다.
+- **승인 흐름을 놓치지 않기**: 모바일에 맞춘 UI로 명령, 파일 편집, MCP 요청을 승인하고 에이전트 질문에 응답할 수 있습니다.
+- **워크스페이스 확인 후 반영**: Explorer로 프로젝트 파일을 살펴보고, git diff와 이미지 diff를 검토한 뒤 stage, commit, push, revert를 실행할 수 있습니다.
 - **모바일에서도 풍부한 프롬프트 작성**: Markdown, 자동완성, 음성 입력, 이미지 첨부를 사용할 수 있습니다.
+- **네트워크가 불안정해도 계속 작업**: 누락된 메시지 델타 복구, 오프라인 메시지 pending 처리, 재연결 후 자동 재전송을 지원합니다.
 - **병렬 작업을 안전하게 분리**: git worktree로 세션별 작업 디렉터리를 나눌 수 있습니다.
-- **머신 관리**: 저장된 호스트, QR 코드, mDNS 검색, SSH start/stop/update, 푸시 알림을 지원합니다.
-- **큰 화면에서도 편하게 사용**: iPad / macOS에서는 멀티 패널 레이아웃에 맞춰집니다.
+- **머신 관리**: 저장된 호스트, QR 코드, mDNS 검색, Tailscale 연결, SSH start/stop/update, 푸시 알림을 지원합니다.
+- **큰 화면에서도 편하게 사용**: iPad / macOS에서는 채팅, Git, Explorer, 이미지, 스크린샷을 다루기 쉬운 워크스페이스 레이아웃에 맞춰집니다.
 
 ## 작동 방식
 
@@ -50,9 +56,6 @@ CC Pocket app  <->  사용자의 머신에서 실행되는 Bridge Server  <->  C
 
 앱은 조작 화면입니다. Bridge Server는 프로젝트, shell, git 저장소, 에이전트 CLI에 접근할 수 있는
 사용자의 머신에서 실행됩니다. 코드는 호스팅 IDE로 옮기지 않고 자신의 머신에 그대로 둡니다.
-
-이는 Claude Code Remote Control과 다릅니다. Remote Control은 Mac에서 이미 시작된 터미널 세션을
-휴대폰으로 넘겨주는 방식입니다. CC Pocket은 앱에서 세션을 시작하고 호스트 머신을 백그라운드 실행 환경으로 사용합니다.
 
 ## 원격 접속
 
