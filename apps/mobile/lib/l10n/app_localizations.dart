@@ -726,6 +726,30 @@ abstract class AppLocalizations {
   /// **'現在 v{current}、推奨 v{expected}以上'**
   String bridgeVersionCurrentExpected(String current, String expected);
 
+  /// No description provided for @bridgeVersionCurrentLatest.
+  ///
+  /// In ja, this message translates to:
+  /// **'現在 v{current}、最新版 v{latest}'**
+  String bridgeVersionCurrentLatest(String current, String latest);
+
+  /// No description provided for @bridgeLatestVersionChecking.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge の最新版を確認中...'**
+  String get bridgeLatestVersionChecking;
+
+  /// No description provided for @bridgeLatestVersionUnavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge の最新版を確認できません'**
+  String get bridgeLatestVersionUnavailable;
+
+  /// No description provided for @bridgeLatestVersionRetry.
+  ///
+  /// In ja, this message translates to:
+  /// **'最新版の確認を再試行'**
+  String get bridgeLatestVersionRetry;
+
   /// No description provided for @bridgeUpdateSetupTitle.
   ///
   /// In ja, this message translates to:

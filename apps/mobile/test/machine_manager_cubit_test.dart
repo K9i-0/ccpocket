@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:ccpocket/models/machine.dart';
 import 'package:ccpocket/providers/machine_manager_cubit.dart';
+import 'package:ccpocket/services/bridge_latest_version_service.dart';
 import 'package:ccpocket/services/machine_manager_service.dart';
 import 'package:ccpocket/services/ssh_startup_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'helpers/bridge_version_test_values.dart';
 
@@ -241,12 +244,21 @@ void main() {
 
   MachineManagerCubit createCubit({
     bool withSsh = true,
+    String? latestBridgeVersion,
     Duration? healthTimeout,
     Duration? healthRetryDelay,
   }) {
     return MachineManagerCubit(
       mockService,
       withSsh ? mockSsh : null,
+      latestVersionService: BridgeLatestVersionService(
+        httpClient: MockClient(
+          (_) async => http.Response(
+            '{"version":"${latestBridgeVersion ?? recommendedBridgeVersion}"}',
+            200,
+          ),
+        ),
+      ),
       healthTimeout: healthTimeout ?? const Duration(seconds: 30),
       healthRetryDelay: healthRetryDelay ?? const Duration(seconds: 1),
     );
@@ -594,7 +606,7 @@ void main() {
 
       expect(result, false);
       expect(cubit.state.error, 'Bridge auto-start setup is required');
-      expect(mockService.calls, isNot(contains('checkHealth:m1')));
+      expect(mockService.calls, contains('checkHealth:m1'));
     });
 
     test('fails when health never recovers after restart', () async {
@@ -634,7 +646,31 @@ void main() {
       expect(result, false);
       expect(
         cubit.state.error,
-        'Bridge Server restarted but version is still older',
+        'Bridge Server restarted but version is still older than $recommendedBridgeVersion',
+      );
+    });
+
+    test('validates updated bridge against npm latest when available', () async {
+      mockService.machineStatuses = [
+        MachineWithStatus(
+          machine: Machine(id: 'm1', host: '10.0.0.1'),
+          status: MachineStatus.online,
+          versionInfo: BridgeVersionInfo(version: recommendedBridgeVersion),
+        ),
+      ];
+      final cubit = createCubit(
+        latestBridgeVersion: newerThanRecommendedBridgeVersion,
+      );
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+      await cubit.refreshLatestBridgeVersion();
+
+      final result = await cubit.updateBridge('m1');
+
+      expect(result, false);
+      expect(
+        cubit.state.error,
+        'Bridge Server restarted but version is still older than $newerThanRecommendedBridgeVersion',
       );
     });
   });

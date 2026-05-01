@@ -151,6 +151,16 @@
       "expected": { "type": "String" }
     }
   },
+  "bridgeVersionCurrentLatest": "現在 v{current}、最新版 v{latest}",
+  "@bridgeVersionCurrentLatest": {
+    "placeholders": {
+      "current": { "type": "String" },
+      "latest": { "type": "String" }
+    }
+  },
+  "bridgeLatestVersionChecking": "Bridge の最新版を確認中...",
+  "bridgeLatestVersionUnavailable": "Bridge の最新版を確認できません",
+  "bridgeLatestVersionRetry": "最新版の確認を再試行",
   "bridgeUpdateSetupTitle": "Bridge 更新の準備",
   "bridgeUpdateSetupDescription": "このマシンで Bridge の更新機能を使うには、SSH 接続と Bridge の自動起動セットアップが必要です。",
   "bridgeUpdateSetupEnableSsh": "Bridge 接続設定で SSH を有効にします。",

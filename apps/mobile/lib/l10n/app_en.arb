@@ -128,6 +128,16 @@
       "expected": { "type": "String" }
     }
   },
+  "bridgeVersionCurrentLatest": "Current v{current}, latest v{latest}",
+  "@bridgeVersionCurrentLatest": {
+    "placeholders": {
+      "current": { "type": "String" },
+      "latest": { "type": "String" }
+    }
+  },
+  "bridgeLatestVersionChecking": "Checking latest Bridge version...",
+  "bridgeLatestVersionUnavailable": "Could not check latest Bridge version",
+  "bridgeLatestVersionRetry": "Retry latest version check",
   "bridgeUpdateSetupTitle": "Prepare Bridge updates",
   "bridgeUpdateSetupDescription": "To update Bridge from this app, the machine needs SSH access and Bridge auto-start setup.",
   "bridgeUpdateSetupEnableSsh": "Enable SSH in the Bridge connection settings.",

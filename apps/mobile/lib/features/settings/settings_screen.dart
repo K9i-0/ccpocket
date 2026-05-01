@@ -302,6 +302,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           _BridgeUpdateStatusTile(
                             machineWithStatus: machineWithStatus,
                             isUpdating: isUpdating,
+                            latestBridgeVersion:
+                                machineManagerCubit.state.latestBridgeVersion,
+                            isCheckingLatestBridgeVersion: machineManagerCubit
+                                .state
+                                .isCheckingLatestBridgeVersion,
+                            latestBridgeVersionError: machineManagerCubit
+                                .state
+                                .latestBridgeVersionError,
+                            onRefreshLatestVersion: () => machineManagerCubit
+                                .refreshLatestBridgeVersion(forceRefresh: true),
                             onUpdate: machineWithStatus == null
                                 ? null
                                 : () => _updateBridgeFromSettings(
@@ -1057,11 +1067,19 @@ class _SectionHeader extends StatelessWidget {
 class _BridgeUpdateStatusTile extends StatelessWidget {
   final MachineWithStatus? machineWithStatus;
   final bool isUpdating;
+  final String? latestBridgeVersion;
+  final bool isCheckingLatestBridgeVersion;
+  final String? latestBridgeVersionError;
+  final VoidCallback? onRefreshLatestVersion;
   final VoidCallback? onUpdate;
 
   const _BridgeUpdateStatusTile({
     required this.machineWithStatus,
     required this.isUpdating,
+    this.latestBridgeVersion,
+    this.isCheckingLatestBridgeVersion = false,
+    this.latestBridgeVersionError,
+    this.onRefreshLatestVersion,
     this.onUpdate,
   });
 
@@ -1070,36 +1088,56 @@ class _BridgeUpdateStatusTile extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
     final expectedVersion = AppConstants.expectedBridgeVersion;
+    final updateTargetVersion =
+        latestBridgeVersion != null &&
+            compareSemanticVersions(latestBridgeVersion!, expectedVersion) > 0
+        ? latestBridgeVersion!
+        : expectedVersion;
     final machine = machineWithStatus?.machine;
     final versionInfo = machineWithStatus?.versionInfo;
     final hasSshSetup = machine?.canStartRemotely ?? false;
     final isOnline = machineWithStatus?.status == MachineStatus.online;
+    final latestCheckFailed =
+        latestBridgeVersion == null && latestBridgeVersionError != null;
     final bridgeNeedsUpdate =
         isOnline &&
         versionInfo != null &&
-        versionInfo.needsUpdate(expectedVersion);
+        versionInfo.needsUpdate(updateTargetVersion);
     final needsUpdate = bridgeNeedsUpdate && hasSshSetup;
     final canShowSetupHelp = bridgeNeedsUpdate && !hasSshSetup;
     final isKnownUpToDate =
-        versionInfo != null && !versionInfo.needsUpdate(expectedVersion);
+        versionInfo != null &&
+        !bridgeNeedsUpdate &&
+        !isCheckingLatestBridgeVersion &&
+        !latestCheckFailed;
 
-    final title = needsUpdate
+    final title = bridgeNeedsUpdate
         ? l.bridgeUpdateAvailable
+        : latestCheckFailed
+        ? l.bridgeLatestVersionUnavailable
         : isKnownUpToDate
         ? l.bridgeIsUpToDate
         : l.updateBridge;
     final subtitle = canShowSetupHelp
         ? l.bridgeUpdateRequiresSetup
+        : isCheckingLatestBridgeVersion
+        ? l.bridgeLatestVersionChecking
         : versionInfo == null
         ? l.bridgeVersionUnknown
+        : latestBridgeVersion != null
+        ? l.bridgeVersionCurrentLatest(versionInfo.version, updateTargetVersion)
         : l.bridgeVersionCurrentExpected(versionInfo.version, expectedVersion);
-    final icon = needsUpdate
+    final icon = bridgeNeedsUpdate
         ? Icons.system_update
+        : latestCheckFailed
+        ? Icons.warning_amber_outlined
         : isKnownUpToDate
         ? Icons.check_circle_outline
         : Icons.info_outline;
-    final iconColor = needsUpdate
+    final iconColor = bridgeNeedsUpdate
         ? cs.tertiary
+        : latestCheckFailed
+        ? cs.error
         : isKnownUpToDate
         ? cs.primary
         : cs.onSurfaceVariant;
@@ -1120,6 +1158,12 @@ class _BridgeUpdateStatusTile extends StatelessWidget {
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
+          : isCheckingLatestBridgeVersion
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
           : needsUpdate
           ? FilledButton.tonalIcon(
               key: const ValueKey('settings_update_bridge_button'),
@@ -1129,6 +1173,13 @@ class _BridgeUpdateStatusTile extends StatelessWidget {
             )
           : canShowSetupHelp
           ? Icon(Icons.chevron_right, color: cs.onSurfaceVariant)
+          : latestCheckFailed
+          ? IconButton(
+              key: const ValueKey('settings_bridge_latest_retry_button'),
+              onPressed: onRefreshLatestVersion,
+              icon: const Icon(Icons.refresh),
+              tooltip: l.bridgeLatestVersionRetry,
+            )
           : null,
     );
   }

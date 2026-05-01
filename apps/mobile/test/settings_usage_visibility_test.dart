@@ -8,6 +8,7 @@ import 'package:ccpocket/models/git_diff_interaction_mode.dart';
 import 'package:ccpocket/models/machine.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/machine_manager_cubit.dart';
+import 'package:ccpocket/services/bridge_latest_version_service.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/database_service.dart';
 import 'package:ccpocket/services/in_app_review_service.dart';
@@ -19,6 +20,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -345,6 +348,78 @@ void main() {
         final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
 
         expect(find.text(l.bridgeUpdateAvailable), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('settings_update_bridge_button')),
+          findsOneWidget,
+        );
+
+        await settingsCubit.close();
+        await machineManagerCubit.close();
+        machineManagerService.dispose();
+        bridge.dispose();
+      },
+    );
+
+    testWidgets(
+      'shows bridge update button when npm latest is newer than required version',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final settingsCubit = _SeededSettingsCubit(
+          prefs,
+          activeMachineId: 'machine-1',
+        );
+        final machineManagerService = _StaticMachineManagerService([
+          MachineWithStatus(
+            machine: Machine(
+              id: 'machine-1',
+              name: 'Remote Mac',
+              host: '100.64.0.1',
+              sshEnabled: true,
+              sshUsername: 'k9i',
+            ),
+            status: MachineStatus.online,
+            versionInfo: BridgeVersionInfo(version: recommendedBridgeVersion),
+          ),
+        ]);
+        final machineManagerCubit = MachineManagerCubit(
+          machineManagerService,
+          null,
+          latestVersionService: BridgeLatestVersionService(
+            httpClient: MockClient(
+              (_) async => http.Response(
+                '{"version":"$newerThanRecommendedBridgeVersion"}',
+                200,
+              ),
+            ),
+          ),
+        );
+        await machineManagerCubit.refreshLatestBridgeVersion();
+        final bridge = _FakeBridgeService(
+          connected: true,
+          fakeLastUrl: 'ws://100.64.0.1:8765',
+        );
+
+        await tester.pumpWidget(
+          await _buildScreen(
+            bridge: bridge,
+            settingsCubit: settingsCubit,
+            machineManagerCubit: machineManagerCubit,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
+
+        expect(find.text(l.bridgeUpdateAvailable), findsOneWidget);
+        expect(
+          find.text(
+            l.bridgeVersionCurrentLatest(
+              recommendedBridgeVersion,
+              newerThanRecommendedBridgeVersion,
+            ),
+          ),
+          findsOneWidget,
+        );
         expect(
           find.byKey(const ValueKey('settings_update_bridge_button')),
           findsOneWidget,

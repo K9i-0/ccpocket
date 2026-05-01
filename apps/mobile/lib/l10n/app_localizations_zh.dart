@@ -339,6 +339,20 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String bridgeVersionCurrentLatest(String current, String latest) {
+    return '当前 v$current，最新版 v$latest';
+  }
+
+  @override
+  String get bridgeLatestVersionChecking => '正在检查 Bridge 最新版本...';
+
+  @override
+  String get bridgeLatestVersionUnavailable => '无法检查 Bridge 最新版本';
+
+  @override
+  String get bridgeLatestVersionRetry => '重新检查最新版本';
+
+  @override
   String get bridgeUpdateSetupTitle => '准备 Bridge 更新';
 
   @override

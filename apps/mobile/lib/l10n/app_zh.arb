@@ -128,6 +128,16 @@
       "expected": { "type": "String" }
     }
   },
+  "bridgeVersionCurrentLatest": "当前 v{current}，最新版 v{latest}",
+  "@bridgeVersionCurrentLatest": {
+    "placeholders": {
+      "current": { "type": "String" },
+      "latest": { "type": "String" }
+    }
+  },
+  "bridgeLatestVersionChecking": "正在检查 Bridge 最新版本...",
+  "bridgeLatestVersionUnavailable": "无法检查 Bridge 最新版本",
+  "bridgeLatestVersionRetry": "重新检查最新版本",
   "bridgeUpdateSetupTitle": "准备 Bridge 更新",
   "bridgeUpdateSetupDescription": "要从应用更新 Bridge，需要为这台机器启用 SSH 连接并完成 Bridge 自动启动设置。",
   "bridgeUpdateSetupEnableSsh": "在 Bridge 连接设置中启用 SSH。",

@@ -340,6 +340,20 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String bridgeVersionCurrentLatest(String current, String latest) {
+    return '현재 v$current, 최신 v$latest';
+  }
+
+  @override
+  String get bridgeLatestVersionChecking => '최신 Bridge 버전 확인 중...';
+
+  @override
+  String get bridgeLatestVersionUnavailable => '최신 Bridge 버전을 확인할 수 없습니다';
+
+  @override
+  String get bridgeLatestVersionRetry => '최신 버전 확인 재시도';
+
+  @override
   String get bridgeUpdateSetupTitle => 'Bridge 업데이트 준비';
 
   @override

@@ -18,6 +18,7 @@ class MachineCard extends StatelessWidget {
   final VoidCallback? onToggleFavorite;
   final VoidCallback? onUpdate;
   final VoidCallback? onStop;
+  final String? latestBridgeVersion;
   final bool isStarting;
   final bool isUpdating;
 
@@ -31,6 +32,7 @@ class MachineCard extends StatelessWidget {
     this.onToggleFavorite,
     this.onUpdate,
     this.onStop,
+    this.latestBridgeVersion,
     this.isStarting = false,
     this.isUpdating = false,
   });
@@ -43,9 +45,16 @@ class MachineCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final needsUpdate = machineWithStatus.needsUpdate(
-      AppConstants.expectedBridgeVersion,
-    );
+    final updateTargetVersion =
+        latestBridgeVersion != null &&
+            compareSemanticVersions(
+                  latestBridgeVersion!,
+                  AppConstants.expectedBridgeVersion,
+                ) >
+                0
+        ? latestBridgeVersion!
+        : AppConstants.expectedBridgeVersion;
+    final needsUpdate = machineWithStatus.needsUpdate(updateTargetVersion);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -80,11 +89,8 @@ class MachineCard extends StatelessWidget {
                     status: status,
                     canStartRemotely: machine.canStartRemotely,
                     isStarting: isStarting,
-                    isUpdating: isUpdating,
-                    needsUpdate: needsUpdate,
                     onConnect: onConnect,
                     onStart: onStart,
-                    onUpdate: onUpdate,
                   ),
                 ],
               ),
@@ -413,21 +419,15 @@ class _ActionButton extends StatelessWidget {
   final MachineStatus status;
   final bool canStartRemotely;
   final bool isStarting;
-  final bool isUpdating;
-  final bool needsUpdate;
   final VoidCallback onConnect;
   final VoidCallback onStart;
-  final VoidCallback? onUpdate;
 
   const _ActionButton({
     required this.status,
     required this.canStartRemotely,
     required this.isStarting,
-    this.isUpdating = false,
-    this.needsUpdate = false,
     required this.onConnect,
     required this.onStart,
-    this.onUpdate,
   });
 
   @override
@@ -435,41 +435,9 @@ class _ActionButton extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Show updating spinner
-    if (isUpdating) {
-      return SizedBox(
-        width: 80,
-        height: 36,
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: colorScheme.tertiary,
-            ),
-          ),
-        ),
-      );
-    }
-
     if (status == MachineStatus.online) {
-      // If needs update and SSH available, show Update button
-      if (needsUpdate && canStartRemotely && onUpdate != null) {
-        return FilledButton.tonal(
-          key: const ValueKey('machine_update_bridge_button'),
-          onPressed: onUpdate,
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            minimumSize: const Size(0, 36),
-            backgroundColor: colorScheme.tertiary.withValues(alpha: 0.15),
-            foregroundColor: colorScheme.tertiary,
-          ),
-          child: Text(l.update),
-        );
-      }
-
       return FilledButton(
+        key: const ValueKey('machine_connect_button'),
         onPressed: onConnect,
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 16),

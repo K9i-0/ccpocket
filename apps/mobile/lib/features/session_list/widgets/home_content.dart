@@ -33,6 +33,7 @@ import 'support_banner.dart';
 class HomeContent extends StatefulWidget {
   final BridgeConnectionState connectionState;
   final String? bridgeVersion;
+  final String? latestBridgeVersion;
   final List<SessionInfo> sessions;
   final List<OfflinePendingAction> offlinePendingActions;
   final List<RecentSession> recentSessions;
@@ -91,6 +92,7 @@ class HomeContent extends StatefulWidget {
     super.key,
     required this.connectionState,
     this.bridgeVersion,
+    this.latestBridgeVersion,
     required this.sessions,
     this.offlinePendingActions = const [],
     required this.recentSessions,
@@ -266,12 +268,14 @@ class HomeContentState extends State<HomeContent> {
     if (!BridgeUpdateBanner.shouldShow(
       widget.bridgeVersion,
       AppConstants.expectedBridgeVersion,
+      latestBridgeVersion: widget.latestBridgeVersion,
     )) {
       return null;
     }
     return BridgeUpdateBanner(
       currentVersion: widget.bridgeVersion!,
       expectedVersion: AppConstants.expectedBridgeVersion,
+      latestBridgeVersion: widget.latestBridgeVersion,
       onTap:
           widget.onOpenBridgeSettings ??
           () => context.pushRoute(SettingsRoute(focusConnection: true)),
@@ -284,6 +288,7 @@ class HomeContentState extends State<HomeContent> {
         BridgeUpdateBanner.shouldShow(
           widget.bridgeVersion,
           AppConstants.expectedBridgeVersion,
+          latestBridgeVersion: widget.latestBridgeVersion,
         );
   }
 

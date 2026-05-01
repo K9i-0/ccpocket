@@ -9,6 +9,7 @@ import '../../../models/machine.dart';
 class BridgeUpdateBanner extends StatelessWidget {
   final String currentVersion;
   final String expectedVersion;
+  final String? latestBridgeVersion;
   final VoidCallback? onTap;
   final VoidCallback? onDismiss;
 
@@ -16,6 +17,7 @@ class BridgeUpdateBanner extends StatelessWidget {
     super.key,
     required this.currentVersion,
     required this.expectedVersion,
+    this.latestBridgeVersion,
     this.onTap,
     this.onDismiss,
   });
@@ -24,6 +26,10 @@ class BridgeUpdateBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = colorScheme.tertiary;
+    final targetVersion = _targetVersion(
+      expectedVersion,
+      latestBridgeVersion: latestBridgeVersion,
+    );
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -45,7 +51,7 @@ class BridgeUpdateBanner extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Bridge Server v$currentVersion → v$expectedVersion',
+                    'Bridge Server v$currentVersion → v$targetVersion',
                     style: TextStyle(fontSize: 13, color: color),
                   ),
                 ),
@@ -65,9 +71,25 @@ class BridgeUpdateBanner extends StatelessWidget {
   }
 
   /// Returns true if the banner should be shown.
-  static bool shouldShow(String? currentVersion, String expectedVersion) {
+  static bool shouldShow(
+    String? currentVersion,
+    String expectedVersion, {
+    String? latestBridgeVersion,
+  }) {
     if (currentVersion == null) return false;
     final info = BridgeVersionInfo(version: currentVersion);
-    return info.needsUpdate(expectedVersion);
+    return info.needsUpdate(
+      _targetVersion(expectedVersion, latestBridgeVersion: latestBridgeVersion),
+    );
+  }
+
+  static String _targetVersion(
+    String expectedVersion, {
+    String? latestBridgeVersion,
+  }) {
+    if (latestBridgeVersion == null) return expectedVersion;
+    return compareSemanticVersions(latestBridgeVersion, expectedVersion) > 0
+        ? latestBridgeVersion
+        : expectedVersion;
   }
 }

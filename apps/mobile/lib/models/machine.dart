@@ -3,6 +3,22 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'machine.freezed.dart';
 part 'machine.g.dart';
 
+/// Compare semantic version strings with up to three numeric components.
+///
+/// Returns a negative value when [left] is older than [right], zero when they
+/// are equal, and a positive value when [left] is newer than [right].
+int compareSemanticVersions(String left, String right) {
+  final parts1 = left.split('.').map(int.tryParse).toList();
+  final parts2 = right.split('.').map(int.tryParse).toList();
+
+  for (var i = 0; i < 3; i++) {
+    final p1 = i < parts1.length ? (parts1[i] ?? 0) : 0;
+    final p2 = i < parts2.length ? (parts2[i] ?? 0) : 0;
+    if (p1 != p2) return p1 - p2;
+  }
+  return 0;
+}
+
 /// Status of a machine's Bridge Server
 enum MachineStatus {
   /// Not checked yet
@@ -46,17 +62,8 @@ abstract class BridgeVersionInfo with _$BridgeVersionInfo {
 
   /// Compare versions (simple semver comparison)
   /// Returns: negative if this is older, 0 if equal, positive if this is newer
-  int compareTo(String otherVersion) {
-    final parts1 = version.split('.').map(int.tryParse).toList();
-    final parts2 = otherVersion.split('.').map(int.tryParse).toList();
-
-    for (var i = 0; i < 3; i++) {
-      final p1 = i < parts1.length ? (parts1[i] ?? 0) : 0;
-      final p2 = i < parts2.length ? (parts2[i] ?? 0) : 0;
-      if (p1 != p2) return p1 - p2;
-    }
-    return 0;
-  }
+  int compareTo(String otherVersion) =>
+      compareSemanticVersions(version, otherVersion);
 
   /// Check if update is needed (this version is older than expected)
   bool needsUpdate(String expectedVersion) => compareTo(expectedVersion) < 0;

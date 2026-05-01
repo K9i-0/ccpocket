@@ -18,6 +18,7 @@ class ConnectForm extends StatelessWidget {
   final List<MachineWithStatus> machines;
   final String? startingMachineId;
   final String? updatingMachineId;
+  final String? latestBridgeVersion;
   final ValueChanged<MachineWithStatus>? onConnectToMachine;
   final ValueChanged<MachineWithStatus>? onStartMachine;
   final ValueChanged<MachineWithStatus>? onEditMachine;
@@ -38,6 +39,7 @@ class ConnectForm extends StatelessWidget {
     this.machines = const [],
     this.startingMachineId,
     this.updatingMachineId,
+    this.latestBridgeVersion,
     this.onConnectToMachine,
     this.onStartMachine,
     this.onEditMachine,
@@ -105,6 +107,7 @@ class ConnectForm extends StatelessWidget {
               machines: machines,
               startingMachineId: startingMachineId,
               updatingMachineId: updatingMachineId,
+              latestBridgeVersion: latestBridgeVersion,
               onConnect: onConnectToMachine!,
               onStart: onStartMachine!,
               onEdit: onEditMachine!,

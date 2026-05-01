@@ -9,6 +9,7 @@ class MachineList extends StatelessWidget {
   final List<MachineWithStatus> machines;
   final String? startingMachineId;
   final String? updatingMachineId;
+  final String? latestBridgeVersion;
   final ValueChanged<MachineWithStatus> onConnect;
   final ValueChanged<MachineWithStatus> onStart;
   final ValueChanged<MachineWithStatus> onEdit;
@@ -24,6 +25,7 @@ class MachineList extends StatelessWidget {
     required this.machines,
     this.startingMachineId,
     this.updatingMachineId,
+    this.latestBridgeVersion,
     required this.onConnect,
     required this.onStart,
     required this.onEdit,
@@ -144,6 +146,7 @@ class MachineList extends StatelessWidget {
               machineWithStatus: m,
               isStarting: startingMachineId == m.machine.id,
               isUpdating: updatingMachineId == m.machine.id,
+              latestBridgeVersion: latestBridgeVersion,
               onConnect: () => onConnect(m),
               onStart: () => onStart(m),
               onEdit: () => onEdit(m),

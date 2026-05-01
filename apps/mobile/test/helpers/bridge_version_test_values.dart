@@ -22,3 +22,8 @@ String get olderThanRecommendedBridgeVersion {
     'Cannot create an older version for $recommendedBridgeVersion',
   );
 }
+
+String get newerThanRecommendedBridgeVersion {
+  final parts = recommendedBridgeVersion.split('.').map(int.parse).toList();
+  return '${parts[0]}.${parts[1]}.${parts[2] + 1}';
+}

@@ -342,6 +342,20 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String bridgeVersionCurrentLatest(String current, String latest) {
+    return '現在 v$current、最新版 v$latest';
+  }
+
+  @override
+  String get bridgeLatestVersionChecking => 'Bridge の最新版を確認中...';
+
+  @override
+  String get bridgeLatestVersionUnavailable => 'Bridge の最新版を確認できません';
+
+  @override
+  String get bridgeLatestVersionRetry => '最新版の確認を再試行';
+
+  @override
   String get bridgeUpdateSetupTitle => 'Bridge 更新の準備';
 
   @override

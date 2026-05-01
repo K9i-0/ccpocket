@@ -1703,6 +1703,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               key: _homeContentKey,
               connectionState: connectionState,
               bridgeVersion: bridge.bridgeVersion,
+              latestBridgeVersion: machineState?.latestBridgeVersion,
               sessions: sessions,
               offlinePendingActions: offlinePendingActions,
               recentSessions: recentSessionsList,
@@ -1836,6 +1837,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       machines: machineState?.machines ?? [],
       startingMachineId: machineState?.startingMachineId,
       updatingMachineId: machineState?.updatingMachineId,
+      latestBridgeVersion: machineState?.latestBridgeVersion,
       onScanQrCode: _scanQrCode,
       onViewSetupGuide: () {
         final shell = WorkspaceShellScreen.maybeOf(context);
@@ -2233,6 +2235,7 @@ class _ConnectFormWidget extends StatelessWidget {
   final List<MachineWithStatus> machines;
   final String? startingMachineId;
   final String? updatingMachineId;
+  final String? latestBridgeVersion;
   final VoidCallback onScanQrCode;
   final VoidCallback onViewSetupGuide;
   final ValueChanged<DiscoveredServer> onConnectToDiscovered;
@@ -2251,6 +2254,7 @@ class _ConnectFormWidget extends StatelessWidget {
     required this.machines,
     this.startingMachineId,
     this.updatingMachineId,
+    this.latestBridgeVersion,
     required this.onScanQrCode,
     required this.onViewSetupGuide,
     required this.onConnectToDiscovered,
@@ -2276,6 +2280,7 @@ class _ConnectFormWidget extends StatelessWidget {
       machines: machines,
       startingMachineId: startingMachineId,
       updatingMachineId: updatingMachineId,
+      latestBridgeVersion: latestBridgeVersion,
       onConnectToMachine: onConnectToMachine,
       onStartMachine: onStartMachine,
       onEditMachine: onEditMachine,

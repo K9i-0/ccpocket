@@ -32,6 +32,7 @@ Future<void> _pumpCard(
   WidgetTester tester, {
   required MachineStatus status,
   String? version,
+  String? latestBridgeVersion,
   bool sshEnabled = true,
   String? sshUsername = 'k9i',
 }) async {
@@ -51,6 +52,7 @@ Future<void> _pumpCard(
         onDelete: () {},
         onUpdate: () {},
         onStop: () {},
+        latestBridgeVersion: latestBridgeVersion,
       ),
     ),
   );
@@ -111,7 +113,7 @@ void main() {
   });
 
   group('MachineCard primary action', () {
-    testWidgets('shows update button for online old bridge with SSH', (
+    testWidgets('keeps connect button for online old bridge with SSH', (
       tester,
     ) async {
       await _pumpCard(
@@ -122,9 +124,13 @@ void main() {
 
       expect(
         find.byKey(const ValueKey('machine_update_bridge_button')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('machine_connect_button')),
         findsOneWidget,
       );
-      expect(find.text('Update'), findsOneWidget);
+      expect(find.text('Connect'), findsOneWidget);
     });
 
     testWidgets(
@@ -169,5 +175,25 @@ void main() {
         );
       },
     );
+
+    testWidgets('uses latest bridge version for update metadata', (
+      tester,
+    ) async {
+      await _pumpCard(
+        tester,
+        status: MachineStatus.online,
+        version: recommendedBridgeVersion,
+        latestBridgeVersion: newerThanRecommendedBridgeVersion,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('machine_menu_m1')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Update Bridge'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('machine_connect_button')),
+        findsOneWidget,
+      );
+    });
   });
 }

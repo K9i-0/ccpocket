@@ -196,8 +196,11 @@ void main() async {
                 SessionListCubit(bridge: ctx.read<BridgeService>()),
           ),
           BlocProvider(
-            create: (_) =>
-                MachineManagerCubit(machineManagerService, sshStartupService),
+            create: (_) => MachineManagerCubit(
+              machineManagerService,
+              sshStartupService,
+              refreshLatestBridgeVersionOnInit: true,
+            ),
           ),
           BlocProvider(
             create: (_) => SettingsCubit(
