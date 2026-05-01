@@ -33,6 +33,13 @@ export interface GitStatusResult {
   stagedCount: number;
   unstagedCount: number;
   untrackedCount: number;
+  remoteStatusIncluded: boolean;
+  hasRemoteChanges: boolean;
+  commitsAhead: number;
+  commitsBehind: number;
+  hasUpstream: boolean;
+  branch?: string;
+  remoteError?: string;
 }
 
 // ---- Helpers ----
@@ -386,8 +393,11 @@ export function gitFetch(projectPath: string): void {
   });
 }
 
-/** Get lightweight working tree/index status without fetching remote state. */
-export function gitStatus(projectPath: string): GitStatusResult {
+/** Get lightweight working tree/index status. Remote state is optional. */
+export function gitStatus(
+  projectPath: string,
+  options: { includeRemote?: boolean } = {},
+): GitStatusResult {
   const cwd = resolveProject(projectPath);
   const output = execFileSync(
     "git",
@@ -402,12 +412,13 @@ export function gitStatus(projectPath: string): GitStatusResult {
     },
   );
   if (!output.trim()) {
-    return {
+    const cleanResult = {
       hasUncommittedChanges: false,
       stagedCount: 0,
       unstagedCount: 0,
       untrackedCount: 0,
     };
+    return withOptionalRemoteStatus(projectPath, cleanResult, options);
   }
 
   let stagedCount = 0;
@@ -427,12 +438,59 @@ export function gitStatus(projectPath: string): GitStatusResult {
     if (y !== " ") unstagedCount++;
   }
 
-  return {
-    hasUncommittedChanges: stagedCount + unstagedCount + untrackedCount > 0,
-    stagedCount,
-    unstagedCount,
-    untrackedCount,
+  return withOptionalRemoteStatus(
+    projectPath,
+    {
+      hasUncommittedChanges: stagedCount + unstagedCount + untrackedCount > 0,
+      stagedCount,
+      unstagedCount,
+      untrackedCount,
+    },
+    options,
+  );
+}
+
+function withOptionalRemoteStatus(
+  projectPath: string,
+  local: Pick<
+    GitStatusResult,
+    | "hasUncommittedChanges"
+    | "stagedCount"
+    | "unstagedCount"
+    | "untrackedCount"
+  >,
+  options: { includeRemote?: boolean },
+): GitStatusResult {
+  const base: GitStatusResult = {
+    ...local,
+    remoteStatusIncluded: false,
+    hasRemoteChanges: false,
+    commitsAhead: 0,
+    commitsBehind: 0,
+    hasUpstream: false,
   };
+
+  if (!options.includeRemote) return base;
+
+  try {
+    gitFetch(projectPath);
+    const remote = gitRemoteStatus(projectPath);
+    return {
+      ...base,
+      remoteStatusIncluded: true,
+      hasRemoteChanges: remote.ahead > 0 || remote.behind > 0,
+      commitsAhead: remote.ahead,
+      commitsBehind: remote.behind,
+      hasUpstream: remote.hasUpstream,
+      branch: remote.branch,
+    };
+  } catch (err) {
+    return {
+      ...base,
+      remoteStatusIncluded: true,
+      remoteError: String(err),
+    };
+  }
 }
 
 /** Get ahead/behind counts relative to upstream. */

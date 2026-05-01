@@ -1284,6 +1284,13 @@ class AppLocalizationsZh extends AppLocalizations {
       '长行不换行，可按 hunk 横向滚动。Git 操作请使用长按菜单或底部按钮。';
 
   @override
+  String get remoteGitStatusBadge => '用浅色徽标显示未同步的 Git 提交';
+
+  @override
+  String get remoteGitStatusBadgeDescription =>
+      'fetch 后，如果当前分支可 push 或 pull，会在会话页 Git 按钮上显示浅色徽标。';
+
+  @override
   String get sectionAbout => '关于';
 
   @override

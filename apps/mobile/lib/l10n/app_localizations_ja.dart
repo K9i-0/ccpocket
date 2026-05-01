@@ -1299,6 +1299,13 @@ class AppLocalizationsJa extends AppLocalizations {
       '長い行を折り返さず、hunk 単位で横スクロールできます。Git 操作はロングタップのメニューまたは下部ボタンから実行します。';
 
   @override
+  String get remoteGitStatusBadge => '未同期のGitコミットを薄いバッジで表示';
+
+  @override
+  String get remoteGitStatusBadgeDescription =>
+      'fetch後に現在ブランチがpushまたはpull可能な場合、セッション画面のGitボタンに薄いバッジを表示します。';
+
+  @override
   String get sectionAbout => '概要';
 
   @override

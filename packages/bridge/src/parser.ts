@@ -335,7 +335,12 @@ export type ClientMessage =
     }
   | { type: "git_fetch"; projectPath: string }
   | { type: "git_pull"; projectPath: string }
-  | { type: "git_status"; projectPath: string; sessionId?: string }
+  | {
+      type: "git_status";
+      projectPath: string;
+      sessionId?: string;
+      includeRemote?: boolean;
+    }
   | { type: "git_remote_status"; projectPath: string };
 
 /** Image change detected in a git diff (binary image file). */
@@ -686,6 +691,13 @@ export type ServerMessage =
       stagedCount: number;
       unstagedCount: number;
       untrackedCount: number;
+      remoteStatusIncluded?: boolean;
+      hasRemoteChanges?: boolean;
+      commitsAhead?: number;
+      commitsBehind?: number;
+      hasUpstream?: boolean;
+      branch?: string;
+      remoteError?: string;
       error?: string;
     }
   | {
@@ -1438,6 +1450,11 @@ export function parseClientMessage(data: string): ClientMessage | null {
       case "git_status":
         if (typeof msg.projectPath !== "string") return null;
         if (msg.sessionId !== undefined && typeof msg.sessionId !== "string")
+          return null;
+        if (
+          msg.includeRemote !== undefined &&
+          typeof msg.includeRemote !== "boolean"
+        )
           return null;
         break;
       case "git_remote_status":

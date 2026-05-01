@@ -350,6 +350,7 @@ class MockBridgeService extends BridgeService {
         );
       case 'git_status':
         final hasChanges = (_mockDiff ?? '').trim().isNotEmpty;
+        final includeRemote = json['includeRemote'] as bool? ?? false;
         _scheduleMessage(
           const Duration(milliseconds: 100),
           GitStatusResultMessage(
@@ -359,6 +360,7 @@ class MockBridgeService extends BridgeService {
             stagedCount: _stagedFiles.length,
             unstagedCount: hasChanges ? 1 : 0,
             untrackedCount: 0,
+            remoteStatusIncluded: includeRemote,
           ),
         );
       case 'refresh_branch':

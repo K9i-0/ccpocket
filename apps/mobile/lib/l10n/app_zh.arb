@@ -612,6 +612,8 @@
   "gitDiffQuickActionsDescription": "单指横向滑动可暂存、取消暂存或还原 hunk。长行会自动换行。",
   "gitDiffScrollFirst": "优先横向滚动",
   "gitDiffScrollFirstDescription": "长行不换行，可按 hunk 横向滚动。Git 操作请使用长按菜单或底部按钮。",
+  "remoteGitStatusBadge": "用浅色徽标显示未同步的 Git 提交",
+  "remoteGitStatusBadgeDescription": "fetch 后，如果当前分支可 push 或 pull，会在会话页 Git 按钮上显示浅色徽标。",
   "sectionAbout": "关于",
   "theme": "主题",
   "themeSystem": "跟随系统",

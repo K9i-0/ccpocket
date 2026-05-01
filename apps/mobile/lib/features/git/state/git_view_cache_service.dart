@@ -40,10 +40,12 @@ class GitViewCacheService {
       projectPath: projectPath,
       worktreePath: worktreePath,
       sessionId: sessionId,
-      onStatusRefreshRequested: () => _gitStatusCubit.refresh(
-        sessionId: sessionId,
-        projectPath: projectPath,
-      ),
+      onStatusRefreshRequested: ({forceRemote = false}) =>
+          _gitStatusCubit.refresh(
+            sessionId: sessionId,
+            projectPath: projectPath,
+            forceRemote: forceRemote,
+          ),
     );
     _cubitsBySession[sessionId] = cubit;
     _gitStatusCubit.refresh(sessionId: sessionId, projectPath: projectPath);

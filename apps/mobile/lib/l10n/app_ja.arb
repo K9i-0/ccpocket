@@ -594,6 +594,8 @@
   "gitDiffQuickActionsDescription": "1本指の横スワイプで hunk の Stage / Unstage / Revert を実行します。長い行は折り返します。",
   "gitDiffScrollFirst": "横スクロール優先",
   "gitDiffScrollFirstDescription": "長い行を折り返さず、hunk 単位で横スクロールできます。Git 操作はロングタップのメニューまたは下部ボタンから実行します。",
+  "remoteGitStatusBadge": "未同期のGitコミットを薄いバッジで表示",
+  "remoteGitStatusBadgeDescription": "fetch後に現在ブランチがpushまたはpull可能な場合、セッション画面のGitボタンに薄いバッジを表示します。",
   "sectionAbout": "概要",
   "theme": "テーマ",
   "themeSystem": "システム",

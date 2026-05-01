@@ -1311,6 +1311,13 @@ class AppLocalizationsKo extends AppLocalizations {
       '변경 블록 단위로 가로 스크롤할 수 있도록 긴 줄은 줄바꿈하지 않습니다. Git 작업은 길게 누르기 메뉴나 하단 버튼을 사용하세요.';
 
   @override
+  String get remoteGitStatusBadge => '동기화되지 않은 Git 커밋을 연한 배지로 표시';
+
+  @override
+  String get remoteGitStatusBadgeDescription =>
+      'fetch 후 현재 브랜치에 push 또는 pull 가능한 커밋이 있으면 세션 화면의 Git 버튼에 연한 배지를 표시합니다.';
+
+  @override
   String get sectionAbout => '정보';
 
   @override

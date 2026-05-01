@@ -770,11 +770,16 @@ void main() {
     });
 
     test('gitStatus with sessionId', () {
-      final msg = ClientMessage.gitStatus('/p', sessionId: 's1');
+      final msg = ClientMessage.gitStatus(
+        '/p',
+        sessionId: 's1',
+        includeRemote: true,
+      );
       final json = jsonDecode(msg.toJson()) as Map<String, dynamic>;
       expect(json['type'], 'git_status');
       expect(json['projectPath'], '/p');
       expect(json['sessionId'], 's1');
+      expect(json['includeRemote'], isTrue);
     });
 
     test('parses gitStatusResult', () {
@@ -786,6 +791,12 @@ void main() {
         'stagedCount': 1,
         'unstagedCount': 2,
         'untrackedCount': 3,
+        'remoteStatusIncluded': true,
+        'hasRemoteChanges': true,
+        'commitsAhead': 4,
+        'commitsBehind': 5,
+        'hasUpstream': true,
+        'branch': 'main',
       });
 
       expect(msg, isA<GitStatusResultMessage>());
@@ -796,6 +807,12 @@ void main() {
       expect(status.stagedCount, 1);
       expect(status.unstagedCount, 2);
       expect(status.untrackedCount, 3);
+      expect(status.remoteStatusIncluded, isTrue);
+      expect(status.hasRemoteChanges, isTrue);
+      expect(status.commitsAhead, 4);
+      expect(status.commitsBehind, 5);
+      expect(status.hasUpstream, isTrue);
+      expect(status.branch, 'main');
     });
   });
 }

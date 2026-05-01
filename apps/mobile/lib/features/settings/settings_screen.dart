@@ -739,6 +739,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
                       ),
                     ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    SwitchListTile(
+                      key: const ValueKey('remote_git_status_badge_toggle'),
+                      title: Text(l.remoteGitStatusBadge),
+                      subtitle: Text(l.remoteGitStatusBadgeDescription),
+                      value: state.showRemoteGitStatusBadge,
+                      onChanged: context
+                          .read<SettingsCubit>()
+                          .setShowRemoteGitStatusBadge,
+                    ),
                   ],
                 ),
               ),

@@ -133,11 +133,6 @@ void main() async {
   }
 
   final bridge = BridgeService();
-  final gitStatusCubit = GitStatusCubit(bridge: bridge);
-  final gitViewCacheService = GitViewCacheService(
-    bridge: bridge,
-    gitStatusCubit: gitStatusCubit,
-  );
   final fcmService = FcmService();
   final draftService = DraftService(prefs);
   final inAppReviewService = InAppReviewService(prefs: prefs);
@@ -161,6 +156,23 @@ void main() async {
   });
   final appIconService = AppIconService();
   final revenueCatService = RevenueCatService();
+  final settingsCubit = SettingsCubit(
+    prefs,
+    bridgeService: bridge,
+    machineManager: machineManagerService,
+    fcmService: fcmService,
+    revenueCatService: revenueCatService,
+    appIconService: appIconService,
+  );
+  final gitStatusCubit = GitStatusCubit(
+    bridge: bridge,
+    remoteStatusBadgeEnabled: () =>
+        settingsCubit.state.showRemoteGitStatusBadge,
+  );
+  final gitViewCacheService = GitViewCacheService(
+    bridge: bridge,
+    gitStatusCubit: gitStatusCubit,
+  );
   unawaited(revenueCatService.initialize());
   runApp(
     MultiRepositoryProvider(
@@ -223,16 +235,7 @@ void main() async {
               refreshLatestBridgeVersionOnInit: true,
             ),
           ),
-          BlocProvider(
-            create: (_) => SettingsCubit(
-              prefs,
-              bridgeService: bridge,
-              machineManager: machineManagerService,
-              fcmService: fcmService,
-              revenueCatService: revenueCatService,
-              appIconService: appIconService,
-            ),
-          ),
+          BlocProvider<SettingsCubit>.value(value: settingsCubit),
         ],
         child: CcpocketApp(fcmService: fcmService),
       ),

@@ -977,6 +977,13 @@ sealed class ServerMessage {
         stagedCount: json['stagedCount'] as int? ?? 0,
         unstagedCount: json['unstagedCount'] as int? ?? 0,
         untrackedCount: json['untrackedCount'] as int? ?? 0,
+        remoteStatusIncluded: json['remoteStatusIncluded'] as bool? ?? false,
+        hasRemoteChanges: json['hasRemoteChanges'] as bool? ?? false,
+        commitsAhead: json['commitsAhead'] as int? ?? 0,
+        commitsBehind: json['commitsBehind'] as int? ?? 0,
+        hasUpstream: json['hasUpstream'] as bool? ?? false,
+        branch: json['branch'] as String?,
+        remoteError: json['remoteError'] as String?,
         error: json['error'] as String?,
       ),
       'git_remote_status_result' => GitRemoteStatusResultMessage(
@@ -2774,6 +2781,13 @@ class GitStatusResultMessage implements ServerMessage {
   final int stagedCount;
   final int unstagedCount;
   final int untrackedCount;
+  final bool remoteStatusIncluded;
+  final bool hasRemoteChanges;
+  final int commitsAhead;
+  final int commitsBehind;
+  final bool hasUpstream;
+  final String? branch;
+  final String? remoteError;
   final String? error;
   const GitStatusResultMessage({
     this.sessionId,
@@ -2782,6 +2796,13 @@ class GitStatusResultMessage implements ServerMessage {
     required this.stagedCount,
     required this.unstagedCount,
     required this.untrackedCount,
+    this.remoteStatusIncluded = false,
+    this.hasRemoteChanges = false,
+    this.commitsAhead = 0,
+    this.commitsBehind = 0,
+    this.hasUpstream = false,
+    this.branch,
+    this.remoteError,
     this.error,
   });
 }
@@ -4013,12 +4034,16 @@ class ClientMessage {
   factory ClientMessage.gitPull(String projectPath) =>
       ClientMessage._({'type': 'git_pull', 'projectPath': projectPath});
 
-  factory ClientMessage.gitStatus(String projectPath, {String? sessionId}) =>
-      ClientMessage._({
-        'type': 'git_status',
-        'projectPath': projectPath,
-        'sessionId': ?sessionId,
-      });
+  factory ClientMessage.gitStatus(
+    String projectPath, {
+    String? sessionId,
+    bool includeRemote = false,
+  }) => ClientMessage._({
+    'type': 'git_status',
+    'projectPath': projectPath,
+    'sessionId': ?sessionId,
+    if (includeRemote) 'includeRemote': true,
+  });
 
   factory ClientMessage.gitRemoteStatus(String projectPath) => ClientMessage._({
     'type': 'git_remote_status',

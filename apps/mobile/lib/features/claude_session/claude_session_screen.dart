@@ -503,7 +503,15 @@ class _ChatScreenBody extends HookWidget {
     // Mutable branch state (refreshed from Bridge)
     final currentBranch = useState(gitBranch);
     final gitProjectPath = worktreePath ?? projectPath;
-    final showGitBadge = _showGitBadgeOf(context, sessionId, gitProjectPath);
+    final showRemoteGitStatusBadge = context.select(
+      (SettingsCubit cubit) => cubit.state.showRemoteGitStatusBadge,
+    );
+    final gitBadgeTone = _gitBadgeToneOf(
+      context,
+      sessionId,
+      gitProjectPath,
+      showRemoteGitStatusBadge: showRemoteGitStatusBadge,
+    );
 
     // Custom hooks
     final lifecycleState = useAppLifecycleState();
@@ -634,13 +642,14 @@ class _ChatScreenBody extends HookWidget {
           context.read<GitStatusCubit>().refresh(
             sessionId: sessionId,
             projectPath: path,
+            includeRemote: showRemoteGitStatusBadge,
           );
         } catch (_) {}
       }
       bridge.requestSessionList();
       bridge.refreshBranch(sessionId);
       return null;
-    }, [sessionId, projectPath, gitProjectPath]);
+    }, [sessionId, projectPath, gitProjectPath, showRemoteGitStatusBadge]);
 
     useEffect(() {
       if (projectPath == null || projectPath!.isEmpty) return null;
@@ -664,12 +673,13 @@ class _ChatScreenBody extends HookWidget {
           gitStatusCubit?.refresh(
             sessionId: sessionId,
             projectPath: gitProjectPath!,
+            includeRemote: showRemoteGitStatusBadge,
           );
           gitViewCache?.refreshIfPresent(sessionId);
         }
       });
       return sub.cancel;
-    }, [sessionId, projectPath, gitProjectPath]);
+    }, [sessionId, projectPath, gitProjectPath, showRemoteGitStatusBadge]);
 
     // --- Listen for branch updates ---
     useEffect(() {
@@ -897,7 +907,11 @@ class _ChatScreenBody extends HookWidget {
                         IconButton(
                           key: const ValueKey('appbar_view_changes'),
                           icon: Badge(
-                            isLabelVisible: showGitBadge,
+                            isLabelVisible: gitBadgeTone != null,
+                            backgroundColor: _gitBadgeColor(
+                              context,
+                              gitBadgeTone,
+                            ),
                             smallSize: 8,
                             child: Icon(
                               Icons.difference,
@@ -1258,20 +1272,37 @@ WorkspacePaneChrome _resolveSessionPaneChrome(
   );
 }
 
-bool _showGitBadgeOf(
+enum _GitBadgeTone { dirty, remote }
+
+_GitBadgeTone? _gitBadgeToneOf(
   BuildContext context,
   String sessionId,
-  String? projectPath,
-) {
-  if (projectPath == null || projectPath.isEmpty) return false;
+  String? projectPath, {
+  required bool showRemoteGitStatusBadge,
+}) {
+  if (projectPath == null || projectPath.isEmpty) return null;
   try {
     return context.select((GitStatusCubit cubit) {
       final entry = cubit.state.entryFor(sessionId);
-      return entry?.projectPath == projectPath && entry?.showBadge == true;
+      if (entry?.projectPath != projectPath) return null;
+      if (entry?.showDirtyBadge == true) return _GitBadgeTone.dirty;
+      if (entry?.showRemoteBadge(enabled: showRemoteGitStatusBadge) == true) {
+        return _GitBadgeTone.remote;
+      }
+      return null;
     });
   } catch (_) {
-    return false;
+    return null;
   }
+}
+
+Color? _gitBadgeColor(BuildContext context, _GitBadgeTone? tone) {
+  final error = Theme.of(context).colorScheme.error;
+  return switch (tone) {
+    _GitBadgeTone.dirty => error,
+    _GitBadgeTone.remote => error.withValues(alpha: 0.45),
+    null => null,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -2484,6 +2484,18 @@ abstract class AppLocalizations {
   /// **'長い行を折り返さず、hunk 単位で横スクロールできます。Git 操作はロングタップのメニューまたは下部ボタンから実行します。'**
   String get gitDiffScrollFirstDescription;
 
+  /// No description provided for @remoteGitStatusBadge.
+  ///
+  /// In ja, this message translates to:
+  /// **'未同期のGitコミットを薄いバッジで表示'**
+  String get remoteGitStatusBadge;
+
+  /// No description provided for @remoteGitStatusBadgeDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'fetch後に現在ブランチがpushまたはpull可能な場合、セッション画面のGitボタンに薄いバッジを表示します。'**
+  String get remoteGitStatusBadgeDescription;
+
   /// No description provided for @sectionAbout.
   ///
   /// In ja, this message translates to:

@@ -74,6 +74,11 @@ describe("gitStatus", () => {
       stagedCount: 0,
       unstagedCount: 0,
       untrackedCount: 0,
+      remoteStatusIncluded: false,
+      hasRemoteChanges: false,
+      commitsAhead: 0,
+      commitsBehind: 0,
+      hasUpstream: false,
     });
   });
 
@@ -85,6 +90,11 @@ describe("gitStatus", () => {
       stagedCount: 0,
       unstagedCount: 1,
       untrackedCount: 0,
+      remoteStatusIncluded: false,
+      hasRemoteChanges: false,
+      commitsAhead: 0,
+      commitsBehind: 0,
+      hasUpstream: false,
     });
   });
 
@@ -97,6 +107,11 @@ describe("gitStatus", () => {
       stagedCount: 1,
       unstagedCount: 0,
       untrackedCount: 0,
+      remoteStatusIncluded: false,
+      hasRemoteChanges: false,
+      commitsAhead: 0,
+      commitsBehind: 0,
+      hasUpstream: false,
     });
   });
 
@@ -108,7 +123,64 @@ describe("gitStatus", () => {
       stagedCount: 0,
       unstagedCount: 0,
       untrackedCount: 1,
+      remoteStatusIncluded: false,
+      hasRemoteChanges: false,
+      commitsAhead: 0,
+      commitsBehind: 0,
+      hasUpstream: false,
     });
+  });
+
+  it("includes pushable commits when remote status is requested", () => {
+    const remote = createBareRemote();
+    try {
+      gitCmd(["remote", "add", "origin", remote], repo);
+      gitCmd(["push", "-u", "origin", "master"], repo);
+      writeFileSync(join(repo, "ahead.txt"), "ahead\n");
+      gitCmd(["add", "ahead.txt"], repo);
+      gitCmd(["commit", "-m", "ahead"], repo);
+
+      expect(gitStatus(repo, { includeRemote: true })).toMatchObject({
+        remoteStatusIncluded: true,
+        hasRemoteChanges: true,
+        commitsAhead: 1,
+        commitsBehind: 0,
+        hasUpstream: true,
+        branch: "master",
+      });
+    } finally {
+      rmSync(remote, { recursive: true, force: true });
+    }
+  });
+
+  it("includes pullable commits when remote status is requested", () => {
+    const remote = createBareRemote();
+    const clone = join(tmpdir(), `git-ops-clone-${randomUUID().slice(0, 8)}`);
+    try {
+      gitCmd(["remote", "add", "origin", remote], repo);
+      gitCmd(["push", "-u", "origin", "master"], repo);
+      execFileSync("git", ["clone", remote, clone]);
+      execFileSync("git", ["config", "user.email", "test@test.com"], {
+        cwd: clone,
+      });
+      execFileSync("git", ["config", "user.name", "Test"], { cwd: clone });
+      writeFileSync(join(clone, "behind.txt"), "behind\n");
+      gitCmd(["add", "behind.txt"], clone);
+      gitCmd(["commit", "-m", "behind"], clone);
+      gitCmd(["push"], clone);
+
+      expect(gitStatus(repo, { includeRemote: true })).toMatchObject({
+        remoteStatusIncluded: true,
+        hasRemoteChanges: true,
+        commitsAhead: 0,
+        commitsBehind: 1,
+        hasUpstream: true,
+        branch: "master",
+      });
+    } finally {
+      rmSync(remote, { recursive: true, force: true });
+      rmSync(clone, { recursive: true, force: true });
+    }
   });
 });
 

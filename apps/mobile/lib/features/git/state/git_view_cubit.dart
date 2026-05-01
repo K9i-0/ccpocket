@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../models/messages.dart';
@@ -32,7 +32,7 @@ class GitViewCubit extends Cubit<GitViewState> {
   StreamSubscription<GitCheckoutBranchResultMessage>? _checkoutSub;
   final String? _projectPath;
   final String? _sessionId;
-  final VoidCallback? _onStatusRefreshRequested;
+  final void Function({bool forceRemote})? _onStatusRefreshRequested;
 
   GitViewCubit({
     required BridgeService bridge,
@@ -40,7 +40,7 @@ class GitViewCubit extends Cubit<GitViewState> {
     String? projectPath,
     String? worktreePath,
     String? sessionId,
-    VoidCallback? onStatusRefreshRequested,
+    void Function({bool forceRemote})? onStatusRefreshRequested,
   }) : _bridge = bridge,
        _projectPath = projectPath,
        _sessionId = sessionId,
@@ -124,13 +124,13 @@ class GitViewCubit extends Cubit<GitViewState> {
 
   /// Re-request `git diff` from Bridge (e.g. for manual refresh).
   void refresh() {
-    refreshDiffOnly(requestStatus: true);
+    refreshDiffOnly(requestStatus: true, forceRemote: true);
     // Also fetch + update remote status on refresh
     _fetchAndUpdateStatus();
   }
 
   /// Re-request `git diff` from Bridge without fetching remote status.
-  void refreshDiffOnly({bool requestStatus = false}) {
+  void refreshDiffOnly({bool requestStatus = false, bool forceRemote = false}) {
     final projectPath = _projectPath;
     if (projectPath == null) return;
     emit(state.copyWith(loading: true, error: null));
@@ -138,7 +138,7 @@ class GitViewCubit extends Cubit<GitViewState> {
       ClientMessage.getDiff(projectPath, staged: _stagedParamForMode),
     );
     if (requestStatus) {
-      _onStatusRefreshRequested?.call();
+      _onStatusRefreshRequested?.call(forceRemote: forceRemote);
     }
   }
 

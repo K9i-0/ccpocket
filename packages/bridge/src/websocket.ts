@@ -3677,12 +3677,19 @@ export class BridgeWebSocketServer {
             stagedCount: 0,
             unstagedCount: 0,
             untrackedCount: 0,
+            remoteStatusIncluded: false,
+            hasRemoteChanges: false,
+            commitsAhead: 0,
+            commitsBehind: 0,
+            hasUpstream: false,
             error: `Path not allowed: ${msg.projectPath}`,
           });
           break;
         }
         try {
-          const result = gitStatus(msg.projectPath);
+          const result = gitStatus(msg.projectPath, {
+            includeRemote: msg.includeRemote,
+          });
           this.send(ws, {
             type: "git_status_result",
             sessionId: msg.sessionId,
@@ -3691,6 +3698,13 @@ export class BridgeWebSocketServer {
             stagedCount: result.stagedCount,
             unstagedCount: result.unstagedCount,
             untrackedCount: result.untrackedCount,
+            remoteStatusIncluded: result.remoteStatusIncluded,
+            hasRemoteChanges: result.hasRemoteChanges,
+            commitsAhead: result.commitsAhead,
+            commitsBehind: result.commitsBehind,
+            hasUpstream: result.hasUpstream,
+            branch: result.branch,
+            remoteError: result.remoteError,
           });
         } catch (err) {
           this.send(ws, {
@@ -3701,6 +3715,11 @@ export class BridgeWebSocketServer {
             stagedCount: 0,
             unstagedCount: 0,
             untrackedCount: 0,
+            remoteStatusIncluded: false,
+            hasRemoteChanges: false,
+            commitsAhead: 0,
+            commitsBehind: 0,
+            hasUpstream: false,
             error: String(err),
           });
         }

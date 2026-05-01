@@ -1351,6 +1351,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Long lines stay unwrapped for hunk-level horizontal scrolling. Use long press menus or the bottom buttons for Git actions.';
 
   @override
+  String get remoteGitStatusBadge =>
+      'Show a subtle badge for unsynced Git commits';
+
+  @override
+  String get remoteGitStatusBadgeDescription =>
+      'Shows a lighter badge on the session Git button when the current branch can push or pull after fetch.';
+
+  @override
   String get sectionAbout => 'ABOUT';
 
   @override

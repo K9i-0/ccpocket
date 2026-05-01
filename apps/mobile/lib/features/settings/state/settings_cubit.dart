@@ -45,6 +45,8 @@ class SettingsCubit extends Cubit<SettingsState> {
   static const _keyHideVoiceInput = 'settings_hide_voice_input';
   static const _keyGitDiffInteractionMode =
       'settings_git_diff_interaction_mode';
+  static const _keyShowRemoteGitStatusBadge =
+      'settings_show_remote_git_status_badge';
   static const _keySelectedAppIcon = 'settings_selected_app_icon';
   static const _keyTerminalApp = 'settings_terminal_app';
   static const _keyNewSessionTabs = 'settings_new_session_tabs';
@@ -178,6 +180,8 @@ class SettingsCubit extends Cubit<SettingsState> {
     final gitDiffInteractionMode = gitDiffInteractionModeFromRaw(
       prefs.getString(_keyGitDiffInteractionMode),
     );
+    final showRemoteGitStatusBadge =
+        prefs.getBool(_keyShowRemoteGitStatusBadge) ?? false;
     final selectedAppIcon = appIconVariantFromId(
       prefs.getString(_keySelectedAppIcon),
     );
@@ -224,6 +228,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       textScale: textScale.clamp(minTextScale, maxTextScale),
       hideVoiceInput: hideVoiceInput,
       gitDiffInteractionMode: gitDiffInteractionMode,
+      showRemoteGitStatusBadge: showRemoteGitStatusBadge,
       selectedAppIcon: selectedAppIcon,
       terminalApp: terminalApp,
       newSessionTabs: newSessionTabs,
@@ -323,6 +328,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setGitDiffInteractionMode(GitDiffInteractionMode mode) {
     _prefs.setString(_keyGitDiffInteractionMode, mode.name);
     emit(state.copyWith(gitDiffInteractionMode: mode));
+  }
+
+  void setShowRemoteGitStatusBadge(bool show) {
+    _prefs.setBool(_keyShowRemoteGitStatusBadge, show);
+    emit(state.copyWith(showRemoteGitStatusBadge: show));
   }
 
   Future<void> setSelectedAppIcon(AppIconVariant icon) async {

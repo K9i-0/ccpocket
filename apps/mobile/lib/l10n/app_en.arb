@@ -536,6 +536,8 @@
   "gitDiffQuickActionsDescription": "One-finger horizontal swipes stage, unstage, or revert hunks. Long lines wrap.",
   "gitDiffScrollFirst": "Scroll first",
   "gitDiffScrollFirstDescription": "Long lines stay unwrapped for hunk-level horizontal scrolling. Use long press menus or the bottom buttons for Git actions.",
+  "remoteGitStatusBadge": "Show a subtle badge for unsynced Git commits",
+  "remoteGitStatusBadgeDescription": "Shows a lighter badge on the session Git button when the current branch can push or pull after fetch.",
   "sectionAbout": "ABOUT",
   "theme": "Theme",
   "themeSystem": "System",

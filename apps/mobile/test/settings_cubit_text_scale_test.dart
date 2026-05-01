@@ -66,5 +66,25 @@ void main() {
 
       await restored.close();
     });
+
+    test('remote git status badge defaults off and persists', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = SettingsCubit(prefs);
+
+      expect(cubit.state.showRemoteGitStatusBadge, isFalse);
+
+      cubit.setShowRemoteGitStatusBadge(true);
+
+      expect(cubit.state.showRemoteGitStatusBadge, isTrue);
+      expect(prefs.getBool('settings_show_remote_git_status_badge'), isTrue);
+
+      await cubit.close();
+
+      final restored = SettingsCubit(prefs);
+      expect(restored.state.showRemoteGitStatusBadge, isTrue);
+
+      await restored.close();
+    });
   });
 }

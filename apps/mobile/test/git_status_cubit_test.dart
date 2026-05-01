@@ -61,6 +61,7 @@ void main() {
       expect(json['type'], 'git_status');
       expect(json['projectPath'], '/repo');
       expect(json['sessionId'], 's1');
+      expect(json.containsKey('includeRemote'), isFalse);
     });
 
     test('updates badge state from git_status_result', () async {
@@ -90,6 +91,119 @@ void main() {
       expect(entry?.showBadge, isTrue);
       expect(entry?.stagedCount, 1);
       expect(entry?.unstagedCount, 2);
+    });
+
+    test('requests and shows remote badge when enabled', () async {
+      final bridge = _GitStatusBridge();
+      final cubit = GitStatusCubit(
+        bridge: bridge,
+        remoteStatusBadgeEnabled: () => true,
+      );
+      addTearDown(() {
+        cubit.close();
+        bridge.dispose();
+      });
+
+      cubit.refresh(sessionId: 's1', projectPath: '/repo');
+
+      final json =
+          jsonDecode(bridge.sentMessages.single.toJson())
+              as Map<String, dynamic>;
+      expect(json['includeRemote'], isTrue);
+
+      bridge.emitStatus(
+        const GitStatusResultMessage(
+          sessionId: 's1',
+          projectPath: '/repo',
+          hasUncommittedChanges: false,
+          stagedCount: 0,
+          unstagedCount: 0,
+          untrackedCount: 0,
+          remoteStatusIncluded: true,
+          hasRemoteChanges: true,
+          commitsAhead: 1,
+          commitsBehind: 2,
+          hasUpstream: true,
+        ),
+      );
+      await Future.microtask(() {});
+
+      final entry = cubit.state.entryFor('s1');
+      expect(entry?.showDirtyBadge, isFalse);
+      expect(entry?.showRemoteBadge(enabled: true), isTrue);
+      expect(entry?.commitsAhead, 1);
+      expect(entry?.commitsBehind, 2);
+      expect(entry?.remoteCheckedAt, isNotNull);
+    });
+
+    test('dirty badge takes precedence over remote badge', () async {
+      final bridge = _GitStatusBridge();
+      final cubit = GitStatusCubit(bridge: bridge);
+      addTearDown(() {
+        cubit.close();
+        bridge.dispose();
+      });
+
+      bridge.emitStatus(
+        const GitStatusResultMessage(
+          sessionId: 's1',
+          projectPath: '/repo',
+          hasUncommittedChanges: true,
+          stagedCount: 0,
+          unstagedCount: 1,
+          untrackedCount: 0,
+          remoteStatusIncluded: true,
+          hasRemoteChanges: true,
+          commitsAhead: 1,
+          commitsBehind: 0,
+          hasUpstream: true,
+        ),
+      );
+      await Future.microtask(() {});
+
+      final entry = cubit.state.entryFor('s1');
+      expect(entry?.showDirtyBadge, isTrue);
+      expect(entry?.showRemoteBadge(enabled: true), isFalse);
+    });
+
+    test('remote status uses ttl unless forced', () async {
+      final bridge = _GitStatusBridge();
+      final cubit = GitStatusCubit(
+        bridge: bridge,
+        remoteStatusBadgeEnabled: () => true,
+      );
+      addTearDown(() {
+        cubit.close();
+        bridge.dispose();
+      });
+
+      cubit.refresh(sessionId: 's1', projectPath: '/repo');
+      bridge.emitStatus(
+        const GitStatusResultMessage(
+          sessionId: 's1',
+          projectPath: '/repo',
+          hasUncommittedChanges: false,
+          stagedCount: 0,
+          unstagedCount: 0,
+          untrackedCount: 0,
+          remoteStatusIncluded: true,
+          hasRemoteChanges: true,
+          commitsAhead: 1,
+          commitsBehind: 0,
+          hasUpstream: true,
+        ),
+      );
+      await Future.microtask(() {});
+
+      cubit.refresh(sessionId: 's1', projectPath: '/repo');
+      var json =
+          jsonDecode(bridge.sentMessages.last.toJson()) as Map<String, dynamic>;
+      expect(json.containsKey('includeRemote'), isFalse);
+
+      cubit.refresh(sessionId: 's1', projectPath: '/repo', forceRemote: true);
+      json =
+          jsonDecode(bridge.sentMessages.last.toJson()) as Map<String, dynamic>;
+      expect(json['includeRemote'], isTrue);
     });
 
     test('does not show badge for error results', () async {
