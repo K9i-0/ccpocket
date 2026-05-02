@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.51.0] - 2026-05-02
+
+### Added
+- Add Git dirty status and unsynced branch metadata for session badges.
+- Enable automatic session renaming by default when supported by the client.
+
 ## [1.50.0] - 2026-05-02
 
 ### Added
