@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.87.0] - 2026-05-02
+
+### Added
+- Add Codex conversation rewind support.
+- Add image file previews from file peek actions.
+
+### Changed
+- Require Bridge 1.52.0 for conversation rewind and image file preview support.
+
+### Fixed
+- Restore session project actions from history.
+
 ## [1.86.1] - 2026-05-02
 
 ### Changed
