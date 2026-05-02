@@ -1295,7 +1295,9 @@ class _StoreWorkspaceRouteState extends State<_StoreWorkspaceRoute> {
       _StoreWorkspacePaneKind.none => null,
       _StoreWorkspacePaneKind.git => GitScreen(
         projectPath: widget.preset.projectPath,
-        sessionId: widget.preset.sessionId,
+        // Keep store screenshots on the local mock bridge. Passing a sessionId
+        // makes GitScreen use the app-level GitViewCacheService, which is bound
+        // to the real BridgeService and can leave the mock pane loading.
         embedded: true,
       ),
       _StoreWorkspacePaneKind.explore => ExploreScreen(
