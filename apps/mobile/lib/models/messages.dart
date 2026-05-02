@@ -3832,6 +3832,13 @@ class ClientMessage {
         'targetUuid': targetUuid,
       });
 
+  factory ClientMessage.forkSession(String sessionId, String targetUuid) =>
+      ClientMessage._({
+        'type': 'fork',
+        'sessionId': sessionId,
+        'targetUuid': targetUuid,
+      });
+
   factory ClientMessage.listWindows() =>
       ClientMessage._({'type': 'list_windows'});
 

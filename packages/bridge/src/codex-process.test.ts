@@ -387,9 +387,51 @@ describe("CodexProcess (app-server)", () => {
 
     child.stdout.emit(
       "data",
-      `${JSON.stringify({ id: rollbackReq.id, result: {} })}\n`,
+      `${JSON.stringify({
+        id: rollbackReq.id,
+        result: { thread: { id: "thr_rollback", turns: [] } },
+      })}\n`,
     );
-    await expect(rollbackPromise).resolves.toBeUndefined();
+    await expect(rollbackPromise).resolves.toEqual({
+      id: "thr_rollback",
+      turns: [],
+    });
+  });
+
+  it("sends thread/read with includeTurns", async () => {
+    const proc = new CodexProcess("linux");
+    const initializePromise = proc.initializeOnly("/tmp/project-a");
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+    await tick();
+    await initializePromise;
+
+    const readPromise = proc.readThread("thr_read", true);
+    const readReq = nextOutgoingRequest(child);
+    expect(readReq.method).toBe("thread/read");
+    expect(readReq.params).toEqual({
+      threadId: "thr_read",
+      includeTurns: true,
+    });
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: readReq.id,
+        result: { thread: { id: "thr_read", turns: [] } },
+      })}\n`,
+    );
+    await expect(readPromise).resolves.toEqual({
+      id: "thr_read",
+      turns: [],
+    });
   });
 
   it("ignores placeholder codex model names from resume state", async () => {

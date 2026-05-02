@@ -25,6 +25,7 @@ class ChatMessageList extends StatefulWidget {
   final String? httpBaseUrl;
   final void Function(UserChatEntry)? onRetryMessage;
   final void Function(UserChatEntry)? onRewindMessage;
+  final void Function(AssistantServerMessage)? onForkMessage;
   final ValueNotifier<int>? collapseToolResults;
   final double bottomPadding;
   final bool isCodex;
@@ -44,6 +45,7 @@ class ChatMessageList extends StatefulWidget {
     required this.httpBaseUrl,
     required this.onRetryMessage,
     this.onRewindMessage,
+    this.onForkMessage,
     required this.collapseToolResults,
     this.scrollToUserEntry,
     this.bottomPadding = 8,
@@ -211,6 +213,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
             httpBaseUrl: widget.httpBaseUrl,
             onRetryMessage: widget.onRetryMessage,
             onRewindMessage: widget.onRewindMessage,
+            onForkMessage: widget.onForkMessage,
             collapseToolResults: widget.collapseToolResults,
             resolvedPlanText: _resolvePlanText(entry),
             hiddenToolUseIds: hiddenToolUseIds,

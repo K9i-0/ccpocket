@@ -9,6 +9,7 @@ import {
   scanJsonlDir,
   getAllRecentSessions,
   getCodexSessionHistory,
+  codexThreadToSessionHistory,
 } from "./sessions-index.js";
 
 describe("pathToSlug", () => {
@@ -30,6 +31,71 @@ describe("pathToSlug", () => {
     expect(pathToSlug("/Users/x/flutter_claude_sandbox")).toBe(
       "-Users-x-flutter-claude-sandbox",
     );
+  });
+});
+
+describe("codexThreadToSessionHistory", () => {
+  it("converts official thread turns into display history", () => {
+    const history = codexThreadToSessionHistory({
+      turns: [
+        {
+          startedAt: 1700000000,
+          completedAt: 1700000001,
+          items: [
+            {
+              type: "userMessage",
+              id: "u1",
+              content: [{ type: "text", text: "hello" }],
+            },
+            {
+              type: "agentMessage",
+              id: "a1",
+              text: "hi",
+              phase: null,
+              memoryCitation: null,
+            },
+            {
+              type: "commandExecution",
+              id: "cmd1",
+              command: "git status",
+              cwd: "/tmp/repo",
+              status: "completed",
+              aggregatedOutput: "clean",
+              exitCode: 0,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(history).toMatchObject([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        content: [{ type: "text", text: "hello" }],
+      },
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "hi" }],
+      },
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "cmd1",
+            name: "Bash",
+            input: { command: "git status", cwd: "/tmp/repo" },
+          },
+        ],
+      },
+      {
+        role: "tool_result",
+        toolUseId: "cmd1",
+        toolName: "Bash",
+        content: "status: completed\nexitCode: 0\nclean",
+      },
+    ]);
   });
 });
 

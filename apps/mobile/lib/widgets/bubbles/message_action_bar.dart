@@ -11,12 +11,14 @@ class MessageActionBar extends StatelessWidget {
   final String textToCopy;
   final bool isPlainTextMode;
   final VoidCallback? onTogglePlainText;
+  final VoidCallback? onFork;
 
   const MessageActionBar({
     super.key,
     required this.textToCopy,
     this.isPlainTextMode = false,
     this.onTogglePlainText,
+    this.onFork,
   });
 
   @override
@@ -67,6 +69,16 @@ class MessageActionBar extends StatelessWidget {
               SharePlus.instance.share(ShareParams(text: textToCopy));
             },
           ),
+          if (onFork != null) ...[
+            const SizedBox(width: 16),
+            _ActionIcon(
+              key: const ValueKey('fork_button'),
+              icon: Icons.call_split,
+              size: 18,
+              color: appColors.subtleText,
+              onTap: onFork,
+            ),
+          ],
         ],
       ),
     );

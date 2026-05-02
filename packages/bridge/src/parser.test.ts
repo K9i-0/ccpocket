@@ -633,6 +633,18 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 
+  it("parses fork message", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"fork","sessionId":"s1","targetUuid":"codex:user-turn:1"}',
+      ),
+    ).toEqual({
+      type: "fork",
+      sessionId: "s1",
+      targetUuid: "codex:user-turn:1",
+    });
+  });
+
   // ---- Git Operations (Phase 1-3) ----
 
   // git_stage

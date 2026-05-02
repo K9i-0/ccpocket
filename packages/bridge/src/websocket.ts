@@ -31,6 +31,8 @@ import {
   getCodexSessionHistory,
   getSessionHistory,
   codexUserTurnUuid,
+  codexThreadToSessionHistory,
+  type SessionHistoryMessage,
   findSessionsByClaudeIds,
   extractMessageImages,
   getClaudeSessionName,
@@ -161,6 +163,109 @@ function countCodexUserTurnsInSession(session: SessionInfo): number {
 
 function nextCodexUserTurnUuid(session: SessionInfo): string {
   return codexUserTurnUuid(countCodexUserTurnsInSession(session) + 1);
+}
+
+function normalizeHistoryContent(
+  content: unknown,
+): SessionHistoryMessage["content"] {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return [];
+
+  const normalized: Array<{
+    type: string;
+    text?: string;
+    id?: string;
+    name?: string;
+    input?: Record<string, unknown>;
+  }> = [];
+
+  for (const item of content) {
+    if (!item || typeof item !== "object") continue;
+    const value = item as Record<string, unknown>;
+    if (typeof value.type !== "string") continue;
+    if (value.type === "text") {
+      normalized.push({
+        type: "text",
+        text: typeof value.text === "string" ? value.text : "",
+      });
+    } else if (value.type === "tool_use") {
+      normalized.push({
+        type: "tool_use",
+        id: typeof value.id === "string" ? value.id : undefined,
+        name: typeof value.name === "string" ? value.name : undefined,
+        input:
+          value.input && typeof value.input === "object" && !Array.isArray(value.input)
+            ? (value.input as Record<string, unknown>)
+            : undefined,
+      });
+    }
+  }
+
+  return normalized;
+}
+
+function buildCodexHistoryPrefix(
+  session: SessionInfo,
+  targetOrdinal: number,
+): SessionHistoryMessage[] {
+  const messages: SessionHistoryMessage[] = [];
+  let userOrdinal = 0;
+  let reachedEnd = false;
+
+  const appendPastMessage = (message: unknown): void => {
+    if (reachedEnd || !message || typeof message !== "object") return;
+    const item = message as SessionHistoryMessage;
+    if (item.role === "user" && item.isMeta !== true) {
+      userOrdinal += 1;
+      if (userOrdinal > targetOrdinal) {
+        reachedEnd = true;
+        return;
+      }
+      messages.push({ ...item });
+      return;
+    }
+    if (item.role === "assistant" && userOrdinal > 0 && userOrdinal <= targetOrdinal) {
+      messages.push({ ...item });
+    }
+  };
+
+  for (const message of session.pastMessages ?? []) {
+    appendPastMessage(message);
+    if (reachedEnd) return messages;
+  }
+
+  for (const message of session.history) {
+    if (message.type === "user_input") {
+      if (message.isMeta === true) continue;
+      const userInput = message as typeof message & { timestamp?: string };
+      userOrdinal += 1;
+      if (userOrdinal > targetOrdinal) break;
+      messages.push({
+        role: "user",
+        uuid: userInput.userMessageUuid,
+        timestamp: userInput.timestamp,
+        imageCount: userInput.imageCount,
+        content: [{ type: "text", text: userInput.text }],
+      });
+    } else if (
+      message.type === "assistant" &&
+      userOrdinal > 0 &&
+      userOrdinal <= targetOrdinal
+    ) {
+      messages.push({
+        role: "assistant",
+        uuid: message.messageUuid,
+        content: normalizeHistoryContent(message.message.content),
+      });
+    }
+  }
+
+  return messages;
+}
+
+function countCodexHistoryUserTurns(messages: SessionHistoryMessage[]): number {
+  return messages.filter((message) => message.role === "user" && !message.isMeta)
+    .length;
 }
 
 // ---- Codex mode mapping helpers ----
@@ -730,13 +835,13 @@ export class BridgeWebSocketServer {
       return;
     }
 
-    const numTurns = totalUserTurns - targetOrdinal;
+    const numTurns = totalUserTurns - targetOrdinal + 1;
     if (numTurns <= 0) {
       this.send(ws, {
         type: "rewind_result",
         success: false,
         mode,
-        error: "No newer turns to rewind",
+        error: "Invalid Codex rewind target",
       });
       return;
     }
@@ -761,9 +866,13 @@ export class BridgeWebSocketServer {
         }
       : undefined;
 
-    await codexProcess.rollbackThread(numTurns);
+    const rolledBackThread = await codexProcess.rollbackThread(numTurns);
 
-    const pastMessages = await getCodexSessionHistory(threadId);
+    const pastMessages = this.codexHistoryFromThreadOrFallback({
+      thread: rolledBackThread,
+      expectedUserTurns: targetOrdinal - 1,
+      fallback: buildCodexHistoryPrefix(session, targetOrdinal - 1),
+    });
     this.sessionManager.destroy(sessionId);
     const newSessionId = this.sessionManager.create(
       projectPath,
@@ -783,6 +892,113 @@ export class BridgeWebSocketServer {
       success: true,
       mode,
     });
+    this.send(
+      ws,
+      this.buildSessionCreatedMessage({
+        sessionId: newSessionId,
+        provider: "codex",
+        projectPath,
+        session: newSession,
+        approvalsReviewer: codexSettings?.approvalsReviewer,
+        sandboxMode: codexSettings?.sandboxMode,
+        sourceSessionId: sessionId,
+      }),
+    );
+    this.sendSessionList(ws);
+  }
+
+  private async forkCodexSession(
+    ws: WebSocket,
+    sessionId: string,
+    targetUuid: string,
+  ): Promise<void> {
+    const session = this.sessionManager.get(sessionId);
+    if (!session) {
+      this.send(ws, {
+        type: "error",
+        message: `Session ${sessionId} not found`,
+        errorCode: "fork_failed",
+      });
+      return;
+    }
+    const codexProcess = session.process as CodexProcess;
+    if (
+      session.provider !== "codex" ||
+      typeof codexProcess.forkThread !== "function"
+    ) {
+      this.send(ws, {
+        type: "error",
+        message: "Fork is only supported for Codex sessions",
+        errorCode: "fork_failed",
+      });
+      return;
+    }
+    if (session.status !== "idle" || (codexProcess.status ?? session.status) !== "idle") {
+      this.send(ws, {
+        type: "error",
+        message: "Cannot fork while Codex is running",
+        errorCode: "fork_failed",
+      });
+      return;
+    }
+    if (session.codexQueuedInput) {
+      this.send(ws, {
+        type: "error",
+        message: "Cannot fork while Codex has queued input",
+        errorCode: "fork_failed",
+      });
+      return;
+    }
+
+    const targetOrdinal = parseCodexUserTurnOrdinal(targetUuid);
+    const totalUserTurns = countCodexUserTurnsInSession(session);
+    if (targetOrdinal === null || targetOrdinal > totalUserTurns) {
+      this.send(ws, {
+        type: "error",
+        message: "Invalid Codex fork target",
+        errorCode: "fork_failed",
+      });
+      return;
+    }
+
+    const projectPath = session.projectPath;
+    const codexSettings = session.codexSettings;
+    const worktreeOpts: WorktreeOptions | undefined = session.worktreePath
+      ? {
+          existingWorktreePath: session.worktreePath,
+          worktreeBranch: session.worktreeBranch,
+        }
+      : undefined;
+
+    const forked = await codexProcess.forkThread();
+    const forkedThreadId = forked.threadId;
+    const turnsToDrop = totalUserTurns - targetOrdinal;
+    let forkedThread: unknown = forked.thread;
+    if (turnsToDrop > 0) {
+      forkedThread = await codexProcess.rollbackThreadById(
+        forkedThreadId,
+        turnsToDrop,
+      );
+    }
+
+    const pastMessages = this.codexHistoryFromThreadOrFallback({
+      thread: forkedThread,
+      expectedUserTurns: targetOrdinal,
+      fallback: buildCodexHistoryPrefix(session, targetOrdinal),
+    });
+    const newSessionId = this.sessionManager.create(
+      projectPath,
+      undefined,
+      pastMessages,
+      worktreeOpts,
+      "codex",
+      {
+        ...(codexSettings ?? {}),
+        threadId: forkedThreadId,
+      } as CodexStartOptions,
+    );
+    const newSession = this.sessionManager.get(newSessionId);
+
     this.send(
       ws,
       this.buildSessionCreatedMessage({
@@ -883,6 +1099,55 @@ export class BridgeWebSocketServer {
     }
 
     return { pastMessages, historyMessages };
+  }
+
+  private async getCodexThreadHistoryFromRpc(
+    threadId: string,
+    projectPath?: string,
+  ): Promise<SessionHistoryMessage[]> {
+    const activeProcess = this.getActiveCodexProcess();
+    const process =
+      activeProcess ?? (await this.createStandaloneCodexProcess(projectPath));
+    const isStandalone = process !== activeProcess;
+    try {
+      const thread = await process.readThread(threadId, true);
+      return codexThreadToSessionHistory(thread);
+    } finally {
+      if (isStandalone) {
+        process.stop();
+      }
+    }
+  }
+
+  private async getCodexThreadHistory(
+    threadId: string,
+    projectPath?: string,
+  ): Promise<SessionHistoryMessage[]> {
+    if (!this.getActiveCodexProcess() && process.env.NODE_ENV === "test") {
+      return getCodexSessionHistory(threadId);
+    }
+    try {
+      return await this.getCodexThreadHistoryFromRpc(threadId, projectPath);
+    } catch (err) {
+      console.warn(
+        `[ws] thread/read failed for ${threadId}; falling back to JSONL: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return getCodexSessionHistory(threadId);
+    }
+  }
+
+  private codexHistoryFromThreadOrFallback(params: {
+    thread: unknown;
+    expectedUserTurns: number;
+    fallback: SessionHistoryMessage[];
+  }): SessionHistoryMessage[] {
+    const messages = codexThreadToSessionHistory(params.thread);
+    if (countCodexHistoryUserTurns(messages) >= params.expectedUserTurns) {
+      return messages;
+    }
+    return params.fallback;
   }
 
   private createClaudeSessionWithFallback(params: {
@@ -1306,7 +1571,9 @@ export class BridgeWebSocketServer {
         // The SDK stream does NOT emit user messages, so session.history would
         // otherwise lack them.  This ensures get_history responses include user
         // messages and replaceEntries on the client side preserves them.
-        // We do NOT broadcast this back — Flutter already shows it via sendMessage().
+        // Flutter already shows the user bubble optimistically. For Codex we
+        // echo the accepted user_input back with its synthetic UUID so the live
+        // bubble becomes rewindable/forkable without requiring a stop+resume.
         //
         // Register images in the image store so they can be served via HTTP
         // when the client re-enters the session and loads history.
@@ -1411,6 +1678,14 @@ export class BridgeWebSocketServer {
           ...(imageRefs ? { images: imageRefs } : {}),
         } as ServerMessage);
         const acceptedSeq = userEntry?.seq ?? session.historyRevision;
+
+        if (session.provider === "codex" && userEntry) {
+          this.send(ws, {
+            ...userEntry.message,
+            sessionId: session.id,
+            historySeq: acceptedSeq,
+          } as ServerMessage & { sessionId: string; historySeq: number });
+        }
 
         // Persist images to Gallery Store asynchronously (fire-and-forget)
         if (images.length > 0 && this.galleryStore && session.projectPath) {
@@ -1917,7 +2192,7 @@ export class BridgeWebSocketServer {
             };
           }
 
-          getCodexSessionHistory(threadId)
+          this.getCodexThreadHistory(threadId, effectiveProjectPath)
             .then((pastMessages) => {
               const newId = this.sessionManager.create(
                 effectiveProjectPath,
@@ -2253,7 +2528,7 @@ export class BridgeWebSocketServer {
           worktreeOpts = { existingWorktreePath: worktreePath, worktreeBranch };
         }
 
-        getCodexSessionHistory(threadId)
+        this.getCodexThreadHistory(threadId, effectiveProjectPath)
           .then((pastMessages) => {
             const newId = this.sessionManager.create(
               effectiveProjectPath,
@@ -2916,85 +3191,84 @@ export class BridgeWebSocketServer {
             }
           }
 
-          getCodexSessionHistory(sessionRefId)
-            .then((pastMessages) => {
-              const sessionId = this.sessionManager.create(
-                effectiveProjectPath,
-                undefined,
-                pastMessages,
-                worktreeOpts,
-                "codex",
-                {
-                  threadId: sessionRefId,
-                  profile: effectiveProfile,
-                  approvalPolicy:
-                    codexApprovalPolicy ??
-                    normalizeCodexApprovalPolicy(
-                      executionMode === "fullAccess" ? "never" : "on-request",
-                    ),
-                  approvalsReviewer: msg.approvalsReviewer,
-                  sandboxMode: sandboxModeToInternal(msg.sandboxMode),
-                  model: msg.model,
-                  modelReasoningEffort:
-                    (msg.modelReasoningEffort as
-                      | "minimal"
-                      | "low"
-                      | "medium"
-                      | "high"
-                      | "xhigh") ?? undefined,
-                  networkAccessEnabled: msg.networkAccessEnabled,
-                  webSearchMode:
-                    (msg.webSearchMode as "disabled" | "cached" | "live") ??
-                    undefined,
-                  additionalWritableRoots: additionalWritableRoots.roots,
-                  collaborationMode: planMode
-                    ? ("plan" as const)
-                    : ("default" as const),
-                },
-              );
-              const createdSession = this.sessionManager.get(sessionId);
-              void this.loadAndSetSessionName(
-                createdSession,
-                "codex",
-                effectiveProjectPath,
-                sessionRefId,
-              ).then(() => {
-                this.send(
-                  ws,
-                  this.buildSessionCreatedMessage({
-                    sessionId,
-                    provider: "codex",
-                    projectPath: effectiveProjectPath,
-                    session: createdSession,
-                    sandboxMode: createdSession?.codexSettings?.sandboxMode
-                      ? sandboxModeToExternal(
-                          createdSession.codexSettings.sandboxMode,
-                        )
-                      : undefined,
-                    approvalsReviewer:
-                      createdSession?.codexSettings?.approvalsReviewer,
-                    permissionMode: legacyPermissionMode,
-                    executionMode,
-                    planMode,
-                  }),
-                );
-                this.broadcastSessionList();
-              });
-              this.debugEvents.set(sessionId, []);
-              this.recordDebugEvent(sessionId, {
-                direction: "internal",
-                channel: "bridge",
-                type: "session_resumed",
-                detail: `provider=codex thread=${sessionRefId}`,
-              });
-              this.projectHistory?.addProject(effectiveProjectPath);
-            })
-            .catch((err) => {
-              this.send(ws, {
-                type: "error",
-                message: `Failed to load Codex session history: ${err}`,
-              });
+          try {
+            const pastMessages = await this.getCodexThreadHistory(
+              sessionRefId,
+              effectiveProjectPath,
+            );
+            const sessionId = this.sessionManager.create(
+              effectiveProjectPath,
+              undefined,
+              pastMessages,
+              worktreeOpts,
+              "codex",
+              {
+                threadId: sessionRefId,
+                profile: effectiveProfile,
+                approvalPolicy:
+                  codexApprovalPolicy ??
+                  normalizeCodexApprovalPolicy(
+                    executionMode === "fullAccess" ? "never" : "on-request",
+                  ),
+                approvalsReviewer: msg.approvalsReviewer,
+                sandboxMode: sandboxModeToInternal(msg.sandboxMode),
+                model: msg.model,
+                modelReasoningEffort:
+                  (msg.modelReasoningEffort as
+                    | "minimal"
+                    | "low"
+                    | "medium"
+                    | "high"
+                    | "xhigh") ?? undefined,
+                networkAccessEnabled: msg.networkAccessEnabled,
+                webSearchMode:
+                  (msg.webSearchMode as "disabled" | "cached" | "live") ??
+                  undefined,
+                additionalWritableRoots: additionalWritableRoots.roots,
+                collaborationMode: planMode
+                  ? ("plan" as const)
+                  : ("default" as const),
+              },
+            );
+            const createdSession = this.sessionManager.get(sessionId);
+            await this.loadAndSetSessionName(
+              createdSession,
+              "codex",
+              effectiveProjectPath,
+              sessionRefId,
+            );
+            this.send(
+              ws,
+              this.buildSessionCreatedMessage({
+                sessionId,
+                provider: "codex",
+                projectPath: effectiveProjectPath,
+                session: createdSession,
+                sandboxMode: createdSession?.codexSettings?.sandboxMode
+                  ? sandboxModeToExternal(createdSession.codexSettings.sandboxMode)
+                  : undefined,
+                approvalsReviewer:
+                  createdSession?.codexSettings?.approvalsReviewer,
+                permissionMode: legacyPermissionMode,
+                executionMode,
+                planMode,
+              }),
+            );
+            this.broadcastSessionList();
+            this.debugEvents.set(sessionId, []);
+            this.recordDebugEvent(sessionId, {
+              direction: "internal",
+              channel: "bridge",
+              type: "session_resumed",
+              detail: `provider=codex thread=${sessionRefId}`,
             });
+            this.projectHistory?.addProject(effectiveProjectPath);
+          } catch (err) {
+            this.send(ws, {
+              type: "error",
+              message: `Failed to load Codex session history: ${err}`,
+            });
+          }
           break;
         }
 
@@ -4148,6 +4422,18 @@ export class BridgeWebSocketServer {
             })
             .catch(handleError);
         }
+        break;
+      }
+
+      case "fork": {
+        this.forkCodexSession(ws, msg.sessionId, msg.targetUuid).catch((err) => {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          this.send(ws, {
+            type: "error",
+            message: errMsg,
+            errorCode: "fork_failed",
+          });
+        });
         break;
       }
 
