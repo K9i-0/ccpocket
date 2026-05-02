@@ -4524,16 +4524,16 @@ export class BridgeWebSocketServer {
   private async loadCodexProfiles(
     projectPath?: string,
   ): Promise<{ profiles: string[]; defaultProfile?: string }> {
-    const process =
-      this.getActiveCodexProcess() ??
-      (await this.createStandaloneCodexProcess(projectPath));
-    const isStandalone = process !== this.getActiveCodexProcess();
+    // Skip Codex profile loading if Codex CLI is not properly available
+    // to avoid spawning a process that immediately exits on every connection.
+    const activeCodex = this.getActiveCodexProcess();
+    if (!activeCodex) {
+      return { profiles: [] };
+    }
     try {
-      return await process.readProfileConfig(projectPath);
-    } finally {
-      if (isStandalone) {
-        process.stop();
-      }
+      return await activeCodex.readProfileConfig(projectPath);
+    } catch {
+      return { profiles: [] };
     }
   }
 
