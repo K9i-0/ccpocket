@@ -133,13 +133,21 @@ class PromptHistoryCubit extends Cubit<PromptHistoryState> {
     await load(syncFirst: syncFirst);
   }
 
-  Future<void> toggleFavorite(String id) async {
-    await _service.toggleFavorite(id, bridgeService: _bridgeService);
+  Future<void> toggleFavorite(PromptHistoryEntry entry) async {
+    await _service.toggleFavorite(
+      entry.id,
+      sources: entry.sources,
+      bridgeService: _bridgeService,
+    );
     await load();
   }
 
-  Future<void> delete(String id) async {
-    await _service.delete(id, bridgeService: _bridgeService);
+  Future<void> delete(PromptHistoryEntry entry) async {
+    await _service.delete(
+      entry.id,
+      sources: entry.sources,
+      bridgeService: _bridgeService,
+    );
     await load();
   }
 }

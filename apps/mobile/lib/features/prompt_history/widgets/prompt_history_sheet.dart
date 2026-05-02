@@ -248,11 +248,11 @@ class _PromptHistorySheetBodyState extends State<_PromptHistorySheetBody> {
                       },
                       onToggleFavorite: () {
                         context.read<PromptHistoryCubit>().toggleFavorite(
-                          entry.id,
+                          entry,
                         );
                       },
                       onDelete: () {
-                        context.read<PromptHistoryCubit>().delete(entry.id);
+                        context.read<PromptHistoryCubit>().delete(entry);
                       },
                     );
                   },

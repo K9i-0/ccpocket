@@ -1,5 +1,6 @@
 import 'package:ccpocket/features/prompt_history/widgets/prompt_history_sheet.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/services/database_service.dart';
 import 'package:ccpocket/services/prompt_history_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
@@ -170,6 +171,60 @@ void main() {
     expect(find.text('alpha-project'), findsNothing);
   });
 
+  testWidgets('applies favorite and delete to all merged sources', (
+    tester,
+  ) async {
+    final sources = const [
+      PromptHistorySource(id: 'ph_a', bridgeId: 'bridge-a'),
+      PromptHistorySource(id: 'ph_b', bridgeId: 'bridge-b'),
+    ];
+    final service = _FakePromptHistoryService(
+      defaultFilters: const PromptHistoryFilters(),
+      entries: [
+        _entry(
+          id: 'merged',
+          text: 'LGTMコミットして',
+          projectPath: '/repo/a',
+          sources: sources,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: PromptHistorySheet(service: service, onSelect: (_) {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('prompt_history_item_merged')),
+        matching: find.byIcon(Icons.star_border),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(service.lastFavoriteId, 'merged');
+    expect(service.lastFavoriteSources, sources);
+
+    await tester.drag(
+      find.byKey(const ValueKey('prompt_history_item_merged')),
+      const Offset(-300, 0),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    expect(service.lastDeleteId, 'merged');
+    expect(service.lastDeleteSources, sources);
+  });
+
   testWidgets('shows open project hint when project filter has no results', (
     tester,
   ) async {
@@ -210,6 +265,10 @@ class _FakePromptHistoryService extends PromptHistoryService {
   String? lastProjectPath;
   PromptHistoryFilters? lastFilters;
   bool? lastFiltersExpanded;
+  String? lastFavoriteId;
+  List<PromptHistorySource>? lastFavoriteSources;
+  String? lastDeleteId;
+  List<PromptHistorySource>? lastDeleteSources;
   int projectPathsRequestCount = 0;
 
   _FakePromptHistoryService({
@@ -230,6 +289,27 @@ class _FakePromptHistoryService extends PromptHistoryService {
   @override
   Future<void> setFiltersExpanded(bool value) async {
     lastFiltersExpanded = value;
+  }
+
+  @override
+  Future<bool> toggleFavorite(
+    String id, {
+    List<PromptHistorySource> sources = const [],
+    BridgeService? bridgeService,
+  }) async {
+    lastFavoriteId = id;
+    lastFavoriteSources = sources;
+    return true;
+  }
+
+  @override
+  Future<void> delete(
+    String id, {
+    List<PromptHistorySource> sources = const [],
+    BridgeService? bridgeService,
+  }) async {
+    lastDeleteId = id;
+    lastDeleteSources = sources;
   }
 
   @override
@@ -272,6 +352,7 @@ PromptHistoryEntry _entry({
   required String id,
   required String text,
   required String projectPath,
+  List<PromptHistorySource>? sources,
 }) {
   return PromptHistoryEntry(
     id: id,
@@ -287,5 +368,6 @@ PromptHistoryEntry _entry({
     bridgeNames: const ['Bridge A'],
     clientStats: const {},
     sessionStats: const {},
+    sources: sources ?? [PromptHistorySource(id: id, bridgeId: 'bridge-a')],
   );
 }

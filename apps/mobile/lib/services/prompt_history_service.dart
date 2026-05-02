@@ -10,6 +10,7 @@ import 'package:crypto/crypto.dart';
 import '../core/logger.dart';
 import '../models/machine.dart';
 import '../models/messages.dart';
+import '../utils/command_parser.dart';
 import 'bridge_service.dart';
 import 'database_service.dart';
 import 'machine_manager_service.dart';
@@ -68,6 +69,14 @@ class PromptHistoryFilters {
   }
 }
 
+/// Cache row identity that contributed to a displayed prompt history row.
+class PromptHistorySource {
+  final String id;
+  final String bridgeId;
+
+  const PromptHistorySource({required this.id, required this.bridgeId});
+}
+
 /// A single prompt history entry after app-side multi-Bridge merge.
 class PromptHistoryEntry {
   final String id;
@@ -83,6 +92,7 @@ class PromptHistoryEntry {
   final List<String> bridgeNames;
   final Map<String, PromptHistoryClientStat> clientStats;
   final Map<String, PromptHistorySessionStat> sessionStats;
+  final List<PromptHistorySource> sources;
 
   const PromptHistoryEntry({
     required this.id,
@@ -98,6 +108,7 @@ class PromptHistoryEntry {
     required this.bridgeNames,
     required this.clientStats,
     required this.sessionStats,
+    this.sources = const [],
   });
 
   /// Display name for the project (last path component or empty string).
@@ -152,7 +163,19 @@ class PromptHistoryEntry {
       bridgeNames: {...bridgeNames, ...other.bridgeNames}.toList(),
       clientStats: clients,
       sessionStats: sessions,
+      sources: _mergeSources(sources, other.sources),
     );
+  }
+
+  static List<PromptHistorySource> _mergeSources(
+    List<PromptHistorySource> left,
+    List<PromptHistorySource> right,
+  ) {
+    final merged = <String, PromptHistorySource>{};
+    for (final source in [...left, ...right]) {
+      merged['${source.bridgeId}\u0000${source.id}'] = source;
+    }
+    return merged.values.toList();
   }
 }
 
@@ -533,7 +556,7 @@ class PromptHistoryService {
     }
 
     final clientId = await clientDeviceId;
-    final merged = <String, PromptHistoryEntry>{};
+    final filtered = <PromptHistoryEntry>[];
     for (final row in rows) {
       if (row['deleted_at'] != null) continue;
       final entry = _entryFromCacheRow(row);
@@ -547,15 +570,30 @@ class PromptHistoryService {
       )) {
         continue;
       }
-      merged.update(
-        entry.id,
-        (current) => current.merge(entry),
-        ifAbsent: () => entry,
-      );
+      filtered.add(entry);
     }
 
-    final entries = merged.values.toList()..sort(_sorter(sort));
+    final entries = mergeEntriesForDisplay(filtered, sort: sort);
     return entries.skip(offset).take(limit).toList();
+  }
+
+  static List<PromptHistoryEntry> mergeEntriesForDisplay(
+    Iterable<PromptHistoryEntry> entries, {
+    PromptSortOrder sort = PromptSortOrder.recency,
+  }) {
+    final merged = <String, PromptHistoryEntry>{};
+    for (final entry in entries) {
+      final key = _displayMergeKey(entry.text);
+      final current = merged[key];
+      if (current == null) {
+        merged[key] = entry;
+        continue;
+      }
+      merged[key] = current.lastUsedAt.isAfter(entry.lastUsedAt)
+          ? current.merge(entry)
+          : entry.merge(current);
+    }
+    return merged.values.toList()..sort(_sorter(sort));
   }
 
   static bool matchesFilters(
@@ -644,16 +682,21 @@ class PromptHistoryService {
   // Mutations
   // ---------------------------------------------------------------------------
 
-  Future<bool> toggleFavorite(String id, {BridgeService? bridgeService}) async {
+  Future<bool> toggleFavorite(
+    String id, {
+    List<PromptHistorySource> sources = const [],
+    BridgeService? bridgeService,
+  }) async {
     if (id.startsWith('v1_')) {
       return _toggleLegacyFavorite(int.parse(id.substring(3)));
     }
     final db = await _db;
     if (db == null) return false;
+    final sourceWhere = _sourceWhereClause(id, sources);
     final rows = await db.query(
       'prompt_history_cache',
-      where: 'id = ? AND deleted_at IS NULL',
-      whereArgs: [id],
+      where: '${sourceWhere.where} AND deleted_at IS NULL',
+      whereArgs: sourceWhere.args,
     );
     if (rows.isEmpty) return false;
 
@@ -666,21 +709,31 @@ class PromptHistoryService {
         'favorite_updated_at': now,
         'updated_at': now,
       },
-      where: 'id = ?',
-      whereArgs: [id],
+      where: sourceWhere.where,
+      whereArgs: sourceWhere.args,
     );
-    bridgeService?.send(
-      ClientMessage.mutatePromptHistory(
-        id: id,
-        action: 'favorite',
-        isFavorite: newValue,
-        updatedAt: now,
-      ),
-    );
+    for (final mutationId in _mutationIdsForConnectedBridge(
+      id,
+      sources,
+      bridgeService,
+    )) {
+      bridgeService?.send(
+        ClientMessage.mutatePromptHistory(
+          id: mutationId,
+          action: 'favorite',
+          isFavorite: newValue,
+          updatedAt: now,
+        ),
+      );
+    }
     return newValue;
   }
 
-  Future<void> delete(String id, {BridgeService? bridgeService}) async {
+  Future<void> delete(
+    String id, {
+    List<PromptHistorySource> sources = const [],
+    BridgeService? bridgeService,
+  }) async {
     if (id.startsWith('v1_')) {
       await _deleteLegacy(int.parse(id.substring(3)));
       return;
@@ -688,19 +741,26 @@ class PromptHistoryService {
     final db = await _db;
     if (db == null) return;
     final now = DateTime.now().toUtc().toIso8601String();
+    final sourceWhere = _sourceWhereClause(id, sources);
     await db.update(
       'prompt_history_cache',
       {'deleted_at': now, 'updated_at': now},
-      where: 'id = ?',
-      whereArgs: [id],
+      where: sourceWhere.where,
+      whereArgs: sourceWhere.args,
     );
-    bridgeService?.send(
-      ClientMessage.mutatePromptHistory(
-        id: id,
-        action: 'delete',
-        updatedAt: now,
-      ),
-    );
+    for (final mutationId in _mutationIdsForConnectedBridge(
+      id,
+      sources,
+      bridgeService,
+    )) {
+      bridgeService?.send(
+        ClientMessage.mutatePromptHistory(
+          id: mutationId,
+          action: 'delete',
+          updatedAt: now,
+        ),
+      );
+    }
   }
 
   Future<bool> importLegacyToCurrentBridge({
@@ -1061,6 +1121,12 @@ class PromptHistoryService {
       bridgeNames: [if (bridgeName.isNotEmpty) bridgeName],
       clientStats: _decodeClientStats(row['client_stats_json'] as String?),
       sessionStats: _decodeSessionStats(row['session_stats_json'] as String?),
+      sources: [
+        PromptHistorySource(
+          id: row['id'] as String,
+          bridgeId: row['bridge_id'] as String,
+        ),
+      ],
     );
   }
 
@@ -1087,6 +1153,7 @@ class PromptHistoryService {
       bridgeNames: const ['Local'],
       clientStats: const {},
       sessionStats: const {},
+      sources: [PromptHistorySource(id: 'v1_${row['id']}', bridgeId: 'local')],
     );
   }
 
@@ -1104,7 +1171,7 @@ class PromptHistoryService {
     );
   }
 
-  int Function(PromptHistoryEntry, PromptHistoryEntry) _sorter(
+  static int Function(PromptHistoryEntry, PromptHistoryEntry) _sorter(
     PromptSortOrder sort,
   ) {
     return switch (sort) {
@@ -1173,4 +1240,59 @@ class PromptHistoryService {
     if (trimmed.startsWith('/')) return 'slash';
     return 'none';
   }
+
+  static String _displayMergeKey(String text) {
+    return formatCommandText(text).trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  static _SourceWhereClause _sourceWhereClause(
+    String fallbackId,
+    List<PromptHistorySource> sources,
+  ) {
+    final cacheSources = sources
+        .where((source) => !source.id.startsWith('v1_'))
+        .toList();
+    if (cacheSources.isEmpty) {
+      return _SourceWhereClause('id = ?', [fallbackId]);
+    }
+
+    final clauses = <String>[];
+    final args = <Object?>[];
+    for (final source in cacheSources) {
+      if (source.bridgeId.isEmpty) {
+        clauses.add('id = ?');
+        args.add(source.id);
+      } else {
+        clauses.add('(id = ? AND bridge_id = ?)');
+        args.addAll([source.id, source.bridgeId]);
+      }
+    }
+    return _SourceWhereClause('(${clauses.join(' OR ')})', args);
+  }
+
+  Iterable<String> _mutationIdsForConnectedBridge(
+    String fallbackId,
+    List<PromptHistorySource> sources,
+    BridgeService? bridgeService,
+  ) {
+    if (bridgeService == null) return const [];
+    if (sources.isEmpty) return [fallbackId];
+
+    final bridgeUrl = bridgeService.lastUrl;
+    final currentBridgeId =
+        bridgeService.promptHistoryBridgeId ?? bridgeIdForUrl(bridgeUrl);
+    if (currentBridgeId == null) return const [];
+
+    return sources
+        .where((source) => source.bridgeId == currentBridgeId)
+        .map((source) => source.id)
+        .toSet();
+  }
+}
+
+class _SourceWhereClause {
+  final String where;
+  final List<Object?> args;
+
+  const _SourceWhereClause(this.where, this.args);
 }
