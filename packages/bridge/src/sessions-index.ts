@@ -1590,13 +1590,79 @@ export async function renameCodexSession(
   }
 }
 
+// ---- Codex sessions disk cache ----
+// Avoids re-reading thousands of JSONL files on every request.
+// Cache stores parsed entries keyed by file path with mtime for staleness detection.
+
+interface CodexSessionsCacheFile {
+  version: 2;
+  entries: Record<string, { mtimeMs: number; threadId: string; entry: SessionIndexEntry }>;
+  /** Files that were parsed but yielded no valid session (internal/empty). Keyed by path → mtime. */
+  invalidFiles?: Record<string, number>;
+}
+
+const CODEX_SESSIONS_CACHE_PATH = join(homedir(), ".codex", "ccpocket-sessions-cache.json");
+
+let codexSessionsCacheInMemory: CodexSessionsCacheFile | null = null;
+let codexSessionsCacheDirty = false;
+/** Timestamp (ms) of the last full stat-based refresh. */
+let codexSessionsCacheLastRefresh = 0;
+/** Pre-built array of SessionIndexEntry from the last refresh (avoids re-iterating cache.entries). */
+let codexSessionsCachedEntries: SessionIndexEntry[] | null = null;
+/** How often (ms) to re-stat files for changes. Between refreshes, serve from memory. */
+const CODEX_CACHE_REFRESH_INTERVAL_MS = 30_000;
+
+async function loadCodexSessionsCache(): Promise<CodexSessionsCacheFile> {
+  if (codexSessionsCacheInMemory) return codexSessionsCacheInMemory;
+  try {
+    const raw = await readFile(CODEX_SESSIONS_CACHE_PATH, "utf-8");
+    const parsed = JSON.parse(raw) as CodexSessionsCacheFile;
+    if (parsed.version === 2 && parsed.entries) {
+      if (!parsed.invalidFiles) parsed.invalidFiles = {};
+      codexSessionsCacheInMemory = parsed;
+      return parsed;
+    }
+  } catch {
+    // No cache or corrupt — start fresh
+  }
+  codexSessionsCacheInMemory = { version: 2, entries: {}, invalidFiles: {} };
+  return codexSessionsCacheInMemory;
+}
+
+async function saveCodexSessionsCacheIfDirty(): Promise<void> {
+  if (!codexSessionsCacheDirty || !codexSessionsCacheInMemory) return;
+  try {
+    await writeFile(
+      CODEX_SESSIONS_CACHE_PATH,
+      JSON.stringify(codexSessionsCacheInMemory),
+      "utf-8",
+    );
+    codexSessionsCacheDirty = false;
+  } catch (err) {
+    console.warn(`[codex-cache] Failed to write cache: ${err}`);
+  }
+}
+
 async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Promise<SessionIndexEntry[]> {
-  const files = await listCodexSessionFiles();
-  const entries: SessionIndexEntry[] = [];
-  options.perfStats && (options.perfStats.filesTotal = files.length);
   const normalizedProjectPath = options.projectPath
     ? normalizeWorktreePath(options.projectPath)
     : null;
+
+  const now = Date.now();
+  const needsRefresh = now - codexSessionsCacheLastRefresh > CODEX_CACHE_REFRESH_INTERVAL_MS;
+
+  // Fast path: serve from in-memory cached entries if within TTL
+  if (!needsRefresh && codexSessionsCachedEntries) {
+    options.perfStats && (options.perfStats.filesTotal = codexSessionsCachedEntries.length);
+    options.perfStats && (options.perfStats.entriesReturned = codexSessionsCachedEntries.length);
+    if (normalizedProjectPath) {
+      return codexSessionsCachedEntries.filter(e => e.projectPath === normalizedProjectPath);
+    }
+    return codexSessionsCachedEntries;
+  }
+
+  const files = await listCodexSessionFiles();
+  options.perfStats && (options.perfStats.filesTotal = files.length);
 
   // Load thread names from session_index.jsonl
   const threadNames = await loadCodexSessionNames();
@@ -1604,45 +1670,109 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
   const threadAdditionalWritableRoots =
     await loadCodexSessionAdditionalWritableRoots();
 
-  for (const filePath of files) {
-    let raw: string;
-    try {
-      raw = await readFile(filePath, "utf-8");
-    } catch {
-      continue;
+  const cache = await loadCodexSessionsCache();
+  const validPaths = new Set(files);
+
+  // Prune cache entries for deleted files
+  for (const cachedPath of Object.keys(cache.entries)) {
+    if (!validPaths.has(cachedPath)) {
+      delete cache.entries[cachedPath];
+      codexSessionsCacheDirty = true;
     }
-    options.perfStats && (options.perfStats.filesRead += 1);
-    const fallbackSessionId = basename(filePath, ".jsonl");
-    const parsed = parseCodexSessionJsonl(raw, fallbackSessionId);
-    if (!parsed) continue;
-    if (normalizedProjectPath && parsed.entry.projectPath !== normalizedProjectPath) {
-      continue;
+  }
+  if (cache.invalidFiles) {
+    for (const cachedPath of Object.keys(cache.invalidFiles)) {
+      if (!validPaths.has(cachedPath)) {
+        delete cache.invalidFiles[cachedPath];
+        codexSessionsCacheDirty = true;
+      }
     }
-    // Attach thread name if available
-    const threadName = threadNames.get(parsed.threadId);
+  }
+
+  // Stat all files and read only new/changed ones using Promise.all for speed
+  const toParse: Array<{ filePath: string; mtimeMs: number }> = [];
+  const statResults = await Promise.all(
+    files.map(async (filePath) => {
+      try {
+        const s = await stat(filePath);
+        return { filePath, mtimeMs: s.mtimeMs };
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  for (const result of statResults) {
+    if (!result) continue;
+    const cached = cache.entries[result.filePath];
+    if (cached && cached.mtimeMs === result.mtimeMs) continue;
+    // Also skip files known to be invalid (no valid session) unless mtime changed
+    const invalidMtime = cache.invalidFiles?.[result.filePath];
+    if (invalidMtime !== undefined && invalidMtime === result.mtimeMs) continue;
+    toParse.push(result);
+  }
+
+  // Parse only changed/new files in parallel
+  if (toParse.length > 0) {
+    await parallelMap(toParse, PARALLEL_FILE_READ_LIMIT, async ({ filePath, mtimeMs }) => {
+      let raw: string;
+      try {
+        raw = await readFile(filePath, "utf-8");
+      } catch {
+        return;
+      }
+      options.perfStats && (options.perfStats.filesRead += 1);
+      const fallbackSessionId = basename(filePath, ".jsonl");
+      const parsed = parseCodexSessionJsonl(raw, fallbackSessionId);
+      if (parsed) {
+        cache.entries[filePath] = { mtimeMs, threadId: parsed.threadId, entry: parsed.entry };
+      } else {
+        delete cache.entries[filePath];
+        // Remember this file is invalid so we don't re-read it next time
+        if (!cache.invalidFiles) cache.invalidFiles = {};
+        cache.invalidFiles[filePath] = mtimeMs;
+      }
+      codexSessionsCacheDirty = true;
+    });
+  }
+
+  // Build result from cache and apply thread metadata
+  const entries: SessionIndexEntry[] = [];
+  for (const { threadId, entry } of Object.values(cache.entries)) {
+    // Deep-clone entry to avoid mutating cache when attaching thread metadata
+    const e = { ...entry };
+    const threadName = threadNames.get(threadId);
     if (threadName) {
-      parsed.entry.name = threadName;
+      e.name = threadName;
     }
-    const threadProfile = threadProfiles.get(parsed.threadId);
+    const threadProfile = threadProfiles.get(threadId);
     if (threadProfile) {
-      parsed.entry.codexSettings = {
-        ...(parsed.entry.codexSettings ?? {}),
+      e.codexSettings = {
+        ...(e.codexSettings ?? {}),
         profile: threadProfile,
       };
     }
-    const additionalWritableRoots = threadAdditionalWritableRoots.get(
-      parsed.threadId,
-    );
+    const additionalWritableRoots = threadAdditionalWritableRoots.get(threadId);
     if (additionalWritableRoots) {
-      parsed.entry.codexSettings = {
-        ...(parsed.entry.codexSettings ?? {}),
+      e.codexSettings = {
+        ...(e.codexSettings ?? {}),
         additionalWritableRoots,
       };
     }
-    entries.push(parsed.entry);
+    entries.push(e);
     options.perfStats && (options.perfStats.entriesReturned += 1);
   }
 
+  // Update in-memory fast-path cache
+  codexSessionsCachedEntries = entries;
+  codexSessionsCacheLastRefresh = now;
+
+  // Persist cache to disk (non-blocking)
+  void saveCodexSessionsCacheIfDirty();
+
+  if (normalizedProjectPath) {
+    return entries.filter(e => e.projectPath === normalizedProjectPath);
+  }
   return entries;
 }
 
