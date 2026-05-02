@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.86.0] - 2026-05-02
+
+### Added
+- Add session badges for Git dirty status and unsynced branches.
+- Add a file peek action to the diff menu.
+- Add separate Auto Rename settings for Claude and Codex sessions.
+
+### Changed
+- Require Bridge 1.51.0 for Git session badge metadata.
+- Enable Auto Rename by default for new settings.
+
+### Fixed
+- Refresh the latest Bridge version after user actions.
+- Improve the disconnect flow when a Bridge update is available.
+- Prevent session name labels from overflowing.
+
 ## [1.85.0] - 2026-05-02
 
 ### Added
