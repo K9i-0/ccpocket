@@ -2476,7 +2476,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     );
     expect(newCreated).toMatchObject({
       provider: "codex",
-      projectPath: "/tmp/project-codex",
+      projectPath: resolve("/tmp/project-codex"),
       sourceSessionId: sessionId,
     });
     const newSession = (bridge as any).sessionManager.get(newCreated.sessionId);

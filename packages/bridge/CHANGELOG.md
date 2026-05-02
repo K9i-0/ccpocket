@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.52.1] - 2026-05-02
+
+### Fixed
+- Make the Codex rewind Windows smoke test path expectation platform-aware.
+
 ## [1.52.0] - 2026-05-02
 
 ### Added
