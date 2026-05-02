@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
 
@@ -194,7 +195,7 @@ class _MessageTile extends StatelessWidget {
       trailing: canRewind
           ? IconButton(
               icon: Icon(Icons.history, size: 18, color: colorScheme.primary),
-              tooltip: 'Rewind to here',
+              tooltip: AppLocalizations.of(context).rewindToHere,
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),

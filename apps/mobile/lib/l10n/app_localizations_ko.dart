@@ -869,7 +869,53 @@ class AppLocalizationsKo extends AppLocalizations {
   String get tapInterruptHoldStop => '탭: 중단, 길게 누르기: 정지';
 
   @override
+  String get rewind => '되돌리기';
+
+  @override
   String get rewindToHere => '여기로 되돌리기';
+
+  @override
+  String get rewindModeConversationAndCode => '대화와 코드 복원';
+
+  @override
+  String get rewindModeConversationOnly => '대화만 복원';
+
+  @override
+  String get rewindModeCodeOnly => '코드만 복원';
+
+  @override
+  String get rewindConfirmTitle => '되돌리기 확인';
+
+  @override
+  String rewindConfirmBody(Object mode) {
+    return '모드: $mode\n\n이 작업은 취소할 수 없습니다. 계속할까요?';
+  }
+
+  @override
+  String get rewindCannotRewindFiles => '파일을 되돌릴 수 없습니다';
+
+  @override
+  String get codexRewindConfirmTitle => '대화를 되돌릴까요?';
+
+  @override
+  String get codexRewindConfirmBody =>
+      '채팅을 이 메시지 직전으로 복원하고, 메시지를 입력창에 다시 넣습니다. 파일 변경 사항은 그대로 유지됩니다.';
+
+  @override
+  String get fork => '분기';
+
+  @override
+  String get forkConversation => '대화 분기';
+
+  @override
+  String get forkConversationTitle => '대화를 분기할까요?';
+
+  @override
+  String get forkConversationBody =>
+      '이 응답 시점에서 새 Codex 세션을 만듭니다. 현재 세션은 변경되지 않습니다.';
+
+  @override
+  String get forkTargetNotFound => '분기할 사용자 메시지를 찾을 수 없습니다';
 
   @override
   String get tapToRetry => '탭하여 재시도';

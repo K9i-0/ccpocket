@@ -233,6 +233,7 @@ export type ClientMessage =
       mode: "conversation" | "code" | "both";
     }
   | { type: "rewind_dry_run"; sessionId: string; targetUuid: string }
+  | { type: "fork"; sessionId: string; targetUuid: string }
   | { type: "list_windows" }
   | {
       type: "take_screenshot";
@@ -1239,6 +1240,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         break;
       case "rewind_dry_run":
+        if (
+          typeof msg.sessionId !== "string" ||
+          typeof msg.targetUuid !== "string"
+        )
+          return null;
+        break;
+      case "fork":
         if (
           typeof msg.sessionId !== "string" ||
           typeof msg.targetUuid !== "string"

@@ -902,7 +902,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tapInterruptHoldStop => 'Tap: interrupt, Hold: stop';
 
   @override
+  String get rewind => 'Rewind';
+
+  @override
   String get rewindToHere => 'Rewind to here';
+
+  @override
+  String get rewindModeConversationAndCode => 'Restore conversation & code';
+
+  @override
+  String get rewindModeConversationOnly => 'Restore conversation only';
+
+  @override
+  String get rewindModeCodeOnly => 'Restore code only';
+
+  @override
+  String get rewindConfirmTitle => 'Confirm Rewind';
+
+  @override
+  String rewindConfirmBody(Object mode) {
+    return 'Mode: $mode\n\nThis action cannot be undone. Proceed?';
+  }
+
+  @override
+  String get rewindCannotRewindFiles => 'Cannot rewind files';
+
+  @override
+  String get codexRewindConfirmTitle => 'Rewind conversation?';
+
+  @override
+  String get codexRewindConfirmBody =>
+      'Restore the chat to just before this message and put the message back in the composer. File changes stay untouched.';
+
+  @override
+  String get fork => 'Fork';
+
+  @override
+  String get forkConversation => 'Fork conversation';
+
+  @override
+  String get forkConversationTitle => 'Fork conversation?';
+
+  @override
+  String get forkConversationBody =>
+      'Create a new Codex session from this response. The current session will remain unchanged.';
+
+  @override
+  String get forkTargetNotFound => 'Cannot find a user turn to fork from';
 
   @override
   String get tapToRetry => 'Tap to retry';

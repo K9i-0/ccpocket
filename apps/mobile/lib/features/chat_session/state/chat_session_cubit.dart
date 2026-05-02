@@ -55,6 +55,11 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Whether this session is a Codex session.
   bool get isCodex => provider == Provider.codex;
 
+  String _nextOptimisticCodexUserTurnUuid() {
+    final userTurnCount = state.entries.whereType<UserChatEntry>().length;
+    return 'codex:user-turn:${userTurnCount + 1}';
+  }
+
   static bool isOfflineQueuedInput(QueuedInputItem? item) =>
       item?.itemId.startsWith(offlineQueuedInputPrefix) ?? false;
 
@@ -340,12 +345,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       for (int i = entries.length - 1; i >= 0; i--) {
         final e = entries[i];
         if (e is UserChatEntry &&
-            e.messageUuid == null &&
             ((clientMessageId != null &&
                     e.clientMessageId == clientMessageId) ||
-                (clientMessageId == null && e.text == text))) {
-          e.messageUuid = uuid;
-          didModifyEntries = true;
+                (e.messageUuid == null &&
+                    clientMessageId == null &&
+                    e.text == text))) {
+          if (e.messageUuid != uuid) {
+            e.messageUuid = uuid;
+            didModifyEntries = true;
+          }
           break;
         }
       }
@@ -1005,6 +1013,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         clientMessageId: clientMessageId,
         imageBytesList: images?.map((i) => i.bytes).toList(),
         status: isOffline ? MessageStatus.queued : MessageStatus.sending,
+        messageUuid: isCodex ? _nextOptimisticCodexUserTurnUuid() : null,
       );
       emit(state.copyWith(entries: [...state.entries, entry]));
     } else if (shouldUseOfflineQueuePanel) {
@@ -1559,6 +1568,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// [mode] is one of: "conversation", "code", "both".
   void rewind(String targetUuid, String mode) {
     _bridge.send(ClientMessage.rewind(sessionId, targetUuid, mode));
+  }
+
+  void forkSession(String targetUuid) {
+    _bridge.send(ClientMessage.forkSession(sessionId, targetUuid));
   }
 
   /// All user messages with a UUID (rewindable via the SDK).

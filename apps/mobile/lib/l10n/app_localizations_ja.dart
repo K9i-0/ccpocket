@@ -854,7 +854,53 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tapInterruptHoldStop => 'タップ: 中断, 長押し: 停止';
 
   @override
+  String get rewind => '巻き戻す';
+
+  @override
   String get rewindToHere => 'ここまで巻き戻す';
+
+  @override
+  String get rewindModeConversationAndCode => '会話とコードを復元';
+
+  @override
+  String get rewindModeConversationOnly => '会話のみ復元';
+
+  @override
+  String get rewindModeCodeOnly => 'コードのみ復元';
+
+  @override
+  String get rewindConfirmTitle => '巻き戻しの確認';
+
+  @override
+  String rewindConfirmBody(Object mode) {
+    return 'モード: $mode\n\nこの操作は元に戻せません。実行しますか？';
+  }
+
+  @override
+  String get rewindCannotRewindFiles => 'ファイルを巻き戻せません';
+
+  @override
+  String get codexRewindConfirmTitle => '会話を巻き戻しますか？';
+
+  @override
+  String get codexRewindConfirmBody =>
+      'このメッセージの直前までチャットを戻し、メッセージを入力欄に戻します。ファイル変更はそのまま残ります。';
+
+  @override
+  String get fork => '分岐';
+
+  @override
+  String get forkConversation => '会話を分岐';
+
+  @override
+  String get forkConversationTitle => '会話を分岐しますか？';
+
+  @override
+  String get forkConversationBody =>
+      'この応答時点から新しいCodexセッションを作成します。現在のセッションは変更されません。';
+
+  @override
+  String get forkTargetNotFound => '分岐元のユーザー発言が見つかりません';
 
   @override
   String get tapToRetry => 'タップしてリトライ';

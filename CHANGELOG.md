@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.88.0] - 2026-05-02
+
+### Added
+- Add Codex conversation rewind and fork session recovery.
+
+### Changed
+- Require Bridge 1.53.0 for Codex rewind and fork session recovery.
+- Show Codex rewind as a confirmation dialog and limit fork actions to the final Codex response.
+
+### Fixed
+- Localize Rewind and Fork UI copy across supported languages.
+
+## [1.87.0] - 2026-05-02
+
+### Added
+- Add Codex conversation rewind support.
+- Add image file previews from file peek actions.
+
+### Changed
+- Require Bridge 1.52.0 for conversation rewind and image file preview support.
+
+### Fixed
+- Restore session project actions from history.
+
 ## [1.86.1] - 2026-05-02
 
 ### Changed

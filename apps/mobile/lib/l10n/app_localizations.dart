@@ -1668,11 +1668,95 @@ abstract class AppLocalizations {
   /// **'タップ: 中断, 長押し: 停止'**
   String get tapInterruptHoldStop;
 
+  /// No description provided for @rewind.
+  ///
+  /// In ja, this message translates to:
+  /// **'巻き戻す'**
+  String get rewind;
+
   /// No description provided for @rewindToHere.
   ///
   /// In ja, this message translates to:
   /// **'ここまで巻き戻す'**
   String get rewindToHere;
+
+  /// No description provided for @rewindModeConversationAndCode.
+  ///
+  /// In ja, this message translates to:
+  /// **'会話とコードを復元'**
+  String get rewindModeConversationAndCode;
+
+  /// No description provided for @rewindModeConversationOnly.
+  ///
+  /// In ja, this message translates to:
+  /// **'会話のみ復元'**
+  String get rewindModeConversationOnly;
+
+  /// No description provided for @rewindModeCodeOnly.
+  ///
+  /// In ja, this message translates to:
+  /// **'コードのみ復元'**
+  String get rewindModeCodeOnly;
+
+  /// No description provided for @rewindConfirmTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'巻き戻しの確認'**
+  String get rewindConfirmTitle;
+
+  /// No description provided for @rewindConfirmBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'モード: {mode}\n\nこの操作は元に戻せません。実行しますか？'**
+  String rewindConfirmBody(Object mode);
+
+  /// No description provided for @rewindCannotRewindFiles.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルを巻き戻せません'**
+  String get rewindCannotRewindFiles;
+
+  /// No description provided for @codexRewindConfirmTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'会話を巻き戻しますか？'**
+  String get codexRewindConfirmTitle;
+
+  /// No description provided for @codexRewindConfirmBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'このメッセージの直前までチャットを戻し、メッセージを入力欄に戻します。ファイル変更はそのまま残ります。'**
+  String get codexRewindConfirmBody;
+
+  /// No description provided for @fork.
+  ///
+  /// In ja, this message translates to:
+  /// **'分岐'**
+  String get fork;
+
+  /// No description provided for @forkConversation.
+  ///
+  /// In ja, this message translates to:
+  /// **'会話を分岐'**
+  String get forkConversation;
+
+  /// No description provided for @forkConversationTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'会話を分岐しますか？'**
+  String get forkConversationTitle;
+
+  /// No description provided for @forkConversationBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'この応答時点から新しいCodexセッションを作成します。現在のセッションは変更されません。'**
+  String get forkConversationBody;
+
+  /// No description provided for @forkTargetNotFound.
+  ///
+  /// In ja, this message translates to:
+  /// **'分岐元のユーザー発言が見つかりません'**
+  String get forkTargetNotFound;
 
   /// No description provided for @tapToRetry.
   ///

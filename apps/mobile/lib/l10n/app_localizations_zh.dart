@@ -844,7 +844,51 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tapInterruptHoldStop => '点按：中断，长按：停止';
 
   @override
+  String get rewind => '回退';
+
+  @override
   String get rewindToHere => '回退到这里';
+
+  @override
+  String get rewindModeConversationAndCode => '恢复对话和代码';
+
+  @override
+  String get rewindModeConversationOnly => '仅恢复对话';
+
+  @override
+  String get rewindModeCodeOnly => '仅恢复代码';
+
+  @override
+  String get rewindConfirmTitle => '确认回退';
+
+  @override
+  String rewindConfirmBody(Object mode) {
+    return '模式：$mode\n\n此操作无法撤销。要继续吗？';
+  }
+
+  @override
+  String get rewindCannotRewindFiles => '无法回退文件';
+
+  @override
+  String get codexRewindConfirmTitle => '回退对话？';
+
+  @override
+  String get codexRewindConfirmBody => '将聊天恢复到此消息之前，并把该消息放回输入框。文件更改会保留。';
+
+  @override
+  String get fork => '分叉';
+
+  @override
+  String get forkConversation => '分叉对话';
+
+  @override
+  String get forkConversationTitle => '分叉对话？';
+
+  @override
+  String get forkConversationBody => '从此回复创建一个新的 Codex 会话。当前会话不会改变。';
+
+  @override
+  String get forkTargetNotFound => '找不到可用于分叉的用户消息';
 
   @override
   String get tapToRetry => '点按重试';

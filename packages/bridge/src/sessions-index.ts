@@ -1781,6 +1781,7 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
 type SessionHistoryContentItem = {
   type: string;
   text?: string;
+  thinking?: string;
   id?: string;
   name?: string;
   input?: Record<string, unknown>;
@@ -1799,6 +1800,299 @@ export interface SessionHistoryMessage {
   imagePaths?: string[];
   imageBase64?: Array<{ data: string; mimeType: string }>;
   content: string | SessionHistoryContentItem[];
+}
+
+export function codexUserTurnUuid(ordinal: number): string {
+  return `codex:user-turn:${ordinal}`;
+}
+
+function numberToIsoTimestamp(value: unknown): string | undefined {
+  return typeof value === "number" && Number.isFinite(value)
+    ? new Date(value * 1000).toISOString()
+    : undefined;
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function codexToolResultContent(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function codexUserInputTextAndImages(content: unknown): {
+  text: string;
+  imageCount: number;
+} {
+  const textParts: string[] = [];
+  let imageCount = 0;
+
+  for (const entry of arrayValue(content)) {
+    const item = asObject(entry);
+    if (!item) continue;
+    if (item.type === "text" && typeof item.text === "string") {
+      textParts.push(item.text);
+    } else if (item.type === "image" || item.type === "localImage") {
+      imageCount += 1;
+    }
+  }
+
+  return { text: textParts.join("\n"), imageCount };
+}
+
+function appendCodexThinkingMessage(
+  messages: SessionHistoryMessage[],
+  text: string,
+  timestamp?: string,
+): void {
+  const normalized = text.trim();
+  if (!normalized) return;
+  messages.push({
+    role: "assistant",
+    content: [{ type: "thinking", thinking: normalized }],
+    ...(timestamp ? { timestamp } : {}),
+  });
+}
+
+function appendCodexOfficialToolResult(
+  messages: SessionHistoryMessage[],
+  id: string,
+  name: string | undefined,
+  content: string,
+  timestamp?: string,
+): void {
+  appendToolResultMessage(messages, id, name, content, {
+    ...(timestamp ? { timestamp } : {}),
+  });
+}
+
+export function codexThreadToSessionHistory(
+  thread: unknown,
+): SessionHistoryMessage[] {
+  const messages: SessionHistoryMessage[] = [];
+  const turns = arrayValue(asObject(thread)?.turns);
+  let userTurnOrdinal = 0;
+
+  for (const rawTurn of turns) {
+    const turn = asObject(rawTurn);
+    if (!turn) continue;
+    const turnStartedAt = numberToIsoTimestamp(turn.startedAt);
+    const turnCompletedAt = numberToIsoTimestamp(turn.completedAt);
+
+    for (const rawItem of arrayValue(turn.items)) {
+      const item = asObject(rawItem);
+      if (!item || typeof item.type !== "string") continue;
+      const itemId = stringValue(item.id) ?? `codex-item-${messages.length}`;
+      const itemTimestamp = turnCompletedAt ?? turnStartedAt;
+
+      switch (item.type) {
+        case "userMessage": {
+          const { text, imageCount } = codexUserInputTextAndImages(
+            item.content,
+          );
+          const displayText =
+            text.trim().length > 0
+              ? text
+              : imageCount > 0
+                ? `[Image attached${imageCount > 1 ? ` x${imageCount}` : ""}]`
+                : "";
+          if (displayText.trim().length === 0) break;
+          userTurnOrdinal += 1;
+          messages.push({
+            role: "user",
+            uuid: codexUserTurnUuid(userTurnOrdinal),
+            content: [{ type: "text", text: displayText }],
+            ...(imageCount > 0 ? { imageCount } : {}),
+            ...(turnStartedAt ? { timestamp: turnStartedAt } : {}),
+          });
+          break;
+        }
+
+        case "agentMessage": {
+          appendTextMessage(
+            messages,
+            "assistant",
+            stringValue(item.text) ?? "",
+            itemTimestamp,
+          );
+          break;
+        }
+
+        case "plan": {
+          appendTextMessage(
+            messages,
+            "assistant",
+            stringValue(item.text) ?? "",
+            itemTimestamp,
+          );
+          break;
+        }
+
+        case "reasoning": {
+          const summary = arrayValue(item.summary)
+            .filter((value): value is string => typeof value === "string");
+          const content = arrayValue(item.content)
+            .filter((value): value is string => typeof value === "string");
+          appendCodexThinkingMessage(
+            messages,
+            [...summary, ...content].join("\n"),
+            itemTimestamp,
+          );
+          break;
+        }
+
+        case "commandExecution": {
+          const command = stringValue(item.command) ?? "";
+          appendToolUseMessage(messages, itemId, "Bash", {
+            command,
+            ...(typeof item.cwd === "string" ? { cwd: item.cwd } : {}),
+          });
+          const outputParts: string[] = [];
+          if (typeof item.status === "string") {
+            outputParts.push(`status: ${item.status}`);
+          }
+          if (typeof item.exitCode === "number") {
+            outputParts.push(`exitCode: ${item.exitCode}`);
+          }
+          if (typeof item.aggregatedOutput === "string") {
+            outputParts.push(item.aggregatedOutput);
+          }
+          appendCodexOfficialToolResult(
+            messages,
+            itemId,
+            "Bash",
+            outputParts.join("\n").trim(),
+            itemTimestamp,
+          );
+          break;
+        }
+
+        case "fileChange": {
+          appendToolUseMessage(messages, itemId, "FileChange", {
+            changes: Array.isArray(item.changes) ? item.changes : [],
+            ...(typeof item.status === "string" ? { status: item.status } : {}),
+          });
+          break;
+        }
+
+        case "mcpToolCall": {
+          const server = stringValue(item.server) ?? "mcp";
+          const tool = stringValue(item.tool) ?? "tool";
+          appendToolUseMessage(messages, itemId, `mcp:${server}/${tool}`, {
+            arguments: item.arguments ?? {},
+            ...(typeof item.status === "string" ? { status: item.status } : {}),
+          });
+          if (item.result != null || item.error != null) {
+            const normalized = normalizeCodexMcpResult(item.result ?? item.error);
+            appendToolResultMessage(
+              messages,
+              itemId,
+              `mcp:${server}/${tool}`,
+              normalized.content,
+              {
+                imageBase64: normalized.imageBase64,
+                ...(itemTimestamp ? { timestamp: itemTimestamp } : {}),
+              },
+            );
+          }
+          break;
+        }
+
+        case "dynamicToolCall": {
+          const tool = stringValue(item.tool) ?? "tool";
+          appendToolUseMessage(messages, itemId, tool, {
+            arguments: item.arguments ?? {},
+            ...(typeof item.status === "string" ? { status: item.status } : {}),
+          });
+          const contentItems = arrayValue(item.contentItems);
+          const resultText = contentItems
+            .map((entry) => {
+              const contentItem = asObject(entry);
+              if (!contentItem) return "";
+              if (
+                contentItem.type === "inputText" &&
+                typeof contentItem.text === "string"
+              ) {
+                return contentItem.text;
+              }
+              if (
+                contentItem.type === "inputImage" &&
+                typeof contentItem.imageUrl === "string"
+              ) {
+                return contentItem.imageUrl;
+              }
+              return codexToolResultContent(contentItem);
+            })
+            .filter(Boolean)
+            .join("\n");
+          appendCodexOfficialToolResult(
+            messages,
+            itemId,
+            tool,
+            resultText,
+            itemTimestamp,
+          );
+          break;
+        }
+
+        case "webSearch": {
+          appendToolUseMessage(messages, itemId, "WebSearch", {
+            query: stringValue(item.query) ?? "",
+            ...(item.action != null ? { action: item.action } : {}),
+          });
+          break;
+        }
+
+        case "imageGeneration": {
+          appendToolUseMessage(messages, itemId, "ImageGeneration", {
+            ...(typeof item.status === "string" ? { status: item.status } : {}),
+            ...(typeof item.revisedPrompt === "string"
+              ? { revisedPrompt: item.revisedPrompt }
+              : {}),
+          });
+          appendImageGenerationResult(
+            messages,
+            {
+              id: itemId,
+              status: item.status,
+              revisedPrompt: item.revisedPrompt,
+              savedPath: item.savedPath,
+              result: item.result,
+            },
+            itemId,
+            itemTimestamp,
+          );
+          break;
+        }
+
+        case "enteredReviewMode":
+        case "exitedReviewMode": {
+          appendTextMessage(
+            messages,
+            "assistant",
+            stringValue(item.review) ?? "",
+            itemTimestamp,
+          );
+          break;
+        }
+
+        default:
+          break;
+      }
+    }
+  }
+
+  return messages;
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -1825,9 +2119,10 @@ function appendTextMessage(
   role: "user" | "assistant",
   text: string,
   timestamp?: string,
-): void {
+  uuid?: string,
+): boolean {
   const normalized = text.trim();
-  if (!normalized) return;
+  if (!normalized) return false;
 
   const last = messages.at(-1);
   if (
@@ -1839,14 +2134,43 @@ function appendTextMessage(
     && typeof last.content[0].text === "string"
     && last.content[0].text.trim() === normalized
   ) {
-    return;
+    return false;
   }
 
   messages.push({
     role,
+    ...(uuid ? { uuid } : {}),
     content: [{ type: "text", text }],
     ...(timestamp ? { timestamp } : {}),
   });
+  return true;
+}
+
+function countCodexUserTurns(messages: SessionHistoryMessage[]): number {
+  return messages.filter((message) => message.role === "user" && !message.isMeta)
+    .length;
+}
+
+function applyCodexThreadRollback(
+  messages: SessionHistoryMessage[],
+  numTurns: number,
+): void {
+  if (!Number.isFinite(numTurns) || numTurns <= 0) return;
+
+  const userIndices = messages
+    .map((message, index) =>
+      message.role === "user" && !message.isMeta ? index : -1,
+    )
+    .filter((index) => index >= 0);
+  if (userIndices.length === 0) return;
+  if (numTurns >= userIndices.length) {
+    messages.length = 0;
+    return;
+  }
+
+  const keepUserTurns = userIndices.length - numTurns;
+  const cutIndex = userIndices[keepUserTurns];
+  messages.splice(cutIndex);
 }
 
 function appendImageGenerationResult(
@@ -2436,6 +2760,7 @@ export async function getCodexSessionHistory(
 
   const messages: SessionHistoryMessage[] = [];
   const lines = raw.split("\n");
+  let userTurnOrdinal = 0;
 
   for (const [index, line] of lines.entries()) {
     if (!line.trim()) continue;
@@ -2451,6 +2776,15 @@ export async function getCodexSessionHistory(
     if (entry.type === "event_msg") {
       const payload = asObject(entry.payload);
       if (!payload) continue;
+
+      if (payload.type === "thread_rolled_back") {
+        const rawNumTurns = payload.num_turns ?? payload.numTurns;
+        const numTurns =
+          typeof rawNumTurns === "number" ? rawNumTurns : Number(rawNumTurns);
+        applyCodexThreadRollback(messages, numTurns);
+        userTurnOrdinal = countCodexUserTurns(messages);
+        continue;
+      }
 
       if (payload.type === "user_message") {
         const rawMessage = typeof payload.message === "string" ? payload.message : "";
@@ -2471,13 +2805,22 @@ export async function getCodexSessionHistory(
           if (normalized) {
             messages.push({
               role: "user",
+              uuid: codexUserTurnUuid(++userTurnOrdinal),
               content: [{ type: "text", text }],
               imageCount,
               ...(entryTimestamp ? { timestamp: entryTimestamp } : {}),
             });
           }
         } else {
-          appendTextMessage(messages, "user", text, entryTimestamp);
+          if (appendTextMessage(
+            messages,
+            "user",
+            text,
+            entryTimestamp,
+            codexUserTurnUuid(userTurnOrdinal + 1),
+          )) {
+            userTurnOrdinal += 1;
+          }
         }
         continue;
       }
@@ -2544,7 +2887,15 @@ export async function getCodexSessionHistory(
             .map((item) => item.text as string)
             .join("\n");
           if (!isCodexInjectedUserContext(text)) {
-            appendTextMessage(messages, "user", text, entryTimestamp);
+            if (appendTextMessage(
+              messages,
+              "user",
+              text,
+              entryTimestamp,
+              codexUserTurnUuid(userTurnOrdinal + 1),
+            )) {
+              userTurnOrdinal += 1;
+            }
           }
           continue;
         }

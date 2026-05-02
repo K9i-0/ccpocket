@@ -360,7 +360,26 @@
   },
   "tapInterruptHoldStop": "Tap: interrupt, Hold: stop",
 
+  "rewind": "Rewind",
   "rewindToHere": "Rewind to here",
+  "rewindModeConversationAndCode": "Restore conversation & code",
+  "rewindModeConversationOnly": "Restore conversation only",
+  "rewindModeCodeOnly": "Restore code only",
+  "rewindConfirmTitle": "Confirm Rewind",
+  "rewindConfirmBody": "Mode: {mode}\n\nThis action cannot be undone. Proceed?",
+  "@rewindConfirmBody": {
+    "placeholders": {
+      "mode": {}
+    }
+  },
+  "rewindCannotRewindFiles": "Cannot rewind files",
+  "codexRewindConfirmTitle": "Rewind conversation?",
+  "codexRewindConfirmBody": "Restore the chat to just before this message and put the message back in the composer. File changes stay untouched.",
+  "fork": "Fork",
+  "forkConversation": "Fork conversation",
+  "forkConversationTitle": "Fork conversation?",
+  "forkConversationBody": "Create a new Codex session from this response. The current session will remain unchanged.",
+  "forkTargetNotFound": "Cannot find a user turn to fork from",
   "tapToRetry": "Tap to retry",
 
   "diffSummaryAddedRemoved": "+{added}/-{removed} lines",

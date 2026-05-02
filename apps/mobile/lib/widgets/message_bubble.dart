@@ -25,6 +25,7 @@ class ChatEntryWidget extends StatelessWidget {
   final String? httpBaseUrl;
   final void Function(UserChatEntry)? onRetryMessage;
   final void Function(UserChatEntry)? onRewindMessage;
+  final void Function(AssistantServerMessage)? onForkMessage;
   final ValueNotifier<int>? collapseToolResults;
   final String? resolvedPlanText;
 
@@ -45,6 +46,7 @@ class ChatEntryWidget extends StatelessWidget {
     this.httpBaseUrl,
     this.onRetryMessage,
     this.onRewindMessage,
+    this.onForkMessage,
     this.collapseToolResults,
     this.resolvedPlanText,
     this.hiddenToolUseIds = const {},
@@ -67,6 +69,7 @@ class ChatEntryWidget extends StatelessWidget {
             resolvedPlanText: resolvedPlanText,
             hiddenToolUseIds: hiddenToolUseIds,
             onFileTap: onFileTap,
+            onForkMessage: onForkMessage,
             isCodex: isCodex,
           ),
           final UserChatEntry user => UserBubble(
@@ -150,6 +153,7 @@ class ServerMessageWidget extends StatelessWidget {
 
   /// Callback for tapping file paths in assistant messages.
   final FilePathTapCallback? onFileTap;
+  final void Function(AssistantServerMessage)? onForkMessage;
   final bool isCodex;
 
   const ServerMessageWidget({
@@ -160,6 +164,7 @@ class ServerMessageWidget extends StatelessWidget {
     this.resolvedPlanText,
     this.hiddenToolUseIds = const {},
     this.onFileTap,
+    this.onForkMessage,
     this.isCodex = false,
   });
 
@@ -172,6 +177,7 @@ class ServerMessageWidget extends StatelessWidget {
         message: msg,
         resolvedPlanText: resolvedPlanText,
         onFileTap: onFileTap,
+        onFork: onForkMessage != null ? () => onForkMessage!(msg) : null,
       ),
       // Hide tool results that are summarized by a tool_use_summary
       final ToolResultMessage msg =>

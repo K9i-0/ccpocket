@@ -975,6 +975,9 @@ class _ChatScreenBody extends HookWidget {
                               _showUserMessageHistory(
                                 context,
                                 scrollToUserEntry,
+                                sessionId,
+                                chatInputController,
+                                draftService,
                               );
                             case 'screenshot':
                               if (effectiveProjectPath == null) return;
@@ -1192,7 +1195,13 @@ class _ChatScreenBody extends HookWidget {
                         context.read<ChatSessionCubit>().retryMessage(entry);
                       },
                       onRewindMessage: (entry) {
-                        _showRewindActionSheet(context, entry);
+                        _showRewindActionSheet(
+                          context,
+                          entry,
+                          sessionId: sessionId,
+                          inputController: chatInputController,
+                          draftService: draftService,
+                        );
                       },
                       collapseToolResults: collapseToolResults,
                       scrollToUserEntry: scrollToUserEntry,
@@ -1566,6 +1575,9 @@ Future<void> _renameSession(BuildContext context, String sessionId) async {
 void _showUserMessageHistory(
   BuildContext context,
   ValueNotifier<UserChatEntry?> scrollToUserEntry,
+  String sessionId,
+  TextEditingController inputController,
+  DraftService draftService,
 ) {
   final cubit = context.read<ChatSessionCubit>();
   final messages = cubit.allUserMessages;
@@ -1580,12 +1592,24 @@ void _showUserMessageHistory(
       onScrollToMessage: (msg) {
         scrollToUserEntry.value = msg;
       },
-      onRewindMessage: (msg) => _showRewindActionSheet(context, msg),
+      onRewindMessage: (msg) => _showRewindActionSheet(
+        context,
+        msg,
+        sessionId: sessionId,
+        inputController: inputController,
+        draftService: draftService,
+      ),
     ),
   );
 }
 
-void _showRewindActionSheet(BuildContext context, UserChatEntry message) {
+void _showRewindActionSheet(
+  BuildContext context,
+  UserChatEntry message, {
+  required String sessionId,
+  required TextEditingController inputController,
+  required DraftService draftService,
+}) {
   final cubit = context.read<ChatSessionCubit>();
 
   // Request dry-run preview
@@ -1609,6 +1633,14 @@ void _showRewindActionSheet(BuildContext context, UserChatEntry message) {
             onRewind: (mode) {
               Navigator.of(ctx).pop();
               if (message.messageUuid != null) {
+                if (mode != RewindMode.code) {
+                  _restoreRewindMessageToComposer(
+                    inputController: inputController,
+                    draftService: draftService,
+                    sessionId: sessionId,
+                    text: message.text,
+                  );
+                }
                 cubit.rewind(message.messageUuid!, mode.value);
               }
             },
@@ -1617,6 +1649,19 @@ void _showRewindActionSheet(BuildContext context, UserChatEntry message) {
       );
     },
   );
+}
+
+void _restoreRewindMessageToComposer({
+  required TextEditingController inputController,
+  required DraftService draftService,
+  required String sessionId,
+  required String text,
+}) {
+  inputController.value = TextEditingValue(
+    text: text,
+    selection: TextSelection.collapsed(offset: text.length),
+  );
+  draftService.saveDraft(sessionId, text);
 }
 
 void _retryFailedMessages(BuildContext context, String sessionId) {

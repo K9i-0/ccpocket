@@ -2,6 +2,28 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.53.0] - 2026-05-02
+
+### Added
+- Add Codex conversation rewind and fork recovery using official app-server thread RPCs.
+- Restore Codex thread history from `thread/read` responses with JSONL history as a fallback.
+
+## [1.52.2] - 2026-05-02
+
+### Fixed
+- Stabilize asynchronous file peek tests in release CI.
+
+## [1.52.1] - 2026-05-02
+
+### Fixed
+- Make the Codex rewind Windows smoke test path expectation platform-aware.
+
+## [1.52.0] - 2026-05-02
+
+### Added
+- Add Codex conversation rewind support.
+- Add image file previews to file peek responses.
+
 ## [1.51.0] - 2026-05-02
 
 ### Added

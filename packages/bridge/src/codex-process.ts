@@ -381,6 +381,62 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     await this.request("thread/archive", { threadId });
   }
 
+  async readThread(
+    threadId: string,
+    includeTurns = true,
+  ): Promise<Record<string, unknown>> {
+    const response = (await this.request("thread/read", {
+      threadId,
+      includeTurns,
+    })) as Record<string, unknown>;
+    const thread = response.thread as Record<string, unknown> | undefined;
+    if (!thread) {
+      throw new Error("thread/read returned no thread");
+    }
+    return thread;
+  }
+
+  async rollbackThread(numTurns: number): Promise<Record<string, unknown>> {
+    if (!this._threadId) {
+      throw new Error("No thread ID available for rollback");
+    }
+    return this.rollbackThreadById(this._threadId, numTurns);
+  }
+
+  async rollbackThreadById(
+    threadId: string,
+    numTurns: number,
+  ): Promise<Record<string, unknown>> {
+    const response = (await this.request("thread/rollback", {
+      threadId,
+      numTurns,
+    })) as Record<string, unknown>;
+    const thread = response.thread as Record<string, unknown> | undefined;
+    if (!thread) {
+      throw new Error("thread/rollback returned no thread");
+    }
+    return thread;
+  }
+
+  async forkThread(): Promise<{
+    threadId: string;
+    thread: Record<string, unknown>;
+  }> {
+    if (!this._threadId) {
+      throw new Error("No thread ID available for fork");
+    }
+    const response = (await this.request("thread/fork", {
+      threadId: this._threadId,
+      persistExtendedHistory: true,
+    })) as Record<string, unknown>;
+    const thread = response.thread as Record<string, unknown> | undefined;
+    const threadId = typeof thread?.id === "string" ? thread.id : undefined;
+    if (!thread || !threadId) {
+      throw new Error("thread/fork returned no thread id");
+    }
+    return { threadId, thread };
+  }
+
   async listThreads(
     params: {
       limit?: number;
@@ -982,9 +1038,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       } else {
         threadParams.experimentalRawEvents = false;
       }
-      if (options?.threadId) {
-        threadParams.persistExtendedHistory = true;
-      }
+      threadParams.persistExtendedHistory = true;
       if (options?.profile) {
         threadConfig.profile = options.profile;
       }

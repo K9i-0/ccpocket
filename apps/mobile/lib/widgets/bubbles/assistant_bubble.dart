@@ -38,12 +38,14 @@ class AssistantBubble extends StatefulWidget {
 
   /// Callback for tapping file paths in markdown content.
   final FilePathTapCallback? onFileTap;
+  final VoidCallback? onFork;
 
   const AssistantBubble({
     super.key,
     required this.message,
     this.resolvedPlanText,
     this.onFileTap,
+    this.onFork,
   });
 
   @override
@@ -93,6 +95,7 @@ class _AssistantBubbleState extends State<AssistantBubble> {
         resolvedPlanText: widget.resolvedPlanText,
         allText: _allText(),
         plainTextMode: _plainTextMode,
+        onFork: widget.onFork,
         onTogglePlainText: () {
           setState(() => _plainTextMode = !_plainTextMode);
         },
@@ -105,6 +108,7 @@ class _AssistantBubbleState extends State<AssistantBubble> {
       plainTextMode: _plainTextMode,
       allText: _allText(),
       onFileTap: widget.onFileTap,
+      onFork: widget.onFork,
       onTogglePlainText: () {
         setState(() => _plainTextMode = !_plainTextMode);
       },
@@ -118,6 +122,7 @@ class _PlanLayout extends StatelessWidget {
   final String? resolvedPlanText;
   final String allText;
   final bool plainTextMode;
+  final VoidCallback? onFork;
   final VoidCallback onTogglePlainText;
 
   const _PlanLayout({
@@ -126,6 +131,7 @@ class _PlanLayout extends StatelessWidget {
     required this.resolvedPlanText,
     required this.allText,
     required this.plainTextMode,
+    this.onFork,
     required this.onTogglePlainText,
   });
 
@@ -166,6 +172,7 @@ class _PlanLayout extends StatelessWidget {
           MessageActionBar(
             textToCopy: allText,
             isPlainTextMode: plainTextMode,
+            onFork: onFork,
             onTogglePlainText: onTogglePlainText,
           ),
       ],
@@ -179,6 +186,7 @@ class _DefaultLayout extends StatelessWidget {
   final bool plainTextMode;
   final String allText;
   final FilePathTapCallback? onFileTap;
+  final VoidCallback? onFork;
   final VoidCallback onTogglePlainText;
 
   const _DefaultLayout({
@@ -187,6 +195,7 @@ class _DefaultLayout extends StatelessWidget {
     required this.plainTextMode,
     required this.allText,
     this.onFileTap,
+    this.onFork,
     required this.onTogglePlainText,
   });
 
@@ -241,6 +250,7 @@ class _DefaultLayout extends StatelessWidget {
           MessageActionBar(
             textToCopy: allText,
             isPlainTextMode: plainTextMode,
+            onFork: onFork,
             onTogglePlainText: onTogglePlainText,
           ),
       ],

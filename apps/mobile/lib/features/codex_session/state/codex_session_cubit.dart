@@ -7,7 +7,6 @@ import '../../chat_session/state/chat_session_cubit.dart';
 /// (`ChatMessageList`, `ChatInputWithOverlays`, etc.) that read
 /// `context.read<ChatSessionCubit>()` continue to work.
 ///
-/// Codex sessions do not support rewind.
 class CodexSessionCubit extends ChatSessionCubit {
   CodexSessionCubit({
     required super.sessionId,
@@ -21,8 +20,4 @@ class CodexSessionCubit extends ChatSessionCubit {
     super.initialCodexApprovalsReviewer,
     super.initialProjectPath,
   }) : super(provider: Provider.codex);
-
-  /// Rewind is not supported for Codex sessions.
-  @override
-  List<UserChatEntry> get rewindableUserMessages => const [];
 }

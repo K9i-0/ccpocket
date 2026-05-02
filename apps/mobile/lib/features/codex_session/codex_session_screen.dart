@@ -50,6 +50,7 @@ import '../../router/app_router.dart';
 import '../claude_session/widgets/rewind_message_list_sheet.dart'
     show UserMessageHistorySheet;
 import 'state/codex_session_cubit.dart';
+import 'widgets/codex_rewind_dialog.dart';
 
 const _fileListRefreshToolNames = {
   'Edit',
@@ -72,7 +73,7 @@ class _NoopListenable implements Listenable {
 
 /// Codex-specific chat screen.
 ///
-/// Simpler than [ClaudeSessionScreen] — no rewind.
+/// Simpler than [ClaudeSessionScreen].
 /// Shares UI components (`ChatMessageList`, `ChatInputWithOverlays`, etc.)
 /// via [CodexSessionCubit] which extends [ChatSessionCubit].
 @RoutePage()
@@ -998,6 +999,9 @@ class _CodexChatBody extends HookWidget {
                               _showUserMessageHistory(
                                 context,
                                 scrollToUserEntry,
+                                sessionId,
+                                chatInputController,
+                                draftService,
                               );
                             case 'screenshot':
                               if (effectiveProjectPath == null) return;
@@ -1199,7 +1203,18 @@ class _CodexChatBody extends HookWidget {
                       httpBaseUrl: context.read<BridgeService>().httpBaseUrl,
                       projectPath: effectiveProjectPath,
                       onRetryMessage: null,
-                      onRewindMessage: null,
+                      onRewindMessage: (entry) {
+                        _showCodexRewindDialog(
+                          context,
+                          entry,
+                          sessionId: sessionId,
+                          inputController: chatInputController,
+                          draftService: draftService,
+                        );
+                      },
+                      onForkMessage: (message) {
+                        unawaited(_forkCodexFromAssistant(context, message));
+                      },
                       scrollToUserEntry: scrollToUserEntry,
                       collapseToolResults: collapseToolResults,
                       bottomPadding: 8,
@@ -1548,6 +1563,9 @@ Future<void> _renameSession(BuildContext context, String sessionId) async {
 void _showUserMessageHistory(
   BuildContext context,
   ValueNotifier<UserChatEntry?> scrollToUserEntry,
+  String sessionId,
+  TextEditingController inputController,
+  DraftService draftService,
 ) {
   final cubit = context.read<ChatSessionCubit>();
   final messages = cubit.allUserMessages;
@@ -1562,9 +1580,120 @@ void _showUserMessageHistory(
       onScrollToMessage: (msg) {
         scrollToUserEntry.value = msg;
       },
-      // No rewind for Codex sessions
+      onRewindMessage: (msg) => _showCodexRewindDialog(
+        context,
+        msg,
+        sessionId: sessionId,
+        inputController: inputController,
+        draftService: draftService,
+      ),
     ),
   );
+}
+
+void _showCodexRewindDialog(
+  BuildContext context,
+  UserChatEntry message, {
+  required String sessionId,
+  required TextEditingController inputController,
+  required DraftService draftService,
+}) {
+  final cubit = context.read<ChatSessionCubit>();
+
+  if (message.messageUuid == null) return;
+
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return CodexRewindDialog(
+        messageText: message.text,
+        onConfirm: () {
+          Navigator.of(dialogContext).pop();
+          _restoreRewindMessageToComposer(
+            inputController: inputController,
+            draftService: draftService,
+            sessionId: sessionId,
+            text: message.text,
+          );
+          cubit.rewind(message.messageUuid!, 'conversation');
+        },
+      );
+    },
+  );
+}
+
+Future<void> _forkCodexFromAssistant(
+  BuildContext context,
+  AssistantServerMessage message,
+) async {
+  final cubit = context.read<ChatSessionCubit>();
+  final l = AppLocalizations.of(context);
+  final targetUuid = _previousUserUuidForAssistant(
+    cubit.state.entries,
+    message,
+  );
+  if (targetUuid == null) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l.forkTargetNotFound)));
+    return;
+  }
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text(l.forkConversationTitle),
+        content: Text(l.forkConversationBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l.fork),
+          ),
+        ],
+      );
+    },
+  );
+  if (confirmed != true || !context.mounted) return;
+
+  cubit.forkSession(targetUuid);
+}
+
+String? _previousUserUuidForAssistant(
+  List<ChatEntry> entries,
+  AssistantServerMessage message,
+) {
+  final index = entries.indexWhere(
+    (entry) => entry is ServerChatEntry && identical(entry.message, message),
+  );
+  if (index <= 0) return null;
+
+  for (var i = index - 1; i >= 0; i--) {
+    final entry = entries[i];
+    if (entry is UserChatEntry &&
+        entry.messageUuid != null &&
+        entry.messageUuid!.isNotEmpty) {
+      return entry.messageUuid;
+    }
+  }
+  return null;
+}
+
+void _restoreRewindMessageToComposer({
+  required TextEditingController inputController,
+  required DraftService draftService,
+  required String sessionId,
+  required String text,
+}) {
+  inputController.value = TextEditingValue(
+    text: text,
+    selection: TextSelection.collapsed(offset: text.length),
+  );
+  draftService.saveDraft(sessionId, text);
 }
 
 @visibleForTesting

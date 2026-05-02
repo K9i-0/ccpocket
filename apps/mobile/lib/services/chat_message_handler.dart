@@ -122,6 +122,7 @@ const _unsupportedActions = <String, UnsupportedAction>{
   // User-initiated actions that visibly fail if unsupported:
   'rewind': UnsupportedAction.showUpdateHint,
   'rewind_dry_run': UnsupportedAction.showUpdateHint,
+  'fork': UnsupportedAction.showUpdateHint,
   'take_screenshot': UnsupportedAction.showUpdateHint,
   'archive_session': UnsupportedAction.showUpdateHint,
   'read_file': UnsupportedAction.showUpdateHint,
