@@ -5,7 +5,10 @@ import { join, resolve } from "node:path";
 import type { Provider, ServerMessage } from "./parser.js";
 import { CODEX_ASSIST_MODEL } from "./codex-assist.js";
 
-const AUTO_RENAME_PROMPT = `Write a concise name for this coding-agent session.
+export const AUTO_RENAME_PROMPT_PREFIX =
+  "Write a concise name for this coding-agent session.";
+
+const AUTO_RENAME_PROMPT = `${AUTO_RENAME_PROMPT_PREFIX}
 
 Rules:
 - Output only the name. No quotes, JSON, markdown, or explanation.
@@ -68,6 +71,10 @@ export function buildAutoRenamePrompt(
     sections.push(`ASSISTANT:\n${transcript.assistantText}`);
   }
   return `${AUTO_RENAME_PROMPT}\n\nTranscript:\n${sections.join("\n\n")}`;
+}
+
+export function isAutoRenamePromptText(text: string): boolean {
+  return text.trimStart().startsWith(AUTO_RENAME_PROMPT_PREFIX);
 }
 
 export function sanitizeAutoRenameName(output: string): string | null {

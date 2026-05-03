@@ -3,6 +3,8 @@ import { createReadStream, type Dirent } from "node:fs";
 import { createInterface } from "node:readline";
 import { basename, join } from "node:path";
 import { homedir } from "node:os";
+import { isAutoRenamePromptText } from "./auto-rename.js";
+import { CODEX_ASSIST_MODEL } from "./codex-assist.js";
 
 export interface SessionIndexEntry {
   sessionId: string;
@@ -261,6 +263,10 @@ function isSystemInjectedText(text: string): boolean {
   return RE_SYSTEM_INJECTED.test(text) || text.startsWith("Base directory for this skill:");
 }
 
+function isCodexAutoRenameSession(firstPrompt: string, model?: string): boolean {
+  return model === CODEX_ASSIST_MODEL && isAutoRenamePromptText(firstPrompt);
+}
+
 /** Extract user prompt text from a parsed JSONL entry. */
 function extractUserPromptText(entry: Record<string, unknown>): string {
   const message = entry.message as { content?: unknown } | undefined;
@@ -305,6 +311,7 @@ function parseFromChunks(
   let headFoundFirstPrompt = false;
   let headFoundProjectPath = false;
   let headFoundGitBranch = false;
+  let isInternalAutoRename = false;
 
   // --- Scan head lines ---
   const headLines = head.split("\n");
@@ -362,11 +369,24 @@ function parseFromChunks(
         const entry = JSON.parse(line) as Record<string, unknown>;
         const text = extractUserPromptText(entry);
         if (text && !isSystemInjectedText(text)) {
+          if (isAutoRenamePromptText(text)) {
+            isInternalAutoRename = true;
+            break;
+          }
           firstPrompt = text;
           headFoundFirstPrompt = true;
         }
       } catch { /* skip */ }
     }
+  }
+
+  if (isInternalAutoRename) {
+    return {
+      entry: null,
+      headFoundFirstPrompt,
+      headFoundProjectPath,
+      headFoundGitBranch,
+    };
   }
 
   // --- Scan tail lines (if separate from head) ---
@@ -440,6 +460,15 @@ function parseFromChunks(
   }
 
   if (!hasAnyMessage) {
+    return {
+      entry: null,
+      headFoundFirstPrompt,
+      headFoundProjectPath,
+      headFoundGitBranch,
+    };
+  }
+
+  if (isAutoRenamePromptText(firstPrompt)) {
     return {
       entry: null,
       headFoundFirstPrompt,
@@ -538,6 +567,9 @@ async function parseClaudeJsonlFileFast(
     if (!result.firstPrompt && missing.firstPrompt) {
       result.firstPrompt = missing.firstPrompt;
     }
+    if (isAutoRenamePromptText(result.firstPrompt)) {
+      return null;
+    }
     if (missing.projectPath) {
       result.projectPath = missing.projectPath;
       if (missing.rawCwd && missing.rawCwd !== missing.projectPath) {
@@ -557,7 +589,9 @@ async function parseClaudeJsonlFileFast(
 async function hydrateClaudeIndexedEntry(
   dirPath: string,
   entry: RawSessionEntry,
-): Promise<SessionIndexEntry> {
+): Promise<SessionIndexEntry | null> {
+  if (isAutoRenamePromptText(entry.firstPrompt ?? "")) return null;
+
   const rawProjectPath = entry.projectPath ?? "";
   const normalizedPath = normalizeWorktreePath(rawProjectPath);
   const base: SessionIndexEntry = {
@@ -587,6 +621,7 @@ async function hydrateClaudeIndexedEntry(
   const fallbackPath = entry.fullPath || join(dirPath, `${entry.sessionId}.jsonl`);
   const parsed = await parseClaudeJsonlFileFast(entry.sessionId, fallbackPath);
   if (!parsed) return base;
+  if (isAutoRenamePromptText(parsed.firstPrompt)) return null;
 
   return {
     ...base,
@@ -900,8 +935,11 @@ export async function getAllRecentSessions(
             }
 
             indexedIds.add(entry.sessionId);
-            result.entries.push(await hydrateClaudeIndexedEntry(dirPath, entry));
-            result.indexEntries += 1;
+            const hydrated = await hydrateClaudeIndexedEntry(dirPath, entry);
+            if (hydrated) {
+              result.entries.push(hydrated);
+              result.indexEntries += 1;
+            }
           }
 
           if (!includeOnlyNamedClaude) {
@@ -1242,6 +1280,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   }
 
   if (model === "codex-auto-review") return null;
+  if (isCodexAutoRenameSession(firstPrompt, model)) return null;
   if (!projectPath || !hasMessages) return null;
   summary = lastAssistantText || summary;
 

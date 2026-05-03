@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.53.1] - 2026-05-03
+
+### Fixed
+- Hide automatic session rename helper runs from recent session history.
+
 ## [1.53.0] - 2026-05-02
 
 ### Added
