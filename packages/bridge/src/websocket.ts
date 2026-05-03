@@ -1244,6 +1244,29 @@ export class BridgeWebSocketServer {
   }
 
   private handleConnection(ws: WebSocket): void {
+    // ---- WebSocket keep-alive (ping/pong) ----
+    // Cloudflare tunnels and mobile networks may drop idle WebSocket
+    // connections.  Sending periodic pings keeps the connection alive.
+    const PING_INTERVAL_MS = 25_000; // 25 seconds — well under CF's 100s idle timeout
+    let alive = true;
+    ws.on("pong", () => {
+      alive = true;
+    });
+    const pingTimer = setInterval(() => {
+      if (!alive) {
+        // Client didn't respond to the last ping — terminate.
+        console.log("[ws] Client unresponsive, terminating");
+        clearInterval(pingTimer);
+        ws.terminate();
+        return;
+      }
+      alive = false;
+      ws.ping();
+    }, PING_INTERVAL_MS);
+    ws.on("close", () => {
+      clearInterval(pingTimer);
+    });
+
     // Send session list and project history on connect
     void this.refreshCodexProfiles();
     this.sendSessionList(ws);
