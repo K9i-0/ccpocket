@@ -1369,6 +1369,124 @@ describe("codex sessions integration", () => {
     ).resolves.toEqual([{ base64: "aW1hZ2U=", mimeType: "image/png" }]);
   });
 
+  it("extracts codex user images from local image paths", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68015";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    const imagePath = join(tempHome, "ccpocket-codex-image.png");
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(imagePath, Buffer.from("local-image"));
+
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "with local image",
+          images: [],
+          local_images: [imagePath],
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    await expect(getCodexSessionHistory(threadId)).resolves.toEqual([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        content: [{ type: "text", text: "with local image" }],
+        imageCount: 1,
+      },
+    ]);
+    await expect(
+      extractMessageImages(threadId, "codex:user-turn:1"),
+    ).resolves.toEqual([
+      {
+        base64: Buffer.from("local-image").toString("base64"),
+        mimeType: "image/png",
+      },
+    ]);
+  });
+
+  it("extracts codex user images from response items when local image files are gone", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68016";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: "# AGENTS.md instructions for /tmp/project-a\n\n<INSTRUCTIONS>",
+            },
+            {
+              type: "input_text",
+              text: "<environment_context><cwd>/tmp/project-a</cwd></environment_context>",
+            },
+          ],
+        },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "user",
+          content: [
+            { type: "input_text", text: "with response image" },
+            { type: "input_text", text: "<image name=[Image #1]>" },
+            {
+              type: "input_image",
+              image_url: "data:image/png;base64,cmVzcG9uc2UtaW1hZ2U=",
+            },
+            { type: "input_text", text: "</image>" },
+          ],
+        },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "with response image",
+          images: [],
+          local_images: [join(tempHome, "missing-image.png")],
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    await expect(getCodexSessionHistory(threadId)).resolves.toEqual([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        content: [{ type: "text", text: "with response image" }],
+        imageCount: 1,
+      },
+    ]);
+    await expect(
+      extractMessageImages(threadId, "codex:user-turn:1"),
+    ).resolves.toEqual([
+      { base64: "cmVzcG9uc2UtaW1hZ2U=", mimeType: "image/png" },
+    ]);
+  });
+
   it("supports legacy codex response_item tool schemas", async () => {
     const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68014";
     const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
