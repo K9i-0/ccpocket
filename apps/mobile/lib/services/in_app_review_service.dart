@@ -64,6 +64,7 @@ class InAppReviewService {
 
   StreamSubscription<BridgeConnectionState>? _connectionSub;
   StreamSubscription<ServerMessage>? _messageSub;
+  bool _reviewRequestInFlight = false;
 
   Future<void> initialize() async {
     if (!_prefs.containsKey(_keyFirstSeenAt)) {
@@ -129,30 +130,43 @@ class InAppReviewService {
   }
 
   Future<void> maybeRequestReview({required String trigger}) async {
-    final eligibility = await getEligibility();
-    if (!eligibility.isEligible) {
+    if (_reviewRequestInFlight) {
       logger.info(
-        '[review] skipped trigger=$trigger reason=${eligibility.reason} '
+        '[review] skipped trigger=$trigger reason=in_flight '
         'progress=${buildProgressSummary()}',
       );
       return;
     }
 
-    final isAvailable = await _gateway.isAvailable();
-    if (!isAvailable) {
-      logger.info('[review] unavailable trigger=$trigger');
-      return;
-    }
+    _reviewRequestInFlight = true;
+    try {
+      final eligibility = await getEligibility();
+      if (!eligibility.isEligible) {
+        logger.info(
+          '[review] skipped trigger=$trigger reason=${eligibility.reason} '
+          'progress=${buildProgressSummary()}',
+        );
+        return;
+      }
 
-    await _gateway.requestReview();
-    final now = _now();
-    final version = await _appVersionLoader();
-    await _prefs.setInt(_keyLastPromptAt, now.millisecondsSinceEpoch);
-    await _prefs.setString(_keyLastPromptVersion, version);
-    logger.info(
-      '[review] requested trigger=$trigger version=$version '
-      'progress=${buildProgressSummary()}',
-    );
+      final isAvailable = await _gateway.isAvailable();
+      if (!isAvailable) {
+        logger.info('[review] unavailable trigger=$trigger');
+        return;
+      }
+
+      final now = _now();
+      final version = await _appVersionLoader();
+      await _prefs.setInt(_keyLastPromptAt, now.millisecondsSinceEpoch);
+      await _prefs.setString(_keyLastPromptVersion, version);
+      await _gateway.requestReview();
+      logger.info(
+        '[review] requested trigger=$trigger version=$version '
+        'progress=${buildProgressSummary()}',
+      );
+    } finally {
+      _reviewRequestInFlight = false;
+    }
   }
 
   Future<InAppReviewEligibility> getEligibility() async {
