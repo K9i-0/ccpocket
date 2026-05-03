@@ -4891,10 +4891,29 @@ export class BridgeWebSocketServer {
   private sendSessionList(ws: WebSocket): void {
     this.pruneDebugEvents();
     const sessions = this.sessionManager.list();
-    // Include stale sessions from previous bridge run as idle/resumable.
-    // Skip any that are already running (same claudeSessionId).
+    const allSessions = this.mergeStaleSessionsInto(sessions);
+    this.send(ws, {
+      type: "session_list",
+      sessions: allSessions,
+      allowedDirs: this.allowedDirs,
+      claudeModels: CLAUDE_MODELS,
+      codexModels: CODEX_MODELS,
+      codexProfiles: this.codexProfiles,
+      defaultCodexProfile: this.defaultCodexProfile,
+      bridgeVersion: getPackageVersion(),
+    });
+  }
+
+  /**
+   * Merge stale sessions (from previous bridge run) into the active session list.
+   * Stale sessions appear as idle/resumable and are de-duped against running sessions.
+   */
+  private mergeStaleSessionsInto(sessions: unknown[]): unknown[] {
+    if (this.staleSessions.length === 0) return sessions;
     const activeClaudeIds = new Set(
-      sessions.map((s) => s.claudeSessionId).filter(Boolean),
+      (sessions as Array<{ claudeSessionId?: string }>)
+        .map((s) => s.claudeSessionId)
+        .filter(Boolean),
     );
     const staleAsSummaries = this.staleSessions
       .filter((s) => !activeClaudeIds.has(s.claudeSessionId))
@@ -4916,16 +4935,7 @@ export class BridgeWebSocketServer {
         codexSettings: s.codexSettings,
         stale: true,
       }));
-    this.send(ws, {
-      type: "session_list",
-      sessions: [...sessions, ...staleAsSummaries],
-      allowedDirs: this.allowedDirs,
-      claudeModels: CLAUDE_MODELS,
-      codexModels: CODEX_MODELS,
-      codexProfiles: this.codexProfiles,
-      defaultCodexProfile: this.defaultCodexProfile,
-      bridgeVersion: getPackageVersion(),
-    });
+    return [...sessions, ...staleAsSummaries];
   }
 
   private sendPromptHistoryStatus(ws: WebSocket): void {
@@ -4949,9 +4959,10 @@ export class BridgeWebSocketServer {
   private broadcastSessionList(): void {
     this.pruneDebugEvents();
     const sessions = this.sessionManager.list();
+    const allSessions = this.mergeStaleSessionsInto(sessions);
     this.broadcast({
       type: "session_list",
-      sessions,
+      sessions: allSessions,
       allowedDirs: this.allowedDirs,
       claudeModels: CLAUDE_MODELS,
       codexModels: CODEX_MODELS,
