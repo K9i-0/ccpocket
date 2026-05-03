@@ -47,6 +47,10 @@ import type { ProjectHistory } from "./project-history.js";
 import { ArchiveStore } from "./archive-store.js";
 import { WorktreeStore } from "./worktree-store.js";
 import {
+  SessionStateStore,
+  type PersistedSessionState,
+} from "./session-state-store.js";
+import {
   listWorktrees,
   removeWorktree,
   createWorktree,
@@ -453,6 +457,9 @@ export class BridgeWebSocketServer {
   private pushRelay: PushRelayClient;
   private promptHistoryBackup: PromptHistoryBackupStore | null;
   private promptHistoryStore: PromptHistoryStore | null;
+  private sessionStateStore: SessionStateStore;
+  /** Stale sessions from previous bridge run, loaded on startup. */
+  private staleSessions: PersistedSessionState[] = [];
 
   private recentSessionsRequestId = 0;
   private debugEvents = new Map<string, DebugTraceEvent[]>();
@@ -500,6 +507,17 @@ export class BridgeWebSocketServer {
     this.platform = platform ?? process.platform;
 
     this.archiveStore = new ArchiveStore();
+    this.sessionStateStore = new SessionStateStore();
+    void this.sessionStateStore.init().then((stale) => {
+      this.staleSessions = stale;
+      if (stale.length > 0) {
+        console.log(
+          `[ws] Restored ${stale.length} stale session(s) from previous run`,
+        );
+      }
+    }).catch((err) => {
+      console.error("[ws] Failed to initialize session state store:", err);
+    });
     void this.debugTraceStore.init().catch((err) => {
       console.error("[ws] Failed to initialize debug trace store:", err);
     });
@@ -534,6 +552,7 @@ export class BridgeWebSocketServer {
       },
       this.worktreeStore,
       () => this.broadcastSessionList(),
+      this.sessionStateStore,
     );
 
     this.wss.on("connection", (ws, req) => {
@@ -4872,9 +4891,34 @@ export class BridgeWebSocketServer {
   private sendSessionList(ws: WebSocket): void {
     this.pruneDebugEvents();
     const sessions = this.sessionManager.list();
+    // Include stale sessions from previous bridge run as idle/resumable.
+    // Skip any that are already running (same claudeSessionId).
+    const activeClaudeIds = new Set(
+      sessions.map((s) => s.claudeSessionId).filter(Boolean),
+    );
+    const staleAsSummaries = this.staleSessions
+      .filter((s) => !activeClaudeIds.has(s.claudeSessionId))
+      .map((s) => ({
+        id: s.bridgeSessionId,
+        provider: s.provider,
+        projectPath: s.projectPath,
+        claudeSessionId: s.claudeSessionId,
+        name: s.name,
+        status: "idle" as const,
+        createdAt: s.createdAt,
+        lastActivityAt: s.lastActivityAt,
+        gitBranch: s.gitBranch,
+        lastMessage: "",
+        worktreePath: s.worktreePath,
+        worktreeBranch: s.worktreeBranch,
+        permissionMode: s.permissionMode,
+        sandboxEnabled: s.sandboxEnabled,
+        codexSettings: s.codexSettings,
+        stale: true,
+      }));
     this.send(ws, {
       type: "session_list",
-      sessions,
+      sessions: [...sessions, ...staleAsSummaries],
       allowedDirs: this.allowedDirs,
       claudeModels: CLAUDE_MODELS,
       codexModels: CODEX_MODELS,

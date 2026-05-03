@@ -10,6 +10,10 @@ import {
   saveCodexSessionAdditionalWritableRoots,
   saveCodexSessionProfile,
 } from "./sessions-index.js";
+import type {
+  SessionStateStore,
+  PersistedSessionState,
+} from "./session-state-store.js";
 import {
   SdkProcess,
   type StartOptions,
@@ -220,6 +224,7 @@ export class SessionManager {
   private onGalleryImage: GalleryImageCallback | null;
   private worktreeStore: WorktreeStore | null;
   private onSessionUpdated: SessionUpdatedCallback | null;
+  private sessionStateStore: SessionStateStore | null;
 
   /** Cache slash commands per project path for early loading on subsequent sessions. */
   private commandCache = new Map<
@@ -242,6 +247,7 @@ export class SessionManager {
     onGalleryImage?: GalleryImageCallback,
     worktreeStore?: WorktreeStore,
     onSessionUpdated?: SessionUpdatedCallback,
+    sessionStateStore?: SessionStateStore,
   ) {
     this.onMessage = onMessage;
     this.imageStore = imageStore ?? null;
@@ -249,6 +255,7 @@ export class SessionManager {
     this.onGalleryImage = onGalleryImage ?? null;
     this.worktreeStore = worktreeStore ?? null;
     this.onSessionUpdated = onSessionUpdated ?? null;
+    this.sessionStateStore = sessionStateStore ?? null;
   }
 
   create(
@@ -378,10 +385,12 @@ export class SessionManager {
           if (msg.type === "result" && "sessionId" in msg && msg.sessionId) {
             session.claudeSessionId = msg.sessionId;
             this.saveWorktreeMapping(session);
+            this.persistSessionState(session);
           }
           if (msg.type === "system" && "sessionId" in msg && msg.sessionId) {
             session.claudeSessionId = msg.sessionId;
             this.saveWorktreeMapping(session);
+            this.persistSessionState(session);
           }
 
           // Cache tool_use names from assistant messages
@@ -673,6 +682,9 @@ export class SessionManager {
     // Add session to Map only after proc.start() succeeds.
     // If start() throws, no zombie session is left behind.
     this.sessions.set(id, session);
+
+    // Persist session state to disk for recovery after bridge restart.
+    this.persistSessionState(session);
 
     console.log(
       `[session] Created ${effectiveProvider} session ${id} for ${effectiveCwd}${wtPath ? ` (worktree of ${projectPath})` : ""}`,
@@ -1372,6 +1384,8 @@ export class SessionManager {
     session.process.stop();
     session.process.removeAllListeners();
     this.sessions.delete(id);
+    // Remove from persisted state — session was explicitly stopped.
+    this.sessionStateStore?.remove(id);
     console.log(`[session] Destroyed session ${id}`);
     return true;
   }
@@ -1380,5 +1394,37 @@ export class SessionManager {
     for (const [id] of this.sessions) {
       this.destroy(id);
     }
+  }
+
+  // ---- Session state persistence ----
+
+  private persistSessionState(session: SessionInfo): void {
+    if (!this.sessionStateStore) return;
+    const permMode =
+      session.process instanceof SdkProcess
+        ? session.process.permissionMode
+        : session.process instanceof CodexProcess
+          ? session.process.collaborationMode === "plan"
+            ? "plan"
+            : session.process.approvalPolicy === "never"
+              ? "bypassPermissions"
+              : "acceptEdits"
+          : undefined;
+    this.sessionStateStore.set({
+      bridgeSessionId: session.id,
+      provider: session.provider,
+      claudeSessionId: session.claudeSessionId,
+      projectPath: session.projectPath,
+      name: session.name,
+      gitBranch: session.gitBranch,
+      createdAt: session.createdAt.toISOString(),
+      lastActivityAt: session.lastActivityAt.toISOString(),
+      worktreePath: session.worktreePath,
+      worktreeBranch: session.worktreeBranch,
+      permissionMode: permMode,
+      sandboxEnabled: session.sandboxEnabled,
+      codexSettings: session.codexSettings,
+      lastStatus: session.status,
+    });
   }
 }
