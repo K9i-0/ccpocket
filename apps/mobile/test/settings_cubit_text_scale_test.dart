@@ -6,6 +6,20 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('SettingsCubit text scale', () {
+    test('defaults speech recognition locale to device default', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = SettingsCubit(prefs);
+
+      expect(cubit.state.speechLocaleId, isEmpty);
+
+      cubit.setSpeechLocaleId('ja-JP');
+      expect(cubit.state.speechLocaleId, 'ja-JP');
+      expect(prefs.getString('settings_speech_locale'), 'ja-JP');
+
+      await cubit.close();
+    });
+
     test('defaults to 100 percent and persists app scale', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();

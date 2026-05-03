@@ -39,14 +39,10 @@ VoiceInputResult useVoiceInput(TextEditingController controller) {
       HapticFeedback.mediumImpact();
       isRecording.value = true;
       final localeId = context.read<SettingsCubit>().state.speechLocaleId;
+      final baseInputValue = controller.value;
       voiceInput.startListening(
-        onResult: (text, isFinal) {
-          controller.text = text;
-          if (isFinal) {
-            controller.selection = TextSelection.fromPosition(
-              TextPosition(offset: controller.text.length),
-            );
-          }
+        onResult: (text, _) {
+          controller.value = composeVoiceInputValue(baseInputValue, text);
         },
         onDone: () {
           if (context.mounted) isRecording.value = false;
@@ -62,3 +58,31 @@ VoiceInputResult useVoiceInput(TextEditingController controller) {
     toggle: toggle,
   );
 }
+
+@visibleForTesting
+TextEditingValue composeVoiceInputValue(
+  TextEditingValue baseValue,
+  String recognizedText,
+) {
+  final baseText = baseValue.text;
+  final selection = baseValue.selection;
+  final rawStart = selection.isValid ? selection.start : baseText.length;
+  final rawEnd = selection.isValid ? selection.end : baseText.length;
+  final start = _clampOffset(rawStart, baseText.length);
+  final end = _clampOffset(rawEnd, baseText.length);
+  final insertStart = start < end ? start : end;
+  final insertEnd = start < end ? end : start;
+  final nextText = baseText.replaceRange(
+    insertStart,
+    insertEnd,
+    recognizedText,
+  );
+  final cursorOffset = insertStart + recognizedText.length;
+
+  return TextEditingValue(
+    text: nextText,
+    selection: TextSelection.collapsed(offset: cursorOffset),
+  );
+}
+
+int _clampOffset(int offset, int max) => offset.clamp(0, max).toInt();

@@ -36,7 +36,7 @@ abstract class SettingsState with _$SettingsState {
 
     /// Locale ID for speech recognition (e.g. 'ja-JP', 'en-US').
     /// Empty string means use device default.
-    @Default('ja-JP') String speechLocaleId,
+    @Default('') String speechLocaleId,
 
     /// Set of Machine IDs that have push notifications enabled.
     @Default({}) Set<String> fcmEnabledMachines,

@@ -431,7 +431,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         title: Text(l.voiceInput),
                         subtitle: Text(
-                          getSpeechLocaleLabel(state.speechLocaleId),
+                          getSpeechLocaleLabel(context, state.speechLocaleId),
                         ),
                         trailing: const Icon(Icons.chevron_right, size: 20),
                         onTap: () => showSpeechLocaleBottomSheet(

@@ -220,7 +220,7 @@ class SettingsCubit extends Cubit<SettingsState> {
           ? ThemeMode.values[themeModeIndex]
           : ThemeMode.system,
       appLocaleId: appLocale,
-      speechLocaleId: speechLocale ?? 'ja-JP',
+      speechLocaleId: speechLocale ?? '',
       fcmEnabledMachines: fcmMachines,
       fcmPrivacyMachines: fcmPrivacyMachines,
       shorebirdTrack: shorebirdTrack,
