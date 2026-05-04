@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.90.0] - 2026-05-04
+
+### Added
+- Show queued user input on session cards.
+
+### Changed
+- Require Bridge 1.53.2 for restored image history and Codex resume compatibility.
+- Refresh store release notes.
+
+### Fixed
+- Restore user images when loading session history.
+
 ## [1.89.2] - 2026-05-03
 
 ### Changed
