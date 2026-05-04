@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.53.2] - 2026-05-04
+
+### Fixed
+- Restore image attachments when resuming Codex sessions.
+- Restore user images when loading session history.
+
 ## [1.53.1] - 2026-05-03
 
 ### Fixed
