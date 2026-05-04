@@ -103,6 +103,7 @@ const CLAUDE_MODELS: string[] = [
   "claude-opus-4-7[1m]",
   "claude-opus-4-6",
   "claude-opus-4-6[1m]",
+  "claude-opus-4-5-20251101",
   "claude-sonnet-4-6",
   "claude-haiku-4-6",
 ];
