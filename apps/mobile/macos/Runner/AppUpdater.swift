@@ -61,6 +61,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
       "currentVersion": currentDisplayVersion,
       "currentBuild": currentBuildNumber,
       "canCheckForUpdates": String(updaterController.updater.canCheckForUpdates),
+      "sessionInProgress": String(updaterController.updater.sessionInProgress),
     ]
   }
 
@@ -123,6 +124,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
       "probe requested version=\(currentDisplayVersion) build=\(currentBuildNumber) " +
         "feedURL=\(effectiveFeedURLString ?? "<nil>") " +
         "canCheckForUpdates=\(updaterController.updater.canCheckForUpdates) " +
+        "sessionInProgress=\(updaterController.updater.sessionInProgress) " +
         "bundlePath=\(Bundle.main.bundleURL.path)")
 
     guard pendingProbeResult == nil else {
@@ -152,9 +154,18 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
       return
     }
 
+    guard !updaterController.updater.sessionInProgress else {
+      log("probe rejected: Sparkle update session is already in progress")
+      result(FlutterError(
+        code: "session_in_progress",
+        message: "An update session is already in progress.",
+        details: errorDetails()))
+      return
+    }
+
     pendingProbeResult = result
-    log("probe started with checkForUpdatesInBackground")
-    updaterController.updater.checkForUpdatesInBackground()
+    log("probe started with checkForUpdateInformation")
+    updaterController.updater.checkForUpdateInformation()
   }
 
   private func performUpdate(result: @escaping FlutterResult) {
@@ -322,6 +333,23 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
       log(
         "update cycle finished updateCheck=\(String(describing: updateCheck)) " +
           "error=<nil>")
+    }
+
+    guard pendingProbeResult != nil else { return }
+    if let error {
+      let nsError = error as NSError
+      resolveProbe(error: FlutterError(
+        code: "probe_failed",
+        message: error.localizedDescription,
+        details: errorDetails([
+          "errorDomain": nsError.domain,
+          "errorCode": String(nsError.code),
+        ])))
+    } else {
+      resolveProbe(map: [
+        "status": "noUpdate",
+        "currentVersion": currentDisplayVersion,
+      ])
     }
   }
 }
