@@ -1,0 +1,15 @@
+services:
+  target-sshd:
+    build: .
+    networks:
+      - ssh-jump-smoke
+
+  jump-sshd:
+    build: .
+    ports:
+      - "127.0.0.1:22220:22"
+    networks:
+      - ssh-jump-smoke
+
+networks:
+  ssh-jump-smoke:

@@ -104,6 +104,9 @@ class MachineManagerService {
                 sshUsername: old['sshUsername'] as String?,
                 sshPort: old['sshPort'] as int? ?? 22,
                 sshAuthType: _parseSshAuthType(old['sshAuthType']),
+                sshJumpHost: old['sshJumpHost'] as String?,
+                sshJumpPort: old['sshJumpPort'] as int? ?? 22,
+                sshJumpUsername: old['sshJumpUsername'] as String?,
                 hasCredentials: old['hasCredentials'] as bool? ?? false,
               ),
             );

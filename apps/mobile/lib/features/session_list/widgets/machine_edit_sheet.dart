@@ -34,6 +34,9 @@ class MachineEditSheet extends StatefulWidget {
     required int sshPort,
     required String username,
     required SshAuthType authType,
+    String? jumpHost,
+    required int jumpPort,
+    String? jumpUsername,
     String? password,
     String? privateKey,
   })
@@ -60,6 +63,9 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
   late final TextEditingController _apiKeyController;
   late final TextEditingController _sshUsernameController;
   late final TextEditingController _sshPortController;
+  late final TextEditingController _sshJumpHostController;
+  late final TextEditingController _sshJumpPortController;
+  late final TextEditingController _sshJumpUsernameController;
   late final TextEditingController _sshPasswordController;
   late final TextEditingController _sshPrivateKeyController;
   bool _useSsl = false;
@@ -88,6 +94,13 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
     _sshPortController = TextEditingController(
       text: (m?.sshPort ?? 22).toString(),
     );
+    _sshJumpHostController = TextEditingController(text: m?.sshJumpHost ?? '');
+    _sshJumpPortController = TextEditingController(
+      text: (m?.sshJumpPort ?? 22).toString(),
+    );
+    _sshJumpUsernameController = TextEditingController(
+      text: m?.sshJumpUsername ?? '',
+    );
     _sshPasswordController = TextEditingController(
       text: widget.existingSshPassword ?? '',
     );
@@ -108,6 +121,9 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
     _apiKeyController.dispose();
     _sshUsernameController.dispose();
     _sshPortController.dispose();
+    _sshJumpHostController.dispose();
+    _sshJumpPortController.dispose();
+    _sshJumpUsernameController.dispose();
     _sshPasswordController.dispose();
     _sshPrivateKeyController.dispose();
     super.dispose();
@@ -148,6 +164,13 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
         sshPort: int.tryParse(_sshPortController.text) ?? 22,
         username: _sshUsernameController.text,
         authType: _sshAuthType,
+        jumpHost: _sshJumpHostController.text.trim().isNotEmpty
+            ? _sshJumpHostController.text.trim()
+            : null,
+        jumpPort: int.tryParse(_sshJumpPortController.text) ?? 22,
+        jumpUsername: _sshJumpUsernameController.text.trim().isNotEmpty
+            ? _sshJumpUsernameController.text.trim()
+            : null,
         password: _sshAuthType == SshAuthType.password
             ? _sshPasswordController.text
             : null,
@@ -188,6 +211,15 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
         sshUsername: _sshEnabled ? _sshUsernameController.text.trim() : null,
         sshPort: int.tryParse(_sshPortController.text) ?? 22,
         sshAuthType: _sshAuthType,
+        sshJumpHost:
+            _sshEnabled && _sshJumpHostController.text.trim().isNotEmpty
+            ? _sshJumpHostController.text.trim()
+            : null,
+        sshJumpPort: int.tryParse(_sshJumpPortController.text) ?? 22,
+        sshJumpUsername:
+            _sshEnabled && _sshJumpUsernameController.text.trim().isNotEmpty
+            ? _sshJumpUsernameController.text.trim()
+            : null,
       );
 
       final apiKey = _apiKeyController.text.isNotEmpty
@@ -431,6 +463,53 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      _SectionHeader(title: 'SSH Jump Host'),
+                      const SizedBox(height: 12),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextField(
+                              key: const ValueKey('ssh_jump_host_field'),
+                              controller: _sshJumpHostController,
+                              decoration: const InputDecoration(
+                                labelText: 'Jump Host',
+                                hintText: 'bastion.example.com',
+                                prefixIcon: Icon(Icons.hub),
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              key: const ValueKey('ssh_jump_port_field'),
+                              controller: _sshJumpPortController,
+                              decoration: const InputDecoration(
+                                labelText: 'Jump Port',
+                                hintText: '22',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      TextField(
+                        key: const ValueKey('ssh_jump_username_field'),
+                        controller: _sshJumpUsernameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Jump Username',
+                          hintText: 'Defaults to SSH Username',
+                          prefixIcon: Icon(Icons.person_pin),
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                       const SizedBox(height: 12),
 

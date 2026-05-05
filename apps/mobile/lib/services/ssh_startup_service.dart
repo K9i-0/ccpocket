@@ -23,9 +23,373 @@ class SshResult {
       SshResult(success: false, error: error);
 }
 
+class SshJumpConfig {
+  final String host;
+  final int port;
+  final String? username;
+
+  const SshJumpConfig({required this.host, required this.port, this.username});
+}
+
+class SshCommandResult {
+  final int? exitCode;
+  final String output;
+
+  const SshCommandResult({required this.exitCode, required this.output});
+}
+
+abstract class SshRemoteClient {
+  Future<Uint8List> run(String command);
+
+  Future<SshCommandResult> execute(String command);
+
+  void close();
+}
+
+class SshConnectionHandle {
+  final SshRemoteClient client;
+  final SshRemoteClient? jumpClient;
+
+  const SshConnectionHandle(this.client, {this.jumpClient});
+
+  void close() {
+    client.close();
+    jumpClient?.close();
+  }
+}
+
+abstract class SshConnectionGateway {
+  Future<SshConnectionHandle> connect({
+    required String host,
+    required int port,
+    required String username,
+    required SshAuthType authType,
+    String? password,
+    String? privateKey,
+    SshJumpConfig? jump,
+  });
+}
+
+class DartSshConnectionGateway implements SshConnectionGateway {
+  final Duration connectionTimeout;
+  final void Function(String?)? debugLog;
+
+  const DartSshConnectionGateway({
+    required this.connectionTimeout,
+    this.debugLog,
+  });
+
+  @override
+  Future<SshConnectionHandle> connect({
+    required String host,
+    required int port,
+    required String username,
+    required SshAuthType authType,
+    String? password,
+    String? privateKey,
+    SshJumpConfig? jump,
+  }) async {
+    final identities = _validateCredentials(authType, password, privateKey);
+    if (jump == null) {
+      final socket = await SSHSocket.connect(
+        host,
+        port,
+        timeout: connectionTimeout,
+      );
+      final client = await _createReadyClient(
+        socket,
+        username: username,
+        authType: authType,
+        password: password,
+        identities: identities,
+      );
+      return SshConnectionHandle(DartSshRemoteClient(client));
+    }
+
+    final jumpSocket = await SSHSocket.connect(
+      jump.host,
+      jump.port,
+      timeout: connectionTimeout,
+    );
+    final jumpClient = _createClient(
+      jumpSocket,
+      username: jump.username ?? username,
+      authType: authType,
+      password: password,
+      identities: identities,
+    );
+
+    try {
+      final targetClient = await _connectTargetThroughJump(
+        jumpClient,
+        host: host,
+        port: port,
+        username: username,
+        authType: authType,
+        password: password,
+        identities: identities,
+      );
+      return SshConnectionHandle(
+        DartSshRemoteClient(targetClient),
+        jumpClient: DartSshRemoteClient(jumpClient),
+      );
+    } catch (_) {
+      jumpClient.close();
+      rethrow;
+    }
+  }
+
+  Future<SSHClient> _connectTargetThroughJump(
+    SSHClient jumpClient, {
+    required String host,
+    required int port,
+    required String username,
+    required SshAuthType authType,
+    String? password,
+    List<SSHKeyPair>? identities,
+  }) async {
+    try {
+      final targetSocket = await jumpClient
+          .forwardLocal(host, port)
+          .timeout(connectionTimeout);
+      return await _createReadyClient(
+        _BufferedSshSocket(targetSocket),
+        username: username,
+        authType: authType,
+        password: password,
+        identities: identities,
+      );
+    } on SSHError {
+      final targetSocket = await _openNetcatSocket(
+        jumpClient,
+        host: host,
+        port: port,
+      ).timeout(connectionTimeout);
+      return await _createReadyClient(
+        targetSocket,
+        username: username,
+        authType: authType,
+        password: password,
+        identities: identities,
+      );
+    }
+  }
+
+  Future<SSHSocket> _openNetcatSocket(
+    SSHClient jumpClient, {
+    required String host,
+    required int port,
+  }) async {
+    final session = await jumpClient.execute('nc ${_shellQuote(host)} $port');
+    return _SshSessionSocket(session);
+  }
+
+  Future<SSHClient> _createReadyClient(
+    SSHSocket socket, {
+    required String username,
+    required SshAuthType authType,
+    String? password,
+    List<SSHKeyPair>? identities,
+  }) async {
+    final client = _createClient(
+      socket,
+      username: username,
+      authType: authType,
+      password: password,
+      identities: identities,
+    );
+    try {
+      await client.ping().timeout(connectionTimeout);
+      return client;
+    } catch (_) {
+      client.close();
+      rethrow;
+    }
+  }
+
+  SSHClient _createClient(
+    SSHSocket socket, {
+    required String username,
+    required SshAuthType authType,
+    String? password,
+    List<SSHKeyPair>? identities,
+  }) {
+    if (authType == SshAuthType.password) {
+      if (password == null || password.isEmpty) {
+        throw SSHAuthAbortError('Password required');
+      }
+      return SSHClient(
+        socket,
+        username: username,
+        onPasswordRequest: () => password,
+        printDebug: debugLog,
+      );
+    }
+
+    return SSHClient(
+      socket,
+      username: username,
+      identities: identities!,
+      printDebug: debugLog,
+    );
+  }
+
+  List<SSHKeyPair>? _validateCredentials(
+    SshAuthType authType,
+    String? password,
+    String? privateKey,
+  ) {
+    if (authType == SshAuthType.password) {
+      if (password == null || password.isEmpty) {
+        throw SSHAuthAbortError('Password required');
+      }
+      return null;
+    }
+    if (privateKey == null || privateKey.isEmpty) {
+      throw SSHAuthAbortError('Private key required');
+    }
+    return SSHKeyPair.fromPem(privateKey);
+  }
+
+  String _shellQuote(String value) => "'${value.replaceAll("'", "'\"'\"'")}'";
+}
+
+class _BufferedSshSocket implements SSHSocket {
+  final SSHSocket _delegate;
+  final StreamController<Uint8List> _controller = StreamController();
+  late final StreamSubscription<Uint8List> _subscription;
+
+  _BufferedSshSocket(this._delegate) {
+    _subscription = _delegate.stream.listen(
+      _controller.add,
+      onError: _controller.addError,
+      onDone: _controller.close,
+    );
+  }
+
+  @override
+  Stream<Uint8List> get stream => _controller.stream;
+
+  @override
+  StreamSink<List<int>> get sink => _delegate.sink;
+
+  @override
+  Future<void> get done => _delegate.done;
+
+  @override
+  Future<void> close() async {
+    await _subscription.cancel();
+    return _delegate.close();
+  }
+
+  @override
+  void destroy() {
+    unawaited(_subscription.cancel());
+    _delegate.destroy();
+  }
+}
+
+class _SshSessionSocket implements SSHSocket {
+  final SSHSession _session;
+
+  const _SshSessionSocket(this._session);
+
+  @override
+  Stream<Uint8List> get stream => _session.stdout;
+
+  @override
+  StreamSink<List<int>> get sink => _SshSessionSink(_session.stdin);
+
+  @override
+  Future<void> get done => _session.done;
+
+  @override
+  Future<void> close() {
+    _session.close();
+    return _session.done;
+  }
+
+  @override
+  void destroy() {
+    _session.close();
+  }
+}
+
+class _SshSessionSink implements StreamSink<List<int>> {
+  final StreamSink<Uint8List> _delegate;
+
+  const _SshSessionSink(this._delegate);
+
+  @override
+  void add(List<int> data) {
+    _delegate.add(Uint8List.fromList(data));
+  }
+
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) {
+    _delegate.addError(error, stackTrace);
+  }
+
+  @override
+  Future<void> addStream(Stream<List<int>> stream) {
+    return _delegate.addStream(
+      stream.map((data) => data is Uint8List ? data : Uint8List.fromList(data)),
+    );
+  }
+
+  @override
+  Future<void> close() => _delegate.close();
+
+  @override
+  Future<void> get done => _delegate.done;
+}
+
+class DartSshRemoteClient implements SshRemoteClient {
+  final SSHClient _client;
+
+  const DartSshRemoteClient(this._client);
+
+  @override
+  Future<Uint8List> run(String command) => _client.run(command);
+
+  @override
+  Future<SshCommandResult> execute(String command) async {
+    final session = await _client.execute(command);
+    final output = BytesBuilder(copy: false);
+    final stdoutDone = Completer<void>();
+    final stderrDone = Completer<void>();
+
+    session.stdout.listen(
+      output.add,
+      onDone: stdoutDone.complete,
+      onError: stdoutDone.completeError,
+    );
+    session.stderr.listen(
+      output.add,
+      onDone: stderrDone.complete,
+      onError: stderrDone.completeError,
+    );
+
+    await session.done;
+    await stdoutDone.future;
+    await stderrDone.future;
+
+    return SshCommandResult(
+      exitCode: session.exitCode,
+      output: utf8.decode(output.takeBytes()),
+    );
+  }
+
+  @override
+  void close() {
+    _client.close();
+  }
+}
+
 /// Handles SSH connections and remote Bridge Server startup.
 class SshStartupService {
   final MachineManagerService _machineManager;
+  final SshConnectionGateway _connectionGateway;
 
   /// Timeout for SSH connection
   static const _connectionTimeout = Duration(seconds: 10);
@@ -165,7 +529,14 @@ sleep 1
 ${_startCommand.trim()}
 ''';
 
-  SshStartupService(this._machineManager);
+  SshStartupService(
+    this._machineManager, {
+    SshConnectionGateway? connectionGateway,
+  }) : _connectionGateway =
+           connectionGateway ??
+           const DartSshConnectionGateway(
+             connectionTimeout: _connectionTimeout,
+           );
 
   /// Start Bridge Server on a remote machine.
   ///
@@ -271,28 +642,25 @@ ${_startCommand.trim()}
     }
 
     try {
-      final socket = await SSHSocket.connect(
-        machine.host,
-        machine.sshPort,
-        timeout: _connectionTimeout,
-      );
-
-      final client = await _authenticate(
-        socket,
+      final connection = await _connectMachine(
         machine,
         password: password,
         privateKey: privateKey,
       );
 
-      // Run a simple command to verify connection
-      final result = await client.run('echo "Connection successful"');
-      client.close();
-
-      final output = utf8.decode(result);
-      if (output.contains('Connection successful')) {
-        return SshResult.success('SSH connection test passed');
-      } else {
-        return SshResult.failure('Unexpected response: $output');
+      try {
+        // Run a simple command to verify connection
+        final result = await connection.client.run(
+          'echo "Connection successful"',
+        );
+        final output = utf8.decode(result);
+        if (output.contains('Connection successful')) {
+          return SshResult.success('SSH connection test passed');
+        } else {
+          return SshResult.failure('Unexpected response: $output');
+        }
+      } finally {
+        connection.close();
       }
     } on SSHAuthFailError {
       return SshResult.failure('Authentication failed');
@@ -311,48 +679,49 @@ ${_startCommand.trim()}
     required int sshPort,
     required String username,
     required SshAuthType authType,
+    String? jumpHost,
+    int jumpPort = 22,
+    String? jumpUsername,
     String? password,
     String? privateKey,
   }) async {
+    if (authType == SshAuthType.password &&
+        (password == null || password.isEmpty)) {
+      return SshResult.failure('Password required');
+    }
+    if (authType == SshAuthType.privateKey &&
+        (privateKey == null || privateKey.isEmpty)) {
+      return SshResult.failure('Private key required');
+    }
+
     try {
-      final socket = await SSHSocket.connect(
-        host,
-        sshPort,
-        timeout: _connectionTimeout,
+      final connection = await _connectionGateway.connect(
+        host: host,
+        port: sshPort,
+        username: username,
+        authType: authType,
+        password: password,
+        privateKey: privateKey,
+        jump: _inlineJumpConfig(
+          host: jumpHost,
+          port: jumpPort,
+          username: jumpUsername,
+        ),
       );
 
-      final SSHClient client;
-      if (authType == SshAuthType.password) {
-        if (password == null || password.isEmpty) {
-          socket.close();
-          return SshResult.failure('Password required');
-        }
-        client = SSHClient(
-          socket,
-          username: username,
-          onPasswordRequest: () => password,
+      try {
+        // Run a simple command to verify connection
+        final result = await connection.client.run(
+          'echo "Connection successful"',
         );
-      } else {
-        if (privateKey == null || privateKey.isEmpty) {
-          socket.close();
-          return SshResult.failure('Private key required');
+        final output = utf8.decode(result);
+        if (output.contains('Connection successful')) {
+          return SshResult.success('SSH connection test passed');
+        } else {
+          return SshResult.failure('Unexpected response: $output');
         }
-        client = SSHClient(
-          socket,
-          username: username,
-          identities: [...SSHKeyPair.fromPem(privateKey)],
-        );
-      }
-
-      // Run a simple command to verify connection
-      final result = await client.run('echo "Connection successful"');
-      client.close();
-
-      final output = utf8.decode(result);
-      if (output.contains('Connection successful')) {
-        return SshResult.success('SSH connection test passed');
-      } else {
-        return SshResult.failure('Unexpected response: $output');
+      } finally {
+        connection.close();
       }
     } on SSHAuthFailError {
       return SshResult.failure('Authentication failed');
@@ -426,25 +795,16 @@ ${_startCommand.trim()}
     String? privateKey,
   }) async {
     try {
-      final socket = await SSHSocket.connect(
-        machine.host,
-        machine.sshPort,
-        timeout: _connectionTimeout,
-      );
-
-      final client = await _authenticate(
-        socket,
+      final connection = await _connectMachine(
         machine,
         password: password,
         privateKey: privateKey,
       );
 
       try {
-        final result = await _runCommand(
-          client,
-          command,
-        ).timeout(_commandTimeout);
-        client.close();
+        final result = await connection.client
+            .execute(command)
+            .timeout(_commandTimeout);
 
         final output = result.output.trim();
         if (result.exitCode == 0 || result.exitCode == null) {
@@ -459,7 +819,7 @@ ${_startCommand.trim()}
               : output,
         );
       } finally {
-        client.close();
+        connection.close();
       }
     } on SSHAuthFailError {
       return SshResult.failure('Authentication failed');
@@ -472,68 +832,44 @@ ${_startCommand.trim()}
     }
   }
 
-  Future<_RemoteCommandResult> _runCommand(
-    SSHClient client,
-    String command,
-  ) async {
-    final session = await client.execute(command);
-    final output = BytesBuilder(copy: false);
-    final stdoutDone = Completer<void>();
-    final stderrDone = Completer<void>();
-
-    session.stdout.listen(
-      output.add,
-      onDone: stdoutDone.complete,
-      onError: stdoutDone.completeError,
-    );
-    session.stderr.listen(
-      output.add,
-      onDone: stderrDone.complete,
-      onError: stderrDone.completeError,
-    );
-
-    await session.done;
-    await stdoutDone.future;
-    await stderrDone.future;
-
-    return _RemoteCommandResult(
-      exitCode: session.exitCode,
-      output: utf8.decode(output.takeBytes()),
-    );
-  }
-
-  /// Authenticate SSH connection
-  Future<SSHClient> _authenticate(
-    SSHSocket socket,
+  Future<SshConnectionHandle> _connectMachine(
     Machine machine, {
     String? password,
     String? privateKey,
-  }) async {
-    if (machine.sshAuthType == SshAuthType.password) {
-      if (password == null || password.isEmpty) {
-        throw SSHAuthAbortError('Password required');
-      }
-      return SSHClient(
-        socket,
-        username: machine.sshUsername!,
-        onPasswordRequest: () => password,
-      );
-    } else {
-      if (privateKey == null || privateKey.isEmpty) {
-        throw SSHAuthAbortError('Private key required');
-      }
-      return SSHClient(
-        socket,
-        username: machine.sshUsername!,
-        identities: [...SSHKeyPair.fromPem(privateKey)],
-      );
-    }
+  }) {
+    return _connectionGateway.connect(
+      host: machine.host,
+      port: machine.sshPort,
+      username: machine.sshUsername!,
+      authType: machine.sshAuthType,
+      password: password,
+      privateKey: privateKey,
+      jump: _machineJumpConfig(machine),
+    );
   }
-}
 
-class _RemoteCommandResult {
-  final int? exitCode;
-  final String output;
+  SshJumpConfig? _machineJumpConfig(Machine machine) {
+    return _inlineJumpConfig(
+      host: machine.sshJumpHost,
+      port: machine.sshJumpPort,
+      username: machine.sshJumpUsername,
+    );
+  }
 
-  const _RemoteCommandResult({required this.exitCode, required this.output});
+  SshJumpConfig? _inlineJumpConfig({
+    required String? host,
+    required int port,
+    required String? username,
+  }) {
+    final trimmedHost = host?.trim();
+    if (trimmedHost == null || trimmedHost.isEmpty) return null;
+    final trimmedUsername = username?.trim();
+    return SshJumpConfig(
+      host: trimmedHost,
+      port: port,
+      username: trimmedUsername == null || trimmedUsername.isEmpty
+          ? null
+          : trimmedUsername,
+    );
+  }
 }

@@ -1,7 +1,152 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:ccpocket/models/machine.dart';
+import 'package:ccpocket/services/machine_manager_service.dart';
 import 'package:ccpocket/services/ssh_startup_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _FakeSecureStorage implements FlutterSecureStorage {
+  final Map<String, String> values = {};
+
+  @override
+  Future<void> write({
+    required String key,
+    required String? value,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (value == null) {
+      values.remove(key);
+    } else {
+      values[key] = value;
+    }
+  }
+
+  @override
+  Future<String?> read({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    return values[key];
+  }
+
+  @override
+  Future<void> delete({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    values.remove(key);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ConnectionCall {
+  final String host;
+  final int port;
+  final String username;
+  final SshAuthType authType;
+  final String? password;
+  final String? privateKey;
+  final SshJumpConfig? jump;
+
+  const _ConnectionCall({
+    required this.host,
+    required this.port,
+    required this.username,
+    required this.authType,
+    required this.password,
+    required this.privateKey,
+    required this.jump,
+  });
+}
+
+class _RecordingConnectionGateway implements SshConnectionGateway {
+  final calls = <_ConnectionCall>[];
+  final clients = <_FakeRemoteClient>[];
+
+  @override
+  Future<SshConnectionHandle> connect({
+    required String host,
+    required int port,
+    required String username,
+    required SshAuthType authType,
+    String? password,
+    String? privateKey,
+    SshJumpConfig? jump,
+  }) async {
+    calls.add(
+      _ConnectionCall(
+        host: host,
+        port: port,
+        username: username,
+        authType: authType,
+        password: password,
+        privateKey: privateKey,
+        jump: jump,
+      ),
+    );
+    final client = _FakeRemoteClient();
+    clients.add(client);
+    return SshConnectionHandle(client);
+  }
+}
+
+class _FakeRemoteClient implements SshRemoteClient {
+  var closed = false;
+  final commands = <String>[];
+
+  @override
+  Future<Uint8List> run(String command) async {
+    commands.add(command);
+    return utf8.encode('Connection successful');
+  }
+
+  @override
+  Future<SshCommandResult> execute(String command) async {
+    commands.add(command);
+    return const SshCommandResult(exitCode: 0, output: 'ok');
+  }
+
+  @override
+  void close() {
+    closed = true;
+  }
+}
 
 void main() {
+  Future<MachineManagerService> createManager(Machine machine) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final manager = MachineManagerService(prefs, _FakeSecureStorage());
+    await manager.addMachine(
+      machine,
+      sshPassword: machine.sshAuthType == SshAuthType.password ? 'pw' : null,
+      sshPrivateKey: machine.sshAuthType == SshAuthType.privateKey
+          ? 'private-key'
+          : null,
+    );
+    return manager;
+  }
+
   group('SshStartupService start preflight', () {
     test('checks npx before starting launchd service', () {
       final command = SshStartupService.startCommandForTest;
@@ -35,5 +180,125 @@ void main() {
       expect(preflight, isNot(contains('bootout')));
       expect(preflight, isNot(contains('systemctl --user stop')));
     });
+  });
+
+  group('SshStartupService connection routing', () {
+    test(
+      'uses the direct SSH route when jump host is not configured',
+      () async {
+        final manager = await createManager(
+          const Machine(
+            id: 'm1',
+            host: 'target.example.com',
+            sshEnabled: true,
+            sshUsername: 'target-user',
+            sshPort: 2200,
+          ),
+        );
+        final gateway = _RecordingConnectionGateway();
+        final service = SshStartupService(manager, connectionGateway: gateway);
+
+        final result = await service.testConnection('m1', password: 'pw');
+
+        expect(result.success, isTrue);
+        expect(gateway.calls, hasLength(1));
+        expect(gateway.calls.single.host, 'target.example.com');
+        expect(gateway.calls.single.port, 2200);
+        expect(gateway.calls.single.username, 'target-user');
+        expect(gateway.calls.single.password, 'pw');
+        expect(gateway.calls.single.jump, isNull);
+        expect(gateway.clients.single.closed, isTrue);
+      },
+    );
+
+    test('passes jump host settings through the shared SSH route', () async {
+      final manager = await createManager(
+        const Machine(
+          id: 'm2',
+          host: 'target.internal',
+          sshEnabled: true,
+          sshUsername: 'target-user',
+          sshPort: 22,
+          sshJumpHost: 'jump.example.com',
+          sshJumpPort: 2222,
+          sshJumpUsername: 'jump-user',
+        ),
+      );
+      final gateway = _RecordingConnectionGateway();
+      final service = SshStartupService(manager, connectionGateway: gateway);
+
+      final result = await service.testConnection('m2', password: 'pw');
+
+      expect(result.success, isTrue);
+      expect(gateway.calls, hasLength(1));
+      final jump = gateway.calls.single.jump;
+      expect(jump, isNotNull);
+      expect(jump!.host, 'jump.example.com');
+      expect(jump.port, 2222);
+      expect(jump.username, 'jump-user');
+      expect(gateway.clients.single.closed, isTrue);
+    });
+
+    test('start, stop, and update use the shared SSH route', () async {
+      final manager = await createManager(
+        const Machine(
+          id: 'm3',
+          host: 'target.internal',
+          sshEnabled: true,
+          sshUsername: 'target-user',
+          sshJumpHost: 'jump.example.com',
+          sshJumpUsername: 'jump-user',
+        ),
+      );
+      final gateway = _RecordingConnectionGateway();
+      final service = SshStartupService(manager, connectionGateway: gateway);
+
+      expect(
+        (await service.startBridgeServer('m3', password: 'pw')).success,
+        isTrue,
+      );
+      expect(
+        (await service.stopBridgeServer('m3', password: 'pw')).success,
+        isTrue,
+      );
+      expect(
+        (await service.updateBridgeServer('m3', password: 'pw')).success,
+        isTrue,
+      );
+
+      expect(gateway.calls, hasLength(3));
+      expect(gateway.calls.map((call) => call.jump?.host), [
+        'jump.example.com',
+        'jump.example.com',
+        'jump.example.com',
+      ]);
+    });
+
+    test(
+      'inline credential test fails before opening SSH when password missing',
+      () async {
+        final manager = await createManager(
+          const Machine(
+            id: 'm4',
+            host: 'target.example.com',
+            sshEnabled: true,
+            sshUsername: 'target-user',
+          ),
+        );
+        final gateway = _RecordingConnectionGateway();
+        final service = SshStartupService(manager, connectionGateway: gateway);
+
+        final result = await service.testConnectionWithCredentials(
+          host: 'target.example.com',
+          sshPort: 22,
+          username: 'target-user',
+          authType: SshAuthType.password,
+        );
+
+        expect(result.success, isFalse);
+        expect(result.error, 'Password required');
+        expect(gateway.calls, isEmpty);
+      },
+    );
   });
 }

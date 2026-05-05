@@ -497,6 +497,9 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
     required int sshPort,
     required String username,
     required SshAuthType authType,
+    String? jumpHost,
+    int jumpPort = 22,
+    String? jumpUsername,
     String? password,
     String? privateKey,
   }) async {
@@ -508,6 +511,9 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
       sshPort: sshPort,
       username: username,
       authType: authType,
+      jumpHost: jumpHost,
+      jumpPort: jumpPort,
+      jumpUsername: jumpUsername,
       password: password,
       privateKey: privateKey,
     );

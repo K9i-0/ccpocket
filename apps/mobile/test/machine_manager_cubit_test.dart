@@ -222,6 +222,9 @@ class MockSshStartupService implements SshStartupService {
     required int sshPort,
     required String username,
     required SshAuthType authType,
+    String? jumpHost,
+    int jumpPort = 22,
+    String? jumpUsername,
     String? password,
     String? privateKey,
   }) async {
