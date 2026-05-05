@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.55.1] - 2026-05-05
+
+### Fixed
+- Support Explorer file listings for non-Git projects with a filesystem fallback.
+
 ## [1.55.0] - 2026-05-05
 
 ### Added
