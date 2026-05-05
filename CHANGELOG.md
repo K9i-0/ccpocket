@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.91.0] - 2026-05-05
+
+### Added
+- Add SSH jump host support for remote machine connections.
+- Add a Google search action to the text selection menu.
+- Render Codex plan updates as structured todo lists.
+
+### Changed
+- Require Bridge 1.55.0 for Codex plan update rendering.
+
+### Fixed
+- Clear stale pending session cards after session state changes.
+
 ## [1.90.0] - 2026-05-04
 
 ### Added
