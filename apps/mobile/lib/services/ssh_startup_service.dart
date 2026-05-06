@@ -28,16 +28,16 @@ class SshJumpConfig {
   final int port;
   final String? username;
   final SshAuthType authType;
-  final String? password;
-  final String? privateKey;
+  final String? jumpPassword;
+  final String? jumpPrivateKey;
 
   const SshJumpConfig({
     required this.host,
     required this.port,
     this.username,
     this.authType = SshAuthType.password,
-    this.password,
-    this.privateKey,
+    this.jumpPassword,
+    this.jumpPrivateKey,
   });
 }
 
@@ -123,14 +123,14 @@ class DartSshConnectionGateway implements SshConnectionGateway {
     );
     final jumpIdentities = _validateCredentials(
       jump.authType,
-      jump.password,
-      jump.privateKey,
+      jump.jumpPassword,
+      jump.jumpPrivateKey,
     );
     final jumpClient = _createClient(
       jumpSocket,
       username: jump.username ?? username,
       authType: jump.authType,
-      password: jump.password,
+      password: jump.jumpPassword,
       identities: jumpIdentities,
     );
 
@@ -889,8 +889,8 @@ ${_startCommand.trim()}
           ? null
           : trimmedUsername,
       authType: machine.sshJumpAuthType,
-      password: jumpPassword,
-      privateKey: jumpPrivateKey,
+      jumpPassword: jumpPassword,
+      jumpPrivateKey: jumpPrivateKey,
     );
   }
 
@@ -912,8 +912,8 @@ ${_startCommand.trim()}
           ? null
           : trimmedUsername,
       authType: authType,
-      password: password,
-      privateKey: privateKey,
+      jumpPassword: password,
+      jumpPrivateKey: privateKey,
     );
   }
 }
