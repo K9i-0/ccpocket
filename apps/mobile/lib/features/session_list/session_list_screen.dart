@@ -1922,7 +1922,14 @@ class _SessionListScreenState extends State<SessionListScreen>
           name: server.name,
           useSsl: useSsl,
         ),
-        onSave: ({required machine, apiKey, sshPassword, sshPrivateKey}) async {
+        onSave: ({
+          required machine,
+          apiKey,
+          sshPassword,
+          sshPrivateKey,
+          sshJumpPassword,
+          sshJumpPrivateKey,
+        }) async {
           final newMachine = cubit.createNewMachine(
             name: machine.name,
             host: machine.host,
@@ -1939,11 +1946,14 @@ class _SessionListScreenState extends State<SessionListScreen>
               sshJumpHost: machine.sshJumpHost,
               sshJumpPort: machine.sshJumpPort,
               sshJumpUsername: machine.sshJumpUsername,
+              sshJumpAuthType: machine.sshJumpAuthType,
               isFavorite: true,
             ),
             apiKey: apiKey,
             sshPassword: sshPassword,
             sshPrivateKey: sshPrivateKey,
+            sshJumpPassword: sshJumpPassword,
+            sshJumpPrivateKey: sshJumpPrivateKey,
           );
         },
         onSaveAndConnect: (machine, apiKey) {
@@ -2106,6 +2116,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     final cubit = context.read<MachineManagerCubit>();
     final apiKey = await cubit.getApiKey(m.machine.id);
     final sshPassword = await cubit.getSshPassword(m.machine.id);
+    final sshJumpPassword = await cubit.getSshJumpPassword(m.machine.id);
 
     if (!mounted) return;
 
@@ -2118,12 +2129,22 @@ class _SessionListScreenState extends State<SessionListScreen>
         machine: m.machine,
         existingApiKey: apiKey,
         existingSshPassword: sshPassword,
-        onSave: ({required machine, apiKey, sshPassword, sshPrivateKey}) async {
+        existingSshJumpPassword: sshJumpPassword,
+        onSave: ({
+          required machine,
+          apiKey,
+          sshPassword,
+          sshPrivateKey,
+          sshJumpPassword,
+          sshJumpPrivateKey,
+        }) async {
           await cubit.updateMachine(
             machine,
             apiKey: apiKey,
             sshPassword: sshPassword,
             sshPrivateKey: sshPrivateKey,
+            sshJumpPassword: sshJumpPassword,
+            sshJumpPrivateKey: sshJumpPrivateKey,
           );
         },
         onTestConnection: cubit.testConnectionWithCredentials,
@@ -2168,7 +2189,14 @@ class _SessionListScreenState extends State<SessionListScreen>
       constraints: macOSModalBottomSheetConstraints(context),
       backgroundColor: Colors.transparent,
       builder: (ctx) => MachineEditSheet(
-        onSave: ({required machine, apiKey, sshPassword, sshPrivateKey}) async {
+        onSave: ({
+          required machine,
+          apiKey,
+          sshPassword,
+          sshPrivateKey,
+          sshJumpPassword,
+          sshJumpPrivateKey,
+        }) async {
           final newMachine = cubit.createNewMachine(
             name: machine.name,
             host: machine.host,
@@ -2185,11 +2213,14 @@ class _SessionListScreenState extends State<SessionListScreen>
               sshJumpHost: machine.sshJumpHost,
               sshJumpPort: machine.sshJumpPort,
               sshJumpUsername: machine.sshJumpUsername,
-              isFavorite: true, // New manually added machines are favorites
+              sshJumpAuthType: machine.sshJumpAuthType,
+              isFavorite: true,
             ),
             apiKey: apiKey,
             sshPassword: sshPassword,
             sshPrivateKey: sshPrivateKey,
+            sshJumpPassword: sshJumpPassword,
+            sshJumpPrivateKey: sshJumpPrivateKey,
           );
         },
         onSaveAndConnect: (machine, apiKey) {

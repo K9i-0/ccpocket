@@ -128,8 +128,14 @@ abstract class Machine with _$Machine {
     /// Optional SSH jump username. Defaults to [sshUsername] when omitted.
     String? sshJumpUsername,
 
+    /// SSH authentication type for the jump host
+    @Default(SshAuthType.password) SshAuthType sshJumpAuthType,
+
     /// Whether SSH credentials are saved (password or private key in secure storage)
     @Default(false) bool hasCredentials,
+
+    /// Whether jump host credentials are saved in secure storage
+    @Default(false) bool hasJumpCredentials,
   }) = _Machine;
 
   factory Machine.fromJson(Map<String, dynamic> json) =>

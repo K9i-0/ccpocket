@@ -214,6 +214,8 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
     String? apiKey,
     String? sshPassword,
     String? sshPrivateKey,
+    String? sshJumpPassword,
+    String? sshJumpPrivateKey,
   }) async {
     emit(state.copyWith(error: null, successMessage: null));
     try {
@@ -222,6 +224,8 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
         apiKey: apiKey,
         sshPassword: sshPassword,
         sshPrivateKey: sshPrivateKey,
+        sshJumpPassword: sshJumpPassword,
+        sshJumpPrivateKey: sshJumpPrivateKey,
       );
       emit(state.copyWith(successMessage: 'Machine added successfully'));
     } catch (e) {
@@ -235,8 +239,11 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
     String? apiKey,
     String? sshPassword,
     String? sshPrivateKey,
+    String? sshJumpPassword,
+    String? sshJumpPrivateKey,
     bool clearApiKey = false,
     bool clearCredentials = false,
+    bool clearJumpCredentials = false,
   }) async {
     emit(state.copyWith(error: null, successMessage: null));
     try {
@@ -245,8 +252,11 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
         apiKey: apiKey,
         sshPassword: sshPassword,
         sshPrivateKey: sshPrivateKey,
+        sshJumpPassword: sshJumpPassword,
+        sshJumpPrivateKey: sshJumpPrivateKey,
         clearApiKey: clearApiKey,
         clearCredentials: clearCredentials,
+        clearJumpCredentials: clearJumpCredentials,
       );
       emit(state.copyWith(successMessage: 'Machine updated successfully'));
     } catch (e) {
@@ -532,6 +542,10 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
   /// Get SSH password for a machine
   Future<String?> getSshPassword(String machineId) =>
       _service.getSshPassword(machineId);
+
+  /// Get SSH jump host password for a machine
+  Future<String?> getSshJumpPassword(String machineId) =>
+      _service.getSshJumpPassword(machineId);
 
   /// Build WebSocket URL with API key
   Future<String> buildWsUrl(String machineId) => _service.buildWsUrl(machineId);

@@ -15,12 +15,17 @@ class MachineEditSheet extends StatefulWidget {
   /// Existing SSH password (for edit mode)
   final String? existingSshPassword;
 
+  /// Existing SSH jump host password (for edit mode)
+  final String? existingSshJumpPassword;
+
   /// Callback when save is pressed
   final Future<void> Function({
     required Machine machine,
     String? apiKey,
     String? sshPassword,
     String? sshPrivateKey,
+    String? sshJumpPassword,
+    String? sshJumpPrivateKey,
   })
   onSave;
 
@@ -37,6 +42,9 @@ class MachineEditSheet extends StatefulWidget {
     String? jumpHost,
     required int jumpPort,
     String? jumpUsername,
+    SshAuthType jumpAuthType,
+    String? jumpPassword,
+    String? jumpPrivateKey,
     String? password,
     String? privateKey,
   })
@@ -47,6 +55,7 @@ class MachineEditSheet extends StatefulWidget {
     this.machine,
     this.existingApiKey,
     this.existingSshPassword,
+    this.existingSshJumpPassword,
     required this.onSave,
     this.onSaveAndConnect,
     required this.onTestConnection,
@@ -66,11 +75,14 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
   late final TextEditingController _sshJumpHostController;
   late final TextEditingController _sshJumpPortController;
   late final TextEditingController _sshJumpUsernameController;
+  late final TextEditingController _sshJumpPasswordController;
+  late final TextEditingController _sshJumpPrivateKeyController;
   late final TextEditingController _sshPasswordController;
   late final TextEditingController _sshPrivateKeyController;
   bool _useSsl = false;
   bool _sshEnabled = false;
   SshAuthType _sshAuthType = SshAuthType.password;
+  SshAuthType _sshJumpAuthType = SshAuthType.password;
   bool _isSaving = false;
   bool _isTesting = false;
   String? _testResult;
@@ -101,6 +113,10 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
     _sshJumpUsernameController = TextEditingController(
       text: m?.sshJumpUsername ?? '',
     );
+    _sshJumpPasswordController = TextEditingController(
+      text: widget.existingSshJumpPassword ?? '',
+    );
+    _sshJumpPrivateKeyController = TextEditingController();
     _sshPasswordController = TextEditingController(
       text: widget.existingSshPassword ?? '',
     );
@@ -110,6 +126,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
       _useSsl = m.useSsl;
       _sshEnabled = m.sshEnabled;
       _sshAuthType = m.sshAuthType;
+      _sshJumpAuthType = m.sshJumpAuthType;
     }
   }
 
@@ -124,6 +141,8 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
     _sshJumpHostController.dispose();
     _sshJumpPortController.dispose();
     _sshJumpUsernameController.dispose();
+    _sshJumpPasswordController.dispose();
+    _sshJumpPrivateKeyController.dispose();
     _sshPasswordController.dispose();
     _sshPrivateKeyController.dispose();
     super.dispose();
@@ -170,6 +189,13 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
         jumpPort: int.tryParse(_sshJumpPortController.text) ?? 22,
         jumpUsername: _sshJumpUsernameController.text.trim().isNotEmpty
             ? _sshJumpUsernameController.text.trim()
+            : null,
+        jumpAuthType: _sshJumpAuthType,
+        jumpPassword: _sshJumpAuthType == SshAuthType.password
+            ? _sshJumpPasswordController.text
+            : null,
+        jumpPrivateKey: _sshJumpAuthType == SshAuthType.privateKey
+            ? _sshJumpPrivateKeyController.text
             : null,
         password: _sshAuthType == SshAuthType.password
             ? _sshPasswordController.text
@@ -220,11 +246,13 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
             _sshEnabled && _sshJumpUsernameController.text.trim().isNotEmpty
             ? _sshJumpUsernameController.text.trim()
             : null,
+        sshJumpAuthType: _sshJumpAuthType,
       );
 
       final apiKey = _apiKeyController.text.isNotEmpty
           ? _apiKeyController.text
           : null;
+      final hasJump = machine.sshJumpHost != null;
 
       await widget.onSave(
         machine: machine,
@@ -234,6 +262,14 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
             : null,
         sshPrivateKey: _sshEnabled && _sshAuthType == SshAuthType.privateKey
             ? _sshPrivateKeyController.text
+            : null,
+        sshJumpPassword:
+            hasJump && _sshJumpAuthType == SshAuthType.password
+            ? _sshJumpPasswordController.text
+            : null,
+        sshJumpPrivateKey:
+            hasJump && _sshJumpAuthType == SshAuthType.privateKey
+            ? _sshJumpPrivateKeyController.text
             : null,
       );
 
@@ -513,7 +549,55 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Auth type selector
+                      // Jump host auth type selector
+                      SegmentedButton<SshAuthType>(
+                        key: const ValueKey('ssh_jump_auth_type_selector'),
+                        segments: const [
+                          ButtonSegment(
+                            value: SshAuthType.password,
+                            label: Text('Password'),
+                            icon: Icon(Icons.password),
+                          ),
+                          ButtonSegment(
+                            value: SshAuthType.privateKey,
+                            label: Text('Private Key'),
+                            icon: Icon(Icons.vpn_key),
+                          ),
+                        ],
+                        selected: {_sshJumpAuthType},
+                        onSelectionChanged: (set) {
+                          setState(() => _sshJumpAuthType = set.first);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      if (_sshJumpAuthType == SshAuthType.password)
+                        TextField(
+                          key: const ValueKey('ssh_jump_password_field'),
+                          controller: _sshJumpPasswordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Jump Password',
+                            prefixIcon: Icon(Icons.lock),
+                            border: OutlineInputBorder(),
+                          ),
+                        )
+                      else
+                        TextField(
+                          key: const ValueKey('ssh_jump_private_key_field'),
+                          controller: _sshJumpPrivateKeyController,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            labelText: 'Jump Private Key (PEM)',
+                            hintText: '-----BEGIN ... PRIVATE KEY-----',
+                            prefixIcon: Icon(Icons.vpn_key),
+                            border: OutlineInputBorder(),
+                            alignLabelWithHint: true,
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+
+                      // Target auth type selector
                       SegmentedButton<SshAuthType>(
                         segments: const [
                           ButtonSegment(

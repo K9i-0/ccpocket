@@ -27,8 +27,18 @@ class SshJumpConfig {
   final String host;
   final int port;
   final String? username;
+  final SshAuthType authType;
+  final String? password;
+  final String? privateKey;
 
-  const SshJumpConfig({required this.host, required this.port, this.username});
+  const SshJumpConfig({
+    required this.host,
+    required this.port,
+    this.username,
+    this.authType = SshAuthType.password,
+    this.password,
+    this.privateKey,
+  });
 }
 
 class SshCommandResult {
@@ -111,12 +121,17 @@ class DartSshConnectionGateway implements SshConnectionGateway {
       jump.port,
       timeout: connectionTimeout,
     );
+    final jumpIdentities = _validateCredentials(
+      jump.authType,
+      jump.password,
+      jump.privateKey,
+    );
     final jumpClient = _createClient(
       jumpSocket,
       username: jump.username ?? username,
-      authType: authType,
-      password: password,
-      identities: identities,
+      authType: jump.authType,
+      password: jump.password,
+      identities: jumpIdentities,
     );
 
     try {
@@ -682,6 +697,9 @@ ${_startCommand.trim()}
     String? jumpHost,
     int jumpPort = 22,
     String? jumpUsername,
+    SshAuthType jumpAuthType = SshAuthType.password,
+    String? jumpPassword,
+    String? jumpPrivateKey,
     String? password,
     String? privateKey,
   }) async {
@@ -706,6 +724,9 @@ ${_startCommand.trim()}
           host: jumpHost,
           port: jumpPort,
           username: jumpUsername,
+          authType: jumpAuthType,
+          password: jumpPassword,
+          privateKey: jumpPrivateKey,
         ),
       );
 
@@ -836,7 +857,7 @@ ${_startCommand.trim()}
     Machine machine, {
     String? password,
     String? privateKey,
-  }) {
+  }) async {
     return _connectionGateway.connect(
       host: machine.host,
       port: machine.sshPort,
@@ -844,15 +865,32 @@ ${_startCommand.trim()}
       authType: machine.sshAuthType,
       password: password,
       privateKey: privateKey,
-      jump: _machineJumpConfig(machine),
+      jump: await _machineJumpConfig(machine),
     );
   }
 
-  SshJumpConfig? _machineJumpConfig(Machine machine) {
-    return _inlineJumpConfig(
-      host: machine.sshJumpHost,
+  Future<SshJumpConfig?> _machineJumpConfig(Machine machine) async {
+    final trimmedHost = machine.sshJumpHost?.trim();
+    if (trimmedHost == null || trimmedHost.isEmpty) return null;
+
+    String? jumpPassword;
+    String? jumpPrivateKey;
+    if (machine.sshJumpAuthType == SshAuthType.password) {
+      jumpPassword = await _machineManager.getSshJumpPassword(machine.id);
+    } else {
+      jumpPrivateKey = await _machineManager.getSshJumpPrivateKey(machine.id);
+    }
+
+    final trimmedUsername = machine.sshJumpUsername?.trim();
+    return SshJumpConfig(
+      host: trimmedHost,
       port: machine.sshJumpPort,
-      username: machine.sshJumpUsername,
+      username: trimmedUsername == null || trimmedUsername.isEmpty
+          ? null
+          : trimmedUsername,
+      authType: machine.sshJumpAuthType,
+      password: jumpPassword,
+      privateKey: jumpPrivateKey,
     );
   }
 
@@ -860,6 +898,9 @@ ${_startCommand.trim()}
     required String? host,
     required int port,
     required String? username,
+    SshAuthType authType = SshAuthType.password,
+    String? password,
+    String? privateKey,
   }) {
     final trimmedHost = host?.trim();
     if (trimmedHost == null || trimmedHost.isEmpty) return null;
@@ -870,6 +911,9 @@ ${_startCommand.trim()}
       username: trimmedUsername == null || trimmedUsername.isEmpty
           ? null
           : trimmedUsername,
+      authType: authType,
+      password: password,
+      privateKey: privateKey,
     );
   }
 }
