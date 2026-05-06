@@ -52,7 +52,12 @@ void main() {
         username: username,
         authType: SshAuthType.password,
         password: password,
-        jump: SshJumpConfig(host: jumpHost, port: jumpPort, username: username),
+        jump: SshJumpConfig(
+          host: jumpHost,
+          port: jumpPort,
+          username: username,
+          jumpPassword: password,
+        ),
       );
 
       try {
