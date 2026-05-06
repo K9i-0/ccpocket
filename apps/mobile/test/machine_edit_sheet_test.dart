@@ -12,6 +12,7 @@ class _TestConnectionCall {
   final String? jumpHost;
   final int jumpPort;
   final String? jumpUsername;
+  final String? jumpPassword;
 
   const _TestConnectionCall({
     required this.host,
@@ -20,6 +21,7 @@ class _TestConnectionCall {
     required this.jumpHost,
     required this.jumpPort,
     required this.jumpUsername,
+    this.jumpPassword,
   });
 }
 
@@ -29,6 +31,7 @@ void main() {
     Machine? machine,
     void Function(_TestConnectionCall call)? onTestConnectionCall,
     String? existingSshPassword,
+    String? existingSshJumpPassword,
     required Future<void> Function({
       required Machine machine,
       String? apiKey,
@@ -53,6 +56,7 @@ void main() {
           body: MachineEditSheet(
             machine: machine,
             existingSshPassword: existingSshPassword,
+            existingSshJumpPassword: existingSshJumpPassword,
             onSave: onSave,
             onTestConnection:
                 ({
@@ -77,6 +81,7 @@ void main() {
                       jumpHost: jumpHost,
                       jumpPort: jumpPort,
                       jumpUsername: jumpUsername,
+                      jumpPassword: jumpPassword,
                     ),
                   );
                   return SshResult.success();
@@ -135,6 +140,8 @@ void main() {
   group('MachineEditSheet SSH jump host', () {
     testWidgets('loads and saves SSH jump host fields', (tester) async {
       Machine? savedMachine;
+      String? savedSshJumpPassword;
+      String? savedSshPassword;
 
       await pumpSheet(
         tester,
@@ -147,8 +154,12 @@ void main() {
           sshJumpPort: 2222,
           sshJumpUsername: 'jump-user',
         ),
+        existingSshJumpPassword: 'jump-pw',
+        existingSshPassword: 'target-pw',
         onSave: ({required machine, apiKey, sshPassword, sshPrivateKey, sshJumpPassword, sshJumpPrivateKey}) async {
           savedMachine = machine;
+          savedSshPassword = sshPassword;
+          savedSshJumpPassword = sshJumpPassword;
         },
       );
 
@@ -164,6 +175,9 @@ void main() {
       expect(savedMachine!.sshJumpHost, 'jump.example.com');
       expect(savedMachine!.sshJumpPort, 2222);
       expect(savedMachine!.sshJumpUsername, 'jump-user');
+      // jump credentials are stored separately from target credentials
+      expect(savedSshJumpPassword, 'jump-pw');
+      expect(savedSshPassword, 'target-pw');
     });
 
     testWidgets('passes SSH jump host fields to Test Connection', (
@@ -182,7 +196,8 @@ void main() {
           sshJumpPort: 2222,
           sshJumpUsername: 'jump-user',
         ),
-        existingSshPassword: 'pw',
+        existingSshPassword: 'target-pw',
+        existingSshJumpPassword: 'jump-pw',
         onTestConnectionCall: (value) => call = value,
         onSave:
             ({required machine, apiKey, sshPassword, sshPrivateKey, sshJumpPassword, sshJumpPrivateKey}) async {},
@@ -198,6 +213,8 @@ void main() {
       expect(call!.jumpHost, 'jump.example.com');
       expect(call!.jumpPort, 2222);
       expect(call!.jumpUsername, 'jump-user');
+      // jump credentials are passed separately from target credentials
+      expect(call!.jumpPassword, 'jump-pw');
     });
   });
 }
