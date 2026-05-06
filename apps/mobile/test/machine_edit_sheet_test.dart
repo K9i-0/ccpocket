@@ -34,6 +34,8 @@ void main() {
       String? apiKey,
       String? sshPassword,
       String? sshPrivateKey,
+      String? sshJumpPassword,
+      String? sshJumpPrivateKey,
     })
     onSave,
   }) async {
@@ -61,6 +63,9 @@ void main() {
                   jumpHost,
                   required jumpPort,
                   jumpUsername,
+                  jumpAuthType = SshAuthType.password,
+                  jumpPassword,
+                  jumpPrivateKey,
                   password,
                   privateKey,
                 }) async {
@@ -93,7 +98,7 @@ void main() {
           useSsl: true,
         ),
         onSave:
-            ({required machine, apiKey, sshPassword, sshPrivateKey}) async {},
+            ({required machine, apiKey, sshPassword, sshPrivateKey, sshJumpPassword, sshJumpPrivateKey}) async {},
       );
 
       final switchTile = tester.widget<SwitchListTile>(
@@ -110,7 +115,7 @@ void main() {
       await pumpSheet(
         tester,
         machine: const Machine(id: 'm2', host: 'bridge.example.com'),
-        onSave: ({required machine, apiKey, sshPassword, sshPrivateKey}) async {
+        onSave: ({required machine, apiKey, sshPassword, sshPrivateKey, sshJumpPassword, sshJumpPrivateKey}) async {
           savedMachine = machine;
         },
       );
@@ -142,7 +147,7 @@ void main() {
           sshJumpPort: 2222,
           sshJumpUsername: 'jump-user',
         ),
-        onSave: ({required machine, apiKey, sshPassword, sshPrivateKey}) async {
+        onSave: ({required machine, apiKey, sshPassword, sshPrivateKey, sshJumpPassword, sshJumpPrivateKey}) async {
           savedMachine = machine;
         },
       );
@@ -180,7 +185,7 @@ void main() {
         existingSshPassword: 'pw',
         onTestConnectionCall: (value) => call = value,
         onSave:
-            ({required machine, apiKey, sshPassword, sshPrivateKey}) async {},
+            ({required machine, apiKey, sshPassword, sshPrivateKey, sshJumpPassword, sshJumpPrivateKey}) async {},
       );
 
       await tester.tap(find.text('Test Connection'));

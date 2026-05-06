@@ -46,7 +46,11 @@ _Machine _$MachineFromJson(Map<String, dynamic> json) => _Machine(
   sshJumpHost: json['sshJumpHost'] as String?,
   sshJumpPort: (json['sshJumpPort'] as num?)?.toInt() ?? 22,
   sshJumpUsername: json['sshJumpUsername'] as String?,
+  sshJumpAuthType:
+      $enumDecodeNullable(_$SshAuthTypeEnumMap, json['sshJumpAuthType']) ??
+      SshAuthType.password,
   hasCredentials: json['hasCredentials'] as bool? ?? false,
+  hasJumpCredentials: json['hasJumpCredentials'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$MachineToJson(_Machine instance) => <String, dynamic>{
@@ -65,7 +69,9 @@ Map<String, dynamic> _$MachineToJson(_Machine instance) => <String, dynamic>{
   'sshJumpHost': instance.sshJumpHost,
   'sshJumpPort': instance.sshJumpPort,
   'sshJumpUsername': instance.sshJumpUsername,
+  'sshJumpAuthType': _$SshAuthTypeEnumMap[instance.sshJumpAuthType]!,
   'hasCredentials': instance.hasCredentials,
+  'hasJumpCredentials': instance.hasJumpCredentials,
 };
 
 const _$SshAuthTypeEnumMap = {

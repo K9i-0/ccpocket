@@ -270,6 +270,8 @@ class _StaticMachineManagerService implements MachineManagerService {
     String? apiKey,
     String? sshPassword,
     String? sshPrivateKey,
+    String? sshJumpPassword,
+    String? sshJumpPrivateKey,
   }) async {}
 
   @override
@@ -278,8 +280,11 @@ class _StaticMachineManagerService implements MachineManagerService {
     String? apiKey,
     String? sshPassword,
     String? sshPrivateKey,
+    String? sshJumpPassword,
+    String? sshJumpPrivateKey,
     bool clearApiKey = false,
     bool clearCredentials = false,
+    bool clearJumpCredentials = false,
   }) async {}
 
   @override
@@ -304,6 +309,12 @@ class _StaticMachineManagerService implements MachineManagerService {
 
   @override
   Future<String?> getSshPrivateKey(String machineId) async => null;
+
+  @override
+  Future<String?> getSshJumpPassword(String machineId) async => null;
+
+  @override
+  Future<String?> getSshJumpPrivateKey(String machineId) async => null;
 
   @override
   Future<String> buildWsUrl(String machineId) async => 'ws://127.0.0.1:8765';
