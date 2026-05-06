@@ -139,6 +139,43 @@ List<RecentSession> filterByQuery(List<RecentSession> sessions, String query) {
   }).toList();
 }
 
+List<RecentSession> applyCodexApprovalDefaultsToRecentSessions(
+  List<RecentSession> sessions,
+  NewSessionParams? defaults,
+) {
+  if (defaults == null || defaults.provider != Provider.codex) {
+    return sessions;
+  }
+  final approvalPolicy = defaults.codexApprovalPolicy.value;
+  final approvalsReviewer = defaults.codexApprovalsReviewer;
+  return [
+    for (final session in sessions)
+      if (session.provider == Provider.codex.value)
+        session.copyWithCodexApprovalDefaults(
+          approvalPolicy: approvalPolicy,
+          approvalsReviewer: approvalsReviewer,
+        )
+      else
+        session,
+  ];
+}
+
+NewSessionParams? mergeCodexDefaultsIntoInitialSessionDefaults(
+  NewSessionParams? defaults,
+  NewSessionParams? codexDefaults,
+) {
+  if (defaults == null) return codexDefaults;
+  if (defaults.provider == Provider.codex || codexDefaults == null) {
+    return defaults;
+  }
+  return defaults.copyWith(
+    codexApprovalPolicy: codexDefaults.codexApprovalPolicy,
+    codexAutoReviewEnabled: codexDefaults.codexAutoReviewEnabled,
+    codexApprovalPolicyOverridden: codexDefaults.codexApprovalPolicyOverridden,
+    codexAutoReviewOverridden: codexDefaults.codexAutoReviewOverridden,
+  );
+}
+
 // ---- Screen ----
 
 class SessionListScreen extends StatefulWidget {
@@ -178,7 +215,7 @@ class _SessionListScreenState extends State<SessionListScreen>
   String? _pendingResumeProjectPath;
   String? _pendingResumeGitBranch;
   NewSessionParams? _pendingClaudeDefaultsCorrection;
-  NewSessionParams? _sessionStartDefaults;
+  NewSessionParams? _codexSessionStartDefaults;
 
   // Flag: already navigated to chat for pending session creation
   bool _pendingNavigation = false;
@@ -204,6 +241,12 @@ class _SessionListScreenState extends State<SessionListScreen>
   static const _prefKeyMacOSNativeAppBannerDismissed =
       'macos_native_app_banner.dismissed';
   static const _prefKeySessionStartDefaults = 'session_start_defaults_v1';
+  static const _prefKeySessionStartDefaultsLastProvider =
+      'session_start_defaults_last_provider_v1';
+  static const _prefKeyCodexSessionStartDefaults =
+      'session_start_defaults_codex_v1';
+  static const _prefKeyClaudeSessionStartDefaults =
+      'session_start_defaults_claude_v1';
   static const _prefKeyClaudeSessionSettingsPrefix = 'claude_session_settings_';
   static const _prefKeyCodexProfileByProject = 'codex_profile_by_project_v1';
 
@@ -732,9 +775,22 @@ class _SessionListScreenState extends State<SessionListScreen>
     );
   }
 
-  Future<NewSessionParams?> _loadSessionStartDefaults() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_prefKeySessionStartDefaults);
+  static String _sessionStartDefaultsKeyForProvider(Provider provider) {
+    return switch (provider) {
+      Provider.codex => _prefKeyCodexSessionStartDefaults,
+      Provider.claude => _prefKeyClaudeSessionStartDefaults,
+    };
+  }
+
+  static Provider? _sessionStartDefaultsProviderFromRaw(String? raw) {
+    return switch (raw) {
+      'codex' => Provider.codex,
+      'claude' => Provider.claude,
+      _ => null,
+    };
+  }
+
+  NewSessionParams? _decodeSessionStartDefaults(String? raw) {
     if (raw == null || raw.isEmpty) return null;
     try {
       final json = jsonDecode(raw) as Map<String, dynamic>;
@@ -744,18 +800,64 @@ class _SessionListScreenState extends State<SessionListScreen>
     }
   }
 
+  Future<NewSessionParams?> _loadSessionStartDefaults({
+    Provider? provider,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (provider != null) {
+      final scoped = _decodeSessionStartDefaults(
+        prefs.getString(_sessionStartDefaultsKeyForProvider(provider)),
+      );
+      if (scoped != null) return scoped;
+
+      // Migration fallback from the old shared key. Only use it when the
+      // stored provider matches, so Claude defaults cannot affect Codex.
+      final legacy = _decodeSessionStartDefaults(
+        prefs.getString(_prefKeySessionStartDefaults),
+      );
+      return legacy?.provider == provider ? legacy : null;
+    }
+
+    final lastProvider = _sessionStartDefaultsProviderFromRaw(
+      prefs.getString(_prefKeySessionStartDefaultsLastProvider),
+    );
+    if (lastProvider != null) {
+      final scoped = await _loadSessionStartDefaults(provider: lastProvider);
+      if (scoped != null) return scoped;
+    }
+
+    final legacy = _decodeSessionStartDefaults(
+      prefs.getString(_prefKeySessionStartDefaults),
+    );
+    if (legacy != null) return legacy;
+
+    return await _loadSessionStartDefaults(provider: Provider.codex) ??
+        await _loadSessionStartDefaults(provider: Provider.claude);
+  }
+
   Future<void> _loadSessionStartDefaultsIntoState() async {
-    final defaults = await _loadSessionStartDefaults();
+    final codexDefaults = await _loadSessionStartDefaults(
+      provider: Provider.codex,
+    );
     if (!mounted) return;
-    setState(() => _sessionStartDefaults = defaults);
+    setState(() => _codexSessionStartDefaults = codexDefaults);
   }
 
   Future<void> _saveSessionStartDefaults(NewSessionParams params) async {
     final prefs = await SharedPreferences.getInstance();
     final json = sessionStartDefaultsToJson(params);
-    await prefs.setString(_prefKeySessionStartDefaults, jsonEncode(json));
-    if (mounted) {
-      setState(() => _sessionStartDefaults = params);
+    await prefs.setString(
+      _sessionStartDefaultsKeyForProvider(params.provider),
+      jsonEncode(json),
+    );
+    await prefs.setString(
+      _prefKeySessionStartDefaultsLastProvider,
+      params.provider.value,
+    );
+    if (mounted && params.provider == Provider.codex) {
+      setState(() {
+        _codexSessionStartDefaults = params;
+      });
     }
   }
 
@@ -784,17 +886,27 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   Future<NewSessionParams?> _loadInitialNewSessionDefaults() async {
     final defaults = await _loadSessionStartDefaults();
-    if (defaults == null || defaults.provider != Provider.codex) {
-      return defaults;
+    final codexDefaults = await _loadSessionStartDefaults(
+      provider: Provider.codex,
+    );
+    final mergedDefaults = mergeCodexDefaultsIntoInitialSessionDefaults(
+      defaults,
+      codexDefaults,
+    );
+    if (mergedDefaults == null) return null;
+    if (mergedDefaults.provider != Provider.codex) {
+      return mergedDefaults;
     }
-    final savedProfile = await _loadProjectCodexProfile(defaults.projectPath);
-    if (savedProfile == null || savedProfile.isEmpty) return defaults;
-    if (!mounted) return defaults;
+    final savedProfile = await _loadProjectCodexProfile(
+      mergedDefaults.projectPath,
+    );
+    if (savedProfile == null || savedProfile.isEmpty) return mergedDefaults;
+    if (!mounted) return mergedDefaults;
     final available = context.read<BridgeService>().codexProfiles;
     if (available.isNotEmpty && !available.contains(savedProfile)) {
-      return defaults;
+      return mergedDefaults;
     }
-    return defaults.copyWith(codexProfile: savedProfile);
+    return mergedDefaults.copyWith(codexProfile: savedProfile);
   }
 
   Future<Map<String, String>> _loadCodexProfilesByProject() async {
@@ -852,22 +964,10 @@ class _SessionListScreenState extends State<SessionListScreen>
   List<RecentSession> _recentSessionsWithCodexApprovalDefaults(
     List<RecentSession> sessions,
   ) {
-    final defaults = _sessionStartDefaults;
-    if (defaults == null) {
-      return sessions;
-    }
-    final approvalPolicy = defaults.codexApprovalPolicy.value;
-    final approvalsReviewer = defaults.codexApprovalsReviewer;
-    return [
-      for (final session in sessions)
-        if (session.provider == Provider.codex.value)
-          session.copyWithCodexApprovalDefaults(
-            approvalPolicy: approvalPolicy,
-            approvalsReviewer: approvalsReviewer,
-          )
-        else
-          session,
-    ];
+    return applyCodexApprovalDefaultsToRecentSessions(
+      sessions,
+      _codexSessionStartDefaults,
+    );
   }
 
   // ---- Per-session Claude settings persistence ----
@@ -941,7 +1041,7 @@ class _SessionListScreenState extends State<SessionListScreen>
         ? await loadClaudeSessionSettings(session.sessionId)
         : null;
     final defaults = provider == Provider.codex
-        ? await _loadSessionStartDefaults()
+        ? await _loadSessionStartDefaults(provider: Provider.codex)
         : null;
     final codexDefaults = defaults;
     final codexApprovalPolicy =
@@ -1260,13 +1360,15 @@ class _SessionListScreenState extends State<SessionListScreen>
     NewSessionParams? codexDefaults;
     if (!isCodex) {
       sessionSettings = await loadClaudeSessionSettings(session.sessionId);
-      final defaults = await _loadSessionStartDefaults();
+      final defaults = await _loadSessionStartDefaults(
+        provider: Provider.claude,
+      );
       if (!mounted) return;
-      if (defaults?.provider == Provider.claude) {
-        claudeDefaults = defaults;
-      }
+      claudeDefaults = defaults;
     } else {
-      final defaults = await _loadSessionStartDefaults();
+      final defaults = await _loadSessionStartDefaults(
+        provider: Provider.codex,
+      );
       if (!mounted) return;
       codexDefaults = defaults;
     }

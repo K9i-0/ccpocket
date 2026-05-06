@@ -10,13 +10,17 @@ import 'package:ccpocket/widgets/new_session_sheet.dart';
 RecentSession _session({
   required String projectPath,
   String sessionId = 'sess',
+  String? provider,
   String firstPrompt = '',
   String gitBranch = 'main',
   String? summary,
   String modified = '2025-01-01T00:00:00Z',
+  String? codexApprovalPolicy,
+  String? codexApprovalsReviewer,
 }) {
   return RecentSession(
     sessionId: sessionId,
+    provider: provider,
     firstPrompt: firstPrompt,
     summary: summary,
     created: '2025-01-01T00:00:00Z',
@@ -24,6 +28,8 @@ RecentSession _session({
     gitBranch: gitBranch,
     projectPath: projectPath,
     isSidechain: false,
+    codexApprovalPolicy: codexApprovalPolicy,
+    codexApprovalsReviewer: codexApprovalsReviewer,
   );
 }
 
@@ -388,6 +394,83 @@ void main() {
       expect(restored.codexAutoReviewEnabled, isTrue);
       expect(restored.codexApprovalsReviewer, 'auto_review');
     });
+
+    test('Claude defaults do not override Codex recent approval reviewer', () {
+      final recent = [
+        _session(
+          projectPath: '/tmp/project-auto-review',
+          provider: Provider.codex.value,
+          codexApprovalPolicy: CodexApprovalPolicy.onRequest.value,
+          codexApprovalsReviewer: 'auto_review',
+        ),
+      ];
+      final claudeDefaults = NewSessionParams(
+        projectPath: '/tmp/project-claude',
+        provider: Provider.claude,
+        permissionMode: PermissionMode.defaultMode,
+      );
+
+      final updated = applyCodexApprovalDefaultsToRecentSessions(
+        recent,
+        claudeDefaults,
+      );
+
+      expect(updated.single.codexApprovalPolicy, 'on-request');
+      expect(updated.single.codexApprovalsReviewer, 'auto_review');
+    });
+
+    test('Codex defaults override Codex recent approval reviewer', () {
+      final recent = [
+        _session(
+          projectPath: '/tmp/project-codex',
+          provider: Provider.codex.value,
+          codexApprovalPolicy: CodexApprovalPolicy.onRequest.value,
+          codexApprovalsReviewer: 'user',
+        ),
+      ];
+      final codexDefaults = NewSessionParams(
+        projectPath: '/tmp/project-codex',
+        provider: Provider.codex,
+        codexApprovalPolicy: CodexApprovalPolicy.onRequest,
+        codexAutoReviewEnabled: true,
+      );
+
+      final updated = applyCodexApprovalDefaultsToRecentSessions(
+        recent,
+        codexDefaults,
+      );
+
+      expect(updated.single.codexApprovalPolicy, 'on-request');
+      expect(updated.single.codexApprovalsReviewer, 'auto_review');
+    });
+
+    test(
+      'Claude initial defaults keep saved Codex auto review for tab switch',
+      () {
+        final claudeDefaults = NewSessionParams(
+          projectPath: '/tmp/project-claude',
+          provider: Provider.claude,
+          permissionMode: PermissionMode.defaultMode,
+        );
+        final codexDefaults = NewSessionParams(
+          projectPath: '/tmp/project-codex',
+          provider: Provider.codex,
+          codexApprovalPolicy: CodexApprovalPolicy.onRequest,
+          codexAutoReviewEnabled: true,
+        );
+
+        final merged = mergeCodexDefaultsIntoInitialSessionDefaults(
+          claudeDefaults,
+          codexDefaults,
+        );
+
+        expect(merged, isNotNull);
+        expect(merged!.provider, Provider.claude);
+        expect(merged.codexApprovalPolicy, CodexApprovalPolicy.onRequest);
+        expect(merged.codexAutoReviewEnabled, isTrue);
+        expect(merged.codexApprovalsReviewer, 'auto_review');
+      },
+    );
 
     test('does not persist session-specific fields', () {
       final params = NewSessionParams(
