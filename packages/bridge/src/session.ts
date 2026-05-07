@@ -1378,14 +1378,18 @@ export class SessionManager {
     return true;
   }
 
-  destroy(id: string): boolean {
+  destroy(id: string, { preserveState = false }: { preserveState?: boolean } = {}): boolean {
     const session = this.sessions.get(id);
     if (!session) return false;
     session.process.stop();
     session.process.removeAllListeners();
     this.sessions.delete(id);
-    // Remove from persisted state — session was explicitly stopped.
-    this.sessionStateStore?.remove(id);
+    // Only remove from persisted state when explicitly stopped by user.
+    // On graceful shutdown (preserveState=true), keep the entry so the session
+    // reappears as resumable after bridge restart.
+    if (!preserveState) {
+      this.sessionStateStore?.remove(id);
+    }
     console.log(`[session] Destroyed session ${id}`);
     return true;
   }
@@ -1393,6 +1397,13 @@ export class SessionManager {
   destroyAll(): void {
     for (const [id] of this.sessions) {
       this.destroy(id);
+    }
+  }
+
+  /** Graceful shutdown: stop all processes but preserve session state for resume after restart. */
+  shutdownAll(): void {
+    for (const [id] of this.sessions) {
+      this.destroy(id, { preserveState: true });
     }
   }
 

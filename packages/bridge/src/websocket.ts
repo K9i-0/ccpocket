@@ -1228,7 +1228,7 @@ export class BridgeWebSocketServer {
 
   close(): void {
     console.log("[ws] Shutting down...");
-    this.sessionManager.destroyAll();
+    this.sessionManager.shutdownAll();
     this.debugEvents.clear();
     this.wss.close();
   }
@@ -2790,6 +2790,9 @@ export class BridgeWebSocketServer {
           this.debugEvents.delete(msg.sessionId);
           this.notifiedPermissionToolUses.delete(msg.sessionId);
           this.broadcastSessionList();
+        } else if (this.removeFromStaleSessions(msg.sessionId)) {
+          // Session was stale (from previous bridge run) — removed successfully
+          this.broadcastSessionList();
         } else {
           this.send(ws, {
             type: "error",
@@ -3117,11 +3120,15 @@ export class BridgeWebSocketServer {
                 }
               }
             }
+            // Remove from stale sessions so it no longer appears in session_list
+            this.removeFromStaleSessions(sessionId);
             this.send(ws, {
               type: "archive_result",
               sessionId,
               success: true,
             } as Record<string, unknown>);
+            // Broadcast updated session list to all clients
+            this.broadcastSessionList();
           })
           .catch((err) => {
             this.send(ws, {
@@ -4930,6 +4937,7 @@ export class BridgeWebSocketServer {
   /**
    * Merge stale sessions (from previous bridge run) into the active session list.
    * Stale sessions appear as idle/resumable and are de-duped against running sessions.
+   * Archived and stopped sessions are excluded.
    */
   private mergeStaleSessionsInto(sessions: unknown[]): unknown[] {
     if (this.staleSessions.length === 0) return sessions;
@@ -4938,8 +4946,10 @@ export class BridgeWebSocketServer {
         .map((s) => s.claudeSessionId)
         .filter(Boolean),
     );
+    const archivedIds = this.archiveStore.archivedIds();
     const staleAsSummaries = this.staleSessions
       .filter((s) => !activeClaudeIds.has(s.claudeSessionId))
+      .filter((s) => !archivedIds.has(s.bridgeSessionId))
       .map((s) => ({
         id: s.bridgeSessionId,
         provider: s.provider,
@@ -4959,6 +4969,20 @@ export class BridgeWebSocketServer {
         stale: true,
       }));
     return [...sessions, ...staleAsSummaries];
+  }
+
+  /**
+   * Remove a session from the stale sessions list by bridgeSessionId or claudeSessionId.
+   * Returns true if a session was found and removed.
+   */
+  private removeFromStaleSessions(sessionId: string): boolean {
+    const idx = this.staleSessions.findIndex(
+      (s) =>
+        s.bridgeSessionId === sessionId || s.claudeSessionId === sessionId,
+    );
+    if (idx === -1) return false;
+    this.staleSessions.splice(idx, 1);
+    return true;
   }
 
   private sendPromptHistoryStatus(ws: WebSocket): void {
