@@ -59,6 +59,120 @@ void main() {
       bridge.dispose();
     });
 
+    test('disconnect clears bridge-scoped metadata caches', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final sockets = <WebSocket>[];
+      final socketReady = Completer<void>();
+
+      server.transform(WebSocketTransformer()).listen((socket) {
+        sockets.add(socket);
+        socket.add(
+          jsonEncode({
+            'type': 'session_list',
+            'sessions': [],
+            'allowedDirs': ['/old-bridge'],
+            'claudeModels': ['sonnet'],
+            'codexModels': ['gpt-5.2'],
+            'codexProfiles': ['old-profile'],
+            'defaultCodexProfile': 'old-profile',
+            'bridgeVersion': '1.2.3',
+          }),
+        );
+        socket.add(
+          jsonEncode({
+            'type': 'project_history',
+            'projects': ['/old-bridge/project'],
+          }),
+        );
+        socketReady.complete();
+      });
+
+      final bridge = BridgeService();
+      bridge.connect('ws://127.0.0.1:${server.port}');
+
+      await socketReady.future;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(bridge.allowedDirs, ['/old-bridge']);
+      expect(bridge.projectHistory, ['/old-bridge/project']);
+      expect(bridge.codexProfiles, ['old-profile']);
+      expect(bridge.bridgeVersion, '1.2.3');
+
+      bridge.disconnect();
+
+      expect(bridge.allowedDirs, isEmpty);
+      expect(bridge.projectHistory, isEmpty);
+      expect(bridge.codexProfiles, isEmpty);
+      expect(bridge.bridgeVersion, isNull);
+
+      for (final socket in sockets) {
+        await socket.close();
+      }
+      await server.close(force: true);
+      bridge.dispose();
+    });
+
+    test(
+      'switching bridge drops pending starts from previous target',
+      () async {
+        final oldServer = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final oldSocketReady = Completer<WebSocket>();
+        oldServer.transform(WebSocketTransformer()).listen((socket) {
+          oldSocketReady.complete(socket);
+        });
+
+        final newServer = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final newSocketReady = Completer<WebSocket>();
+        final newReceived = <Map<String, dynamic>>[];
+        final firstNewMessage = Completer<void>();
+        newServer.transform(WebSocketTransformer()).listen((socket) {
+          newSocketReady.complete(socket);
+          socket.listen((data) {
+            newReceived.add(jsonDecode(data as String) as Map<String, dynamic>);
+            if (!firstNewMessage.isCompleted) firstNewMessage.complete();
+          });
+        });
+
+        final bridge = BridgeService();
+        bridge.connect('ws://127.0.0.1:${oldServer.port}');
+
+        final oldSocket = await oldSocketReady.future;
+        await oldSocket.close();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        bridge.send(
+          ClientMessage.start(
+            '/old-bridge/project',
+            provider: Provider.codex.value,
+          ),
+        );
+        expect(bridge.offlinePendingActions, hasLength(1));
+
+        bridge.connect('ws://127.0.0.1:${newServer.port}');
+
+        final newSocket = await newSocketReady.future;
+        await firstNewMessage.future;
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(
+          newReceived.map((message) => message['type']),
+          isNot(contains('start')),
+        );
+        expect(bridge.offlinePendingActions, isEmpty);
+
+        await newSocket.close();
+        await oldServer.close(force: true);
+        await newServer.close(force: true);
+        bridge.dispose();
+      },
+    );
+
     test(
       'requestSessionHistory uses delta when cached sequence exists',
       () async {

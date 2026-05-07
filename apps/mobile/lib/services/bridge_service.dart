@@ -130,6 +130,7 @@ class BridgeService implements BridgeServiceBase {
 
   // Auto-reconnect
   String? _lastUrl;
+  int _connectionEpoch = 0;
   Timer? _reconnectTimer;
   int _reconnectAttempt = 0;
   static const _maxReconnectDelay = 30;
@@ -309,6 +310,7 @@ class BridgeService implements BridgeServiceBase {
   static const _inFlightPendingVisibilityDelay = Duration(milliseconds: 600);
 
   Future<void>? _offlineQueueRestore;
+  int _offlineQueueGeneration = 0;
 
   void _setBridgeConnectionState(BridgeConnectionState state) {
     _connectionState = state;
@@ -316,6 +318,11 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void connect(String url) {
+    final previousUrl = _lastUrl;
+    final isBridgeSwitch =
+        previousUrl != null && !_sameBridgeTarget(previousUrl, url);
+    _connectionEpoch++;
+    final epoch = _connectionEpoch;
     _intentionalDisconnect = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
@@ -325,6 +332,9 @@ class BridgeService implements BridgeServiceBase {
     _channel = null;
     _lastUsageResult = null;
     _promptHistoryBridgeId = null;
+    if (isBridgeSwitch) {
+      _clearBridgeScopedState(clearOfflineQueue: true);
+    }
     _lastUrl = url;
 
     _setBridgeConnectionState(BridgeConnectionState.connecting);
@@ -337,6 +347,7 @@ class BridgeService implements BridgeServiceBase {
 
       _channelSub = _channel!.stream.listen(
         (data) {
+          if (epoch != _connectionEpoch) return;
           try {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
             final sessionId = json['sessionId'] as String?;
@@ -562,6 +573,7 @@ class BridgeService implements BridgeServiceBase {
           }
         },
         onError: (error, stackTrace) {
+          if (epoch != _connectionEpoch) return;
           logger.error('WS stream error', error, stackTrace);
           _setBridgeConnectionState(BridgeConnectionState.disconnected);
           _requeueInFlightInputMessages();
@@ -572,6 +584,7 @@ class BridgeService implements BridgeServiceBase {
           _scheduleReconnect();
         },
         onDone: () {
+          if (epoch != _connectionEpoch) return;
           _channel = null;
           if (!_intentionalDisconnect) {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
@@ -588,6 +601,86 @@ class BridgeService implements BridgeServiceBase {
       _setBridgeConnectionState(BridgeConnectionState.disconnected);
       _messageController.add(ErrorMessage(message: 'Connection failed: $e'));
       _scheduleReconnect();
+    }
+  }
+
+  bool _sameBridgeTarget(String left, String right) {
+    final leftUri = Uri.tryParse(left);
+    final rightUri = Uri.tryParse(right);
+    if (leftUri == null || rightUri == null) return left == right;
+    return _bridgeTargetKey(leftUri) == _bridgeTargetKey(rightUri);
+  }
+
+  String _bridgeTargetKey(Uri uri) {
+    final scheme = uri.scheme.toLowerCase();
+    final host = uri.host.toLowerCase();
+    final port = uri.hasPort ? uri.port : (scheme == 'wss' ? 443 : 80);
+    final path = uri.path.isEmpty ? '/' : uri.path;
+    return '$scheme://$host:$port$path';
+  }
+
+  void _clearBridgeScopedState({required bool clearOfflineQueue}) {
+    _sessions = const [];
+    _recentSessions = const [];
+    _recentSessionsHasMore = false;
+    _appendMode = false;
+    _currentProjectFilter = null;
+    _galleryImages = const [];
+    _projectHistory = const [];
+    _allowedDirs = const [];
+    _claudeModels = const [];
+    _codexModels = const [];
+    _codexProfiles = const [];
+    _defaultCodexProfile = null;
+    _bridgeVersion = null;
+    _promptHistoryBridgeId = null;
+    _lastUsageResult = null;
+    _pendingHistoryDeltaSinceSeq.clear();
+    _deliveryPendingInputs.clear();
+    for (final timer in _deliveryPendingVisibilityTimers.values) {
+      timer.cancel();
+    }
+    _deliveryPendingVisibilityTimers.clear();
+    _runtimeStore.clearAll();
+    clearDiffImageCache();
+
+    _sessionListController.add(_sessions);
+    _recentSessionsController.add(_recentSessions);
+    _galleryController.add(_galleryImages);
+    _projectHistoryController.add(_projectHistory);
+    _fileListController.add(const []);
+
+    if (clearOfflineQueue) {
+      _clearOfflinePendingState();
+    }
+  }
+
+  void _clearOfflinePendingState() {
+    _offlineQueueGeneration++;
+    _messageQueue.clear();
+    _inFlightPendingMessages.clear();
+    _inFlightInputMessages.clear();
+    for (final timer in _inFlightPendingVisibilityTimers.values) {
+      timer.cancel();
+    }
+    _inFlightPendingVisibilityTimers.clear();
+    _visibleInFlightPendingKeys.clear();
+    _offlinePendingActions = const [];
+    _offlinePendingActionsController.add(_offlinePendingActions);
+    _offlineQueueRestore = Future.value();
+    unawaited(_clearPersistedOfflinePendingMessages());
+  }
+
+  Future<void> _clearPersistedOfflinePendingMessages() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefKeyOfflinePendingMessages);
+    } catch (error, stackTrace) {
+      logger.warning(
+        'Failed to clear offline pending messages',
+        error,
+        stackTrace,
+      );
     }
   }
 
@@ -1170,10 +1263,12 @@ class BridgeService implements BridgeServiceBase {
   }
 
   Future<void> _restoreOfflinePendingMessages() async {
+    final generation = _offlineQueueGeneration;
     try {
       final prefs = await SharedPreferences.getInstance();
       final encoded = prefs.getStringList(_prefKeyOfflinePendingMessages);
       if (encoded == null || encoded.isEmpty) return;
+      if (generation != _offlineQueueGeneration) return;
 
       final existingJson = _messageQueue
           .map((message) => message.toJson())
@@ -1194,6 +1289,7 @@ class BridgeService implements BridgeServiceBase {
               ? !existingDedupeKeys.add(dedupeKey)
               : !existingJson.add(message.toJson());
           if (!isDuplicate) {
+            if (generation != _offlineQueueGeneration) return;
             _messageQueue.add(message);
           }
         } catch (error, stackTrace) {
@@ -2041,6 +2137,7 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void disconnect() {
+    _connectionEpoch++;
     _intentionalDisconnect = true;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
@@ -2048,11 +2145,8 @@ class BridgeService implements BridgeServiceBase {
     _channelSub = null;
     _channel?.sink.close();
     _channel = null;
-    _lastUsageResult = null;
-    _promptHistoryBridgeId = null;
     _setBridgeConnectionState(BridgeConnectionState.disconnected);
-    _bridgeVersion = null;
-    clearDiffImageCache();
+    _clearBridgeScopedState(clearOfflineQueue: true);
   }
 
   // ---------------------------------------------------------------------------
