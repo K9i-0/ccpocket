@@ -1603,6 +1603,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsNewSessionTabsDescription => '可修改新建会话时显示的 AI 工具选项及其排列顺序。';
 
   @override
+  String get showBridgeNameInSessionList => '显示 Bridge 名称';
+
+  @override
+  String get showBridgeNameInSessionListSubtitle =>
+      '注册多个 Bridge 时，在会话列表中显示当前连接的 Bridge 名称。';
+
+  @override
   String get autoRenameCodexSessions => '自动 Rename (Codex)';
 
   @override

@@ -100,5 +100,28 @@ void main() {
 
       await restored.close();
     });
+
+    test('Bridge name display defaults on and persists', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = SettingsCubit(prefs);
+
+      expect(cubit.state.showBridgeNameInSessionList, isTrue);
+
+      cubit.setShowBridgeNameInSessionList(false);
+
+      expect(cubit.state.showBridgeNameInSessionList, isFalse);
+      expect(
+        prefs.getBool('settings_show_bridge_name_in_session_list'),
+        isFalse,
+      );
+
+      await cubit.close();
+
+      final restored = SettingsCubit(prefs);
+      expect(restored.state.showBridgeNameInSessionList, isFalse);
+
+      await restored.close();
+    });
   });
 }

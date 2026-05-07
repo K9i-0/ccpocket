@@ -18,6 +18,7 @@ import '../../../theme/app_theme.dart';
 import '../../../theme/provider_style.dart';
 import '../../../router/app_router.dart';
 import '../../../widgets/session_card.dart';
+import '../../../widgets/workspace_pane_chrome.dart';
 import '../state/session_list_cubit.dart';
 import '../state/session_list_state.dart';
 import '../workspace_shell_screen.dart';
@@ -87,6 +88,7 @@ class HomeContent extends StatefulWidget {
   final VoidCallback? onOpenBridgeSettings;
   final VoidCallback? onOpenSupportSettings;
   final bool? showInlineStopButtonOverride;
+  final String? connectedBridgeLabel;
 
   const HomeContent({
     super.key,
@@ -130,6 +132,7 @@ class HomeContent extends StatefulWidget {
     this.onOpenBridgeSettings,
     this.onOpenSupportSettings,
     this.showInlineStopButtonOverride,
+    this.connectedBridgeLabel,
   });
 
   @override
@@ -323,6 +326,55 @@ class HomeContentState extends State<HomeContent> {
     );
   }
 
+  Widget? _buildConnectedBridgeBanner(BuildContext context) {
+    final label = widget.connectedBridgeLabel;
+    if (label == null || label.isEmpty) return null;
+    if (WorkspaceShellScreen.maybeOf(context) == null) return null;
+    final chrome = resolveWorkspacePaneChrome(
+      platform: Theme.of(context).platform,
+      isAdaptiveWorkspace: true,
+      isLeftPaneVisible: true,
+      slot: WorkspacePaneSlot.left,
+    );
+    if (!chrome.useMacOSAdaptiveChrome) return null;
+
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.dns_outlined,
+                size: 14,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final shell = WorkspaceShellScreen.maybeOf(context);
@@ -357,6 +409,7 @@ class HomeContentState extends State<HomeContent> {
     final selectedSessionProvider = selectedSession?.provider?.value;
     final showInlineStopButton =
         widget.showInlineStopButtonOverride ?? shell != null;
+    final connectedBridgeBanner = _buildConnectedBridgeBanner(context);
 
     // Compute derived state
     // Exclude running sessions from recent list to avoid duplicates
@@ -406,6 +459,7 @@ class HomeContentState extends State<HomeContent> {
           padding: const EdgeInsets.all(12),
           children: [
             if (isReconnecting) const SessionReconnectBanner(),
+            ?connectedBridgeBanner,
             ?updateBanner,
             ?supportBanner,
             ?appUpdateBanner,
@@ -426,6 +480,7 @@ class HomeContentState extends State<HomeContent> {
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           if (isReconnecting) const SessionReconnectBanner(),
+          ?connectedBridgeBanner,
           ?updateBanner,
           ?supportBanner,
           ?macOSNativeAppBanner,
@@ -442,6 +497,7 @@ class HomeContentState extends State<HomeContent> {
       padding: const EdgeInsets.all(12),
       children: [
         if (isReconnecting) const SessionReconnectBanner(),
+        ?connectedBridgeBanner,
         ?updateBanner,
         ?supportBanner,
         ?macOSNativeAppBanner,

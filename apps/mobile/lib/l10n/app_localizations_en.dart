@@ -1689,6 +1689,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose which AI tools appear for new sessions and change their order.';
 
   @override
+  String get showBridgeNameInSessionList => 'Show Bridge name';
+
+  @override
+  String get showBridgeNameInSessionListSubtitle =>
+      'Show the connected Bridge name in the session list when multiple Bridges are registered.';
+
+  @override
   String get autoRenameCodexSessions => 'Auto Rename (Codex)';
 
   @override

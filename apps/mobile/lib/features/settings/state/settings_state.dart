@@ -75,6 +75,9 @@ abstract class SettingsState with _$SettingsState {
     /// Whether to show a subtle badge when the current branch can push/pull.
     @Default(false) bool showRemoteGitStatusBadge,
 
+    /// Whether to show the connected Bridge name in the session list.
+    @Default(true) bool showBridgeNameInSessionList,
+
     /// Selected app icon preference for monthly Supporter perks.
     @Default(AppIconVariant.defaultIcon) AppIconVariant selectedAppIcon,
 

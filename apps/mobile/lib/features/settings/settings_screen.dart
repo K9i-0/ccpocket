@@ -476,6 +476,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       endIndent: 16,
                       color: cs.outlineVariant,
                     ),
+                    SwitchListTile(
+                      secondary: Icon(Icons.dns_outlined, color: cs.primary),
+                      title: Text(l.showBridgeNameInSessionList),
+                      subtitle: Text(l.showBridgeNameInSessionListSubtitle),
+                      value: state.showBridgeNameInSessionList,
+                      onChanged: (value) => context
+                          .read<SettingsCubit>()
+                          .setShowBridgeNameInSessionList(value),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
                     // New Session Tabs
                     ListTile(
                       leading: Icon(Icons.tab, color: cs.primary),

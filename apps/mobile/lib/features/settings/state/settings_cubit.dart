@@ -47,6 +47,8 @@ class SettingsCubit extends Cubit<SettingsState> {
       'settings_git_diff_interaction_mode';
   static const _keyShowRemoteGitStatusBadge =
       'settings_show_remote_git_status_badge';
+  static const _keyShowBridgeNameInSessionList =
+      'settings_show_bridge_name_in_session_list';
   static const _keySelectedAppIcon = 'settings_selected_app_icon';
   static const _keyTerminalApp = 'settings_terminal_app';
   static const _keyNewSessionTabs = 'settings_new_session_tabs';
@@ -182,6 +184,8 @@ class SettingsCubit extends Cubit<SettingsState> {
     );
     final showRemoteGitStatusBadge =
         prefs.getBool(_keyShowRemoteGitStatusBadge) ?? false;
+    final showBridgeNameInSessionList =
+        prefs.getBool(_keyShowBridgeNameInSessionList) ?? true;
     final selectedAppIcon = appIconVariantFromId(
       prefs.getString(_keySelectedAppIcon),
     );
@@ -229,6 +233,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       hideVoiceInput: hideVoiceInput,
       gitDiffInteractionMode: gitDiffInteractionMode,
       showRemoteGitStatusBadge: showRemoteGitStatusBadge,
+      showBridgeNameInSessionList: showBridgeNameInSessionList,
       selectedAppIcon: selectedAppIcon,
       terminalApp: terminalApp,
       newSessionTabs: newSessionTabs,
@@ -333,6 +338,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setShowRemoteGitStatusBadge(bool show) {
     _prefs.setBool(_keyShowRemoteGitStatusBadge, show);
     emit(state.copyWith(showRemoteGitStatusBadge: show));
+  }
+
+  void setShowBridgeNameInSessionList(bool show) {
+    _prefs.setBool(_keyShowBridgeNameInSessionList, show);
+    emit(state.copyWith(showBridgeNameInSessionList: show));
   }
 
   Future<void> setSelectedAppIcon(AppIconVariant icon) async {

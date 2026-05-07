@@ -1618,6 +1618,56 @@ class _SessionListScreenState extends State<SessionListScreen>
     context.read<BridgeService>().stopSession(sessionId);
   }
 
+  String? _connectedBridgeLabel({
+    required SettingsState settingsState,
+    required MachineManagerState? machineState,
+  }) {
+    if (widget.debugRecentSessions != null) return null;
+    if (!settingsState.showBridgeNameInSessionList) return null;
+
+    final machines = machineState?.machines ?? const <MachineWithStatus>[];
+    if (machines.length < 2) return null;
+
+    final activeMachineId = settingsState.activeMachineId;
+    if (activeMachineId != null) {
+      for (final item in machines) {
+        if (item.machine.id == activeMachineId) {
+          return item.machine.displayName;
+        }
+      }
+    }
+
+    final url = context.read<BridgeService>().lastUrl;
+    final machine = _machineForBridgeUrl(machines, url);
+    if (machine != null) return machine.displayName;
+    return _bridgeLabelFromUrl(url);
+  }
+
+  Machine? _machineForBridgeUrl(List<MachineWithStatus> machines, String? url) {
+    final uri = _bridgeUri(url);
+    if (uri == null) return null;
+    final port = uri.hasPort ? uri.port : 8765;
+    for (final item in machines) {
+      final machine = item.machine;
+      if (machine.host == uri.host && machine.port == port) return machine;
+    }
+    return null;
+  }
+
+  String? _bridgeLabelFromUrl(String? url) {
+    final uri = _bridgeUri(url);
+    if (uri == null || uri.host.isEmpty) return null;
+    final port = uri.hasPort ? uri.port : 8765;
+    return '${uri.host}:$port';
+  }
+
+  Uri? _bridgeUri(String? url) {
+    if (url == null || url.isEmpty) return null;
+    return Uri.tryParse(
+      url.replaceFirst('ws://', 'http://').replaceFirst('wss://', 'https://'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Read state from cubits
@@ -1640,6 +1690,11 @@ class _SessionListScreenState extends State<SessionListScreen>
     // Try to get MachineManagerCubit if available
     final machineManagerCubit = context.watch<MachineManagerCubit?>();
     final machineState = machineManagerCubit?.state;
+    final settingsState = context.watch<SettingsCubit>().state;
+    final connectedBridgeLabel = _connectedBridgeLabel(
+      settingsState: settingsState,
+      machineState: machineState,
+    );
 
     return BlocProvider<UnseenSessionsCubit>.value(
       value: _unseenCubit,
@@ -1686,6 +1741,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                     discoveredServers: discoveredServers,
                     machineState: machineState,
                     machineManagerCubit: machineManagerCubit,
+                    connectedBridgeLabel: connectedBridgeLabel,
                   ),
                 ),
               ),
@@ -1704,8 +1760,9 @@ class _SessionListScreenState extends State<SessionListScreen>
     required SessionListState slState,
     required Set<String> unseenSessionIds,
     required List<DiscoveredServer> discoveredServers,
-    required dynamic machineState,
+    required MachineManagerState? machineState,
     required MachineManagerCubit? machineManagerCubit,
+    required String? connectedBridgeLabel,
   }) {
     final chrome = resolveWorkspacePaneChrome(
       platform: Theme.of(context).platform,
@@ -1724,6 +1781,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       discoveredServers: discoveredServers,
       machineState: machineState,
       machineManagerCubit: machineManagerCubit,
+      connectedBridgeLabel: connectedBridgeLabel,
     );
 
     if (widget.embedded) {
@@ -1741,6 +1799,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                     onOpenGallery: showConnectedUI ? _openGallery : null,
                     onDisconnect: showConnectedUI ? _disconnect : null,
                     onTogglePaneVisibility: widget.onTogglePaneVisibility,
+                    bridgeLabel: connectedBridgeLabel,
                   ),
                   Expanded(child: body),
                 ],
@@ -1813,8 +1872,9 @@ class _SessionListScreenState extends State<SessionListScreen>
     required SessionListState slState,
     required Set<String> unseenSessionIds,
     required List<DiscoveredServer> discoveredServers,
-    required dynamic machineState,
+    required MachineManagerState? machineState,
     required MachineManagerCubit? machineManagerCubit,
+    required String? connectedBridgeLabel,
   }) {
     if (_isAutoConnecting) {
       return const Center(child: CircularProgressIndicator());
@@ -1928,6 +1988,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               onDismissMacOSNativeAppBanner: _dismissMacOSNativeAppBanner,
               onOpenBridgeSettings: _openBridgeSettings,
               onOpenSupportSettings: _openSupportSettings,
+              connectedBridgeLabel: connectedBridgeLabel,
             ),
           );
         },
@@ -1953,6 +2014,7 @@ class _SessionListScreenState extends State<SessionListScreen>
             onDisconnect: _disconnect,
             forceElevated: innerBoxIsScrolled,
             toolbarHeight: chrome.toolbarHeight,
+            bridgeLabel: connectedBridgeLabel,
           ),
         ],
         body: content,

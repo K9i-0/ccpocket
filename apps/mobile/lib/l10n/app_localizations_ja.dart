@@ -1622,6 +1622,13 @@ class AppLocalizationsJa extends AppLocalizations {
       '新規セッションで表示する AI ツールの選択肢と並び順を変更できます。';
 
   @override
+  String get showBridgeNameInSessionList => 'Bridge名を表示';
+
+  @override
+  String get showBridgeNameInSessionListSubtitle =>
+      '複数のBridgeが登録されているとき、接続中のBridge名をセッション一覧に表示します。';
+
+  @override
   String get autoRenameCodexSessions => '自動Rename (Codex)';
 
   @override

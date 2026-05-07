@@ -1634,6 +1634,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsNewSessionTabsDescription => '새 세션에 표시할 AI 도구와 순서를 선택하세요.';
 
   @override
+  String get showBridgeNameInSessionList => 'Bridge 이름 표시';
+
+  @override
+  String get showBridgeNameInSessionListSubtitle =>
+      '여러 Bridge가 등록되어 있을 때 세션 목록에 연결된 Bridge 이름을 표시합니다.';
+
+  @override
   String get autoRenameCodexSessions => '자동 Rename (Codex)';
 
   @override

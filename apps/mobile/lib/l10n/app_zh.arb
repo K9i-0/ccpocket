@@ -749,6 +749,8 @@
   "settingsClaudeSubscriptionUsage": "订阅用量",
   "settingsNewSessionTabs": "新建会话标签页",
   "settingsNewSessionTabsDescription": "可修改新建会话时显示的 AI 工具选项及其排列顺序。",
+  "showBridgeNameInSessionList": "显示 Bridge 名称",
+  "showBridgeNameInSessionListSubtitle": "注册多个 Bridge 时，在会话列表中显示当前连接的 Bridge 名称。",
   "autoRenameCodexSessions": "自动 Rename (Codex)",
   "autoRenameCodexSessionsSubtitle": "在首次智能体回复后自动为 Codex 会话命名",
   "autoRenameClaudeSessions": "自动 Rename (Claude)",

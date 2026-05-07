@@ -3096,6 +3096,18 @@ abstract class AppLocalizations {
   /// **'新規セッションで表示する AI ツールの選択肢と並び順を変更できます。'**
   String get settingsNewSessionTabsDescription;
 
+  /// No description provided for @showBridgeNameInSessionList.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge名を表示'**
+  String get showBridgeNameInSessionList;
+
+  /// No description provided for @showBridgeNameInSessionListSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'複数のBridgeが登録されているとき、接続中のBridge名をセッション一覧に表示します。'**
+  String get showBridgeNameInSessionListSubtitle;
+
   /// No description provided for @autoRenameCodexSessions.
   ///
   /// In ja, this message translates to:

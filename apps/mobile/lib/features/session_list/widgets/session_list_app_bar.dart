@@ -15,6 +15,7 @@ class SessionListSliverAppBar extends StatelessWidget {
   final VoidCallback onDisconnect;
   final bool forceElevated;
   final double? toolbarHeight;
+  final String? bridgeLabel;
 
   const SessionListSliverAppBar({
     super.key,
@@ -22,6 +23,7 @@ class SessionListSliverAppBar extends StatelessWidget {
     required this.onDisconnect,
     this.forceElevated = false,
     this.toolbarHeight,
+    this.bridgeLabel,
   });
 
   @override
@@ -33,7 +35,10 @@ class SessionListSliverAppBar extends StatelessWidget {
       snap: true,
       forceElevated: forceElevated,
       toolbarHeight: toolbarHeight ?? kToolbarHeight,
-      title: GestureDetector(onTap: onTitleTap, child: Text(l.appTitle)),
+      title: GestureDetector(
+        onTap: onTitleTap,
+        child: _SessionListTitle(title: l.appTitle, subtitle: bridgeLabel),
+      ),
       actions: [
         IconButton(
           key: const ValueKey('settings_button'),
@@ -68,6 +73,7 @@ class SessionListPaneHeader extends StatelessWidget {
   final VoidCallback? onOpenGallery;
   final VoidCallback? onDisconnect;
   final VoidCallback? onTogglePaneVisibility;
+  final String? bridgeLabel;
 
   const SessionListPaneHeader({
     super.key,
@@ -76,6 +82,7 @@ class SessionListPaneHeader extends StatelessWidget {
     this.onOpenGallery,
     this.onDisconnect,
     this.onTogglePaneVisibility,
+    this.bridgeLabel,
   });
 
   @override
@@ -105,12 +112,11 @@ class SessionListPaneHeader extends StatelessWidget {
               Expanded(
                 child: GestureDetector(
                   onTap: onTitleTap,
-                  child: Text(
+                  child: _SessionListTitle(
                     key: const ValueKey('session_list_pane_title'),
-                    l.appTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: titleStyle,
+                    title: l.appTitle,
+                    subtitle: bridgeLabel,
+                    titleStyle: titleStyle,
                   ),
                 ),
               )
@@ -165,6 +171,58 @@ class SessionListPaneHeader extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SessionListTitle extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final TextStyle? titleStyle;
+
+  const _SessionListTitle({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.titleStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = this.subtitle;
+    final theme = Theme.of(context);
+    final defaultTitleStyle = theme.textTheme.titleLarge?.copyWith(
+      fontWeight: FontWeight.w700,
+    );
+    if (subtitle == null || subtitle.isEmpty) {
+      return Text(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: titleStyle ?? defaultTitleStyle,
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: titleStyle ?? defaultTitleStyle,
+        ),
+        const SizedBox(height: 1),
+        Text(
+          subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontSize: 11,
+          ),
+        ),
+      ],
     );
   }
 }

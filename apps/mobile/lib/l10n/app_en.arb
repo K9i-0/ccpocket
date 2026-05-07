@@ -659,6 +659,8 @@
   "settingsClaudeSubscriptionUsage": "Subscription usage",
   "settingsNewSessionTabs": "New Session Tabs",
   "settingsNewSessionTabsDescription": "Choose which AI tools appear for new sessions and change their order.",
+  "showBridgeNameInSessionList": "Show Bridge name",
+  "showBridgeNameInSessionListSubtitle": "Show the connected Bridge name in the session list when multiple Bridges are registered.",
   "autoRenameCodexSessions": "Auto Rename (Codex)",
   "autoRenameCodexSessionsSubtitle": "Name Codex sessions automatically after the first agent response",
   "autoRenameClaudeSessions": "Auto Rename (Claude)",
