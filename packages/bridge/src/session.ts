@@ -326,9 +326,7 @@ export class SessionManager {
       worktreeBranch: wtBranch,
       autoRename:
         options?.autoRename === true &&
-        !options.sessionId &&
-        !options.continueMode &&
-        !codexOptions?.threadId,
+        !options.continueMode,
       // Pre-populate claudeSessionId for resumed sessions so that get_history
       // can return it immediately (before the SDK sends a system/result event).
       claudeSessionId: options?.sessionId,
