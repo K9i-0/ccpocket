@@ -1,4 +1,3 @@
-• Codex Plan updates now appear as checklist-style lists.
-• Added support for SSH jump host connections.
-• Restored Claude Opus 4.5 to model selection.
-• Smaller fixes and stability improvements.
+• Added a focused review mode for Git diffs.
+• The session list now shows which Bridge you are connected to.
+• Fixed bugs and improved overall stability.
