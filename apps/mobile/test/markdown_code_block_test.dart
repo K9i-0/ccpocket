@@ -29,6 +29,58 @@ AssistantServerMessage _messageWithText(String text) {
 }
 
 void main() {
+  group('AssistantBubble Codex plan update rendering', () {
+    testWidgets('renders structured UpdatePlan as checklist', (tester) async {
+      const message = AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'msg-update-plan',
+          role: 'assistant',
+          content: [
+            ToolUseContent(
+              id: 'update_plan_1',
+              name: 'UpdatePlan',
+              input: {
+                'title': 'Plan update',
+                'explanation': 'Initial plan drafted',
+                'todos': [
+                  {
+                    'content': 'Gather requirements',
+                    'status': 'in_progress',
+                    'activeForm': '',
+                  },
+                ],
+              },
+            ),
+          ],
+          model: 'codex',
+        ),
+      );
+
+      await tester.pumpWidget(_wrap(const AssistantBubble(message: message)));
+
+      expect(find.text('Plan update'), findsOneWidget);
+      expect(find.text('Initial plan drafted'), findsOneWidget);
+      expect(find.text('Gather requirements'), findsOneWidget);
+    });
+
+    testWidgets('renders legacy Plan update text as checklist', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          AssistantBubble(
+            message: _messageWithText(
+              'Plan update: Initial draft\n'
+              '1. [in progress] Gather requirements',
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Plan update'), findsOneWidget);
+      expect(find.text('Initial draft'), findsOneWidget);
+      expect(find.text('Gather requirements'), findsOneWidget);
+    });
+  });
+
   group('AssistantBubble fenced code block rendering', () {
     testWidgets('shows language label for explicit fence language', (
       tester,

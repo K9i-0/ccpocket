@@ -1,0 +1,19 @@
+services:
+  target-sshd:
+    build: .
+    volumes:
+      - ./generated:/run/ccpocket-smoke:ro
+    networks:
+      - ssh-jump-smoke
+
+  jump-sshd:
+    build: .
+    volumes:
+      - ./generated:/run/ccpocket-smoke:ro
+    ports:
+      - "127.0.0.1:22220:22"
+    networks:
+      - ssh-jump-smoke
+
+networks:
+  ssh-jump-smoke:

@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -18,6 +19,8 @@ import {
   gitCommit,
   getStagedDiff,
   listGitFiles,
+  listFileSystemFiles,
+  listProjectFiles,
   listBranches,
   createBranch,
   checkoutBranch,
@@ -35,9 +38,16 @@ function createTempRepo(): string {
   execFileSync("git", ["init"], { cwd: dir });
   execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: dir });
   execFileSync("git", ["config", "user.name", "Test"], { cwd: dir });
+  execFileSync("git", ["config", "commit.gpgsign", "false"], { cwd: dir });
   writeFileSync(join(dir, "initial.txt"), "initial\n");
   execFileSync("git", ["add", "."], { cwd: dir });
   execFileSync("git", ["commit", "-m", "initial"], { cwd: dir });
+  return dir;
+}
+
+function createTempProject(): string {
+  const dir = join(tmpdir(), `git-ops-fs-test-${randomUUID().slice(0, 8)}`);
+  mkdirSync(dir, { recursive: true });
   return dir;
 }
 
@@ -134,8 +144,9 @@ describe("gitStatus", () => {
   it("includes pushable commits when remote status is requested", () => {
     const remote = createBareRemote();
     try {
+      const current = gitCmd(["rev-parse", "--abbrev-ref", "HEAD"], repo);
       gitCmd(["remote", "add", "origin", remote], repo);
-      gitCmd(["push", "-u", "origin", "master"], repo);
+      gitCmd(["push", "-u", "origin", current], repo);
       writeFileSync(join(repo, "ahead.txt"), "ahead\n");
       gitCmd(["add", "ahead.txt"], repo);
       gitCmd(["commit", "-m", "ahead"], repo);
@@ -146,7 +157,7 @@ describe("gitStatus", () => {
         commitsAhead: 1,
         commitsBehind: 0,
         hasUpstream: true,
-        branch: "master",
+        branch: current,
       });
     } finally {
       rmSync(remote, { recursive: true, force: true });
@@ -157,13 +168,15 @@ describe("gitStatus", () => {
     const remote = createBareRemote();
     const clone = join(tmpdir(), `git-ops-clone-${randomUUID().slice(0, 8)}`);
     try {
+      const current = gitCmd(["rev-parse", "--abbrev-ref", "HEAD"], repo);
       gitCmd(["remote", "add", "origin", remote], repo);
-      gitCmd(["push", "-u", "origin", "master"], repo);
-      execFileSync("git", ["clone", remote, clone]);
+      gitCmd(["push", "-u", "origin", current], repo);
+      execFileSync("git", ["clone", "--branch", current, remote, clone]);
       execFileSync("git", ["config", "user.email", "test@test.com"], {
         cwd: clone,
       });
       execFileSync("git", ["config", "user.name", "Test"], { cwd: clone });
+      execFileSync("git", ["config", "commit.gpgsign", "false"], { cwd: clone });
       writeFileSync(join(clone, "behind.txt"), "behind\n");
       gitCmd(["add", "behind.txt"], clone);
       gitCmd(["commit", "-m", "behind"], clone);
@@ -175,7 +188,7 @@ describe("gitStatus", () => {
         commitsAhead: 0,
         commitsBehind: 1,
         hasUpstream: true,
-        branch: "master",
+        branch: current,
       });
     } finally {
       rmSync(remote, { recursive: true, force: true });
@@ -616,6 +629,102 @@ describe("listGitFiles", () => {
   });
 });
 
+describe("listFileSystemFiles", () => {
+  let project: string;
+
+  beforeEach(() => {
+    project = createTempProject();
+  });
+
+  afterEach(() => {
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it("returns relative files for non-git project directories", async () => {
+    mkdirSync(join(project, "notes"), { recursive: true });
+    mkdirSync(join(project, ".obsidian"), { recursive: true });
+    writeFileSync(join(project, "README.md"), "hello\n");
+    writeFileSync(join(project, "notes", "today.md"), "note\n");
+    writeFileSync(join(project, ".obsidian", "app.json"), "{}\n");
+
+    await expect(listFileSystemFiles(project)).resolves.toEqual([
+      ".obsidian/app.json",
+      "notes/today.md",
+      "README.md",
+    ]);
+  });
+
+  it("skips generated and cache directories", async () => {
+    mkdirSync(join(project, "notes"), { recursive: true });
+    mkdirSync(join(project, "node_modules", "pkg"), { recursive: true });
+    mkdirSync(join(project, "build"), { recursive: true });
+    mkdirSync(join(project, "dist"), { recursive: true });
+    mkdirSync(join(project, ".git", "objects"), { recursive: true });
+    writeFileSync(join(project, "notes", "today.md"), "note\n");
+    writeFileSync(join(project, "node_modules", "pkg", "index.js"), "pkg\n");
+    writeFileSync(join(project, "build", "app.js"), "build\n");
+    writeFileSync(join(project, "dist", "app.js"), "dist\n");
+    writeFileSync(join(project, ".git", "config"), "git\n");
+
+    await expect(listFileSystemFiles(project)).resolves.toEqual([
+      "notes/today.md",
+    ]);
+  });
+
+  it("does not follow symbolic links", async () => {
+    mkdirSync(join(project, "target"), { recursive: true });
+    writeFileSync(join(project, "target", "secret.md"), "secret\n");
+    symlinkSync("target", join(project, "linked-target"), "dir");
+
+    await expect(listFileSystemFiles(project)).resolves.toEqual([
+      "target/secret.md",
+    ]);
+  });
+
+  it("honors max depth and max files", async () => {
+    mkdirSync(join(project, "a", "b", "c"), { recursive: true });
+    writeFileSync(join(project, "a", "one.md"), "1\n");
+    writeFileSync(join(project, "a", "two.md"), "2\n");
+    writeFileSync(join(project, "a", "b", "deep.md"), "deep\n");
+    writeFileSync(join(project, "a", "b", "c", "too-deep.md"), "deep\n");
+
+    await expect(
+      listFileSystemFiles(project, { maxDepth: 2, maxFiles: 2 }),
+    ).resolves.toEqual(["a/one.md", "a/two.md"]);
+  });
+});
+
+describe("listProjectFiles", () => {
+  let project: string;
+
+  afterEach(() => {
+    if (project) rmSync(project, { recursive: true, force: true });
+  });
+
+  it("falls back to filesystem listing for non-git projects", async () => {
+    project = createTempProject();
+    mkdirSync(join(project, "notes"), { recursive: true });
+    writeFileSync(join(project, "notes", "today.md"), "note\n");
+
+    await expect(listProjectFiles(project)).resolves.toEqual([
+      "notes/today.md",
+    ]);
+  });
+
+  it("uses git listing when the project is a git repository", async () => {
+    project = createTempRepo();
+    writeFileSync(join(project, ".gitignore"), "ignored.log\n");
+    writeFileSync(join(project, "tracked.md"), "tracked\n");
+    writeFileSync(join(project, "ignored.log"), "ignored\n");
+    execFileSync("git", ["add", ".gitignore", "tracked.md"], { cwd: project });
+
+    const files = await listProjectFiles(project);
+
+    expect(files).toContain("tracked.md");
+    expect(files).not.toContain("ignored.log");
+  });
+});
+
 // ---- Phase 3: Branch Operations ----
 
 describe("listBranches", () => {
@@ -667,6 +776,42 @@ describe("listBranches", () => {
     }
   });
 
+  it("includes diverged ahead and behind status for branches with upstream", () => {
+    const remote = createBareRemote();
+    const clone = join(tmpdir(), `git-ops-clone-${randomUUID().slice(0, 8)}`);
+    try {
+      execFileSync("git", ["remote", "add", "origin", remote], { cwd: repo });
+      execFileSync("git", ["checkout", "feat/login"], { cwd: repo });
+      execFileSync("git", ["push", "-u", "origin", "feat/login"], { cwd: repo });
+
+      writeFileSync(join(repo, "local.txt"), "local\n");
+      execFileSync("git", ["add", "local.txt"], { cwd: repo });
+      execFileSync("git", ["commit", "-m", "local commit"], { cwd: repo });
+
+      execFileSync("git", ["clone", remote, clone]);
+      execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: clone });
+      execFileSync("git", ["config", "user.name", "Test"], { cwd: clone });
+      execFileSync("git", ["config", "commit.gpgsign", "false"], { cwd: clone });
+      execFileSync("git", ["checkout", "feat/login"], { cwd: clone });
+      writeFileSync(join(clone, "remote.txt"), "remote\n");
+      execFileSync("git", ["add", "remote.txt"], { cwd: clone });
+      execFileSync("git", ["commit", "-m", "remote commit"], { cwd: clone });
+      execFileSync("git", ["push", "origin", "feat/login"], { cwd: clone });
+
+      execFileSync("git", ["fetch", "origin"], { cwd: repo });
+
+      const result = listBranches(repo);
+      expect(result.remoteStatusByBranch["feat/login"]).toMatchObject({
+        ahead: 1,
+        behind: 1,
+        hasUpstream: true,
+      });
+    } finally {
+      rmSync(clone, { recursive: true, force: true });
+      rmSync(remote, { recursive: true, force: true });
+    }
+  });
+
   it("reports no upstream for branches without tracking", () => {
     const result = listBranches(repo);
     expect(result.remoteStatusByBranch["feat/login"]).toMatchObject({
@@ -674,6 +819,60 @@ describe("listBranches", () => {
       behind: 0,
       hasUpstream: false,
     });
+  });
+
+  it("does not run per-branch rev-list commands for stale upstream refs", () => {
+    execFileSync("git", ["remote", "add", "origin", repo], { cwd: repo });
+    execFileSync("git", ["config", "branch.feat/login.remote", "origin"], {
+      cwd: repo,
+    });
+    execFileSync(
+      "git",
+      ["config", "branch.feat/login.merge", "refs/heads/deleted-upstream"],
+      { cwd: repo },
+    );
+
+    const originalWrite = process.stderr.write;
+    let stderr = "";
+    process.stderr.write = function write(chunk, ...args) {
+      stderr += String(chunk);
+      return originalWrite.call(this, chunk, ...args);
+    } as typeof process.stderr.write;
+
+    try {
+      const result = listBranches(repo);
+      expect(result.remoteStatusByBranch["feat/login"]).toMatchObject({
+        ahead: 0,
+        behind: 0,
+        hasUpstream: true,
+      });
+    } finally {
+      process.stderr.write = originalWrite;
+    }
+
+    expect(stderr).not.toContain("fatal:");
+    expect(stderr).not.toContain("deleted-upstream");
+  });
+
+  it("includes branches checked out in linked worktrees", () => {
+    const worktree = join(
+      tmpdir(),
+      `git-ops-worktree-${randomUUID().slice(0, 8)}`,
+    );
+    try {
+      execFileSync("git", ["worktree", "add", worktree, "feat/login"], {
+        cwd: repo,
+      });
+
+      const result = listBranches(repo);
+      expect(result.checkedOutBranches).toContain(result.current);
+      expect(result.checkedOutBranches).toContain("feat/login");
+    } finally {
+      execFileSync("git", ["worktree", "remove", "--force", worktree], {
+        cwd: repo,
+      });
+      rmSync(worktree, { recursive: true, force: true });
+    }
   });
 });
 

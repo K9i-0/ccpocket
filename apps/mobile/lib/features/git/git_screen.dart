@@ -294,8 +294,8 @@ class _GitScreenBody extends StatelessWidget {
               onCommit: () => showCommitBottomSheet(context),
               onRevertAll: () => _confirmRevert(
                 context,
-                title: 'すべての変更を破棄しますか',
-                message: '表示中の未ステージ変更をすべて破棄します。',
+                title: l.gitDiscardAllChangesTitle,
+                message: l.gitDiscardVisibleUnstagedChangesMessage,
                 onConfirm: cubit.revertAll,
               ),
             )
@@ -393,8 +393,10 @@ class _GitScreenBody extends StatelessWidget {
       case 'revert':
         _confirmRevert(
           context,
-          title: 'この変更を破棄しますか',
-          message: 'このファイルの未ステージ変更をすべて破棄します。',
+          title: AppLocalizations.of(context).gitDiscardChangeTitle,
+          message: AppLocalizations.of(
+            context,
+          ).gitDiscardFileUnstagedChangesMessage,
           onConfirm: () => cubit.revertFile(fileIdx),
         );
       case 'request_change':
@@ -473,8 +475,10 @@ class _GitScreenBody extends StatelessWidget {
       case 'revert':
         _confirmRevert(
           context,
-          title: 'この変更を破棄しますか',
-          message: 'このハンクの未ステージ変更を破棄します。',
+          title: AppLocalizations.of(context).gitDiscardChangeTitle,
+          message: AppLocalizations.of(
+            context,
+          ).gitDiscardHunkUnstagedChangesMessage,
           onConfirm: () => cubit.revertHunk(fileIdx, hunkIdx),
         );
       case 'request_change':
@@ -696,8 +700,10 @@ class _GitScreenContent extends StatelessWidget {
       onSwipeRevert: isProjectMode && state.viewMode != GitViewMode.staged
           ? (fileIdx) => onConfirmRevert(
               context,
-              title: 'この変更を破棄しますか',
-              message: 'このファイルの未ステージ変更をすべて破棄します。',
+              title: AppLocalizations.of(context).gitDiscardChangeTitle,
+              message: AppLocalizations.of(
+                context,
+              ).gitDiscardFileUnstagedChangesMessage,
               onConfirm: () => cubit.revertFile(fileIdx),
             )
           : null,
@@ -710,8 +716,10 @@ class _GitScreenContent extends StatelessWidget {
       onSwipeRevertHunk: isProjectMode && state.viewMode == GitViewMode.unstaged
           ? (fileIdx, hunkIdx) => onConfirmRevert(
               context,
-              title: 'この変更を破棄しますか',
-              message: 'このハンクの未ステージ変更を破棄します。',
+              title: AppLocalizations.of(context).gitDiscardChangeTitle,
+              message: AppLocalizations.of(
+                context,
+              ).gitDiscardHunkUnstagedChangesMessage,
               onConfirm: () => cubit.revertHunk(fileIdx, hunkIdx),
             )
           : null,

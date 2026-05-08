@@ -208,6 +208,12 @@ List<SessionInfo> storeHomeRunningSessions() => [
     gitBranch: 'feat/checkout-redesign',
     lastMessage:
         'Refactoring the checkout flow and preparing the diff for review...',
+    queuedInput: const QueuedInputItem(
+      itemId: 'store-home-queued',
+      text: 'Stage the checkout files after the current turn finishes.',
+      createdAt: '2026-05-01T02:00:00.000Z',
+      imageCount: 1,
+    ),
   ),
   SessionInfo(
     id: 'store-home-2',

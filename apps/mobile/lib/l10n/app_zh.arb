@@ -32,6 +32,10 @@
   "gallery": "图库",
   "git": "Git",
   "explorer": "资源管理器",
+  "gitUnavailableTip": "未检测到 Git — Git 功能不可用",
+  "gitUnavailableTitle": "Git 不可用",
+  "gitUnavailableHint": "此项目无法使用 Git 功能",
+  "autoModeFallbackDefaultTip": "当前环境不支持 Auto mode，已切换为 Default mode",
   "galleryWithCount": "图库 ({count})",
   "disconnect": "断开连接",
   "back": "返回",
@@ -327,6 +331,7 @@
   "queuedInputForReconnect": "已加入重连队列",
   "queuedInputPendingDelivery": "等待发送确认",
   "queuedInputForNextTurn": "已排队到下一轮",
+  "sessionCardQueuedInput": "已排队",
   "queuedInputImageCount": "{count, plural, other{{count} 张图片}}",
   "@queuedInputImageCount": {
     "placeholders": {
@@ -744,6 +749,8 @@
   "settingsClaudeSubscriptionUsage": "订阅用量",
   "settingsNewSessionTabs": "新建会话标签页",
   "settingsNewSessionTabsDescription": "可修改新建会话时显示的 AI 工具选项及其排列顺序。",
+  "showBridgeNameInSessionList": "显示 Bridge 名称",
+  "showBridgeNameInSessionListSubtitle": "注册多个 Bridge 时，在会话列表中显示当前连接的 Bridge 名称。",
   "autoRenameCodexSessions": "自动 Rename (Codex)",
   "autoRenameCodexSessionsSubtitle": "在首次智能体回复后自动为 Codex 会话命名",
   "autoRenameClaudeSessions": "自动 Rename (Claude)",
@@ -1026,5 +1033,14 @@
     "placeholders": {
       "message": { "type": "String" }
     }
-  }
+  },
+  "gitDiscardAllChangesTitle": "要放弃所有更改吗？",
+  "gitDiscardVisibleUnstagedChangesMessage": "放弃当前显示的所有未暂存更改。",
+  "gitDiscardChangeTitle": "要放弃此更改吗？",
+  "gitDiscardFileUnstagedChangesMessage": "放弃此文件中的所有未暂存更改。",
+  "gitDiscardHunkUnstagedChangesMessage": "放弃此代码块中的未暂存更改。",
+  "googleSearchSelectionAction": "用 Google 搜索",
+  "approvalQuestionNotificationTitle": "有一个问题 - ccpocket",
+  "approvalRequiredNotificationTitle": "等待审批 - ccpocket",
+  "exitPlanModeNotificationBody": "生成的计划需要你确认"
 }

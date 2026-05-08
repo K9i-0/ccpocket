@@ -86,6 +86,38 @@ void main() {
       expect(eligibility.reason, 'recent_negative_signal');
       expect(gateway.requestCount, 0);
     });
+
+    test('coalesces concurrent review request attempts', () async {
+      final now = DateTime(2026, 3, 7, 12);
+      SharedPreferences.setMockInitialValues({
+        'review.first_seen_at_ms': now
+            .subtract(const Duration(days: 5))
+            .millisecondsSinceEpoch,
+        'review.successful_connections': 3,
+        'review.created_sessions': 3,
+        'review.usage_days': ['2026-03-05', '2026-03-07'],
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final gateway = _FakeInAppReviewGateway(available: true);
+      final service = InAppReviewService(
+        prefs: prefs,
+        gateway: gateway,
+        appVersionLoader: () async => '1.30.0',
+        now: () => now,
+      );
+
+      await Future.wait([
+        service.maybeRequestReview(trigger: 'first'),
+        service.maybeRequestReview(trigger: 'second'),
+      ]);
+
+      expect(gateway.requestCount, 1);
+      expect(prefs.getString('review.last_prompt_version'), '1.30.0');
+      expect(
+        prefs.getInt('review.last_prompt_at_ms'),
+        now.millisecondsSinceEpoch,
+      );
+    });
   });
 }
 

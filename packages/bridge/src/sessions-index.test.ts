@@ -9,6 +9,7 @@ import {
   scanJsonlDir,
   getAllRecentSessions,
   getCodexSessionHistory,
+  extractMessageImages,
   codexThreadToSessionHistory,
 } from "./sessions-index.js";
 
@@ -231,6 +232,43 @@ describe("scanJsonlDir", () => {
     expect(entry.gitBranch).toBe("main");
     expect(entry.projectPath).toBe("/my/project");
     expect(entry.isSidechain).toBe(false);
+  });
+
+  it("excludes Claude auto-rename helper sessions", async () => {
+    const lines = [
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Write a concise name for this coding-agent session.\n\nTranscript:\nUSER:\nreal task",
+            },
+          ],
+        },
+        cwd: "/my/project",
+        gitBranch: "main",
+        sessionId: "auto-rename-helper",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Real task name" }],
+        },
+        sessionId: "auto-rename-helper",
+        timestamp: "2026-01-01T00:00:01.000Z",
+      }),
+    ];
+    writeFileSync(
+      join(testDir, "auto-rename-helper.jsonl"),
+      lines.join("\n"),
+    );
+
+    const result = await scanJsonlDir(testDir);
+    expect(result).toEqual([]);
   });
 
   it("extracts summary from summary entries", async () => {
@@ -659,6 +697,65 @@ describe("codex sessions integration", () => {
     });
 
     expect(result.sessions.some((s) => s.sessionId === threadId)).toBe(false);
+  });
+
+  it("excludes codex auto-rename helper sessions from rollout scans", async () => {
+    const userThreadId = "019c56c0-d4d8-7b22-9e3c-200664d68023";
+    const renameThreadId = "019c56c0-d4d8-7b22-9e3c-200664d68024";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-03-00-${userThreadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:03:00.000Z",
+          type: "session_meta",
+          payload: { id: userThreadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:03:01.000Z",
+          type: "turn_context",
+          payload: { model: "gpt-5.4-mini" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:03:02.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: "normal mini session" },
+        }),
+      ].join("\n"),
+    );
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-04-00-${renameThreadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:04:00.000Z",
+          type: "session_meta",
+          payload: { id: renameThreadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:04:01.000Z",
+          type: "turn_context",
+          payload: { model: "gpt-5.4-mini" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:04:02.000Z",
+          type: "event_msg",
+          payload: {
+            type: "user_message",
+            message:
+              "Write a concise name for this coding-agent session.\n\nTranscript:\nUSER:\nreal task",
+          },
+        }),
+      ].join("\n"),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "codex",
+      limit: 200,
+    });
+
+    expect(result.sessions.map((s) => s.sessionId)).toEqual([userThreadId]);
   });
 
   it("normalizes codex worktree projectPath and keeps resumeCwd for resume targets", async () => {
@@ -1239,6 +1336,157 @@ describe("codex sessions integration", () => {
     ]);
   });
 
+  it("extracts codex user images by turn uuid", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68014";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: { type: "user_message", message: "first" },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "with image",
+          images: ["data:image/png;base64,aW1hZ2U="],
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    await expect(
+      extractMessageImages(threadId, "codex:user-turn:2"),
+    ).resolves.toEqual([{ base64: "aW1hZ2U=", mimeType: "image/png" }]);
+  });
+
+  it("extracts codex user images from local image paths", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68015";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    const imagePath = join(tempHome, "ccpocket-codex-image.png");
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(imagePath, Buffer.from("local-image"));
+
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "with local image",
+          images: [],
+          local_images: [imagePath],
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    await expect(getCodexSessionHistory(threadId)).resolves.toEqual([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        content: [{ type: "text", text: "with local image" }],
+        imageCount: 1,
+      },
+    ]);
+    await expect(
+      extractMessageImages(threadId, "codex:user-turn:1"),
+    ).resolves.toEqual([
+      {
+        base64: Buffer.from("local-image").toString("base64"),
+        mimeType: "image/png",
+      },
+    ]);
+  });
+
+  it("extracts codex user images from response items when local image files are gone", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68016";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    const lines = [
+      JSON.stringify({
+        type: "session_meta",
+        payload: { id: threadId, cwd: "/tmp/project-a" },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: "# AGENTS.md instructions for /tmp/project-a\n\n<INSTRUCTIONS>",
+            },
+            {
+              type: "input_text",
+              text: "<environment_context><cwd>/tmp/project-a</cwd></environment_context>",
+            },
+          ],
+        },
+      }),
+      JSON.stringify({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "user",
+          content: [
+            { type: "input_text", text: "with response image" },
+            { type: "input_text", text: "<image name=[Image #1]>" },
+            {
+              type: "input_image",
+              image_url: "data:image/png;base64,cmVzcG9uc2UtaW1hZ2U=",
+            },
+            { type: "input_text", text: "</image>" },
+          ],
+        },
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "with response image",
+          images: [],
+          local_images: [join(tempHome, "missing-image.png")],
+        },
+      }),
+    ];
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T11-26-43-${threadId}.jsonl`),
+      lines.join("\n"),
+    );
+
+    await expect(getCodexSessionHistory(threadId)).resolves.toEqual([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        content: [{ type: "text", text: "with response image" }],
+        imageCount: 1,
+      },
+    ]);
+    await expect(
+      extractMessageImages(threadId, "codex:user-turn:1"),
+    ).resolves.toEqual([
+      { base64: "cmVzcG9uc2UtaW1hZ2U=", mimeType: "image/png" },
+    ]);
+  });
+
   it("supports legacy codex response_item tool schemas", async () => {
     const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68014";
     const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
@@ -1488,6 +1736,51 @@ describe("claude namedOnly optimization", () => {
     expect(result.sessions).toHaveLength(1);
     expect(result.sessions[0].sessionId).toBe("named-s1");
     expect(result.sessions[0].name).toBe("My named session");
+  });
+
+  it("excludes indexed Claude auto-rename helper sessions", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(projectDir, { recursive: true });
+    writeFileSync(
+      join(projectDir, "sessions-index.json"),
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            sessionId: "real-s1",
+            fullPath: join(projectDir, "real-s1.jsonl"),
+            fileMtime: Date.now(),
+            firstPrompt: "real prompt",
+            messageCount: 2,
+            created: "2026-02-13T11:00:00.000Z",
+            modified: "2026-02-13T12:00:00.000Z",
+            gitBranch: "main",
+            projectPath: "/tmp/project-a",
+            isSidechain: false,
+          },
+          {
+            sessionId: "auto-rename-helper",
+            fullPath: join(projectDir, "auto-rename-helper.jsonl"),
+            fileMtime: Date.now(),
+            firstPrompt:
+              "Write a concise name for this coding-agent session.\n\nTranscript:\nUSER:\nreal task",
+            messageCount: 2,
+            created: "2026-02-13T11:30:00.000Z",
+            modified: "2026-02-13T11:30:01.000Z",
+            gitBranch: "main",
+            projectPath: "/tmp/project-a",
+            isSidechain: false,
+          },
+        ],
+      }),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      limit: 200,
+    });
+
+    expect(result.sessions.map((s) => s.sessionId)).toEqual(["real-s1"]);
   });
 
   it("skips jsonl-only Claude directories when namedOnly=true", async () => {

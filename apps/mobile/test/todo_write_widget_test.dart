@@ -50,6 +50,27 @@ void main() {
     });
   });
 
+  group('TodoWriteWidget - Codex plan update', () {
+    testWidgets('shows custom title and explanation', (tester) async {
+      final input = {
+        'title': 'Plan update',
+        'explanation': 'Initial plan drafted',
+        'todos': [
+          _todo('Gather requirements', 'in_progress'),
+          _todo('Write tests', 'pending'),
+          _todo('Implement fix', 'completed'),
+        ],
+      };
+      await tester.pumpWidget(_wrap(TodoWriteWidget(input: input)));
+
+      expect(find.text('Plan update'), findsOneWidget);
+      expect(find.text('Initial plan drafted'), findsOneWidget);
+      expect(find.text('Gather requirements'), findsOneWidget);
+      expect(find.text('Write tests'), findsOneWidget);
+      expect(find.text('Implement fix'), findsOneWidget);
+    });
+  });
+
   group('TodoWriteWidget - truncation (5+ items)', () {
     testWidgets('7 items shows 4 + "and 3 more"', (tester) async {
       final input = _buildInput([

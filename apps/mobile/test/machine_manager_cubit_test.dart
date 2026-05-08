@@ -82,6 +82,8 @@ class MockMachineManagerService implements MachineManagerService {
     String? apiKey,
     String? sshPassword,
     String? sshPrivateKey,
+    String? sshJumpPassword,
+    String? sshJumpPrivateKey,
   }) async {
     calls.add('addMachine:${machine.id}');
     if (addMachineShouldFail) throw Exception('addMachine failed');
@@ -94,8 +96,11 @@ class MockMachineManagerService implements MachineManagerService {
     String? apiKey,
     String? sshPassword,
     String? sshPrivateKey,
+    String? sshJumpPassword,
+    String? sshJumpPrivateKey,
     bool clearApiKey = false,
     bool clearCredentials = false,
+    bool clearJumpCredentials = false,
   }) async {
     calls.add('updateMachine:${machine.id}');
     if (updateMachineShouldFail) throw Exception('updateMachine failed');
@@ -125,6 +130,12 @@ class MockMachineManagerService implements MachineManagerService {
 
   @override
   Future<String?> getSshPrivateKey(String machineId) async => null;
+
+  @override
+  Future<String?> getSshJumpPassword(String machineId) async => null;
+
+  @override
+  Future<String?> getSshJumpPrivateKey(String machineId) async => null;
 
   @override
   Future<String> buildWsUrl(String machineId) async => 'ws://mock:8765';
@@ -222,6 +233,12 @@ class MockSshStartupService implements SshStartupService {
     required int sshPort,
     required String username,
     required SshAuthType authType,
+    String? jumpHost,
+    int jumpPort = 22,
+    String? jumpUsername,
+    SshAuthType? jumpAuthType,
+    String? jumpPassword,
+    String? jumpPrivateKey,
     String? password,
     String? privateKey,
   }) async {

@@ -16,11 +16,7 @@ String? inferStructuredErrorCode({
     return 'codex_auth_required';
   }
 
-  if (_containsAny(normalized, const [
-    'project path not allowed',
-    'path not allowed',
-    'bridge_allowed_dirs',
-  ])) {
+  if (_looksLikePathNotAllowed(normalized)) {
     return 'path_not_allowed';
   }
 
@@ -67,4 +63,14 @@ bool _containsAny(String haystack, List<String> needles) {
     if (haystack.contains(needle)) return true;
   }
   return false;
+}
+
+bool _looksLikePathNotAllowed(String normalized) {
+  final hasPathNotAllowedHeader = RegExp(
+    r'(^|\n)\s*(?:⚠\s*)?(?:error:\s*)?(?:project\s+)?path not allowed\b',
+  ).hasMatch(normalized);
+  if (hasPathNotAllowedHeader) return true;
+
+  return normalized.contains('not in the allowed directories') &&
+      normalized.contains('bridge_allowed_dirs');
 }

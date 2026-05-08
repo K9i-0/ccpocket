@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show ChangeNotifier, kIsWeb;
 import 'package:flutter/scheduler.dart' show SchedulerBinding, SchedulerPhase;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/messages.dart';
 
 class NotificationService extends ChangeNotifier {
@@ -152,10 +153,11 @@ class NotificationService extends ChangeNotifier {
 
   Future<void> showApprovalNotification(
     PermissionRequestMessage permission, {
+    required AppLocalizations l,
     int id = 1,
     String? payload,
   }) {
-    final copy = permission.notificationCopy;
+    final copy = ApprovalNotificationCopy.from(permission, l: l);
     return show(title: copy.title, body: copy.body, id: id, payload: payload);
   }
 
@@ -169,6 +171,37 @@ class NotificationService extends ChangeNotifier {
       body: body,
       id: id,
       payload: payload,
+    );
+  }
+}
+
+class ApprovalNotificationCopy {
+  final String title;
+  final String body;
+
+  const ApprovalNotificationCopy({required this.title, required this.body});
+
+  factory ApprovalNotificationCopy.from(
+    PermissionRequestMessage message, {
+    required AppLocalizations l,
+  }) {
+    if (message.usesAskUserUi) {
+      return ApprovalNotificationCopy(
+        title: l.approvalQuestionNotificationTitle,
+        body: message.summary,
+      );
+    }
+    if (message.toolName == 'ExitPlanMode') {
+      return ApprovalNotificationCopy(
+        title: l.approvalRequiredNotificationTitle,
+        body: l.exitPlanModeNotificationBody,
+      );
+    }
+
+    final presentation = message.presentation;
+    return ApprovalNotificationCopy(
+      title: l.approvalRequiredNotificationTitle,
+      body: presentation.summary,
     );
   }
 }

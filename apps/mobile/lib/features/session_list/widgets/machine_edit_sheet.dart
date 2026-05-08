@@ -15,12 +15,17 @@ class MachineEditSheet extends StatefulWidget {
   /// Existing SSH password (for edit mode)
   final String? existingSshPassword;
 
+  /// Existing SSH jump host password (for edit mode)
+  final String? existingSshJumpPassword;
+
   /// Callback when save is pressed
   final Future<void> Function({
     required Machine machine,
     String? apiKey,
     String? sshPassword,
     String? sshPrivateKey,
+    String? sshJumpPassword,
+    String? sshJumpPrivateKey,
   })
   onSave;
 
@@ -34,6 +39,12 @@ class MachineEditSheet extends StatefulWidget {
     required int sshPort,
     required String username,
     required SshAuthType authType,
+    String? jumpHost,
+    required int jumpPort,
+    String? jumpUsername,
+    SshAuthType? jumpAuthType,
+    String? jumpPassword,
+    String? jumpPrivateKey,
     String? password,
     String? privateKey,
   })
@@ -44,6 +55,7 @@ class MachineEditSheet extends StatefulWidget {
     this.machine,
     this.existingApiKey,
     this.existingSshPassword,
+    this.existingSshJumpPassword,
     required this.onSave,
     this.onSaveAndConnect,
     required this.onTestConnection,
@@ -60,11 +72,18 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
   late final TextEditingController _apiKeyController;
   late final TextEditingController _sshUsernameController;
   late final TextEditingController _sshPortController;
+  late final TextEditingController _sshJumpHostController;
+  late final TextEditingController _sshJumpPortController;
+  late final TextEditingController _sshJumpUsernameController;
+  late final TextEditingController _sshJumpPasswordController;
+  late final TextEditingController _sshJumpPrivateKeyController;
   late final TextEditingController _sshPasswordController;
   late final TextEditingController _sshPrivateKeyController;
   bool _useSsl = false;
   bool _sshEnabled = false;
+  bool _sshJumpEnabled = false;
   SshAuthType _sshAuthType = SshAuthType.password;
+  SshAuthType _sshJumpAuthType = SshAuthType.password;
   bool _isSaving = false;
   bool _isTesting = false;
   String? _testResult;
@@ -88,6 +107,17 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
     _sshPortController = TextEditingController(
       text: (m?.sshPort ?? 22).toString(),
     );
+    _sshJumpHostController = TextEditingController(text: m?.sshJumpHost ?? '');
+    _sshJumpPortController = TextEditingController(
+      text: (m?.sshJumpPort ?? 22).toString(),
+    );
+    _sshJumpUsernameController = TextEditingController(
+      text: m?.sshJumpUsername ?? '',
+    );
+    _sshJumpPasswordController = TextEditingController(
+      text: widget.existingSshJumpPassword ?? '',
+    );
+    _sshJumpPrivateKeyController = TextEditingController();
     _sshPasswordController = TextEditingController(
       text: widget.existingSshPassword ?? '',
     );
@@ -96,7 +126,9 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
     if (m != null) {
       _useSsl = m.useSsl;
       _sshEnabled = m.sshEnabled;
+      _sshJumpEnabled = m.sshJumpHost?.trim().isNotEmpty ?? false;
       _sshAuthType = m.sshAuthType;
+      _sshJumpAuthType = m.sshJumpAuthType;
     }
   }
 
@@ -108,6 +140,11 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
     _apiKeyController.dispose();
     _sshUsernameController.dispose();
     _sshPortController.dispose();
+    _sshJumpHostController.dispose();
+    _sshJumpPortController.dispose();
+    _sshJumpUsernameController.dispose();
+    _sshJumpPasswordController.dispose();
+    _sshJumpPrivateKeyController.dispose();
     _sshPasswordController.dispose();
     _sshPrivateKeyController.dispose();
     super.dispose();
@@ -148,6 +185,25 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
         sshPort: int.tryParse(_sshPortController.text) ?? 22,
         username: _sshUsernameController.text,
         authType: _sshAuthType,
+        jumpHost:
+            _sshJumpEnabled && _sshJumpHostController.text.trim().isNotEmpty
+            ? _sshJumpHostController.text.trim()
+            : null,
+        jumpPort: int.tryParse(_sshJumpPortController.text) ?? 22,
+        jumpUsername: _sshJumpUsernameController.text.trim().isNotEmpty
+            ? _sshJumpUsernameController.text.trim()
+            : null,
+        jumpAuthType: _sshJumpAuthType,
+        jumpPassword:
+            _sshJumpAuthType == SshAuthType.password &&
+                _sshJumpPasswordController.text.isNotEmpty
+            ? _sshJumpPasswordController.text
+            : null,
+        jumpPrivateKey:
+            _sshJumpAuthType == SshAuthType.privateKey &&
+                _sshJumpPrivateKeyController.text.isNotEmpty
+            ? _sshJumpPrivateKeyController.text
+            : null,
         password: _sshAuthType == SshAuthType.password
             ? _sshPasswordController.text
             : null,
@@ -188,11 +244,26 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
         sshUsername: _sshEnabled ? _sshUsernameController.text.trim() : null,
         sshPort: int.tryParse(_sshPortController.text) ?? 22,
         sshAuthType: _sshAuthType,
+        sshJumpHost:
+            _sshEnabled &&
+                _sshJumpEnabled &&
+                _sshJumpHostController.text.trim().isNotEmpty
+            ? _sshJumpHostController.text.trim()
+            : null,
+        sshJumpPort: int.tryParse(_sshJumpPortController.text) ?? 22,
+        sshJumpUsername:
+            _sshEnabled &&
+                _sshJumpEnabled &&
+                _sshJumpUsernameController.text.trim().isNotEmpty
+            ? _sshJumpUsernameController.text.trim()
+            : null,
+        sshJumpAuthType: _sshJumpAuthType,
       );
 
       final apiKey = _apiKeyController.text.isNotEmpty
           ? _apiKeyController.text
           : null;
+      final hasJumpHost = machine.sshJumpHost != null;
 
       await widget.onSave(
         machine: machine,
@@ -202,6 +273,18 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
             : null,
         sshPrivateKey: _sshEnabled && _sshAuthType == SshAuthType.privateKey
             ? _sshPrivateKeyController.text
+            : null,
+        sshJumpPassword:
+            hasJumpHost &&
+                _sshJumpAuthType == SshAuthType.password &&
+                _sshJumpPasswordController.text.isNotEmpty
+            ? _sshJumpPasswordController.text
+            : null,
+        sshJumpPrivateKey:
+            hasJumpHost &&
+                _sshJumpAuthType == SshAuthType.privateKey &&
+                _sshJumpPrivateKeyController.text.isNotEmpty
+            ? _sshJumpPrivateKeyController.text
             : null,
       );
 
@@ -434,8 +517,11 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Auth type selector
+                      _SectionHeader(title: 'Target Authentication'),
+                      const SizedBox(height: 12),
+
                       SegmentedButton<SshAuthType>(
+                        key: const ValueKey('ssh_auth_type_selector'),
                         segments: const [
                           ButtonSegment(
                             value: SshAuthType.password,
@@ -476,6 +562,142 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
                           ),
                           maxLines: 4,
                         ),
+
+                      const SizedBox(height: 16),
+
+                      Container(
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: colorScheme.outlineVariant.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        ),
+                        child: SwitchListTile(
+                          key: const ValueKey('ssh_jump_toggle'),
+                          title: const Text(
+                            'Use SSH jump host',
+                            style: TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          subtitle: Text(
+                            'Connect through a bastion or intermediate SSH host',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          value: _sshJumpEnabled,
+                          onChanged: (v) => setState(() => _sshJumpEnabled = v),
+                          secondary: const Icon(Icons.hub),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+
+                      if (_sshJumpEnabled) ...[
+                        const SizedBox(height: 12),
+
+                        _SectionHeader(title: 'SSH Jump Host'),
+                        const SizedBox(height: 12),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                key: const ValueKey('ssh_jump_host_field'),
+                                controller: _sshJumpHostController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Jump Host',
+                                  hintText: 'bastion.example.com',
+                                  prefixIcon: Icon(Icons.hub),
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                key: const ValueKey('ssh_jump_port_field'),
+                                controller: _sshJumpPortController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Jump Port',
+                                  hintText: '22',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        TextField(
+                          key: const ValueKey('ssh_jump_username_field'),
+                          controller: _sshJumpUsernameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Jump Username',
+                            hintText: 'Defaults to SSH Username',
+                            prefixIcon: Icon(Icons.person_pin),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        _SectionHeader(
+                          title: 'Jump Host Authentication',
+                          subtitle:
+                              'Leave blank to reuse target SSH credentials',
+                        ),
+                        const SizedBox(height: 12),
+
+                        SegmentedButton<SshAuthType>(
+                          key: const ValueKey('ssh_jump_auth_type_selector'),
+                          segments: const [
+                            ButtonSegment(
+                              value: SshAuthType.password,
+                              label: Text('Password'),
+                              icon: Icon(Icons.password),
+                            ),
+                            ButtonSegment(
+                              value: SshAuthType.privateKey,
+                              label: Text('Private Key'),
+                              icon: Icon(Icons.vpn_key),
+                            ),
+                          ],
+                          selected: {_sshJumpAuthType},
+                          onSelectionChanged: (set) {
+                            setState(() => _sshJumpAuthType = set.first);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        if (_sshJumpAuthType == SshAuthType.password)
+                          TextField(
+                            key: const ValueKey('ssh_jump_password_field'),
+                            controller: _sshJumpPasswordController,
+                            decoration: const InputDecoration(
+                              labelText: 'Jump Password',
+                              prefixIcon: Icon(Icons.lock),
+                              border: OutlineInputBorder(),
+                            ),
+                            obscureText: true,
+                          )
+                        else
+                          TextField(
+                            key: const ValueKey('ssh_jump_private_key_field'),
+                            controller: _sshJumpPrivateKeyController,
+                            decoration: const InputDecoration(
+                              labelText: 'Jump Private Key (PEM)',
+                              hintText: '-----BEGIN OPENSSH PRIVATE KEY-----',
+                              prefixIcon: Icon(Icons.vpn_key),
+                              border: OutlineInputBorder(),
+                            ),
+                            maxLines: 4,
+                          ),
+                      ],
 
                       const SizedBox(height: 16),
 
@@ -606,27 +828,48 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
 
 class _SectionHeader extends StatelessWidget {
   final String title;
+  final String? subtitle;
 
-  const _SectionHeader({required this.title});
+  const _SectionHeader({required this.title, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
+          margin: const EdgeInsets.only(top: 2),
           width: 4,
           height: 18,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary,
+            color: colorScheme.primary,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: Theme.of(context).colorScheme.primary,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.primary,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ],

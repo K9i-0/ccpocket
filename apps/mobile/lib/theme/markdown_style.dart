@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../core/logger.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/google_search_text_selection.dart';
 import 'app_theme.dart';
 
 final _syntaxHighlight = _SyntaxHighlightRegistry();
@@ -205,6 +206,8 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
                     language: language,
                   ),
                 ),
+                contextMenuBuilder:
+                    googleSearchSelectableTextContextMenuBuilder,
               ),
             ),
             if (hasExplicitLanguage)

@@ -6,6 +6,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,6 +15,7 @@ const {
   getSessionHistoryMock,
   getCodexSessionHistoryMock,
   codexThreadToSessionHistoryMock,
+  extractMessageImagesMock,
   getAllRecentSessionsMock,
   saveCodexSessionProfileMock,
   generateCommitMessageMock,
@@ -22,6 +24,7 @@ const {
   getSessionHistoryMock: vi.fn(),
   getCodexSessionHistoryMock: vi.fn(),
   codexThreadToSessionHistoryMock: vi.fn(),
+  extractMessageImagesMock: vi.fn(),
   getAllRecentSessionsMock: vi.fn(),
   saveCodexSessionProfileMock: vi.fn(),
   generateCommitMessageMock: vi.fn(),
@@ -32,6 +35,7 @@ vi.mock("./sessions-index.js", () => ({
   getSessionHistory: getSessionHistoryMock,
   getCodexSessionHistory: getCodexSessionHistoryMock,
   codexThreadToSessionHistory: codexThreadToSessionHistoryMock,
+  extractMessageImages: extractMessageImagesMock,
   codexUserTurnUuid: (ordinal: number) => `codex:user-turn:${ordinal}`,
   getAllRecentSessions: getAllRecentSessionsMock,
   saveCodexSessionProfile: saveCodexSessionProfileMock,
@@ -116,6 +120,7 @@ vi.mock("./session.js", () => ({
           this.collaborationMode = value;
         }),
         listThreads: vi.fn(async () => ({ data: [], nextCursor: null })),
+        listAvailableModels: vi.fn(async () => []),
         readThread: vi.fn(async () => ({ id: "thread-read", turns: [] })),
         rollbackThread: vi.fn(async () => ({ id: "thread-rollback", turns: [] })),
         rollbackThreadById: vi.fn(async () => ({
@@ -377,6 +382,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     getSessionHistoryMock.mockReset();
     getCodexSessionHistoryMock.mockReset();
     codexThreadToSessionHistoryMock.mockReset();
+    extractMessageImagesMock.mockReset();
     getAllRecentSessionsMock.mockReset();
     saveCodexSessionProfileMock.mockReset();
     generateCommitMessageMock.mockReset();
@@ -384,6 +390,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     getAllRecentSessionsMock.mockResolvedValue({ sessions: [], hasMore: false });
     getCodexSessionHistoryMock.mockResolvedValue([]);
     codexThreadToSessionHistoryMock.mockReturnValue([]);
+    extractMessageImagesMock.mockResolvedValue([]);
     saveCodexSessionProfileMock.mockResolvedValue(undefined);
   });
 
@@ -419,6 +426,65 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(sessionList.codexModels).not.toContain("gpt-5.2-codex");
     expect(sessionList.codexProfiles).toEqual(["ccpocket", "research"]);
     expect(sessionList.defaultCodexProfile).toBe("ccpocket");
+
+    bridge.close();
+  });
+
+  it("updates codex model list from app-server model/list", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).loadCodexModels = vi.fn(async () => [
+      "gpt-dynamic-default",
+      "gpt-dynamic-fast",
+    ]);
+
+    await (bridge as any).refreshCodexModels("/tmp/project-models");
+    (bridge as any).sendSessionList(ws);
+
+    const sessionList = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((msg: any) => msg.type === "session_list");
+
+    expect((bridge as any).loadCodexModels).toHaveBeenCalledWith(
+      "/tmp/project-models",
+    );
+    expect(sessionList.codexModels).toEqual([
+      "gpt-dynamic-default",
+      "gpt-dynamic-fast",
+    ]);
+
+    bridge.close();
+  });
+
+  it("falls back to built-in codex model list when model/list fails", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).loadCodexModels = vi.fn(async () => {
+      throw new Error("unsupported method");
+    });
+
+    await (bridge as any).refreshCodexModels("/tmp/project-models");
+    (bridge as any).sendSessionList(ws);
+
+    const sessionList = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((msg: any) => msg.type === "session_list");
+
+    expect(sessionList.codexModels).toEqual([
+      "gpt-5.5",
+      "gpt-5.4",
+      "gpt-5.4-mini",
+      "gpt-5.3-codex",
+      "gpt-5.3-codex-spark",
+    ]);
 
     bridge.close();
   });
@@ -958,6 +1024,85 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("restores user message images into past history", async () => {
+    getSessionHistoryMock.mockResolvedValue([
+      {
+        role: "user",
+        uuid: "user-msg-1",
+        content: [{ type: "text", text: "What is in this image?" }],
+        imageCount: 1,
+      },
+    ]);
+    extractMessageImagesMock.mockResolvedValue([
+      { base64: "aGVsbG8=", mimeType: "image/png" },
+    ]);
+    const imageStore = {
+      registerFromBase64: vi.fn(() => ({
+        id: "img-user",
+        url: "/images/img-user",
+        mimeType: "image/png",
+      })),
+    };
+
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      imageStore: imageStore as any,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "claude-session-1",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+    const resumeSends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    const created = resumeSends.find(
+      (m: any) => m.type === "system" && m.subtype === "session_created",
+    );
+    const newSessionId = created.sessionId as string;
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      { type: "get_history", sessionId: newSessionId },
+      ws,
+    );
+
+    const historySends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(extractMessageImagesMock).toHaveBeenCalledWith(
+      "claude-session-1",
+      "user-msg-1",
+    );
+    expect(historySends[0]).toMatchObject({
+      type: "past_history",
+      messages: [
+        {
+          role: "user",
+          uuid: "user-msg-1",
+          imageCount: 1,
+          images: [
+            { id: "img-user", url: "/images/img-user", mimeType: "image/png" },
+          ],
+        },
+      ],
+    });
+
+    bridge.close();
+  });
+
   it("registers restored image generation base64 results through regular history", async () => {
     getSessionHistoryMock.mockResolvedValue([
       {
@@ -1072,6 +1217,114 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(created.projectPath).toBe("D:\\Users\\alice\\src\\ccpocket");
 
     bridge.close();
+  });
+
+  it("returns unstaged diff for mixed ASCII and non-ASCII untracked paths", async () => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-diff-"));
+    execFileSync("git", ["init"], { cwd: projectPath });
+    execFileSync("git", ["config", "user.email", "test@test.com"], {
+      cwd: projectPath,
+    });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: projectPath });
+    writeFileSync(resolve(projectPath, "initial.txt"), "initial\n");
+    execFileSync("git", ["add", "initial.txt"], { cwd: projectPath });
+    execFileSync("git", ["commit", "-m", "initial"], { cwd: projectPath });
+    mkdirSync(resolve(projectPath, "docs"));
+    writeFileSync(resolve(projectPath, "docs", "啊.md"), "hello\n");
+    writeFileSync(resolve(projectPath, "normal.txt"), "normal\n");
+
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [projectPath],
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    try {
+      await (bridge as any).handleClientMessage(
+        {
+          type: "get_diff",
+          projectPath,
+          staged: false,
+        },
+        ws,
+      );
+
+      await expect
+        .poll(() =>
+          ws.send.mock.calls
+            .map((c: unknown[]) => JSON.parse(c[0] as string))
+            .find((m: any) => m.type === "diff_result"),
+        )
+        .toBeDefined();
+
+      const diffResult = ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .find((m: any) => m.type === "diff_result");
+      expect(diffResult.error).toBeUndefined();
+      expect(diffResult.diff).toContain("diff --git a/docs/啊.md b/docs/啊.md");
+      expect(diffResult.diff).toContain("diff --git a/normal.txt b/normal.txt");
+      expect(diffResult.diff).not.toContain("\\345\\225");
+    } finally {
+      bridge.close();
+      rmSync(projectPath, { recursive: true, force: true });
+    }
+  });
+
+  it("returns all diff for mixed staged and non-ASCII untracked paths", async () => {
+    const projectPath = mkdtempSync(resolve(tmpdir(), "ccpocket-diff-"));
+    execFileSync("git", ["init"], { cwd: projectPath });
+    execFileSync("git", ["config", "user.email", "test@test.com"], {
+      cwd: projectPath,
+    });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: projectPath });
+    writeFileSync(resolve(projectPath, "initial.txt"), "initial\n");
+    execFileSync("git", ["add", "initial.txt"], { cwd: projectPath });
+    execFileSync("git", ["commit", "-m", "initial"], { cwd: projectPath });
+    writeFileSync(resolve(projectPath, "initial.txt"), "changed\n");
+    execFileSync("git", ["add", "initial.txt"], { cwd: projectPath });
+    mkdirSync(resolve(projectPath, "docs"));
+    writeFileSync(resolve(projectPath, "docs", "啊.md"), "hello\n");
+
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      allowedDirs: [projectPath],
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    try {
+      await (bridge as any).handleClientMessage(
+        {
+          type: "get_diff",
+          projectPath,
+        },
+        ws,
+      );
+
+      await expect
+        .poll(() =>
+          ws.send.mock.calls
+            .map((c: unknown[]) => JSON.parse(c[0] as string))
+            .find((m: any) => m.type === "diff_result"),
+        )
+        .toBeDefined();
+
+      const diffResult = ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .find((m: any) => m.type === "diff_result");
+      expect(diffResult.error).toBeUndefined();
+      expect(diffResult.diff).toContain("diff --git a/initial.txt b/initial.txt");
+      expect(diffResult.diff).toContain("diff --git a/docs/啊.md b/docs/啊.md");
+      expect(diffResult.diff).not.toContain("\\345\\225");
+    } finally {
+      bridge.close();
+      rmSync(projectPath, { recursive: true, force: true });
+    }
   });
 
   it("returns base64 image data for image file peek", async () => {

@@ -19,6 +19,7 @@ import '../../widgets/rename_session_dialog.dart';
 import '../../services/chat_message_handler.dart';
 import '../../services/draft_service.dart';
 import '../../utils/composer_tokens.dart';
+import '../../utils/codex_plan_update.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/session_name_title.dart';
 import '../../widgets/workspace_pane_chrome.dart';
@@ -654,6 +655,7 @@ class _CodexChatBody extends HookWidget {
           sessionId: sessionId,
           isBackground: isBackground,
           approval: chatSessionCubit.state.approval,
+          l: l,
           collapseToolResults: collapseToolResults,
           planFeedbackController: planFeedbackController,
           scrollToBottom: scroll.scrollToBottom,
@@ -861,6 +863,7 @@ class _CodexChatBody extends HookWidget {
                 onBackToSessions: onBackToSessions,
                 hideSessionBackButton: hideSessionBackButton,
               );
+              final showMessageHistoryAction = !isSinglePane;
               final double defaultTitleSpacing = isSinglePane
                   ? NavigationToolbar.kMiddleSpacing
                   : (leading == null ? 16 : 12);
@@ -981,6 +984,32 @@ class _CodexChatBody extends HookWidget {
                             );
                           },
                         ),
+                      if (showMessageHistoryAction)
+                        IconButton(
+                          key: const ValueKey('appbar_message_history_button'),
+                          icon: Icon(
+                            Icons.history,
+                            size: 18,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                          tooltip: l.messageHistory,
+                          onPressed: () {
+                            _showUserMessageHistory(
+                              context,
+                              scrollToUserEntry,
+                              sessionId,
+                              chatInputController,
+                              draftService,
+                            );
+                          },
+                        ),
                       PopupMenuButton<String>(
                         key: const ValueKey('session_overflow_menu'),
                         icon: Icon(
@@ -1036,16 +1065,20 @@ class _CodexChatBody extends HookWidget {
                                 contentPadding: EdgeInsets.zero,
                               ),
                             ),
-                            const PopupMenuItem(
-                              key: ValueKey('menu_message_history'),
-                              value: 'history',
-                              child: ListTile(
-                                leading: Icon(Icons.chat_outlined, size: 20),
-                                title: Text('Message History'),
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
+                            if (!showMessageHistoryAction)
+                              PopupMenuItem(
+                                key: const ValueKey('menu_message_history'),
+                                value: 'history',
+                                child: ListTile(
+                                  leading: const Icon(
+                                    Icons.chat_outlined,
+                                    size: 20,
+                                  ),
+                                  title: Text(l.messageHistory),
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
                               ),
-                            ),
                             if (effectiveProjectPath != null)
                               const PopupMenuItem(
                                 key: ValueKey('menu_screenshot'),
@@ -1432,6 +1465,7 @@ void _executeSideEffects(
   required String sessionId,
   required bool isBackground,
   required ApprovalState approval,
+  required AppLocalizations l,
   required TextEditingController planFeedbackController,
   required ValueNotifier<int> collapseToolResults,
   required VoidCallback scrollToBottom,
@@ -1454,6 +1488,7 @@ void _executeSideEffects(
           if (permission != null) {
             NotificationService.instance.showApprovalNotification(
               permission,
+              l: l,
               id: 1,
               payload: sessionId,
             );
@@ -1465,6 +1500,7 @@ void _executeSideEffects(
           if (permission != null) {
             NotificationService.instance.showApprovalNotification(
               permission,
+              l: l,
               id: 2,
               payload: sessionId,
             );
@@ -1831,6 +1867,13 @@ String? _extractPlanText(
     if (entry is! ServerChatEntry) continue;
     final msg = entry.message;
     if (msg is! AssistantServerMessage) continue;
+
+    for (final content in msg.message.content) {
+      if (content is ToolUseContent && isCodexUpdatePlanTool(content.name)) {
+        final text = codexPlanUpdateTextFromInput(content.input);
+        if (text != null) return text;
+      }
+    }
 
     final text = msg.message.content
         .whereType<TextContent>()

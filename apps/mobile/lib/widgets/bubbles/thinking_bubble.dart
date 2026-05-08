@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../google_search_text_selection.dart';
+
 /// Displays Claude's thinking content with a collapsible UI.
 ///
 /// When [isStreaming] is true, shows an animated indicator.
@@ -166,6 +168,8 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                           fontFamily: 'monospace',
                           height: 1.5,
                         ),
+                        contextMenuBuilder:
+                            googleSearchSelectableTextContextMenuBuilder,
                       ),
                     ),
                   ),

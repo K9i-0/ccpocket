@@ -1,3 +1,5 @@
+// ignore_for_file: altive_lints/avoid_hardcoded_japanese
+
 import 'package:flutter/material.dart';
 
 import '../models/messages.dart';

@@ -1,0 +1,10 @@
+Port 22
+ListenAddress 0.0.0.0
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+PermitRootLogin no
+AllowTcpForwarding yes
+PermitOpen any
+Subsystem sftp internal-sftp
+LogLevel DEBUG1

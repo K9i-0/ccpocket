@@ -104,7 +104,12 @@ class MachineManagerService {
                 sshUsername: old['sshUsername'] as String?,
                 sshPort: old['sshPort'] as int? ?? 22,
                 sshAuthType: _parseSshAuthType(old['sshAuthType']),
+                sshJumpHost: old['sshJumpHost'] as String?,
+                sshJumpPort: old['sshJumpPort'] as int? ?? 22,
+                sshJumpUsername: old['sshJumpUsername'] as String?,
+                sshJumpAuthType: _parseSshAuthType(old['sshJumpAuthType']),
                 hasCredentials: old['hasCredentials'] as bool? ?? false,
+                hasJumpCredentials: old['hasJumpCredentials'] as bool? ?? false,
               ),
             );
           }
@@ -355,6 +360,8 @@ class MachineManagerService {
     String? apiKey,
     String? sshPassword,
     String? sshPrivateKey,
+    String? sshJumpPassword,
+    String? sshJumpPrivateKey,
   }) async {
     // Check if machine with same host:port already exists
     final existingIndex = _machines.indexWhere(
@@ -373,6 +380,8 @@ class MachineManagerService {
       apiKey: apiKey,
       sshPassword: sshPassword,
       sshPrivateKey: sshPrivateKey,
+      sshJumpPassword: sshJumpPassword,
+      sshJumpPrivateKey: sshJumpPrivateKey,
     );
 
     // Update hasApiKey and hasCredentials flags
@@ -380,16 +389,21 @@ class MachineManagerService {
     final hasCredentials =
         (sshPassword != null && sshPassword.isNotEmpty) ||
         (sshPrivateKey != null && sshPrivateKey.isNotEmpty);
+    final hasJumpCredentials =
+        (sshJumpPassword != null && sshJumpPassword.isNotEmpty) ||
+        (sshJumpPrivateKey != null && sshJumpPrivateKey.isNotEmpty);
 
     if (existingIndex != -1) {
       _machines[existingIndex] = machine.copyWith(
         hasApiKey: hasApiKey,
         hasCredentials: hasCredentials,
+        hasJumpCredentials: hasJumpCredentials,
       );
     } else {
       _machines[_machines.length - 1] = machine.copyWith(
         hasApiKey: hasApiKey,
         hasCredentials: hasCredentials,
+        hasJumpCredentials: hasJumpCredentials,
       );
     }
 
@@ -407,8 +421,11 @@ class MachineManagerService {
     String? apiKey,
     String? sshPassword,
     String? sshPrivateKey,
+    String? sshJumpPassword,
+    String? sshJumpPrivateKey,
     bool clearApiKey = false,
     bool clearCredentials = false,
+    bool clearJumpCredentials = false,
   }) async {
     final index = _machines.indexWhere((m) => m.id == machine.id);
     if (index == -1) return;
@@ -445,16 +462,43 @@ class MachineManagerService {
       }
     }
 
+    if (clearJumpCredentials) {
+      await _secureStorage.delete(
+        key: '$_secureKeyPrefix${machine.id}_jump_ssh_pass',
+      );
+      await _secureStorage.delete(
+        key: '$_secureKeyPrefix${machine.id}_jump_ssh_key',
+      );
+    } else {
+      if (sshJumpPassword != null && sshJumpPassword.isNotEmpty) {
+        await _secureStorage.write(
+          key: '$_secureKeyPrefix${machine.id}_jump_ssh_pass',
+          value: sshJumpPassword,
+        );
+      }
+      if (sshJumpPrivateKey != null && sshJumpPrivateKey.isNotEmpty) {
+        await _secureStorage.write(
+          key: '$_secureKeyPrefix${machine.id}_jump_ssh_key',
+          value: sshJumpPrivateKey,
+        );
+      }
+    }
+
     // Update flags
     final existingApiKey = await getApiKey(machine.id);
     final existingPassword = await getSshPassword(machine.id);
     final existingKey = await getSshPrivateKey(machine.id);
+    final existingJumpPassword = await getSshJumpPassword(machine.id);
+    final existingJumpKey = await getSshJumpPrivateKey(machine.id);
 
     _machines[index] = machine.copyWith(
       hasApiKey: existingApiKey != null && existingApiKey.isNotEmpty,
       hasCredentials:
           (existingPassword != null && existingPassword.isNotEmpty) ||
           (existingKey != null && existingKey.isNotEmpty),
+      hasJumpCredentials:
+          (existingJumpPassword != null && existingJumpPassword.isNotEmpty) ||
+          (existingJumpKey != null && existingJumpKey.isNotEmpty),
     );
 
     _sortMachines();
@@ -579,6 +623,8 @@ class MachineManagerService {
     String? apiKey,
     String? sshPassword,
     String? sshPrivateKey,
+    String? sshJumpPassword,
+    String? sshJumpPrivateKey,
   }) async {
     if (apiKey != null && apiKey.isNotEmpty) {
       await _secureStorage.write(
@@ -598,12 +644,30 @@ class MachineManagerService {
         value: sshPrivateKey,
       );
     }
+    if (sshJumpPassword != null && sshJumpPassword.isNotEmpty) {
+      await _secureStorage.write(
+        key: '$_secureKeyPrefix${machineId}_jump_ssh_pass',
+        value: sshJumpPassword,
+      );
+    }
+    if (sshJumpPrivateKey != null && sshJumpPrivateKey.isNotEmpty) {
+      await _secureStorage.write(
+        key: '$_secureKeyPrefix${machineId}_jump_ssh_key',
+        value: sshJumpPrivateKey,
+      );
+    }
   }
 
   Future<void> _deleteCredentials(String machineId) async {
     await _secureStorage.delete(key: '$_secureKeyPrefix${machineId}_api');
     await _secureStorage.delete(key: '$_secureKeyPrefix${machineId}_ssh_pass');
     await _secureStorage.delete(key: '$_secureKeyPrefix${machineId}_ssh_key');
+    await _secureStorage.delete(
+      key: '$_secureKeyPrefix${machineId}_jump_ssh_pass',
+    );
+    await _secureStorage.delete(
+      key: '$_secureKeyPrefix${machineId}_jump_ssh_key',
+    );
   }
 
   /// Get API key for a machine
@@ -622,6 +686,20 @@ class MachineManagerService {
   Future<String?> getSshPrivateKey(String machineId) async {
     return await _secureStorage.read(
       key: '$_secureKeyPrefix${machineId}_ssh_key',
+    );
+  }
+
+  /// Get SSH jump host password for a machine
+  Future<String?> getSshJumpPassword(String machineId) async {
+    return await _secureStorage.read(
+      key: '$_secureKeyPrefix${machineId}_jump_ssh_pass',
+    );
+  }
+
+  /// Get SSH jump host private key for a machine
+  Future<String?> getSshJumpPrivateKey(String machineId) async {
+    return await _secureStorage.read(
+      key: '$_secureKeyPrefix${machineId}_jump_ssh_key',
     );
   }
 

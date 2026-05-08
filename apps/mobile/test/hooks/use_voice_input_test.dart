@@ -7,6 +7,39 @@ import 'package:ccpocket/l10n/app_localizations.dart';
 
 void main() {
   group('useVoiceInput', () {
+    test('inserts recognized text at the cursor position', () {
+      const baseValue = TextEditingValue(
+        text: 'before after',
+        selection: TextSelection.collapsed(offset: 7),
+      );
+
+      final result = composeVoiceInputValue(baseValue, 'voice ');
+
+      expect(result.text, 'before voice after');
+      expect(result.selection, const TextSelection.collapsed(offset: 13));
+    });
+
+    test('replaces the selected range with recognized text', () {
+      const baseValue = TextEditingValue(
+        text: 'replace this text',
+        selection: TextSelection(baseOffset: 8, extentOffset: 12),
+      );
+
+      final result = composeVoiceInputValue(baseValue, 'that');
+
+      expect(result.text, 'replace that text');
+      expect(result.selection, const TextSelection.collapsed(offset: 12));
+    });
+
+    test('uses the end of the text when selection is invalid', () {
+      const baseValue = TextEditingValue(text: 'append');
+
+      final result = composeVoiceInputValue(baseValue, ' voice');
+
+      expect(result.text, 'append voice');
+      expect(result.selection, const TextSelection.collapsed(offset: 12));
+    });
+
     testWidgets('returns initial state correctly', (tester) async {
       late VoiceInputResult result;
       final controller = TextEditingController();

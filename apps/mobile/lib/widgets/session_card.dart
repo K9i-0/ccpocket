@@ -108,6 +108,7 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
 
     final permission = session.pendingPermission;
     final hasPermission = permission != null;
+    final queuedInput = session.queuedInput;
     final isCodexSession = session.provider == Provider.codex.value;
     final isPlanApproval =
         hasPermission && permission.toolName == 'ExitPlanMode';
@@ -197,8 +198,14 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
                       ),
                     ),
                   ],
-                  if (widget.onStop != null) ...[
+                  if (queuedInput != null || widget.onStop != null) ...[
                     const Spacer(),
+                    if (queuedInput != null) ...[
+                      _QueuedInputBadge(item: queuedInput),
+                      if (widget.onStop != null) const SizedBox(width: 6),
+                    ],
+                  ],
+                  if (widget.onStop != null) ...[
                     _RunningSessionStopButton(onPressed: widget.onStop!),
                   ],
                 ],
@@ -499,6 +506,62 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
     } catch (_) {
       return '';
     }
+  }
+}
+
+class _QueuedInputBadge extends StatelessWidget {
+  final QueuedInputItem item;
+
+  const _QueuedInputBadge({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    final imageLabel = item.imageCount > 0
+        ? ' · ${l.queuedInputImageCount(item.imageCount)}'
+        : '';
+    final semanticsLabel = '${l.queuedInputForNextTurn}$imageLabel';
+
+    return Semantics(
+      label: semanticsLabel,
+      child: Tooltip(
+        message: semanticsLabel,
+        child: Container(
+          key: const ValueKey('session_card_queue_badge'),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: colorScheme.primaryContainer.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.32),
+              width: 0.6,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.chat_bubble_outline,
+                size: 12,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                l.sessionCardQueuedInput,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

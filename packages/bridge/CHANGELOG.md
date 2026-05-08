@@ -2,6 +2,47 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.56.1] - 2026-05-07
+
+### Fixed
+- Handle non-ASCII untracked file paths in Git diff responses.
+
+## [1.56.0] - 2026-05-06
+
+### Added
+- Load available Codex models from the app-server `model/list` RPC, with the bundled model list kept as a fallback.
+
+## [1.55.1] - 2026-05-05
+
+### Fixed
+- Support Explorer file listings for non-Git projects with a filesystem fallback.
+
+## [1.55.0] - 2026-05-05
+
+### Added
+- Forward Codex plan update events so clients can render them as structured todo lists.
+
+## [1.54.1] - 2026-05-05
+
+### Fixed
+- Improve Git branch loading performance for repositories with many branches and worktrees.
+
+## [1.54.0] - 2026-05-04
+
+### Added
+- Add Claude Opus 4.5 to the available Claude model list.
+
+## [1.53.2] - 2026-05-04
+
+### Fixed
+- Restore image attachments when resuming Codex sessions.
+- Restore user images when loading session history.
+
+## [1.53.1] - 2026-05-03
+
+### Fixed
+- Hide automatic session rename helper runs from recent session history.
+
 ## [1.53.0] - 2026-05-02
 
 ### Added

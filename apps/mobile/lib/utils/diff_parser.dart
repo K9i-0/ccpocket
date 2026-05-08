@@ -680,6 +680,18 @@ void _writeFileHeader(StringBuffer buffer, DiffFile file) {
 /// Extract file path from `diff --git a/path b/path`.
 String _extractFilePath(String diffGitLine) {
   final payload = diffGitLine.replaceFirst('diff --git ', '');
+
+  // With core.quotePath=false, Git can emit unquoted paths that contain spaces:
+  // `diff --git a/docs/空 白.md b/docs/空 白.md`.
+  // In that form, tokenizing by spaces loses the path, so prefer the new-path
+  // side after the final ` b/` marker when the payload is not quoted.
+  if (!payload.trimLeft().startsWith('"')) {
+    final newPathMarker = payload.lastIndexOf(' b/');
+    if (newPathMarker >= 0) {
+      return _decodeGitPathToken(payload.substring(newPathMarker + 1));
+    }
+  }
+
   final tokens = <String>[];
   final buffer = StringBuffer();
   var inQuotes = false;

@@ -28,7 +28,7 @@ class ExploreEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Explore currently shows Git-listed files only. Non-Git projects or ignored-only directories may appear empty.',
+              'No visible files were found. Generated and cache directories may be hidden.',
               style: textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),

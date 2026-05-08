@@ -30,6 +30,10 @@
   "gallery": "갤러리",
   "git": "Git",
   "explorer": "Explorer",
+  "gitUnavailableTip": "Git을 찾을 수 없음 — Git 기능을 사용할 수 없습니다",
+  "gitUnavailableTitle": "Git을 사용할 수 없음",
+  "gitUnavailableHint": "이 프로젝트에서는 Git 기능을 사용할 수 없습니다",
+  "autoModeFallbackDefaultTip": "이 환경에서는 Auto mode를 사용할 수 없어 Default mode로 전환했습니다",
   "galleryWithCount": "갤러리 ({count})",
   "disconnect": "연결 해제",
   "back": "뒤로",
@@ -301,6 +305,7 @@
   "queuedInputForReconnect": "재연결 대기열에 추가됨",
   "queuedInputPendingDelivery": "전송 확인 중",
   "queuedInputForNextTurn": "다음 턴 대기열에 추가됨",
+  "sessionCardQueuedInput": "대기 중",
   "queuedInputImageCount": "{count, plural, other{이미지 {count}개}}",
   "@queuedInputImageCount": {
     "placeholders": {
@@ -618,6 +623,8 @@
   "settingsClaudeSubscriptionUsage": "구독 사용량",
   "settingsNewSessionTabs": "새 세션 탭",
   "settingsNewSessionTabsDescription": "새 세션에 표시할 AI 도구와 순서를 선택하세요.",
+  "showBridgeNameInSessionList": "Bridge 이름 표시",
+  "showBridgeNameInSessionListSubtitle": "여러 Bridge가 등록되어 있을 때 세션 목록에 연결된 Bridge 이름을 표시합니다.",
   "autoRenameCodexSessions": "자동 Rename (Codex)",
   "autoRenameCodexSessionsSubtitle": "첫 에이전트 응답 후 Codex 세션 이름을 자동으로 지정합니다",
   "autoRenameClaudeSessions": "자동 Rename (Claude)",
@@ -883,5 +890,14 @@
         "type": "String"
       }
     }
-  }
+  },
+  "gitDiscardAllChangesTitle": "모든 변경 사항을 버릴까요?",
+  "gitDiscardVisibleUnstagedChangesMessage": "현재 표시된 모든 스테이징되지 않은 변경 사항을 버립니다.",
+  "gitDiscardChangeTitle": "이 변경 사항을 버릴까요?",
+  "gitDiscardFileUnstagedChangesMessage": "이 파일의 모든 스테이징되지 않은 변경 사항을 버립니다.",
+  "gitDiscardHunkUnstagedChangesMessage": "이 헝크의 스테이징되지 않은 변경 사항을 버립니다.",
+  "googleSearchSelectionAction": "Google 검색",
+  "approvalQuestionNotificationTitle": "질문이 있습니다 - ccpocket",
+  "approvalRequiredNotificationTitle": "승인 대기 중 - ccpocket",
+  "exitPlanModeNotificationBody": "작성된 계획을 확인해야 합니다"
 }

@@ -80,6 +80,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get explorer => '资源管理器';
 
   @override
+  String get gitUnavailableTip => '未检测到 Git — Git 功能不可用';
+
+  @override
+  String get gitUnavailableTitle => 'Git 不可用';
+
+  @override
+  String get gitUnavailableHint => '此项目无法使用 Git 功能';
+
+  @override
+  String get autoModeFallbackDefaultTip =>
+      '当前环境不支持 Auto mode，已切换为 Default mode';
+
+  @override
   String galleryWithCount(int count) {
     return '图库 ($count)';
   }
@@ -761,6 +774,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get queuedInputForNextTurn => '已排队到下一轮';
+
+  @override
+  String get sessionCardQueuedInput => '已排队';
 
   @override
   String queuedInputImageCount(int count) {
@@ -1587,6 +1603,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsNewSessionTabsDescription => '可修改新建会话时显示的 AI 工具选项及其排列顺序。';
 
   @override
+  String get showBridgeNameInSessionList => '显示 Bridge 名称';
+
+  @override
+  String get showBridgeNameInSessionListSubtitle =>
+      '注册多个 Bridge 时，在会话列表中显示当前连接的 Bridge 名称。';
+
+  @override
   String get autoRenameCodexSessions => '自动 Rename (Codex)';
 
   @override
@@ -2077,4 +2100,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String supporterRestoreFailed(String message) {
     return '恢复失败：$message';
   }
+
+  @override
+  String get gitDiscardAllChangesTitle => '要放弃所有更改吗？';
+
+  @override
+  String get gitDiscardVisibleUnstagedChangesMessage => '放弃当前显示的所有未暂存更改。';
+
+  @override
+  String get gitDiscardChangeTitle => '要放弃此更改吗？';
+
+  @override
+  String get gitDiscardFileUnstagedChangesMessage => '放弃此文件中的所有未暂存更改。';
+
+  @override
+  String get gitDiscardHunkUnstagedChangesMessage => '放弃此代码块中的未暂存更改。';
+
+  @override
+  String get googleSearchSelectionAction => '用 Google 搜索';
+
+  @override
+  String get approvalQuestionNotificationTitle => '有一个问题 - ccpocket';
+
+  @override
+  String get approvalRequiredNotificationTitle => '等待审批 - ccpocket';
+
+  @override
+  String get exitPlanModeNotificationBody => '生成的计划需要你确认';
 }

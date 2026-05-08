@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/messages.dart';
 import '../../theme/app_theme.dart';
 
@@ -11,15 +12,16 @@ class TipChip extends StatelessWidget {
   final SystemMessage message;
   const TipChip({super.key, required this.message});
 
-  String get _text => switch (message.tipCode) {
-    'git_not_available' => 'Git未検出 — Diff・ファイル一覧は利用できません',
-    'auto_mode_fallback_default' => 'Auto mode はこの環境で使えないため Default に切り替えました',
+  String _text(AppLocalizations l) => switch (message.tipCode) {
+    'git_not_available' => l.gitUnavailableTip,
+    'auto_mode_fallback_default' => l.autoModeFallbackDefaultTip,
     _ => message.subtype,
   };
 
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final l = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
@@ -30,7 +32,7 @@ class TipChip extends StatelessWidget {
             const SizedBox(width: 4),
             Flexible(
               child: Text(
-                _text,
+                _text(l),
                 style: TextStyle(fontSize: 12, color: appColors.subtleText),
               ),
             ),

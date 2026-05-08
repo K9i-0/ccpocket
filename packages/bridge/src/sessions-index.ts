@@ -1,8 +1,10 @@
 import { readdir, readFile, writeFile, appendFile, stat, open } from "node:fs/promises";
 import { createReadStream, type Dirent } from "node:fs";
 import { createInterface } from "node:readline";
-import { basename, join } from "node:path";
+import { basename, extname, join } from "node:path";
 import { homedir } from "node:os";
+import { isAutoRenamePromptText } from "./auto-rename.js";
+import { CODEX_ASSIST_MODEL } from "./codex-assist.js";
 
 export interface SessionIndexEntry {
   sessionId: string;
@@ -261,6 +263,10 @@ function isSystemInjectedText(text: string): boolean {
   return RE_SYSTEM_INJECTED.test(text) || text.startsWith("Base directory for this skill:");
 }
 
+function isCodexAutoRenameSession(firstPrompt: string, model?: string): boolean {
+  return model === CODEX_ASSIST_MODEL && isAutoRenamePromptText(firstPrompt);
+}
+
 /** Extract user prompt text from a parsed JSONL entry. */
 function extractUserPromptText(entry: Record<string, unknown>): string {
   const message = entry.message as { content?: unknown } | undefined;
@@ -305,6 +311,7 @@ function parseFromChunks(
   let headFoundFirstPrompt = false;
   let headFoundProjectPath = false;
   let headFoundGitBranch = false;
+  let isInternalAutoRename = false;
 
   // --- Scan head lines ---
   const headLines = head.split("\n");
@@ -362,11 +369,24 @@ function parseFromChunks(
         const entry = JSON.parse(line) as Record<string, unknown>;
         const text = extractUserPromptText(entry);
         if (text && !isSystemInjectedText(text)) {
+          if (isAutoRenamePromptText(text)) {
+            isInternalAutoRename = true;
+            break;
+          }
           firstPrompt = text;
           headFoundFirstPrompt = true;
         }
       } catch { /* skip */ }
     }
+  }
+
+  if (isInternalAutoRename) {
+    return {
+      entry: null,
+      headFoundFirstPrompt,
+      headFoundProjectPath,
+      headFoundGitBranch,
+    };
   }
 
   // --- Scan tail lines (if separate from head) ---
@@ -440,6 +460,15 @@ function parseFromChunks(
   }
 
   if (!hasAnyMessage) {
+    return {
+      entry: null,
+      headFoundFirstPrompt,
+      headFoundProjectPath,
+      headFoundGitBranch,
+    };
+  }
+
+  if (isAutoRenamePromptText(firstPrompt)) {
     return {
       entry: null,
       headFoundFirstPrompt,
@@ -538,6 +567,9 @@ async function parseClaudeJsonlFileFast(
     if (!result.firstPrompt && missing.firstPrompt) {
       result.firstPrompt = missing.firstPrompt;
     }
+    if (isAutoRenamePromptText(result.firstPrompt)) {
+      return null;
+    }
     if (missing.projectPath) {
       result.projectPath = missing.projectPath;
       if (missing.rawCwd && missing.rawCwd !== missing.projectPath) {
@@ -557,7 +589,9 @@ async function parseClaudeJsonlFileFast(
 async function hydrateClaudeIndexedEntry(
   dirPath: string,
   entry: RawSessionEntry,
-): Promise<SessionIndexEntry> {
+): Promise<SessionIndexEntry | null> {
+  if (isAutoRenamePromptText(entry.firstPrompt ?? "")) return null;
+
   const rawProjectPath = entry.projectPath ?? "";
   const normalizedPath = normalizeWorktreePath(rawProjectPath);
   const base: SessionIndexEntry = {
@@ -587,6 +621,7 @@ async function hydrateClaudeIndexedEntry(
   const fallbackPath = entry.fullPath || join(dirPath, `${entry.sessionId}.jsonl`);
   const parsed = await parseClaudeJsonlFileFast(entry.sessionId, fallbackPath);
   if (!parsed) return base;
+  if (isAutoRenamePromptText(parsed.firstPrompt)) return null;
 
   return {
     ...base,
@@ -900,8 +935,11 @@ export async function getAllRecentSessions(
             }
 
             indexedIds.add(entry.sessionId);
-            result.entries.push(await hydrateClaudeIndexedEntry(dirPath, entry));
-            result.indexEntries += 1;
+            const hydrated = await hydrateClaudeIndexedEntry(dirPath, entry);
+            if (hydrated) {
+              result.entries.push(hydrated);
+              result.indexEntries += 1;
+            }
           }
 
           if (!includeOnlyNamedClaude) {
@@ -1242,6 +1280,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   }
 
   if (model === "codex-auto-review") return null;
+  if (isCodexAutoRenameSession(firstPrompt, model)) return null;
   if (!projectPath || !hasMessages) return null;
   summary = lastAssistantText || summary;
 
@@ -2704,45 +2743,232 @@ async function extractCodexMessageImages(
     return [];
   }
 
-  // Codex doesn't have per-message UUIDs in the same way.
-  // We scan for event_msg with user_message that has images and match by line index
-  // encoded in the UUID (format: "codex-line-{index}").
+  // Codex doesn't have per-message UUIDs in the same way. Newer app history
+  // uses a stable turn ordinal (codex:user-turn:N); older builds encoded the
+  // JSONL line index (codex-line:N).
   const lineIndex = messageUuid.startsWith("codex-line-")
     ? parseInt(messageUuid.slice("codex-line-".length), 10)
     : -1;
-  if (lineIndex < 0) return [];
-
   const lines = raw.split("\n");
-  if (lineIndex >= lines.length) return [];
+  if (lineIndex >= 0) {
+    if (lineIndex >= lines.length) return [];
 
-  const line = lines[lineIndex];
-  if (!line?.trim()) return [];
+    const line = lines[lineIndex];
+    if (!line?.trim()) return [];
 
-  let entry: Record<string, unknown>;
-  try {
-    entry = JSON.parse(line) as Record<string, unknown>;
-  } catch {
-    return [];
+    let entry: Record<string, unknown>;
+    try {
+      entry = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      return [];
+    }
+
+    if (entry.type !== "event_msg") return [];
+    const payload = asObject(entry.payload);
+    if (!payload || payload.type !== "user_message") return [];
+    return extractCodexUserMessagePayloadImages(payload);
   }
 
-  if (entry.type !== "event_msg") return [];
-  const payload = asObject(entry.payload);
-  if (!payload || payload.type !== "user_message") return [];
+  const turnMatch = messageUuid.match(/^codex:user-turn:(\d+)$/);
+  const targetOrdinal = turnMatch ? Number(turnMatch[1]) : -1;
+  if (!Number.isInteger(targetOrdinal) || targetOrdinal <= 0) return [];
 
-  const images: ExtractedImage[] = [];
-
-  // Parse payload.images (Data URI format: "data:image/png;base64,...")
-  if (Array.isArray(payload.images)) {
-    for (const img of payload.images) {
-      if (typeof img !== "string") continue;
-      const match = (img as string).match(/^data:(image\/[^;]+);base64,(.+)$/);
-      if (match) {
-        images.push({ base64: match[2], mimeType: match[1] });
-      }
+  const responseItemImagesByOrdinal =
+    collectCodexUserResponseItemImagesByOrdinal(lines);
+  let ordinal = 0;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let entry: Record<string, unknown>;
+    try {
+      entry = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+    if (entry.type !== "event_msg") continue;
+    const payload = asObject(entry.payload);
+    if (!payload || payload.type !== "user_message") continue;
+    if (!codexUserMessagePayloadHasDisplayContent(payload)) continue;
+    ordinal += 1;
+    if (ordinal === targetOrdinal) {
+      const images = await extractCodexUserMessagePayloadImages(payload);
+      return images.length > 0
+        ? images
+        : (responseItemImagesByOrdinal.get(targetOrdinal) ?? []);
     }
   }
 
+  return [];
+}
+
+async function extractCodexUserMessagePayloadImages(
+  payload: Record<string, unknown>,
+): Promise<ExtractedImage[]> {
+  const images: ExtractedImage[] = [];
+  if (Array.isArray(payload.images)) {
+    for (const img of payload.images) {
+      if (typeof img === "string") {
+        const match = img.match(/^data:(image\/[^;]+);base64,(.+)$/);
+        if (match) {
+          images.push({ base64: match[2], mimeType: match[1] });
+        }
+        continue;
+      }
+      const item = asObject(img);
+      if (!item) continue;
+      const base64 =
+        typeof item.base64 === "string"
+          ? item.base64
+          : typeof item.data === "string"
+            ? item.data
+            : undefined;
+      const mimeType =
+        typeof item.mimeType === "string"
+          ? item.mimeType
+          : typeof item.mime_type === "string"
+            ? item.mime_type
+            : typeof item.media_type === "string"
+              ? item.media_type
+              : undefined;
+      if (base64 && mimeType) {
+        images.push({ base64, mimeType });
+      }
+    }
+  }
+  if (Array.isArray(payload.local_images)) {
+    for (const imagePath of payload.local_images) {
+      if (typeof imagePath !== "string" || imagePath.length === 0) continue;
+      const image = await readLocalImageAsBase64(imagePath);
+      if (image) images.push(image);
+    }
+  }
   return images;
+}
+
+function collectCodexUserResponseItemImagesByOrdinal(
+  lines: string[],
+): Map<number, ExtractedImage[]> {
+  const imagesByOrdinal = new Map<number, ExtractedImage[]>();
+  let ordinal = 0;
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let entry: Record<string, unknown>;
+    try {
+      entry = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+    if (entry.type !== "response_item") continue;
+    const payload = asObject(entry.payload);
+    if (
+      !payload ||
+      payload.type !== "message" ||
+      payload.role !== "user" ||
+      !codexUserResponseItemHasDisplayContent(payload)
+    ) {
+      continue;
+    }
+    ordinal += 1;
+    const images = extractCodexUserResponseItemImages(payload);
+    if (images.length > 0) {
+      imagesByOrdinal.set(ordinal, images);
+    }
+  }
+
+  return imagesByOrdinal;
+}
+
+function codexUserResponseItemHasDisplayContent(
+  payload: Record<string, unknown>,
+): boolean {
+  const texts: string[] = [];
+  let hasImage = false;
+  for (const item of arrayValue(payload.content)) {
+    const content = asObject(item);
+    if (!content) continue;
+    if (content.type === "input_image") {
+      hasImage = true;
+      continue;
+    }
+    if (content.type !== "input_text" || typeof content.text !== "string") {
+      continue;
+    }
+    texts.push(content.text);
+  }
+  const userText = texts
+    .filter((text) => !isCodexImageWrapperText(text.trim()))
+    .join("\n")
+    .trim();
+  if (userText && isCodexInjectedUserContext(userText)) return false;
+  return userText.length > 0 || hasImage;
+}
+
+function extractCodexUserResponseItemImages(
+  payload: Record<string, unknown>,
+): ExtractedImage[] {
+  const images: ExtractedImage[] = [];
+  for (const item of arrayValue(payload.content)) {
+    const content = asObject(item);
+    if (!content || content.type !== "input_image") continue;
+    const imageUrl =
+      typeof content.image_url === "string"
+        ? content.image_url
+        : typeof content.url === "string"
+          ? content.url
+          : undefined;
+    const image = extractDataUriImage(imageUrl);
+    if (image) images.push(image);
+  }
+  return images;
+}
+
+function extractDataUriImage(value: string | undefined): ExtractedImage | null {
+  const match = value?.match(/^data:(image\/[^;]+);base64,(.+)$/);
+  return match ? { base64: match[2], mimeType: match[1] } : null;
+}
+
+function isCodexImageWrapperText(text: string): boolean {
+  return /^<image(?:\s[^>]*)?>$/.test(text) || text === "</image>";
+}
+
+async function readLocalImageAsBase64(
+  imagePath: string,
+): Promise<ExtractedImage | null> {
+  const mimeType = mimeTypeForLocalImagePath(imagePath);
+  if (!mimeType) return null;
+  try {
+    const buffer = await readFile(imagePath);
+    return { base64: buffer.toString("base64"), mimeType };
+  } catch {
+    return null;
+  }
+}
+
+function mimeTypeForLocalImagePath(imagePath: string): string | null {
+  switch (extname(imagePath).toLowerCase()) {
+    case ".png":
+      return "image/png";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".gif":
+      return "image/gif";
+    case ".webp":
+      return "image/webp";
+    default:
+      return null;
+  }
+}
+
+function codexUserMessagePayloadHasDisplayContent(
+  payload: Record<string, unknown>,
+): boolean {
+  const message = typeof payload.message === "string" ? payload.message : "";
+  const images = Array.isArray(payload.images) ? payload.images.length : 0;
+  const localImages = Array.isArray(payload.local_images)
+    ? payload.local_images.length
+    : 0;
+  return message.trim().length > 0 || images + localImages > 0;
 }
 
 export async function getCodexSessionHistory(
@@ -2882,6 +3108,9 @@ export async function getCodexSessionHistory(
         }
 
         if (payload.role === "user") {
+          if (content.some((item) => item.type === "input_image")) {
+            continue;
+          }
           const text = content
             .filter((item) => item.type === "input_text" && typeof item.text === "string")
             .map((item) => item.text as string)

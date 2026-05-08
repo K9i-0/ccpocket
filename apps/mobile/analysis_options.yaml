@@ -9,6 +9,20 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+plugins:
+  altive_lints:
+    version: ^2.3.0
+    diagnostics:
+      avoid_consecutive_sliver_to_box_adapter: false
+      avoid_hardcoded_color: false
+      avoid_hardcoded_japanese: true
+      avoid_shrink_wrap_in_list_view: false
+      avoid_single_child: false
+      prefer_clock_now: false
+      prefer_dedicated_media_query_methods: false
+      prefer_space_between_elements: false
+      prefer_to_include_sliver_in_name: false
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

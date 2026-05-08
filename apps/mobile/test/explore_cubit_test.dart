@@ -146,13 +146,16 @@ void main() {
   });
 
   group('ExploreEmptyState', () {
-    testWidgets('renders Git-backed empty state copy', (tester) async {
+    testWidgets('renders empty state copy', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(home: Scaffold(body: ExploreEmptyState())),
       );
 
       expect(find.text('No files to explore'), findsOneWidget);
-      expect(find.textContaining('Git-listed files only'), findsOneWidget);
+      expect(
+        find.textContaining('No visible files were found'),
+        findsOneWidget,
+      );
     });
   });
 

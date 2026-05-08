@@ -1,3 +1,5 @@
+// ignore_for_file: altive_lints/avoid_hardcoded_japanese
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
@@ -6,6 +8,7 @@ import '../../../widgets/workspace_pane_chrome.dart';
 
 /// Available speech recognition locales.
 const speechLocales = <(String id, String label, String? subtitle)>[
+  ('', '', null), // System default; label resolved via l10n
   ('ja-JP', 'Japanese', '日本語'),
   ('en-US', 'English (US)', null),
   ('en-GB', 'English (UK)', null),
@@ -53,6 +56,7 @@ class _SpeechLocaleBottomSheetContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final cs = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -79,7 +83,7 @@ class _SpeechLocaleBottomSheetContent extends StatelessWidget {
               Icon(Icons.record_voice_over, color: cs.primary, size: 20),
               const SizedBox(width: 8),
               Text(
-                AppLocalizations.of(context).voiceInputLanguage,
+                l.voiceInputLanguage,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ],
@@ -97,7 +101,7 @@ class _SpeechLocaleBottomSheetContent extends StatelessWidget {
               for (final (id, label, subtitle) in speechLocales)
                 RadioListTile<String>(
                   value: id,
-                  title: Text(label),
+                  title: Text(id.isEmpty ? l.languageSystem : label),
                   subtitle: subtitle != null ? Text(subtitle) : null,
                 ),
             ],
@@ -110,11 +114,15 @@ class _SpeechLocaleBottomSheetContent extends StatelessWidget {
 }
 
 /// Returns the display label for a speech locale ID.
-String getSpeechLocaleLabel(String localeId) {
+String getSpeechLocaleLabel(BuildContext context, String localeId) {
+  if (localeId.isEmpty) {
+    return AppLocalizations.of(context).languageSystem;
+  }
   final locale = speechLocales.firstWhere(
     (l) => l.$1 == localeId,
     orElse: () => speechLocales.first,
   );
   final subtitle = locale.$3;
+  if (locale.$2.isEmpty) return localeId;
   return subtitle != null ? '${locale.$2} ($subtitle)' : locale.$2;
 }

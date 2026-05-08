@@ -32,6 +32,10 @@
   "gallery": "Gallery",
   "git": "Git",
   "explorer": "Explorer",
+  "gitUnavailableTip": "Git not detected — Git features are unavailable",
+  "gitUnavailableTitle": "Git Not Available",
+  "gitUnavailableHint": "Git features are not available for this project",
+  "autoModeFallbackDefaultTip": "Auto mode is not available in this environment, so Default mode was selected",
   "galleryWithCount": "Gallery ({count})",
   "disconnect": "Disconnect",
   "back": "Back",
@@ -309,6 +313,7 @@
   "queuedInputForReconnect": "Queued for reconnect",
   "queuedInputPendingDelivery": "Pending delivery",
   "queuedInputForNextTurn": "Queued for next turn",
+  "sessionCardQueuedInput": "Queued",
   "queuedInputImageCount": "{count, plural, =1{{count} image} other{{count} images}}",
   "@queuedInputImageCount": {
     "placeholders": {
@@ -654,6 +659,8 @@
   "settingsClaudeSubscriptionUsage": "Subscription usage",
   "settingsNewSessionTabs": "New Session Tabs",
   "settingsNewSessionTabsDescription": "Choose which AI tools appear for new sessions and change their order.",
+  "showBridgeNameInSessionList": "Show Bridge name",
+  "showBridgeNameInSessionListSubtitle": "Show the connected Bridge name in the session list when multiple Bridges are registered.",
   "autoRenameCodexSessions": "Auto Rename (Codex)",
   "autoRenameCodexSessionsSubtitle": "Name Codex sessions automatically after the first agent response",
   "autoRenameClaudeSessions": "Auto Rename (Claude)",
@@ -895,5 +902,14 @@
     "placeholders": {
       "message": { "type": "String" }
     }
-  }
+  },
+  "gitDiscardAllChangesTitle": "Discard all changes?",
+  "gitDiscardVisibleUnstagedChangesMessage": "Discard all visible unstaged changes.",
+  "gitDiscardChangeTitle": "Discard this change?",
+  "gitDiscardFileUnstagedChangesMessage": "Discard all unstaged changes in this file.",
+  "gitDiscardHunkUnstagedChangesMessage": "Discard unstaged changes in this hunk.",
+  "googleSearchSelectionAction": "Search with Google",
+  "approvalQuestionNotificationTitle": "Question - ccpocket",
+  "approvalRequiredNotificationTitle": "Approval Required - ccpocket",
+  "exitPlanModeNotificationBody": "The generated plan needs your review"
 }

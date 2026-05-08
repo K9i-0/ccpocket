@@ -17,6 +17,47 @@ jobs:
           cache: true
       - run: flutter pub get
         working-directory: apps/mobile
+      - name: Generate SSH private key smoke credentials
+        run: |
+          mkdir -p tools/ssh-jump-smoke/generated
+          ssh-keygen -t ed25519 -N "" -f tools/ssh-jump-smoke/generated/id_ed25519 -C ccpocket-smoke-test
+      - name: Start SSH jump smoke containers
+        run: docker compose -f tools/ssh-jump-smoke/docker-compose.yml up -d --build
+      - name: Wait for SSH jump host
+        run: |
+          for i in {1..30}; do
+            nc -z 127.0.0.1 22220 && exit 0
+            sleep 1
+          done
+          docker compose -f tools/ssh-jump-smoke/docker-compose.yml logs
+          exit 1
+      - name: Run SSH jump smoke test
+        run: flutter test test/ssh_jump_smoke_test.dart
+        working-directory: apps/mobile
+        env:
+          CCPOCKET_SSH_JUMP_SMOKE: "1"
+          CCPOCKET_SSH_TARGET_HOST: target-sshd
+          CCPOCKET_SSH_TARGET_PORT: "22"
+          CCPOCKET_SSH_JUMP_HOST: 127.0.0.1
+          CCPOCKET_SSH_JUMP_PORT: "22220"
+          CCPOCKET_SSH_USERNAME: ccpocket
+          CCPOCKET_SSH_PASSWORD: ccpocket
+      - name: Run SSH private key smoke test
+        run: flutter test test/ssh_private_key_smoke_test.dart
+        working-directory: apps/mobile
+        env:
+          CCPOCKET_SSH_PRIVATE_KEY_SMOKE: "1"
+          CCPOCKET_SSH_PRIVATE_KEY_FILE: ../../tools/ssh-jump-smoke/generated/id_ed25519
+          CCPOCKET_SSH_KEY_HOST: 127.0.0.1
+          CCPOCKET_SSH_KEY_PORT: "22220"
+          CCPOCKET_SSH_TARGET_HOST: target-sshd
+          CCPOCKET_SSH_TARGET_PORT: "22"
+          CCPOCKET_SSH_JUMP_HOST: 127.0.0.1
+          CCPOCKET_SSH_JUMP_PORT: "22220"
+          CCPOCKET_SSH_USERNAME: ccpocket
+      - name: Stop SSH jump smoke containers
+        if: always()
+        run: docker compose -f tools/ssh-jump-smoke/docker-compose.yml down -v
       - run: dart analyze .
         working-directory: apps/mobile
       - run: flutter test

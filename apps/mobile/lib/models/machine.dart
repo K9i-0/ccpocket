@@ -119,8 +119,23 @@ abstract class Machine with _$Machine {
     /// SSH authentication type
     @Default(SshAuthType.password) SshAuthType sshAuthType,
 
+    /// Optional SSH jump host used to reach the target SSH server
+    String? sshJumpHost,
+
+    /// SSH jump host port
+    @Default(22) int sshJumpPort,
+
+    /// Optional SSH jump username. Defaults to [sshUsername] when omitted.
+    String? sshJumpUsername,
+
+    /// SSH authentication type for the jump host when separate credentials are saved.
+    @Default(SshAuthType.password) SshAuthType sshJumpAuthType,
+
     /// Whether SSH credentials are saved (password or private key in secure storage)
     @Default(false) bool hasCredentials,
+
+    /// Whether separate SSH jump host credentials are saved in secure storage.
+    @Default(false) bool hasJumpCredentials,
   }) = _Machine;
 
   factory Machine.fromJson(Map<String, dynamic> json) =>

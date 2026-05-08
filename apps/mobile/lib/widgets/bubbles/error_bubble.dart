@@ -10,14 +10,14 @@ import '../../theme/app_theme.dart';
 import '../../utils/structured_error_inference.dart';
 
 /// Maps errorCode to a localized title for the error bubble header.
-String? _errorTitle(String? errorCode) {
+String? _errorTitle(String? errorCode, AppLocalizations l) {
   return switch (errorCode) {
     'auth_login_required' ||
     'auth_token_expired' ||
     'auth_api_error' => 'Authentication Error',
     'codex_auth_required' => 'Codex Authentication Error',
     'path_not_allowed' => 'Path Not Allowed',
-    'git_not_available' => 'Git Not Available',
+    'git_not_available' => l.gitUnavailableTitle,
     'bridge_update_required' => 'Bridge Update Required',
     'auto_mode_unavailable' => 'Auto Mode Unavailable',
     _ => null,
@@ -25,15 +25,14 @@ String? _errorTitle(String? errorCode) {
 }
 
 /// Maps errorCode to a short remedy hint shown below the message.
-String? _errorHint(String? errorCode) {
+String? _errorHint(String? errorCode, AppLocalizations l) {
   return switch (errorCode) {
     'auth_login_required' ||
     'auth_token_expired' => 'Run "claude auth login" on the Bridge machine',
     'auth_api_error' => 'Set ANTHROPIC_API_KEY on the Bridge machine',
     'codex_auth_required' => 'Check OPENAI_API_KEY on the Bridge machine',
     'path_not_allowed' => 'Update BRIDGE_ALLOWED_DIRS on the Bridge server',
-    'git_not_available' =>
-      'Git features (diff, file list) are not available for this project',
+    'git_not_available' => l.gitUnavailableHint,
     'bridge_update_required' => 'npm update -g @ccpocket/bridge',
     'auto_mode_unavailable' =>
       'Use Default mode here, or switch to a Claude environment that supports Auto mode',
@@ -77,11 +76,11 @@ class ErrorBubble extends StatelessWidget {
       message: message.message,
       explicitErrorCode: message.errorCode,
     );
-    final title = _errorTitle(resolvedErrorCode);
-    final hint = _errorHint(resolvedErrorCode);
+    final l = AppLocalizations.of(context);
+    final title = _errorTitle(resolvedErrorCode, l);
+    final hint = _errorHint(resolvedErrorCode, l);
     final hasStructured = title != null;
     final isWarn = _isWarning(resolvedErrorCode);
-    final l = AppLocalizations.of(context);
 
     final bubbleColor = isWarn
         ? appColors.warningBubble

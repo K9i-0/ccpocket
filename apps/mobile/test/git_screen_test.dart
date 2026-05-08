@@ -293,8 +293,11 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('revert_all_button')));
       await tester.pumpAndSettle();
 
-      expect(find.text('すべての変更を破棄しますか'), findsOneWidget);
-      expect(find.text('表示中の未ステージ変更をすべて破棄します。'), findsOneWidget);
+      expect(find.text('Discard all changes?'), findsOneWidget);
+      expect(
+        find.text('Discard all visible unstaged changes.'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('shows hunk action sheet on header long press', (tester) async {
@@ -507,8 +510,11 @@ diff --git a/lib/file_$index.dart b/lib/file_$index.dart
       await tester.tap(find.text('Revert'));
       await tester.pumpAndSettle();
 
-      expect(find.text('この変更を破棄しますか'), findsOneWidget);
-      expect(find.text('このハンクの未ステージ変更を破棄します。'), findsOneWidget);
+      expect(find.text('Discard this change?'), findsOneWidget);
+      expect(
+        find.text('Discard unstaged changes in this hunk.'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('does not throw when Wrap is on and staged tab is selected', (

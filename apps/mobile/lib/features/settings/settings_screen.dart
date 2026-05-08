@@ -431,7 +431,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         title: Text(l.voiceInput),
                         subtitle: Text(
-                          getSpeechLocaleLabel(state.speechLocaleId),
+                          getSpeechLocaleLabel(context, state.speechLocaleId),
                         ),
                         trailing: const Icon(Icons.chevron_right, size: 20),
                         onTap: () => showSpeechLocaleBottomSheet(
@@ -469,6 +469,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       value: state.textScale,
                       onChanged: (value) =>
                           context.read<SettingsCubit>().setTextScale(value),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    SwitchListTile(
+                      secondary: Icon(Icons.dns_outlined, color: cs.primary),
+                      title: Text(l.showBridgeNameInSessionList),
+                      subtitle: Text(l.showBridgeNameInSessionListSubtitle),
+                      value: state.showBridgeNameInSessionList,
+                      onChanged: (value) => context
+                          .read<SettingsCubit>()
+                          .setShowBridgeNameInSessionList(value),
                     ),
                     Divider(
                       height: 1,
@@ -1029,12 +1044,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final l = AppLocalizations.of(context);
 
-    final savedPassword = await cubit.getSshPassword(machine.machine.id);
-    var password = savedPassword;
-
-    if (password == null || password.isEmpty) {
-      password = await _promptForPassword(machine.machine.displayName);
-      if (password == null) return;
+    String? password;
+    if (machine.machine.sshAuthType == SshAuthType.password) {
+      final savedPassword = await cubit.getSshPassword(machine.machine.id);
+      password = savedPassword;
+      if (password == null || password.isEmpty) {
+        password = await _promptForPassword(machine.machine.displayName);
+        if (password == null) return;
+      }
     }
 
     if (!mounted) return;

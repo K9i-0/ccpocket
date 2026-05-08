@@ -1,5 +1,6 @@
 import '../core/logger.dart';
 import '../models/messages.dart';
+import '../utils/codex_plan_update.dart';
 import '../widgets/slash_command_sheet.dart'
     show
         SlashCommand,
@@ -480,7 +481,9 @@ class ChatMessageHandler {
             .whereType<TextContent>()
             .map((c) => c.text)
             .toList();
-        if (texts.isNotEmpty || m.imageCount > 0) {
+        final imageUrls = m.images.map((image) => image.url).toList();
+        final imageCount = m.imageCount > 0 ? m.imageCount : imageUrls.length;
+        if (texts.isNotEmpty || imageCount > 0) {
           final joined = texts.join('\n');
           entries.add(
             UserChatEntry(
@@ -488,7 +491,8 @@ class ChatMessageHandler {
               timestamp: ts,
               status: MessageStatus.sent,
               messageUuid: m.uuid,
-              imageCount: m.imageCount,
+              imageCount: imageCount,
+              imageUrls: imageUrls,
             ),
           );
         }
@@ -839,9 +843,14 @@ class ChatMessageHandler {
 
   bool _isCodexPlanUpdateMessage(AssistantMessage message) {
     for (final content in message.content) {
-      if (content is! TextContent) continue;
-      final text = content.text.trimLeft();
-      if (text.startsWith('Plan update:')) return true;
+      switch (content) {
+        case ToolUseContent(:final name) when isCodexUpdatePlanTool(name):
+          return true;
+        case TextContent(:final text):
+          if (text.trimLeft().startsWith('Plan update:')) return true;
+        case _:
+          break;
+      }
     }
     return false;
   }

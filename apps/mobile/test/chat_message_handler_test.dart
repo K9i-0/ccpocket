@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:ccpocket/l10n/app_localizations_ja.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/chat_message_handler.dart';
+import 'package:ccpocket/services/notification_service.dart';
 
 void main() {
   late ChatMessageHandler handler;
@@ -226,6 +228,37 @@ void main() {
       );
       expect(update.inPlanMode, isTrue);
     });
+
+    test('detects Codex structured plan update as plan mode', () {
+      final update = handler.handle(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'msg-codex-structured-plan',
+            role: 'assistant',
+            content: const [
+              ToolUseContent(
+                id: 'update_plan_1',
+                name: 'UpdatePlan',
+                input: {
+                  'title': 'Plan update',
+                  'todos': [
+                    {
+                      'content': 'Gather requirements',
+                      'status': 'in_progress',
+                      'activeForm': '',
+                    },
+                  ],
+                },
+              ),
+            ],
+            model: 'codex',
+          ),
+        ),
+        isBackground: false,
+        isCodex: true,
+      );
+      expect(update.inPlanMode, isTrue);
+    });
   });
 
   group('SystemMessage handling', () {
@@ -292,6 +325,35 @@ void main() {
       );
       final userEntry = update.entriesToPrepend[0] as UserChatEntry;
       expect(userEntry.status, MessageStatus.sent);
+    });
+
+    test('restores past user message images inline', () {
+      final update = handler.handle(
+        const PastHistoryMessage(
+          claudeSessionId: 'sess-1',
+          messages: [
+            PastMessage(
+              role: 'user',
+              uuid: 'user-1',
+              imageCount: 1,
+              images: [
+                ImageRef(
+                  id: 'img-1',
+                  url: '/images/img-1',
+                  mimeType: 'image/png',
+                ),
+              ],
+              content: [TextContent(text: 'What is in this image?')],
+            ),
+          ],
+        ),
+        isBackground: false,
+      );
+
+      final userEntry = update.entriesToPrepend[0] as UserChatEntry;
+      expect(userEntry.messageUuid, 'user-1');
+      expect(userEntry.imageCount, 1);
+      expect(userEntry.imageUrls, ['/images/img-1']);
     });
 
     test('restores past tool result messages', () {
@@ -1156,9 +1218,14 @@ void main() {
         },
       );
 
-      expect(perm.notificationCopy.title, '承認待ち - ccpocket');
+      final notificationCopy = ApprovalNotificationCopy.from(
+        perm,
+        l: AppLocalizationsJa(),
+      );
+
+      expect(notificationCopy.title, '承認待ち - ccpocket');
       expect(
-        perm.notificationCopy.body,
+        notificationCopy.body,
         'Verify whether Flutter 3.41.6 finished installing',
       );
     });
@@ -1181,8 +1248,13 @@ void main() {
         },
       );
 
-      expect(perm.notificationCopy.title, '承認待ち - ccpocket');
-      expect(perm.notificationCopy.body, 'Allow this request?');
+      final notificationCopy = ApprovalNotificationCopy.from(
+        perm,
+        l: AppLocalizationsJa(),
+      );
+
+      expect(notificationCopy.title, '承認待ち - ccpocket');
+      expect(notificationCopy.body, 'Allow this request?');
     });
   });
 

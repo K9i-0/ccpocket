@@ -1383,9 +1383,6 @@ class PermissionRequestMessage implements ServerMessage {
 
   PermissionPresentation get presentation => PermissionPresentation.from(this);
 
-  ApprovalNotificationCopy get notificationCopy =>
-      ApprovalNotificationCopy.from(this);
-
   String get displayToolName {
     if (isQuestionApproval) {
       return requestUserInputHeader(input) ?? 'App Tool Approval';
@@ -1594,34 +1591,6 @@ class PermissionPresentation {
           ),
         );
     }
-  }
-}
-
-class ApprovalNotificationCopy {
-  final String title;
-  final String body;
-
-  const ApprovalNotificationCopy({required this.title, required this.body});
-
-  factory ApprovalNotificationCopy.from(PermissionRequestMessage message) {
-    if (message.usesAskUserUi) {
-      return ApprovalNotificationCopy(
-        title: '質問があります - ccpocket',
-        body: message.summary,
-      );
-    }
-    if (message.toolName == 'ExitPlanMode') {
-      return const ApprovalNotificationCopy(
-        title: '承認待ち - ccpocket',
-        body: '作成したプランの確認が必要です',
-      );
-    }
-
-    final presentation = message.presentation;
-    return ApprovalNotificationCopy(
-      title: '承認待ち - ccpocket',
-      body: presentation.summary,
-    );
   }
 }
 

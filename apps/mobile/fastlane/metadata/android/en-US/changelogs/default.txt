@@ -1,5 +1,4 @@
-• Prompt History now syncs through Bridge.
-• New sessions can be automatically named from the first assistant response.
-• Session badges now show when a workspace has uncommitted changes or an unsynced branch.
-• You can now peek at file contents directly from Git Diff.
-• Minor fixes and stability improvements.
+• Codex Plan updates now appear as checklist-style lists.
+• Added support for SSH jump host connections.
+• Restored Claude Opus 4.5 to model selection.
+• Smaller fixes and stability improvements.

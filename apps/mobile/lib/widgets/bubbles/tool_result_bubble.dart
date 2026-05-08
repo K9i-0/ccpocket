@@ -9,6 +9,7 @@ import '../../router/app_router.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/tool_categories.dart';
+import '../google_search_text_selection.dart';
 import 'image_preview.dart';
 
 /// Three-level expansion state for tool result content.
@@ -383,6 +384,8 @@ class _ImageGenerationResultCardState
                     color: appColors.toolResultTextExpanded,
                     height: 1.4,
                   ),
+                  contextMenuBuilder:
+                      googleSearchSelectableTextContextMenuBuilder,
                 ),
               ],
             ],
@@ -639,6 +642,8 @@ class _ExpandedToolResult extends StatelessWidget {
                     color: appColors.toolResultTextExpanded,
                     height: 1.4,
                   ),
+                  contextMenuBuilder:
+                      googleSearchSelectableTextContextMenuBuilder,
                 ),
               ],
             ],

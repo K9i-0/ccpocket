@@ -1,3 +1,5 @@
+// ignore_for_file: altive_lints/avoid_hardcoded_japanese
+
 import '../models/messages.dart';
 
 /// Mock recent sessions for testing project filter and picker UI.
@@ -412,6 +414,31 @@ List<SessionInfo> mockSessionsAllStatuses() => [
         .toIso8601String(),
     gitBranch: 'feat/api',
     lastMessage: 'Implementing the new REST API endpoints.',
+  ),
+  // Working — running + queued input
+  SessionInfo(
+    id: 'mock-status-running-queued',
+    provider: 'codex',
+    projectPath: '/Users/demo/Workspace/ccpocket',
+    status: 'running',
+    createdAt: DateTime.now()
+        .subtract(const Duration(minutes: 6))
+        .toIso8601String(),
+    lastActivityAt: DateTime.now()
+        .subtract(const Duration(seconds: 6))
+        .toIso8601String(),
+    gitBranch: 'feat/session-queue',
+    lastMessage: 'Updating the session list card UI.',
+    codexModel: 'gpt-5.5',
+    codexModelReasoningEffort: 'high',
+    codexApprovalPolicy: 'on-request',
+    codexSandboxMode: 'workspace-write',
+    queuedInput: const QueuedInputItem(
+      itemId: 'mock-queued-input',
+      text: 'Follow up after the current turn finishes.',
+      createdAt: '2026-05-01T02:00:00.000Z',
+      imageCount: 1,
+    ),
   ),
   // Working — running + Plan badge
   SessionInfo(

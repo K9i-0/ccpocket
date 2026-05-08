@@ -63,6 +63,8 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final todos = _parseTodos();
+    final title = _stringInput('title') ?? 'Tasks';
+    final explanation = _stringInput('explanation');
 
     if (todos.isEmpty) {
       return const SizedBox.shrink();
@@ -101,7 +103,7 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
                 Icon(Icons.checklist, size: 16, color: appColors.toolIcon),
                 const SizedBox(width: 8),
                 Text(
-                  'Tasks',
+                  title,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -116,6 +118,19 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
               ],
             ),
           ),
+
+          if (explanation != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Text(
+                explanation,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: appColors.subtleText,
+                  height: 1.25,
+                ),
+              ),
+            ),
 
           // Progress bar
           Padding(
@@ -187,6 +202,13 @@ class _TodoWriteWidgetState extends State<TodoWriteWidget> {
         })
         .whereType<_TodoItem>()
         .toList();
+  }
+
+  String? _stringInput(String key) {
+    final value = widget.input[key];
+    if (value is! String) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 }
 

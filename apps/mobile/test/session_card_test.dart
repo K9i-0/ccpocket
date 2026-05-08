@@ -217,6 +217,88 @@ void main() {
       expect(find.byIcon(Icons.stop_circle_outlined), findsNothing);
     });
 
+    testWidgets('shows compact queue badge when queued input exists', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'queued-running',
+        provider: 'codex',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        queuedInput: const QueuedInputItem(
+          itemId: 'q1',
+          text: 'Follow up after this finishes',
+          createdAt: '2026-04-28T00:00:00.000Z',
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(RunningSessionCard(session: session, onTap: () {})),
+      );
+
+      expect(find.byKey(const ValueKey('session_card_queue_badge')), findsOne);
+      expect(find.text('Queued'), findsOneWidget);
+      expect(find.byIcon(Icons.chat_bubble_outline), findsOneWidget);
+      expect(find.text('Follow up after this finishes'), findsNothing);
+    });
+
+    testWidgets('hides queue badge when queued input is absent', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'no-queue-running',
+        provider: 'codex',
+        projectPath: '/home/user/my-app',
+        status: 'running',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+      );
+
+      await tester.pumpWidget(
+        _wrap(RunningSessionCard(session: session, onTap: () {})),
+      );
+
+      expect(
+        find.byKey(const ValueKey('session_card_queue_badge')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('queue badge coexists with approval status and stop button', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'approval-queued',
+        provider: 'codex',
+        projectPath: '/home/user/my-app',
+        status: 'waiting_approval',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        pendingPermission: const PermissionRequestMessage(
+          toolUseId: 'tool-1',
+          toolName: 'Bash',
+          input: {'command': 'npm test'},
+        ),
+        queuedInput: const QueuedInputItem(
+          itemId: 'q1',
+          text: 'Follow up after approval',
+          createdAt: '2026-04-28T00:00:00.000Z',
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(session: session, onTap: () {}, onStop: () {}),
+        ),
+      );
+
+      expect(find.text('Needs You'), findsOneWidget);
+      expect(find.byKey(const ValueKey('session_card_queue_badge')), findsOne);
+      expect(find.byIcon(Icons.stop_circle_outlined), findsOneWidget);
+    });
+
     testWidgets('shows Working status when session is in plan mode', (
       tester,
     ) async {

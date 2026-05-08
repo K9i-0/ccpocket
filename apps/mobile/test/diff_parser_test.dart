@@ -190,6 +190,22 @@ index 0000000..ce01362
       expect(files[0].filePath, 'docs/あいう.md');
     });
 
+    test('parses unquoted diff headers with spaces in paths', () {
+      const diff = '''
+diff --git a/docs/空 白.md b/docs/空 白.md
+new file mode 100644
+index 0000000..ce01362
+--- /dev/null
++++ b/docs/空 白.md
+@@ -0,0 +1 @@
++hello
+''';
+      final files = parseDiff(diff);
+
+      expect(files.length, 1);
+      expect(files[0].filePath, 'docs/空 白.md');
+    });
+
     test('parses quoted escaped paths from diff headers', () {
       const diff = r'''
 diff --git "a/docs/\343\201\202\343\201\204\343\201\206.md" "b/docs/\343\201\202\343\201\204\343\201\206.md"

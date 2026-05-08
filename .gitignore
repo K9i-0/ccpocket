@@ -83,3 +83,6 @@ web-preview.png
 
 # Local verification fixture repos
 tmp/verification/issue54-path/
+
+# SSH smoke test generated credentials
+tools/ssh-jump-smoke/generated/

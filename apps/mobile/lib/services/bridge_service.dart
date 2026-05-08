@@ -10,6 +10,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../core/logger.dart';
 import '../models/messages.dart';
 import '../models/offline_pending_action.dart';
+import '../utils/codex_plan_update.dart';
 import 'bridge_service_base.dart';
 import 'session_runtime_store.dart';
 
@@ -129,6 +130,7 @@ class BridgeService implements BridgeServiceBase {
 
   // Auto-reconnect
   String? _lastUrl;
+  int _connectionEpoch = 0;
   Timer? _reconnectTimer;
   int _reconnectAttempt = 0;
   static const _maxReconnectDelay = 30;
@@ -308,6 +310,7 @@ class BridgeService implements BridgeServiceBase {
   static const _inFlightPendingVisibilityDelay = Duration(milliseconds: 600);
 
   Future<void>? _offlineQueueRestore;
+  int _offlineQueueGeneration = 0;
 
   void _setBridgeConnectionState(BridgeConnectionState state) {
     _connectionState = state;
@@ -315,6 +318,11 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void connect(String url) {
+    final previousUrl = _lastUrl;
+    final isBridgeSwitch =
+        previousUrl != null && !_sameBridgeTarget(previousUrl, url);
+    _connectionEpoch++;
+    final epoch = _connectionEpoch;
     _intentionalDisconnect = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
@@ -324,6 +332,9 @@ class BridgeService implements BridgeServiceBase {
     _channel = null;
     _lastUsageResult = null;
     _promptHistoryBridgeId = null;
+    if (isBridgeSwitch) {
+      _clearBridgeScopedState(clearOfflineQueue: true);
+    }
     _lastUrl = url;
 
     _setBridgeConnectionState(BridgeConnectionState.connecting);
@@ -336,6 +347,7 @@ class BridgeService implements BridgeServiceBase {
 
       _channelSub = _channel!.stream.listen(
         (data) {
+          if (epoch != _connectionEpoch) return;
           try {
             final json = jsonDecode(data as String) as Map<String, dynamic>;
             final sessionId = json['sessionId'] as String?;
@@ -371,6 +383,7 @@ class BridgeService implements BridgeServiceBase {
                 :final bridgeVersion,
               ):
                 _sessions = _applyLocalDeliveryPendingInputs(sessions);
+                _clearPendingStartActionsForSessions(_sessions);
                 _sessionListController.add(_sessions);
                 _allowedDirs = allowedDirs;
                 _claudeModels = claudeModels;
@@ -560,6 +573,7 @@ class BridgeService implements BridgeServiceBase {
           }
         },
         onError: (error, stackTrace) {
+          if (epoch != _connectionEpoch) return;
           logger.error('WS stream error', error, stackTrace);
           _setBridgeConnectionState(BridgeConnectionState.disconnected);
           _requeueInFlightInputMessages();
@@ -570,6 +584,7 @@ class BridgeService implements BridgeServiceBase {
           _scheduleReconnect();
         },
         onDone: () {
+          if (epoch != _connectionEpoch) return;
           _channel = null;
           if (!_intentionalDisconnect) {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
@@ -586,6 +601,86 @@ class BridgeService implements BridgeServiceBase {
       _setBridgeConnectionState(BridgeConnectionState.disconnected);
       _messageController.add(ErrorMessage(message: 'Connection failed: $e'));
       _scheduleReconnect();
+    }
+  }
+
+  bool _sameBridgeTarget(String left, String right) {
+    final leftUri = Uri.tryParse(left);
+    final rightUri = Uri.tryParse(right);
+    if (leftUri == null || rightUri == null) return left == right;
+    return _bridgeTargetKey(leftUri) == _bridgeTargetKey(rightUri);
+  }
+
+  String _bridgeTargetKey(Uri uri) {
+    final scheme = uri.scheme.toLowerCase();
+    final host = uri.host.toLowerCase();
+    final port = uri.hasPort ? uri.port : (scheme == 'wss' ? 443 : 80);
+    final path = uri.path.isEmpty ? '/' : uri.path;
+    return '$scheme://$host:$port$path';
+  }
+
+  void _clearBridgeScopedState({required bool clearOfflineQueue}) {
+    _sessions = const [];
+    _recentSessions = const [];
+    _recentSessionsHasMore = false;
+    _appendMode = false;
+    _currentProjectFilter = null;
+    _galleryImages = const [];
+    _projectHistory = const [];
+    _allowedDirs = const [];
+    _claudeModels = const [];
+    _codexModels = const [];
+    _codexProfiles = const [];
+    _defaultCodexProfile = null;
+    _bridgeVersion = null;
+    _promptHistoryBridgeId = null;
+    _lastUsageResult = null;
+    _pendingHistoryDeltaSinceSeq.clear();
+    _deliveryPendingInputs.clear();
+    for (final timer in _deliveryPendingVisibilityTimers.values) {
+      timer.cancel();
+    }
+    _deliveryPendingVisibilityTimers.clear();
+    _runtimeStore.clearAll();
+    clearDiffImageCache();
+
+    _sessionListController.add(_sessions);
+    _recentSessionsController.add(_recentSessions);
+    _galleryController.add(_galleryImages);
+    _projectHistoryController.add(_projectHistory);
+    _fileListController.add(const []);
+
+    if (clearOfflineQueue) {
+      _clearOfflinePendingState();
+    }
+  }
+
+  void _clearOfflinePendingState() {
+    _offlineQueueGeneration++;
+    _messageQueue.clear();
+    _inFlightPendingMessages.clear();
+    _inFlightInputMessages.clear();
+    for (final timer in _inFlightPendingVisibilityTimers.values) {
+      timer.cancel();
+    }
+    _inFlightPendingVisibilityTimers.clear();
+    _visibleInFlightPendingKeys.clear();
+    _offlinePendingActions = const [];
+    _offlinePendingActionsController.add(_offlinePendingActions);
+    _offlineQueueRestore = Future.value();
+    unawaited(_clearPersistedOfflinePendingMessages());
+  }
+
+  Future<void> _clearPersistedOfflinePendingMessages() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefKeyOfflinePendingMessages);
+    } catch (error, stackTrace) {
+      logger.warning(
+        'Failed to clear offline pending messages',
+        error,
+        stackTrace,
+      );
     }
   }
 
@@ -779,6 +874,12 @@ class BridgeService implements BridgeServiceBase {
     final text = json['text'] as String?;
     if (text == null) return;
     final images = json['images'] as List?;
+    if (images != null && images.isNotEmpty) {
+      // The ack does not include ImageStore URLs. Let the next history delta
+      // fetch the canonical user_input so image-only messages remain visible
+      // after leaving and re-entering the running session.
+      return;
+    }
 
     _runtimeStore.applyServerMessage(
       sessionId,
@@ -999,6 +1100,30 @@ class BridgeService implements BridgeServiceBase {
     _offlinePendingActionsController.add(_offlinePendingActions);
   }
 
+  bool _samePendingProjectPath(String a, String b) {
+    String normalize(String value) {
+      final trimmed = value.trim();
+      if (trimmed == '/') return trimmed;
+      return trimmed.replaceAll(RegExp(r'/+$'), '');
+    }
+
+    return normalize(a) == normalize(b);
+  }
+
+  bool _compatiblePendingProjectPath(String a, String b) {
+    if (_samePendingProjectPath(a, b)) return true;
+
+    String basename(String value) {
+      final normalized = value.trim().replaceAll(RegExp(r'/+$'), '');
+      final parts = normalized.split('/').where((part) => part.isNotEmpty);
+      return parts.isEmpty ? normalized : parts.last;
+    }
+
+    final left = basename(a);
+    final right = basename(b);
+    return left.isNotEmpty && left == right;
+  }
+
   Future<void> cancelOfflinePendingAction(String actionId) async {
     await _ensureOfflineQueueRestored();
     _messageQueue.removeWhere((message) {
@@ -1025,10 +1150,11 @@ class BridgeService implements BridgeServiceBase {
     bool matches(ClientMessage pending) {
       final action = _offlinePendingActionFor(pending);
       if (action == null || action.provider != provider) return false;
-      if (projectPath != null && action.projectPath != projectPath) {
+      if (action.kind == OfflinePendingActionKind.start) return false;
+      if (projectPath != null &&
+          !_samePendingProjectPath(action.projectPath, projectPath)) {
         return false;
       }
-      if (action.kind == OfflinePendingActionKind.start) return true;
       return action.sessionId == claudeSessionId ||
           action.sessionId == sourceSessionId ||
           (claudeSessionId == null && sourceSessionId == null);
@@ -1036,7 +1162,13 @@ class BridgeService implements BridgeServiceBase {
 
     var removed = false;
     for (final entry in List.of(_inFlightPendingMessages.entries)) {
-      if (!matches(entry.value)) continue;
+      if (!_shouldClearPendingStartForSessionCreated(
+        entry.value,
+        provider: provider,
+        projectPath: projectPath,
+      )) {
+        if (!matches(entry.value)) continue;
+      }
       _clearInFlightPendingMessage(entry.key);
       removed = true;
       break;
@@ -1045,7 +1177,14 @@ class BridgeService implements BridgeServiceBase {
       final before = _messageQueue.length;
       var didRemove = false;
       _messageQueue.removeWhere((pending) {
-        if (didRemove || !matches(pending)) return false;
+        if (didRemove) return false;
+        if (!_shouldClearPendingStartForSessionCreated(
+          pending,
+          provider: provider,
+          projectPath: projectPath,
+        )) {
+          if (!matches(pending)) return false;
+        }
         didRemove = true;
         return true;
       });
@@ -1059,11 +1198,77 @@ class BridgeService implements BridgeServiceBase {
     }
   }
 
+  bool _shouldClearPendingStartForSessionCreated(
+    ClientMessage pending, {
+    required String provider,
+    required String? projectPath,
+  }) {
+    final action = _offlinePendingActionFor(pending);
+    if (action == null ||
+        action.kind != OfflinePendingActionKind.start ||
+        action.provider != provider) {
+      return false;
+    }
+    if (projectPath == null || projectPath.isEmpty) {
+      return true;
+    }
+    if (_compatiblePendingProjectPath(action.projectPath, projectPath)) {
+      return true;
+    }
+    return false;
+  }
+
+  void _clearPendingStartActionsForSessions(List<SessionInfo> sessions) {
+    if (sessions.isEmpty ||
+        (_messageQueue.isEmpty && _inFlightPendingMessages.isEmpty)) {
+      return;
+    }
+
+    bool overlapsActiveSession(OfflinePendingAction action) {
+      if (action.kind != OfflinePendingActionKind.start) return false;
+      final sameProviderSessions = sessions.where((session) {
+        final provider = session.provider ?? Provider.claude.value;
+        return provider == action.provider;
+      }).toList();
+      if (sameProviderSessions.isEmpty) return false;
+      return sameProviderSessions.any(
+        (session) => _compatiblePendingProjectPath(
+          action.projectPath,
+          session.projectPath,
+        ),
+      );
+    }
+
+    var removed = false;
+    for (final entry in List.of(_inFlightPendingMessages.entries)) {
+      final action = _offlinePendingActionFor(entry.value, canCancel: false);
+      if (action == null || !overlapsActiveSession(action)) continue;
+      _clearInFlightPendingMessage(entry.key);
+      removed = true;
+    }
+
+    final before = _messageQueue.length;
+    _messageQueue.removeWhere((message) {
+      final action = _offlinePendingActionFor(message);
+      return action != null && overlapsActiveSession(action);
+    });
+    final removedQueued = before != _messageQueue.length;
+    removed = removed || removedQueued;
+
+    if (!removed) return;
+    if (removedQueued) {
+      unawaited(_persistOfflinePendingMessages());
+    }
+    _publishOfflinePendingActions();
+  }
+
   Future<void> _restoreOfflinePendingMessages() async {
+    final generation = _offlineQueueGeneration;
     try {
       final prefs = await SharedPreferences.getInstance();
       final encoded = prefs.getStringList(_prefKeyOfflinePendingMessages);
       if (encoded == null || encoded.isEmpty) return;
+      if (generation != _offlineQueueGeneration) return;
 
       final existingJson = _messageQueue
           .map((message) => message.toJson())
@@ -1084,6 +1289,7 @@ class BridgeService implements BridgeServiceBase {
               ? !existingDedupeKeys.add(dedupeKey)
               : !existingJson.add(message.toJson());
           if (!isDuplicate) {
+            if (generation != _offlineQueueGeneration) return;
             _messageQueue.add(message);
           }
         } catch (error, stackTrace) {
@@ -1705,8 +1911,8 @@ class BridgeService implements BridgeServiceBase {
     final current = _sessions[idx];
     final messageModel = sanitizeCodexModelName(message.model) ?? '';
     final text = message.content
-        .whereType<TextContent>()
-        .map((c) => c.text)
+        .map(_assistantContentPreviewText)
+        .where((text) => text.isNotEmpty)
         .join(' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
@@ -1722,6 +1928,16 @@ class BridgeService implements BridgeServiceBase {
         codexModel: shouldPatchModel ? messageModel : null,
       );
     _sessionListController.add(_sessions);
+  }
+
+  String _assistantContentPreviewText(AssistantContent content) {
+    return switch (content) {
+      TextContent(:final text) => text,
+      ToolUseContent(:final name, :final input)
+          when isCodexUpdatePlanTool(name) =>
+        codexPlanUpdateTextFromInput(input) ?? '',
+      _ => '',
+    };
   }
 
   /// Clear pending permission from a cached session after the user has
@@ -1921,6 +2137,7 @@ class BridgeService implements BridgeServiceBase {
   }
 
   void disconnect() {
+    _connectionEpoch++;
     _intentionalDisconnect = true;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
@@ -1928,11 +2145,8 @@ class BridgeService implements BridgeServiceBase {
     _channelSub = null;
     _channel?.sink.close();
     _channel = null;
-    _lastUsageResult = null;
-    _promptHistoryBridgeId = null;
     _setBridgeConnectionState(BridgeConnectionState.disconnected);
-    _bridgeVersion = null;
-    clearDiffImageCache();
+    _clearBridgeScopedState(clearOfflineQueue: true);
   }
 
   // ---------------------------------------------------------------------------

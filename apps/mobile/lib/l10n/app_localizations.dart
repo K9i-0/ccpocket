@@ -240,6 +240,30 @@ abstract class AppLocalizations {
   /// **'Explorer'**
   String get explorer;
 
+  /// No description provided for @gitUnavailableTip.
+  ///
+  /// In ja, this message translates to:
+  /// **'Git未検出 — Git機能は利用できません'**
+  String get gitUnavailableTip;
+
+  /// No description provided for @gitUnavailableTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Gitを利用できません'**
+  String get gitUnavailableTitle;
+
+  /// No description provided for @gitUnavailableHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'このプロジェクトではGit機能を利用できません'**
+  String get gitUnavailableHint;
+
+  /// No description provided for @autoModeFallbackDefaultTip.
+  ///
+  /// In ja, this message translates to:
+  /// **'Auto mode はこの環境で使えないため Default に切り替えました'**
+  String get autoModeFallbackDefaultTip;
+
   /// No description provided for @galleryWithCount.
   ///
   /// In ja, this message translates to:
@@ -1535,6 +1559,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'次のターンに送信予定'**
   String get queuedInputForNextTurn;
+
+  /// No description provided for @sessionCardQueuedInput.
+  ///
+  /// In ja, this message translates to:
+  /// **'キュー中'**
+  String get sessionCardQueuedInput;
 
   /// No description provided for @queuedInputImageCount.
   ///
@@ -3066,6 +3096,18 @@ abstract class AppLocalizations {
   /// **'新規セッションで表示する AI ツールの選択肢と並び順を変更できます。'**
   String get settingsNewSessionTabsDescription;
 
+  /// No description provided for @showBridgeNameInSessionList.
+  ///
+  /// In ja, this message translates to:
+  /// **'Bridge名を表示'**
+  String get showBridgeNameInSessionList;
+
+  /// No description provided for @showBridgeNameInSessionListSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'複数のBridgeが登録されているとき、接続中のBridge名をセッション一覧に表示します。'**
+  String get showBridgeNameInSessionListSubtitle;
+
   /// No description provided for @autoRenameCodexSessions.
   ///
   /// In ja, this message translates to:
@@ -3971,6 +4013,60 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'復元に失敗しました: {message}'**
   String supporterRestoreFailed(String message);
+
+  /// No description provided for @gitDiscardAllChangesTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'すべての変更を破棄しますか'**
+  String get gitDiscardAllChangesTitle;
+
+  /// No description provided for @gitDiscardVisibleUnstagedChangesMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'表示中の未ステージ変更をすべて破棄します。'**
+  String get gitDiscardVisibleUnstagedChangesMessage;
+
+  /// No description provided for @gitDiscardChangeTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'この変更を破棄しますか'**
+  String get gitDiscardChangeTitle;
+
+  /// No description provided for @gitDiscardFileUnstagedChangesMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'このファイルの未ステージ変更をすべて破棄します。'**
+  String get gitDiscardFileUnstagedChangesMessage;
+
+  /// No description provided for @gitDiscardHunkUnstagedChangesMessage.
+  ///
+  /// In ja, this message translates to:
+  /// **'このハンクの未ステージ変更を破棄します。'**
+  String get gitDiscardHunkUnstagedChangesMessage;
+
+  /// No description provided for @googleSearchSelectionAction.
+  ///
+  /// In ja, this message translates to:
+  /// **'Google で検索'**
+  String get googleSearchSelectionAction;
+
+  /// No description provided for @approvalQuestionNotificationTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'質問があります - ccpocket'**
+  String get approvalQuestionNotificationTitle;
+
+  /// No description provided for @approvalRequiredNotificationTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'承認待ち - ccpocket'**
+  String get approvalRequiredNotificationTitle;
+
+  /// No description provided for @exitPlanModeNotificationBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'作成したプランの確認が必要です'**
+  String get exitPlanModeNotificationBody;
 }
 
 class _AppLocalizationsDelegate

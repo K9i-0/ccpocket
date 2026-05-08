@@ -536,6 +536,69 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("lists available models via model/list pagination", async () => {
+    const proc = new CodexProcess("linux");
+    const initializePromise = proc.initializeOnly("/tmp/project-model-list");
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+    await initializePromise;
+    nextOutgoingNotification(child);
+
+    const modelsPromise = proc.listAvailableModels();
+    await tick();
+
+    const firstReq = nextOutgoingRequest(child);
+    expect(firstReq.method).toBe("model/list");
+    expect(firstReq.params).toEqual({
+      limit: 100,
+      cursor: null,
+      includeHidden: false,
+    });
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: firstReq.id,
+        result: {
+          data: [
+            { model: "gpt-5.5", id: "ignored", hidden: false },
+            { model: "gpt-hidden", hidden: true },
+            { model: "gpt-5.5", hidden: false },
+          ],
+          nextCursor: "1",
+        },
+      })}\n`,
+    );
+
+    await tick();
+    const secondReq = nextOutgoingRequest(child);
+    expect(secondReq.method).toBe("model/list");
+    expect(secondReq.params).toEqual({
+      limit: 100,
+      cursor: "1",
+      includeHidden: false,
+    });
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: secondReq.id,
+        result: {
+          data: [{ id: "gpt-5.4-mini", hidden: false }],
+          nextCursor: null,
+        },
+      })}\n`,
+    );
+
+    await expect(modelsPromise).resolves.toEqual(["gpt-5.5", "gpt-5.4-mini"]);
+    proc.stop();
+  });
+
   it("sends reasoning effort on turn/start in default mode", async () => {
     const proc = new CodexProcess("linux");
 
@@ -1716,7 +1779,7 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
-  it("emits plan notifications as regular stream messages", async () => {
+  it("emits plan notifications as structured checklist messages", async () => {
     const proc = new CodexProcess("linux");
     const messages: unknown[] = [];
     proc.on("message", (msg) => messages.push(msg));
@@ -1785,10 +1848,19 @@ describe("CodexProcess (app-server)", () => {
           role: "assistant",
           content: expect.arrayContaining([
             expect.objectContaining({
-              type: "text",
-              text: expect.stringContaining(
-                "Plan update: Initial plan drafted",
-              ),
+              type: "tool_use",
+              name: "UpdatePlan",
+              input: expect.objectContaining({
+                title: "Plan update",
+                explanation: "Initial plan drafted",
+                todos: [
+                  {
+                    content: "Gather requirements",
+                    status: "in_progress",
+                    activeForm: "",
+                  },
+                ],
+              }),
             }),
           ]),
         }),

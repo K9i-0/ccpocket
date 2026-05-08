@@ -64,7 +64,7 @@ import {
   unstageHunks,
   gitCommit,
   gitPush,
-  listGitFiles,
+  listProjectFiles,
   listBranches,
   createBranch,
   checkoutBranch,
@@ -107,11 +107,12 @@ const CLAUDE_MODELS: string[] = [
   "claude-opus-4-7[1m]",
   "claude-opus-4-6",
   "claude-opus-4-6[1m]",
+  "claude-opus-4-5-20251101",
   "claude-sonnet-4-6",
   "claude-haiku-4-6",
 ];
 
-const CODEX_MODELS: string[] = [
+const FALLBACK_CODEX_MODELS: string[] = [
   "gpt-5.5",
   "gpt-5.4",
   "gpt-5.4-mini",
@@ -468,6 +469,8 @@ export class BridgeWebSocketServer {
   private codexProfiles: string[] = [];
   private defaultCodexProfile: string | undefined;
   private codexProfilesRequest: Promise<void> | null = null;
+  private codexModels: string[] = FALLBACK_CODEX_MODELS;
+  private codexModelsRequest: Promise<void> | null = null;
   /** FCM token → push notification locale */
   private tokenLocales = new Map<string, PushLocale>();
   private tokenPrivacyMode = new Map<string, boolean>();
@@ -1060,6 +1063,23 @@ export class BridgeWebSocketServer {
 
     for (const raw of messages) {
       const msg = raw as Record<string, unknown>;
+      if (msg.role === "user") {
+        const images = await this.registerPastUserMessageImages(session, msg);
+        pastMessages.push(
+          images.length > 0
+            ? {
+                ...msg,
+                images,
+                imageCount:
+                  typeof msg.imageCount === "number"
+                    ? Math.max(msg.imageCount, images.length)
+                    : images.length,
+              }
+            : raw,
+        );
+        continue;
+      }
+
       if (msg.role !== "tool_result") {
         pastMessages.push(raw);
         continue;
@@ -1118,6 +1138,65 @@ export class BridgeWebSocketServer {
     }
 
     return { pastMessages, historyMessages };
+  }
+
+  private async registerPastUserMessageImages(
+    session: SessionInfo,
+    msg: Record<string, unknown>,
+  ): Promise<ImageRef[]> {
+    if (!this.imageStore) return [];
+
+    const existingImages = Array.isArray(msg.images)
+      ? (msg.images as ImageRef[])
+      : [];
+    const refs: ImageRef[] = [...existingImages];
+
+    if (Array.isArray(msg.imageBase64)) {
+      for (const image of msg.imageBase64) {
+        const rawImage = image as Record<string, unknown>;
+        if (
+          typeof rawImage.data !== "string" ||
+          typeof rawImage.mimeType !== "string"
+        ) {
+          continue;
+        }
+        const ref = this.imageStore.registerFromBase64(
+          rawImage.data,
+          rawImage.mimeType,
+        );
+        if (ref) refs.push(ref);
+      }
+    }
+
+    const messageUuid = typeof msg.uuid === "string" ? msg.uuid : undefined;
+    const providerSessionId = session.claudeSessionId;
+    if (
+      refs.length === existingImages.length &&
+      messageUuid &&
+      providerSessionId
+    ) {
+      try {
+        const extracted = await extractMessageImages(
+          providerSessionId,
+          messageUuid,
+        );
+        for (const image of extracted) {
+          const ref = this.imageStore.registerFromBase64(
+            image.base64,
+            image.mimeType,
+          );
+          if (ref) refs.push(ref);
+        }
+      } catch (err) {
+        console.warn(
+          `[ws] Failed to restore user message images for ${messageUuid}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
+    return refs;
   }
 
   private async getCodexThreadHistoryFromRpc(
@@ -1269,6 +1348,7 @@ export class BridgeWebSocketServer {
 
     // Send session list and project history on connect
     void this.refreshCodexProfiles();
+    void this.refreshCodexModels();
     this.sendSessionList(ws);
     const projects = this.projectHistory?.getProjects() ?? [];
     this.send(ws, { type: "project_history", projects });
@@ -1543,6 +1623,9 @@ export class BridgeWebSocketServer {
               }),
             );
             this.broadcastSessionList();
+            if (provider === "codex") {
+              void this.refreshCodexModels(projectPath);
+            }
             if (autoFallbackUsed) {
               this.sendTip(
                 ws,
@@ -3682,24 +3765,21 @@ export class BridgeWebSocketServer {
           this.send(ws, this.buildPathNotAllowedError(msg.projectPath));
           break;
         }
-        try {
-          const files = listGitFiles(msg.projectPath);
-          this.send(ws, { type: "file_list", files } as Record<
-            string,
-            unknown
-          >);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          if (/not a git repository/i.test(message)) {
-            // Non-git project: silently return empty list (file listing is auxiliary)
-            this.send(ws, { type: "file_list", files: [] });
-          } else {
+        void (async () => {
+          try {
+            const files = await listProjectFiles(msg.projectPath);
+            this.send(ws, { type: "file_list", files } as Record<
+              string,
+              unknown
+            >);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
             this.send(ws, {
               type: "error",
               message: `Failed to list files: ${message}`,
             });
           }
-        }
+        })();
         break;
       }
 
@@ -4927,7 +5007,7 @@ export class BridgeWebSocketServer {
       sessions: allSessions,
       allowedDirs: this.allowedDirs,
       claudeModels: CLAUDE_MODELS,
-      codexModels: CODEX_MODELS,
+      codexModels: this.codexModels,
       codexProfiles: this.codexProfiles,
       defaultCodexProfile: this.defaultCodexProfile,
       bridgeVersion: getPackageVersion(),
@@ -5012,7 +5092,7 @@ export class BridgeWebSocketServer {
       sessions: allSessions,
       allowedDirs: this.allowedDirs,
       claudeModels: CLAUDE_MODELS,
-      codexModels: CODEX_MODELS,
+      codexModels: this.codexModels,
       codexProfiles: this.codexProfiles,
       defaultCodexProfile: this.defaultCodexProfile,
       bridgeVersion: getPackageVersion(),
@@ -5094,6 +5174,39 @@ export class BridgeWebSocketServer {
       searchQuery: msg.searchQuery,
       archivedSessionIds: this.archiveStore.archivedIds(),
     });
+  }
+
+  private async refreshCodexModels(projectPath?: string): Promise<void> {
+    if (this.codexModelsRequest) return this.codexModelsRequest;
+    this.codexModelsRequest = this.loadCodexModels(projectPath)
+      .then((models) => {
+        this.codexModels =
+          models.length > 0 ? models : FALLBACK_CODEX_MODELS;
+        this.broadcastSessionList();
+      })
+      .catch((err) => {
+        console.warn(`[ws] Failed to load Codex models: ${err}`);
+        this.codexModels = FALLBACK_CODEX_MODELS;
+        this.broadcastSessionList();
+      })
+      .finally(() => {
+        this.codexModelsRequest = null;
+      });
+    return this.codexModelsRequest;
+  }
+
+  private async loadCodexModels(projectPath?: string): Promise<string[]> {
+    const process =
+      this.getActiveCodexProcess() ??
+      (await this.createStandaloneCodexProcess(projectPath));
+    const isStandalone = process !== this.getActiveCodexProcess();
+    try {
+      return await process.listAvailableModels();
+    } finally {
+      if (isStandalone) {
+        process.stop();
+      }
+    }
   }
 
   private async refreshCodexProfiles(projectPath?: string): Promise<void> {
@@ -5519,6 +5632,14 @@ export class BridgeWebSocketServer {
       "core.quotePath=false",
       ...args,
     ];
+    const listUntrackedFiles = () => {
+      const out = execFileSync(
+        "git",
+        gitArgs("ls-files", "-z", "--others", "--exclude-standard"),
+        { cwd, encoding: "utf-8" },
+      );
+      return out.split("\0").filter(Boolean);
+    };
 
     // Staged only: git diff --cached
     if (options?.staged) {
@@ -5542,14 +5663,7 @@ export class BridgeWebSocketServer {
       // Collect untracked files so they appear in the diff.
       let untrackedFiles: string[] = [];
       try {
-        const out = execFileSync(
-          "git",
-          ["ls-files", "--others", "--exclude-standard"],
-          { cwd },
-        )
-          .toString()
-          .trim();
-        untrackedFiles = out ? out.split("\n") : [];
+        untrackedFiles = listUntrackedFiles();
       } catch {
         // Ignore errors: non-git directories are handled by git diff callback.
       }
@@ -5557,9 +5671,13 @@ export class BridgeWebSocketServer {
       // Temporarily stage untracked files with --intent-to-add.
       if (untrackedFiles.length > 0) {
         try {
-          execFileSync("git", ["add", "--intent-to-add", ...untrackedFiles], {
-            cwd,
-          });
+          execFileSync(
+            "git",
+            ["add", "--intent-to-add", "--", ...untrackedFiles],
+            {
+              cwd,
+            },
+          );
         } catch {
           // Ignore staging errors.
         }
@@ -5570,20 +5688,20 @@ export class BridgeWebSocketServer {
         gitArgs("diff", "--no-color"),
         execOpts,
         (err, stdout) => {
-        // Revert intent-to-add for untracked files.
-        if (untrackedFiles.length > 0) {
-          try {
-            execFileSync("git", ["reset", "--", ...untrackedFiles], { cwd });
-          } catch {
-            // Ignore reset errors.
+          // Revert intent-to-add for untracked files.
+          if (untrackedFiles.length > 0) {
+            try {
+              execFileSync("git", ["reset", "--", ...untrackedFiles], { cwd });
+            } catch {
+              // Ignore reset errors.
+            }
           }
-        }
 
-        if (err) {
-          callback({ diff: "", error: err.message });
-          return;
-        }
-        callback({ diff: stdout });
+          if (err) {
+            callback({ diff: "", error: err.message });
+            return;
+          }
+          callback({ diff: stdout });
         },
       );
       return;
@@ -5592,23 +5710,20 @@ export class BridgeWebSocketServer {
     // All mode (no options): git diff HEAD — shows both staged and unstaged vs HEAD
     let untrackedFilesAll: string[] = [];
     try {
-      const out = execFileSync(
-        "git",
-        ["ls-files", "--others", "--exclude-standard"],
-        { cwd },
-      )
-        .toString()
-        .trim();
-      untrackedFilesAll = out ? out.split("\n") : [];
+      untrackedFilesAll = listUntrackedFiles();
     } catch {
       // Ignore
     }
 
     if (untrackedFilesAll.length > 0) {
       try {
-        execFileSync("git", ["add", "--intent-to-add", ...untrackedFilesAll], {
-          cwd,
-        });
+        execFileSync(
+          "git",
+          ["add", "--intent-to-add", "--", ...untrackedFilesAll],
+          {
+            cwd,
+          },
+        );
       } catch {
         // Ignore
       }

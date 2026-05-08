@@ -80,6 +80,19 @@ class AppLocalizationsKo extends AppLocalizations {
   String get explorer => 'Explorer';
 
   @override
+  String get gitUnavailableTip => 'Git을 찾을 수 없음 — Git 기능을 사용할 수 없습니다';
+
+  @override
+  String get gitUnavailableTitle => 'Git을 사용할 수 없음';
+
+  @override
+  String get gitUnavailableHint => '이 프로젝트에서는 Git 기능을 사용할 수 없습니다';
+
+  @override
+  String get autoModeFallbackDefaultTip =>
+      '이 환경에서는 Auto mode를 사용할 수 없어 Default mode로 전환했습니다';
+
+  @override
   String galleryWithCount(int count) {
     return '갤러리 ($count)';
   }
@@ -768,6 +781,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get queuedInputForNextTurn => '다음 턴 대기열에 추가됨';
+
+  @override
+  String get sessionCardQueuedInput => '대기 중';
 
   @override
   String queuedInputImageCount(int count) {
@@ -1618,6 +1634,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get settingsNewSessionTabsDescription => '새 세션에 표시할 AI 도구와 순서를 선택하세요.';
 
   @override
+  String get showBridgeNameInSessionList => 'Bridge 이름 표시';
+
+  @override
+  String get showBridgeNameInSessionListSubtitle =>
+      '여러 Bridge가 등록되어 있을 때 세션 목록에 연결된 Bridge 이름을 표시합니다.';
+
+  @override
   String get autoRenameCodexSessions => '자동 Rename (Codex)';
 
   @override
@@ -2122,4 +2145,34 @@ class AppLocalizationsKo extends AppLocalizations {
   String supporterRestoreFailed(String message) {
     return '복원 실패: $message';
   }
+
+  @override
+  String get gitDiscardAllChangesTitle => '모든 변경 사항을 버릴까요?';
+
+  @override
+  String get gitDiscardVisibleUnstagedChangesMessage =>
+      '현재 표시된 모든 스테이징되지 않은 변경 사항을 버립니다.';
+
+  @override
+  String get gitDiscardChangeTitle => '이 변경 사항을 버릴까요?';
+
+  @override
+  String get gitDiscardFileUnstagedChangesMessage =>
+      '이 파일의 모든 스테이징되지 않은 변경 사항을 버립니다.';
+
+  @override
+  String get gitDiscardHunkUnstagedChangesMessage =>
+      '이 헝크의 스테이징되지 않은 변경 사항을 버립니다.';
+
+  @override
+  String get googleSearchSelectionAction => 'Google 검색';
+
+  @override
+  String get approvalQuestionNotificationTitle => '질문이 있습니다 - ccpocket';
+
+  @override
+  String get approvalRequiredNotificationTitle => '승인 대기 중 - ccpocket';
+
+  @override
+  String get exitPlanModeNotificationBody => '작성된 계획을 확인해야 합니다';
 }

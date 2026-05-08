@@ -17,6 +17,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.3.66"
+  altive_lints:
+    dependency: "direct dev"
+    description:
+      name: altive_lints
+      sha256: "1e182a17032622f51ca3edcccd48c98c60df0dd79bbc15087939610cf24ee7af"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.0"
+  analysis_server_plugin:
+    dependency: transitive
+    description:
+      name: analysis_server_plugin
+      sha256: "44adba4d74a2541173bad4c11531d2a4d22810c29c5ddb458a38e9f4d0e5eac7"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.4"
   analyzer:
     dependency: transitive
     description:
@@ -25,6 +41,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "9.0.0"
+  analyzer_plugin:
+    dependency: transitive
+    description:
+      name: analyzer_plugin
+      sha256: "6645a029da947ffd823d98118f385d4bd26b54eb069c006b22e0b94e451814b5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.13.11"
   ansicolor:
     dependency: transitive
     description:
@@ -1981,6 +2005,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.3"
+  yaml_edit:
+    dependency: transitive
+    description:
+      name: yaml_edit
+      sha256: "07c9e63ba42519745182b88ca12264a7ba2484d8239958778dfe4d44fe760488"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.4"
 sdks:
   dart: ">=3.11.0 <4.0.0"
   flutter: ">=3.38.4"

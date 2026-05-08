@@ -6,6 +6,20 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('SettingsCubit text scale', () {
+    test('defaults speech recognition locale to device default', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = SettingsCubit(prefs);
+
+      expect(cubit.state.speechLocaleId, isEmpty);
+
+      cubit.setSpeechLocaleId('ja-JP');
+      expect(cubit.state.speechLocaleId, 'ja-JP');
+      expect(prefs.getString('settings_speech_locale'), 'ja-JP');
+
+      await cubit.close();
+    });
+
     test('defaults to 100 percent and persists app scale', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
@@ -83,6 +97,29 @@ void main() {
 
       final restored = SettingsCubit(prefs);
       expect(restored.state.showRemoteGitStatusBadge, isTrue);
+
+      await restored.close();
+    });
+
+    test('Bridge name display defaults on and persists', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = SettingsCubit(prefs);
+
+      expect(cubit.state.showBridgeNameInSessionList, isTrue);
+
+      cubit.setShowBridgeNameInSessionList(false);
+
+      expect(cubit.state.showBridgeNameInSessionList, isFalse);
+      expect(
+        prefs.getBool('settings_show_bridge_name_in_session_list'),
+        isFalse,
+      );
+
+      await cubit.close();
+
+      final restored = SettingsCubit(prefs);
+      expect(restored.state.showBridgeNameInSessionList, isFalse);
 
       await restored.close();
     });

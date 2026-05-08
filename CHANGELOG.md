@@ -4,6 +4,86 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.93.0] - 2026-05-07
+
+### Added
+- Show the connected Bridge name in the session list.
+
+### Changed
+- Require Bridge 1.56.1 for the latest Git diff compatibility fixes.
+
+### Fixed
+- Clear stale Bridge connection state when switching machines.
+- Support Bridge actions that use SSH private keys.
+- Pass jump host passwords in the SSH smoke test.
+- Handle non-ASCII untracked file paths in diff views.
+
+## [1.92.0] - 2026-05-06
+
+### Added
+- Add SSH jump host credential support for remote machine connections.
+
+### Fixed
+- Keep Codex approval defaults separate from Claude approval defaults.
+
+## [1.91.2] - 2026-05-05
+
+### Fixed
+- Use Sparkle's probe API for macOS update checks.
+- Localize remaining mobile UI strings.
+
+## [1.91.1] - 2026-05-05
+
+### Changed
+- Require Bridge 1.55.1 for Explorer file listings in non-Git projects.
+- Localize Git unavailable tip copy across supported languages.
+
+### Fixed
+- Update Explorer empty state copy now that non-Git file listings are supported.
+
+## [1.91.0] - 2026-05-05
+
+### Added
+- Add SSH jump host support for remote machine connections.
+- Add a Google search action to the text selection menu.
+- Render Codex plan updates as structured todo lists.
+
+### Changed
+- Require Bridge 1.55.0 for Codex plan update rendering.
+
+### Fixed
+- Clear stale pending session cards after session state changes.
+
+## [1.90.0] - 2026-05-04
+
+### Added
+- Show queued user input on session cards.
+
+### Changed
+- Require Bridge 1.53.2 for restored image history and Codex resume compatibility.
+- Refresh store release notes.
+
+### Fixed
+- Restore user images when loading session history.
+
+## [1.89.2] - 2026-05-03
+
+### Changed
+- Require Bridge 1.53.1 for the latest Bridge compatibility fixes.
+
+### Fixed
+- Preserve existing prompt text when using voice input.
+
+## [1.89.1] - 2026-05-03
+
+### Fixed
+- Prevent duplicate review prompts from appearing.
+
+## [1.89.0] - 2026-05-03
+
+### Added
+- Surface Message History directly in the workspace session toolbar.
+
 ## [1.88.0] - 2026-05-02
 
 ### Added

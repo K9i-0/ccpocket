@@ -34,11 +34,27 @@ ccpocket-bridge
 | `BRIDGE_PORT` | `8765` | WebSocket port |
 | `BRIDGE_HOST` | `0.0.0.0` | Bind address |
 | `BRIDGE_API_KEY` | (none) | API key authentication (enabled when set) |
+| `BRIDGE_ALLOWED_DIRS` | `$HOME` | Comma-separated list of project directories the Bridge may access |
 | `BRIDGE_PUBLIC_WS_URL` | (none) | Public `ws://` / `wss://` URL used for startup deep link and QR code |
 | `BRIDGE_DEMO_MODE` | (none) | Demo mode: hide Tailscale IPs and API key from QR code / logs |
 | `BRIDGE_RECORDING` | (none) | Enable session recording for debugging (enabled when set) |
 | `BRIDGE_DISABLE_MDNS` | (none) | Disable mDNS auto-discovery advertisement (enabled when set) |
-| `HTTPS_PROXY` | (none) | Proxy for outgoing fetch requests (`http://`, `socks5://`) |
+| `BRIDGE_PROMPT_HISTORY_FILE` | `$HOME/.ccpocket/prompt-history-v2.json` | Custom prompt history store path |
+| `BRIDGE_RECENT_SESSIONS_PROFILE` | (none) | Log recent-session index timing when set to `1` or `true` |
+| `DIFF_IMAGE_AUTO_DISPLAY_KB` | `1024` (1 MB) | Auto-display diff images up to this size, in KB |
+| `DIFF_IMAGE_MAX_SIZE_MB` | `5` (5 MB) | Maximum diff image size available for on-demand loading, in MB |
+| `ANTHROPIC_API_KEY` | (none) | Claude Agent SDK API key used for Claude sessions |
+| `ANTHROPIC_AUTH_TOKEN` | (none) | Advanced Claude SDK auth token; prefer `ANTHROPIC_API_KEY` |
+| `OPENAI_API_KEY` | (none) | Codex API key; Codex can also use `~/.codex/auth.json` |
+| `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` | (none) | Proxy for outgoing fetch requests (`http://`, `https://`, `socks4://`, `socks5://`) |
+
+Lowercase proxy variables (`https_proxy`, `http_proxy`, `all_proxy`) are also
+supported. When `BRIDGE_PROMPT_HISTORY_FILE` is not set and `BRIDGE_PORT` is not
+`8765`, prompt history is stored in
+`$HOME/.ccpocket/prompt-history-v2-<port>.json`.
+
+Push relay uses Firebase Anonymous Auth automatically; no FCM environment
+variables are required.
 
 ```bash
 # Example: custom port with API key

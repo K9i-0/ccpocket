@@ -25,6 +25,10 @@
   "gallery": "ギャラリー",
   "git": "Git",
   "explorer": "Explorer",
+  "gitUnavailableTip": "Git未検出 — Git機能は利用できません",
+  "gitUnavailableTitle": "Gitを利用できません",
+  "gitUnavailableHint": "このプロジェクトではGit機能を利用できません",
+  "autoModeFallbackDefaultTip": "Auto mode はこの環境で使えないため Default に切り替えました",
   "galleryWithCount": "ギャラリー ({count})",
   "@galleryWithCount": {
     "placeholders": {
@@ -337,6 +341,7 @@
   "queuedInputForReconnect": "再接続待ちキュー",
   "queuedInputPendingDelivery": "送信確認中",
   "queuedInputForNextTurn": "次のターンに送信予定",
+  "sessionCardQueuedInput": "キュー中",
   "queuedInputImageCount": "{count, plural, other{画像{count}枚}}",
   "@queuedInputImageCount": {
     "placeholders": {
@@ -705,6 +710,8 @@
   "settingsClaudeSubscriptionUsage": "サブスクリプション利用状況",
   "settingsNewSessionTabs": "新規セッションタブ",
   "settingsNewSessionTabsDescription": "新規セッションで表示する AI ツールの選択肢と並び順を変更できます。",
+  "showBridgeNameInSessionList": "Bridge名を表示",
+  "showBridgeNameInSessionListSubtitle": "複数のBridgeが登録されているとき、接続中のBridge名をセッション一覧に表示します。",
   "autoRenameCodexSessions": "自動Rename (Codex)",
   "autoRenameCodexSessionsSubtitle": "最初のエージェント応答後に Codex セッションへ自動で名前を付ける",
   "autoRenameClaudeSessions": "自動Rename (Claude)",
@@ -946,5 +953,14 @@
     "placeholders": {
       "message": { "type": "String" }
     }
-  }
+  },
+  "gitDiscardAllChangesTitle": "すべての変更を破棄しますか",
+  "gitDiscardVisibleUnstagedChangesMessage": "表示中の未ステージ変更をすべて破棄します。",
+  "gitDiscardChangeTitle": "この変更を破棄しますか",
+  "gitDiscardFileUnstagedChangesMessage": "このファイルの未ステージ変更をすべて破棄します。",
+  "gitDiscardHunkUnstagedChangesMessage": "このハンクの未ステージ変更を破棄します。",
+  "googleSearchSelectionAction": "Google で検索",
+  "approvalQuestionNotificationTitle": "質問があります - ccpocket",
+  "approvalRequiredNotificationTitle": "承認待ち - ccpocket",
+  "exitPlanModeNotificationBody": "作成したプランの確認が必要です"
 }

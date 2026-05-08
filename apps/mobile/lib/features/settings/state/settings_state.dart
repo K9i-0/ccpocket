@@ -36,7 +36,7 @@ abstract class SettingsState with _$SettingsState {
 
     /// Locale ID for speech recognition (e.g. 'ja-JP', 'en-US').
     /// Empty string means use device default.
-    @Default('ja-JP') String speechLocaleId,
+    @Default('') String speechLocaleId,
 
     /// Set of Machine IDs that have push notifications enabled.
     @Default({}) Set<String> fcmEnabledMachines,
@@ -74,6 +74,9 @@ abstract class SettingsState with _$SettingsState {
 
     /// Whether to show a subtle badge when the current branch can push/pull.
     @Default(false) bool showRemoteGitStatusBadge,
+
+    /// Whether to show the connected Bridge name in the session list.
+    @Default(true) bool showBridgeNameInSessionList,
 
     /// Selected app icon preference for monthly Supporter perks.
     @Default(AppIconVariant.defaultIcon) AppIconVariant selectedAppIcon,
