@@ -16,6 +16,7 @@ import 'session_runtime_store.dart';
 
 class BridgeService implements BridgeServiceBase {
   void Function(ClientMessage message)? onOutgoingMessage;
+  FutureOr<void> Function()? onDisconnect;
 
   WebSocketChannel? _channel;
   StreamSubscription? _channelSub;
@@ -2147,6 +2148,10 @@ class BridgeService implements BridgeServiceBase {
     _channel = null;
     _setBridgeConnectionState(BridgeConnectionState.disconnected);
     _clearBridgeScopedState(clearOfflineQueue: true);
+    final disconnectCallback = onDisconnect;
+    if (disconnectCallback != null) {
+      unawaited(Future<void>.sync(disconnectCallback));
+    }
   }
 
   // ---------------------------------------------------------------------------

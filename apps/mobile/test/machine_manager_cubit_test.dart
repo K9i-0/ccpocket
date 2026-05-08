@@ -49,6 +49,8 @@ class MockMachineManagerService implements MachineManagerService {
   Future<MachineStatus> checkHealth(
     String machineId, {
     Duration timeout = const Duration(seconds: 5),
+    String? password,
+    Future<String?> Function()? promptForPassword,
   }) async {
     calls.add('checkHealth:$machineId');
     checkHealthTimeouts.add(timeout);
@@ -139,6 +141,19 @@ class MockMachineManagerService implements MachineManagerService {
 
   @override
   Future<String> buildWsUrl(String machineId) async => 'ws://mock:8765';
+
+  @override
+  Future<String> buildWsUrlWithSshCredentials(
+    String machineId, {
+    String? password,
+    Future<String?> Function()? promptForPassword,
+  }) async => 'ws://mock:8765';
+
+  @override
+  void configureBridgeTunnelResolvers({
+    BridgeWsUrlResolver? wsUrlResolver,
+    BridgeHttpBaseUrlResolver? httpBaseUrlResolver,
+  }) {}
 
   @override
   Machine createNew({

@@ -310,6 +310,8 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
         final status = await _waitForOnline(
           machineId,
           timeout: _startHealthTimeout,
+          password: password,
+          promptForPassword: promptForPassword,
         );
 
         if (status == MachineStatus.online) {
@@ -347,11 +349,15 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
   Future<MachineStatus> _waitForOnline(
     String machineId, {
     required Duration timeout,
+    String? password,
+    Future<String?> Function()? promptForPassword,
   }) async {
     final deadline = DateTime.now().add(timeout);
     var status = await _service.checkHealth(
       machineId,
       timeout: _postStartHealthRequestTimeout,
+      password: password,
+      promptForPassword: promptForPassword,
     );
 
     while (status != MachineStatus.online &&
@@ -360,6 +366,8 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
       status = await _service.checkHealth(
         machineId,
         timeout: _postStartHealthRequestTimeout,
+        password: password,
+        promptForPassword: promptForPassword,
       );
     }
 
@@ -429,6 +437,8 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
         final status = await _waitForOnline(
           machineId,
           timeout: _updateHealthTimeout,
+          password: password,
+          promptForPassword: promptForPassword,
         );
 
         if (status != MachineStatus.online) {
@@ -554,7 +564,15 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
       _service.getSshJumpPassword(machineId);
 
   /// Build WebSocket URL with API key
-  Future<String> buildWsUrl(String machineId) => _service.buildWsUrl(machineId);
+  Future<String> buildWsUrl(
+    String machineId, {
+    String? password,
+    Future<String?> Function()? promptForPassword,
+  }) => _service.buildWsUrlWithSshCredentials(
+    machineId,
+    password: password,
+    promptForPassword: promptForPassword,
+  );
 
   /// Create a new machine instance
   Machine createNewMachine({

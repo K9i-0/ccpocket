@@ -23,6 +23,7 @@ import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/platform_environment_service.dart';
 import '../../services/server_discovery_service.dart';
+import '../../services/ssh_bridge_tunnel_service.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../../widgets/adaptive_context_menu.dart';
 import '../../widgets/new_session_sheet.dart';
@@ -394,6 +395,11 @@ class _SessionListScreenState extends State<SessionListScreen>
           );
           if (machine != null) {
             apiKey = await cubit?.getApiKey(machine.id);
+            if (machine.sshJumpHost?.trim().isNotEmpty == true) {
+              if (!mounted) return;
+              await _connectToMachineConfig(machine);
+              return;
+            }
           }
         }
       } catch (_) {
@@ -447,6 +453,11 @@ class _SessionListScreenState extends State<SessionListScreen>
       }
     }
 
+    if (!mounted) return;
+    final tunnelService = context.read<SshBridgeTunnelService?>();
+    if (tunnelService != null) {
+      await tunnelService.closeAll();
+    }
     if (!mounted) return;
     var connectUrl = url;
     if (trimmedApiKey.isNotEmpty) {
@@ -590,6 +601,10 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   void _disconnect() {
     context.read<BridgeService>().disconnect();
+    final tunnelService = context.read<SshBridgeTunnelService?>();
+    if (tunnelService != null) {
+      unawaited(tunnelService.closeAll());
+    }
     WorkspaceShellScreen.maybeOf(context)?.resetWorkspace();
     context.read<SessionListCubit>().resetFilters();
   }
@@ -2132,23 +2147,44 @@ class _SessionListScreenState extends State<SessionListScreen>
   // ---- Machine Management ----
 
   void _connectToMachine(MachineWithStatus m) async {
+    await _connectToMachineConfig(m.machine);
+  }
+
+  Future<void> _connectToMachineConfig(Machine machine) async {
     final cubit = context.read<MachineManagerCubit>();
     unawaited(cubit.refreshLatestBridgeVersionIfStale());
-    final wsUrl = await cubit.buildWsUrl(m.machine.id);
-    final apiKey = await cubit.getApiKey(m.machine.id);
+    late final String wsUrl;
+    try {
+      wsUrl = await cubit.buildWsUrl(
+        machine.id,
+        promptForPassword: () => _promptForPassword(machine.displayName),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+      return;
+    }
+    final apiKey = await cubit.getApiKey(machine.id);
 
     // Record connection to update lastConnected
     await cubit.recordConnection(
-      host: m.machine.host,
-      port: m.machine.port,
+      host: machine.host,
+      port: machine.port,
       apiKey: apiKey,
-      useSsl: m.machine.useSsl,
+      useSsl: machine.useSsl,
     );
 
     if (!mounted) return;
     final bridge = context.read<BridgeService>();
     bridge.connect(wsUrl);
-    bridge.savePreferences(m.machine.wsUrl);
+    bridge.savePreferences(machine.wsUrl);
+    final tunnelService = context.read<SshBridgeTunnelService?>();
+    if (tunnelService != null) {
+      unawaited(tunnelService.closeAllExcept(machine.id));
+    }
   }
 
   void _toggleFavorite(MachineWithStatus m) {
