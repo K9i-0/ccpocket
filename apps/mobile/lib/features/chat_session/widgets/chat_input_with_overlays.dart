@@ -8,8 +8,9 @@ import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../../../l10n/app_localizations.dart';
-import '../../../utils/platform_helper.dart';
 import '../../../utils/composer_tokens.dart';
+import '../../../utils/command_completion_matcher.dart';
+import '../../../utils/platform_helper.dart';
 import '../../../hooks/use_list_auto_complete.dart';
 import '../../../hooks/use_voice_input.dart';
 import '../../../models/messages.dart';
@@ -250,9 +251,11 @@ class ChatInputWithOverlays extends HookWidget {
             isInMentionContext.value = false;
           }
           final query = '/${slashQuery.toLowerCase()}';
-          final filtered = commands
-              .where((c) => c.command.toLowerCase().startsWith(query))
-              .toList();
+          final filtered = rankCommandCompletions(
+            commands,
+            query,
+            (command) => command.command,
+          );
           if (filtered.isNotEmpty) {
             filteredSlash.value = filtered;
             showCompletion(
@@ -279,11 +282,11 @@ class ChatInputWithOverlays extends HookWidget {
               isInMentionContext.value = false;
             }
             final q = '${r'$'}${dollarQuery.toLowerCase()}';
-            final filtered =
-                dollarEntities
-                    .where((c) => c.command.toLowerCase().startsWith(q))
-                    .toList()
-                  ..sort((a, b) => a.command.compareTo(b.command));
+            final filtered = rankCommandCompletions(
+              dollarEntities,
+              q,
+              (command) => command.command,
+            );
             if (filtered.isNotEmpty) {
               filteredDollar.value = filtered;
               showCompletion(
@@ -311,11 +314,11 @@ class ChatInputWithOverlays extends HookWidget {
           if (mentionQuery != null &&
               (projectFiles.isNotEmpty || pluginEntities.isNotEmpty)) {
             final q = mentionQuery.toLowerCase();
-            final filteredPluginItems =
-                pluginEntities
-                    .where((c) => c.command.toLowerCase().startsWith('@$q'))
-                    .toList()
-                  ..sort((a, b) => a.command.compareTo(b.command));
+            final filteredPluginItems = rankCommandCompletions(
+              pluginEntities,
+              '@$q',
+              (command) => command.command,
+            );
             final scored =
                 projectFiles
                     .map((f) => (file: f, score: _fileScore(f, q)))

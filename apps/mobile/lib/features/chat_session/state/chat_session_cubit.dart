@@ -1644,7 +1644,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       for (final item in state.slashCommands) item.command: item,
     };
     final matches = RegExp(
-      r'(?<![A-Za-z0-9_-])\$([A-Za-z0-9][A-Za-z0-9_-]*)',
+      r'(?<![A-Za-z0-9_:/.-])\$([A-Za-z0-9][A-Za-z0-9_:/.-]*)',
     ).allMatches(text);
     for (final match in matches) {
       final token = '\$${match.group(1)!}';
@@ -1661,7 +1661,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       }
     }
     final pluginMatches = RegExp(
-      r'(?<![A-Za-z0-9_-])@([A-Za-z0-9][A-Za-z0-9_-]*)',
+      r'(?<![A-Za-z0-9_:/.-])@([A-Za-z0-9][A-Za-z0-9_:/.-]*)',
     ).allMatches(text);
     for (final match in pluginMatches) {
       final token = '@${match.group(1)!}';
