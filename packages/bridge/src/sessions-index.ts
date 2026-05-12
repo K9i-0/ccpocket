@@ -1715,6 +1715,10 @@ export function codexUserTurnUuid(ordinal: number): string {
   return `codex:user-turn:${ordinal}`;
 }
 
+export function isCodexUserTurnUuid(uuid: string | undefined): uuid is string {
+  return typeof uuid === "string" && /^codex:user-turn:\d+$/.test(uuid);
+}
+
 function numberToIsoTimestamp(value: unknown): string | undefined {
   return typeof value === "number" && Number.isFinite(value)
     ? new Date(value * 1000).toISOString()

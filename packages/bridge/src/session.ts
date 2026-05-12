@@ -5,6 +5,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   pathToSlug,
+  codexUserTurnUuid,
+  isCodexUserTurnUuid,
   renameClaudeSession,
   renameCodexSession,
   saveCodexSessionAdditionalWritableRoots,
@@ -77,6 +79,10 @@ export interface SessionInfo {
   sandboxEnabled?: boolean;
   /** Codex-only pending input waiting for the next turn. */
   codexQueuedInput?: QueuedCodexInput;
+  /** Synthetic Codex user UUIDs waiting for their app-server echo. */
+  pendingCodexUserEchoUuids?: Set<string>;
+  /** Raw Codex app-server user item ids mapped to valid ccpocket turn UUIDs. */
+  codexUserTurnUuidByRawId?: Map<string, string>;
   /** Whether to generate a session name after the first completed turn. */
   autoRename?: boolean;
   /** Prevents automatic rename from running more than once. */
@@ -520,51 +526,23 @@ export class SessionManager {
         }
 
         // Don't add streaming deltas to history
+        let mergedUserInput = false;
+        let historyMsg = msg;
         if (msg.type !== "stream_delta" && msg.type !== "thinking_delta") {
-          // When SDK echoes back a user_input with UUID, merge into the
-          // UUID-less placeholder that websocket.ts pushed earlier.
-          // This avoids duplicate entries while preserving the UUID needed
-          // for rewind candidate matching.
-          let merged = false;
-          if (
-            msg.type === "user_input" &&
-            "userMessageUuid" in msg &&
-            msg.userMessageUuid
-          ) {
-            for (let i = session.history.length - 1; i >= 0; i--) {
-              const m = session.history[i];
-              if (
-                m.type === "user_input" &&
-                !("userMessageUuid" in m && m.userMessageUuid)
-              ) {
-                // Preserve the original text from the user input and only
-                // take the UUID from the SDK echo.  The SDK may return a
-                // transformed/translated version of the user's message, so
-                // we must not overwrite the original text.
-                const mergedMsg = {
-                  ...m,
-                  userMessageUuid: msg.userMessageUuid,
-                };
-                if (session.historyEntries[i]) {
-                  (mergedMsg as Record<string, unknown>).historySeq =
-                    session.historyEntries[i].seq;
-                }
-                session.history[i] = mergedMsg;
-                if (session.historyEntries[i]) {
-                  session.historyEntries[i].message = mergedMsg;
-                }
-                merged = true;
-                break;
-              }
-            }
-          }
-
-          if (!merged) {
-            this.appendHistoryToSession(session, msg);
+          const mergedMsg = this.mergeUserInputIntoHistory(session, msg);
+          if (mergedMsg) {
+            mergedUserInput = true;
+            historyMsg = mergedMsg;
+          } else {
+            historyMsg = this.buildHistoryProcessMessage(session, msg);
+            this.appendHistoryToSession(session, historyMsg);
           }
         }
 
-        this.onMessage(id, msg);
+        this.onMessage(
+          id,
+          this.buildLiveProcessMessage(session, historyMsg, mergedUserInput),
+        );
 
         // After a result (turn complete), backfill UUIDs from disk.
         // The SDK does not echo user messages via the stream, so
@@ -687,7 +665,9 @@ export class SessionManager {
   appendHistory(sessionId: string, msg: ServerMessage): HistoryEntry | undefined {
     const session = this.sessions.get(sessionId);
     if (!session) return undefined;
-    return this.appendHistoryToSession(session, msg);
+    const entry = this.appendHistoryToSession(session, msg);
+    this.markPendingCodexUserEcho(session, msg);
+    return entry;
   }
 
   getHistorySince(
@@ -820,6 +800,219 @@ export class SessionManager {
     session.historyEntries.push(entry);
     this.trimHistory(session);
     return entry;
+  }
+
+  private mergeUserInputIntoHistory(
+    session: SessionInfo,
+    msg: ServerMessage,
+  ): ServerMessage | null {
+    if (msg.type !== "user_input") return null;
+
+    for (let i = session.history.length - 1; i >= 0; i--) {
+      const current = session.history[i];
+      if (current.type !== "user_input") continue;
+      if (!this.isSameUserInput(session, current, msg)) continue;
+
+      const mergedMsg = {
+        ...current,
+        userMessageUuid: this.mergeUserMessageUuid(current, msg),
+        timestamp:
+          ("timestamp" in current && current.timestamp) ||
+          ("timestamp" in msg ? msg.timestamp : undefined),
+      } as ServerMessage;
+
+      const entry = session.historyEntries[i];
+      if (entry) {
+        (mergedMsg as Record<string, unknown>).historySeq = entry.seq;
+        entry.message = mergedMsg;
+      }
+      session.history[i] = mergedMsg;
+      this.clearPendingCodexUserEcho(session, current);
+      this.clearPendingCodexUserEcho(session, msg);
+      return mergedMsg;
+    }
+
+    return null;
+  }
+
+  private buildLiveProcessMessage(
+    session: SessionInfo,
+    msg: ServerMessage,
+    mergedUserInput: boolean,
+  ): ServerMessage {
+    if (
+      session.provider === "codex" &&
+      msg.type === "user_input" &&
+      !mergedUserInput &&
+      "userMessageUuid" in msg &&
+      msg.userMessageUuid
+    ) {
+      // Current mobile builds treat a user_input with userMessageUuid as a UUID
+      // backfill for an optimistic local message.  New remote turns need to be
+      // added as chat entries, while history still keeps the Codex item id.
+      const { userMessageUuid: _, ...liveMsg } = msg;
+      return liveMsg as ServerMessage;
+    }
+    return msg;
+  }
+
+  private buildHistoryProcessMessage(
+    session: SessionInfo,
+    msg: ServerMessage,
+  ): ServerMessage {
+    if (session.provider !== "codex" || msg.type !== "user_input") return msg;
+    const uuid = "userMessageUuid" in msg ? msg.userMessageUuid : undefined;
+    if (!uuid || isCodexUserTurnUuid(uuid)) return msg;
+    return {
+      ...msg,
+      userMessageUuid: this.codexUserTurnUuidForRawItem(session, uuid),
+    } as ServerMessage;
+  }
+
+  private isSameUserInput(
+    session: SessionInfo,
+    existing: ServerMessage,
+    incoming: ServerMessage,
+  ): boolean {
+    if (existing.type !== "user_input" || incoming.type !== "user_input") {
+      return false;
+    }
+
+    const existingClientId =
+      "clientMessageId" in existing ? existing.clientMessageId : undefined;
+    const incomingClientId =
+      "clientMessageId" in incoming ? incoming.clientMessageId : undefined;
+    if (existingClientId && incomingClientId) {
+      return existingClientId === incomingClientId;
+    }
+
+    const existingUuid =
+      "userMessageUuid" in existing ? existing.userMessageUuid : undefined;
+    const incomingUuid =
+      "userMessageUuid" in incoming ? incoming.userMessageUuid : undefined;
+    if (existingUuid && incomingUuid && existingUuid === incomingUuid) {
+      return true;
+    }
+
+    if (session.provider !== "codex" && !existingUuid && incomingUuid) {
+      return true;
+    }
+
+    if (existing.text !== incoming.text) return false;
+    const existingHasImageCount = "imageCount" in existing;
+    const incomingHasImageCount = "imageCount" in incoming;
+    if (existingHasImageCount && incomingHasImageCount) {
+      const existingImages = existing.imageCount ?? 0;
+      const incomingImages = incoming.imageCount ?? 0;
+      if (existingImages !== incomingImages) return false;
+    }
+    if (isCodexUserTurnUuid(existingUuid) || isCodexUserTurnUuid(incomingUuid)) {
+      return (
+        this.isPendingCodexUserEcho(session, existingUuid) ||
+        this.isPendingCodexUserEcho(session, incomingUuid)
+      );
+    }
+    return !existingUuid || !incomingUuid;
+  }
+
+  private mergeUserMessageUuid(
+    existing: ServerMessage,
+    incoming: ServerMessage,
+  ): string | undefined {
+    const existingUuid =
+      existing.type === "user_input" && "userMessageUuid" in existing
+        ? existing.userMessageUuid
+        : undefined;
+    const incomingUuid =
+      incoming.type === "user_input" && "userMessageUuid" in incoming
+        ? incoming.userMessageUuid
+        : undefined;
+    if (isCodexUserTurnUuid(existingUuid)) {
+      return existingUuid;
+    }
+    if (isCodexUserTurnUuid(incomingUuid)) {
+      return incomingUuid;
+    }
+    return existingUuid || incomingUuid;
+  }
+
+  private markPendingCodexUserEcho(
+    session: SessionInfo,
+    msg: ServerMessage,
+  ): void {
+    if (session.provider !== "codex" || msg.type !== "user_input") return;
+    const uuid = "userMessageUuid" in msg ? msg.userMessageUuid : undefined;
+    if (!isCodexUserTurnUuid(uuid)) return;
+    session.pendingCodexUserEchoUuids ??= new Set<string>();
+    session.pendingCodexUserEchoUuids.add(uuid);
+  }
+
+  private clearPendingCodexUserEcho(
+    session: SessionInfo,
+    msg: ServerMessage,
+  ): void {
+    if (session.provider !== "codex" || msg.type !== "user_input") return;
+    const uuid = "userMessageUuid" in msg ? msg.userMessageUuid : undefined;
+    if (!isCodexUserTurnUuid(uuid)) return;
+    session.pendingCodexUserEchoUuids?.delete(uuid);
+  }
+
+  private isPendingCodexUserEcho(
+    session: SessionInfo,
+    uuid: string | undefined,
+  ): boolean {
+    return (
+      isCodexUserTurnUuid(uuid) &&
+      (session.pendingCodexUserEchoUuids?.has(uuid) ?? false)
+    );
+  }
+
+  private codexUserTurnUuidForRawItem(
+    session: SessionInfo,
+    rawId: string,
+  ): string {
+    session.codexUserTurnUuidByRawId ??= new Map<string, string>();
+    const existing = session.codexUserTurnUuidByRawId.get(rawId);
+    if (existing) return existing;
+    const uuid = this.nextCodexUserTurnUuid(session);
+    session.codexUserTurnUuidByRawId.set(rawId, uuid);
+    return uuid;
+  }
+
+  private nextCodexUserTurnUuid(session: SessionInfo): string {
+    let maxOrdinal = 0;
+    let userTurnCount = 0;
+
+    const observe = (uuid?: string): void => {
+      userTurnCount += 1;
+      if (!isCodexUserTurnUuid(uuid)) return;
+      const ordinal = Number(uuid.slice("codex:user-turn:".length));
+      if (Number.isInteger(ordinal)) {
+        maxOrdinal = Math.max(maxOrdinal, ordinal);
+      }
+    };
+
+    for (const message of session.pastMessages ?? []) {
+      if (!message || typeof message !== "object") continue;
+      const item = message as {
+        role?: unknown;
+        uuid?: unknown;
+        isMeta?: unknown;
+      };
+      if (item.role !== "user" || item.isMeta === true) continue;
+      observe(typeof item.uuid === "string" ? item.uuid : undefined);
+    }
+
+    for (const message of session.history) {
+      if (message.type !== "user_input") continue;
+      observe(
+        "userMessageUuid" in message ? message.userMessageUuid : undefined,
+      );
+    }
+    if (session.codexQueuedInput) {
+      observe(session.codexQueuedInput.userMessageUuid);
+    }
+    return codexUserTurnUuid(Math.max(maxOrdinal, userTurnCount) + 1);
   }
 
   private trimHistory(session: SessionInfo): void {
@@ -1038,6 +1231,7 @@ export class SessionManager {
 
     const userMsg = this.buildQueuedUserInputMessage(queued);
     this.appendHistoryToSession(session, userMsg);
+    this.markPendingCodexUserEcho(session, userMsg);
     this.onMessage(session.id, userMsg);
     return { ok: true };
   }
@@ -1063,6 +1257,7 @@ export class SessionManager {
 
     const userMsg = this.buildQueuedUserInputMessage(queued);
     this.appendHistoryToSession(session, userMsg);
+    this.markPendingCodexUserEcho(session, userMsg);
     this.onMessage(session.id, userMsg);
 
     session.process.sendInputStructured(queued.text, {

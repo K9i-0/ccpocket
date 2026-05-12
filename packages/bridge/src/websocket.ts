@@ -18,6 +18,7 @@ import {
   type CodexStartOptions,
   type CodexThreadSummary,
 } from "./codex-process.js";
+import { stopManagedCodexAppServers } from "./codex-transport.js";
 import {
   parseClientMessage,
   type ClientMessage,
@@ -1289,6 +1290,7 @@ export class BridgeWebSocketServer {
   close(): void {
     console.log("[ws] Shutting down...");
     this.sessionManager.destroyAll();
+    stopManagedCodexAppServers();
     this.debugEvents.clear();
     this.wss.close();
   }

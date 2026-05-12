@@ -23,16 +23,23 @@ vi.mock("node:os", () => ({
 const { setupLaunchd, uninstallLaunchd } = await import("./setup-launchd.js");
 
 const PLIST_PATH = "/Users/testuser/Library/LaunchAgents/com.ccpocket.bridge.plist";
+const originalBridgeEnv = {
+  publicWsUrl: process.env.BRIDGE_PUBLIC_WS_URL,
+  codexAppServerMode: process.env.BRIDGE_CODEX_APP_SERVER_MODE,
+  codexAppServerPort: process.env.BRIDGE_CODEX_APP_SERVER_PORT,
+  codexAppServerUrl: process.env.BRIDGE_CODEX_APP_SERVER_URL,
+};
 
 describe("setup-launchd", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearBridgeEnv();
     mockExistsSync.mockReturnValue(true);
     mockExecSync.mockReturnValue("/usr/bin/npx\n");
   });
 
   afterEach(() => {
-    delete process.env.BRIDGE_PUBLIC_WS_URL;
+    restoreBridgeEnv();
   });
 
   describe("setupLaunchd", () => {
@@ -45,6 +52,12 @@ describe("setup-launchd", () => {
       expect(content).toContain("<key>BRIDGE_PORT</key>");
       expect(content).toContain("<string>8765</string>");
       expect(content).toContain("<key>BRIDGE_HOST</key>");
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_MODE</key>");
+      expect(content).toContain("<string>managed</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_PORT</key>");
+      expect(content).toContain("<string>8767</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_URL</key>");
+      expect(content).toContain("<string>ws://127.0.0.1:8767</string>");
       expect(content).toContain(
         "<string>exec npx --yes @ccpocket/bridge@latest</string>",
       );
@@ -69,6 +82,46 @@ describe("setup-launchd", () => {
       expect(content).toContain("<string>wss://flag.example.com</string>");
       expect(content).not.toContain("wss://env.example.com");
     });
+
+    it("includes explicit Codex app-server startup options", () => {
+      setupLaunchd({
+        codexAppServerMode: "external",
+        codexAppServerPort: "18766",
+        codexAppServerUrl: "ws://127.0.0.1:18766",
+      });
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_MODE</key>");
+      expect(content).toContain("<string>external</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_PORT</key>");
+      expect(content).toContain("<string>18766</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_URL</key>");
+      expect(content).toContain("<string>ws://127.0.0.1:18766</string>");
+    });
+
+    it("leaves the documented test Bridge port free by default", () => {
+      setupLaunchd({ port: "8765" });
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain("<key>BRIDGE_PORT</key>");
+      expect(content).toContain("<string>8765</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_PORT</key>");
+      expect(content).toContain("<string>8767</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_URL</key>");
+      expect(content).toContain("<string>ws://127.0.0.1:8767</string>");
+    });
+
+    it("moves the default Codex app-server port when Bridge uses 8767", () => {
+      setupLaunchd({ port: "8767" });
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain("<key>BRIDGE_PORT</key>");
+      expect(content).toContain("<string>8767</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_PORT</key>");
+      expect(content).toContain("<string>8768</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_URL</key>");
+      expect(content).toContain("<string>ws://127.0.0.1:8768</string>");
+    });
   });
 
   describe("uninstallLaunchd", () => {
@@ -81,3 +134,34 @@ describe("setup-launchd", () => {
     });
   });
 });
+
+function clearBridgeEnv(): void {
+  delete process.env.BRIDGE_PUBLIC_WS_URL;
+  delete process.env.BRIDGE_CODEX_APP_SERVER_MODE;
+  delete process.env.BRIDGE_CODEX_APP_SERVER_PORT;
+  delete process.env.BRIDGE_CODEX_APP_SERVER_URL;
+}
+
+function restoreBridgeEnv(): void {
+  restoreEnvVar("BRIDGE_PUBLIC_WS_URL", originalBridgeEnv.publicWsUrl);
+  restoreEnvVar(
+    "BRIDGE_CODEX_APP_SERVER_MODE",
+    originalBridgeEnv.codexAppServerMode,
+  );
+  restoreEnvVar(
+    "BRIDGE_CODEX_APP_SERVER_PORT",
+    originalBridgeEnv.codexAppServerPort,
+  );
+  restoreEnvVar(
+    "BRIDGE_CODEX_APP_SERVER_URL",
+    originalBridgeEnv.codexAppServerUrl,
+  );
+}
+
+function restoreEnvVar(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+  process.env[key] = value;
+}

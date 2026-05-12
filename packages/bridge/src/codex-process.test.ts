@@ -37,6 +37,29 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { buildCodexSpawnSpec, CodexProcess } from "./codex-process.js";
+import { stopManagedCodexAppServers } from "./codex-transport.js";
+
+const originalCodexAppServerEnv = {
+  bridgePort: process.env.BRIDGE_PORT,
+  mode: process.env.BRIDGE_CODEX_APP_SERVER_MODE,
+  port: process.env.BRIDGE_CODEX_APP_SERVER_PORT,
+  url: process.env.BRIDGE_CODEX_APP_SERVER_URL,
+};
+
+function restoreCodexAppServerEnv(): void {
+  restoreEnvVar("BRIDGE_PORT", originalCodexAppServerEnv.bridgePort);
+  restoreEnvVar("BRIDGE_CODEX_APP_SERVER_MODE", originalCodexAppServerEnv.mode);
+  restoreEnvVar("BRIDGE_CODEX_APP_SERVER_PORT", originalCodexAppServerEnv.port);
+  restoreEnvVar("BRIDGE_CODEX_APP_SERVER_URL", originalCodexAppServerEnv.url);
+}
+
+function restoreEnvVar(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+  process.env[key] = value;
+}
 
 describe("CodexProcess (app-server)", () => {
   beforeEach(() => {
@@ -50,11 +73,31 @@ describe("CodexProcess (app-server)", () => {
   });
 
   afterEach(() => {
+    stopManagedCodexAppServers();
+    restoreCodexAppServerEnv();
     for (const child of fakeChildren) {
       if (!child.killed) {
         child.kill();
       }
     }
+  });
+
+  it("moves the default managed app-server port when Bridge uses 8767", () => {
+    process.env.BRIDGE_PORT = "8767";
+    process.env.BRIDGE_CODEX_APP_SERVER_MODE = "managed";
+    delete process.env.BRIDGE_CODEX_APP_SERVER_PORT;
+    delete process.env.BRIDGE_CODEX_APP_SERVER_URL;
+
+    const proc = new CodexProcess("linux");
+    proc.start("/tmp/project-managed-port");
+
+    expect(spawnMock).toHaveBeenCalledWith(
+      "codex",
+      ["app-server", "--listen", "ws://127.0.0.1:8768"],
+      expect.objectContaining({ cwd: "/tmp/project-managed-port" }),
+    );
+
+    proc.stop();
   });
 
   it("starts codex app-server and sends initialize + thread/start", async () => {
@@ -133,6 +176,40 @@ describe("CodexProcess (app-server)", () => {
     );
 
     proc.stop();
+  });
+
+  it("handles managed app-server spawn errors without crashing", () => {
+    process.env.BRIDGE_CODEX_APP_SERVER_MODE = "managed";
+    process.env.BRIDGE_CODEX_APP_SERVER_URL = "ws://127.0.0.1:18767";
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const proc = new CodexProcess("linux");
+      proc.start("/tmp/project-managed-error");
+
+      expect(spawnMock).toHaveBeenCalledWith(
+        "codex",
+        ["app-server", "--listen", "ws://127.0.0.1:18767"],
+        expect.objectContaining({ cwd: "/tmp/project-managed-error" }),
+      );
+
+      expect(() => {
+        fakeChildren[0].emit("error", new Error("spawn failed"));
+      }).not.toThrow();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[codex-app-server] Failed to start: spawn failed",
+      );
+
+      const nextProc = new CodexProcess("linux");
+      nextProc.start("/tmp/project-managed-error-next");
+      expect(spawnMock).toHaveBeenCalledTimes(2);
+
+      proc.stop();
+      nextProc.stop();
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it("falls back to requested approval reviewer in init when thread response omits it", async () => {
@@ -532,6 +609,164 @@ describe("CodexProcess (app-server)", () => {
     const initialized = nextOutgoingNotification(child);
     expect(initialized.method).toBe("initialized");
     expect(() => nextOutgoingRequest(child)).toThrow();
+
+    proc.stop();
+  });
+
+  it("emits user_input for app-server user items from another client", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-copresence");
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+    await tick();
+    nextOutgoingNotification(child);
+    const startReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: startReq.id,
+        result: { thread: { id: "thr_copresence" } },
+      })}\n`,
+    );
+    await tick();
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "item/completed",
+        params: {
+          threadId: "thr_copresence",
+          item: {
+            id: "user_1",
+            type: "user_message",
+            content: [{ type: "text", text: "sent from terminal" }],
+            timestamp: "2026-05-12T10:00:00.000Z",
+          },
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(messages).toContainEqual({
+      type: "user_input",
+      text: "sent from terminal",
+      userMessageUuid: "user_1",
+      timestamp: "2026-05-12T10:00:00.000Z",
+    });
+
+    proc.stop();
+  });
+
+  it("ignores app-server notifications for other threads", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-thread-filter");
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+    await tick();
+    nextOutgoingNotification(child);
+    const startReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: startReq.id,
+        result: {
+          thread: {
+            id: "thr_self",
+            agentNickname: "self-agent",
+            agentRole: "primary",
+          },
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(proc.sessionId).toBe("thr_self");
+    expect(proc.agentNickname).toBe("self-agent");
+    expect(proc.agentRole).toBe("primary");
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "thread/started",
+        params: {
+          threadId: "thr_other",
+          thread: {
+            id: "thr_other",
+            agentNickname: "other-agent",
+            agentRole: "secondary",
+          },
+        },
+      })}\n`,
+    );
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "turn/started",
+        params: { threadId: "thr_other", turn: { id: "turn_other" } },
+      })}\n`,
+    );
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "item/completed",
+        params: {
+          threadId: "thr_other",
+          item: {
+            id: "user_other",
+            type: "userMessage",
+            content: [{ type: "text", text: "foreign input" }],
+          },
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(proc.sessionId).toBe("thr_self");
+    expect(proc.agentNickname).toBe("self-agent");
+    expect(proc.agentRole).toBe("primary");
+    expect(messages).not.toContainEqual(
+      expect.objectContaining({ text: "foreign input" }),
+    );
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        method: "item/completed",
+        params: {
+          threadId: "thr_self",
+          item: {
+            id: "user_self",
+            type: "userMessage",
+            content: [{ type: "text", text: "own input" }],
+          },
+        },
+      })}\n`,
+    );
+    await tick();
+
+    expect(messages).toContainEqual({
+      type: "user_input",
+      text: "own input",
+      userMessageUuid: "user_self",
+    });
 
     proc.stop();
   });
@@ -1875,7 +2110,7 @@ describe("CodexProcess (app-server)", () => {
     const child = new FakeChildProcess();
     fakeChildren.push(child);
     const internal = proc as any;
-    internal.child = child;
+    attachFakeTransport(internal, child);
     internal._projectPath = "/tmp/project-completions";
     const emitRpc = (message: Record<string, unknown>) => {
       internal.handleStdoutChunk(`${JSON.stringify(message)}\n`);
@@ -1937,7 +2172,7 @@ describe("CodexProcess (app-server)", () => {
     const messages: unknown[] = [];
     proc.on("message", (msg) => messages.push(msg));
     const internal = proc as any;
-    internal.child = child;
+    attachFakeTransport(internal, child);
     internal._projectPath = "/tmp/project-plugins";
     const emitRpc = (message: Record<string, unknown>) => {
       internal.handleStdoutChunk(`${JSON.stringify(message)}\n`);
@@ -2025,7 +2260,7 @@ describe("CodexProcess (app-server)", () => {
     const messages: unknown[] = [];
     proc.on("message", (msg) => messages.push(msg));
     const internal = proc as any;
-    internal.child = child;
+    attachFakeTransport(internal, child);
     internal._projectPath = "/tmp/project-plugin-error";
     const emitRpc = (message: Record<string, unknown>) => {
       internal.handleStdoutChunk(`${JSON.stringify(message)}\n`);
@@ -2182,6 +2417,22 @@ function nextOutgoingResponse(
       value.result !== undefined &&
       value.method === undefined,
   );
+}
+
+function attachFakeTransport(
+  internal: { transport?: unknown },
+  child: FakeChildProcess,
+): void {
+  internal.transport = {
+    isRunning: true,
+    write(envelope: Record<string, unknown>) {
+      child.stdin.write(`${JSON.stringify(envelope)}\n`);
+    },
+    stop() {},
+    on() {
+      return this;
+    },
+  };
 }
 
 async function tick(): Promise<void> {

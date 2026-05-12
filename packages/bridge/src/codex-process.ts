@@ -3,9 +3,15 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rm, writeFile } from "node:fs/promises";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type { ServerMessage, ProcessStatus } from "./parser.js";
+import {
+  createCodexTransport,
+  buildCodexSpawnSpec,
+  type CodexTransport,
+} from "./codex-transport.js";
 import { resolvePlatformPath } from "./path-utils.js";
+
+export { buildCodexSpawnSpec };
 
 const DEFAULT_CODEX_MODEL = "gpt-5.5";
 const COMPLETION_FETCH_COOLDOWN_MS = 1000;
@@ -178,47 +184,8 @@ interface CodexModelListResponse {
   nextCursor?: unknown;
 }
 
-export function buildCodexSpawnSpec(
-  projectPath: string,
-  platform: NodeJS.Platform = process.platform,
-): {
-  command: string;
-  args: string[];
-  options: {
-    cwd: string;
-    stdio: "pipe";
-    env: NodeJS.ProcessEnv;
-    windowsVerbatimArguments?: boolean;
-  };
-} {
-  const cwd = resolvePlatformPath(projectPath, platform);
-
-  if (platform === "win32") {
-    return {
-      command: "cmd.exe",
-      args: ["/d", "/s", "/c", "codex app-server --listen stdio://"],
-      options: {
-        cwd,
-        stdio: "pipe",
-        env: process.env,
-        windowsVerbatimArguments: true,
-      },
-    };
-  }
-
-  return {
-    command: "codex",
-    args: ["app-server", "--listen", "stdio://"],
-    options: {
-      cwd,
-      stdio: "pipe",
-      env: process.env,
-    },
-  };
-}
-
 export class CodexProcess extends EventEmitter<CodexProcessEvents> {
-  private child: ChildProcessWithoutNullStreams | null = null;
+  private transport: CodexTransport | null = null;
   private _status: ProcessStatus = "starting";
   private _threadId: string | null = null;
   private _agentNickname: string | null = null;
@@ -315,7 +282,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   get isRunning(): boolean {
-    return this.child !== null;
+    return this.transport?.isRunning ?? false;
   }
 
   get approvalPolicy(): string {
@@ -516,7 +483,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   start(projectPath: string, options?: CodexStartOptions): void {
-    if (this.child) {
+    if (this.transport) {
       this.stop();
     }
 
@@ -527,7 +494,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   async initializeOnly(projectPath: string): Promise<void> {
-    if (this.child) {
+    if (this.transport) {
       this.stop();
     }
     this.prepareLaunch(projectPath);
@@ -549,9 +516,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.cleanupSteerTempPaths();
     this.rejectAllPending(new Error("stopped"));
 
-    if (this.child) {
-      this.child.kill("SIGTERM");
-      this.child = null;
+    if (this.transport) {
+      this.transport.stop();
+      this.transport = null;
     }
 
     this.setStatus("idle");
@@ -589,32 +556,25 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     projectPath: string,
     options?: CodexStartOptions,
   ): void {
-    const spawnSpec = buildCodexSpawnSpec(projectPath, this.platform);
     console.log(
-      `[codex-process] Starting app-server (cwd: ${spawnSpec.options.cwd}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, reviewer: ${this.approvalsReviewer}, model: ${options?.model ?? "default"}, collaboration: ${this._collaborationMode})`,
+      `[codex-process] Starting app-server (cwd: ${projectPath}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, reviewer: ${this.approvalsReviewer}, model: ${options?.model ?? "default"}, collaboration: ${this._collaborationMode})`,
     );
 
-    const child = spawn(
-      spawnSpec.command,
-      spawnSpec.args,
-      spawnSpec.options,
-    );
-    this.child = child;
+    const transport = createCodexTransport(projectPath, this.platform);
+    this.transport = transport;
 
-    child.stdout.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
+    transport.on("data", (chunk: string) => {
       this.handleStdoutChunk(chunk);
     });
 
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk: string) => {
+    transport.on("log", (chunk: string) => {
       const line = chunk.trim();
       if (line) {
         console.log(`[codex-process] stderr: ${line}`);
       }
     });
 
-    child.on("error", (err) => {
+    transport.on("error", (err) => {
       if (this.stopped) return;
       console.error("[codex-process] app-server process error:", err);
       this.emitMessage({
@@ -625,9 +585,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.emit("exit", 1);
     });
 
-    child.on("exit", (code) => {
+    transport.on("exit", (code) => {
       const exitCode = code ?? 0;
-      this.child = null;
+      this.transport = null;
       this.rejectAllPending(new Error("codex app-server exited"));
       if (!this.stopped && exitCode !== 0) {
         this.emitMessage({
@@ -638,6 +598,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.setStatus("idle");
       this.emit("exit", code);
     });
+
+    transport.start(projectPath);
   }
 
   interrupt(): void {
@@ -1131,6 +1093,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       }
 
       this._threadId = threadId;
+      this._agentNickname = stringOrNull(thread?.agentNickname);
+      this._agentRole = stringOrNull(thread?.agentRole);
       this.emitMessage({
         type: "system",
         subtype: "init",
@@ -1837,6 +1801,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     method: string,
     params: Record<string, unknown>,
   ): void {
+    if (this.isForeignThreadNotification(method, params)) return;
+
     switch (method) {
       case "thread/started": {
         const thread = params.thread as Record<string, unknown> | undefined;
@@ -1977,6 +1943,22 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       default:
         break;
     }
+  }
+
+  private isForeignThreadNotification(
+    method: string,
+    params: Record<string, unknown>,
+  ): boolean {
+    if (!isThreadScopedNotification(method)) return false;
+    const threadId = notificationThreadId(params);
+    if (!threadId) return false;
+
+    // Thread binding comes from the thread/start or thread/resume response.
+    // In shared app-server modes, early notifications can belong to another
+    // client, so explicit-thread notifications are ignored until this process
+    // has its own authoritative thread id.
+    if (!this._threadId) return true;
+    return threadId !== this._threadId;
   }
 
   private handleTurnCompleted(turn: Record<string, unknown> | undefined): void {
@@ -2218,6 +2200,22 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
             model: this.getMessageModel(),
           },
         });
+        break;
+      }
+
+      case "user":
+      case "usermessage":
+      case "userinput": {
+        const text = extractUserText(item);
+        if (!text) return;
+        this.emitMessage({
+          type: "user_input",
+          text,
+          userMessageUuid: itemId,
+          ...(typeof item.timestamp === "string"
+            ? { timestamp: item.timestamp }
+            : {}),
+        } as ServerMessage);
         break;
       }
 
@@ -2485,11 +2483,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   private writeEnvelope(envelope: Record<string, unknown>): void {
-    if (!this.child || this.child.killed) {
+    if (!this.transport || !this.transport.isRunning) {
       throw new Error("codex app-server is not running");
     }
-    const line = `${JSON.stringify(envelope)}\n`;
-    this.child.stdin.write(line);
+    this.transport.write(envelope);
   }
 
   private rejectAllPending(error: Error): void {
@@ -2785,6 +2782,33 @@ function normalizeItemType(raw: unknown): string {
   return raw.replace(/[_\s-]/g, "").toLowerCase();
 }
 
+function isThreadScopedNotification(method: string): boolean {
+  return (
+    method.startsWith("thread/") ||
+    method.startsWith("turn/") ||
+    method.startsWith("item/") ||
+    method === "serverRequest/resolved"
+  );
+}
+
+function notificationThreadId(params: Record<string, unknown>): string | null {
+  if (typeof params.threadId === "string") return params.threadId;
+
+  const thread = params.thread;
+  if (thread && typeof thread === "object") {
+    const id = (thread as Record<string, unknown>).id;
+    if (typeof id === "string") return id;
+  }
+
+  const turn = params.turn;
+  if (turn && typeof turn === "object") {
+    const id = (turn as Record<string, unknown>).threadId;
+    if (typeof id === "string") return id;
+  }
+
+  return null;
+}
+
 function numberOrUndefined(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value)
     ? value
@@ -3073,6 +3097,12 @@ function extractAgentText(item: Record<string, unknown>): string {
   }
 
   return "";
+}
+
+function extractUserText(item: Record<string, unknown>): string {
+  if (typeof item.text === "string") return item.text;
+  if (typeof item.message === "string") return item.message;
+  return extractAgentText(item);
 }
 
 function extractReasoningText(item: Record<string, unknown>): string {

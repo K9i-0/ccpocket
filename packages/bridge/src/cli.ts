@@ -46,6 +46,9 @@ if (subcommand === "doctor") {
     host: parseFlag("host"),
     apiKey: parseFlag("api-key"),
     publicWsUrl: parseFlag("public-ws-url"),
+    codexAppServerMode: parseFlag("codex-app-server-mode"),
+    codexAppServerPort: parseFlag("codex-app-server-port"),
+    codexAppServerUrl: parseFlag("codex-app-server-url"),
   };
 
   if (platform() === "darwin") {
@@ -78,11 +81,23 @@ if (subcommand === "doctor") {
   const host = parseFlag("host");
   const apiKey = parseFlag("api-key");
   const publicWsUrl = parseFlag("public-ws-url");
+  const codexAppServerMode = parseFlag("codex-app-server-mode");
+  const codexAppServerPort = parseFlag("codex-app-server-port");
+  const codexAppServerUrl = parseFlag("codex-app-server-url");
 
   if (port) process.env.BRIDGE_PORT = port;
   if (host) process.env.BRIDGE_HOST = host;
   if (apiKey) process.env.BRIDGE_API_KEY = apiKey;
   if (publicWsUrl) process.env.BRIDGE_PUBLIC_WS_URL = publicWsUrl;
+  if (codexAppServerMode) {
+    process.env.BRIDGE_CODEX_APP_SERVER_MODE = codexAppServerMode;
+  }
+  if (codexAppServerPort) {
+    process.env.BRIDGE_CODEX_APP_SERVER_PORT = codexAppServerPort;
+  }
+  if (codexAppServerUrl) {
+    process.env.BRIDGE_CODEX_APP_SERVER_URL = codexAppServerUrl;
+  }
   if (hasFlag("no-mdns")) process.env.BRIDGE_DISABLE_MDNS = "1";
 
   startServer();

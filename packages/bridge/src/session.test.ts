@@ -896,7 +896,7 @@ describe("SessionManager claude UUID backfill", () => {
     expect(merged?.text).toBe("check this screenshot");
   });
 
-  it("SDK echo merge works for text-only user_input (no imageCount)", () => {
+  it("SDK echo merge works for text-only user_input even when echo text changes", () => {
     const manager = new SessionManager(() => {});
     const sessionId = manager.create("/tmp/project-merge-text");
 
@@ -913,16 +913,223 @@ describe("SessionManager claude UUID backfill", () => {
     // SDK echo with UUID
     sdkInstances[0].emit("message", {
       type: "user_input",
-      text: "hello world",
+      text: "hello world normalized",
       userMessageUuid: "uuid-text",
     } as ServerMessage);
 
-    const merged = session.history.find(
-      (msg) => msg.type === "user_input" && "userMessageUuid" in msg,
-    ) as Record<string, unknown> | undefined;
+    const userInputs = session.history.filter((msg) => msg.type === "user_input");
+    expect(userInputs).toHaveLength(1);
+    const merged = userInputs[0] as Record<string, unknown> | undefined;
     expect(merged).toBeDefined();
     expect(merged?.userMessageUuid).toBe("uuid-text");
     expect(merged?.text).toBe("hello world");
+  });
+
+  it("merges Codex user echo when mobile placeholder has a synthetic UUID", () => {
+    const broadcasts: Array<{ id: string; msg: ServerMessage }> = [];
+    const manager = new SessionManager((id, msg) => {
+      broadcasts.push({ id, msg });
+    });
+    const sessionId = manager.create(
+      "/tmp/project-merge-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+
+    const session = manager.get(sessionId);
+    expect(session).toBeDefined();
+    if (!session) return;
+
+    manager.appendHistory(sessionId, {
+      type: "user_input",
+      text: "sync this turn",
+      userMessageUuid: "codex:user-turn:1",
+      clientMessageId: "cm-codex-merge",
+    } as ServerMessage);
+
+    codexInstances[0].emit("message", {
+      type: "user_input",
+      text: "sync this turn",
+      userMessageUuid: "item-real-1",
+    } as ServerMessage);
+
+    let userInputs = session.history.filter(
+      (msg) => msg.type === "user_input",
+    );
+    expect(userInputs).toHaveLength(1);
+    expect(userInputs[0]).toMatchObject({
+      type: "user_input",
+      text: "sync this turn",
+      userMessageUuid: "codex:user-turn:1",
+      clientMessageId: "cm-codex-merge",
+    });
+    expect(broadcasts.at(-1)).toMatchObject({
+      id: sessionId,
+      msg: {
+        type: "user_input",
+        text: "sync this turn",
+        userMessageUuid: "codex:user-turn:1",
+        clientMessageId: "cm-codex-merge",
+      },
+    });
+
+    codexInstances[0].emit("message", {
+      type: "user_input",
+      text: "sync this turn",
+      userMessageUuid: "item-real-2",
+    } as ServerMessage);
+
+    userInputs = session.history.filter((msg) => msg.type === "user_input");
+    expect(userInputs).toHaveLength(2);
+    expect(userInputs[1]).toMatchObject({
+      type: "user_input",
+      text: "sync this turn",
+      userMessageUuid: "codex:user-turn:2",
+    });
+  });
+
+  it("does not merge distinct real Codex user item IDs with identical text", () => {
+    const broadcasts: Array<{ id: string; msg: ServerMessage }> = [];
+    const manager = new SessionManager((id, msg) => {
+      broadcasts.push({ id, msg });
+    });
+    const sessionId = manager.create(
+      "/tmp/project-distinct-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+
+    const session = manager.get(sessionId);
+    expect(session).toBeDefined();
+    if (!session) return;
+
+    manager.appendHistory(sessionId, {
+      type: "user_input",
+      text: "repeat",
+      userMessageUuid: "item-real-1",
+    } as ServerMessage);
+
+    codexInstances[0].emit("message", {
+      type: "user_input",
+      text: "repeat",
+      userMessageUuid: "item-real-2",
+    } as ServerMessage);
+
+    expect(
+      session.history.filter((msg) => msg.type === "user_input"),
+    ).toHaveLength(2);
+    expect(
+      session.history.filter((msg) => msg.type === "user_input")[1],
+    ).toMatchObject({
+      type: "user_input",
+      text: "repeat",
+      userMessageUuid: "codex:user-turn:2",
+    });
+    expect(broadcasts.at(-1)).toMatchObject({
+      id: sessionId,
+      msg: {
+        type: "user_input",
+        text: "repeat",
+      },
+    });
+    expect(
+      "userMessageUuid" in (broadcasts.at(-1)?.msg ?? {}),
+    ).toBe(false);
+  });
+
+  it("counts resumed Codex past messages when assigning remote user turn UUIDs", () => {
+    const broadcasts: Array<{ id: string; msg: ServerMessage }> = [];
+    const manager = new SessionManager((id, msg) => {
+      broadcasts.push({ id, msg });
+    });
+    const sessionId = manager.create(
+      "/tmp/project-resumed-codex",
+      undefined,
+      [
+        {
+          role: "user",
+          uuid: "codex:user-turn:1",
+          content: [{ type: "text", text: "old turn" }],
+        },
+      ],
+      undefined,
+      "codex",
+    );
+
+    const session = manager.get(sessionId);
+    expect(session).toBeDefined();
+    if (!session) return;
+
+    codexInstances[0].emit("message", {
+      type: "user_input",
+      text: "remote after resume",
+      userMessageUuid: "item-real-after-resume",
+    } as ServerMessage);
+
+    expect(session.history).toContainEqual(
+      expect.objectContaining({
+        type: "user_input",
+        text: "remote after resume",
+        userMessageUuid: "codex:user-turn:2",
+      }),
+    );
+    expect(broadcasts.at(-1)).toMatchObject({
+      id: sessionId,
+      msg: {
+        type: "user_input",
+        text: "remote after resume",
+      },
+    });
+    expect(
+      "userMessageUuid" in (broadcasts.at(-1)?.msg ?? {}),
+    ).toBe(false);
+  });
+
+  it("counts queued Codex input when assigning remote user turn UUIDs", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-queued-codex",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+
+    const session = manager.get(sessionId);
+    expect(session).toBeDefined();
+    if (!session) return;
+
+    manager.appendHistory(sessionId, {
+      type: "user_input",
+      text: "first local",
+      userMessageUuid: "codex:user-turn:1",
+    } as ServerMessage);
+    expect(
+      manager.queueCodexInput(sessionId, {
+        itemId: "queued-1",
+        text: "queued local",
+        createdAt: "2026-05-12T10:00:00.000Z",
+        userMessageUuid: "codex:user-turn:2",
+      }),
+    ).toBe(true);
+
+    codexInstances[0].emit("message", {
+      type: "user_input",
+      text: "remote while queued",
+      userMessageUuid: "item-real-queued-race",
+    } as ServerMessage);
+
+    expect(session.history).toContainEqual(
+      expect.objectContaining({
+        type: "user_input",
+        text: "remote while queued",
+        userMessageUuid: "codex:user-turn:3",
+      }),
+    );
   });
 
   it("falls back to scanning all project dirs when primary slug lookup misses", () => {

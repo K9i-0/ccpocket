@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { defaultCodexAppServerPort } from "./codex-app-server-config.js";
 
 const PLIST_LABEL = "com.ccpocket.bridge";
 
@@ -29,6 +30,9 @@ interface SetupOptions {
   host?: string;
   apiKey?: string;
   publicWsUrl?: string;
+  codexAppServerMode?: string;
+  codexAppServerPort?: string;
+  codexAppServerUrl?: string;
 }
 
 export function setupLaunchd(opts: SetupOptions): void {
@@ -37,6 +41,18 @@ export function setupLaunchd(opts: SetupOptions): void {
   const apiKey = opts.apiKey ?? process.env.BRIDGE_API_KEY ?? "";
   const publicWsUrl =
     opts.publicWsUrl ?? process.env.BRIDGE_PUBLIC_WS_URL ?? "";
+  const codexAppServerMode =
+    opts.codexAppServerMode ??
+    process.env.BRIDGE_CODEX_APP_SERVER_MODE ??
+    "managed";
+  const codexAppServerPort =
+    opts.codexAppServerPort ??
+    process.env.BRIDGE_CODEX_APP_SERVER_PORT ??
+    defaultCodexAppServerPort(port);
+  const codexAppServerUrl =
+    opts.codexAppServerUrl ??
+    process.env.BRIDGE_CODEX_APP_SERVER_URL ??
+    `ws://127.0.0.1:${codexAppServerPort}`;
   const plistPath = getPlistPath();
 
   // Resolve the npx binary path
@@ -66,6 +82,14 @@ export function setupLaunchd(opts: SetupOptions): void {
         <key>BRIDGE_PUBLIC_WS_URL</key>
         <string>${publicWsUrl}</string>`;
   }
+
+  envBlock += `
+        <key>BRIDGE_CODEX_APP_SERVER_MODE</key>
+        <string>${codexAppServerMode}</string>
+        <key>BRIDGE_CODEX_APP_SERVER_PORT</key>
+        <string>${codexAppServerPort}</string>
+        <key>BRIDGE_CODEX_APP_SERVER_URL</key>
+        <string>${codexAppServerUrl}</string>`;
 
   // Generate plist
   // Use zsh -li -c to inherit the user's full shell environment
@@ -117,6 +141,7 @@ ${envBlock}
   try {
     execSync(`launchctl start "${PLIST_LABEL}"`);
     console.log(`==> Bridge Server started on port ${port}`);
+    console.log(`    Codex remote: codex --remote ${codexAppServerUrl}`);
   } catch {
     console.log("==> Service registered (start may have failed — check logs at /tmp/ccpocket-bridge.log)");
   }
