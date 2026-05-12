@@ -67,6 +67,7 @@ class MockMachineManagerService implements MachineManagerService {
     String? apiKey,
     String? name,
     bool? useSsl,
+    String? wsUrl,
   }) async {
     calls.add('recordConnection:$host:$port');
     return Machine(

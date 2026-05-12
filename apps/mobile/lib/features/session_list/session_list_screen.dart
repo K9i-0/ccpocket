@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../utils/bridge_url.dart';
 import '../../utils/platform_helper.dart';
 
 import '../../models/messages.dart';
@@ -449,6 +450,7 @@ class _SessionListScreenState extends State<SessionListScreen>
           port: uri.port != 0 ? uri.port : 8765,
           apiKey: trimmedApiKey.isNotEmpty ? trimmedApiKey : null,
           useSsl: uri.scheme == 'https',
+          wsUrl: url,
         );
       }
     }
@@ -2180,7 +2182,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     if (!mounted) return;
     final bridge = context.read<BridgeService>();
     bridge.connect(wsUrl);
-    bridge.savePreferences(machine.wsUrl);
+    bridge.savePreferences(stripBridgeAuthToken(wsUrl));
     final tunnelService = context.read<SshBridgeTunnelService?>();
     if (tunnelService != null) {
       unawaited(tunnelService.closeAllExcept(machine.id));

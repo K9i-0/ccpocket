@@ -10,6 +10,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../core/logger.dart';
 import '../models/messages.dart';
 import '../models/offline_pending_action.dart';
+import '../utils/bridge_url.dart';
 import '../utils/codex_plan_update.dart';
 import 'bridge_service_base.dart';
 import 'session_runtime_store.dart';
@@ -292,17 +293,9 @@ class BridgeService implements BridgeServiceBase {
   }
 
   /// Derive HTTP base URL from the WebSocket URL.
-  /// Example: ws://host:8765/path?query=1 -> http://host:8765
+  /// Example: ws://host:8765/path?query=1 -> http://host:8765/path
   @override
-  String? get httpBaseUrl {
-    final url = _lastUrl;
-    if (url == null) return null;
-    final uri = Uri.tryParse(url);
-    if (uri == null) return null;
-    final scheme = uri.scheme == 'wss' ? 'https' : 'http';
-    final port = uri.hasPort ? ':${uri.port}' : '';
-    return '$scheme://${uri.host}$port';
-  }
+  String? get httpBaseUrl => bridgeHttpBaseUrlFromWsUrl(_lastUrl);
 
   static const _prefKeyUrl = 'bridge_url';
   static const _prefKeyApiKey = 'bridge_api_key';
@@ -2042,11 +2035,9 @@ class BridgeService implements BridgeServiceBase {
   /// Returns the health JSON on success, null on failure.
   static Future<Map<String, dynamic>?> checkHealth(String wsUrl) async {
     try {
-      final uri = Uri.tryParse(wsUrl);
-      if (uri == null) return null;
-      final scheme = uri.scheme == 'wss' ? 'https' : 'http';
-      final port = uri.hasPort ? ':${uri.port}' : '';
-      final healthUrl = '$scheme://${uri.host}$port/health';
+      final httpBaseUrl = bridgeHttpBaseUrlFromWsUrl(wsUrl);
+      if (httpBaseUrl == null) return null;
+      final healthUrl = buildBridgeHttpUrl(httpBaseUrl, '/health');
       final response = await http
           .get(Uri.parse(healthUrl))
           .timeout(const Duration(seconds: 3));

@@ -258,6 +258,7 @@ class _StaticMachineManagerService implements MachineManagerService {
     String? apiKey,
     String? name,
     bool? useSsl,
+    String? wsUrl,
   }) async => Machine(
     id: 'recorded',
     host: host,

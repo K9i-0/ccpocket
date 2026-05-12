@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../constants/app_constants.dart';
 import '../models/machine.dart';
+import '../utils/bridge_url.dart';
 
 typedef BridgeWsUrlResolver =
     Future<String> Function(
@@ -36,6 +37,7 @@ typedef BridgeHttpBaseUrlResolver =
 class MachineManagerService {
   // New storage key for unified Machine model
   static const _prefsKey = 'machines_v2';
+  static const _prefsKeyWsUrlOverrides = 'machine_ws_url_overrides_v1';
   // Old keys for migration
   static const _oldMachinesKey = 'remote_machines';
   static const _oldUrlHistoryKey = 'url_history';
@@ -48,6 +50,7 @@ class MachineManagerService {
   final _machinesController =
       StreamController<List<MachineWithStatus>>.broadcast();
   List<Machine> _machines = [];
+  Map<String, String> _wsUrlOverrides = {};
   final Map<String, MachineStatus> _statusCache = {};
   final Map<String, DateTime> _lastChecked = {};
   final Map<String, String> _lastErrors = {};
@@ -89,6 +92,7 @@ class MachineManagerService {
   Future<void> init() async {
     await _migrateIfNeeded();
     _machines = _loadFromPrefs();
+    _wsUrlOverrides = _loadWsUrlOverrides();
     _sortMachines();
     _notifyListeners();
     // Start health check after loading
@@ -101,6 +105,7 @@ class MachineManagerService {
     if (_prefs.containsKey(_prefsKey)) return;
 
     final machines = <Machine>[];
+    final wsUrlOverrides = <String, String>{};
     final seenKeys = <String>{}; // host:port keys for deduplication
 
     // 1. Migrate old RemoteMachine entries (mark as favorites)
@@ -188,6 +193,10 @@ class MachineManagerService {
                 isFavorite: false, // URL history entries are not favorites
               ),
             );
+            final normalizedWsUrl = stripBridgeAuthToken(url);
+            if (_hasCustomWsTarget(normalizedWsUrl, host, port, useSsl)) {
+              wsUrlOverrides[machineId] = normalizedWsUrl;
+            }
           }
         }
       } catch (e) {
@@ -199,6 +208,10 @@ class MachineManagerService {
     if (machines.isNotEmpty) {
       _machines = machines;
       await _saveToPrefs();
+      if (wsUrlOverrides.isNotEmpty) {
+        _wsUrlOverrides = wsUrlOverrides;
+        await _saveWsUrlOverrides();
+      }
       logger.info('[MachineManager] Migrated ${machines.length} machines');
     }
 
@@ -225,10 +238,29 @@ class MachineManagerService {
     }
   }
 
+  Map<String, String> _loadWsUrlOverrides() {
+    final raw = _prefs.getString(_prefsKeyWsUrlOverrides);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      return decoded.map((key, value) => MapEntry(key, value.toString()));
+    } catch (e) {
+      logger.error('[MachineManager] Failed to load ws url overrides', e);
+      return {};
+    }
+  }
+
   /// Save machines to SharedPreferences
   Future<void> _saveToPrefs() async {
     final json = jsonEncode(_machines.map((m) => m.toJson()).toList());
     await _prefs.setString(_prefsKey, json);
+  }
+
+  Future<void> _saveWsUrlOverrides() async {
+    await _prefs.setString(
+      _prefsKeyWsUrlOverrides,
+      jsonEncode(_wsUrlOverrides),
+    );
   }
 
   /// Sort machines: favorites first, then by lastConnected DESC
@@ -270,9 +302,11 @@ class MachineManagerService {
     final toRemove = nonFavorites.skip(keepCount.clamp(0, nonFavorites.length));
     for (final m in toRemove) {
       await _deleteCredentials(m.id);
+      _wsUrlOverrides.remove(m.id);
     }
 
     _machines = [...favorites, ...toKeep];
+    await _saveWsUrlOverrides();
   }
 
   /// Notify listeners of updated machine list
@@ -310,6 +344,7 @@ class MachineManagerService {
     String? apiKey,
     String? name,
     bool? useSsl,
+    String? wsUrl,
   }) async {
     var machine = findByHostPort(host, port);
 
@@ -338,6 +373,14 @@ class MachineManagerService {
       _machines.add(machine);
     }
 
+    _rememberWsUrlOverride(
+      machine.id,
+      host: host,
+      port: port,
+      useSsl: useSsl ?? machine.useSsl,
+      wsUrl: wsUrl,
+    );
+
     // Save API key if provided
     if (apiKey != null && apiKey.isNotEmpty) {
       await _secureStorage.write(
@@ -355,6 +398,7 @@ class MachineManagerService {
     await _enforceMaxHistory();
     _sortMachines();
     await _saveToPrefs();
+    await _saveWsUrlOverrides();
     _notifyListeners();
 
     return machine;
@@ -431,8 +475,11 @@ class MachineManagerService {
       );
     }
 
+    _dropInvalidWsUrlOverride(machine);
+
     _sortMachines();
     await _saveToPrefs();
+    await _saveWsUrlOverrides();
     _notifyListeners();
 
     // Check health for the new/updated machine
@@ -523,8 +570,11 @@ class MachineManagerService {
           (existingJumpKey != null && existingJumpKey.isNotEmpty),
     );
 
+    _dropInvalidWsUrlOverride(machine);
+
     _sortMachines();
     await _saveToPrefs();
+    await _saveWsUrlOverrides();
     _notifyListeners();
   }
 
@@ -532,11 +582,13 @@ class MachineManagerService {
   Future<void> deleteMachine(String id) async {
     _machines.removeWhere((m) => m.id == id);
     await _deleteCredentials(id);
+    _wsUrlOverrides.remove(id);
     _statusCache.remove(id);
     _lastChecked.remove(id);
     _lastErrors.remove(id);
     _versionCache.remove(id);
     await _saveToPrefs();
+    await _saveWsUrlOverrides();
     _notifyListeners();
   }
 
@@ -571,7 +623,7 @@ class MachineManagerService {
         password: password,
         promptForPassword: promptForPassword,
       );
-      final healthUrl = '$httpBaseUrl/health';
+      final healthUrl = buildBridgeHttpUrl(httpBaseUrl, '/health');
       final response = await http.get(Uri.parse(healthUrl)).timeout(timeout);
 
       if (response.statusCode == 200) {
@@ -621,7 +673,7 @@ class MachineManagerService {
         password: password,
         promptForPassword: promptForPassword,
       );
-      final versionUrl = '$httpBaseUrl/version';
+      final versionUrl = buildBridgeHttpUrl(httpBaseUrl, '/version');
       final response = await http
           .get(Uri.parse(versionUrl))
           .timeout(const Duration(seconds: 3));
@@ -753,7 +805,8 @@ class MachineManagerService {
     var url = await _buildWsUrl(machine);
     final apiKey = await getApiKey(machineId);
     if (apiKey != null && apiKey.isNotEmpty) {
-      url = '$url?token=$apiKey';
+      final sep = url.contains('?') ? '&' : '?';
+      url = '$url${sep}token=$apiKey';
     }
     return url;
   }
@@ -773,7 +826,8 @@ class MachineManagerService {
     );
     final apiKey = await getApiKey(machineId);
     if (apiKey != null && apiKey.isNotEmpty) {
-      url = '$url?token=$apiKey';
+      final sep = url.contains('?') ? '&' : '?';
+      url = '$url${sep}token=$apiKey';
     }
     return url;
   }
@@ -784,9 +838,10 @@ class MachineManagerService {
     Future<String?> Function()? promptForPassword,
   }) async {
     final resolver = _bridgeWsUrlResolver;
-    if (resolver == null) return machine.wsUrl;
+    final storedWsUrl = _storedWsUrlForMachine(machine) ?? machine.wsUrl;
+    if (resolver == null) return storedWsUrl;
     return await resolver(
-      machine,
+      _machineWithWsUrl(machine, storedWsUrl),
       password: password,
       promptForPassword: promptForPassword,
     );
@@ -798,11 +853,86 @@ class MachineManagerService {
     Future<String?> Function()? promptForPassword,
   }) async {
     final resolver = _bridgeHttpBaseUrlResolver;
-    if (resolver == null) return machine.httpUrl;
+    final storedWsUrl = _storedWsUrlForMachine(machine);
+    if (resolver == null) {
+      if (storedWsUrl != null) {
+        return bridgeHttpBaseUrlFromWsUrl(storedWsUrl) ?? machine.httpUrl;
+      }
+      return machine.httpUrl;
+    }
     return await resolver(
-      machine,
+      _machineWithWsUrl(machine, storedWsUrl ?? machine.wsUrl),
       password: password,
       promptForPassword: promptForPassword,
+    );
+  }
+
+  String? _storedWsUrlForMachine(Machine machine) {
+    final wsUrl = _wsUrlOverrides[machine.id];
+    if (wsUrl == null || wsUrl.isEmpty) return null;
+    if (_matchesMachineTarget(wsUrl, machine)) return wsUrl;
+    return null;
+  }
+
+  void _rememberWsUrlOverride(
+    String machineId, {
+    required String host,
+    required int port,
+    required bool useSsl,
+    String? wsUrl,
+  }) {
+    final normalizedWsUrl = wsUrl == null ? null : stripBridgeAuthToken(wsUrl);
+    if (normalizedWsUrl == null || normalizedWsUrl.isEmpty) return;
+    if (_hasCustomWsTarget(normalizedWsUrl, host, port, useSsl)) {
+      _wsUrlOverrides[machineId] = normalizedWsUrl;
+    } else {
+      _wsUrlOverrides.remove(machineId);
+    }
+  }
+
+  void _dropInvalidWsUrlOverride(Machine machine) {
+    final wsUrl = _wsUrlOverrides[machine.id];
+    if (wsUrl == null) return;
+    if (!_matchesMachineTarget(wsUrl, machine)) {
+      _wsUrlOverrides.remove(machine.id);
+    }
+  }
+
+  bool _matchesMachineTarget(String wsUrl, Machine machine) {
+    final uri = Uri.tryParse(wsUrl);
+    if (uri == null) return false;
+    final expectedScheme = machine.useSsl ? 'wss' : 'ws';
+    final actualPort = uri.hasPort
+        ? uri.port
+        : (uri.scheme == 'wss' ? 443 : 80);
+    return uri.scheme == expectedScheme &&
+        uri.host == machine.host &&
+        actualPort == machine.port;
+  }
+
+  bool _hasCustomWsTarget(String wsUrl, String host, int port, bool useSsl) {
+    final uri = Uri.tryParse(wsUrl);
+    if (uri == null) return false;
+    final expectedScheme = useSsl ? 'wss' : 'ws';
+    final actualPort = uri.hasPort
+        ? uri.port
+        : (uri.scheme == 'wss' ? 443 : 80);
+    final hasCustomPath = uri.path.isNotEmpty && uri.path != '/';
+    final hasCustomQuery = uri.query.isNotEmpty;
+    return uri.scheme == expectedScheme &&
+        uri.host == host &&
+        actualPort == port &&
+        (hasCustomPath || hasCustomQuery);
+  }
+
+  Machine _machineWithWsUrl(Machine machine, String wsUrl) {
+    final uri = Uri.tryParse(wsUrl);
+    if (uri == null) return machine;
+    final port = uri.hasPort ? uri.port : (uri.scheme == 'wss' ? 443 : 80);
+    return machine.copyWith(
+      host: uri.host,
+      port: port,
+      useSsl: uri.scheme == 'wss',
     );
   }
 

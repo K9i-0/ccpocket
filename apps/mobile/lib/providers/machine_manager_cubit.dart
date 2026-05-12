@@ -198,6 +198,7 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
     String? apiKey,
     String? name,
     bool? useSsl,
+    String? wsUrl,
   }) async {
     return await _service.recordConnection(
       host: host,
@@ -205,6 +206,7 @@ class MachineManagerCubit extends Cubit<MachineManagerState> {
       apiKey: apiKey,
       name: name,
       useSsl: useSsl,
+      wsUrl: wsUrl,
     );
   }
 
