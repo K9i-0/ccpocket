@@ -141,7 +141,9 @@ ${envBlock}
   try {
     execSync(`launchctl start "${PLIST_LABEL}"`);
     console.log(`==> Bridge Server started on port ${port}`);
-    console.log(`    Codex remote: codex --remote ${codexAppServerUrl}`);
+    console.log(
+      `    Codex remote: codex resume --all --remote ${codexAppServerUrl}`,
+    );
   } catch {
     console.log("==> Service registered (start may have failed — check logs at /tmp/ccpocket-bridge.log)");
   }
