@@ -136,7 +136,9 @@ WantedBy=default.target
   try {
     execSync(`systemctl --user restart "${SERVICE_NAME}"`);
     console.log(`==> Bridge Server started on port ${port}`);
-    console.log(`    Codex remote: codex --remote ${codexAppServerUrl}`);
+    console.log(
+      `    Codex remote: codex resume --all --remote ${codexAppServerUrl}`,
+    );
   } catch {
     console.log(
       "==> Service registered (start may have failed — check logs with: journalctl --user -u ccpocket-bridge)",
