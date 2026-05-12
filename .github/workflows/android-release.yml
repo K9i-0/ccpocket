@@ -43,6 +43,11 @@ jobs:
           EOF
       - name: Setup Firebase config
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 -d > apps/mobile/android/app/google-services.json
+      - name: Enable precompiled Rust artifacts for Android CI
+        run: |
+          cat > apps/mobile/cargokit_options.yaml <<'EOF'
+          use_precompiled_binaries: true
+          EOF
       - run: flutter pub get
         working-directory: apps/mobile
       - run: dart analyze .

@@ -1,1 +1,4 @@
-use_precompiled_binaries: true
+# Default to local Rust builds for development so `flutter run/build -d linux`
+# does not stall on GitHub precompiled binary downloads.
+# Android release workflows overwrite this file to keep CI fast.
+use_precompiled_binaries: false
