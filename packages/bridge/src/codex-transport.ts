@@ -1,7 +1,10 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { resolvePlatformPath } from "./path-utils.js";
-import { defaultCodexAppServerPort } from "./codex-app-server-config.js";
+import {
+  defaultCodexSharedAppServerUrl,
+  readCodexSharedAppServerUrl,
+} from "./codex-app-server-config.js";
 import WebSocket from "ws";
 
 export type CodexAppServerMode = "private" | "managed" | "external";
@@ -279,10 +282,10 @@ export function createCodexTransport(
 ): CodexTransport {
   const mode = readCodexAppServerMode();
   if (mode === "external") {
-    return new WebSocketCodexTransport(readCodexAppServerUrl());
+    return new WebSocketCodexTransport(readCodexAppServerUrl(mode));
   }
   if (mode === "managed") {
-    const url = readCodexAppServerUrl();
+    const url = readCodexAppServerUrl(mode);
     let manager = managedServers.get(url);
     if (!manager) {
       manager = new ManagedCodexAppServer(url, platform);
@@ -306,12 +309,18 @@ function readCodexAppServerMode(): CodexAppServerMode {
   return "private";
 }
 
-function readCodexAppServerUrl(): string {
-  const explicit = process.env.BRIDGE_CODEX_APP_SERVER_URL?.trim();
+function readCodexAppServerUrl(mode: CodexAppServerMode): string {
+  const explicit = readCodexSharedAppServerUrl();
   if (explicit) return explicit;
 
-  const port =
-    process.env.BRIDGE_CODEX_APP_SERVER_PORT?.trim() ||
-    defaultCodexAppServerPort(process.env.BRIDGE_PORT);
-  return `ws://127.0.0.1:${port}`;
+  if (mode === "external") {
+    throw new Error(
+      "BRIDGE_CODEX_SHARED_APP_SERVER_URL is required when BRIDGE_CODEX_APP_SERVER_MODE=external",
+    );
+  }
+
+  const legacyPort = process.env.BRIDGE_CODEX_APP_SERVER_PORT?.trim();
+  if (legacyPort) return `ws://127.0.0.1:${legacyPort}`;
+
+  return defaultCodexSharedAppServerUrl(process.env.BRIDGE_PORT);
 }

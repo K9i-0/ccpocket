@@ -2,7 +2,10 @@ import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { defaultCodexAppServerPort } from "./codex-app-server-config.js";
+import {
+  defaultCodexSharedAppServerUrl,
+  readCodexSharedAppServerUrl,
+} from "./codex-app-server-config.js";
 
 const PLIST_LABEL = "com.ccpocket.bridge";
 
@@ -31,7 +34,10 @@ interface SetupOptions {
   apiKey?: string;
   publicWsUrl?: string;
   codexAppServerMode?: string;
+  codexSharedAppServerUrl?: string;
+  /** @deprecated Use codexSharedAppServerUrl. */
   codexAppServerPort?: string;
+  /** @deprecated Use codexSharedAppServerUrl. */
   codexAppServerUrl?: string;
 }
 
@@ -42,17 +48,25 @@ export function setupLaunchd(opts: SetupOptions): void {
   const publicWsUrl =
     opts.publicWsUrl ?? process.env.BRIDGE_PUBLIC_WS_URL ?? "";
   const codexAppServerMode =
-    opts.codexAppServerMode ??
-    process.env.BRIDGE_CODEX_APP_SERVER_MODE ??
-    "managed";
-  const codexAppServerPort =
-    opts.codexAppServerPort ??
-    process.env.BRIDGE_CODEX_APP_SERVER_PORT ??
-    defaultCodexAppServerPort(port);
-  const codexAppServerUrl =
+    opts.codexAppServerMode ?? process.env.BRIDGE_CODEX_APP_SERVER_MODE ?? "";
+  const legacyCodexAppServerPort =
+    opts.codexAppServerPort ?? process.env.BRIDGE_CODEX_APP_SERVER_PORT;
+  const explicitCodexAppServerUrl =
+    opts.codexSharedAppServerUrl ??
     opts.codexAppServerUrl ??
-    process.env.BRIDGE_CODEX_APP_SERVER_URL ??
-    `ws://127.0.0.1:${codexAppServerPort}`;
+    readCodexSharedAppServerUrl();
+  const codexAppServerUrl =
+    explicitCodexAppServerUrl ??
+    (codexAppServerMode === "managed"
+      ? legacyCodexAppServerPort
+        ? `ws://127.0.0.1:${legacyCodexAppServerPort}`
+        : defaultCodexSharedAppServerUrl(port)
+      : "");
+  if (codexAppServerMode === "external" && !codexAppServerUrl) {
+    throw new Error(
+      "BRIDGE_CODEX_SHARED_APP_SERVER_URL is required when Codex app-server mode is external",
+    );
+  }
   const plistPath = getPlistPath();
 
   // Resolve the npx binary path
@@ -83,13 +97,17 @@ export function setupLaunchd(opts: SetupOptions): void {
         <string>${publicWsUrl}</string>`;
   }
 
-  envBlock += `
+  if (codexAppServerMode) {
+    envBlock += `
         <key>BRIDGE_CODEX_APP_SERVER_MODE</key>
-        <string>${codexAppServerMode}</string>
-        <key>BRIDGE_CODEX_APP_SERVER_PORT</key>
-        <string>${codexAppServerPort}</string>
-        <key>BRIDGE_CODEX_APP_SERVER_URL</key>
+        <string>${codexAppServerMode}</string>`;
+  }
+
+  if (codexAppServerMode && codexAppServerUrl) {
+    envBlock += `
+        <key>BRIDGE_CODEX_SHARED_APP_SERVER_URL</key>
         <string>${codexAppServerUrl}</string>`;
+  }
 
   // Generate plist
   // Use zsh -li -c to inherit the user's full shell environment
@@ -141,9 +159,11 @@ ${envBlock}
   try {
     execSync(`launchctl start "${PLIST_LABEL}"`);
     console.log(`==> Bridge Server started on port ${port}`);
-    console.log(
-      `    Codex remote: codex resume --all --remote ${codexAppServerUrl}`,
-    );
+    if (codexAppServerMode && codexAppServerUrl) {
+      console.log(
+        `    Codex remote: codex resume --all --remote ${codexAppServerUrl}`,
+      );
+    }
   } catch {
     console.log("==> Service registered (start may have failed — check logs at /tmp/ccpocket-bridge.log)");
   }

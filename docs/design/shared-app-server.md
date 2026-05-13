@@ -26,8 +26,7 @@ managed shared app-server 実装を実機確認した。
 ```bash
 BRIDGE_PORT=8766 \
 BRIDGE_CODEX_APP_SERVER_MODE=managed \
-BRIDGE_CODEX_APP_SERVER_PORT=8767 \
-BRIDGE_CODEX_APP_SERVER_URL=ws://127.0.0.1:8767 \
+BRIDGE_CODEX_SHARED_APP_SERVER_URL=ws://127.0.0.1:8767 \
 npm run bridge
 ```
 

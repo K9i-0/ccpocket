@@ -42,6 +42,7 @@ import { stopManagedCodexAppServers } from "./codex-transport.js";
 const originalCodexAppServerEnv = {
   bridgePort: process.env.BRIDGE_PORT,
   mode: process.env.BRIDGE_CODEX_APP_SERVER_MODE,
+  sharedUrl: process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL,
   port: process.env.BRIDGE_CODEX_APP_SERVER_PORT,
   url: process.env.BRIDGE_CODEX_APP_SERVER_URL,
 };
@@ -49,6 +50,10 @@ const originalCodexAppServerEnv = {
 function restoreCodexAppServerEnv(): void {
   restoreEnvVar("BRIDGE_PORT", originalCodexAppServerEnv.bridgePort);
   restoreEnvVar("BRIDGE_CODEX_APP_SERVER_MODE", originalCodexAppServerEnv.mode);
+  restoreEnvVar(
+    "BRIDGE_CODEX_SHARED_APP_SERVER_URL",
+    originalCodexAppServerEnv.sharedUrl,
+  );
   restoreEnvVar("BRIDGE_CODEX_APP_SERVER_PORT", originalCodexAppServerEnv.port);
   restoreEnvVar("BRIDGE_CODEX_APP_SERVER_URL", originalCodexAppServerEnv.url);
 }
@@ -85,6 +90,7 @@ describe("CodexProcess (app-server)", () => {
   it("moves the default managed app-server port when Bridge uses 8767", () => {
     process.env.BRIDGE_PORT = "8767";
     process.env.BRIDGE_CODEX_APP_SERVER_MODE = "managed";
+    delete process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL;
     delete process.env.BRIDGE_CODEX_APP_SERVER_PORT;
     delete process.env.BRIDGE_CODEX_APP_SERVER_URL;
 
@@ -180,7 +186,7 @@ describe("CodexProcess (app-server)", () => {
 
   it("handles managed app-server spawn errors without crashing", () => {
     process.env.BRIDGE_CODEX_APP_SERVER_MODE = "managed";
-    process.env.BRIDGE_CODEX_APP_SERVER_URL = "ws://127.0.0.1:18767";
+    process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL = "ws://127.0.0.1:18767";
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     try {

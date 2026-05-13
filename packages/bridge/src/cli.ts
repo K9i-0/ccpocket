@@ -47,6 +47,7 @@ if (subcommand === "doctor") {
     apiKey: parseFlag("api-key"),
     publicWsUrl: parseFlag("public-ws-url"),
     codexAppServerMode: parseFlag("codex-app-server-mode"),
+    codexSharedAppServerUrl: parseFlag("codex-shared-app-server-url"),
     codexAppServerPort: parseFlag("codex-app-server-port"),
     codexAppServerUrl: parseFlag("codex-app-server-url"),
   };
@@ -82,6 +83,7 @@ if (subcommand === "doctor") {
   const apiKey = parseFlag("api-key");
   const publicWsUrl = parseFlag("public-ws-url");
   const codexAppServerMode = parseFlag("codex-app-server-mode");
+  const codexSharedAppServerUrl = parseFlag("codex-shared-app-server-url");
   const codexAppServerPort = parseFlag("codex-app-server-port");
   const codexAppServerUrl = parseFlag("codex-app-server-url");
 
@@ -95,7 +97,9 @@ if (subcommand === "doctor") {
   if (codexAppServerPort) {
     process.env.BRIDGE_CODEX_APP_SERVER_PORT = codexAppServerPort;
   }
-  if (codexAppServerUrl) {
+  if (codexSharedAppServerUrl) {
+    process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL = codexSharedAppServerUrl;
+  } else if (codexAppServerUrl) {
     process.env.BRIDGE_CODEX_APP_SERVER_URL = codexAppServerUrl;
   }
   if (hasFlag("no-mdns")) process.env.BRIDGE_DISABLE_MDNS = "1";

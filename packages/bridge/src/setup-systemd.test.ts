@@ -31,6 +31,7 @@ const SERVICE_PATH =
 const originalBridgeEnv = {
   publicWsUrl: process.env.BRIDGE_PUBLIC_WS_URL,
   codexAppServerMode: process.env.BRIDGE_CODEX_APP_SERVER_MODE,
+  codexSharedAppServerUrl: process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL,
   codexAppServerPort: process.env.BRIDGE_CODEX_APP_SERVER_PORT,
   codexAppServerUrl: process.env.BRIDGE_CODEX_APP_SERVER_URL,
 };
@@ -72,18 +73,11 @@ describe("setup-systemd", () => {
       );
       expect(content).toContain("Environment=BRIDGE_PORT=8765");
       expect(content).toContain("Environment=BRIDGE_HOST=0.0.0.0");
-      expect(content).toContain(
-        "Environment=BRIDGE_CODEX_APP_SERVER_MODE=managed",
-      );
-      expect(content).toContain(
-        "Environment=BRIDGE_CODEX_APP_SERVER_PORT=8767",
-      );
-      expect(content).toContain(
-        "Environment=BRIDGE_CODEX_APP_SERVER_URL=ws://127.0.0.1:8767",
-      );
       expect(content).toContain("Restart=on-failure");
       expect(content).toContain("WantedBy=default.target");
       expect(content).not.toContain("BRIDGE_API_KEY");
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_MODE");
+      expect(content).not.toContain("BRIDGE_CODEX_SHARED_APP_SERVER_URL");
     });
 
     it("includes BRIDGE_API_KEY when apiKey is provided", () => {
@@ -114,11 +108,20 @@ describe("setup-systemd", () => {
       expect(content).not.toContain("wss://env.example.com");
     });
 
+    it("does not persist shared app-server URL without an explicit mode", () => {
+      process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL = "ws://127.0.0.1:18766";
+
+      setupSystemd({});
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_MODE");
+      expect(content).not.toContain("BRIDGE_CODEX_SHARED_APP_SERVER_URL");
+    });
+
     it("includes explicit Codex app-server startup options", () => {
       setupSystemd({
         codexAppServerMode: "external",
-        codexAppServerPort: "18766",
-        codexAppServerUrl: "ws://127.0.0.1:18766",
+        codexSharedAppServerUrl: "ws://127.0.0.1:18766",
       });
 
       const content = mockWriteFileSync.mock.calls[0]![1] as string;
@@ -126,36 +129,38 @@ describe("setup-systemd", () => {
         "Environment=BRIDGE_CODEX_APP_SERVER_MODE=external",
       );
       expect(content).toContain(
-        "Environment=BRIDGE_CODEX_APP_SERVER_PORT=18766",
+        "Environment=BRIDGE_CODEX_SHARED_APP_SERVER_URL=ws://127.0.0.1:18766",
       );
-      expect(content).toContain(
-        "Environment=BRIDGE_CODEX_APP_SERVER_URL=ws://127.0.0.1:18766",
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_PORT");
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_URL");
+    });
+
+    it("requires a shared app-server URL for external mode", () => {
+      expect(() => setupSystemd({ codexAppServerMode: "external" })).toThrow(
+        "BRIDGE_CODEX_SHARED_APP_SERVER_URL is required",
       );
     });
 
-    it("leaves the documented test Bridge port free by default", () => {
-      setupSystemd({ port: "8765" });
+    it("uses the documented default shared URL when managed mode is enabled", () => {
+      setupSystemd({ port: "8765", codexAppServerMode: "managed" });
 
       const content = mockWriteFileSync.mock.calls[0]![1] as string;
       expect(content).toContain("Environment=BRIDGE_PORT=8765");
       expect(content).toContain(
-        "Environment=BRIDGE_CODEX_APP_SERVER_PORT=8767",
+        "Environment=BRIDGE_CODEX_APP_SERVER_MODE=managed",
       );
       expect(content).toContain(
-        "Environment=BRIDGE_CODEX_APP_SERVER_URL=ws://127.0.0.1:8767",
+        "Environment=BRIDGE_CODEX_SHARED_APP_SERVER_URL=ws://127.0.0.1:8767",
       );
     });
 
-    it("moves the default Codex app-server port when Bridge uses 8767", () => {
-      setupSystemd({ port: "8767" });
+    it("moves the default shared app-server URL when Bridge uses 8767", () => {
+      setupSystemd({ port: "8767", codexAppServerMode: "managed" });
 
       const content = mockWriteFileSync.mock.calls[0]![1] as string;
       expect(content).toContain("Environment=BRIDGE_PORT=8767");
       expect(content).toContain(
-        "Environment=BRIDGE_CODEX_APP_SERVER_PORT=8768",
-      );
-      expect(content).toContain(
-        "Environment=BRIDGE_CODEX_APP_SERVER_URL=ws://127.0.0.1:8768",
+        "Environment=BRIDGE_CODEX_SHARED_APP_SERVER_URL=ws://127.0.0.1:8768",
       );
     });
 
@@ -297,6 +302,7 @@ describe("setup-systemd", () => {
 function clearBridgeEnv(): void {
   delete process.env.BRIDGE_PUBLIC_WS_URL;
   delete process.env.BRIDGE_CODEX_APP_SERVER_MODE;
+  delete process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL;
   delete process.env.BRIDGE_CODEX_APP_SERVER_PORT;
   delete process.env.BRIDGE_CODEX_APP_SERVER_URL;
 }
@@ -306,6 +312,10 @@ function restoreBridgeEnv(): void {
   restoreEnvVar(
     "BRIDGE_CODEX_APP_SERVER_MODE",
     originalBridgeEnv.codexAppServerMode,
+  );
+  restoreEnvVar(
+    "BRIDGE_CODEX_SHARED_APP_SERVER_URL",
+    originalBridgeEnv.codexSharedAppServerUrl,
   );
   restoreEnvVar(
     "BRIDGE_CODEX_APP_SERVER_PORT",
