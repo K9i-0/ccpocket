@@ -268,5 +268,45 @@ void main() {
       expect(find.byKey(const ValueKey('appbar_view_changes')), findsOneWidget);
       expect(bridge.requestedFileLists, contains('/tmp/project'));
     });
+
+    testWidgets(
+      'Codex shows join command copy action when bridge provides it',
+      (tester) async {
+        final bridge = _RecordingBridgeService();
+        addTearDown(bridge.dispose);
+
+        await tester.pumpWidget(
+          await _wrap(
+            const CodexSessionScreen(sessionId: 'codex-session'),
+            bridge,
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey('appbar_copy_codex_join_button')),
+          findsNothing,
+        );
+
+        bridge.emitMessage(
+          const SystemMessage(
+            subtype: 'init',
+            provider: 'codex',
+            sessionId: 'thr_123',
+            codexCliJoin: CodexCliJoinTarget(
+              url: 'ws://127.0.0.1:8767',
+              command: 'codex resume thr_123 --remote ws://127.0.0.1:8767',
+            ),
+          ),
+          sessionId: 'codex-session',
+        );
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey('appbar_copy_codex_join_button')),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }

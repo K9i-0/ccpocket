@@ -533,6 +533,7 @@ class _CodexChatBody extends HookWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final l = AppLocalizations.of(context);
+    final bridge = context.read<BridgeService>();
     final shell = WorkspaceShellScreen.maybeOf(context);
     final presentationListenable = shell?.presentationListenable;
     // Mutable branch state (refreshed from Bridge)
@@ -592,6 +593,9 @@ class _CodexChatBody extends HookWidget {
 
     // Diff selection from GitScreen navigation
     final diffSelectionFromNav = useState<DiffSelection?>(null);
+    final codexCliJoinCommand = useState(
+      _latestCodexCliJoinCommand(bridge.cachedSessionMessages(sessionId)),
+    );
 
     // --- Bloc state ---
     final chatSessionCubit = context.read<ChatSessionCubit>();
@@ -645,6 +649,20 @@ class _CodexChatBody extends HookWidget {
         onFilePeekOpened: handleFilePeekOpened,
       );
       return () => shell?.unregisterSessionToolPaneBindings(sessionId);
+    }, [sessionId]);
+
+    useEffect(() {
+      final sub = bridge.messagesForSession(sessionId).listen((msg) {
+        if (msg case SystemMessage(:final codexCliJoin)) {
+          final command = codexCliJoin?.command.trim();
+          if (codexCliJoin?.isValid == true &&
+              command != null &&
+              command.isNotEmpty) {
+            codexCliJoinCommand.value = command;
+          }
+        }
+      });
+      return sub.cancel;
     }, [sessionId]);
 
     // --- Side effects subscription ---
@@ -1009,6 +1027,27 @@ class _CodexChatBody extends HookWidget {
                               draftService,
                             );
                           },
+                        ),
+                      if (codexCliJoinCommand.value != null)
+                        IconButton(
+                          key: const ValueKey('appbar_copy_codex_join_button'),
+                          icon: Icon(
+                            Icons.terminal,
+                            size: 18,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                          tooltip: 'Copy Codex CLI join command',
+                          onPressed: () => _copyCodexCliJoinCommand(
+                            context,
+                            codexCliJoinCommand.value!,
+                          ),
                         ),
                       PopupMenuButton<String>(
                         key: const ValueKey('session_overflow_menu'),
@@ -1851,6 +1890,28 @@ void _retryFailedMessages(BuildContext context) {
       cubit.retryMessage(entry);
     }
   }
+}
+
+String? _latestCodexCliJoinCommand(List<ServerMessage> messages) {
+  for (final msg in messages.reversed) {
+    if (msg case SystemMessage(
+      :final codexCliJoin,
+    ) when codexCliJoin?.isValid == true) {
+      return codexCliJoin!.command.trim();
+    }
+  }
+  return null;
+}
+
+Future<void> _copyCodexCliJoinCommand(
+  BuildContext context,
+  String command,
+) async {
+  await Clipboard.setData(ClipboardData(text: command));
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Codex CLI join command copied')),
+  );
 }
 
 String? _extractPlanText(

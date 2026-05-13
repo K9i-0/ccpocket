@@ -3,6 +3,30 @@ import 'package:ccpocket/models/messages.dart';
 import 'dart:convert';
 
 void main() {
+  group('SystemMessage', () {
+    test('parses Codex CLI join target', () {
+      final msg = ServerMessage.fromJson({
+        'type': 'system',
+        'subtype': 'init',
+        'provider': 'codex',
+        'sessionId': 'thr_123',
+        'codexCliJoin': {
+          'url': 'ws://127.0.0.1:8767',
+          'command': 'codex resume thr_123 --remote ws://127.0.0.1:8767',
+        },
+      });
+
+      expect(msg, isA<SystemMessage>());
+      final system = msg as SystemMessage;
+      expect(system.codexCliJoin?.url, 'ws://127.0.0.1:8767');
+      expect(
+        system.codexCliJoin?.command,
+        'codex resume thr_123 --remote ws://127.0.0.1:8767',
+      );
+      expect(system.codexCliJoin?.isValid, isTrue);
+    });
+  });
+
   group('FileContentMessage', () {
     test('parses legacy text file content as text kind', () {
       final msg = ServerMessage.fromJson({

@@ -559,6 +559,11 @@ sealed class ServerMessage {
         clearContext: json['clearContext'] as bool? ?? false,
         sourceSessionId: json['sourceSessionId'] as String?,
         tipCode: json['tipCode'] as String?,
+        codexCliJoin: json['codexCliJoin'] is Map<String, dynamic>
+            ? CodexCliJoinTarget.fromJson(
+                json['codexCliJoin'] as Map<String, dynamic>,
+              )
+            : null,
       ),
       'assistant' => AssistantServerMessage(
         message: AssistantMessage.fromJson(
@@ -1190,6 +1195,7 @@ class SystemMessage implements ServerMessage {
   final bool clearContext;
   final String? sourceSessionId;
   final String? tipCode;
+  final CodexCliJoinTarget? codexCliJoin;
   const SystemMessage({
     required this.subtype,
     this.sessionId,
@@ -1218,7 +1224,24 @@ class SystemMessage implements ServerMessage {
     this.clearContext = false,
     this.sourceSessionId,
     this.tipCode,
+    this.codexCliJoin,
   });
+}
+
+class CodexCliJoinTarget {
+  final String url;
+  final String command;
+
+  const CodexCliJoinTarget({required this.url, required this.command});
+
+  factory CodexCliJoinTarget.fromJson(Map<String, dynamic> json) {
+    return CodexCliJoinTarget(
+      url: json['url'] as String? ?? '',
+      command: json['command'] as String? ?? '',
+    );
+  }
+
+  bool get isValid => url.trim().isNotEmpty && command.trim().isNotEmpty;
 }
 
 class AssistantServerMessage implements ServerMessage {

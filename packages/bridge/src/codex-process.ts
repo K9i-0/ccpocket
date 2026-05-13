@@ -9,6 +9,7 @@ import {
   buildCodexSpawnSpec,
   type CodexTransport,
 } from "./codex-transport.js";
+import { codexCliJoinTarget } from "./codex-app-server-config.js";
 import { resolvePlatformPath } from "./path-utils.js";
 
 export { buildCodexSpawnSpec };
@@ -1095,6 +1096,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this._threadId = threadId;
       this._agentNickname = stringOrNull(thread?.agentNickname);
       this._agentRole = stringOrNull(thread?.agentRole);
+      const cliJoin = codexCliJoinTarget(threadId);
       this.emitMessage({
         type: "system",
         subtype: "init",
@@ -1137,6 +1139,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         ...(options?.additionalWritableRoots?.length
           ? { additionalWritableRoots: options.additionalWritableRoots }
           : {}),
+        ...(cliJoin ? { codexCliJoin: cliJoin } : {}),
       });
       this.setStatus("idle");
 
