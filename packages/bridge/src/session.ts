@@ -68,6 +68,7 @@ export interface SessionInfo {
     profile?: string;
     approvalPolicy?: string;
     approvalsReviewer?: string;
+    codexPermissionsMode?: string;
     sandboxMode?: string;
     model?: string;
     modelReasoningEffort?: string;
@@ -140,6 +141,7 @@ export interface SessionSummary {
     profile?: string;
     approvalPolicy?: string;
     approvalsReviewer?: string;
+    codexPermissionsMode?: string;
     sandboxMode?: string;
     model?: string;
     modelReasoningEffort?: string;
@@ -176,6 +178,9 @@ function mergeCodexSettings(
       : {}),
     ...(msg.approvalsReviewer !== undefined
       ? { approvalsReviewer: msg.approvalsReviewer }
+      : {}),
+    ...(msg.codexPermissionsMode !== undefined
+      ? { codexPermissionsMode: msg.codexPermissionsMode }
       : {}),
     ...(msg.sandboxMode !== undefined ? { sandboxMode: msg.sandboxMode } : {}),
     ...(model !== undefined ? { model } : {}),
@@ -619,6 +624,7 @@ export class SessionManager {
         profile: codexOptions.profile,
         approvalPolicy: codexOptions.approvalPolicy,
         approvalsReviewer: codexOptions.approvalsReviewer,
+        codexPermissionsMode: codexOptions.codexPermissionsMode,
         sandboxMode: codexOptions.sandboxMode,
         model: codexOptions.model,
         modelReasoningEffort: codexOptions.modelReasoningEffort,
@@ -731,7 +737,8 @@ export class SessionManager {
               ? "acceptEdits"
               : "default"
           : s.process instanceof CodexProcess
-            ? s.process.approvalPolicy === "never"
+            ? (s.codexSettings?.approvalPolicy ?? s.process.approvalPolicy) ===
+              "never"
               ? "fullAccess"
               : "default"
             : undefined;
@@ -760,7 +767,8 @@ export class SessionManager {
             : s.process instanceof CodexProcess
               ? s.process.collaborationMode === "plan"
                 ? "plan"
-                : s.process.approvalPolicy === "never"
+                : (s.codexSettings?.approvalPolicy ??
+                    s.process.approvalPolicy) === "never"
                   ? "bypassPermissions"
                   : "acceptEdits"
               : undefined,

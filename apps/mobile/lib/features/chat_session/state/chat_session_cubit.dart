@@ -49,6 +49,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   ExecutionMode? _pendingExecutionRollback;
   CodexApprovalPolicy? _pendingCodexApprovalRollback;
   String? _pendingCodexApprovalsReviewerRollback;
+  CodexPermissionsMode? _pendingCodexPermissionsModeRollback;
   bool? _pendingPlanRollback;
   SandboxMode? _pendingSandboxRollback;
 
@@ -87,6 +88,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     SandboxMode? initialSandboxMode,
     CodexApprovalPolicy? initialCodexApprovalPolicy,
     String? initialCodexApprovalsReviewer,
+    CodexPermissionsMode? initialCodexPermissionsMode,
     String? initialProjectPath,
   }) : _bridge = bridge,
        _streamingCubit = streamingCubit,
@@ -115,6 +117,18 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
                    )
                ? 'auto_review'
                : 'user',
+           codexPermissionsMode: provider == Provider.codex
+               ? (initialCodexPermissionsMode ??
+                     (initialCodexApprovalPolicy != null ||
+                             initialSandboxMode != null ||
+                             initialCodexApprovalsReviewer != null
+                         ? codexPermissionsModeFromSettings(
+                             approvalPolicy: initialCodexApprovalPolicy?.value,
+                             approvalsReviewer: initialCodexApprovalsReviewer,
+                             sandboxMode: initialSandboxMode?.value,
+                           )
+                         : CodexPermissionsMode.defaultPermissions))
+               : CodexPermissionsMode.defaultPermissions,
            planMode: initialPermissionMode == PermissionMode.plan,
            sandboxMode:
                initialSandboxMode ??
@@ -593,6 +607,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             update.codexApprovalPolicy ?? current.codexApprovalPolicy,
         codexApprovalsReviewer:
             update.codexApprovalsReviewer ?? current.codexApprovalsReviewer,
+        codexPermissionsMode:
+            update.codexPermissionsMode ?? current.codexPermissionsMode,
         planMode: update.planMode ?? current.planMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
         queuedInput: nextQueuedInput,
@@ -811,6 +827,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         :final executionMode,
         :final approvalPolicy,
         :final approvalsReviewer,
+        :final codexPermissionsMode,
         :final sandboxMode,
         :final sourceSessionId,
         :final tipCode,
@@ -826,6 +843,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           executionMode,
           approvalPolicy,
           approvalsReviewer,
+          codexPermissionsMode,
           sandboxMode,
           sourceSessionId,
           tipCode,
@@ -1455,6 +1473,71 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     );
   }
 
+  void setCodexPermissionsMode(CodexPermissionsMode mode) {
+    final policy =
+        approvalPolicyForCodexPermissionsMode(mode) ??
+        state.codexApprovalPolicy;
+    final approvalsReviewer =
+        approvalsReviewerForCodexPermissionsMode(mode) ??
+        state.codexApprovalsReviewer;
+    final sandboxMode = sandboxModeForCodexPermissionsMode(mode);
+    final derivedExecution = mode == CodexPermissionsMode.fullAccess
+        ? ExecutionMode.fullAccess
+        : ExecutionMode.defaultMode;
+    const legacyMode = PermissionMode.acceptEdits;
+
+    logger.info('[session:$sessionId] setCodexPermissionsMode=${mode.value}');
+    _pendingPermissionRollback = state.permissionMode;
+    _pendingExecutionRollback = state.executionMode;
+    _pendingCodexApprovalRollback = state.codexApprovalPolicy;
+    _pendingCodexApprovalsReviewerRollback = state.codexApprovalsReviewer;
+    _pendingCodexPermissionsModeRollback = state.codexPermissionsMode;
+    _pendingSandboxRollback = state.sandboxMode;
+    _pendingPlanRollback = state.planMode;
+
+    emit(
+      state.copyWith(
+        permissionMode: legacyMode,
+        executionMode: derivedExecution,
+        codexApprovalPolicy: policy,
+        codexApprovalsReviewer: approvalsReviewer,
+        codexPermissionsMode: mode,
+        sandboxMode: sandboxMode ?? state.sandboxMode,
+        planMode: false,
+        inPlanMode: false,
+      ),
+    );
+    _bridge.patchSessionModes(
+      sessionId,
+      permissionMode: legacyMode.value,
+      executionMode: derivedExecution.value,
+      planMode: false,
+      approvalPolicy: mode == CodexPermissionsMode.custom ? null : policy.value,
+      approvalsReviewer: mode == CodexPermissionsMode.custom
+          ? null
+          : approvalsReviewer,
+      codexPermissionsMode: mode.value,
+    );
+    if (sandboxMode != null) {
+      _bridge.patchSessionSandboxMode(sessionId, sandboxMode.value);
+    }
+    _bridge.send(
+      ClientMessage.setSessionMode(
+        legacyMode: legacyMode.value,
+        executionMode: derivedExecution.value,
+        approvalPolicy: mode == CodexPermissionsMode.custom
+            ? null
+            : policy.value,
+        approvalsReviewer: mode == CodexPermissionsMode.custom
+            ? null
+            : approvalsReviewer,
+        codexPermissionsMode: mode.value,
+        planMode: false,
+        sessionId: sessionId,
+      ),
+    );
+  }
+
   /// Change sandbox mode (Claude & Codex).
   /// Bridge destroys and resumes the session with new sandbox settings.
   void setSandboxMode(SandboxMode mode) {
@@ -1487,6 +1570,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             codexApprovalsReviewer:
                 _pendingCodexApprovalsReviewerRollback ??
                 state.codexApprovalsReviewer,
+            codexPermissionsMode:
+                _pendingCodexPermissionsModeRollback ??
+                state.codexPermissionsMode,
+            sandboxMode: _pendingSandboxRollback ?? state.sandboxMode,
             planMode: _pendingPlanRollback ?? (previous == PermissionMode.plan),
             inPlanMode:
                 _pendingPlanRollback ?? (previous == PermissionMode.plan),
@@ -1504,6 +1591,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           approvalsReviewer:
               _pendingCodexApprovalsReviewerRollback ??
               state.codexApprovalsReviewer,
+          codexPermissionsMode:
+              (_pendingCodexPermissionsModeRollback ??
+                      state.codexPermissionsMode)
+                  .value,
         );
         final claudeSid = state.claudeSessionId;
         if (claudeSid != null && claudeSid.isNotEmpty) {

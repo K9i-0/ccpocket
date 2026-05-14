@@ -149,12 +149,14 @@ List<RecentSession> applyCodexApprovalDefaultsToRecentSessions(
   }
   final approvalPolicy = defaults.codexApprovalPolicy.value;
   final approvalsReviewer = defaults.codexApprovalsReviewer;
+  final codexPermissionsMode = defaults.codexPermissionsMode.value;
   return [
     for (final session in sessions)
       if (session.provider == Provider.codex.value)
         session.copyWithCodexApprovalDefaults(
           approvalPolicy: approvalPolicy,
           approvalsReviewer: approvalsReviewer,
+          codexPermissionsMode: codexPermissionsMode,
         )
       else
         session,
@@ -171,6 +173,7 @@ NewSessionParams? mergeCodexDefaultsIntoInitialSessionDefaults(
   }
   return defaults.copyWith(
     codexApprovalPolicy: codexDefaults.codexApprovalPolicy,
+    codexPermissionsMode: codexDefaults.codexPermissionsMode,
     codexAutoReviewEnabled: codexDefaults.codexAutoReviewEnabled,
     codexApprovalPolicyOverridden: codexDefaults.codexApprovalPolicyOverridden,
     codexAutoReviewOverridden: codexDefaults.codexAutoReviewOverridden,
@@ -693,6 +696,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     final useCodexProfile =
         result.provider == Provider.codex &&
         (result.codexProfile?.isNotEmpty ?? false);
+    final useCodexCustomPermissions =
+        result.provider == Provider.codex &&
+        (useCodexProfile ||
+            result.codexPermissionsMode == CodexPermissionsMode.custom);
     _pendingResumeProjectPath = result.projectPath;
     _pendingResumeGitBranch = result.worktreeBranch;
     bridge.send(
@@ -705,10 +712,17 @@ class _SessionListScreenState extends State<SessionListScreen>
             ? null
             : result.executionMode.value,
         approvalPolicy: result.provider == Provider.codex
-            ? (useCodexProfile ? null : result.codexApprovalPolicy.value)
+            ? (useCodexCustomPermissions
+                  ? null
+                  : result.codexApprovalPolicy.value)
             : null,
         approvalsReviewer: result.provider == Provider.codex
-            ? (useCodexProfile ? null : result.codexApprovalsReviewer)
+            ? (useCodexCustomPermissions ? null : result.codexApprovalsReviewer)
+            : null,
+        codexPermissionsMode: result.provider == Provider.codex
+            ? (useCodexCustomPermissions
+                  ? CodexPermissionsMode.custom.value
+                  : result.codexPermissionsMode.value)
             : null,
         planMode: result.provider == Provider.codex && useCodexProfile
             ? null
@@ -738,7 +752,8 @@ class _SessionListScreenState extends State<SessionListScreen>
         model: result.provider == Provider.claude
             ? result.claudeModel
             : (useCodexProfile ? null : result.model),
-        sandboxMode: result.provider == Provider.codex && useCodexProfile
+        sandboxMode:
+            result.provider == Provider.codex && useCodexCustomPermissions
             ? null
             : result.sandboxMode?.value,
         modelReasoningEffort:
@@ -746,13 +761,14 @@ class _SessionListScreenState extends State<SessionListScreen>
             ? null
             : result.modelReasoningEffort?.value,
         networkAccessEnabled:
-            result.provider == Provider.codex && useCodexProfile
+            result.provider == Provider.codex && useCodexCustomPermissions
             ? null
             : result.networkAccessEnabled,
         webSearchMode: result.provider == Provider.codex && useCodexProfile
             ? null
             : result.webSearchMode?.value,
-        additionalWritableRoots: result.provider == Provider.codex
+        additionalWritableRoots:
+            result.provider == Provider.codex && !useCodexCustomPermissions
             ? result.additionalWritableRoots
             : null,
         autoRename: autoRenameForProvider(settings, result.provider),
@@ -1068,6 +1084,14 @@ class _SessionListScreenState extends State<SessionListScreen>
     final codexAutoReviewEnabled =
         codexDefaults?.codexAutoReviewEnabled ??
         isCodexAutoReviewApprovalsReviewer(session.codexApprovalsReviewer);
+    final codexPermissionsMode =
+        codexDefaults?.codexPermissionsMode ??
+        codexPermissionsModeFromSettings(
+          codexPermissionsMode: session.codexPermissionsMode,
+          approvalPolicy: session.codexApprovalPolicy,
+          approvalsReviewer: session.codexApprovalsReviewer,
+          sandboxMode: session.codexSandboxMode,
+        );
 
     return NewSessionParams(
       projectPath: session.projectPath,
@@ -1078,6 +1102,7 @@ class _SessionListScreenState extends State<SessionListScreen>
         permissionMode: sessionSettings?['permissionMode'] as String?,
         approvalPolicy: session.codexApprovalPolicy,
       ),
+      codexPermissionsMode: codexPermissionsMode,
       codexApprovalPolicy: codexApprovalPolicy,
       codexAutoReviewEnabled: codexAutoReviewEnabled,
       codexProfile: provider == Provider.codex ? session.codexProfile : null,
@@ -1421,6 +1446,18 @@ class _SessionListScreenState extends State<SessionListScreen>
     final codexApprovalsReviewer = codexDefaults != null
         ? codexDefaults.codexApprovalsReviewer
         : session.codexApprovalsReviewer;
+    final codexPermissionsMode =
+        codexDefaults?.codexPermissionsMode ??
+        codexPermissionsModeFromSettings(
+          codexPermissionsMode: session.codexPermissionsMode,
+          approvalPolicy: session.codexApprovalPolicy,
+          approvalsReviewer: session.codexApprovalsReviewer,
+          sandboxMode: session.codexSandboxMode,
+        );
+    final useCodexCustomPermissions =
+        isCodex &&
+        (useCodexProfile ||
+            codexPermissionsMode == CodexPermissionsMode.custom);
 
     bridge.resumeSession(
       session.sessionId,
@@ -1447,10 +1484,15 @@ class _SessionListScreenState extends State<SessionListScreen>
               permissionMode: permissionMode,
             ).value,
       approvalPolicy: isCodex
-          ? (useCodexProfile ? null : codexApprovalPolicy)
+          ? (useCodexCustomPermissions ? null : codexApprovalPolicy)
           : null,
       approvalsReviewer: isCodex
-          ? (useCodexProfile ? null : codexApprovalsReviewer)
+          ? (useCodexCustomPermissions ? null : codexApprovalsReviewer)
+          : null,
+      codexPermissionsMode: isCodex
+          ? (useCodexCustomPermissions
+                ? CodexPermissionsMode.custom.value
+                : codexPermissionsMode.value)
           : null,
       planMode: isCodex
           ? (useCodexProfile ? null : session.planMode)
@@ -1467,20 +1509,24 @@ class _SessionListScreenState extends State<SessionListScreen>
       profile: isCodex ? session.codexProfile : null,
       provider: session.provider,
       sandboxMode: isCodex
-          ? (useCodexProfile ? null : session.codexSandboxMode)
+          ? (useCodexCustomPermissions ? null : session.codexSandboxMode)
           : sandboxMode,
       model: isCodex ? (useCodexProfile ? null : codexModel) : claudeModel,
       modelReasoningEffort: isCodex
           ? (useCodexProfile ? null : session.codexModelReasoningEffort)
           : null,
       networkAccessEnabled: isCodex
-          ? (useCodexProfile ? null : session.codexNetworkAccessEnabled)
+          ? (useCodexCustomPermissions
+                ? null
+                : session.codexNetworkAccessEnabled)
           : null,
       webSearchMode: isCodex
           ? (useCodexProfile ? null : session.codexWebSearchMode)
           : null,
       additionalWritableRoots: isCodex
-          ? session.codexAdditionalWritableRoots
+          ? (useCodexCustomPermissions
+                ? null
+                : session.codexAdditionalWritableRoots)
           : null,
     );
     if (!bridge.isConnected) {
@@ -1544,6 +1590,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     final isCodex = edited.provider == Provider.codex;
     final useCodexProfile =
         isCodex && (edited.codexProfile?.isNotEmpty ?? false);
+    final useCodexCustomPermissions =
+        isCodex &&
+        (useCodexProfile ||
+            edited.codexPermissionsMode == CodexPermissionsMode.custom);
     bridge.resumeSession(
       session.sessionId,
       resumeProjectPath,
@@ -1554,10 +1604,17 @@ class _SessionListScreenState extends State<SessionListScreen>
           ? null
           : edited.executionMode.value,
       approvalPolicy: isCodex
-          ? (useCodexProfile ? null : edited.codexApprovalPolicy.value)
+          ? (useCodexCustomPermissions
+                ? null
+                : edited.codexApprovalPolicy.value)
           : null,
       approvalsReviewer: isCodex
-          ? (useCodexProfile ? null : edited.codexApprovalsReviewer)
+          ? (useCodexCustomPermissions ? null : edited.codexApprovalsReviewer)
+          : null,
+      codexPermissionsMode: isCodex
+          ? (useCodexCustomPermissions
+                ? CodexPermissionsMode.custom.value
+                : edited.codexPermissionsMode.value)
           : null,
       planMode: isCodex && useCodexProfile ? null : edited.planMode,
       effort: !isCodex ? edited.claudeEffort?.value : null,
@@ -1568,7 +1625,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       persistSession: !isCodex ? edited.claudePersistSession : null,
       profile: isCodex ? edited.codexProfile : null,
       provider: session.provider,
-      sandboxMode: isCodex && useCodexProfile
+      sandboxMode: isCodex && useCodexCustomPermissions
           ? null
           : edited.sandboxMode?.value,
       model: isCodex
@@ -1583,13 +1640,15 @@ class _SessionListScreenState extends State<SessionListScreen>
       modelReasoningEffort: isCodex && useCodexProfile
           ? null
           : (isCodex ? edited.modelReasoningEffort?.value : null),
-      networkAccessEnabled: isCodex && useCodexProfile
+      networkAccessEnabled: isCodex && useCodexCustomPermissions
           ? null
           : (isCodex ? edited.networkAccessEnabled : null),
       webSearchMode: isCodex && useCodexProfile
           ? null
           : (isCodex ? edited.webSearchMode?.value : null),
-      additionalWritableRoots: isCodex ? edited.additionalWritableRoots : null,
+      additionalWritableRoots: isCodex && !useCodexCustomPermissions
+          ? edited.additionalWritableRoots
+          : null,
     );
     if (!bridge.isConnected) {
       ScaffoldMessenger.of(context).showSnackBar(

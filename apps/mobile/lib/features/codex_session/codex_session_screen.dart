@@ -177,6 +177,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   PermissionMode? _permissionMode;
   CodexApprovalPolicy? _codexApprovalPolicy;
   String? _codexApprovalsReviewer;
+  CodexPermissionsMode? _codexPermissionsMode;
   StreamSubscription<ServerMessage>? _pendingSub;
   StreamSubscription<ServerMessage>? _sandboxRestartSub;
   StreamSubscription<String>? _sessionStoppedSub;
@@ -280,6 +281,9 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
           _codexApprovalPolicy;
       _codexApprovalsReviewer =
           msg.approvalsReviewer ?? _codexApprovalsReviewer;
+      _codexPermissionsMode =
+          codexPermissionsModeFromRaw(msg.codexPermissionsMode) ??
+          _codexPermissionsMode;
       _explorerCurrentPath = explorerHistory.currentPath;
       _recentPeekedFiles = explorerHistory.recentPeekedFiles;
     });
@@ -306,6 +310,9 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
           _codexApprovalPolicy;
       _codexApprovalsReviewer =
           msg.approvalsReviewer ?? _codexApprovalsReviewer;
+      _codexPermissionsMode =
+          codexPermissionsModeFromRaw(msg.codexPermissionsMode) ??
+          _codexPermissionsMode;
       _isPending = false;
     });
     _pendingSub?.cancel();
@@ -433,6 +440,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       permissionMode: _permissionMode,
       codexApprovalPolicy: _codexApprovalPolicy,
       codexApprovalsReviewer: _codexApprovalsReviewer,
+      codexPermissionsMode: _codexPermissionsMode,
       onBackToSessions: widget.onBackToSessions,
       hideSessionBackButton: widget.hideSessionBackButton,
     );
@@ -454,6 +462,7 @@ class _CodexProviders extends StatelessWidget {
   final PermissionMode? permissionMode;
   final CodexApprovalPolicy? codexApprovalPolicy;
   final String? codexApprovalsReviewer;
+  final CodexPermissionsMode? codexPermissionsMode;
   final VoidCallback? onBackToSessions;
   final bool hideSessionBackButton;
 
@@ -469,6 +478,7 @@ class _CodexProviders extends StatelessWidget {
     this.permissionMode,
     this.codexApprovalPolicy,
     this.codexApprovalsReviewer,
+    this.codexPermissionsMode,
     this.onBackToSessions,
     this.hideSessionBackButton = false,
   });
@@ -491,6 +501,7 @@ class _CodexProviders extends StatelessWidget {
             initialPermissionMode: permissionMode,
             initialCodexApprovalPolicy: codexApprovalPolicy,
             initialCodexApprovalsReviewer: codexApprovalsReviewer,
+            initialCodexPermissionsMode: codexPermissionsMode,
             initialProjectPath: projectPath,
           ),
         ),
@@ -865,7 +876,7 @@ class _CodexChatBody extends HookWidget {
             shift: true,
           ): () {
             final cubit = context.read<ChatSessionCubit>();
-            showExecutionModeMenu(context, cubit);
+            showCodexPermissionsMenu(context, cubit);
           },
           // Cmd+Enter: approve pending tool use
           const SingleActivator(LogicalKeyboardKey.enter, meta: true): () {

@@ -10,39 +10,6 @@ import '../../../theme/app_theme.dart';
 import '../state/chat_session_state.dart';
 import '../state/chat_session_cubit.dart';
 
-enum _CodexApprovalChoice {
-  untrusted,
-  onRequest,
-  autoReview,
-  never;
-
-  static _CodexApprovalChoice from({
-    required CodexApprovalPolicy policy,
-    required String approvalsReviewer,
-  }) {
-    if (policy == CodexApprovalPolicy.onRequest &&
-        isCodexAutoReviewApprovalsReviewer(approvalsReviewer)) {
-      return _CodexApprovalChoice.autoReview;
-    }
-    return switch (policy) {
-      CodexApprovalPolicy.untrusted => _CodexApprovalChoice.untrusted,
-      CodexApprovalPolicy.onRequest ||
-      CodexApprovalPolicy.onFailure => _CodexApprovalChoice.onRequest,
-      CodexApprovalPolicy.never => _CodexApprovalChoice.never,
-    };
-  }
-
-  CodexApprovalPolicy get policy => switch (this) {
-    _CodexApprovalChoice.untrusted => CodexApprovalPolicy.untrusted,
-    _CodexApprovalChoice.onRequest ||
-    _CodexApprovalChoice.autoReview => CodexApprovalPolicy.onRequest,
-    _CodexApprovalChoice.never => CodexApprovalPolicy.never,
-  };
-
-  String get approvalsReviewer =>
-      this == _CodexApprovalChoice.autoReview ? 'auto_review' : 'user';
-}
-
 class SessionModeBar extends StatelessWidget {
   final Future<void> Function()? onBeforeRestart;
 
@@ -109,8 +76,9 @@ class SessionModeBar extends StatelessWidget {
                     codexApprovalPolicy: chatCubit.state.codexApprovalPolicy,
                     codexApprovalsReviewer:
                         chatCubit.state.codexApprovalsReviewer,
+                    codexPermissionsMode: chatCubit.state.codexPermissionsMode,
                     provider: chatCubit.provider,
-                    onTap: () => showExecutionModeMenu(
+                    onTap: () => showCodexPermissionsMenu(
                       context,
                       chatCubit,
                       onBeforeRestart: onBeforeRestart,
@@ -126,23 +94,25 @@ class SessionModeBar extends StatelessWidget {
                     ),
                   ),
                 ],
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: VerticalDivider(
-                    width: 1,
-                    thickness: 1,
-                    color: cs.outlineVariant.withValues(alpha: 0.4),
+                if (!isCodex) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: cs.outlineVariant.withValues(alpha: 0.4),
+                    ),
                   ),
-                ),
-                SandboxModeChip(
-                  currentMode: sandboxMode,
-                  provider: chatCubit.provider,
-                  onTap: () => showSandboxModeMenu(
-                    context,
-                    chatCubit,
-                    onBeforeRestart: onBeforeRestart,
+                  SandboxModeChip(
+                    currentMode: sandboxMode,
+                    provider: chatCubit.provider,
+                    onTap: () => showSandboxModeMenu(
+                      context,
+                      chatCubit,
+                      onBeforeRestart: onBeforeRestart,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -327,7 +297,7 @@ class _RotatingBorderPainter extends CustomPainter {
       oldDelegate.progress != progress;
 }
 
-void showExecutionModeMenu(
+void showCodexPermissionsMenu(
   BuildContext context,
   ChatSessionCubit chatCubit, {
   Future<void> Function()? onBeforeRestart,
@@ -340,11 +310,7 @@ void showExecutionModeMenu(
     );
     return;
   }
-  final currentChoice = _CodexApprovalChoice.from(
-    policy: chatCubit.state.codexApprovalPolicy,
-    approvalsReviewer: chatCubit.state.codexApprovalsReviewer,
-  );
-  final l = AppLocalizations.of(context);
+  final currentMode = chatCubit.state.codexPermissionsMode;
 
   showModalBottomSheet(
     context: context,
@@ -360,7 +326,7 @@ void showExecutionModeMenu(
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    l.approval,
+                    'Permissions',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -369,43 +335,28 @@ void showExecutionModeMenu(
                   ),
                 ),
               ),
-              for (final choice in _CodexApprovalChoice.values)
+              for (final mode in CodexPermissionsMode.values)
                 ListTile(
                   leading: Icon(
-                    switch (choice) {
-                      _CodexApprovalChoice.untrusted =>
-                        Icons.verified_user_outlined,
-                      _CodexApprovalChoice.onRequest => Icons.tune,
-                      _CodexApprovalChoice.autoReview =>
-                        Icons.auto_mode_outlined,
-                      _CodexApprovalChoice.never => Icons.flash_on,
-                    },
-                    color: choice == currentChoice
-                        ? (choice == _CodexApprovalChoice.never
+                    _codexPermissionsIcon(mode),
+                    color: mode == currentMode
+                        ? (mode == CodexPermissionsMode.fullAccess
                               ? sheetCs.error
                               : sheetCs.primary)
                         : sheetCs.onSurfaceVariant,
                   ),
-                  title: Text(switch (choice) {
-                    _CodexApprovalChoice.untrusted => 'Untrusted',
-                    _CodexApprovalChoice.onRequest => 'On Request',
-                    _CodexApprovalChoice.autoReview => 'Auto Review',
-                    _CodexApprovalChoice.never => 'Never Ask',
-                  }),
-                  subtitle: Text(switch (choice) {
-                    _CodexApprovalChoice.untrusted =>
-                      l.codexApprovalUntrustedDescription,
-                    _CodexApprovalChoice.onRequest =>
-                      l.codexApprovalOnRequestDescription,
-                    _CodexApprovalChoice.autoReview =>
-                      l.codexAutoReviewDescription,
-                    _CodexApprovalChoice.never =>
-                      l.codexApprovalNeverDescription,
-                  }, style: const TextStyle(fontSize: 12)),
-                  trailing: choice == currentChoice
+                  title: Text(mode.label),
+                  subtitle: Text(
+                    _codexPermissionsSubtitle(
+                      mode,
+                      AppLocalizations.of(context),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: mode == currentMode
                       ? Icon(
                           Icons.check,
-                          color: choice == _CodexApprovalChoice.never
+                          color: mode == CodexPermissionsMode.fullAccess
                               ? sheetCs.error
                               : sheetCs.primary,
                           size: 20,
@@ -413,12 +364,12 @@ void showExecutionModeMenu(
                       : null,
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    if (choice == currentChoice) return;
+                    if (mode == currentMode) return;
                     HapticFeedback.lightImpact();
-                    _confirmExecutionModeChange(
+                    _confirmCodexPermissionsModeChange(
                       context,
                       chatCubit,
-                      choice,
+                      mode,
                       onBeforeRestart: onBeforeRestart,
                     );
                   },
@@ -434,26 +385,20 @@ void showExecutionModeMenu(
 
 /// Show confirmation dialog before changing permission mode for Codex sessions,
 /// because the change requires a session restart (like sandbox mode).
-Future<void> _confirmExecutionModeChange(
+Future<void> _confirmCodexPermissionsModeChange(
   BuildContext context,
   ChatSessionCubit chatCubit,
-  _CodexApprovalChoice choice, {
+  CodexPermissionsMode mode, {
   Future<void> Function()? onBeforeRestart,
 }) async {
   final l = AppLocalizations.of(context);
-  final policyLabel = switch (choice) {
-    _CodexApprovalChoice.untrusted => 'Untrusted',
-    _CodexApprovalChoice.onRequest => 'On Request',
-    _CodexApprovalChoice.autoReview => 'Auto Review',
-    _CodexApprovalChoice.never => 'Never Ask',
-  };
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) {
       final cs = Theme.of(dialogContext).colorScheme;
       return AlertDialog(
         title: Text(l.changeApprovalPolicyTitle),
-        content: Text(l.changeApprovalPolicyBody(policyLabel)),
+        content: Text(l.changeApprovalPolicyBody(mode.label)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -461,7 +406,7 @@ Future<void> _confirmExecutionModeChange(
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: choice == _CodexApprovalChoice.never
+            style: mode == CodexPermissionsMode.fullAccess
                 ? FilledButton.styleFrom(backgroundColor: cs.error)
                 : null,
             child: Text(l.restart),
@@ -472,10 +417,7 @@ Future<void> _confirmExecutionModeChange(
   );
   if (confirmed == true) {
     await onBeforeRestart?.call();
-    chatCubit.setCodexApprovalPolicy(
-      choice.policy,
-      approvalsReviewer: choice.approvalsReviewer,
-    );
+    chatCubit.setCodexPermissionsMode(mode);
   }
 }
 
@@ -893,6 +835,7 @@ class ExecutionModeChip extends StatelessWidget {
   final ExecutionMode currentMode;
   final CodexApprovalPolicy? codexApprovalPolicy;
   final String? codexApprovalsReviewer;
+  final CodexPermissionsMode? codexPermissionsMode;
   final Provider? provider;
   final VoidCallback onTap;
 
@@ -901,6 +844,7 @@ class ExecutionModeChip extends StatelessWidget {
     required this.currentMode,
     this.codexApprovalPolicy,
     this.codexApprovalsReviewer,
+    this.codexPermissionsMode,
     this.provider,
     required this.onTap,
   });
@@ -912,32 +856,16 @@ class ExecutionModeChip extends StatelessWidget {
     // Colors aligned with Claude Code CLI
     const purple = Color(0xFFBB86FC);
 
-    final (
-      IconData icon,
-      String label,
-      Color fg,
-    ) = provider == Provider.codex && codexApprovalPolicy != null
-        ? switch (_CodexApprovalChoice.from(
-            policy: codexApprovalPolicy!,
-            approvalsReviewer: codexApprovalsReviewer ?? 'user',
-          )) {
-            _CodexApprovalChoice.untrusted => (
-              Icons.verified_user_outlined,
-              'Untrusted',
-              cs.primary,
-            ),
-            _CodexApprovalChoice.onRequest => (
-              Icons.tune,
-              'On Request',
-              cs.onSurfaceVariant,
-            ),
-            _CodexApprovalChoice.autoReview => (
-              Icons.auto_mode_outlined,
-              'Auto Review',
-              cs.primary,
-            ),
-            _CodexApprovalChoice.never => (Icons.flash_on, 'Never', cs.error),
-          }
+    final (IconData icon, String label, Color fg) = provider == Provider.codex
+        ? _codexPermissionsChipStyle(
+            codexPermissionsMode ??
+                codexPermissionsModeFromSettings(
+                  approvalPolicy: codexApprovalPolicy?.value,
+                  approvalsReviewer: codexApprovalsReviewer,
+                  sandboxMode: null,
+                ),
+            cs,
+          )
         : switch (currentMode) {
             ExecutionMode.defaultMode => (
               Icons.tune,
@@ -981,6 +909,49 @@ class ExecutionModeChip extends StatelessWidget {
     );
   }
 }
+
+IconData _codexPermissionsIcon(CodexPermissionsMode mode) => switch (mode) {
+  CodexPermissionsMode.defaultPermissions => Icons.back_hand_outlined,
+  CodexPermissionsMode.autoReview => Icons.shield_outlined,
+  CodexPermissionsMode.fullAccess => Icons.warning_amber_outlined,
+  CodexPermissionsMode.custom => Icons.settings_outlined,
+};
+
+String _codexPermissionsSubtitle(
+  CodexPermissionsMode mode,
+  AppLocalizations l,
+) => switch (mode) {
+  CodexPermissionsMode.defaultPermissions => l.sandboxRestrictedDescription,
+  CodexPermissionsMode.autoReview => l.codexAutoReviewDescription,
+  CodexPermissionsMode.fullAccess => l.sandboxNativeCautionDescription,
+  CodexPermissionsMode.custom => 'Codex uses permissions from config.toml',
+};
+
+(IconData, String, Color) _codexPermissionsChipStyle(
+  CodexPermissionsMode mode,
+  ColorScheme cs,
+) => switch (mode) {
+  CodexPermissionsMode.defaultPermissions => (
+    _codexPermissionsIcon(mode),
+    'Default',
+    cs.onSurfaceVariant,
+  ),
+  CodexPermissionsMode.autoReview => (
+    _codexPermissionsIcon(mode),
+    'Auto Review',
+    cs.primary,
+  ),
+  CodexPermissionsMode.fullAccess => (
+    _codexPermissionsIcon(mode),
+    'Full',
+    cs.error,
+  ),
+  CodexPermissionsMode.custom => (
+    _codexPermissionsIcon(mode),
+    'Custom',
+    cs.primary,
+  ),
+};
 
 class PlanModeChip extends StatelessWidget {
   final bool enabled;

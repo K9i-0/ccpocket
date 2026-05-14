@@ -1961,6 +1961,109 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("starts codex custom permissions without bridge approval or sandbox overrides", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        codexPermissionsMode: "custom",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    const created = sends.find(
+      (m: any) => m.type === "system" && m.subtype === "session_created",
+    );
+    expect(created).toMatchObject({
+      provider: "codex",
+      codexPermissionsMode: "custom",
+    });
+    const session = (bridge as any).sessionManager.get(created.sessionId);
+    expect(session.codexOptions.codexPermissionsMode).toBe("custom");
+    expect(session.codexOptions.approvalPolicy).toBeUndefined();
+    expect(session.codexOptions.approvalsReviewer).toBeUndefined();
+    expect(session.codexOptions.sandboxMode).toBeUndefined();
+
+    bridge.close();
+  });
+
+  it("switches codex to custom permissions by recreating without stale reviewer", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).wss.clients.add(ws);
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        codexPermissionsMode: "autoReview",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    const created = sends.find(
+      (m: any) => m.type === "system" && m.subtype === "session_created",
+    );
+    const oldSessionId = created.sessionId as string;
+    const oldSession = (bridge as any).sessionManager.get(oldSessionId);
+    expect(oldSession.codexOptions.approvalsReviewer).toBe("auto_review");
+
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_permission_mode",
+        sessionId: oldSessionId,
+        mode: "default",
+        codexPermissionsMode: "custom",
+      },
+      ws,
+    );
+
+    expect((bridge as any).sessionManager.get(oldSessionId)).toBeUndefined();
+    const sessions = (bridge as any).sessionManager.list();
+    expect(sessions).toHaveLength(1);
+    const newSessionSummary = sessions[0];
+    expect(newSessionSummary.id).not.toBe(oldSessionId);
+    const newSession = (bridge as any).sessionManager.get(newSessionSummary.id);
+    expect(newSession.codexOptions.codexPermissionsMode).toBe("custom");
+    expect(newSession.codexOptions.approvalPolicy).toBeUndefined();
+    expect(newSession.codexOptions.approvalsReviewer).toBeUndefined();
+    expect(newSession.codexOptions.sandboxMode).toBeUndefined();
+
+    const createdAfterSwitch = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(createdAfterSwitch).toMatchObject({
+      provider: "codex",
+      codexPermissionsMode: "custom",
+      sourceSessionId: oldSessionId,
+    });
+    expect(createdAfterSwitch.approvalsReviewer).toBeUndefined();
+    expect(createdAfterSwitch.approvalPolicy).toBeUndefined();
+    expect(createdAfterSwitch.sandboxMode).toBeUndefined();
+
+    bridge.close();
+  });
+
   it("includes explicit execution and plan modes when codex sandbox change recreates session", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

@@ -184,6 +184,68 @@ describe("CodexProcess (app-server)", () => {
     proc.stop();
   });
 
+  it("leaves approval, reviewer, and sandbox unset for custom permissions", async () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    proc.start("/tmp/project-custom-permissions", {
+      codexPermissionsMode: "custom",
+    });
+
+    const child = fakeChildren[0];
+    await tick();
+
+    const initReq = nextOutgoingRequest(child);
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({ id: initReq.id, result: {} })}\n`,
+    );
+
+    await tick();
+    nextOutgoingNotification(child);
+
+    const startReq = nextOutgoingRequest(child);
+    expect(startReq.method).toBe("thread/start");
+    expect(startReq.params).toMatchObject({
+      cwd: "/tmp/project-custom-permissions",
+    });
+    expect(startReq.params).not.toHaveProperty("approvalPolicy");
+    expect(startReq.params).not.toHaveProperty("approvalsReviewer");
+    expect(startReq.params).not.toHaveProperty("sandbox");
+
+    child.stdout.emit(
+      "data",
+      `${JSON.stringify({
+        id: startReq.id,
+        result: { thread: { id: "thr_custom" } },
+      })}\n`,
+    );
+    await tick();
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "init",
+        provider: "codex",
+        sessionId: "thr_custom",
+        codexPermissionsMode: "custom",
+      }),
+    );
+    const initMessage = messages.find(
+      (msg) =>
+        typeof msg === "object" &&
+        msg !== null &&
+        (msg as { type?: string; subtype?: string }).type === "system" &&
+        (msg as { type?: string; subtype?: string }).subtype === "init",
+    ) as Record<string, unknown>;
+    expect(initMessage).not.toHaveProperty("approvalPolicy");
+    expect(initMessage).not.toHaveProperty("approvalsReviewer");
+    expect(initMessage).not.toHaveProperty("sandboxMode");
+
+    proc.stop();
+  });
+
   it("handles managed app-server spawn errors without crashing", () => {
     process.env.BRIDGE_CODEX_APP_SERVER_MODE = "managed";
     process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL = "ws://127.0.0.1:18767";
