@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.59.0] - 2026-05-15
+
+### Added
+- Support official Codex permissions modes, including config-driven custom mode.
+
 ## [1.58.1] - 2026-05-15
 
 ### Fixed
