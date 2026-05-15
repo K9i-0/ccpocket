@@ -17,6 +17,7 @@ const {
   codexThreadToSessionHistoryMock,
   extractMessageImagesMock,
   getAllRecentSessionsMock,
+  getCodexSessionIndexMetadataMock,
   saveCodexSessionProfileMock,
   generateCommitMessageMock,
   gitCommitMock,
@@ -26,6 +27,7 @@ const {
   codexThreadToSessionHistoryMock: vi.fn(),
   extractMessageImagesMock: vi.fn(),
   getAllRecentSessionsMock: vi.fn(),
+  getCodexSessionIndexMetadataMock: vi.fn(),
   saveCodexSessionProfileMock: vi.fn(),
   generateCommitMessageMock: vi.fn(),
   gitCommitMock: vi.fn(),
@@ -38,6 +40,7 @@ vi.mock("./sessions-index.js", () => ({
   extractMessageImages: extractMessageImagesMock,
   codexUserTurnUuid: (ordinal: number) => `codex:user-turn:${ordinal}`,
   getAllRecentSessions: getAllRecentSessionsMock,
+  getCodexSessionIndexMetadata: getCodexSessionIndexMetadataMock,
   saveCodexSessionProfile: saveCodexSessionProfileMock,
 }));
 
@@ -384,10 +387,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     codexThreadToSessionHistoryMock.mockReset();
     extractMessageImagesMock.mockReset();
     getAllRecentSessionsMock.mockReset();
+    getCodexSessionIndexMetadataMock.mockReset();
     saveCodexSessionProfileMock.mockReset();
     generateCommitMessageMock.mockReset();
     gitCommitMock.mockReset();
     getAllRecentSessionsMock.mockResolvedValue({ sessions: [], hasMore: false });
+    getCodexSessionIndexMetadataMock.mockResolvedValue(new Map());
     getCodexSessionHistoryMock.mockResolvedValue([]);
     codexThreadToSessionHistoryMock.mockReturnValue([]);
     extractMessageImagesMock.mockResolvedValue([]);
@@ -3372,27 +3377,21 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ],
       nextCursor: null,
     });
-    getAllRecentSessionsMock.mockResolvedValue({
-      sessions: [
-        {
-          sessionId: "thr_codex_1",
-          provider: "codex",
-          projectPath: "/tmp/project-codex",
-          firstPrompt: "Investigate crash",
-          created: "2026-02-19T10:10:43.000Z",
-          modified: "2026-02-19T11:10:43.000Z",
-          gitBranch: "feat/protocol",
-          isSidechain: false,
-          codexSettings: {
-            approvalPolicy: "never",
-            sandboxMode: "danger-full-access",
-            model: "gpt-5.3-codex",
+    getCodexSessionIndexMetadataMock.mockResolvedValue(
+      new Map([
+        [
+          "thr_codex_1",
+          {
+            codexSettings: {
+              approvalPolicy: "never",
+              sandboxMode: "danger-full-access",
+              model: "gpt-5.3-codex",
+            },
+            resumeCwd: "/tmp/project-codex-worktree",
           },
-          resumeCwd: "/tmp/project-codex-worktree",
-        },
-      ],
-      hasMore: false,
-    });
+        ],
+      ]),
+    );
 
     const payload = await (bridge as any).listRecentCodexThreads(
       {
@@ -3407,11 +3406,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       cwd: "/tmp/project-codex",
       searchTerm: undefined,
     });
-    expect(getAllRecentSessionsMock).toHaveBeenCalledWith({
-      provider: "codex",
-      projectPath: "/tmp/project-codex",
-      archivedSessionIds: expect.any(Set),
-    });
+    expect(getCodexSessionIndexMetadataMock).toHaveBeenCalledWith([
+      "thr_codex_1",
+    ]);
+    expect(getAllRecentSessionsMock).not.toHaveBeenCalled();
     expect(payload.sessions).toHaveLength(1);
     expect(payload.sessions[0]).toMatchObject({
       provider: "codex",
@@ -3468,11 +3466,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       "/tmp/project-codex",
     );
     expect(stop).toHaveBeenCalledTimes(1);
-    expect(getAllRecentSessionsMock).toHaveBeenCalledWith({
-      provider: "codex",
-      projectPath: "/tmp/project-codex",
-      archivedSessionIds: expect.any(Set),
-    });
+    expect(getCodexSessionIndexMetadataMock).toHaveBeenCalledWith([
+      "thr_codex_2",
+    ]);
+    expect(getAllRecentSessionsMock).not.toHaveBeenCalled();
     expect(payload.sessions[0]).toMatchObject({
       provider: "codex",
       sessionId: "thr_codex_2",

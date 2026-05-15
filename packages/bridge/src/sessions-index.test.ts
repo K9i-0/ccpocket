@@ -8,6 +8,7 @@ import {
   normalizeWorktreePath,
   scanJsonlDir,
   getAllRecentSessions,
+  getCodexSessionIndexMetadata,
   getCodexSessionHistory,
   extractMessageImages,
   codexThreadToSessionHistory,
@@ -903,6 +904,119 @@ describe("codex sessions integration", () => {
     expect(result.sessions).toHaveLength(1);
     expect(result.sessions[0].codexSettings?.modelReasoningEffort).toBe(
       "xhigh",
+    );
+  });
+
+  it("includes codex sessions when early turn context is large", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68012";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-00-00-${threadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.000Z",
+          type: "session_meta",
+          payload: { id: threadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.500Z",
+          type: "turn_context",
+          payload: {
+            model: "gpt-5.4",
+            instructions: "x".repeat(70_000),
+          },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:01.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: "after large context" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:02.000Z",
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text: "assistant summary" }],
+          },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:03.000Z",
+          type: "event_msg",
+          payload: { type: "token_count", details: "x".repeat(300_000) },
+        }),
+      ].join("\n"),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "codex",
+      limit: 200,
+    });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0].sessionId).toBe(threadId);
+    expect(result.sessions[0].firstPrompt).toBe("after large context");
+  });
+
+  it("loads codex index metadata only for requested thread ids", async () => {
+    const wantedThreadId = "019c56c0-d4d8-7b22-9e3c-200664d68101";
+    const ignoredThreadId = "019c56c0-d4d8-7b22-9e3c-200664d68102";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-00-00-${wantedThreadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.000Z",
+          type: "session_meta",
+          payload: {
+            id: wantedThreadId,
+            cwd: "/tmp/project-a-worktrees/feature-x",
+          },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.500Z",
+          type: "turn_context",
+          payload: {
+            model: "gpt-5.4",
+            approval_policy: "on-request",
+          },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:01.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: "wanted" },
+        }),
+      ].join("\n"),
+    );
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-00-00-${ignoredThreadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.000Z",
+          type: "session_meta",
+          payload: { id: ignoredThreadId, cwd: "/tmp/project-b" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:01.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: "ignored" },
+        }),
+      ].join("\n"),
+    );
+
+    const metadata = await getCodexSessionIndexMetadata([wantedThreadId]);
+
+    expect([...metadata.keys()]).toEqual([wantedThreadId]);
+    expect(metadata.get(wantedThreadId)?.resumeCwd).toBe(
+      "/tmp/project-a-worktrees/feature-x",
+    );
+    expect(metadata.get(wantedThreadId)?.codexSettings?.model).toBe("gpt-5.4");
+    expect(metadata.get(wantedThreadId)?.codexSettings?.approvalPolicy).toBe(
+      "on-request",
     );
   });
 

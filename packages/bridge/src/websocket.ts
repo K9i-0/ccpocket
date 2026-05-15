@@ -37,6 +37,7 @@ import {
   findSessionsByClaudeIds,
   extractMessageImages,
   getClaudeSessionName,
+  getCodexSessionIndexMetadata,
   loadCodexSessionNames,
   renameClaudeSession,
   renameCodexSession,
@@ -5388,27 +5389,16 @@ export class BridgeWebSocketServer {
         searchTerm: msg.searchQuery,
       });
       const archivedIds = this.archiveStore.archivedIds();
-      const indexedSessions = await getAllRecentSessions({
-        provider: "codex",
-        projectPath: msg.projectPath,
-        archivedSessionIds: archivedIds,
-      });
-      const indexedById = new Map(
-        indexedSessions.sessions.map((session) => [
-          session.sessionId,
-          {
-            codexSettings: session.codexSettings,
-            resumeCwd: session.resumeCwd,
-          },
-        ]),
-      );
-      const sessions = result.data
+      const visibleThreads = result.data
         .filter((thread) => !archivedIds.has(thread.id))
         .filter((thread) => !msg.namedOnly || !!thread.name)
-        .slice(offset, offset + limit)
-        .map((thread) =>
-          codexThreadToRecentSession(thread, indexedById.get(thread.id)),
-        );
+        .slice(offset, offset + limit);
+      const indexedById = await getCodexSessionIndexMetadata(
+        visibleThreads.map((thread) => thread.id),
+      );
+      const sessions = visibleThreads.map((thread) =>
+        codexThreadToRecentSession(thread, indexedById.get(thread.id)),
+      );
       return {
         sessions,
         hasMore: result.nextCursor != null,
