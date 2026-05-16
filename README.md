@@ -66,6 +66,10 @@ agent workflow, not only as a finished app.
   technically feasible with relatively low effort, but is not official yet
   because the project does not have a stable Windows verification environment.
 
+For a deeper implementation overview, see the
+[technical stack page](https://k9i-0.github.io/ccpocket/architecture/) or the
+[agent-readable Markdown](https://k9i-0.github.io/ccpocket/architecture/stack.md).
+
 ## How It Works
 
 CC Pocket has two parts:
