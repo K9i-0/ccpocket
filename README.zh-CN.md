@@ -113,7 +113,4 @@ cd apps/mobile && flutter pub get && cd ../..
 
 ## 许可证
 
-[FSL-1.1-MIT](LICENSE): 源码可用，并将于 2028-03-17 自动转换为 MIT。
-
-本仓库包含适用于 `@ccpocket/bridge` 的 Bridge Redistribution Exception。
-只要明确标注为非官方且不提供支持，就允许面向特定环境制作 fork 或进行再分发。
+[MIT](LICENSE)

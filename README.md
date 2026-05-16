@@ -50,6 +50,22 @@ New to mobile coding agents? See [How to run Codex from iPhone or Android](https
 - **Manage your machines**: save hosts, connect with QR codes or mDNS discovery, use Tailscale, start/stop/update over SSH, and receive push notifications.
 - **Use larger screens when helpful**: CC Pocket adapts to iPad, macOS, and Linux with workspace layouts for chat, Git, Explorer, screenshots, and images.
 
+## Why Fork CC Pocket?
+
+CC Pocket is MIT licensed so you can treat it as a starting point for your own
+agent workflow, not only as a finished app.
+
+- Build an internal client that combines Codex or Claude with your team's Jira,
+  Linear, GitHub, or private REST APIs.
+- Remove surfaces you do not need and keep a focused app for your daily workflow.
+- Reuse the Bridge sync layer, approval flow, prompt history, git operations,
+  file browsing, and image/diff viewers instead of rebuilding them from scratch.
+- Keep compatibility with the local agent tools and their session history while
+  adding workflow-specific GUI features that are easier to use than prompts or MCP.
+- Extend desktop support. macOS and Linux are supported today; Windows support is
+  technically feasible with relatively low effort, but is not official yet
+  because the project does not have a stable Windows verification environment.
+
 ## How It Works
 
 CC Pocket has two parts:
@@ -117,8 +133,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 ## License
 
-[FSL-1.1-MIT](LICENSE): Source available. Converts to MIT on 2028-03-17.
-
-The repository includes a Bridge Redistribution Exception for `@ccpocket/bridge`.
-Unofficial Bridge redistributions and environment-specific forks are allowed, as long as
-they remain clearly unofficial and unsupported.
+[MIT](LICENSE)

@@ -2,7 +2,7 @@
   "name": "ccpocket",
   "description": "Mobile client for Claude and Codex with WebSocket bridge server",
   "private": true,
-  "license": "FSL-1.1-MIT",
+  "license": "MIT",
   "author": "K9i",
   "repository": {
     "type": "git",
