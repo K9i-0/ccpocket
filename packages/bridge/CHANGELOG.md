@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.59.2] - 2026-05-16
+
+### Fixed
+- Sync accepted user messages to other connected clients so multi-client Bridge sessions stay in sync.
+
 ## [1.59.1] - 2026-05-15
 
 ### Fixed
