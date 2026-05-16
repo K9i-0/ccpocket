@@ -1,2 +1,6 @@
 • Added an experimental feature to join Codex sessions started in CC Pocket from Codex CLI. See the Bridge README for setup details.
 • Published an experimental Linux desktop build, making it easier to combine desktop and mobile workflows.
+• Added official Codex permission modes, including Auto-review, Full access, and config-driven Custom.
+• Improved Codex session sync across connected clients, including user messages from another client or queued Codex steers.
+• Added clearer setup errors when the Codex CLI is unavailable.
+• Improved markdown emphasis styling in chat messages.
