@@ -25,6 +25,10 @@ npx @ccpocket/bridge@latest
 # Or install globally
 npm install -g @ccpocket/bridge
 ccpocket-bridge
+
+# Show CLI help or version
+ccpocket-bridge --help
+ccpocket-bridge --version
 ```
 
 ## Configuration
