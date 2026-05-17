@@ -4,6 +4,87 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.98.2] - 2026-05-17
+
+### Changed
+- Require Bridge 1.59.3 for clearer Codex CLI setup errors.
+
+### Fixed
+- Show a clearer setup error when the Codex CLI is unavailable.
+- Improve markdown emphasis styling in chat messages.
+
+## [1.98.1] - 2026-05-16
+
+### Changed
+- Require Bridge 1.59.2 for multi-client user message synchronization.
+
+### Fixed
+- Display user messages received from another connected client or promoted from a Codex queued steer.
+
+## [1.98.0] - 2026-05-15
+
+### Added
+- Add official Codex permissions modes, including Auto-review, Full access, and config-driven Custom.
+
+### Changed
+- Require Bridge 1.59.0 for Codex permissions mode synchronization.
+
+## [1.97.0] - 2026-05-13
+
+### Added
+- Add experimental Linux desktop release support.
+- Add an in-app action to copy the Codex CLI command for joining the current session.
+
+### Changed
+- Require Bridge 1.58.0 for experimental Codex shared app-server co-presence.
+- Refresh store release notes.
+
+### Fixed
+- Keep copied Codex join commands scoped to the current session.
+- Hide the Codex join command until the session can be resumed from Codex CLI.
+- Keep Linux release cargokit precompiled binary overrides scoped to release builds.
+
+## [1.96.1] - 2026-05-12
+
+### Fixed
+- Preserve saved SSH private keys when editing machines.
+- Preserve jump host password and private key credentials when editing machines.
+- Show saved private key status in the machine editor and localize related copy.
+- Avoid keyboard overlap in bottom sheets with text fields.
+
+## [1.96.0] - 2026-05-09
+
+### Added
+- Support mentioning directories from file mention completions.
+
+### Changed
+- Improve file mention filtering so path-based fuzzy queries can match full paths.
+- Require Bridge 1.57.0 for directory mention candidates.
+
+## [1.95.0] - 2026-05-09
+
+### Added
+- Add command completion scoring in the composer.
+- Add configurable code font settings.
+
+### Changed
+- Refresh store release notes.
+
+### Fixed
+- Reduce jank when rendering long markdown history.
+
+## [1.94.0] - 2026-05-08
+
+### Added
+- Add a focus mode for reviewing Git diffs.
+
+### Changed
+- Require Bridge 1.56.2 for the latest Bridge documentation and compatibility metadata.
+
+### Fixed
+- Tunnel Bridge WebSocket connections through SSH jump hosts.
+- Avoid false project path error inference in session output.
+
 ## [1.93.0] - 2026-05-07
 
 ### Added

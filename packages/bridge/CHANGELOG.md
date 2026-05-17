@@ -2,6 +2,63 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.60.0] - 2026-05-17
+
+### Added
+- Add standard help and version commands to the Bridge CLI.
+
+## [1.59.3] - 2026-05-17
+
+### Fixed
+- Show a clear setup error when the Codex CLI is unavailable.
+
+## [1.59.2] - 2026-05-16
+
+### Fixed
+- Sync accepted user messages to other connected clients so multi-client Bridge sessions stay in sync.
+
+## [1.59.1] - 2026-05-15
+
+### Fixed
+- Speed up Codex recent session loading by limiting JSONL metadata reads to the visible app-server thread page.
+
+## [1.59.0] - 2026-05-15
+
+### Added
+- Support official Codex permissions modes, including config-driven custom mode.
+
+## [1.58.1] - 2026-05-15
+
+### Fixed
+- Speed up Codex session resume history loading by caching user image extraction per JSONL file.
+
+## [1.58.0] - 2026-05-13
+
+### Added
+- Add experimental Codex shared app-server co-presence support.
+- Expose session-specific Codex CLI resume commands for clients.
+
+### Changed
+- Document the Codex remote resume command in Bridge setup output.
+
+### Fixed
+- Gate shared Codex app-server configuration behind the experimental mode.
+
+## [1.57.1] - 2026-05-12
+
+### Fixed
+- Recover push relay registration when a persisted Firebase anonymous account has been deleted.
+
+## [1.57.0] - 2026-05-09
+
+### Added
+- Include directories in file mention candidates so clients can mention project folders.
+
+## [1.56.2] - 2026-05-08
+
+### Changed
+- Document Bridge environment variables for deployment and operations.
+
 ## [1.56.1] - 2026-05-07
 
 ### Fixed

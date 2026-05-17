@@ -48,9 +48,12 @@ import 'services/draft_service.dart';
 import 'services/fcm_service.dart';
 import 'services/in_app_review_service.dart';
 import 'services/machine_manager_service.dart';
+import 'services/mock_preview_extension.dart';
 import 'services/notification_service.dart';
+import 'services/performance_probe_extension.dart';
 import 'services/prompt_history_service.dart';
 import 'services/revenuecat_service.dart';
+import 'services/ssh_bridge_tunnel_service.dart';
 import 'services/ssh_startup_service.dart';
 import 'services/support_banner_service.dart';
 import 'theme/app_theme.dart';
@@ -88,6 +91,8 @@ void main() async {
   if (kDebugMode && !kIsWeb) {
     MarionetteBinding.ensureInitialized();
     registerStoreScreenshotExtensions();
+    registerMockPreviewExtensions();
+    registerPerformanceProbeExtensions();
   } else {
     WidgetsFlutterBinding.ensureInitialized();
   }
@@ -123,6 +128,15 @@ void main() async {
   final sshStartupService = kIsWeb
       ? null
       : SshStartupService(machineManagerService);
+  final sshBridgeTunnelService = kIsWeb
+      ? null
+      : SshBridgeTunnelService(machineManagerService);
+  if (sshBridgeTunnelService != null) {
+    machineManagerService.configureBridgeTunnelResolvers(
+      wsUrlResolver: sshBridgeTunnelService.buildWsUrl,
+      httpBaseUrlResolver: sshBridgeTunnelService.buildHttpBaseUrl,
+    );
+  }
 
   // Shorebird manual update check (auto_update is disabled in shorebird.yaml).
   // Reads the user-selected track from SharedPreferences and checks for patches
@@ -133,6 +147,7 @@ void main() async {
   }
 
   final bridge = BridgeService();
+  bridge.onDisconnect = sshBridgeTunnelService?.closeAll;
   final fcmService = FcmService();
   final draftService = DraftService(prefs);
   final inAppReviewService = InAppReviewService(prefs: prefs);
@@ -198,6 +213,10 @@ void main() async {
         ),
         if (sshStartupService != null)
           RepositoryProvider<SshStartupService>.value(value: sshStartupService),
+        if (sshBridgeTunnelService != null)
+          RepositoryProvider<SshBridgeTunnelService>.value(
+            value: sshBridgeTunnelService,
+          ),
       ],
       child: MultiBlocProvider(
         providers: [

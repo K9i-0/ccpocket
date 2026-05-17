@@ -324,6 +324,12 @@ abstract class AppLocalizations {
   /// **'なし'**
   String get none;
 
+  /// No description provided for @dismissKeyboard.
+  ///
+  /// In ja, this message translates to:
+  /// **'キーボードを閉じる'**
+  String get dismissKeyboard;
+
   /// No description provided for @serverUnreachable.
   ///
   /// In ja, this message translates to:
@@ -491,6 +497,276 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'パスワード'**
   String get password;
+
+  /// No description provided for @machineEditAddTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'マシンを追加'**
+  String get machineEditAddTitle;
+
+  /// No description provided for @machineEditEditTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'マシンを編集'**
+  String get machineEditEditTitle;
+
+  /// No description provided for @machineEditDismissKeyboardTooltip.
+  ///
+  /// In ja, this message translates to:
+  /// **'キーボードを閉じる'**
+  String get machineEditDismissKeyboardTooltip;
+
+  /// No description provided for @machineEditBasicInfo.
+  ///
+  /// In ja, this message translates to:
+  /// **'基本情報'**
+  String get machineEditBasicInfo;
+
+  /// No description provided for @machineEditName.
+  ///
+  /// In ja, this message translates to:
+  /// **'名前'**
+  String get machineEditName;
+
+  /// No description provided for @machineEditNameHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'Home Mac'**
+  String get machineEditNameHint;
+
+  /// No description provided for @machineEditHostLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'Host（IP またはホスト名）'**
+  String get machineEditHostLabel;
+
+  /// No description provided for @machineEditHostHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'100.64.1.2'**
+  String get machineEditHostHint;
+
+  /// No description provided for @machineEditPort.
+  ///
+  /// In ja, this message translates to:
+  /// **'Port'**
+  String get machineEditPort;
+
+  /// No description provided for @machineEditBridgePortHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'8765'**
+  String get machineEditBridgePortHint;
+
+  /// No description provided for @machineEditApiKey.
+  ///
+  /// In ja, this message translates to:
+  /// **'API Key'**
+  String get machineEditApiKey;
+
+  /// No description provided for @machineEditOptional.
+  ///
+  /// In ja, this message translates to:
+  /// **'任意'**
+  String get machineEditOptional;
+
+  /// No description provided for @machineEditUseSecureConnection.
+  ///
+  /// In ja, this message translates to:
+  /// **'セキュア接続を使う'**
+  String get machineEditUseSecureConnection;
+
+  /// No description provided for @machineEditUseSecureConnectionSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'WSS で接続し、ヘルスチェックに HTTPS を使います'**
+  String get machineEditUseSecureConnectionSubtitle;
+
+  /// No description provided for @machineEditSshConfiguration.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH 設定'**
+  String get machineEditSshConfiguration;
+
+  /// No description provided for @machineEditEnableSshRemoteStartup.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH リモート起動を有効にする'**
+  String get machineEditEnableSshRemoteStartup;
+
+  /// No description provided for @machineEditEnableSshRemoteStartupSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'オフライン時に Bridge Server をリモート起動します'**
+  String get machineEditEnableSshRemoteStartupSubtitle;
+
+  /// No description provided for @machineEditSshUsername.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH Username'**
+  String get machineEditSshUsername;
+
+  /// No description provided for @machineEditSshUsernameHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'myuser'**
+  String get machineEditSshUsernameHint;
+
+  /// No description provided for @machineEditSshPort.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH Port'**
+  String get machineEditSshPort;
+
+  /// No description provided for @machineEditSshPortHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'22'**
+  String get machineEditSshPortHint;
+
+  /// No description provided for @machineEditTargetAuthentication.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続先の認証'**
+  String get machineEditTargetAuthentication;
+
+  /// No description provided for @machineEditPrivateKey.
+  ///
+  /// In ja, this message translates to:
+  /// **'Private Key'**
+  String get machineEditPrivateKey;
+
+  /// No description provided for @machineEditSshPrivateKeyPem.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH Private Key (PEM)'**
+  String get machineEditSshPrivateKeyPem;
+
+  /// No description provided for @machineEditOpenSshPrivateKeyHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'-----BEGIN OPENSSH PRIVATE KEY-----'**
+  String get machineEditOpenSshPrivateKeyHint;
+
+  /// No description provided for @machineEditSavedPrivateKeyIndicator.
+  ///
+  /// In ja, this message translates to:
+  /// **'Private Key は保存済みです。新しく入力すると置き換えます。'**
+  String get machineEditSavedPrivateKeyIndicator;
+
+  /// No description provided for @machineEditUseSshJumpHost.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH Jump Host を使う'**
+  String get machineEditUseSshJumpHost;
+
+  /// No description provided for @machineEditUseSshJumpHostSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'踏み台または中継 SSH ホスト経由で接続します'**
+  String get machineEditUseSshJumpHostSubtitle;
+
+  /// No description provided for @machineEditSshJumpHost.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH Jump Host'**
+  String get machineEditSshJumpHost;
+
+  /// No description provided for @machineEditJumpHost.
+  ///
+  /// In ja, this message translates to:
+  /// **'Jump Host'**
+  String get machineEditJumpHost;
+
+  /// No description provided for @machineEditJumpHostHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'bastion.example.com'**
+  String get machineEditJumpHostHint;
+
+  /// No description provided for @machineEditJumpPort.
+  ///
+  /// In ja, this message translates to:
+  /// **'Jump Port'**
+  String get machineEditJumpPort;
+
+  /// No description provided for @machineEditJumpUsername.
+  ///
+  /// In ja, this message translates to:
+  /// **'Jump Username'**
+  String get machineEditJumpUsername;
+
+  /// No description provided for @machineEditJumpUsernameHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'未入力なら SSH Username を使います'**
+  String get machineEditJumpUsernameHint;
+
+  /// No description provided for @machineEditJumpHostAuthentication.
+  ///
+  /// In ja, this message translates to:
+  /// **'Jump Host の認証'**
+  String get machineEditJumpHostAuthentication;
+
+  /// No description provided for @machineEditJumpHostAuthenticationSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'未入力なら接続先の SSH 認証情報を再利用します'**
+  String get machineEditJumpHostAuthenticationSubtitle;
+
+  /// No description provided for @machineEditJumpPassword.
+  ///
+  /// In ja, this message translates to:
+  /// **'Jump Password'**
+  String get machineEditJumpPassword;
+
+  /// No description provided for @machineEditSavedJumpHostPasswordIndicator.
+  ///
+  /// In ja, this message translates to:
+  /// **'Jump Host パスワードは保存済みです。新しく入力すると置き換えます。'**
+  String get machineEditSavedJumpHostPasswordIndicator;
+
+  /// No description provided for @machineEditJumpPrivateKeyPem.
+  ///
+  /// In ja, this message translates to:
+  /// **'Jump Private Key (PEM)'**
+  String get machineEditJumpPrivateKeyPem;
+
+  /// No description provided for @machineEditSavedJumpHostPrivateKeyIndicator.
+  ///
+  /// In ja, this message translates to:
+  /// **'Jump Host Private Key は保存済みです。新しく入力すると置き換えます。'**
+  String get machineEditSavedJumpHostPrivateKeyIndicator;
+
+  /// No description provided for @machineEditTesting.
+  ///
+  /// In ja, this message translates to:
+  /// **'テスト中...'**
+  String get machineEditTesting;
+
+  /// No description provided for @machineEditTestConnection.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続をテスト'**
+  String get machineEditTestConnection;
+
+  /// No description provided for @machineEditConnectionSuccessful.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続に成功しました'**
+  String get machineEditConnectionSuccessful;
+
+  /// No description provided for @machineEditFillSshCredentials.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH 認証情報を入力してください'**
+  String get machineEditFillSshCredentials;
+
+  /// No description provided for @machineEditAddAndConnect.
+  ///
+  /// In ja, this message translates to:
+  /// **'追加して接続'**
+  String get machineEditAddAndConnect;
 
   /// No description provided for @deleteMachine.
   ///
@@ -2694,6 +2970,24 @@ abstract class AppLocalizations {
   /// **'OSの文字サイズ設定に、このアプリ倍率をさらに掛けます。100%はOS設定のままです。'**
   String get textDensityDescription;
 
+  /// No description provided for @codeFontSize.
+  ///
+  /// In ja, this message translates to:
+  /// **'コード文字サイズ'**
+  String get codeFontSize;
+
+  /// No description provided for @codeFontFamily.
+  ///
+  /// In ja, this message translates to:
+  /// **'コードフォント'**
+  String get codeFontFamily;
+
+  /// No description provided for @codeFontPreview.
+  ///
+  /// In ja, this message translates to:
+  /// **'プレビュー'**
+  String get codeFontPreview;
+
   /// No description provided for @indentSize.
   ///
   /// In ja, this message translates to:
@@ -2735,6 +3029,18 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'長い行を折り返さず、hunk 単位で横スクロールできます。Git 操作はロングタップのメニューまたは下部ボタンから実行します。'**
   String get gitDiffScrollFirstDescription;
+
+  /// No description provided for @gitDiffFocusAutoLandscape.
+  ///
+  /// In ja, this message translates to:
+  /// **'diff集中モードで横画面にする'**
+  String get gitDiffFocusAutoLandscape;
+
+  /// No description provided for @gitDiffFocusAutoLandscapeDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'モバイルレイアウトでは、diff集中モードに入ると横画面に固定します。解除すると通常の回転に戻ります。'**
+  String get gitDiffFocusAutoLandscapeDescription;
 
   /// No description provided for @remoteGitStatusBadge.
   ///

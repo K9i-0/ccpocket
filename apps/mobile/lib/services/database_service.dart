@@ -2,11 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../core/logger.dart';
+import 'database_platform.dart';
 
 /// Singleton service managing the sqflite [Database] lifecycle.
 ///
 /// Handles database creation and schema migrations.
-/// Returns `null` on web platforms where sqflite is not supported.
+/// Returns `null` when the current platform has no available database backend.
 class DatabaseService {
   Database? _database;
   bool _initialized = false;
@@ -16,8 +17,8 @@ class DatabaseService {
 
   /// Get the database instance, initializing it if needed.
   ///
-  /// Returns `null` on web platforms or when sqflite is not available
-  /// (e.g. in unit tests without sqflite_common_ffi).
+  /// Returns `null` on web platforms or when the database backend is not
+  /// available in the current runtime.
   Future<Database?> get database async {
     if (kIsWeb) return null;
     if (_initialized) return _database;
@@ -33,9 +34,17 @@ class DatabaseService {
   }
 
   Future<Database> _initDatabase() async {
+    final platformConfig = await getPlatformDatabaseOpenConfig(_dbName);
+    if (platformConfig != null) {
+      return platformConfig.open(
+        version: _dbVersion,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
+    }
+
     final path = await getDatabasesPath();
     final dbPath = '$path/$_dbName';
-
     return openDatabase(
       dbPath,
       version: _dbVersion,
@@ -139,6 +148,9 @@ class DatabaseService {
 
   /// Get the absolute path to the database file.
   Future<String> getDbPath() async {
+    final platformConfig = await getPlatformDatabaseOpenConfig(_dbName);
+    if (platformConfig != null) return platformConfig.path;
+
     final path = await getDatabasesPath();
     return '$path/$_dbName';
   }

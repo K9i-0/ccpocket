@@ -65,5 +65,28 @@ void main() {
       expect(find.text('Project path not allowed'), findsOneWidget);
       expect(find.text('View steps'), findsNothing);
     });
+
+    testWidgets('shows Codex CLI install guidance', (tester) async {
+      const message = ErrorMessage(
+        message:
+            'Codex CLI is not installed or not available on PATH on the Bridge machine.',
+        errorCode: 'codex_cli_not_found',
+      );
+
+      await tester.pumpWidget(
+        _wrapErrorBubble(
+          locale: const Locale('en'),
+          child: const ErrorBubble(message: message),
+        ),
+      );
+
+      expect(find.text('Codex CLI Not Installed'), findsOneWidget);
+      expect(
+        find.text(
+          'Install Codex CLI on the Bridge machine, then restart Bridge',
+        ),
+        findsOneWidget,
+      );
+    });
   });
 }

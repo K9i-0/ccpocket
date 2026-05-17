@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/services.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -190,7 +194,7 @@ class _GitScreenState extends State<GitScreen> {
   }
 }
 
-class _GitScreenBody extends StatelessWidget {
+class _GitScreenBody extends StatefulWidget {
   final String? title;
   final bool isProjectMode;
   final AutoScrollController scrollController;
@@ -215,6 +219,28 @@ class _GitScreenBody extends StatelessWidget {
   final String? projectPath;
 
   @override
+  State<_GitScreenBody> createState() => _GitScreenBodyState();
+}
+
+class _GitScreenBodyState extends State<_GitScreenBody> {
+  bool _focusMode = false;
+  bool _orientationLockedForFocus = false;
+
+  void _setFocusMode(bool enabled) {
+    if (_focusMode == enabled) return;
+    setState(() => _focusMode = enabled);
+    unawaited(_syncFocusOrientation(enabled));
+  }
+
+  @override
+  void dispose() {
+    if (_orientationLockedForFocus) {
+      unawaited(SystemChrome.setPreferredOrientations(const []));
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = context.watch<GitViewCubit>().state;
     final cubit = context.read<GitViewCubit>();
@@ -228,12 +254,18 @@ class _GitScreenBody extends StatelessWidget {
       slot: WorkspacePaneSlot.right,
     );
 
-    final screenTitle = title ?? l.changes;
-    final leading = embedded
+    final focusMode = _focusMode && state.files.isNotEmpty;
+    if (_focusMode && state.files.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _setFocusMode(false);
+      });
+    }
+    final screenTitle = widget.title ?? l.changes;
+    final leading = widget.embedded
         ? IconButton(
             key: const ValueKey('close_git_pane_button'),
-            onPressed: onClose,
-            style: chrome.useMacOSAdaptiveChrome
+            onPressed: widget.onClose,
+            style: !focusMode && chrome.useMacOSAdaptiveChrome
                 ? chrome.compactButtonStyle()
                 : null,
             icon: const Icon(Icons.close),
@@ -242,10 +274,15 @@ class _GitScreenBody extends StatelessWidget {
         : null;
 
     return Scaffold(
+      extendBodyBehindAppBar: focusMode,
       appBar: chrome.wrapAppBar(
         AppBar(
           toolbarHeight: chrome.toolbarHeight,
-          automaticallyImplyLeading: !embedded,
+          backgroundColor: focusMode ? Colors.transparent : null,
+          elevation: focusMode ? 0 : null,
+          scrolledUnderElevation: focusMode ? 0 : null,
+          surfaceTintColor: focusMode ? Colors.transparent : null,
+          automaticallyImplyLeading: !widget.embedded,
           leading: chrome.wrapLeading(leading),
           leadingWidth: chrome.resolveLeadingWidth(
             hasLeading: leading != null,
@@ -254,40 +291,58 @@ class _GitScreenBody extends StatelessWidget {
                 : kToolbarHeight,
           ),
           titleSpacing: chrome.resolveTitleSpacing(hasLeading: leading != null),
-          title: chrome.wrapTitle(
-            Text(screenTitle, overflow: TextOverflow.ellipsis),
+          title: focusMode
+              ? null
+              : chrome.wrapTitle(
+                  Text(screenTitle, overflow: TextOverflow.ellipsis),
+                ),
+          actions: chrome.padActions(
+            focusMode
+                ? [
+                    _FocusModeButton(
+                      active: true,
+                      onPressed: () => _setFocusMode(false),
+                    ),
+                  ]
+                : [
+                    if (widget.isProjectMode && !state.loading)
+                      _FileListAppBarButton(
+                        state: state,
+                        onPressed: state.files.isEmpty
+                            ? null
+                            : () async {
+                                final selectedIndex =
+                                    await showGitFileListSheet(
+                                      context,
+                                      files: state.files,
+                                      viewMode: state.viewMode,
+                                    );
+                                if (selectedIndex != null) {
+                                  widget.scrollToFileIndex.value =
+                                      selectedIndex;
+                                }
+                              },
+                      ),
+                    // Refresh (projectPath mode only)
+                    if (cubit.canRefresh && !state.loading)
+                      IconButton(
+                        icon: const Icon(Icons.refresh),
+                        tooltip: l.refresh,
+                        style: chrome.useMacOSAdaptiveChrome
+                            ? chrome.compactButtonStyle()
+                            : null,
+                        onPressed: cubit.refresh,
+                      ),
+                    if (!state.loading && state.files.isNotEmpty)
+                      _FocusModeButton(
+                        active: false,
+                        onPressed: () => _setFocusMode(true),
+                      ),
+                  ],
           ),
-          actions: chrome.padActions([
-            if (isProjectMode && !state.loading)
-              _FileListAppBarButton(
-                state: state,
-                onPressed: state.files.isEmpty
-                    ? null
-                    : () async {
-                        final selectedIndex = await showGitFileListSheet(
-                          context,
-                          files: state.files,
-                          viewMode: state.viewMode,
-                        );
-                        if (selectedIndex != null) {
-                          scrollToFileIndex.value = selectedIndex;
-                        }
-                      },
-              ),
-            // Refresh (projectPath mode only)
-            if (cubit.canRefresh && !state.loading)
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                tooltip: l.refresh,
-                style: chrome.useMacOSAdaptiveChrome
-                    ? chrome.compactButtonStyle()
-                    : null,
-                onPressed: cubit.refresh,
-              ),
-          ]),
         ),
       ),
-      bottomNavigationBar: isProjectMode
+      bottomNavigationBar: widget.isProjectMode && !focusMode
           ? _DiffBottomBar(
               state: state,
               cubit: cubit,
@@ -300,24 +355,47 @@ class _GitScreenBody extends StatelessWidget {
               ),
             )
           : null,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (isProjectMode) GitProjectHeader(state: state, cubit: cubit),
-          Expanded(
-            child: _GitScreenContent(
-              state: state,
-              cubit: cubit,
-              isProjectMode: isProjectMode,
-              interactionMode: interactionMode,
-              onConfirmRevert: _confirmRevert,
-              onShowFileActionSheet: _showFileActionSheet,
-              onShowHunkActionSheet: _showHunkActionSheet,
-              scrollController: scrollController,
+      body: focusMode
+          ? SafeArea(
+              top: false,
+              child: _GitScreenContent(
+                state: state,
+                cubit: cubit,
+                isProjectMode: widget.isProjectMode,
+                interactionMode: interactionMode,
+                onConfirmRevert: _confirmRevert,
+                onShowFileActionSheet: _showFileActionSheet,
+                onShowHunkActionSheet: _showHunkActionSheet,
+                scrollController: widget.scrollController,
+                padding: EdgeInsets.only(
+                  top:
+                      MediaQuery.paddingOf(context).top +
+                      chrome.topInset +
+                      chrome.toolbarHeight +
+                      8,
+                  bottom: 8,
+                ),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (widget.isProjectMode)
+                  GitProjectHeader(state: state, cubit: cubit),
+                Expanded(
+                  child: _GitScreenContent(
+                    state: state,
+                    cubit: cubit,
+                    isProjectMode: widget.isProjectMode,
+                    interactionMode: interactionMode,
+                    onConfirmRevert: _confirmRevert,
+                    onShowFileActionSheet: _showFileActionSheet,
+                    onShowHunkActionSheet: _showHunkActionSheet,
+                    scrollController: widget.scrollController,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -328,6 +406,40 @@ class _GitScreenBody extends StatelessWidget {
       );
     } catch (_) {
       return GitDiffInteractionMode.quickActions;
+    }
+  }
+
+  Future<void> _syncFocusOrientation(bool focusEnabled) async {
+    if (!focusEnabled || !_shouldAutoLandscapeFocus(context)) {
+      if (_orientationLockedForFocus) {
+        _orientationLockedForFocus = false;
+        await SystemChrome.setPreferredOrientations(const []);
+      }
+      return;
+    }
+
+    _orientationLockedForFocus = true;
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  bool _shouldAutoLandscapeFocus(BuildContext context) {
+    if (kIsWeb) return false;
+    final platform = Theme.of(context).platform;
+    final isMobilePlatform =
+        platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+    if (!isMobilePlatform) return false;
+
+    final shell = WorkspaceShellScreen.maybeOf(context);
+    final isMobileLayout = shell?.isSinglePane ?? true;
+    if (!isMobileLayout) return false;
+
+    try {
+      return context.read<SettingsCubit>().state.gitDiffFocusAutoLandscape;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -519,15 +631,15 @@ class _GitScreenBody extends StatelessWidget {
   }
 
   void _requestChange(BuildContext context, DiffSelection selection) {
-    if (embedded && onRequestChange != null) {
-      onRequestChange!(selection);
+    if (widget.embedded && widget.onRequestChange != null) {
+      widget.onRequestChange!(selection);
       return;
     }
     context.router.maybePop(selection);
   }
 
   Future<void> _openFilePeek(BuildContext context, String filePath) {
-    final projectPath = this.projectPath;
+    final projectPath = widget.projectPath;
     if (projectPath == null || projectPath.isEmpty) {
       return Future<void>.value();
     }
@@ -536,9 +648,35 @@ class _GitScreenBody extends StatelessWidget {
       bridge: context.read<BridgeService>(),
       projectPath: projectPath,
       filePath: filePath,
-      onOpened: () => onFilePeekOpened?.call(filePath),
+      onOpened: () => widget.onFilePeekOpened?.call(filePath),
     );
   }
+}
+
+class _FocusModeButton extends StatelessWidget {
+  final bool active;
+  final VoidCallback onPressed;
+
+  const _FocusModeButton({required this.active, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      key: ValueKey(active ? 'git_focus_exit_button' : 'git_focus_button'),
+      icon: Icon(active ? Icons.fullscreen_exit : Icons.fullscreen),
+      tooltip: active ? 'Exit focus mode' : 'Focus diff',
+      style: active ? _gitFocusChromeButtonStyle(context) : null,
+      onPressed: onPressed,
+    );
+  }
+}
+
+ButtonStyle _gitFocusChromeButtonStyle(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  return IconButton.styleFrom(
+    backgroundColor: cs.surface.withValues(alpha: 0.18),
+    foregroundColor: cs.onSurface.withValues(alpha: 0.82),
+  );
 }
 
 class _DiffActionMenuHeader extends StatelessWidget {
@@ -658,6 +796,7 @@ class _GitScreenContent extends StatelessWidget {
     Offset? position,
   )
   onShowHunkActionSheet;
+  final EdgeInsetsGeometry? padding;
 
   const _GitScreenContent({
     required this.state,
@@ -668,6 +807,7 @@ class _GitScreenContent extends StatelessWidget {
     required this.onConfirmRevert,
     required this.onShowFileActionSheet,
     required this.onShowHunkActionSheet,
+    this.padding,
   });
 
   @override
@@ -741,6 +881,7 @@ class _GitScreenContent extends StatelessWidget {
           ? state.lineWrapEnabled
           : false,
       interactionMode: interactionMode,
+      padding: padding ?? const EdgeInsets.symmetric(vertical: 8),
     );
   }
 }

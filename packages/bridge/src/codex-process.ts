@@ -3,12 +3,21 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rm, writeFile } from "node:fs/promises";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type { ServerMessage, ProcessStatus } from "./parser.js";
+import {
+  createCodexTransport,
+  buildCodexSpawnSpec,
+  type CodexTransport,
+} from "./codex-transport.js";
+import { codexCliJoinTarget } from "./codex-app-server-config.js";
 import { resolvePlatformPath } from "./path-utils.js";
+
+export { buildCodexSpawnSpec };
 
 const DEFAULT_CODEX_MODEL = "gpt-5.5";
 const COMPLETION_FETCH_COOLDOWN_MS = 1000;
+const CODEX_CLI_NOT_FOUND_MESSAGE =
+  "Codex CLI is not installed or not available on PATH on the Bridge machine. Install it with `npm install -g @openai/codex` or `brew install --cask codex`, then restart Bridge.";
 
 export interface CodexStartOptions {
   threadId?: string;
@@ -16,6 +25,7 @@ export interface CodexStartOptions {
   additionalWritableRoots?: string[];
   approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
   approvalsReviewer?: "user" | "auto_review" | "guardian_subagent";
+  codexPermissionsMode?: "default" | "autoReview" | "fullAccess" | "custom";
   sandboxMode?: "read-only" | "workspace-write" | "danger-full-access";
   model?: string;
   modelReasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
@@ -162,6 +172,7 @@ interface CodexResolvedSettings {
   model?: string;
   approvalPolicy?: string;
   approvalsReviewer?: string;
+  codexPermissionsMode?: string;
   sandboxMode?: string;
   modelReasoningEffort?: string;
   networkAccessEnabled?: boolean;
@@ -178,47 +189,34 @@ interface CodexModelListResponse {
   nextCursor?: unknown;
 }
 
-export function buildCodexSpawnSpec(
-  projectPath: string,
-  platform: NodeJS.Platform = process.platform,
-): {
-  command: string;
-  args: string[];
-  options: {
-    cwd: string;
-    stdio: "pipe";
-    env: NodeJS.ProcessEnv;
-    windowsVerbatimArguments?: boolean;
-  };
-} {
-  const cwd = resolvePlatformPath(projectPath, platform);
+function isCodexCliNotFoundError(err: Error): boolean {
+  const code = (err as NodeJS.ErrnoException).code;
+  return (
+    code === "ENOENT" ||
+    /\bspawn codex ENOENT\b/i.test(err.message) ||
+    /codex: command not found/i.test(err.message)
+  );
+}
 
-  if (platform === "win32") {
+function codexAppServerStartError(
+  err: Error,
+): Extract<ServerMessage, { type: "error" }> {
+  if (isCodexCliNotFoundError(err)) {
     return {
-      command: "cmd.exe",
-      args: ["/d", "/s", "/c", "codex app-server --listen stdio://"],
-      options: {
-        cwd,
-        stdio: "pipe",
-        env: process.env,
-        windowsVerbatimArguments: true,
-      },
+      type: "error",
+      message: CODEX_CLI_NOT_FOUND_MESSAGE,
+      errorCode: "codex_cli_not_found",
     };
   }
 
   return {
-    command: "codex",
-    args: ["app-server", "--listen", "stdio://"],
-    options: {
-      cwd,
-      stdio: "pipe",
-      env: process.env,
-    },
+    type: "error",
+    message: `Failed to start codex app-server: ${err.message}`,
   };
 }
 
 export class CodexProcess extends EventEmitter<CodexProcessEvents> {
-  private child: ChildProcessWithoutNullStreams | null = null;
+  private transport: CodexTransport | null = null;
   private _status: ProcessStatus = "starting";
   private _threadId: string | null = null;
   private _agentNickname: string | null = null;
@@ -270,8 +268,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private stdoutBuffer = "";
 
   // Collaboration mode & plan completion state
-  private _approvalPolicy: string = "never";
-  private _approvalsReviewer: string = "user";
+  private _approvalPolicy: string | undefined = undefined;
+  private _approvalsReviewer: string | undefined = undefined;
+  private _codexPermissionsMode: CodexStartOptions["codexPermissionsMode"] | undefined;
   private _collaborationMode: "plan" | "default" = "default";
   private lastPlanItemText: string | null = null;
   /** Last assistant text message — used as `result` in completion notification. */
@@ -315,17 +314,21 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   get isRunning(): boolean {
-    return this.child !== null;
+    return this.transport?.isRunning ?? false;
   }
 
   get approvalPolicy(): string {
-    return this._approvalPolicy;
+    return this._approvalPolicy ?? "on-request";
   }
 
   get approvalsReviewer(): string {
     return normalizeApprovalsReviewerForClient(
       this._approvalsReviewer as CodexStartOptions["approvalsReviewer"],
     );
+  }
+
+  get codexPermissionsMode(): CodexStartOptions["codexPermissionsMode"] | undefined {
+    return this._codexPermissionsMode;
   }
 
   /**
@@ -516,7 +519,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   start(projectPath: string, options?: CodexStartOptions): void {
-    if (this.child) {
+    if (this.transport) {
       this.stop();
     }
 
@@ -527,7 +530,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   async initializeOnly(projectPath: string): Promise<void> {
-    if (this.child) {
+    if (this.transport) {
       this.stop();
     }
     this.prepareLaunch(projectPath);
@@ -549,9 +552,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.cleanupSteerTempPaths();
     this.rejectAllPending(new Error("stopped"));
 
-    if (this.child) {
-      this.child.kill("SIGTERM");
-      this.child = null;
+    if (this.transport) {
+      this.transport.stop();
+      this.transport = null;
     }
 
     this.setStatus("idle");
@@ -573,10 +576,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.cleanupSteerTempPaths();
     this.lastTokenUsage = null;
     this.startModel = sanitizeCodexModel(options?.model);
-    this._approvalPolicy = options?.approvalPolicy ?? "never";
-    this._approvalsReviewer = normalizeApprovalsReviewerForAppServer(
-      options?.approvalsReviewer,
-    );
+    this._approvalPolicy = options?.approvalPolicy;
+    this._approvalsReviewer =
+      options?.approvalsReviewer === undefined
+        ? undefined
+        : normalizeApprovalsReviewerForAppServer(options.approvalsReviewer);
+    this._codexPermissionsMode = options?.codexPermissionsMode;
     this._collaborationMode = options?.collaborationMode ?? "default";
     this.lastPlanItemText = null;
     this.lastResultText = null;
@@ -589,45 +594,38 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     projectPath: string,
     options?: CodexStartOptions,
   ): void {
-    const spawnSpec = buildCodexSpawnSpec(projectPath, this.platform);
+    const sandboxLog = options?.sandboxMode ?? "config";
+    const approvalLog = options?.approvalPolicy ?? "config";
+    const reviewerLog = options?.approvalsReviewer ?? "config";
     console.log(
-      `[codex-process] Starting app-server (cwd: ${spawnSpec.options.cwd}, sandbox: ${options?.sandboxMode ?? "workspace-write"}, approval: ${options?.approvalPolicy ?? "never"}, reviewer: ${this.approvalsReviewer}, model: ${options?.model ?? "default"}, collaboration: ${this._collaborationMode})`,
+      `[codex-process] Starting app-server (cwd: ${projectPath}, sandbox: ${sandboxLog}, approval: ${approvalLog}, reviewer: ${reviewerLog}, model: ${options?.model ?? "default"}, collaboration: ${this._collaborationMode})`,
     );
 
-    const child = spawn(
-      spawnSpec.command,
-      spawnSpec.args,
-      spawnSpec.options,
-    );
-    this.child = child;
+    const transport = createCodexTransport(projectPath, this.platform);
+    this.transport = transport;
 
-    child.stdout.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
+    transport.on("data", (chunk: string) => {
       this.handleStdoutChunk(chunk);
     });
 
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk: string) => {
+    transport.on("log", (chunk: string) => {
       const line = chunk.trim();
       if (line) {
         console.log(`[codex-process] stderr: ${line}`);
       }
     });
 
-    child.on("error", (err) => {
+    transport.on("error", (err) => {
       if (this.stopped) return;
       console.error("[codex-process] app-server process error:", err);
-      this.emitMessage({
-        type: "error",
-        message: `Failed to start codex app-server: ${err.message}`,
-      });
+      this.emitMessage(codexAppServerStartError(err));
       this.setStatus("idle");
       this.emit("exit", 1);
     });
 
-    child.on("exit", (code) => {
+    transport.on("exit", (code) => {
       const exitCode = code ?? 0;
-      this.child = null;
+      this.transport = null;
       this.rejectAllPending(new Error("codex app-server exited"));
       if (!this.stopped && exitCode !== 0) {
         this.emitMessage({
@@ -638,6 +636,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       this.setStatus("idle");
       this.emit("exit", code);
     });
+
+    transport.start(projectPath);
   }
 
   interrupt(): void {
@@ -1042,26 +1042,33 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     try {
       await this.initializeRpcConnection();
 
-      const requestedApprovalPolicy = normalizeApprovalPolicy(
-        options?.approvalPolicy ?? "never",
-      );
-      const requestedApprovalsReviewer = normalizeApprovalsReviewerForAppServer(
-        options?.approvalsReviewer,
-      );
+      const requestedApprovalPolicy = options?.approvalPolicy
+        ? normalizeApprovalPolicy(options.approvalPolicy)
+        : undefined;
+      const requestedApprovalsReviewer =
+        options?.approvalsReviewer === undefined
+          ? undefined
+          : normalizeApprovalsReviewerForAppServer(options.approvalsReviewer);
       const requestedClientApprovalsReviewer =
         normalizeApprovalsReviewerForClient(options?.approvalsReviewer);
-      const requestedSandboxMode = normalizeSandboxMode(
-        options?.sandboxMode ?? "workspace-write",
-      );
+      const requestedSandboxMode = options?.sandboxMode
+        ? normalizeSandboxMode(options.sandboxMode)
+        : undefined;
 
       const threadParams: Record<string, unknown> = {
         cwd: projectPath,
-        approvalPolicy: requestedApprovalPolicy,
-        approvalsReviewer: requestedApprovalsReviewer,
-        sandbox: requestedSandboxMode,
         experimentalRawEvents: false,
         persistExtendedHistory: true,
       };
+      if (requestedApprovalPolicy) {
+        threadParams.approvalPolicy = requestedApprovalPolicy;
+      }
+      if (requestedApprovalsReviewer) {
+        threadParams.approvalsReviewer = requestedApprovalsReviewer;
+      }
+      if (requestedSandboxMode) {
+        threadParams.sandbox = requestedSandboxMode;
+      }
       const threadConfig: Record<string, unknown> = {};
       const requestedModel = sanitizeCodexModel(options?.model);
       const requestedReasoningEffort = options?.modelReasoningEffort
@@ -1129,8 +1136,19 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       if (resolvedSettings.model) {
         this.startModel = resolvedSettings.model;
       }
+      if (resolvedSettings.approvalPolicy) {
+        this._approvalPolicy = resolvedSettings.approvalPolicy;
+      }
+      if (resolvedSettings.approvalsReviewer) {
+        this._approvalsReviewer = normalizeApprovalsReviewerForAppServer(
+          resolvedSettings.approvalsReviewer as CodexStartOptions["approvalsReviewer"],
+        );
+      }
 
       this._threadId = threadId;
+      this._agentNickname = stringOrNull(thread?.agentNickname);
+      this._agentRole = stringOrNull(thread?.agentRole);
+      const cliJoin = codexCliJoinTarget(threadId);
       this.emitMessage({
         type: "system",
         subtype: "init",
@@ -1159,6 +1177,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         ...(resolvedSettings.sandboxMode ?? options?.sandboxMode
           ? { sandboxMode: resolvedSettings.sandboxMode ?? requestedSandboxMode }
           : {}),
+        ...(options?.codexPermissionsMode
+          ? { codexPermissionsMode: options.codexPermissionsMode }
+          : {}),
         ...(resolvedSettings.modelReasoningEffort
           ? { modelReasoningEffort: resolvedSettings.modelReasoningEffort }
           : requestedReasoningEffort
@@ -1173,6 +1194,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         ...(options?.additionalWritableRoots?.length
           ? { additionalWritableRoots: options.additionalWritableRoots }
           : {}),
+        ...(cliJoin ? { codexCliJoin: cliJoin } : {}),
       });
       this.setStatus("idle");
 
@@ -1511,13 +1533,17 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         const params: Record<string, unknown> = {
           threadId: this._threadId,
           input,
-          approvalPolicy: normalizeApprovalPolicy(
-            this._approvalPolicy as CodexStartOptions["approvalPolicy"],
-          ),
-          approvalsReviewer: normalizeApprovalsReviewerForAppServer(
-            this._approvalsReviewer as CodexStartOptions["approvalsReviewer"],
-          ),
         };
+        if (this._approvalPolicy) {
+          params.approvalPolicy = normalizeApprovalPolicy(
+            this._approvalPolicy as CodexStartOptions["approvalPolicy"],
+          );
+        }
+        if (this._approvalsReviewer) {
+          params.approvalsReviewer = normalizeApprovalsReviewerForAppServer(
+            this._approvalsReviewer as CodexStartOptions["approvalsReviewer"],
+          );
+        }
         const requestedModel = sanitizeCodexModel(options?.model);
         const requestedReasoningEffort = options?.modelReasoningEffort
           ? normalizeReasoningEffort(options.modelReasoningEffort)
@@ -1837,6 +1863,8 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     method: string,
     params: Record<string, unknown>,
   ): void {
+    if (this.isForeignThreadNotification(method, params)) return;
+
     switch (method) {
       case "thread/started": {
         const thread = params.thread as Record<string, unknown> | undefined;
@@ -1977,6 +2005,22 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       default:
         break;
     }
+  }
+
+  private isForeignThreadNotification(
+    method: string,
+    params: Record<string, unknown>,
+  ): boolean {
+    if (!isThreadScopedNotification(method)) return false;
+    const threadId = notificationThreadId(params);
+    if (!threadId) return false;
+
+    // Thread binding comes from the thread/start or thread/resume response.
+    // In shared app-server modes, early notifications can belong to another
+    // client, so explicit-thread notifications are ignored until this process
+    // has its own authoritative thread id.
+    if (!this._threadId) return true;
+    return threadId !== this._threadId;
   }
 
   private handleTurnCompleted(turn: Record<string, unknown> | undefined): void {
@@ -2218,6 +2262,22 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
             model: this.getMessageModel(),
           },
         });
+        break;
+      }
+
+      case "user":
+      case "usermessage":
+      case "userinput": {
+        const text = extractUserText(item);
+        if (!text) return;
+        this.emitMessage({
+          type: "user_input",
+          text,
+          userMessageUuid: itemId,
+          ...(typeof item.timestamp === "string"
+            ? { timestamp: item.timestamp }
+            : {}),
+        } as ServerMessage);
         break;
       }
 
@@ -2485,11 +2545,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   }
 
   private writeEnvelope(envelope: Record<string, unknown>): void {
-    if (!this.child || this.child.killed) {
+    if (!this.transport || !this.transport.isRunning) {
       throw new Error("codex app-server is not running");
     }
-    const line = `${JSON.stringify(envelope)}\n`;
-    this.child.stdin.write(line);
+    this.transport.write(envelope);
   }
 
   private rejectAllPending(error: Error): void {
@@ -2785,6 +2844,33 @@ function normalizeItemType(raw: unknown): string {
   return raw.replace(/[_\s-]/g, "").toLowerCase();
 }
 
+function isThreadScopedNotification(method: string): boolean {
+  return (
+    method.startsWith("thread/") ||
+    method.startsWith("turn/") ||
+    method.startsWith("item/") ||
+    method === "serverRequest/resolved"
+  );
+}
+
+function notificationThreadId(params: Record<string, unknown>): string | null {
+  if (typeof params.threadId === "string") return params.threadId;
+
+  const thread = params.thread;
+  if (thread && typeof thread === "object") {
+    const id = (thread as Record<string, unknown>).id;
+    if (typeof id === "string") return id;
+  }
+
+  const turn = params.turn;
+  if (turn && typeof turn === "object") {
+    const id = (turn as Record<string, unknown>).threadId;
+    if (typeof id === "string") return id;
+  }
+
+  return null;
+}
+
 function numberOrUndefined(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value)
     ? value
@@ -3073,6 +3159,12 @@ function extractAgentText(item: Record<string, unknown>): string {
   }
 
   return "";
+}
+
+function extractUserText(item: Record<string, unknown>): string {
+  if (typeof item.text === "string") return item.text;
+  if (typeof item.message === "string") return item.message;
+  return extractAgentText(item);
 }
 
 function extractReasoningText(item: Record<string, unknown>): string {

@@ -317,6 +317,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/macos/v')
     needs: release
     runs-on: macos-15
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: https://k9i-0.github.io/ccpocket/sparkle/appcast.xml
@@ -406,6 +409,58 @@ jobs:
 
           cat docs/sparkle/appcast.xml
 
+      - name: Validate generated Sparkle appcast
+        env:
+          EXPECTED_BUILD_NUMBER: ${{ needs.release.outputs.build_number }}
+          EXPECTED_SEMVER: ${{ needs.release.outputs.semver }}
+        run: |
+          python3 - docs/sparkle/appcast.xml <<'PY'
+          import os
+          import sys
+          import xml.etree.ElementTree as ET
+
+          path = sys.argv[1]
+          expected_build = os.environ["EXPECTED_BUILD_NUMBER"]
+          expected_semver = os.environ["EXPECTED_SEMVER"]
+          sparkle = "{http://www.andymatuschak.org/xml-namespaces/sparkle}"
+
+          root = ET.parse(path).getroot()
+          channel = root.find("channel")
+          item = channel.find("item") if channel is not None else None
+          enclosure = item.find("enclosure") if item is not None else None
+          version = item.find(f"{sparkle}version") if item is not None else None
+          short_version = (
+              item.find(f"{sparkle}shortVersionString")
+              if item is not None
+              else None
+          )
+
+          actual_build = (version.text or "").strip() if version is not None else ""
+          actual_semver = (
+              (short_version.text or "").strip()
+              if short_version is not None
+              else ""
+          )
+
+          errors = []
+          if actual_build != expected_build:
+              errors.append(
+                  f"sparkle:version={actual_build!r}, expected {expected_build!r}"
+              )
+          if actual_semver != expected_semver:
+              errors.append(
+                  "sparkle:shortVersionString="
+                  f"{actual_semver!r}, expected {expected_semver!r}"
+              )
+          if enclosure is None or not enclosure.attrib.get(f"{sparkle}edSignature"):
+              errors.append("missing enclosure/@sparkle:edSignature")
+
+          if errors:
+              raise SystemExit("Invalid generated Sparkle appcast: " + "; ".join(errors))
+
+          print(f"Generated Sparkle appcast is {actual_semver}+{actual_build}")
+          PY
+
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
@@ -417,3 +472,65 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+
+      - name: Verify published Sparkle appcast
+        env:
+          EXPECTED_BUILD_NUMBER: ${{ needs.release.outputs.build_number }}
+          EXPECTED_SEMVER: ${{ needs.release.outputs.semver }}
+          SPARKLE_APPCAST_URL: https://k9i-0.github.io/ccpocket/sparkle/appcast.xml
+        run: |
+          set -euo pipefail
+
+          for attempt in {1..12}; do
+            TMP_APPCAST="$(mktemp)"
+            curl --fail --location --show-error --silent \
+              --retry 3 --retry-delay 2 \
+              "$SPARKLE_APPCAST_URL" \
+              --output "$TMP_APPCAST"
+
+            if python3 - "$TMP_APPCAST" <<'PY'
+          import os
+          import sys
+          import xml.etree.ElementTree as ET
+
+          path = sys.argv[1]
+          expected_build = os.environ["EXPECTED_BUILD_NUMBER"]
+          expected_semver = os.environ["EXPECTED_SEMVER"]
+          sparkle = "{http://www.andymatuschak.org/xml-namespaces/sparkle}"
+
+          root = ET.parse(path).getroot()
+          channel = root.find("channel")
+          item = channel.find("item") if channel is not None else None
+          version = item.find(f"{sparkle}version") if item is not None else None
+          short_version = (
+              item.find(f"{sparkle}shortVersionString")
+              if item is not None
+              else None
+          )
+
+          actual_build = (version.text or "").strip() if version is not None else ""
+          actual_semver = (
+              (short_version.text or "").strip()
+              if short_version is not None
+              else ""
+          )
+
+          if actual_build != expected_build or actual_semver != expected_semver:
+              raise SystemExit(
+                  "Published Sparkle appcast mismatch: "
+                  f"{actual_semver}+{actual_build}, expected "
+                  f"{expected_semver}+{expected_build}"
+              )
+
+          print(f"Published Sparkle appcast is {actual_semver}+{actual_build}")
+          PY
+            then
+              exit 0
+            fi
+
+            echo "Published Sparkle appcast is not updated yet; retrying ($attempt/12)."
+            sleep 5
+          done
+
+          echo "::error::Published Sparkle appcast did not update to ${EXPECTED_SEMVER}+${EXPECTED_BUILD_NUMBER}"
+          exit 1

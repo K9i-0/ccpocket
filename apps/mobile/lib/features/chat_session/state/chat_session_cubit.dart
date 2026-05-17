@@ -49,6 +49,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   ExecutionMode? _pendingExecutionRollback;
   CodexApprovalPolicy? _pendingCodexApprovalRollback;
   String? _pendingCodexApprovalsReviewerRollback;
+  CodexPermissionsMode? _pendingCodexPermissionsModeRollback;
   bool? _pendingPlanRollback;
   SandboxMode? _pendingSandboxRollback;
 
@@ -87,6 +88,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     SandboxMode? initialSandboxMode,
     CodexApprovalPolicy? initialCodexApprovalPolicy,
     String? initialCodexApprovalsReviewer,
+    CodexPermissionsMode? initialCodexPermissionsMode,
     String? initialProjectPath,
   }) : _bridge = bridge,
        _streamingCubit = streamingCubit,
@@ -115,6 +117,18 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
                    )
                ? 'auto_review'
                : 'user',
+           codexPermissionsMode: provider == Provider.codex
+               ? (initialCodexPermissionsMode ??
+                     (initialCodexApprovalPolicy != null ||
+                             initialSandboxMode != null ||
+                             initialCodexApprovalsReviewer != null
+                         ? codexPermissionsModeFromSettings(
+                             approvalPolicy: initialCodexApprovalPolicy?.value,
+                             approvalsReviewer: initialCodexApprovalsReviewer,
+                             sandboxMode: initialSandboxMode?.value,
+                           )
+                         : CodexPermissionsMode.defaultPermissions))
+               : CodexPermissionsMode.defaultPermissions,
            planMode: initialPermissionMode == PermissionMode.plan,
            sandboxMode:
                initialSandboxMode ??
@@ -341,21 +355,49 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
     // Apply UUID update from SDK echo (makes the user entry rewindable)
     if (update.userUuidUpdate != null) {
-      final (:text, :uuid, :clientMessageId) = update.userUuidUpdate!;
+      final (
+        :text,
+        :uuid,
+        :clientMessageId,
+        :imageCount,
+        :imageUrls,
+        :timestamp,
+      ) = update.userUuidUpdate!;
+      var matchedUserEntry = false;
       for (int i = entries.length - 1; i >= 0; i--) {
         final e = entries[i];
         if (e is UserChatEntry &&
-            ((clientMessageId != null &&
+            ((e.messageUuid == uuid) ||
+                (clientMessageId != null &&
                     e.clientMessageId == clientMessageId) ||
                 (e.messageUuid == null &&
                     clientMessageId == null &&
                     e.text == text))) {
+          matchedUserEntry = true;
           if (e.messageUuid != uuid) {
             e.messageUuid = uuid;
             didModifyEntries = true;
           }
           break;
         }
+      }
+      if (!matchedUserEntry) {
+        entries = [
+          ...entries,
+          UserChatEntry(
+            text,
+            sessionId: sessionId,
+            clientMessageId: clientMessageId,
+            imageCount: imageCount,
+            imageUrls: imageUrls,
+            status: MessageStatus.sent,
+            messageUuid: uuid,
+            timestamp: timestamp == null
+                ? null
+                : DateTime.tryParse(timestamp)?.toLocal(),
+          ),
+        ];
+        didModifyEntries = true;
       }
     }
 
@@ -593,6 +635,8 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             update.codexApprovalPolicy ?? current.codexApprovalPolicy,
         codexApprovalsReviewer:
             update.codexApprovalsReviewer ?? current.codexApprovalsReviewer,
+        codexPermissionsMode:
+            update.codexPermissionsMode ?? current.codexPermissionsMode,
         planMode: update.planMode ?? current.planMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
         queuedInput: nextQueuedInput,
@@ -811,6 +855,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         :final executionMode,
         :final approvalPolicy,
         :final approvalsReviewer,
+        :final codexPermissionsMode,
         :final sandboxMode,
         :final sourceSessionId,
         :final tipCode,
@@ -826,6 +871,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           executionMode,
           approvalPolicy,
           approvalsReviewer,
+          codexPermissionsMode,
           sandboxMode,
           sourceSessionId,
           tipCode,
@@ -986,6 +1032,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   void sendMessage(
     String text, {
     List<({Uint8List bytes, String mimeType})>? images,
+    Iterable<String>? mentionablePaths,
   }) {
     if (text.trim().isEmpty && (images == null || images.isEmpty)) return;
     if (isCodex && state.queuedInput != null) return;
@@ -996,7 +1043,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         ? _bridge.cachedSessionHistorySeq(sessionId)
         : null;
     final structuredMentions = isCodex
-        ? _extractCodexStructuredInputs(text)
+        ? _extractCodexStructuredInputs(
+            text,
+            mentionablePaths: mentionablePaths,
+          )
         : (
             skills: const <Map<String, String>>[],
             mentions: const <Map<String, String>>[],
@@ -1451,6 +1501,71 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     );
   }
 
+  void setCodexPermissionsMode(CodexPermissionsMode mode) {
+    final policy =
+        approvalPolicyForCodexPermissionsMode(mode) ??
+        state.codexApprovalPolicy;
+    final approvalsReviewer =
+        approvalsReviewerForCodexPermissionsMode(mode) ??
+        state.codexApprovalsReviewer;
+    final sandboxMode = sandboxModeForCodexPermissionsMode(mode);
+    final derivedExecution = mode == CodexPermissionsMode.fullAccess
+        ? ExecutionMode.fullAccess
+        : ExecutionMode.defaultMode;
+    const legacyMode = PermissionMode.acceptEdits;
+
+    logger.info('[session:$sessionId] setCodexPermissionsMode=${mode.value}');
+    _pendingPermissionRollback = state.permissionMode;
+    _pendingExecutionRollback = state.executionMode;
+    _pendingCodexApprovalRollback = state.codexApprovalPolicy;
+    _pendingCodexApprovalsReviewerRollback = state.codexApprovalsReviewer;
+    _pendingCodexPermissionsModeRollback = state.codexPermissionsMode;
+    _pendingSandboxRollback = state.sandboxMode;
+    _pendingPlanRollback = state.planMode;
+
+    emit(
+      state.copyWith(
+        permissionMode: legacyMode,
+        executionMode: derivedExecution,
+        codexApprovalPolicy: policy,
+        codexApprovalsReviewer: approvalsReviewer,
+        codexPermissionsMode: mode,
+        sandboxMode: sandboxMode ?? state.sandboxMode,
+        planMode: false,
+        inPlanMode: false,
+      ),
+    );
+    _bridge.patchSessionModes(
+      sessionId,
+      permissionMode: legacyMode.value,
+      executionMode: derivedExecution.value,
+      planMode: false,
+      approvalPolicy: mode == CodexPermissionsMode.custom ? null : policy.value,
+      approvalsReviewer: mode == CodexPermissionsMode.custom
+          ? null
+          : approvalsReviewer,
+      codexPermissionsMode: mode.value,
+    );
+    if (sandboxMode != null) {
+      _bridge.patchSessionSandboxMode(sessionId, sandboxMode.value);
+    }
+    _bridge.send(
+      ClientMessage.setSessionMode(
+        legacyMode: legacyMode.value,
+        executionMode: derivedExecution.value,
+        approvalPolicy: mode == CodexPermissionsMode.custom
+            ? null
+            : policy.value,
+        approvalsReviewer: mode == CodexPermissionsMode.custom
+            ? null
+            : approvalsReviewer,
+        codexPermissionsMode: mode.value,
+        planMode: false,
+        sessionId: sessionId,
+      ),
+    );
+  }
+
   /// Change sandbox mode (Claude & Codex).
   /// Bridge destroys and resumes the session with new sandbox settings.
   void setSandboxMode(SandboxMode mode) {
@@ -1483,6 +1598,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
             codexApprovalsReviewer:
                 _pendingCodexApprovalsReviewerRollback ??
                 state.codexApprovalsReviewer,
+            codexPermissionsMode:
+                _pendingCodexPermissionsModeRollback ??
+                state.codexPermissionsMode,
+            sandboxMode: _pendingSandboxRollback ?? state.sandboxMode,
             planMode: _pendingPlanRollback ?? (previous == PermissionMode.plan),
             inPlanMode:
                 _pendingPlanRollback ?? (previous == PermissionMode.plan),
@@ -1500,6 +1619,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
           approvalsReviewer:
               _pendingCodexApprovalsReviewerRollback ??
               state.codexApprovalsReviewer,
+          codexPermissionsMode:
+              (_pendingCodexPermissionsModeRollback ??
+                      state.codexPermissionsMode)
+                  .value,
         );
         final claudeSid = state.claudeSessionId;
         if (claudeSid != null && claudeSid.isNotEmpty) {
@@ -1635,7 +1758,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   }
 
   ({List<Map<String, String>> skills, List<Map<String, String>> mentions})
-  _extractCodexStructuredInputs(String text) {
+  _extractCodexStructuredInputs(
+    String text, {
+    Iterable<String>? mentionablePaths,
+  }) {
     final skills = <Map<String, String>>[];
     final mentions = <Map<String, String>>[];
     final seenSkills = <String>{};
@@ -1644,7 +1770,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       for (final item in state.slashCommands) item.command: item,
     };
     final matches = RegExp(
-      r'(?<![A-Za-z0-9_-])\$([A-Za-z0-9][A-Za-z0-9_-]*)',
+      r'(?<![A-Za-z0-9_:/.-])\$([A-Za-z0-9][A-Za-z0-9_:/.-]*)',
     ).allMatches(text);
     for (final match in matches) {
       final token = '\$${match.group(1)!}';
@@ -1661,7 +1787,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       }
     }
     final pluginMatches = RegExp(
-      r'(?<![A-Za-z0-9_-])@([A-Za-z0-9][A-Za-z0-9_-]*)',
+      r'(?<![A-Za-z0-9_:/.-])@([A-Za-z0-9][A-Za-z0-9_:/.-]*)',
     ).allMatches(text);
     for (final match in pluginMatches) {
       final token = '@${match.group(1)!}';
@@ -1671,7 +1797,68 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       final key = '${payload['name']}|${payload['path']}';
       if (seenMentions.add(key)) mentions.add(payload);
     }
+    final projectMentionPaths = _normalizeProjectMentionPaths(
+      mentionablePaths ?? const <String>[],
+    );
+    if (projectMentionPaths.isNotEmpty) {
+      final projectMatches = RegExp(
+        r'(?<![A-Za-z0-9_:/.-])@(\S+)',
+      ).allMatches(text);
+      for (final match in projectMatches) {
+        final rawPath = match.group(1)!;
+        final token = '@$rawPath';
+        if (entityByToken[token]?.pluginInfo != null) continue;
+
+        final mentionPath = _resolveProjectMentionPath(
+          rawPath,
+          projectMentionPaths,
+        );
+        if (mentionPath == null) continue;
+
+        final payloadPath = _resolveProjectMentionPayloadPath(
+          mentionPath,
+          state.projectPath,
+        );
+        final payload = {'name': mentionPath, 'path': payloadPath};
+        final key = '${payload['name']}|${payload['path']}';
+        if (seenMentions.add(key)) mentions.add(payload);
+      }
+    }
     return (skills: skills, mentions: mentions);
+  }
+
+  Set<String> _normalizeProjectMentionPaths(Iterable<String> paths) {
+    final normalized = <String>{};
+    for (final path in paths) {
+      final trimmed = path.trim();
+      if (trimmed.isEmpty) continue;
+      normalized.add(trimmed);
+    }
+    return normalized;
+  }
+
+  String? _resolveProjectMentionPath(String rawPath, Set<String> paths) {
+    if (paths.contains(rawPath)) return rawPath;
+
+    final stripped = rawPath.replaceFirst(RegExp(r'[,.;:!?]+$'), '');
+    if (stripped != rawPath && paths.contains(stripped)) return stripped;
+
+    if (!rawPath.endsWith('/') && paths.contains('$rawPath/')) {
+      return '$rawPath/';
+    }
+    return null;
+  }
+
+  String _resolveProjectMentionPayloadPath(
+    String mentionPath,
+    String? projectPath,
+  ) {
+    if (mentionPath.startsWith('/') || projectPath == null) {
+      return mentionPath;
+    }
+    final root = projectPath.trim();
+    if (root.isEmpty) return mentionPath;
+    return root.endsWith('/') ? '$root$mentionPath' : '$root/$mentionPath';
   }
 
   @override

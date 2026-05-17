@@ -150,6 +150,33 @@ void main() {
       expect(find.text('fix/bug'), findsNothing);
     });
 
+    testWidgets('keyboard dismiss button clears search focus', (tester) async {
+      await tester.pumpWidget(_buildTestApp(mockBridge));
+      await tester.tap(find.text('Open'));
+      await tester.pump();
+
+      mockBridge.emitBranches(
+        const GitBranchesResultMessage(
+          current: 'main',
+          branches: ['main', 'feat/login'],
+          remoteStatusByBranch: {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('branch_search_field')));
+      await tester.pumpAndSettle();
+
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      await tester.tap(
+        find.byKey(const ValueKey('branch_selector_dismiss_keyboard_button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.testTextInput.isVisible, isFalse);
+    });
+
     testWidgets('tapping branch triggers checkout', (tester) async {
       await tester.pumpWidget(_buildTestApp(mockBridge));
       await tester.tap(find.text('Open'));

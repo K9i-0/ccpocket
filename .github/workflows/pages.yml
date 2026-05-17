@@ -24,6 +24,68 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Preserve Sparkle appcast
+        env:
+          SPARKLE_APPCAST_URL: https://k9i-0.github.io/ccpocket/sparkle/appcast.xml
+        run: |
+          set -euo pipefail
+
+          APPCAST_PATH="docs/sparkle/appcast.xml"
+          TMP_APPCAST="$(mktemp)"
+
+          curl --fail --location --show-error --silent \
+            --retry 3 --retry-delay 2 \
+            "$SPARKLE_APPCAST_URL" \
+            --output "$TMP_APPCAST"
+
+          python3 - "$TMP_APPCAST" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          path = sys.argv[1]
+          sparkle = "{http://www.andymatuschak.org/xml-namespaces/sparkle}"
+          root = ET.parse(path).getroot()
+          channel = root.find("channel")
+          item = channel.find("item") if channel is not None else None
+          enclosure = item.find("enclosure") if item is not None else None
+          version = item.find(f"{sparkle}version") if item is not None else None
+          short_version = (
+              item.find(f"{sparkle}shortVersionString")
+              if item is not None
+              else None
+          )
+
+          missing = []
+          if root.tag != "rss":
+              missing.append("rss root")
+          if channel is None:
+              missing.append("channel")
+          if item is None:
+              missing.append("item")
+          if version is None or not (version.text or "").strip():
+              missing.append("sparkle:version")
+          if short_version is None or not (short_version.text or "").strip():
+              missing.append("sparkle:shortVersionString")
+          if enclosure is None:
+              missing.append("enclosure")
+          elif not enclosure.attrib.get(f"{sparkle}edSignature"):
+              missing.append("enclosure/@sparkle:edSignature")
+
+          if missing:
+              raise SystemExit(
+                  "Invalid published Sparkle appcast; missing "
+                  + ", ".join(missing)
+              )
+
+          print(
+              "Preserving Sparkle appcast "
+              f"{short_version.text.strip()}+{version.text.strip()}"
+          )
+          PY
+
+          mkdir -p "$(dirname "$APPCAST_PATH")"
+          cp "$TMP_APPCAST" "$APPCAST_PATH"
+
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 

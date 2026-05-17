@@ -279,6 +279,34 @@ export async function listProjectFiles(
   }
 }
 
+/** Return project file paths plus directory mention candidates. */
+export async function listProjectFilesAndDirectories(
+  projectPath: string,
+  options: FileSystemFileListOptions = {},
+): Promise<string[]> {
+  return withDirectoryCandidates(await listProjectFiles(projectPath, options));
+}
+
+export function withDirectoryCandidates(files: readonly string[]): string[] {
+  const entries = new Set<string>();
+  for (const file of files) {
+    const normalized = toPosixRelativePath(file).replace(/^\/+/, "");
+    if (!normalized) continue;
+
+    const filePath = normalized.endsWith("/")
+      ? normalized.slice(0, -1)
+      : normalized;
+    if (!filePath) continue;
+
+    const segments = filePath.split("/").filter(Boolean);
+    for (let i = 1; i < segments.length; i++) {
+      entries.add(`${segments.slice(0, i).join("/")}/`);
+    }
+    entries.add(filePath);
+  }
+  return [...entries].sort((a, b) => a.localeCompare(b));
+}
+
 /** Return regular files under a non-Git project directory for explorer views. */
 export async function listFileSystemFiles(
   projectPath: string,

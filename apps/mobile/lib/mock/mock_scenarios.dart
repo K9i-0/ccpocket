@@ -71,6 +71,9 @@ final List<MockScenario> mockScenarios = [
   _assistantAuthErrorScenario,
   _fullConversation,
   _longHistory,
+  _heavyMarkdownHistory,
+  _heavyToolResultHistory,
+  _heavyDiffHistory,
   // Chat session scenarios — Codex
   _codexPlanApproval,
   _codexBashApprovalTwoChoices,
@@ -2641,6 +2644,263 @@ final _longHistory = MockScenario(
     ),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Heavy History Performance Scenarios
+// ---------------------------------------------------------------------------
+
+final _heavyMarkdownHistory = MockScenario(
+  name: 'Perf Heavy Markdown History',
+  icon: Icons.speed,
+  description: 'History snapshot with many long Markdown and code blocks',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 100),
+      message: HistoryMessage(messages: _generateHeavyMarkdownHistory()),
+    ),
+    const MockStep(
+      delay: Duration(milliseconds: 200),
+      message: StatusMessage(status: ProcessStatus.idle),
+    ),
+  ],
+);
+
+final _heavyToolResultHistory = MockScenario(
+  name: 'Perf Heavy Tool Results',
+  icon: Icons.terminal,
+  description: 'History snapshot with many large command outputs',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 100),
+      message: HistoryMessage(messages: _generateHeavyToolResultHistory()),
+    ),
+    const MockStep(
+      delay: Duration(milliseconds: 200),
+      message: StatusMessage(status: ProcessStatus.idle),
+    ),
+  ],
+);
+
+final _heavyDiffHistory = MockScenario(
+  name: 'Perf Heavy Diff History',
+  icon: Icons.difference,
+  description: 'History snapshot with many edit diffs and code review notes',
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 100),
+      message: HistoryMessage(messages: _generateHeavyDiffHistory()),
+    ),
+    const MockStep(
+      delay: Duration(milliseconds: 200),
+      message: StatusMessage(status: ProcessStatus.idle),
+    ),
+  ],
+);
+
+List<ServerMessage> _generateHeavyMarkdownHistory() {
+  final messages = <ServerMessage>[
+    const SystemMessage(
+      subtype: 'init',
+      sessionId: 'mock-session-perf-markdown',
+      model: 'claude-sonnet-4-20250514',
+      projectPath: '/Users/demo/large-project',
+      slashCommands: ['compact', 'plan', 'clear'],
+      skills: [],
+    ),
+  ];
+
+  for (var i = 0; i < 80; i++) {
+    messages.add(
+      UserInputMessage(
+        text: 'Investigate performance topic ${i + 1}',
+        timestamp: DateTime(2026, 5, 8, 12, i % 60).toIso8601String(),
+      ),
+    );
+    messages.add(
+      AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'perf-md-$i',
+          role: 'assistant',
+          content: [TextContent(text: _heavyMarkdownText(i))],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    );
+  }
+
+  return messages;
+}
+
+List<ServerMessage> _generateHeavyToolResultHistory() {
+  final messages = <ServerMessage>[
+    const SystemMessage(
+      subtype: 'init',
+      sessionId: 'mock-session-perf-tools',
+      model: 'claude-sonnet-4-20250514',
+      projectPath: '/Users/demo/large-project',
+      slashCommands: ['compact', 'plan', 'clear'],
+      skills: [],
+    ),
+  ];
+
+  for (var i = 0; i < 140; i++) {
+    messages.add(
+      AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'perf-tool-use-$i',
+          role: 'assistant',
+          content: [
+            TextContent(text: 'Running diagnostic command ${i + 1}.'),
+            ToolUseContent(
+              id: 'perf-tool-$i',
+              name: 'Bash',
+              input: {
+                'command': 'rg -n "Widget|Markdown|SelectableText" lib test',
+              },
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    );
+    messages.add(
+      ToolResultMessage(
+        toolUseId: 'perf-tool-$i',
+        toolName: 'Bash',
+        content: _heavyCommandOutput(i, lines: 70),
+      ),
+    );
+  }
+
+  return messages;
+}
+
+List<ServerMessage> _generateHeavyDiffHistory() {
+  final messages = <ServerMessage>[
+    const SystemMessage(
+      subtype: 'init',
+      sessionId: 'mock-session-perf-diff',
+      model: 'claude-sonnet-4-20250514',
+      projectPath: '/Users/demo/large-project',
+      slashCommands: ['compact', 'plan', 'clear'],
+      skills: [],
+    ),
+  ];
+
+  for (var i = 0; i < 90; i++) {
+    messages.add(
+      AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'perf-diff-use-$i',
+          role: 'assistant',
+          content: [
+            TextContent(
+              text:
+                  'Applying patch set ${i + 1}.\n\n'
+                  '${_heavyMarkdownText(i, codeLines: 16, bullets: 8)}',
+            ),
+            ToolUseContent(
+              id: 'perf-diff-tool-$i',
+              name: 'Edit',
+              input: {
+                'file_path': 'lib/features/perf/file_$i.dart',
+                'old_string': 'old value',
+                'new_string': 'new value',
+              },
+            ),
+          ],
+          model: 'claude-sonnet-4-20250514',
+        ),
+      ),
+    );
+    messages.add(
+      ToolResultMessage(
+        toolUseId: 'perf-diff-tool-$i',
+        toolName: 'Edit',
+        content: _heavyUnifiedDiff(i, changedLines: 45),
+      ),
+    );
+  }
+
+  return messages;
+}
+
+String _heavyMarkdownText(int index, {int codeLines = 42, int bullets = 16}) {
+  final bulletText = List.generate(
+    bullets,
+    (i) =>
+        '- Item ${index + 1}.${i + 1}: inspect `lib/features/chat_session/widgets/chat_message_list.dart` and confirm layout behavior.',
+  ).join('\n');
+  final dartCode = List.generate(
+    codeLines,
+    (i) =>
+        '  final row${i + 1} = entries[index + ${(i % 7)}].toString().padRight(${40 + i});',
+  ).join('\n');
+  final jsonCode = List.generate(
+    codeLines ~/ 2,
+    (i) =>
+        '  "metric_${index}_$i": {"buildMs": ${12 + i}, "rasterMs": ${7 + i}, "notes": "long markdown render path"},',
+  ).join('\n');
+
+  return '''
+## Investigation note ${index + 1}
+
+This message intentionally contains enough Markdown structure to stress parsing,
+layout, selection, inline code, fenced code blocks, and horizontal code scrolling.
+
+$bulletText
+
+```dart
+class HeavyHistoryCase$index {
+  const HeavyHistoryCase$index(this.entries);
+  final List<Object> entries;
+
+$dartCode
+
+  String summarize() => entries.length.toString();
+}
+```
+
+```json
+{
+$jsonCode
+  "done": true
+}
+```
+
+The quick brown rendering path includes `SelectableText`, `MarkdownBody`,
+`SyntaxHighlighter`, `FilePathSyntax`, and `GoogleSearchSelectionArea`.
+''';
+}
+
+String _heavyCommandOutput(int index, {required int lines}) {
+  return List.generate(
+    lines,
+    (i) =>
+        'lib/features/perf/case_$index/file_$i.dart:${10 + i}: '
+        'Widget rebuild marker ${index + 1}.$i with a fairly long terminal output line and several columns of diagnostic data',
+  ).join('\n');
+}
+
+String _heavyUnifiedDiff(int index, {required int changedLines}) {
+  final lines = <String>[
+    'diff --git a/lib/features/perf/file_$index.dart b/lib/features/perf/file_$index.dart',
+    'index 0000000..1111111 100644',
+    '--- a/lib/features/perf/file_$index.dart',
+    '+++ b/lib/features/perf/file_$index.dart',
+    '@@ -1,$changedLines +1,$changedLines @@',
+  ];
+  for (var i = 0; i < changedLines; i++) {
+    lines
+      ..add(
+        '- old rendering line $i with repeated markdown and command output payload',
+      )
+      ..add(
+        '+ new rendering line $i with repeated markdown and command output payload',
+      );
+  }
+  return lines.join('\n');
+}
 
 /// Generate repeated read→edit→test rounds for long history.
 List<MockStep> _generateLongHistoryRounds(int start, int count) {

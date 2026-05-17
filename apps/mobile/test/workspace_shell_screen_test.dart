@@ -242,6 +242,8 @@ class _StaticMachineManagerService implements MachineManagerService {
   Future<MachineStatus> checkHealth(
     String machineId, {
     Duration timeout = const Duration(seconds: 5),
+    String? password,
+    Future<String?> Function()? promptForPassword,
   }) async {
     for (final status in statuses) {
       if (status.machine.id == machineId) return status.status;
@@ -318,6 +320,19 @@ class _StaticMachineManagerService implements MachineManagerService {
 
   @override
   Future<String> buildWsUrl(String machineId) async => 'ws://127.0.0.1:8765';
+
+  @override
+  Future<String> buildWsUrlWithSshCredentials(
+    String machineId, {
+    String? password,
+    Future<String?> Function()? promptForPassword,
+  }) async => 'ws://127.0.0.1:8765';
+
+  @override
+  void configureBridgeTunnelResolvers({
+    BridgeWsUrlResolver? wsUrlResolver,
+    BridgeHttpBaseUrlResolver? httpBaseUrlResolver,
+  }) {}
 
   @override
   Machine createNew({

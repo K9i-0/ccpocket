@@ -155,6 +155,8 @@ class _StaticMachineManagerService implements MachineManagerService {
   Future<MachineStatus> checkHealth(
     String machineId, {
     Duration timeout = const Duration(seconds: 5),
+    String? password,
+    Future<String?> Function()? promptForPassword,
   }) async => _findStatus(machineId)?.status ?? MachineStatus.unknown;
 
   @override
@@ -223,6 +225,19 @@ class _StaticMachineManagerService implements MachineManagerService {
 
   @override
   Future<String> buildWsUrl(String machineId) async => 'ws://127.0.0.1:8765';
+
+  @override
+  Future<String> buildWsUrlWithSshCredentials(
+    String machineId, {
+    String? password,
+    Future<String?> Function()? promptForPassword,
+  }) async => 'ws://127.0.0.1:8765';
+
+  @override
+  void configureBridgeTunnelResolvers({
+    BridgeWsUrlResolver? wsUrlResolver,
+    BridgeHttpBaseUrlResolver? httpBaseUrlResolver,
+  }) {}
 
   @override
   Machine createNew({
@@ -1338,7 +1353,14 @@ void main() {
         secondCubit.state.gitDiffInteractionMode,
         GitDiffInteractionMode.scrollFirst,
       );
+      expect(secondCubit.state.gitDiffFocusAutoLandscape, isFalse);
+
+      secondCubit.setGitDiffFocusAutoLandscape(true);
       await secondCubit.close();
+
+      final thirdCubit = SettingsCubit(prefs);
+      expect(thirdCubit.state.gitDiffFocusAutoLandscape, isTrue);
+      await thirdCubit.close();
     });
 
     testWidgets('shows mode selector in editor settings', (tester) async {
@@ -1377,6 +1399,20 @@ void main() {
         settingsCubit.state.gitDiffInteractionMode,
         GitDiffInteractionMode.scrollFirst,
       );
+
+      final autoLandscapeToggle = find.byKey(
+        const ValueKey('git_diff_focus_auto_landscape_toggle'),
+      );
+      await tester.ensureVisible(autoLandscapeToggle);
+      await tester.pumpAndSettle();
+
+      expect(find.text(l.gitDiffFocusAutoLandscape), findsOneWidget);
+      expect(autoLandscapeToggle, findsOneWidget);
+
+      await tester.tap(autoLandscapeToggle);
+      await tester.pumpAndSettle();
+
+      expect(settingsCubit.state.gitDiffFocusAutoLandscape, isTrue);
 
       await settingsCubit.close();
       await machineManagerCubit.close();

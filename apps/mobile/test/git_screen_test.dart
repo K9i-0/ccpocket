@@ -243,6 +243,57 @@ void main() {
       );
     });
 
+    testWidgets('focus mode hides project chrome and restores it on exit', (
+      tester,
+    ) async {
+      final bridge = MockBridgeService()..mockDiff = _multiFileDiff;
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        _wrap(const GitScreen(projectPath: '/tmp/project'), bridge: bridge),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('git_focus_button')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('git_focus_button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('git_focus_exit_button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('branch_selector_button')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('unstaged_tab_button')), findsNothing);
+      expect(find.byKey(const ValueKey('staged_tab_button')), findsNothing);
+      expect(find.byKey(const ValueKey('revert_all_button')), findsNothing);
+      expect(find.byKey(const ValueKey('stage_all_button')), findsNothing);
+      expect(find.byKey(const ValueKey('git_file_list_button')), findsNothing);
+      expect(find.text('file_a.dart'), findsWidgets);
+
+      final appBar = tester.widget<AppBar>(find.byType(AppBar));
+      expect(appBar.backgroundColor, Colors.transparent);
+
+      final appBarRect = tester.getRect(find.byType(AppBar));
+      final firstHeaderRect = tester.getRect(
+        find.byKey(const ValueKey('diff_file_header_file_a.dart')),
+      );
+      expect(firstHeaderRect.top, greaterThanOrEqualTo(appBarRect.bottom));
+
+      await tester.tap(find.byKey(const ValueKey('git_focus_exit_button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('branch_selector_button')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('unstaged_tab_button')), findsOneWidget);
+      expect(find.byKey(const ValueKey('stage_all_button')), findsOneWidget);
+    });
+
     testWidgets('shows revert and stage all for unstaged changes', (
       tester,
     ) async {

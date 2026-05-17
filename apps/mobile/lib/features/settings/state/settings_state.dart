@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../models/app_icon.dart';
+import '../../../models/code_font_family.dart';
 import '../../../models/git_diff_interaction_mode.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../models/terminal_app.dart';
@@ -65,12 +66,21 @@ abstract class SettingsState with _$SettingsState {
     /// App-specific multiplier applied on top of the system text scale.
     @Default(1.0) double textScale,
 
+    /// Font size used only for code-oriented surfaces.
+    @Default(12.0) double codeFontSize,
+
+    /// Font family used only for code-oriented surfaces.
+    @Default(CodeFontFamily.jetBrainsMono) CodeFontFamily codeFontFamily,
+
     /// Whether to hide the voice input button in the chat input bar.
     @Default(false) bool hideVoiceInput,
 
     /// How the Git diff screen maps horizontal gestures to actions.
     @Default(GitDiffInteractionMode.quickActions)
     GitDiffInteractionMode gitDiffInteractionMode,
+
+    /// Whether Git diff focus mode should rotate mobile layouts to landscape.
+    @Default(false) bool gitDiffFocusAutoLandscape,
 
     /// Whether to show a subtle badge when the current branch can push/pull.
     @Default(false) bool showRemoteGitStatusBadge,

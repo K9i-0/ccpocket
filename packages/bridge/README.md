@@ -25,6 +25,10 @@ npx @ccpocket/bridge@latest
 # Or install globally
 npm install -g @ccpocket/bridge
 ccpocket-bridge
+
+# Show CLI help or version
+ccpocket-bridge --help
+ccpocket-bridge --version
 ```
 
 ## Configuration
@@ -36,6 +40,8 @@ ccpocket-bridge
 | `BRIDGE_API_KEY` | (none) | API key authentication (enabled when set) |
 | `BRIDGE_ALLOWED_DIRS` | `$HOME` | Comma-separated list of project directories the Bridge may access |
 | `BRIDGE_PUBLIC_WS_URL` | (none) | Public `ws://` / `wss://` URL used for startup deep link and QR code |
+| `BRIDGE_CODEX_APP_SERVER_MODE` | `private` | Experimental Codex app-server mode: `private`, `managed`, or `external` |
+| `BRIDGE_CODEX_SHARED_APP_SERVER_URL` | `ws://127.0.0.1:8767` in `managed` mode | Experimental shared Codex app-server URL for Codex CLI co-presence |
 | `BRIDGE_DEMO_MODE` | (none) | Demo mode: hide Tailscale IPs and API key from QR code / logs |
 | `BRIDGE_RECORDING` | (none) | Enable session recording for debugging (enabled when set) |
 | `BRIDGE_DISABLE_MDNS` | (none) | Disable mDNS auto-discovery advertisement (enabled when set) |
@@ -78,6 +84,41 @@ is reachable through a reverse proxy, tunnel, or public domain.
 
 Without it, the printed QR code is LAN-oriented by default and typically encodes
 something like `ws://192.168.x.x:8765`.
+
+## Experimental: Join a CC Pocket Codex Session from Codex CLI
+
+By default, each Codex session uses a private app-server. To let Codex CLI join
+the same live thread that CC Pocket started, run the Bridge with shared
+app-server mode:
+
+```bash
+BRIDGE_CODEX_APP_SERVER_MODE=managed \
+BRIDGE_CODEX_SHARED_APP_SERVER_URL=ws://127.0.0.1:8767 \
+npx @ccpocket/bridge@latest
+```
+
+Then start or resume a Codex session from CC Pocket. When the session is ready,
+the session screen can copy a session-specific command like:
+
+```bash
+codex resume <thread-id> --remote ws://127.0.0.1:8767
+```
+
+Run that command in a terminal on the same machine as the Bridge. The
+`127.0.0.1` address is for the Mac/Linux machine running the Bridge and Codex
+CLI, not for the phone.
+
+Modes:
+
+- `private`: default behavior. No Codex CLI co-presence.
+- `managed`: Bridge starts one local WebSocket Codex app-server and shares it
+  with Codex CLI.
+- `external`: Bridge connects to an already-running app-server. In this mode,
+  `BRIDGE_CODEX_SHARED_APP_SERVER_URL` is required.
+
+This is experimental and currently targets Codex CLI co-presence only. Codex App
+compatibility is not guaranteed and may use a different integration model in the
+future.
 
 ## Requirements
 

@@ -178,6 +178,45 @@ void main() {
   });
 
   group('NewSessionSheet - worktree UI', () {
+    testWidgets('keyboard dismiss button clears project path focus', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      _enlargeViewport(tester);
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                showNewSessionSheet(
+                  context: context,
+                  recentProjects: [
+                    (path: '/Users/me/Workspace/main', name: 'main'),
+                  ],
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('dialog_project_path')));
+      await tester.pumpAndSettle();
+
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      await tester.tap(
+        find.byKey(const ValueKey('new_session_dismiss_keyboard_button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.testTextInput.isVisible, isFalse);
+    });
+
     testWidgets(
       'additional writable root free input is saved as a suggestion',
       (tester) async {

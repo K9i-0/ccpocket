@@ -95,4 +95,29 @@ describe("PushRelayClient", () => {
 
     expect(mockAuth.getIdToken).toHaveBeenCalledTimes(2);
   });
+
+  it("uses the current Firebase UID after refreshing the ID token", async () => {
+    const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
+    let uid = "old-uid";
+    const mockAuth = {
+      get uid() {
+        return uid;
+      },
+      getIdToken: vi.fn(async () => {
+        uid = "new-uid";
+        return "new-id-token";
+      }),
+      initialize: vi.fn(async () => {}),
+    } as unknown as FirebaseAuthClient;
+    const client = new PushRelayClient({
+      firebaseAuth: mockAuth,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    await client.registerToken("token-1", "ios");
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    expect(body.bridgeId).toBe("new-uid");
+  });
 });

@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Codex Remote Control for iPhone, Android, iPad, and Mac | CC Pocket</title>
+  <meta name="description" content="CC Pocket is a self-hosted Codex remote control app for iPhone, Android, iPad, and Mac. Start Codex sessions, approve commands, answer questions, and review diffs from your phone.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://k9i-0.github.io/ccpocket/codex-remote-control/">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://k9i-0.github.io/ccpocket/codex-remote-control/">
+  <meta property="og:title" content="Codex Remote Control for iPhone, Android, iPad, and Mac">
+  <meta property="og:description" content="Use CC Pocket to control OpenAI Codex from your phone while Codex keeps running on your own Mac or Linux machine.">
+  <meta property="og:image" content="https://k9i-0.github.io/ccpocket/images/screenshots.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Codex Remote Control for iPhone, Android, iPad, and Mac">
+  <meta name="twitter:description" content="A self-hosted mobile remote control for OpenAI Codex sessions.">
+  <meta name="twitter:image" content="https://k9i-0.github.io/ccpocket/images/screenshots.png">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "CC Pocket",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "iOS, iPadOS, Android, macOS",
+      "description": "CC Pocket is a self-hosted Codex remote control app for starting, monitoring, and reviewing OpenAI Codex sessions from a phone, tablet, or Mac.",
+      "url": "https://k9i-0.github.io/ccpocket/codex-remote-control/",
+      "image": "https://k9i-0.github.io/ccpocket/images/screenshots.png",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "5.0",
+        "ratingCount": "5"
+      }
+    }
+  </script>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Can I remote control Codex from my phone?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. CC Pocket connects your phone to a self-hosted Bridge Server on the Mac or Linux machine where Codex runs, so you can start sessions, monitor progress, approve actions, and review diffs from mobile."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Codex keep running on my own machine?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Codex runs on your own Mac or Linux machine. CC Pocket is the remote control surface, and the Bridge Server connects the mobile app to your local coding-agent setup."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is CC Pocket a remote desktop app?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. CC Pocket is not a remote desktop. It gives you a mobile-first interface for coding-agent sessions, approvals, questions, file browsing, Git diffs, and Git actions."
+          }
+        }
+      ]
+    }
+  </script>
+  <style>
+    :root {
+      --accent: #5fe0cf;
+      --accent-strong: #8fb6ff;
+      --bg: #050506;
+      --panel: #0d0f12;
+      --panel-2: #11151b;
+      --border: #252b35;
+      --text: #f5f7fb;
+      --muted: #a9b2c0;
+      --soft: #d9dee8;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    img { max-width: 100%; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(95, 224, 207, 0.16), transparent 30rem),
+        radial-gradient(circle at 92% 18%, rgba(143, 182, 255, 0.13), transparent 28rem),
+        var(--bg);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    a { color: var(--accent); }
+    .page {
+      width: min(1120px, calc(100% - 40px));
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 0 72px;
+      overflow-x: hidden;
+    }
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 72px;
+    }
+    .brand, .nav a {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 800;
+    }
+    .nav-links {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+    }
+    .nav-pill {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 13px;
+      color: var(--muted);
+      font-weight: 700;
+      min-width: 0;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(330px, 0.95fr);
+      gap: 44px;
+      align-items: center;
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-weight: 800;
+      margin: 0 0 14px;
+      text-transform: uppercase;
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+    }
+    h1 {
+      font-size: clamp(3rem, 7vw, 5.7rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+      margin: 0 0 24px;
+      max-width: 900px;
+    }
+    .lead {
+      color: var(--soft);
+      font-size: 1.18rem;
+      max-width: 760px;
+      margin: 0 0 30px;
+    }
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 11px 17px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #031111;
+      text-decoration: none;
+      font-weight: 900;
+    }
+    .button.secondary {
+      background: rgba(13, 15, 18, 0.8);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .trust-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.94rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .trust-row li {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(13, 15, 18, 0.62);
+      padding: 8px 10px;
+    }
+    .hero-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(13, 15, 18, 0.78);
+      padding: 16px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+      overflow: hidden;
+    }
+    .hero-card img {
+      width: 100%;
+      display: block;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .caption {
+      color: var(--muted);
+      margin: 12px 2px 0;
+      font-size: 0.94rem;
+    }
+    section {
+      border-top: 1px solid var(--border);
+      padding-top: 44px;
+      margin-top: 58px;
+    }
+    .section-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+      gap: 32px;
+      align-items: start;
+    }
+    h2 {
+      font-size: clamp(2rem, 4vw, 3.1rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+      margin: 0 0 14px;
+    }
+    h3 {
+      margin: 0 0 8px;
+      font-size: 1.08rem;
+    }
+    p, li { color: var(--muted); }
+    .section-copy {
+      font-size: 1.04rem;
+      margin: 0;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .card {
+      min-height: 190px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(13, 15, 18, 0.72);
+      padding: 20px;
+    }
+    .card p {
+      margin: 0;
+    }
+    .steps {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 18px;
+    }
+    .step-num {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: #031111;
+      background: var(--accent);
+      font-weight: 900;
+    }
+    .step p {
+      margin: 0;
+    }
+    code {
+      color: var(--accent-strong);
+      background: #07090c;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px 6px;
+      white-space: nowrap;
+    }
+    .review-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+    .rating-card, .quote-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-2);
+      padding: 22px;
+    }
+    .rating {
+      font-size: 3rem;
+      line-height: 1;
+      color: var(--text);
+      font-weight: 900;
+      margin: 0 0 8px;
+    }
+    blockquote {
+      margin: 0;
+      color: var(--soft);
+      font-size: 1.35rem;
+      line-height: 1.35;
+      font-weight: 800;
+    }
+    .quote-card footer {
+      color: var(--muted);
+      margin-top: 14px;
+    }
+    .compare {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .compare th, .compare td {
+      text-align: left;
+      vertical-align: top;
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .compare th {
+      color: var(--text);
+      background: #10141a;
+    }
+    .compare tr:last-child td {
+      border-bottom: 0;
+    }
+    details {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 16px 18px;
+    }
+    details + details { margin-top: 10px; }
+    summary {
+      cursor: pointer;
+      color: var(--text);
+      font-weight: 800;
+    }
+    details p {
+      margin: 10px 0 0;
+    }
+    .final-cta {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(95, 224, 207, 0.13), rgba(143, 182, 255, 0.1));
+      padding: 24px;
+    }
+    .final-cta h2 {
+      font-size: clamp(1.8rem, 4vw, 2.7rem);
+      margin-bottom: 8px;
+    }
+    .final-cta p {
+      margin: 0;
+    }
+    .footnote {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-top: 34px;
+    }
+    @media (max-width: 900px) {
+      .hero, .section-grid, .review-panel, .final-cta {
+        grid-template-columns: 1fr;
+      }
+      .hero > *, .section-grid > *, .review-panel > *, .final-cta > * {
+        min-width: 0;
+      }
+      .nav {
+        margin-bottom: 52px;
+      }
+      .card-grid {
+        grid-template-columns: 1fr;
+      }
+      .card {
+        min-height: auto;
+      }
+    }
+    @media (max-width: 620px) {
+      .page {
+        width: calc(100vw - 28px);
+        padding-top: 20px;
+      }
+      .nav {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .nav-links {
+        width: 100%;
+      }
+      .nav-pill {
+        flex: 1 1 0;
+        text-align: center;
+      }
+      .hero-card, .rating-card, .quote-card, details, .card, .step, .final-cta {
+        max-width: 100%;
+      }
+      h1, h2, h3, p, li, blockquote, td, th {
+        overflow-wrap: anywhere;
+      }
+      h1 {
+        font-size: 3rem;
+      }
+      .trust-row li {
+        width: 100%;
+      }
+      .compare {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="nav" aria-label="Navigation">
+      <a class="brand" href="../install/">CC Pocket</a>
+      <div class="nav-links">
+        <a class="nav-pill" href="../install/">Install</a>
+        <a class="nav-pill" href="https://github.com/K9i-0/ccpocket">GitHub</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Codex remote control</p>
+        <h1>Codex remote control for your phone.</h1>
+        <p class="lead">
+          CC Pocket is a self-hosted remote control for OpenAI Codex. Start coding-agent sessions from iPhone, Android, iPad, or Mac, then approve commands, answer questions, browse files, and review diffs while Codex keeps running on your own machine.
+        </p>
+        <div class="cta-row">
+          <a class="button" href="../install/">Install CC Pocket</a>
+          <a class="button secondary" href="https://github.com/K9i-0/ccpocket">View the source</a>
+        </div>
+        <ul class="trust-row" aria-label="Highlights">
+          <li>Self-hosted Bridge Server</li>
+          <li>iPhone, iPad, Android, and macOS</li>
+          <li>Built for Codex approvals and Git review</li>
+        </ul>
+      </div>
+      <aside class="hero-card">
+        <img src="../images/screenshots.png" alt="CC Pocket showing Codex sessions, approvals, and coding-agent activity on mobile">
+        <p class="caption">Codex runs on your Mac or Linux machine. CC Pocket gives you the mobile controls.</p>
+      </aside>
+    </header>
+
+    <section class="section-grid" aria-labelledby="why-remote-control">
+      <div>
+        <p class="eyebrow">Why it matters</p>
+        <h2 id="why-remote-control">Codex should not stop just because you left your desk.</h2>
+      </div>
+      <p class="section-copy">
+        Coding agents are useful when they can keep working through build steps, permission requests, plan updates, and review loops. The problem is that many of those moments still need a human decision. CC Pocket turns your phone into the decision surface, so a Codex session can keep moving while your development machine stays in charge.
+      </p>
+    </section>
+
+    <section aria-labelledby="what-you-can-do">
+      <p class="eyebrow">Mobile-first controls</p>
+      <h2 id="what-you-can-do">What you can do with a Codex remote control</h2>
+      <div class="card-grid">
+        <article class="card">
+          <h3>Start Codex remotely</h3>
+          <p>Pick a project, choose a Codex mode, and start a fresh session from the app instead of opening a terminal first.</p>
+        </article>
+        <article class="card">
+          <h3>Approve without context switching</h3>
+          <p>Review shell commands, file edits, MCP requests, and agent questions from a touch-first approval flow.</p>
+        </article>
+        <article class="card">
+          <h3>Review the actual work</h3>
+          <p>Browse files, inspect syntax-highlighted Git diffs, preview image diffs, stage changes, commit, push, or revert.</p>
+        </article>
+        <article class="card">
+          <h3>Keep multiple sessions visible</h3>
+          <p>Watch session state and pending approvals across projects, machines, and long-running agent work.</p>
+        </article>
+        <article class="card">
+          <h3>Use richer mobile prompts</h3>
+          <p>Write with Markdown, completions, voice input, and image attachments when visual context matters.</p>
+        </article>
+        <article class="card">
+          <h3>Stay resilient on mobile networks</h3>
+          <p>Recover missed streaming updates, queue outgoing messages while offline, and reconnect cleanly.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-grid" aria-labelledby="how-it-works">
+      <div>
+        <p class="eyebrow">Self-hosted by design</p>
+        <h2 id="how-it-works">How CC Pocket remote control works</h2>
+      </div>
+      <ol class="steps">
+        <li class="step">
+          <span class="step-num">1</span>
+          <div>
+            <h3>Run Codex where your code already lives</h3>
+            <p>Install and sign in to OpenAI Codex on your Mac or Linux development machine.</p>
+          </div>
+        </li>
+        <li class="step">
+          <span class="step-num">2</span>
+          <div>
+            <h3>Start the Bridge Server</h3>
+            <p>Run <code>npx @ccpocket/bridge@latest</code>. Bridge prints a QR code and connects the app to your local agent setup.</p>
+          </div>
+        </li>
+        <li class="step">
+          <span class="step-num">3</span>
+          <div>
+            <h3>Control Codex from mobile</h3>
+            <p>Install CC Pocket, scan the QR code, choose a project, and start or resume Codex sessions from your phone, tablet, or Mac.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="section-grid" aria-labelledby="remote-access">
+      <div>
+        <p class="eyebrow">Remote access</p>
+        <h2 id="remote-access">Use local Wi-Fi, Tailscale, or your own secure network path.</h2>
+      </div>
+      <p class="section-copy">
+        On the same network, CC Pocket can connect by QR code, mDNS discovery, or a manual WebSocket URL. Away from home or the office, Tailscale is the recommended setup because it keeps the Bridge Server private while letting your phone reach the host machine. Advanced setups can also use saved machines and SSH-managed hosts.
+      </p>
+    </section>
+
+    <section aria-labelledby="reviews">
+      <p class="eyebrow">What developers are saying</p>
+      <h2 id="reviews">Early App Store reviews are direct.</h2>
+      <div class="review-panel">
+        <article class="rating-card">
+          <p class="rating">5.0</p>
+          <p>US App Store rating from 5 reviews, listed under Developer Tools.</p>
+          <p><a href="https://apps.apple.com/us/app/cc-pocket-code-anywhere/id6759188790">See CC Pocket on the App Store</a></p>
+        </article>
+        <article class="quote-card">
+          <blockquote>"The best remote coding APP"</blockquote>
+          <footer>
+            App Store review headline. Another reviewer called it the "absolute best mobile app for codex and claude."
+          </footer>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="comparison">
+      <p class="eyebrow">Product fit</p>
+      <h2 id="comparison">How CC Pocket differs from a terminal or remote desktop</h2>
+      <table class="compare">
+        <thead>
+          <tr>
+            <th>Need</th>
+            <th>Generic remote access</th>
+            <th>CC Pocket</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Start a Codex session</td>
+            <td>Open a shell or remote desktop first.</td>
+            <td>Start from a mobile project picker built for coding agents.</td>
+          </tr>
+          <tr>
+            <td>Approve commands</td>
+            <td>Read terminal text and type responses manually.</td>
+            <td>Use approval cards for commands, edits, MCP tools, and questions.</td>
+          </tr>
+          <tr>
+            <td>Review changes</td>
+            <td>Switch to Git tools or your editor.</td>
+            <td>Inspect diffs, image diffs, file contents, and Git actions in the app.</td>
+          </tr>
+          <tr>
+            <td>Work from mobile</td>
+            <td>Desktop UI squeezed onto a small screen.</td>
+            <td>Native mobile UI for monitoring, prompting, approving, and reviewing.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section aria-labelledby="faq">
+      <p class="eyebrow">FAQ</p>
+      <h2 id="faq">Codex remote control questions</h2>
+      <details open>
+        <summary>Can I remote control Codex from my phone?</summary>
+        <p>Yes. CC Pocket connects your phone to a self-hosted Bridge Server on the machine where Codex runs, so you can start sessions, monitor progress, approve actions, and review diffs from mobile.</p>
+      </details>
+      <details>
+        <summary>Does Codex keep running on my own machine?</summary>
+        <p>Yes. Codex runs on your Mac or Linux machine. CC Pocket is the remote control surface, and the Bridge Server connects the app to your local coding-agent setup.</p>
+      </details>
+      <details>
+        <summary>Is CC Pocket a remote desktop app?</summary>
+        <p>No. CC Pocket is not a remote desktop. It is a mobile-first interface for coding-agent sessions, approvals, questions, file browsing, Git diffs, and Git actions.</p>
+      </details>
+      <details>
+        <summary>Can I use it for Claude Code too?</summary>
+        <p>Yes. CC Pocket supports OpenAI Codex and Claude Code through the same self-hosted Bridge Server workflow.</p>
+      </details>
+    </section>
+
+    <section class="final-cta" aria-labelledby="install">
+      <div>
+        <h2 id="install">Start remote-controlling Codex in a few minutes.</h2>
+        <p>Install the app, run the Bridge Server, scan the QR code, and start your first Codex session from your phone.</p>
+      </div>
+      <a class="button" href="../install/">Install CC Pocket</a>
+    </section>
+
+    <p class="footnote">
+      CC Pocket is not affiliated with, endorsed by, or associated with Anthropic, OpenAI, or Apple. App Store review information was checked on May 9, 2026.
+    </p>
+  </main>
+</body>
+</html>

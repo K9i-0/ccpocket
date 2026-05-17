@@ -1,4 +1,4 @@
-• Codex Plan 更新现在会以清单形式显示。
-• 支持 SSH 跳板机连接。
-• 在模型选择中重新加入 Claude Opus 4.5。
-• 进行了小幅修复并提升了稳定性。
+• 将 Codex 会话权限模式与官方 Codex 应用保持一致，包括 Auto-review、Full access 以及基于配置的 Custom。
+• 当多个客户端打开同一个 Codex 会话时，来自其他客户端发送的消息也会正确同步。
+• 当 Codex CLI 不可用时，会显示更清晰的设置指引。
+• 改进了聊天消息中的 Markdown 强调样式。

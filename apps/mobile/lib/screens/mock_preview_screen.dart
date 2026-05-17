@@ -98,64 +98,49 @@ class _ScenariosTab extends StatelessWidget {
   }
 
   void _launchScenario(BuildContext context, MockScenario scenario) {
-    if (scenario == imageDiffScenario) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const _MockImageDiffWrapper()),
-      );
-      return;
-    }
-    if (scenario == storeDiffLineNumberScenario) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const _StoreLineNumberDiffWrapper()),
-      );
-      return;
-    }
-    if (scenario.section == MockScenarioSection.storeScreenshot) {
-      _launchStoreScenario(context, scenario);
-    } else if (scenario == sessionListNewSession20Projects) {
-      final draftService = context.read<DraftService>();
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              _MockNewSession20ProjectsWrapper(draftService: draftService),
-        ),
-      );
-    } else if (scenario.section == MockScenarioSection.sessionList) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _MockSessionListWrapper(scenario: scenario),
-        ),
-      );
-    } else if (scenario.section == MockScenarioSection.supporter) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => scenario == settingsSupportEntriesPreview
-              ? const _MockSupporterSettingsComparisonWrapper()
-              : _MockSupporterScreenWrapper(scenario: scenario),
-        ),
-      );
-    } else {
-      final mockService = MockBridgeService();
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              _MockChatWrapper(mockService: mockService, scenario: scenario),
-        ),
-      );
+    final route = buildMockScenarioRoute(context, scenario);
+    if (route != null) {
+      Navigator.push(context, route);
     }
   }
+}
 
-  void _launchStoreScenario(BuildContext context, MockScenario scenario) {
+Route<void>? buildMockScenarioRoute(
+  BuildContext context,
+  MockScenario scenario,
+) {
+  if (scenario == imageDiffScenario) {
+    return MaterialPageRoute(builder: (_) => const _MockImageDiffWrapper());
+  }
+  if (scenario == storeDiffLineNumberScenario) {
+    return MaterialPageRoute(
+      builder: (_) => const _StoreLineNumberDiffWrapper(),
+    );
+  }
+  if (scenario.section == MockScenarioSection.storeScreenshot) {
     final draftService = context.read<DraftService>();
-    Navigator.push(
-      context,
-      buildStoreScenarioRoute(scenario.name, draftService),
+    return buildStoreScenarioRoute(scenario.name, draftService);
+  } else if (scenario == sessionListNewSession20Projects) {
+    final draftService = context.read<DraftService>();
+    return MaterialPageRoute(
+      builder: (_) =>
+          _MockNewSession20ProjectsWrapper(draftService: draftService),
+    );
+  } else if (scenario.section == MockScenarioSection.sessionList) {
+    return MaterialPageRoute(
+      builder: (_) => _MockSessionListWrapper(scenario: scenario),
+    );
+  } else if (scenario.section == MockScenarioSection.supporter) {
+    return MaterialPageRoute(
+      builder: (_) => scenario == settingsSupportEntriesPreview
+          ? const _MockSupporterSettingsComparisonWrapper()
+          : _MockSupporterScreenWrapper(scenario: scenario),
+    );
+  } else {
+    final mockService = MockBridgeService();
+    return MaterialPageRoute(
+      builder: (_) =>
+          _MockChatWrapper(mockService: mockService, scenario: scenario),
     );
   }
 }

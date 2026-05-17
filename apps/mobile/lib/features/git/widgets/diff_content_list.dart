@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../../../models/git_diff_interaction_mode.dart';
+import '../../../theme/code_text_style.dart';
 import '../../../utils/diff_parser.dart';
 import 'diff_binary_notice.dart';
 import 'diff_file_header.dart';
@@ -28,6 +29,7 @@ class DiffContentList extends StatelessWidget {
   final bool lineWrapEnabled;
   final GitDiffInteractionMode interactionMode;
   final Set<String> stagedFilePaths;
+  final EdgeInsetsGeometry padding;
 
   const DiffContentList({
     super.key,
@@ -48,6 +50,7 @@ class DiffContentList extends StatelessWidget {
     this.lineWrapEnabled = false,
     this.interactionMode = GitDiffInteractionMode.quickActions,
     this.stagedFilePaths = const {},
+    this.padding = const EdgeInsets.symmetric(vertical: 8),
   });
 
   FileStageStatus _stageStatusFor(DiffFile file) {
@@ -59,6 +62,7 @@ class DiffContentList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final codeSettings = codeTextSettingsOf(context);
     // Single-file mode: show file header + hunks (no filter/divider)
     if (files.length == 1) {
       final file = files.first;
@@ -75,27 +79,31 @@ class DiffContentList extends StatelessWidget {
       }
       return ListView(
         controller: scrollController,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [_buildFileSection(0, file)],
+        padding: padding,
+        children: [_buildFileSection(0, file, codeSettings)],
       );
     }
 
     // Multi-file mode: all visible files in one scrollable list
     return ListView.builder(
       controller: scrollController,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: padding,
       itemCount: files.length * 2 - 1,
       itemBuilder: (context, index) {
         if (index.isOdd) {
           return const Divider(height: 24, thickness: 1);
         }
         final fileIdx = index ~/ 2;
-        return _buildFileSection(fileIdx, files[fileIdx]);
+        return _buildFileSection(fileIdx, files[fileIdx], codeSettings);
       },
     );
   }
 
-  Widget _buildFileSection(int fileIdx, DiffFile file) {
+  Widget _buildFileSection(
+    int fileIdx,
+    DiffFile file,
+    CodeTextSettings codeSettings,
+  ) {
     final collapsed = collapsedFileIndices.contains(fileIdx);
     Widget header = DiffFileHeader(
       file: file,
@@ -132,7 +140,7 @@ class DiffContentList extends StatelessWidget {
               else
                 const DiffBinaryNotice()
             else
-              ..._buildHunkWidgets(fileIdx, file),
+              ..._buildHunkWidgets(fileIdx, file, codeSettings),
         ],
       ),
     );
@@ -154,14 +162,19 @@ class DiffContentList extends StatelessWidget {
     return section;
   }
 
-  List<Widget> _buildHunkWidgets(int fileIdx, DiffFile file) {
-    final lineNumberWidth = calcLineNumberWidth(file);
+  List<Widget> _buildHunkWidgets(
+    int fileIdx,
+    DiffFile file,
+    CodeTextSettings codeSettings,
+  ) {
+    final lineNumberWidth = calcLineNumberWidth(file, codeSettings);
     return [
       for (var hunkIdx = 0; hunkIdx < file.hunks.length; hunkIdx++)
         DiffHunkWidget(
           hunk: file.hunks[hunkIdx],
           lineNumberWidth: lineNumberWidth,
           dismissKey: '${file.filePath}:$hunkIdx',
+          codeSettings: codeSettings,
           lineWrapEnabled: lineWrapEnabled,
           interactionMode: interactionMode,
           onLongPress: onLongPressHunk != null

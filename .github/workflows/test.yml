@@ -42,6 +42,17 @@ jobs:
           CCPOCKET_SSH_JUMP_PORT: "22220"
           CCPOCKET_SSH_USERNAME: ccpocket
           CCPOCKET_SSH_PASSWORD: ccpocket
+      - name: Run SSH Bridge tunnel smoke test
+        run: flutter test test/ssh_bridge_tunnel_smoke_test.dart
+        working-directory: apps/mobile
+        env:
+          CCPOCKET_SSH_BRIDGE_TUNNEL_SMOKE: "1"
+          CCPOCKET_BRIDGE_TARGET_HOST: target-sshd
+          CCPOCKET_BRIDGE_TARGET_PORT: "8765"
+          CCPOCKET_SSH_JUMP_HOST: 127.0.0.1
+          CCPOCKET_SSH_JUMP_PORT: "22220"
+          CCPOCKET_SSH_USERNAME: ccpocket
+          CCPOCKET_SSH_PASSWORD: ccpocket
       - name: Run SSH private key smoke test
         run: flutter test test/ssh_private_key_smoke_test.dart
         working-directory: apps/mobile

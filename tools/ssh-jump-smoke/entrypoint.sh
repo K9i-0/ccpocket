@@ -8,4 +8,6 @@ if [ -s /run/ccpocket-smoke/id_ed25519.pub ]; then
   chmod 600 /home/ccpocket/.ssh/authorized_keys
 fi
 
+node /bridge-smoke-server.mjs &
+
 exec /usr/sbin/sshd -D -e

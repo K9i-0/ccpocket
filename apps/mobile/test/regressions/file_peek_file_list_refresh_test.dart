@@ -12,6 +12,7 @@ import 'package:ccpocket/services/draft_service.dart';
 import 'package:ccpocket/services/prompt_history_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -267,6 +268,105 @@ void main() {
       );
       expect(find.byKey(const ValueKey('appbar_view_changes')), findsOneWidget);
       expect(bridge.requestedFileLists, contains('/tmp/project'));
+    });
+
+    testWidgets('Codex copies the join command for the current session only', (
+      tester,
+    ) async {
+      final bridge = _RecordingBridgeService();
+      addTearDown(bridge.dispose);
+      String? clipboardText;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            final args = call.arguments as Map<Object?, Object?>;
+            clipboardText = args['text'] as String?;
+            return null;
+          }
+          if (call.method == 'Clipboard.getData') {
+            return {'text': clipboardText};
+          }
+          return null;
+        },
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+
+      await tester.pumpWidget(
+        await _wrap(
+          const CodexSessionScreen(sessionId: 'codex-session'),
+          bridge,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('appbar_copy_codex_join_button')),
+        findsNothing,
+      );
+
+      bridge.emitMessage(
+        const SystemMessage(
+          subtype: 'init',
+          provider: 'codex',
+          sessionId: 'other-session',
+          codexCliJoin: CodexCliJoinTarget(
+            url: 'ws://127.0.0.1:8767',
+            command: 'codex resume first-thread --remote ws://127.0.0.1:8767',
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('appbar_copy_codex_join_button')),
+        findsNothing,
+      );
+
+      bridge.emitMessage(
+        const SystemMessage(
+          subtype: 'init',
+          provider: 'codex',
+          sessionId: 'codex-session',
+          codexCliJoin: CodexCliJoinTarget(
+            url: 'ws://127.0.0.1:8767',
+            command: 'codex resume second-thread --remote ws://127.0.0.1:8767',
+          ),
+        ),
+        sessionId: 'codex-session',
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('appbar_copy_codex_join_button')),
+        findsNothing,
+      );
+
+      bridge.emitMessage(
+        const UserInputMessage(text: 'hello'),
+        sessionId: 'codex-session',
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('appbar_copy_codex_join_button')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('appbar_copy_codex_join_button')),
+      );
+      await tester.pump();
+
+      expect(
+        clipboardText,
+        'codex resume second-thread --remote ws://127.0.0.1:8767',
+      );
     });
   });
 }

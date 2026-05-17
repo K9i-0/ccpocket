@@ -62,6 +62,12 @@ void main() {
       expect(suffixes, contains('main.dart'));
       expect(suffixes, contains('pubspec.yaml'));
     });
+
+    test('ignores directory mention candidates', () {
+      final suffixes = FilePathSyntax.buildSuffixSet(['lib/', 'lib/main.dart']);
+      expect(suffixes, isNot(contains('lib/')));
+      expect(suffixes, contains('lib/main.dart'));
+    });
   });
 
   group('FilePathSyntax detection', () {

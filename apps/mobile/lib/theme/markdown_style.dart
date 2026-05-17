@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:highlight/highlight.dart' as hl;
 import 'package:markdown/markdown.dart' as md;
 import 'package:syntax_highlight/syntax_highlight.dart';
@@ -10,8 +12,52 @@ import '../core/logger.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/google_search_text_selection.dart';
 import 'app_theme.dart';
+import 'code_text_style.dart';
 
 final _syntaxHighlight = _SyntaxHighlightRegistry();
+final markdownPerformanceProbe = MarkdownPerformanceProbe();
+final _highlightCache = _HighlightSpanCache(maxEntries: 80);
+
+const _maxHighlightedCodeBlockChars = 1800;
+
+class MarkdownPerformanceProbe {
+  var codeBlockBuilds = 0;
+  var codeBlockBuildMicros = 0;
+  var highlightCalls = 0;
+  var highlightMicros = 0;
+  var highlightCacheHits = 0;
+  var highlightSkipped = 0;
+
+  void reset() {
+    codeBlockBuilds = 0;
+    codeBlockBuildMicros = 0;
+    highlightCalls = 0;
+    highlightMicros = 0;
+    highlightCacheHits = 0;
+    highlightSkipped = 0;
+  }
+
+  Map<String, Object?> summary() {
+    return {
+      'codeBlockBuilds': codeBlockBuilds,
+      'codeBlockBuildMs': _roundMs(codeBlockBuildMicros),
+      'avgCodeBlockBuildMs': codeBlockBuilds == 0
+          ? 0
+          : _roundMs(codeBlockBuildMicros / codeBlockBuilds),
+      'highlightCalls': highlightCalls,
+      'highlightMs': _roundMs(highlightMicros),
+      'avgHighlightMs': highlightCalls == 0
+          ? 0
+          : _roundMs(highlightMicros / highlightCalls),
+      'highlightCacheHits': highlightCacheHits,
+      'highlightSkipped': highlightSkipped,
+    };
+  }
+
+  double _roundMs(num micros) {
+    return (micros / 1000 * 10).roundToDouble() / 10;
+  }
+}
 
 Future<void> initializeMarkdownSyntaxHighlight() async {
   await _syntaxHighlight.initialize();
@@ -35,13 +81,19 @@ MarkdownStyleSheet buildMarkdownStyle(BuildContext context) {
   final appColors = Theme.of(context).extension<AppColors>()!;
   final theme = Theme.of(context);
   final baseStyle = theme.textTheme.bodyMedium ?? const TextStyle();
+  final codeSettings = codeTextSettingsOf(context);
 
   return MarkdownStyleSheet.fromTheme(theme).copyWith(
     p: baseStyle,
-    code: baseStyle.copyWith(
-      fontFamily: 'monospace',
-      fontSize: 13,
-      backgroundColor: appColors.codeBackground,
+    strong: GoogleFonts.ibmPlexSans(
+      textStyle: baseStyle,
+      fontWeight: FontWeight.w700,
+    ),
+    em: baseStyle.copyWith(fontStyle: FontStyle.italic),
+    code: codeSettings.style(
+      color: baseStyle.color,
+      fontWeight: FontWeight.w600,
+      backgroundColor: Colors.transparent,
     ),
     codeblockDecoration: BoxDecoration(
       color: appColors.codeBackground,
@@ -101,12 +153,9 @@ class ColorCodeBuilder extends MarkdownElementBuilder {
     final color = _parseHexColor(colorHex);
     if (color == null) return null;
 
-    final appColors = Theme.of(context).extension<AppColors>()!;
-    final codeStyle = (preferredStyle ?? const TextStyle()).copyWith(
-      fontFamily: 'monospace',
-      fontSize: 13,
-      backgroundColor: appColors.codeBackground,
-    );
+    final codeStyle = codeTextSettingsOf(
+      context,
+    ).style(color: preferredStyle?.color, backgroundColor: Colors.transparent);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -152,6 +201,7 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
+    final buildWatch = kDebugMode ? (Stopwatch()..start()) : null;
     final codeElement = element.children
         ?.whereType<md.Element>()
         .cast<md.Element?>()
@@ -167,15 +217,26 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
     final hasExplicitLanguage = language != null;
 
     final appColors = Theme.of(context).extension<AppColors>()!;
-    final baseStyle = (preferredStyle ?? const TextStyle()).copyWith(
-      fontFamily: 'monospace',
-      fontSize: 13,
-      height: 1.45,
-      color: Theme.of(context).colorScheme.onSurface,
+    final baseStyle = codeTextSettingsOf(
+      context,
+    ).style(height: 1.45, color: Theme.of(context).colorScheme.onSurface);
+    final highlightedSpans = highlightToTextSpans(
+      context: context,
+      source: source,
+      baseStyle: baseStyle,
+      language: language,
     );
+    if (buildWatch != null) {
+      buildWatch.stop();
+      markdownPerformanceProbe
+        ..codeBlockBuilds += 1
+        ..codeBlockBuildMicros += buildWatch.elapsedMicroseconds;
+    }
 
     return Container(
-      key: ValueKey('code_block_container_${displayLanguage}_$source'),
+      key: ValueKey(
+        'code_block_container_${displayLanguage}_${source.length}_${source.hashCode}',
+      ),
       width: double.infinity,
       decoration: BoxDecoration(
         color: appColors.codeBackground,
@@ -197,15 +258,7 @@ class FencedCodeBlockBuilder extends MarkdownElementBuilder {
                 12,
               ),
               child: SelectableText.rich(
-                TextSpan(
-                  style: baseStyle,
-                  children: highlightToTextSpans(
-                    context: context,
-                    source: source,
-                    baseStyle: baseStyle,
-                    language: language,
-                  ),
-                ),
+                TextSpan(style: baseStyle, children: highlightedSpans),
                 contextMenuBuilder:
                     googleSearchSelectableTextContextMenuBuilder,
               ),
@@ -292,8 +345,37 @@ List<TextSpan> highlightToTextSpans({
   required TextStyle baseStyle,
   required String? language,
 }) {
-  if (language == null) {
+  if (source.length > _maxHighlightedCodeBlockChars) {
+    if (kDebugMode) markdownPerformanceProbe.highlightSkipped += 1;
     return [TextSpan(text: source, style: baseStyle)];
+  }
+
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final cacheKey = _HighlightCacheKey(
+    language: language ?? 'text',
+    source: source,
+    brightness: isDark ? Brightness.dark : Brightness.light,
+  );
+  final cached = _highlightCache.get(cacheKey);
+  if (cached != null) {
+    if (kDebugMode) markdownPerformanceProbe.highlightCacheHits += 1;
+    return cached;
+  }
+
+  final watch = kDebugMode ? (Stopwatch()..start()) : null;
+  List<TextSpan> finish(List<TextSpan> spans) {
+    if (watch != null) {
+      watch.stop();
+      markdownPerformanceProbe
+        ..highlightCalls += 1
+        ..highlightMicros += watch.elapsedMicroseconds;
+    }
+    _highlightCache.put(cacheKey, spans);
+    return spans;
+  }
+
+  if (language == null) {
+    return finish([TextSpan(text: source, style: baseStyle)]);
   }
 
   TextSpan? editorStyleSpan;
@@ -313,7 +395,7 @@ List<TextSpan> highlightToTextSpans({
     );
   }
   if (editorStyleSpan != null) {
-    return [editorStyleSpan];
+    return finish([editorStyleSpan]);
   }
 
   hl.Result? result;
@@ -324,13 +406,15 @@ List<TextSpan> highlightToTextSpans({
   }
 
   if (result == null || result.nodes == null || result.nodes!.isEmpty) {
-    return [TextSpan(text: source, style: baseStyle)];
+    return finish([TextSpan(text: source, style: baseStyle)]);
   }
 
-  return _nodesToTextSpans(
-    context: context,
-    nodes: result.nodes!,
-    baseStyle: baseStyle,
+  return finish(
+    _nodesToTextSpans(
+      context: context,
+      nodes: result.nodes!,
+      baseStyle: baseStyle,
+    ),
   );
 }
 
@@ -416,6 +500,51 @@ TextStyle _styleForHighlightClass(
     return baseStyle.copyWith(color: cs.secondary, fontWeight: FontWeight.w500);
   }
   return baseStyle;
+}
+
+class _HighlightCacheKey {
+  final String language;
+  final String source;
+  final Brightness brightness;
+
+  const _HighlightCacheKey({
+    required this.language,
+    required this.source,
+    required this.brightness,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    return other is _HighlightCacheKey &&
+        other.language == language &&
+        other.source == source &&
+        other.brightness == brightness;
+  }
+
+  @override
+  int get hashCode => Object.hash(language, source, brightness);
+}
+
+class _HighlightSpanCache {
+  final int maxEntries;
+  final Map<_HighlightCacheKey, List<TextSpan>> _entries = {};
+
+  _HighlightSpanCache({required this.maxEntries});
+
+  List<TextSpan>? get(_HighlightCacheKey key) {
+    final value = _entries.remove(key);
+    if (value == null) return null;
+    _entries[key] = value;
+    return value;
+  }
+
+  void put(_HighlightCacheKey key, List<TextSpan> value) {
+    _entries.remove(key);
+    _entries[key] = value;
+    while (_entries.length > maxEntries) {
+      _entries.remove(_entries.keys.first);
+    }
+  }
 }
 
 class _SyntaxHighlightRegistry {

@@ -152,18 +152,15 @@ void main() {
     await claudeCubit.close();
   });
 
-  testWidgets('renders chips in Plan, Execution, Sandbox order', (
-    tester,
-  ) async {
+  testWidgets('codex renders chips in Plan, Permissions order', (tester) async {
     await tester.pumpWidget(_wrap(cubit));
     await tester.pump(const Duration(milliseconds: 100));
 
     final plan = tester.getCenter(find.text('Plan Off')).dx;
-    final execution = tester.getCenter(find.text('On Request')).dx;
-    final sandbox = tester.getCenter(find.text('Sandbox')).dx;
+    final permissions = tester.getCenter(find.text('Default')).dx;
 
-    expect(plan, lessThan(execution));
-    expect(execution, lessThan(sandbox));
+    expect(plan, lessThan(permissions));
+    expect(find.text('Sandbox'), findsNothing);
   });
 
   testWidgets('shows bar-level glow when running in plan mode', (tester) async {
@@ -209,16 +206,16 @@ void main() {
     expect(message['executionMode'], 'default');
   });
 
-  testWidgets('execution change still shows restart confirmation', (
+  testWidgets('codex permissions change shows restart confirmation', (
     tester,
   ) async {
     await tester.pumpWidget(_wrap(cubit));
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.tap(find.text('On Request'));
+    await tester.tap(find.text('Default'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Never Ask'));
+    await tester.tap(find.text('Full access'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -226,20 +223,13 @@ void main() {
     expect(find.textContaining('will restart the session'), findsOneWidget);
   });
 
-  testWidgets('sandbox change still shows restart confirmation', (
+  testWidgets('codex mode bar does not render separate sandbox control', (
     tester,
   ) async {
     await tester.pumpWidget(_wrap(cubit));
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.tap(find.text('Sandbox'));
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Sandbox Off'));
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.text('Change Sandbox Mode'), findsOneWidget);
-    expect(find.textContaining('will restart the session'), findsOneWidget);
+    expect(find.text('Sandbox'), findsNothing);
+    expect(find.text('Default'), findsOneWidget);
   });
 }

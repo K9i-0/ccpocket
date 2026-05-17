@@ -17,6 +17,7 @@ const {
   codexThreadToSessionHistoryMock,
   extractMessageImagesMock,
   getAllRecentSessionsMock,
+  getCodexSessionIndexMetadataMock,
   saveCodexSessionProfileMock,
   generateCommitMessageMock,
   gitCommitMock,
@@ -26,6 +27,7 @@ const {
   codexThreadToSessionHistoryMock: vi.fn(),
   extractMessageImagesMock: vi.fn(),
   getAllRecentSessionsMock: vi.fn(),
+  getCodexSessionIndexMetadataMock: vi.fn(),
   saveCodexSessionProfileMock: vi.fn(),
   generateCommitMessageMock: vi.fn(),
   gitCommitMock: vi.fn(),
@@ -38,6 +40,7 @@ vi.mock("./sessions-index.js", () => ({
   extractMessageImages: extractMessageImagesMock,
   codexUserTurnUuid: (ordinal: number) => `codex:user-turn:${ordinal}`,
   getAllRecentSessions: getAllRecentSessionsMock,
+  getCodexSessionIndexMetadata: getCodexSessionIndexMetadataMock,
   saveCodexSessionProfile: saveCodexSessionProfileMock,
 }));
 
@@ -83,8 +86,11 @@ vi.mock("./session.js", () => ({
   SessionManager: class MockSessionManager {
     private sessions = new Map<string, any>();
     private seq = 0;
+    private onMessage: (sessionId: string, msg: any) => void;
 
-    constructor() {}
+    constructor(onMessage?: (sessionId: string, msg: any) => void) {
+      this.onMessage = onMessage ?? (() => {});
+    }
 
     create(
       projectPath: string,
@@ -226,11 +232,18 @@ vi.mock("./session.js", () => ({
         };
       }
       session.codexQueuedInput = undefined;
-      this.appendHistory(id, {
+      const userMsg = {
         type: "user_input",
         text: queued.text,
         timestamp: new Date().toISOString(),
-      });
+        ...(queued.userMessageUuid
+          ? { userMessageUuid: queued.userMessageUuid }
+          : {}),
+        ...(queued.imageCount ? { imageCount: queued.imageCount } : {}),
+        ...(queued.imageRefs ? { images: queued.imageRefs } : {}),
+      };
+      this.appendHistory(id, userMsg);
+      this.onMessage(id, userMsg);
       return { ok: true };
     }
 
@@ -241,6 +254,7 @@ vi.mock("./session.js", () => ({
         seq: session.historyRevision + 1,
         message: msg,
       };
+      msg.historySeq = entry.seq;
       session.historyRevision = entry.seq;
       session.history.push(msg);
       session.historyEntries.push(entry);
@@ -384,10 +398,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     codexThreadToSessionHistoryMock.mockReset();
     extractMessageImagesMock.mockReset();
     getAllRecentSessionsMock.mockReset();
+    getCodexSessionIndexMetadataMock.mockReset();
     saveCodexSessionProfileMock.mockReset();
     generateCommitMessageMock.mockReset();
     gitCommitMock.mockReset();
     getAllRecentSessionsMock.mockResolvedValue({ sessions: [], hasMore: false });
+    getCodexSessionIndexMetadataMock.mockResolvedValue(new Map());
     getCodexSessionHistoryMock.mockResolvedValue([]);
     codexThreadToSessionHistoryMock.mockReturnValue([]);
     extractMessageImagesMock.mockResolvedValue([]);
@@ -1961,6 +1977,109 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("starts codex custom permissions without bridge approval or sandbox overrides", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        codexPermissionsMode: "custom",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    const created = sends.find(
+      (m: any) => m.type === "system" && m.subtype === "session_created",
+    );
+    expect(created).toMatchObject({
+      provider: "codex",
+      codexPermissionsMode: "custom",
+    });
+    const session = (bridge as any).sessionManager.get(created.sessionId);
+    expect(session.codexOptions.codexPermissionsMode).toBe("custom");
+    expect(session.codexOptions.approvalPolicy).toBeUndefined();
+    expect(session.codexOptions.approvalsReviewer).toBeUndefined();
+    expect(session.codexOptions.sandboxMode).toBeUndefined();
+
+    bridge.close();
+  });
+
+  it("switches codex to custom permissions by recreating without stale reviewer", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).wss.clients.add(ws);
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        codexPermissionsMode: "autoReview",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    const created = sends.find(
+      (m: any) => m.type === "system" && m.subtype === "session_created",
+    );
+    const oldSessionId = created.sessionId as string;
+    const oldSession = (bridge as any).sessionManager.get(oldSessionId);
+    expect(oldSession.codexOptions.approvalsReviewer).toBe("auto_review");
+
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_permission_mode",
+        sessionId: oldSessionId,
+        mode: "default",
+        codexPermissionsMode: "custom",
+      },
+      ws,
+    );
+
+    expect((bridge as any).sessionManager.get(oldSessionId)).toBeUndefined();
+    const sessions = (bridge as any).sessionManager.list();
+    expect(sessions).toHaveLength(1);
+    const newSessionSummary = sessions[0];
+    expect(newSessionSummary.id).not.toBe(oldSessionId);
+    const newSession = (bridge as any).sessionManager.get(newSessionSummary.id);
+    expect(newSession.codexOptions.codexPermissionsMode).toBe("custom");
+    expect(newSession.codexOptions.approvalPolicy).toBeUndefined();
+    expect(newSession.codexOptions.approvalsReviewer).toBeUndefined();
+    expect(newSession.codexOptions.sandboxMode).toBeUndefined();
+
+    const createdAfterSwitch = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    expect(createdAfterSwitch).toMatchObject({
+      provider: "codex",
+      codexPermissionsMode: "custom",
+      sourceSessionId: oldSessionId,
+    });
+    expect(createdAfterSwitch.approvalsReviewer).toBeUndefined();
+    expect(createdAfterSwitch.approvalPolicy).toBeUndefined();
+    expect(createdAfterSwitch.sandboxMode).toBeUndefined();
+
+    bridge.close();
+  });
+
   it("includes explicit execution and plan modes when codex sandbox change recreates session", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
@@ -2522,6 +2641,65 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("broadcasts accepted claude user input to other connected clients", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const otherWs = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).wss.clients.add(ws);
+    (bridge as any).wss.clients.add(otherWs);
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+
+    ws.send.mockClear();
+    otherWs.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId,
+        text: "hello from phone",
+        clientMessageId: "cm-phone-1",
+      },
+      ws,
+    );
+
+    const peerMessages = otherWs.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(peerMessages.find((m: any) => m.type === "user_input")).toMatchObject({
+      type: "user_input",
+      sessionId,
+      text: "hello from phone",
+      clientMessageId: "cm-phone-1",
+      historySeq: expect.any(Number),
+    });
+    expect(
+      ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .some((m: any) => m.type === "user_input"),
+    ).toBe(false);
+
+    bridge.close();
+  });
+
   it("rejects strict input when another user input exists after baseSeq", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
@@ -2678,6 +2856,61 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       text: "first codex turn",
       userMessageUuid: "codex:user-turn:1",
       clientMessageId: "cm-codex-1",
+    });
+
+    bridge.close();
+  });
+
+  it("broadcasts accepted codex user input with UUID to other connected clients", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const otherWs = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).wss.clients.add(ws);
+    (bridge as any).wss.clients.add(otherWs);
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+
+    ws.send.mockClear();
+    otherWs.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId,
+        text: "codex from mac",
+        clientMessageId: "cm-mac-1",
+      },
+      ws,
+    );
+
+    const peerMessages = otherWs.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(peerMessages.find((m: any) => m.type === "user_input")).toMatchObject({
+      type: "user_input",
+      sessionId,
+      text: "codex from mac",
+      clientMessageId: "cm-mac-1",
+      userMessageUuid: "codex:user-turn:1",
+      historySeq: expect.any(Number),
     });
 
     bridge.close();
@@ -3022,6 +3255,12 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       readyState: OPEN_STATE,
       send: vi.fn(),
     } as any;
+    const otherWs = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).wss.clients.add(ws);
+    (bridge as any).wss.clients.add(otherWs);
 
     (bridge as any).handleClientMessage(
       {
@@ -3042,8 +3281,11 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       itemId: "queued-1",
       text: "steer now",
       createdAt: new Date().toISOString(),
+      userMessageUuid: "codex:user-turn:1",
       skills: [{ name: "skill", path: "/skills/skill" }],
     };
+    ws.send.mockClear();
+    otherWs.send.mockClear();
 
     await (bridge as any).handleClientMessage(
       {
@@ -3063,6 +3305,16 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       },
     );
     expect(session.codexQueuedInput).toBeUndefined();
+    const peerMessages = otherWs.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(peerMessages.find((m: any) => m.type === "user_input")).toMatchObject({
+      type: "user_input",
+      sessionId,
+      text: "steer now",
+      userMessageUuid: "codex:user-turn:1",
+      historySeq: expect.any(Number),
+    });
 
     bridge.close();
   });
@@ -3269,27 +3521,21 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ],
       nextCursor: null,
     });
-    getAllRecentSessionsMock.mockResolvedValue({
-      sessions: [
-        {
-          sessionId: "thr_codex_1",
-          provider: "codex",
-          projectPath: "/tmp/project-codex",
-          firstPrompt: "Investigate crash",
-          created: "2026-02-19T10:10:43.000Z",
-          modified: "2026-02-19T11:10:43.000Z",
-          gitBranch: "feat/protocol",
-          isSidechain: false,
-          codexSettings: {
-            approvalPolicy: "never",
-            sandboxMode: "danger-full-access",
-            model: "gpt-5.3-codex",
+    getCodexSessionIndexMetadataMock.mockResolvedValue(
+      new Map([
+        [
+          "thr_codex_1",
+          {
+            codexSettings: {
+              approvalPolicy: "never",
+              sandboxMode: "danger-full-access",
+              model: "gpt-5.3-codex",
+            },
+            resumeCwd: "/tmp/project-codex-worktree",
           },
-          resumeCwd: "/tmp/project-codex-worktree",
-        },
-      ],
-      hasMore: false,
-    });
+        ],
+      ]),
+    );
 
     const payload = await (bridge as any).listRecentCodexThreads(
       {
@@ -3304,11 +3550,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       cwd: "/tmp/project-codex",
       searchTerm: undefined,
     });
-    expect(getAllRecentSessionsMock).toHaveBeenCalledWith({
-      provider: "codex",
-      projectPath: "/tmp/project-codex",
-      archivedSessionIds: expect.any(Set),
-    });
+    expect(getCodexSessionIndexMetadataMock).toHaveBeenCalledWith([
+      "thr_codex_1",
+    ]);
+    expect(getAllRecentSessionsMock).not.toHaveBeenCalled();
     expect(payload.sessions).toHaveLength(1);
     expect(payload.sessions[0]).toMatchObject({
       provider: "codex",
@@ -3365,11 +3610,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       "/tmp/project-codex",
     );
     expect(stop).toHaveBeenCalledTimes(1);
-    expect(getAllRecentSessionsMock).toHaveBeenCalledWith({
-      provider: "codex",
-      projectPath: "/tmp/project-codex",
-      archivedSessionIds: expect.any(Set),
-    });
+    expect(getCodexSessionIndexMetadataMock).toHaveBeenCalledWith([
+      "thr_codex_2",
+    ]);
+    expect(getAllRecentSessionsMock).not.toHaveBeenCalled();
     expect(payload.sessions[0]).toMatchObject({
       provider: "codex",
       sessionId: "thr_codex_2",

@@ -20,6 +20,7 @@ import {
   getStagedDiff,
   listGitFiles,
   listFileSystemFiles,
+  listProjectFilesAndDirectories,
   listProjectFiles,
   listBranches,
   createBranch,
@@ -722,6 +723,31 @@ describe("listProjectFiles", () => {
 
     expect(files).toContain("tracked.md");
     expect(files).not.toContain("ignored.log");
+  });
+});
+
+describe("listProjectFilesAndDirectories", () => {
+  let project: string;
+
+  afterEach(() => {
+    if (project) rmSync(project, { recursive: true, force: true });
+  });
+
+  it("adds directory mention candidates with trailing slashes", async () => {
+    project = createTempRepo();
+    mkdirSync(join(project, "apps", "mobile", "lib"), { recursive: true });
+    writeFileSync(join(project, "apps", "mobile", "lib", "main.dart"), "\n");
+    writeFileSync(join(project, "README.md"), "\n");
+    execFileSync("git", ["add", "."], { cwd: project });
+
+    await expect(listProjectFilesAndDirectories(project)).resolves.toEqual([
+      "apps/",
+      "apps/mobile/",
+      "apps/mobile/lib/",
+      "apps/mobile/lib/main.dart",
+      "initial.txt",
+      "README.md",
+    ]);
   });
 });
 

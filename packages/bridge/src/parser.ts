@@ -61,6 +61,11 @@ export type CodexApprovalsReviewer =
   | "user"
   | "auto_review"
   | "guardian_subagent";
+export type CodexPermissionsMode =
+  | "default"
+  | "autoReview"
+  | "fullAccess"
+  | "custom";
 
 export type Provider = "claude" | "codex";
 
@@ -91,6 +96,7 @@ export type ClientMessage =
       executionMode?: ExecutionMode;
       approvalPolicy?: CodexApprovalPolicy;
       approvalsReviewer?: CodexApprovalsReviewer;
+      codexPermissionsMode?: CodexPermissionsMode;
       planMode?: boolean;
       sandboxMode?: string;
       model?: string;
@@ -148,6 +154,7 @@ export type ClientMessage =
       executionMode?: ExecutionMode;
       approvalPolicy?: CodexApprovalPolicy;
       approvalsReviewer?: CodexApprovalsReviewer;
+      codexPermissionsMode?: CodexPermissionsMode;
       planMode?: boolean;
       sessionId?: string;
     }
@@ -190,6 +197,7 @@ export type ClientMessage =
       executionMode?: ExecutionMode;
       approvalPolicy?: CodexApprovalPolicy;
       approvalsReviewer?: CodexApprovalsReviewer;
+      codexPermissionsMode?: CodexPermissionsMode;
       planMode?: boolean;
       provider?: Provider;
       sandboxMode?: string;
@@ -372,6 +380,11 @@ export interface DebugTraceEvent {
   detail?: string;
 }
 
+export interface CodexCliJoinTarget {
+  url: string;
+  command: string;
+}
+
 export type ServerMessage =
   | {
       type: "system";
@@ -383,6 +396,7 @@ export type ServerMessage =
       projectPath?: string;
       approvalPolicy?: string;
       approvalsReviewer?: string;
+      codexPermissionsMode?: CodexPermissionsMode;
       executionMode?: ExecutionMode;
       planMode?: boolean;
       slashCommands?: string[];
@@ -435,6 +449,7 @@ export type ServerMessage =
       clearContext?: boolean;
       sourceSessionId?: string;
       tipCode?: string;
+      codexCliJoin?: CodexCliJoinTarget;
     }
   | { type: "assistant"; message: AssistantMessage; messageUuid?: string }
   | {
@@ -888,6 +903,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
           )
         )
           return null;
+        if (
+          msg.codexPermissionsMode !== undefined &&
+          !["default", "autoReview", "fullAccess", "custom"].includes(
+            String(msg.codexPermissionsMode),
+          )
+        )
+          return null;
         if (msg.planMode !== undefined && typeof msg.planMode !== "boolean")
           return null;
         if (
@@ -1041,6 +1063,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
           )
         )
           return null;
+        if (
+          msg.codexPermissionsMode !== undefined &&
+          !["default", "autoReview", "fullAccess", "custom"].includes(
+            String(msg.codexPermissionsMode),
+          )
+        )
+          return null;
         if (msg.planMode !== undefined && typeof msg.planMode !== "boolean")
           return null;
         break;
@@ -1167,6 +1196,13 @@ export function parseClientMessage(data: string): ClientMessage | null {
           msg.approvalsReviewer !== undefined &&
           !["user", "auto_review", "guardian_subagent"].includes(
             String(msg.approvalsReviewer),
+          )
+        )
+          return null;
+        if (
+          msg.codexPermissionsMode !== undefined &&
+          !["default", "autoReview", "fullAccess", "custom"].includes(
+            String(msg.codexPermissionsMode),
           )
         )
           return null;

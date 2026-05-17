@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.93.0+162
+version: 1.98.2+170
 
 environment:
   sdk: ^3.11.0
@@ -41,6 +41,7 @@ dependencies:
   marionette_flutter: ^0.5.0
   shared_preferences: ^2.5.0
   sqflite: ^2.4.2
+  sqflite_common_ffi: ^2.4.0+3
   flutter_local_notifications: ^20.0.0
   flutter_markdown: ^0.7.7+1
   markdown: ^7.3.0
@@ -58,6 +59,8 @@ dependencies:
   json_annotation: ^4.9.0
   share_plus: ^12.0.1
   image_picker: ^1.1.2
+  path: ^1.9.1
+  path_provider: ^2.1.5
   url_launcher: ^6.3.1
   dartssh2: ^2.10.0
   flutter_secure_storage: ^10.0.0
@@ -162,3 +165,13 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+  fonts:
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/code/JetBrainsMono-Regular.ttf
+    - family: IoskeleyMono
+      fonts:
+        - asset: assets/fonts/code/IoskeleyMono-Regular.ttf
+    - family: DejaVuSansMono
+      fonts:
+        - asset: assets/fonts/code/DejaVuSansMono.ttf

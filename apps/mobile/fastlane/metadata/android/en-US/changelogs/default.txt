@@ -1,4 +1,4 @@
-• Codex Plan updates now appear as checklist-style lists.
-• Added support for SSH jump host connections.
-• Restored Claude Opus 4.5 to model selection.
-• Smaller fixes and stability improvements.
+• Aligned Codex session permission modes with the official Codex app, including Auto-review, Full access, and config-driven Custom.
+• Improved sync when the same Codex session is open in multiple clients, so messages sent from another client are reflected correctly.
+• Added clearer setup guidance when the Codex CLI is unavailable.
+• Improved Markdown emphasis styling in chat messages.

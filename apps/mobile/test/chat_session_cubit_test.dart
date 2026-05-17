@@ -595,6 +595,52 @@ void main() {
     );
 
     test(
+      'codex user_input with UUID and no local entry is displayed',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+
+        mockBridge.emitMessage(
+          const UserInputMessage(
+            text: 'Message from another client',
+            userMessageUuid: 'codex:user-turn:7',
+            timestamp: '2026-04-28T12:00:00.000Z',
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        final users = cubit.state.entries.whereType<UserChatEntry>().toList();
+        expect(users, hasLength(1));
+        expect(users.single.text, 'Message from another client');
+        expect(users.single.status, MessageStatus.sent);
+        expect(users.single.messageUuid, 'codex:user-turn:7');
+      },
+    );
+
+    test(
+      'duplicate codex UUID user_input does not add a second entry',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+        const userInput = UserInputMessage(
+          text: 'Steered queued message',
+          userMessageUuid: 'codex:user-turn:8',
+          timestamp: '2026-04-28T12:00:00.000Z',
+        );
+
+        mockBridge.emitMessage(userInput, sessionId: 's1');
+        mockBridge.emitMessage(userInput, sessionId: 's1');
+        await Future.microtask(() {});
+
+        final users = cubit.state.entries.whereType<UserChatEntry>().toList();
+        expect(users, hasLength(1));
+        expect(users.single.text, 'Steered queued message');
+        expect(users.single.messageUuid, 'codex:user-turn:8');
+      },
+    );
+
+    test(
       'history replace keeps live tail without duplicating matched user input',
       () async {
         final cubit = createCubit('s1', provider: Provider.codex);
@@ -888,6 +934,41 @@ void main() {
         expect(json['mentions'], [
           {'name': 'Demo App', 'path': 'app://demo-app'},
           {'name': 'Sample Plugin', 'path': 'plugin://sample@test'},
+        ]);
+      },
+    );
+
+    test(
+      'codex sendMessage includes structured file and directory mentions',
+      () async {
+        final cubit = createCubit(
+          's1',
+          provider: Provider.codex,
+          initialProjectPath: '/tmp/project',
+        );
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+
+        cubit.sendMessage(
+          'Review @apps/mobile/ and @apps/mobile/lib/main.dart',
+          mentionablePaths: const [
+            'apps/',
+            'apps/mobile/',
+            'apps/mobile/lib/',
+            'apps/mobile/lib/main.dart',
+          ],
+        );
+
+        expect(mockBridge.sentMessages, hasLength(1));
+        final json =
+            jsonDecode(mockBridge.sentMessages.single.toJson())
+                as Map<String, dynamic>;
+        expect(json['mentions'], [
+          {'name': 'apps/mobile/', 'path': '/tmp/project/apps/mobile/'},
+          {
+            'name': 'apps/mobile/lib/main.dart',
+            'path': '/tmp/project/apps/mobile/lib/main.dart',
+          },
         ]);
       },
     );

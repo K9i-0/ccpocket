@@ -40,5 +40,20 @@ void main() {
 
       expect(code, 'path_not_allowed');
     });
+
+    test('classifies Codex CLI missing errors', () {
+      expect(
+        inferStructuredErrorCode(
+          message: 'Failed to start codex app-server: spawn codex ENOENT',
+        ),
+        'codex_cli_not_found',
+      );
+      expect(
+        inferStructuredErrorCode(
+          message: 'Codex CLI is not installed or not available on PATH.',
+        ),
+        'codex_cli_not_found',
+      );
+    });
   });
 }

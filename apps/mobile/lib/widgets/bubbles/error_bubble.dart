@@ -16,6 +16,7 @@ String? _errorTitle(String? errorCode, AppLocalizations l) {
     'auth_token_expired' ||
     'auth_api_error' => 'Authentication Error',
     'codex_auth_required' => 'Codex Authentication Error',
+    'codex_cli_not_found' => 'Codex CLI Not Installed',
     'path_not_allowed' => 'Path Not Allowed',
     'git_not_available' => l.gitUnavailableTitle,
     'bridge_update_required' => 'Bridge Update Required',
@@ -31,6 +32,8 @@ String? _errorHint(String? errorCode, AppLocalizations l) {
     'auth_token_expired' => 'Run "claude auth login" on the Bridge machine',
     'auth_api_error' => 'Set ANTHROPIC_API_KEY on the Bridge machine',
     'codex_auth_required' => 'Check OPENAI_API_KEY on the Bridge machine',
+    'codex_cli_not_found' =>
+      'Install Codex CLI on the Bridge machine, then restart Bridge',
     'path_not_allowed' => 'Update BRIDGE_ALLOWED_DIRS on the Bridge server',
     'git_not_available' => l.gitUnavailableHint,
     'bridge_update_required' => 'npm update -g @ccpocket/bridge',
@@ -45,6 +48,7 @@ String? _copyableCommand(String? errorCode) {
   return switch (errorCode) {
     'auth_login_required' || 'auth_token_expired' => 'claude auth login',
     'bridge_update_required' => 'npm update -g @ccpocket/bridge',
+    'codex_cli_not_found' => 'npm install -g @openai/codex',
     _ => null,
   };
 }

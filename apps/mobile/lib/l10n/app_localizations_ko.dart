@@ -125,6 +125,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get none => '없음';
 
   @override
+  String get dismissKeyboard => '키보드 닫기';
+
+  @override
   String get serverUnreachable => '서버에 연결할 수 없음';
 
   @override
@@ -211,6 +214,149 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get password => '비밀번호';
+
+  @override
+  String get machineEditAddTitle => '컴퓨터 추가';
+
+  @override
+  String get machineEditEditTitle => '컴퓨터 편집';
+
+  @override
+  String get machineEditDismissKeyboardTooltip => '키보드 닫기';
+
+  @override
+  String get machineEditBasicInfo => '기본 정보';
+
+  @override
+  String get machineEditName => '이름';
+
+  @override
+  String get machineEditNameHint => 'Home Mac';
+
+  @override
+  String get machineEditHostLabel => 'Host(IP 또는 호스트 이름)';
+
+  @override
+  String get machineEditHostHint => '100.64.1.2';
+
+  @override
+  String get machineEditPort => 'Port';
+
+  @override
+  String get machineEditBridgePortHint => '8765';
+
+  @override
+  String get machineEditApiKey => 'API Key';
+
+  @override
+  String get machineEditOptional => '선택 사항';
+
+  @override
+  String get machineEditUseSecureConnection => '보안 연결 사용';
+
+  @override
+  String get machineEditUseSecureConnectionSubtitle =>
+      'WSS로 연결하고 상태 확인에는 HTTPS를 사용합니다';
+
+  @override
+  String get machineEditSshConfiguration => 'SSH 설정';
+
+  @override
+  String get machineEditEnableSshRemoteStartup => 'SSH 원격 시작 활성화';
+
+  @override
+  String get machineEditEnableSshRemoteStartupSubtitle =>
+      '오프라인일 때 Bridge Server를 원격으로 시작합니다';
+
+  @override
+  String get machineEditSshUsername => 'SSH Username';
+
+  @override
+  String get machineEditSshUsernameHint => 'myuser';
+
+  @override
+  String get machineEditSshPort => 'SSH Port';
+
+  @override
+  String get machineEditSshPortHint => '22';
+
+  @override
+  String get machineEditTargetAuthentication => '대상 인증';
+
+  @override
+  String get machineEditPrivateKey => 'Private Key';
+
+  @override
+  String get machineEditSshPrivateKeyPem => 'SSH Private Key (PEM)';
+
+  @override
+  String get machineEditOpenSshPrivateKeyHint =>
+      '-----BEGIN OPENSSH PRIVATE KEY-----';
+
+  @override
+  String get machineEditSavedPrivateKeyIndicator =>
+      'Private Key가 저장되어 있습니다. 새로 입력하면 교체됩니다.';
+
+  @override
+  String get machineEditUseSshJumpHost => 'SSH Jump Host 사용';
+
+  @override
+  String get machineEditUseSshJumpHostSubtitle =>
+      'Bastion 또는 중간 SSH 호스트를 통해 연결합니다';
+
+  @override
+  String get machineEditSshJumpHost => 'SSH Jump Host';
+
+  @override
+  String get machineEditJumpHost => 'Jump Host';
+
+  @override
+  String get machineEditJumpHostHint => 'bastion.example.com';
+
+  @override
+  String get machineEditJumpPort => 'Jump Port';
+
+  @override
+  String get machineEditJumpUsername => 'Jump Username';
+
+  @override
+  String get machineEditJumpUsernameHint => '비워 두면 SSH Username을 사용합니다';
+
+  @override
+  String get machineEditJumpHostAuthentication => 'Jump Host 인증';
+
+  @override
+  String get machineEditJumpHostAuthenticationSubtitle =>
+      '비워 두면 대상 SSH 인증 정보를 재사용합니다';
+
+  @override
+  String get machineEditJumpPassword => 'Jump Password';
+
+  @override
+  String get machineEditSavedJumpHostPasswordIndicator =>
+      'Jump Host 비밀번호가 저장되어 있습니다. 새로 입력하면 교체됩니다.';
+
+  @override
+  String get machineEditJumpPrivateKeyPem => 'Jump Private Key (PEM)';
+
+  @override
+  String get machineEditSavedJumpHostPrivateKeyIndicator =>
+      'Jump Host Private Key가 저장되어 있습니다. 새로 입력하면 교체됩니다.';
+
+  @override
+  String get machineEditTesting => '테스트 중...';
+
+  @override
+  String get machineEditTestConnection => '연결 테스트';
+
+  @override
+  String get machineEditConnectionSuccessful => '연결에 성공했습니다';
+
+  @override
+  String get machineEditFillSshCredentials => 'SSH 인증 정보를 입력하세요';
+
+  @override
+  String get machineEditAddAndConnect => '추가하고 연결';
 
   @override
   String get deleteMachine => '컴퓨터 삭제';
@@ -1428,6 +1574,15 @@ class AppLocalizationsKo extends AppLocalizations {
       '시스템 텍스트 크기에 앱 배율을 곱합니다. 100%는 OS 설정을 그대로 유지합니다.';
 
   @override
+  String get codeFontSize => '코드 글꼴 크기';
+
+  @override
+  String get codeFontFamily => '코드 글꼴';
+
+  @override
+  String get codeFontPreview => '미리 보기';
+
+  @override
   String get indentSize => '들여쓰기 크기';
 
   @override
@@ -1449,6 +1604,13 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get gitDiffScrollFirstDescription =>
       '변경 블록 단위로 가로 스크롤할 수 있도록 긴 줄은 줄바꿈하지 않습니다. Git 작업은 길게 누르기 메뉴나 하단 버튼을 사용하세요.';
+
+  @override
+  String get gitDiffFocusAutoLandscape => 'diff 집중 모드에서 가로 화면으로 전환';
+
+  @override
+  String get gitDiffFocusAutoLandscapeDescription =>
+      '모바일 레이아웃에서는 diff 집중 모드에 들어가면 화면을 가로 방향으로 고정합니다. 집중 모드를 종료하면 일반 회전으로 돌아갑니다.';
 
   @override
   String get remoteGitStatusBadge => '동기화되지 않은 Git 커밋을 연한 배지로 표시';

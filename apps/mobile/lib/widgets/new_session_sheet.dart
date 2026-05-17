@@ -21,6 +21,7 @@ class NewSessionParams {
   final Provider provider;
   final PermissionMode? claudePermissionMode;
   final ExecutionMode executionMode;
+  final CodexPermissionsMode codexPermissionsMode;
   final CodexApprovalPolicy codexApprovalPolicy;
   final bool codexAutoReviewEnabled;
   final String? codexProfile;
@@ -54,6 +55,7 @@ class NewSessionParams {
     this.provider = Provider.codex,
     PermissionMode? claudePermissionMode,
     ExecutionMode? executionMode,
+    CodexPermissionsMode? codexPermissionsMode,
     CodexApprovalPolicy? codexApprovalPolicy,
     this.codexAutoReviewEnabled = false,
     this.codexProfile,
@@ -91,6 +93,17 @@ class NewSessionParams {
              provider: provider.value,
              permissionMode: permissionMode?.value,
            ),
+       codexPermissionsMode =
+           codexPermissionsMode ??
+           (codexApprovalPolicy != null || sandboxMode != null
+               ? codexPermissionsModeFromSettings(
+                   approvalPolicy: codexApprovalPolicy?.value,
+                   approvalsReviewer: codexAutoReviewEnabled
+                       ? 'auto_review'
+                       : 'user',
+                   sandboxMode: sandboxMode?.value,
+                 )
+               : CodexPermissionsMode.defaultPermissions),
        codexApprovalPolicy =
            codexApprovalPolicy ??
            (provider == Provider.codex
@@ -120,6 +133,7 @@ class NewSessionParams {
     Provider? provider,
     PermissionMode? claudePermissionMode,
     ExecutionMode? executionMode,
+    CodexPermissionsMode? codexPermissionsMode,
     CodexApprovalPolicy? codexApprovalPolicy,
     bool? codexAutoReviewEnabled,
     String? codexProfile,
@@ -153,6 +167,7 @@ class NewSessionParams {
       provider: provider ?? this.provider,
       claudePermissionMode: claudePermissionMode ?? this.claudePermissionMode,
       executionMode: executionMode ?? this.executionMode,
+      codexPermissionsMode: codexPermissionsMode ?? this.codexPermissionsMode,
       codexApprovalPolicy: codexApprovalPolicy ?? this.codexApprovalPolicy,
       codexAutoReviewEnabled:
           codexAutoReviewEnabled ?? this.codexAutoReviewEnabled,
@@ -247,6 +262,7 @@ Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
     'projectPath': params.projectPath,
     'provider': params.provider.value,
     'executionMode': params.executionMode.value,
+    'codexPermissionsMode': params.codexPermissionsMode.value,
     'codexApprovalPolicy': params.codexApprovalPolicy.value,
     'codexAutoReviewEnabled': params.codexAutoReviewEnabled,
     'planMode': params.planMode,
@@ -286,6 +302,9 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
       json['executionMode'] as String?,
       provider: json['provider'] as String?,
       permissionMode: json['permissionMode'] as String?,
+    ),
+    codexPermissionsMode: codexPermissionsModeFromRaw(
+      json['codexPermissionsMode'] as String?,
     ),
     codexApprovalPolicy:
         codexApprovalPolicyFromRaw(json['codexApprovalPolicy'] as String?) ??
@@ -395,37 +414,6 @@ enum _WorktreeMode {
   useExisting,
 }
 
-enum _CodexApprovalChoice {
-  untrusted,
-  onRequest,
-  autoReview,
-  never;
-
-  static _CodexApprovalChoice from({
-    required CodexApprovalPolicy policy,
-    required bool autoReviewEnabled,
-  }) {
-    if (policy == CodexApprovalPolicy.onRequest && autoReviewEnabled) {
-      return _CodexApprovalChoice.autoReview;
-    }
-    return switch (policy) {
-      CodexApprovalPolicy.untrusted => _CodexApprovalChoice.untrusted,
-      CodexApprovalPolicy.onRequest ||
-      CodexApprovalPolicy.onFailure => _CodexApprovalChoice.onRequest,
-      CodexApprovalPolicy.never => _CodexApprovalChoice.never,
-    };
-  }
-
-  CodexApprovalPolicy get policy => switch (this) {
-    _CodexApprovalChoice.untrusted => CodexApprovalPolicy.untrusted,
-    _CodexApprovalChoice.onRequest ||
-    _CodexApprovalChoice.autoReview => CodexApprovalPolicy.onRequest,
-    _CodexApprovalChoice.never => CodexApprovalPolicy.never,
-  };
-
-  bool get autoReviewEnabled => this == _CodexApprovalChoice.autoReview;
-}
-
 /// Fallback Codex models when Bridge hasn't delivered a list yet.
 const _defaultCodexModels = defaultCodexModels;
 
@@ -450,6 +438,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   var _provider = Provider.codex;
   var _claudePermissionMode = PermissionMode.defaultMode;
   var _executionMode = ExecutionMode.defaultMode;
+  var _codexPermissionsMode = CodexPermissionsMode.defaultPermissions;
   var _codexApprovalPolicy = CodexApprovalPolicy.onRequest;
   var _codexAutoReviewEnabled = false;
   var _planMode = false;
@@ -513,6 +502,23 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     } else {
       _codexSandboxMode = v;
     }
+  }
+
+  void _applyCodexPermissionsMode(CodexPermissionsMode mode) {
+    _codexPermissionsMode = mode;
+    final approvalPolicy = approvalPolicyForCodexPermissionsMode(mode);
+    final sandboxMode = sandboxModeForCodexPermissionsMode(mode);
+    _codexApprovalPolicy = approvalPolicy ?? CodexApprovalPolicy.onRequest;
+    _codexAutoReviewEnabled = mode == CodexPermissionsMode.autoReview;
+    _executionMode = mode == CodexPermissionsMode.fullAccess
+        ? ExecutionMode.fullAccess
+        : ExecutionMode.defaultMode;
+    if (sandboxMode != null) {
+      _codexSandboxMode = sandboxMode;
+    }
+    _codexApprovalPolicyTouched = true;
+    _codexAutoReviewTouched = true;
+    _codexSandboxModeTouched = true;
   }
 
   bool get _hasPath => _pathController.text.trim().isNotEmpty;
@@ -669,6 +675,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     );
     _provider = isVisible ? p.provider : widget.visibleTabs.first.toProvider();
     _executionMode = p.executionMode;
+    _codexPermissionsMode = p.codexPermissionsMode;
     _claudePermissionMode = p.provider == Provider.claude
         ? p.permissionMode
         : PermissionMode.defaultMode;
@@ -696,6 +703,12 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       _claudeSandboxMode = p.sandboxMode ?? SandboxMode.off;
     } else {
       _codexSandboxMode = p.sandboxMode ?? SandboxMode.on;
+    }
+    if (p.provider == Provider.codex) {
+      _applyCodexPermissionsMode(p.codexPermissionsMode);
+      _codexApprovalPolicyTouched = p.codexApprovalPolicyOverridden;
+      _codexAutoReviewTouched = p.codexAutoReviewOverridden;
+      _codexSandboxModeTouched = p.codexSandboxModeOverridden;
     }
     _modelReasoningEffort = p.modelReasoningEffort ?? _modelReasoningEffort;
     _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
@@ -954,6 +967,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       provider: _provider,
       claudePermissionMode: !isCodex ? _claudePermissionMode : null,
       executionMode: _executionMode,
+      codexPermissionsMode: _codexPermissionsMode,
       codexApprovalPolicy: _codexApprovalPolicy,
       codexAutoReviewEnabled:
           isCodex &&
@@ -1038,7 +1052,6 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final accent = providerStyleFor(context, pageProvider).foreground;
     return SingleChildScrollView(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1102,15 +1115,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
             onExecutionModeChanged: (value) {
               setState(() => _executionMode = value);
             },
-            codexApprovalPolicy: _codexApprovalPolicy,
-            codexAutoReviewEnabled: _codexAutoReviewEnabled,
-            onCodexApprovalChoiceChanged: (value) {
-              setState(() {
-                _codexApprovalPolicy = value.policy;
-                _codexAutoReviewEnabled = value.autoReviewEnabled;
-                _codexApprovalPolicyTouched = true;
-                _codexAutoReviewTouched = true;
-              });
+            codexPermissionsMode: _codexPermissionsMode,
+            onCodexPermissionsModeChanged: (value) {
+              setState(() => _applyCodexPermissionsMode(value));
             },
             codexProfiles: _codexProfiles,
             selectedCodexProfile: _selectedCodexProfile,
@@ -1269,11 +1276,13 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     final appColors = Theme.of(context).extension<AppColors>()!;
     return Focus(
       onKeyEvent: _handleKeyEvent,
-      child: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.max,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1372,9 +1381,24 @@ class _SheetTitle extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            l.newSession,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l.newSession,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                key: const ValueKey('new_session_dismiss_keyboard_button'),
+                tooltip: l.dismissKeyboard,
+                onPressed: () => FocusManager.instance.primaryFocus?.unfocus(),
+                icon: const Icon(Icons.keyboard_hide),
+              ),
+            ],
           ),
           if (showToggle) ...[
             const SizedBox(height: 12),
@@ -1837,17 +1861,30 @@ class _AddWritableRootSheet extends StatelessWidget {
                 fit: FlexFit.loose,
                 child: SingleChildScrollView(
                   key: const ValueKey('additional_writable_root_scroll'),
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        l.addDirectory,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              l.addDirectory,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            key: const ValueKey(
+                              'additional_writable_root_dismiss_keyboard_button',
+                            ),
+                            tooltip: l.dismissKeyboard,
+                            onPressed: () =>
+                                FocusManager.instance.primaryFocus?.unfocus(),
+                            icon: const Icon(Icons.keyboard_hide),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -1942,9 +1979,8 @@ class _OptionsSection extends StatelessWidget {
   final ValueChanged<PermissionMode> onClaudePermissionModeChanged;
   final ExecutionMode executionMode;
   final ValueChanged<ExecutionMode> onExecutionModeChanged;
-  final CodexApprovalPolicy codexApprovalPolicy;
-  final bool codexAutoReviewEnabled;
-  final ValueChanged<_CodexApprovalChoice> onCodexApprovalChoiceChanged;
+  final CodexPermissionsMode codexPermissionsMode;
+  final ValueChanged<CodexPermissionsMode> onCodexPermissionsModeChanged;
   final List<String> codexProfiles;
   final String? selectedCodexProfile;
   final ValueChanged<String?> onCodexProfileChanged;
@@ -2005,9 +2041,8 @@ class _OptionsSection extends StatelessWidget {
     required this.onClaudePermissionModeChanged,
     required this.executionMode,
     required this.onExecutionModeChanged,
-    required this.codexApprovalPolicy,
-    required this.codexAutoReviewEnabled,
-    required this.onCodexApprovalChoiceChanged,
+    required this.codexPermissionsMode,
+    required this.onCodexPermissionsModeChanged,
     required this.codexProfiles,
     required this.selectedCodexProfile,
     required this.onCodexProfileChanged,
@@ -2093,33 +2128,24 @@ class _OptionsSection extends StatelessWidget {
 
     // -- Icon helpers --
 
-    final codexApprovalChoice = _CodexApprovalChoice.from(
-      policy: codexApprovalPolicy,
-      autoReviewEnabled: codexAutoReviewEnabled,
-    );
-
-    IconData codexApprovalIcon(_CodexApprovalChoice choice) => switch (choice) {
-      _CodexApprovalChoice.untrusted => Icons.verified_user_outlined,
-      _CodexApprovalChoice.onRequest => Icons.tune,
-      _CodexApprovalChoice.autoReview => Icons.auto_mode_outlined,
-      _CodexApprovalChoice.never => Icons.flash_on,
+    IconData codexPermissionsIcon(CodexPermissionsMode mode) => switch (mode) {
+      CodexPermissionsMode.defaultPermissions => Icons.back_hand_outlined,
+      CodexPermissionsMode.autoReview => Icons.shield_outlined,
+      CodexPermissionsMode.fullAccess => Icons.warning_amber_outlined,
+      CodexPermissionsMode.custom => Icons.settings_outlined,
     };
 
-    String codexApprovalLabel(_CodexApprovalChoice choice) => switch (choice) {
-      _CodexApprovalChoice.untrusted => 'Untrusted',
-      _CodexApprovalChoice.onRequest => 'On Request',
-      _CodexApprovalChoice.autoReview => 'Auto Review',
-      _CodexApprovalChoice.never => 'Never Ask',
-    };
-
-    String codexApprovalDescription(_CodexApprovalChoice choice) {
-      return switch (choice) {
-        _CodexApprovalChoice.untrusted => l.codexApprovalUntrustedDescription,
-        _CodexApprovalChoice.onRequest => l.codexApprovalOnRequestDescription,
-        _CodexApprovalChoice.autoReview => l.codexAutoReviewDescription,
-        _CodexApprovalChoice.never => l.codexApprovalNeverDescription,
-      };
-    }
+    String codexPermissionsDescription(CodexPermissionsMode mode) =>
+        switch (mode) {
+          CodexPermissionsMode.defaultPermissions =>
+            l.sandboxRestrictedDescription,
+          CodexPermissionsMode.autoReview => l.codexAutoReviewDescription,
+          CodexPermissionsMode.fullAccess => l.sandboxNativeCautionDescription,
+          CodexPermissionsMode.custom =>
+            selectedCodexProfile == null
+                ? 'Codex uses permissions from config.toml'
+                : 'Codex uses permissions from the selected profile',
+        };
 
     IconData permissionIcon(PermissionMode mode) => switch (mode) {
       PermissionMode.defaultMode => Icons.tune,
@@ -2350,28 +2376,27 @@ class _OptionsSection extends StatelessWidget {
           ],
           provider == Provider.codex
               ? modeSelectorField(
-                  key: const ValueKey('dialog_codex_approval_policy'),
-                  label: l.approval,
-                  icon: codexApprovalIcon(codexApprovalChoice),
-                  title: codexApprovalLabel(codexApprovalChoice),
-                  subtitle: codexApprovalDescription(codexApprovalChoice),
-                  onTap: () => showModeSheet<_CodexApprovalChoice>(
-                    title: l.approval,
+                  key: const ValueKey('dialog_codex_permissions_mode'),
+                  label: 'Permissions',
+                  icon: codexPermissionsIcon(codexPermissionsMode),
+                  title: codexPermissionsMode.label,
+                  subtitle: codexPermissionsDescription(codexPermissionsMode),
+                  accentColor:
+                      codexPermissionsMode == CodexPermissionsMode.fullAccess
+                      ? Theme.of(context).colorScheme.error
+                      : null,
+                  onTap: () => showModeSheet<CodexPermissionsMode>(
+                    title: 'Permissions',
                     subtitle: l.sheetSubtitleApproval,
-                    modes: const [
-                      _CodexApprovalChoice.untrusted,
-                      _CodexApprovalChoice.onRequest,
-                      _CodexApprovalChoice.autoReview,
-                      _CodexApprovalChoice.never,
-                    ],
-                    currentMode: codexApprovalChoice,
-                    iconFor: codexApprovalIcon,
-                    labelFor: codexApprovalLabel,
-                    descriptionFor: codexApprovalDescription,
-                    onSelected: onCodexApprovalChoiceChanged,
+                    modes: CodexPermissionsMode.values,
+                    currentMode: codexPermissionsMode,
+                    iconFor: codexPermissionsIcon,
+                    labelFor: (mode) => mode.label,
+                    descriptionFor: codexPermissionsDescription,
+                    onSelected: onCodexPermissionsModeChanged,
                     colorFor: (mode, cs) => switch (mode) {
-                      _CodexApprovalChoice.never => cs.error,
-                      _CodexApprovalChoice.autoReview => cs.primary,
+                      CodexPermissionsMode.fullAccess => cs.error,
+                      CodexPermissionsMode.autoReview => cs.primary,
                       _ => cs.primary,
                     },
                   ),
@@ -2424,32 +2449,27 @@ class _OptionsSection extends StatelessWidget {
                     },
                   ),
                 ),
-          const SizedBox(height: 8),
-          modeSelectorField(
-            key: const ValueKey('dialog_sandbox'),
-            label: l.sandbox,
-            icon: sandboxIcon(sandboxMode),
-            title: sandboxLabel(sandboxMode),
-            subtitle: sandboxDescription(sandboxMode),
-            onTap: () => showModeSheet<SandboxMode>(
-              title: l.sandbox,
-              subtitle: isClaude
-                  ? l.sheetSubtitleSandboxClaude
-                  : l.sheetSubtitleSandboxCodex,
-              modes: isClaude
-                  ? SandboxMode.values.reversed.toList()
-                  : SandboxMode.values,
-              currentMode: sandboxMode,
-              iconFor: sandboxIcon,
-              labelFor: sandboxLabel,
-              descriptionFor: sandboxDescription,
-              onSelected: onSandboxModeChanged,
-              colorFor: (mode, cs) {
-                if (!isClaude && mode == SandboxMode.off) return cs.error;
-                return cs.primary;
-              },
+          if (isClaude) ...[
+            const SizedBox(height: 8),
+            modeSelectorField(
+              key: const ValueKey('dialog_sandbox'),
+              label: l.sandbox,
+              icon: sandboxIcon(sandboxMode),
+              title: sandboxLabel(sandboxMode),
+              subtitle: sandboxDescription(sandboxMode),
+              onTap: () => showModeSheet<SandboxMode>(
+                title: l.sandbox,
+                subtitle: l.sheetSubtitleSandboxClaude,
+                modes: SandboxMode.values.reversed.toList(),
+                currentMode: sandboxMode,
+                iconFor: sandboxIcon,
+                labelFor: sandboxLabel,
+                descriptionFor: sandboxDescription,
+                onSelected: onSandboxModeChanged,
+                colorFor: (mode, cs) => cs.primary,
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: 8),
           // -- Model selector --
           modeSelectorField(

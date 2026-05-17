@@ -28,6 +28,13 @@ const { setupSystemd, uninstallSystemd } = await import("./setup-systemd.js");
 
 const SERVICE_PATH =
   "/home/testuser/.config/systemd/user/ccpocket-bridge.service";
+const originalBridgeEnv = {
+  publicWsUrl: process.env.BRIDGE_PUBLIC_WS_URL,
+  codexAppServerMode: process.env.BRIDGE_CODEX_APP_SERVER_MODE,
+  codexSharedAppServerUrl: process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL,
+  codexAppServerPort: process.env.BRIDGE_CODEX_APP_SERVER_PORT,
+  codexAppServerUrl: process.env.BRIDGE_CODEX_APP_SERVER_URL,
+};
 
 describe("setup-systemd", () => {
   const originalPlatform = process.platform;
@@ -35,6 +42,7 @@ describe("setup-systemd", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     Object.defineProperty(process, "platform", { value: "linux" });
+    clearBridgeEnv();
     // Default: directory exists, npx found
     mockExistsSync.mockReturnValue(true);
     mockExecSync.mockReturnValue("/usr/bin/npx\n");
@@ -42,6 +50,7 @@ describe("setup-systemd", () => {
 
   afterEach(() => {
     Object.defineProperty(process, "platform", { value: originalPlatform });
+    restoreBridgeEnv();
   });
 
   describe("setupSystemd", () => {
@@ -67,6 +76,8 @@ describe("setup-systemd", () => {
       expect(content).toContain("Restart=on-failure");
       expect(content).toContain("WantedBy=default.target");
       expect(content).not.toContain("BRIDGE_API_KEY");
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_MODE");
+      expect(content).not.toContain("BRIDGE_CODEX_SHARED_APP_SERVER_URL");
     });
 
     it("includes BRIDGE_API_KEY when apiKey is provided", () => {
@@ -95,6 +106,62 @@ describe("setup-systemd", () => {
         "Environment=BRIDGE_PUBLIC_WS_URL=wss://flag.example.com",
       );
       expect(content).not.toContain("wss://env.example.com");
+    });
+
+    it("does not persist shared app-server URL without an explicit mode", () => {
+      process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL = "ws://127.0.0.1:18766";
+
+      setupSystemd({});
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_MODE");
+      expect(content).not.toContain("BRIDGE_CODEX_SHARED_APP_SERVER_URL");
+    });
+
+    it("includes explicit Codex app-server startup options", () => {
+      setupSystemd({
+        codexAppServerMode: "external",
+        codexSharedAppServerUrl: "ws://127.0.0.1:18766",
+      });
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain(
+        "Environment=BRIDGE_CODEX_APP_SERVER_MODE=external",
+      );
+      expect(content).toContain(
+        "Environment=BRIDGE_CODEX_SHARED_APP_SERVER_URL=ws://127.0.0.1:18766",
+      );
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_PORT");
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_URL");
+    });
+
+    it("requires a shared app-server URL for external mode", () => {
+      expect(() => setupSystemd({ codexAppServerMode: "external" })).toThrow(
+        "BRIDGE_CODEX_SHARED_APP_SERVER_URL is required",
+      );
+    });
+
+    it("uses the documented default shared URL when managed mode is enabled", () => {
+      setupSystemd({ port: "8765", codexAppServerMode: "managed" });
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain("Environment=BRIDGE_PORT=8765");
+      expect(content).toContain(
+        "Environment=BRIDGE_CODEX_APP_SERVER_MODE=managed",
+      );
+      expect(content).toContain(
+        "Environment=BRIDGE_CODEX_SHARED_APP_SERVER_URL=ws://127.0.0.1:8767",
+      );
+    });
+
+    it("moves the default shared app-server URL when Bridge uses 8767", () => {
+      setupSystemd({ port: "8767", codexAppServerMode: "managed" });
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain("Environment=BRIDGE_PORT=8767");
+      expect(content).toContain(
+        "Environment=BRIDGE_CODEX_SHARED_APP_SERVER_URL=ws://127.0.0.1:8768",
+      );
     });
 
     it("omits BRIDGE_API_KEY when apiKey is empty", () => {
@@ -231,3 +298,39 @@ describe("setup-systemd", () => {
     });
   });
 });
+
+function clearBridgeEnv(): void {
+  delete process.env.BRIDGE_PUBLIC_WS_URL;
+  delete process.env.BRIDGE_CODEX_APP_SERVER_MODE;
+  delete process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL;
+  delete process.env.BRIDGE_CODEX_APP_SERVER_PORT;
+  delete process.env.BRIDGE_CODEX_APP_SERVER_URL;
+}
+
+function restoreBridgeEnv(): void {
+  restoreEnvVar("BRIDGE_PUBLIC_WS_URL", originalBridgeEnv.publicWsUrl);
+  restoreEnvVar(
+    "BRIDGE_CODEX_APP_SERVER_MODE",
+    originalBridgeEnv.codexAppServerMode,
+  );
+  restoreEnvVar(
+    "BRIDGE_CODEX_SHARED_APP_SERVER_URL",
+    originalBridgeEnv.codexSharedAppServerUrl,
+  );
+  restoreEnvVar(
+    "BRIDGE_CODEX_APP_SERVER_PORT",
+    originalBridgeEnv.codexAppServerPort,
+  );
+  restoreEnvVar(
+    "BRIDGE_CODEX_APP_SERVER_URL",
+    originalBridgeEnv.codexAppServerUrl,
+  );
+}
+
+function restoreEnvVar(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+  process.env[key] = value;
+}

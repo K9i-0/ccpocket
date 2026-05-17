@@ -23,16 +23,24 @@ vi.mock("node:os", () => ({
 const { setupLaunchd, uninstallLaunchd } = await import("./setup-launchd.js");
 
 const PLIST_PATH = "/Users/testuser/Library/LaunchAgents/com.ccpocket.bridge.plist";
+const originalBridgeEnv = {
+  publicWsUrl: process.env.BRIDGE_PUBLIC_WS_URL,
+  codexAppServerMode: process.env.BRIDGE_CODEX_APP_SERVER_MODE,
+  codexSharedAppServerUrl: process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL,
+  codexAppServerPort: process.env.BRIDGE_CODEX_APP_SERVER_PORT,
+  codexAppServerUrl: process.env.BRIDGE_CODEX_APP_SERVER_URL,
+};
 
 describe("setup-launchd", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearBridgeEnv();
     mockExistsSync.mockReturnValue(true);
     mockExecSync.mockReturnValue("/usr/bin/npx\n");
   });
 
   afterEach(() => {
-    delete process.env.BRIDGE_PUBLIC_WS_URL;
+    restoreBridgeEnv();
   });
 
   describe("setupLaunchd", () => {
@@ -50,6 +58,8 @@ describe("setup-launchd", () => {
       );
       expect(content).not.toContain("BRIDGE_API_KEY");
       expect(content).not.toContain("BRIDGE_PUBLIC_WS_URL");
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_MODE");
+      expect(content).not.toContain("BRIDGE_CODEX_SHARED_APP_SERVER_URL");
     });
 
     it("includes BRIDGE_PUBLIC_WS_URL when publicWsUrl is provided", () => {
@@ -69,6 +79,59 @@ describe("setup-launchd", () => {
       expect(content).toContain("<string>wss://flag.example.com</string>");
       expect(content).not.toContain("wss://env.example.com");
     });
+
+    it("does not persist shared app-server URL without an explicit mode", () => {
+      process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL = "ws://127.0.0.1:18766";
+
+      setupLaunchd({});
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_MODE");
+      expect(content).not.toContain("BRIDGE_CODEX_SHARED_APP_SERVER_URL");
+    });
+
+    it("includes explicit Codex app-server startup options", () => {
+      setupLaunchd({
+        codexAppServerMode: "external",
+        codexSharedAppServerUrl: "ws://127.0.0.1:18766",
+      });
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_MODE</key>");
+      expect(content).toContain("<string>external</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_SHARED_APP_SERVER_URL</key>");
+      expect(content).toContain("<string>ws://127.0.0.1:18766</string>");
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_PORT");
+      expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_URL");
+    });
+
+    it("requires a shared app-server URL for external mode", () => {
+      expect(() => setupLaunchd({ codexAppServerMode: "external" })).toThrow(
+        "BRIDGE_CODEX_SHARED_APP_SERVER_URL is required",
+      );
+    });
+
+    it("uses the documented default shared URL when managed mode is enabled", () => {
+      setupLaunchd({ port: "8765", codexAppServerMode: "managed" });
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain("<key>BRIDGE_PORT</key>");
+      expect(content).toContain("<string>8765</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_APP_SERVER_MODE</key>");
+      expect(content).toContain("<string>managed</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_SHARED_APP_SERVER_URL</key>");
+      expect(content).toContain("<string>ws://127.0.0.1:8767</string>");
+    });
+
+    it("moves the default shared app-server URL when Bridge uses 8767", () => {
+      setupLaunchd({ port: "8767", codexAppServerMode: "managed" });
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain("<key>BRIDGE_PORT</key>");
+      expect(content).toContain("<string>8767</string>");
+      expect(content).toContain("<key>BRIDGE_CODEX_SHARED_APP_SERVER_URL</key>");
+      expect(content).toContain("<string>ws://127.0.0.1:8768</string>");
+    });
   });
 
   describe("uninstallLaunchd", () => {
@@ -81,3 +144,39 @@ describe("setup-launchd", () => {
     });
   });
 });
+
+function clearBridgeEnv(): void {
+  delete process.env.BRIDGE_PUBLIC_WS_URL;
+  delete process.env.BRIDGE_CODEX_APP_SERVER_MODE;
+  delete process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL;
+  delete process.env.BRIDGE_CODEX_APP_SERVER_PORT;
+  delete process.env.BRIDGE_CODEX_APP_SERVER_URL;
+}
+
+function restoreBridgeEnv(): void {
+  restoreEnvVar("BRIDGE_PUBLIC_WS_URL", originalBridgeEnv.publicWsUrl);
+  restoreEnvVar(
+    "BRIDGE_CODEX_APP_SERVER_MODE",
+    originalBridgeEnv.codexAppServerMode,
+  );
+  restoreEnvVar(
+    "BRIDGE_CODEX_SHARED_APP_SERVER_URL",
+    originalBridgeEnv.codexSharedAppServerUrl,
+  );
+  restoreEnvVar(
+    "BRIDGE_CODEX_APP_SERVER_PORT",
+    originalBridgeEnv.codexAppServerPort,
+  );
+  restoreEnvVar(
+    "BRIDGE_CODEX_APP_SERVER_URL",
+    originalBridgeEnv.codexAppServerUrl,
+  );
+}
+
+function restoreEnvVar(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+  process.env[key] = value;
+}

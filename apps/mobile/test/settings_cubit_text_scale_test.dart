@@ -1,4 +1,6 @@
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
+import 'package:ccpocket/models/code_font_family.dart';
+import 'package:ccpocket/theme/code_text_style.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -52,6 +54,53 @@ void main() {
 
       cubit.setTextScale(0.5);
       expect(cubit.state.textScale, SettingsCubit.minTextScale);
+
+      await cubit.close();
+    });
+
+    test(
+      'code font defaults to Codex-sized JetBrains Mono and persists',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final cubit = SettingsCubit(prefs);
+
+        expect(cubit.state.codeFontSize, defaultCodeFontSize);
+        expect(cubit.state.codeFontFamily, CodeFontFamily.jetBrainsMono);
+
+        cubit.setCodeFontSize(16);
+        cubit.setCodeFontFamily(CodeFontFamily.dejaVuSansMono);
+
+        expect(cubit.state.codeFontSize, 16);
+        expect(cubit.state.codeFontFamily, CodeFontFamily.dejaVuSansMono);
+        expect(prefs.getDouble('settings_code_font_size'), 16);
+        expect(
+          prefs.getString('settings_code_font_family'),
+          CodeFontFamily.dejaVuSansMono.id,
+        );
+
+        await cubit.close();
+
+        final restored = SettingsCubit(prefs);
+        expect(restored.state.codeFontSize, 16);
+        expect(restored.state.codeFontFamily, CodeFontFamily.dejaVuSansMono);
+
+        await restored.close();
+      },
+    );
+
+    test('clamps code font size to the supported range', () async {
+      SharedPreferences.setMockInitialValues({'settings_code_font_size': 4.0});
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = SettingsCubit(prefs);
+
+      expect(cubit.state.codeFontSize, minCodeFontSize);
+
+      cubit.setCodeFontSize(99);
+      expect(cubit.state.codeFontSize, maxCodeFontSize);
+
+      cubit.setCodeFontSize(1);
+      expect(cubit.state.codeFontSize, minCodeFontSize);
 
       await cubit.close();
     });

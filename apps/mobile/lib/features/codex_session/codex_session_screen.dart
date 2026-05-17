@@ -177,6 +177,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
   PermissionMode? _permissionMode;
   CodexApprovalPolicy? _codexApprovalPolicy;
   String? _codexApprovalsReviewer;
+  CodexPermissionsMode? _codexPermissionsMode;
   StreamSubscription<ServerMessage>? _pendingSub;
   StreamSubscription<ServerMessage>? _sandboxRestartSub;
   StreamSubscription<String>? _sessionStoppedSub;
@@ -280,6 +281,9 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
           _codexApprovalPolicy;
       _codexApprovalsReviewer =
           msg.approvalsReviewer ?? _codexApprovalsReviewer;
+      _codexPermissionsMode =
+          codexPermissionsModeFromRaw(msg.codexPermissionsMode) ??
+          _codexPermissionsMode;
       _explorerCurrentPath = explorerHistory.currentPath;
       _recentPeekedFiles = explorerHistory.recentPeekedFiles;
     });
@@ -306,6 +310,9 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
           _codexApprovalPolicy;
       _codexApprovalsReviewer =
           msg.approvalsReviewer ?? _codexApprovalsReviewer;
+      _codexPermissionsMode =
+          codexPermissionsModeFromRaw(msg.codexPermissionsMode) ??
+          _codexPermissionsMode;
       _isPending = false;
     });
     _pendingSub?.cancel();
@@ -433,6 +440,7 @@ class _CodexSessionScreenState extends State<CodexSessionScreen> {
       permissionMode: _permissionMode,
       codexApprovalPolicy: _codexApprovalPolicy,
       codexApprovalsReviewer: _codexApprovalsReviewer,
+      codexPermissionsMode: _codexPermissionsMode,
       onBackToSessions: widget.onBackToSessions,
       hideSessionBackButton: widget.hideSessionBackButton,
     );
@@ -454,6 +462,7 @@ class _CodexProviders extends StatelessWidget {
   final PermissionMode? permissionMode;
   final CodexApprovalPolicy? codexApprovalPolicy;
   final String? codexApprovalsReviewer;
+  final CodexPermissionsMode? codexPermissionsMode;
   final VoidCallback? onBackToSessions;
   final bool hideSessionBackButton;
 
@@ -469,6 +478,7 @@ class _CodexProviders extends StatelessWidget {
     this.permissionMode,
     this.codexApprovalPolicy,
     this.codexApprovalsReviewer,
+    this.codexPermissionsMode,
     this.onBackToSessions,
     this.hideSessionBackButton = false,
   });
@@ -491,6 +501,7 @@ class _CodexProviders extends StatelessWidget {
             initialPermissionMode: permissionMode,
             initialCodexApprovalPolicy: codexApprovalPolicy,
             initialCodexApprovalsReviewer: codexApprovalsReviewer,
+            initialCodexPermissionsMode: codexPermissionsMode,
             initialProjectPath: projectPath,
           ),
         ),
@@ -533,6 +544,7 @@ class _CodexChatBody extends HookWidget {
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
     final l = AppLocalizations.of(context);
+    final bridge = context.read<BridgeService>();
     final shell = WorkspaceShellScreen.maybeOf(context);
     final presentationListenable = shell?.presentationListenable;
     // Mutable branch state (refreshed from Bridge)
@@ -592,6 +604,9 @@ class _CodexChatBody extends HookWidget {
 
     // Diff selection from GitScreen navigation
     final diffSelectionFromNav = useState<DiffSelection?>(null);
+    final codexCliJoinCommand = useState(
+      _latestCodexCliJoinCommand(bridge.cachedSessionMessages(sessionId)),
+    );
 
     // --- Bloc state ---
     final chatSessionCubit = context.read<ChatSessionCubit>();
@@ -610,6 +625,9 @@ class _CodexChatBody extends HookWidget {
     );
     final parentState = context
         .findAncestorStateOfType<_CodexSessionScreenState>();
+    final canCopyCodexCliJoinCommand =
+        codexCliJoinCommand.value != null &&
+        _hasSentUserMessage(sessionState.entries);
     void handleExploreResult(ExploreScreenResult result) {
       if (!context.mounted) return;
       parentState?.updateExplorerState(
@@ -645,6 +663,23 @@ class _CodexChatBody extends HookWidget {
         onFilePeekOpened: handleFilePeekOpened,
       );
       return () => shell?.unregisterSessionToolPaneBindings(sessionId);
+    }, [sessionId]);
+
+    useEffect(() {
+      final sub = bridge.messagesForSession(sessionId).listen((msg) {
+        if (msg case SystemMessage(
+          sessionId: final messageSessionId?,
+          :final codexCliJoin,
+        ) when messageSessionId == sessionId) {
+          final command = codexCliJoin?.command.trim();
+          if (codexCliJoin?.isValid == true &&
+              command != null &&
+              command.isNotEmpty) {
+            codexCliJoinCommand.value = command;
+          }
+        }
+      });
+      return sub.cancel;
     }, [sessionId]);
 
     // --- Side effects subscription ---
@@ -841,7 +876,7 @@ class _CodexChatBody extends HookWidget {
             shift: true,
           ): () {
             final cubit = context.read<ChatSessionCubit>();
-            showExecutionModeMenu(context, cubit);
+            showCodexPermissionsMenu(context, cubit);
           },
           // Cmd+Enter: approve pending tool use
           const SingleActivator(LogicalKeyboardKey.enter, meta: true): () {
@@ -1009,6 +1044,27 @@ class _CodexChatBody extends HookWidget {
                               draftService,
                             );
                           },
+                        ),
+                      if (canCopyCodexCliJoinCommand)
+                        IconButton(
+                          key: const ValueKey('appbar_copy_codex_join_button'),
+                          icon: Icon(
+                            Icons.terminal,
+                            size: 18,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                          tooltip: 'Copy Codex CLI join command',
+                          onPressed: () => _copyCodexCliJoinCommand(
+                            context,
+                            codexCliJoinCommand.value!,
+                          ),
                         ),
                       PopupMenuButton<String>(
                         key: const ValueKey('session_overflow_menu'),
@@ -1851,6 +1907,34 @@ void _retryFailedMessages(BuildContext context) {
       cubit.retryMessage(entry);
     }
   }
+}
+
+String? _latestCodexCliJoinCommand(List<ServerMessage> messages) {
+  for (final msg in messages.reversed) {
+    if (msg case SystemMessage(
+      :final codexCliJoin,
+    ) when codexCliJoin?.isValid == true) {
+      return codexCliJoin!.command.trim();
+    }
+  }
+  return null;
+}
+
+bool _hasSentUserMessage(List<ChatEntry> entries) {
+  return entries.any(
+    (entry) => entry is UserChatEntry && entry.status == MessageStatus.sent,
+  );
+}
+
+Future<void> _copyCodexCliJoinCommand(
+  BuildContext context,
+  String command,
+) async {
+  await Clipboard.setData(ClipboardData(text: command));
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Codex CLI join command copied')),
+  );
 }
 
 String? _extractPlanText(

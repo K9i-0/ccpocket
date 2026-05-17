@@ -203,6 +203,76 @@ enum CodexApprovalPolicy {
   const CodexApprovalPolicy(this.value);
 }
 
+enum CodexPermissionsMode {
+  defaultPermissions('default', 'Default permissions'),
+  autoReview('autoReview', 'Auto-review'),
+  fullAccess('fullAccess', 'Full access'),
+  custom('custom', 'Custom (config.toml)');
+
+  final String value;
+  final String label;
+  const CodexPermissionsMode(this.value, this.label);
+}
+
+CodexPermissionsMode? codexPermissionsModeFromRaw(String? raw) {
+  if (raw == null || raw.isEmpty) return null;
+  for (final value in CodexPermissionsMode.values) {
+    if (value.value == raw) return value;
+  }
+  return null;
+}
+
+CodexPermissionsMode codexPermissionsModeFromSettings({
+  String? codexPermissionsMode,
+  String? approvalPolicy,
+  String? approvalsReviewer,
+  String? sandboxMode,
+}) {
+  final explicit = codexPermissionsModeFromRaw(codexPermissionsMode);
+  if (explicit != null) return explicit;
+  final normalizedSandbox = switch (sandboxMode) {
+    'danger-full-access' || 'off' => SandboxMode.off,
+    'workspace-write' || 'read-only' || 'on' => SandboxMode.on,
+    _ => null,
+  };
+  if (approvalPolicy == CodexApprovalPolicy.never.value &&
+      (normalizedSandbox == null || normalizedSandbox == SandboxMode.off)) {
+    return CodexPermissionsMode.fullAccess;
+  }
+  if (approvalPolicy == CodexApprovalPolicy.onRequest.value &&
+      (normalizedSandbox == null || normalizedSandbox == SandboxMode.on)) {
+    return isCodexAutoReviewApprovalsReviewer(approvalsReviewer)
+        ? CodexPermissionsMode.autoReview
+        : CodexPermissionsMode.defaultPermissions;
+  }
+  return CodexPermissionsMode.custom;
+}
+
+CodexApprovalPolicy? approvalPolicyForCodexPermissionsMode(
+  CodexPermissionsMode mode,
+) => switch (mode) {
+  CodexPermissionsMode.defaultPermissions ||
+  CodexPermissionsMode.autoReview => CodexApprovalPolicy.onRequest,
+  CodexPermissionsMode.fullAccess => CodexApprovalPolicy.never,
+  CodexPermissionsMode.custom => null,
+};
+
+String? approvalsReviewerForCodexPermissionsMode(CodexPermissionsMode mode) =>
+    switch (mode) {
+      CodexPermissionsMode.autoReview => 'auto_review',
+      CodexPermissionsMode.defaultPermissions ||
+      CodexPermissionsMode.fullAccess => 'user',
+      CodexPermissionsMode.custom => null,
+    };
+
+SandboxMode? sandboxModeForCodexPermissionsMode(CodexPermissionsMode mode) =>
+    switch (mode) {
+      CodexPermissionsMode.defaultPermissions ||
+      CodexPermissionsMode.autoReview => SandboxMode.on,
+      CodexPermissionsMode.fullAccess => SandboxMode.off,
+      CodexPermissionsMode.custom => null,
+    };
+
 CodexApprovalPolicy? codexApprovalPolicyFromRaw(String? raw) {
   if (raw == null || raw.isEmpty) return null;
   if (raw == CodexApprovalPolicy.onFailure.value) {
@@ -509,6 +579,7 @@ sealed class ServerMessage {
         model: json['model'] as String?,
         approvalPolicy: json['approvalPolicy'] as String?,
         approvalsReviewer: json['approvalsReviewer'] as String?,
+        codexPermissionsMode: json['codexPermissionsMode'] as String?,
         provider: json['provider'] as String?,
         projectPath: json['projectPath'] as String?,
         permissionMode: json['permissionMode'] as String?,
@@ -559,6 +630,11 @@ sealed class ServerMessage {
         clearContext: json['clearContext'] as bool? ?? false,
         sourceSessionId: json['sourceSessionId'] as String?,
         tipCode: json['tipCode'] as String?,
+        codexCliJoin: json['codexCliJoin'] is Map<String, dynamic>
+            ? CodexCliJoinTarget.fromJson(
+                json['codexCliJoin'] as Map<String, dynamic>,
+              )
+            : null,
       ),
       'assistant' => AssistantServerMessage(
         message: AssistantMessage.fromJson(
@@ -1169,6 +1245,7 @@ class SystemMessage implements ServerMessage {
   final String? model;
   final String? approvalPolicy;
   final String? approvalsReviewer;
+  final String? codexPermissionsMode;
   final String? provider;
   final String? projectPath;
   final String? permissionMode;
@@ -1190,6 +1267,7 @@ class SystemMessage implements ServerMessage {
   final bool clearContext;
   final String? sourceSessionId;
   final String? tipCode;
+  final CodexCliJoinTarget? codexCliJoin;
   const SystemMessage({
     required this.subtype,
     this.sessionId,
@@ -1197,6 +1275,7 @@ class SystemMessage implements ServerMessage {
     this.model,
     this.approvalPolicy,
     this.approvalsReviewer,
+    this.codexPermissionsMode,
     this.provider,
     this.projectPath,
     this.permissionMode,
@@ -1218,7 +1297,24 @@ class SystemMessage implements ServerMessage {
     this.clearContext = false,
     this.sourceSessionId,
     this.tipCode,
+    this.codexCliJoin,
   });
+}
+
+class CodexCliJoinTarget {
+  final String url;
+  final String command;
+
+  const CodexCliJoinTarget({required this.url, required this.command});
+
+  factory CodexCliJoinTarget.fromJson(Map<String, dynamic> json) {
+    return CodexCliJoinTarget(
+      url: json['url'] as String? ?? '',
+      command: json['command'] as String? ?? '',
+    );
+  }
+
+  bool get isValid => url.trim().isNotEmpty && command.trim().isNotEmpty;
 }
 
 class AssistantServerMessage implements ServerMessage {
@@ -2950,6 +3046,7 @@ class RecentSession {
   final bool isSidechain;
   final String? codexApprovalPolicy;
   final String? codexApprovalsReviewer;
+  final String? codexPermissionsMode;
   final String? executionMode;
   final bool planMode;
   final String? codexSandboxMode;
@@ -2978,6 +3075,7 @@ class RecentSession {
     required this.isSidechain,
     this.codexApprovalPolicy,
     this.codexApprovalsReviewer,
+    this.codexPermissionsMode,
     this.executionMode,
     this.planMode = false,
     this.codexSandboxMode,
@@ -3031,6 +3129,7 @@ class RecentSession {
         executionMode: json['executionMode'] as String?,
       ),
       codexApprovalsReviewer: codexSettings?['approvalsReviewer'] as String?,
+      codexPermissionsMode: codexSettings?['codexPermissionsMode'] as String?,
       executionMode:
           json['executionMode'] as String? ??
           deriveExecutionMode(
@@ -3104,6 +3203,7 @@ class RecentSession {
   RecentSession copyWithCodexApprovalDefaults({
     required String approvalPolicy,
     required String approvalsReviewer,
+    String? codexPermissionsMode,
   }) {
     return RecentSession(
       sessionId: sessionId,
@@ -3123,6 +3223,7 @@ class RecentSession {
       isSidechain: isSidechain,
       codexApprovalPolicy: approvalPolicy,
       codexApprovalsReviewer: approvalsReviewer,
+      codexPermissionsMode: codexPermissionsMode ?? this.codexPermissionsMode,
       executionMode: executionMode,
       planMode: planMode,
       codexSandboxMode: codexSandboxMode,
@@ -3161,6 +3262,7 @@ class SessionInfo {
   final String? model;
   final String? codexApprovalPolicy;
   final String? codexApprovalsReviewer;
+  final String? codexPermissionsMode;
   final String? codexSandboxMode;
   final String? codexModel;
   final String? codexProfile;
@@ -3192,6 +3294,7 @@ class SessionInfo {
     this.model,
     this.codexApprovalPolicy,
     this.codexApprovalsReviewer,
+    this.codexPermissionsMode,
     this.codexSandboxMode,
     this.codexModel,
     this.codexProfile,
@@ -3232,6 +3335,7 @@ class SessionInfo {
     String? model,
     String? codexApprovalPolicy,
     String? codexApprovalsReviewer,
+    String? codexPermissionsMode,
     String? codexSandboxMode,
     String? codexModel,
     String? codexProfile,
@@ -3266,6 +3370,7 @@ class SessionInfo {
       codexApprovalPolicy: codexApprovalPolicy ?? this.codexApprovalPolicy,
       codexApprovalsReviewer:
           codexApprovalsReviewer ?? this.codexApprovalsReviewer,
+      codexPermissionsMode: codexPermissionsMode ?? this.codexPermissionsMode,
       codexSandboxMode: codexSandboxMode ?? this.codexSandboxMode,
       codexModel: codexModel ?? this.codexModel,
       codexProfile: codexProfile ?? this.codexProfile,
@@ -3320,6 +3425,7 @@ class SessionInfo {
         executionMode: json['executionMode'] as String?,
       ),
       codexApprovalsReviewer: codexSettings?['approvalsReviewer'] as String?,
+      codexPermissionsMode: codexSettings?['codexPermissionsMode'] as String?,
       codexSandboxMode: codexSettings?['sandboxMode'] as String?,
       codexModel: sanitizeCodexModelName(codexSettings?['model'] as String?),
       codexProfile: codexSettings?['profile'] as String?,
@@ -3383,6 +3489,7 @@ class ClientMessage {
     String? executionMode,
     String? approvalPolicy,
     String? approvalsReviewer,
+    String? codexPermissionsMode,
     bool? planMode,
     String? effort,
     int? maxTurns,
@@ -3412,6 +3519,7 @@ class ClientMessage {
       'executionMode': ?executionMode,
       'approvalPolicy': ?approvalPolicy,
       'approvalsReviewer': ?approvalsReviewer,
+      'codexPermissionsMode': ?codexPermissionsMode,
       'planMode': ?planMode,
       'effort': ?effort,
       'maxTurns': ?maxTurns,
@@ -3528,6 +3636,7 @@ class ClientMessage {
     String? executionMode,
     String? approvalPolicy,
     String? approvalsReviewer,
+    String? codexPermissionsMode,
     bool? planMode,
     String? sessionId,
   }) {
@@ -3537,6 +3646,7 @@ class ClientMessage {
       'executionMode': ?executionMode,
       'approvalPolicy': ?approvalPolicy,
       'approvalsReviewer': ?approvalsReviewer,
+      'codexPermissionsMode': ?codexPermissionsMode,
       'planMode': ?planMode,
       'sessionId': ?sessionId,
     });
@@ -3676,6 +3786,7 @@ class ClientMessage {
     String? executionMode,
     String? approvalPolicy,
     String? approvalsReviewer,
+    String? codexPermissionsMode,
     bool? planMode,
     String? effort,
     int? maxTurns,
@@ -3700,6 +3811,7 @@ class ClientMessage {
       'executionMode': ?executionMode,
       'approvalPolicy': ?approvalPolicy,
       'approvalsReviewer': ?approvalsReviewer,
+      'codexPermissionsMode': ?codexPermissionsMode,
       'planMode': ?planMode,
       'effort': ?effort,
       'maxTurns': ?maxTurns,

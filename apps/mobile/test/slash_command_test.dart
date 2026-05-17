@@ -412,5 +412,25 @@ void main() {
       final fileTop = tester.getTopLeft(find.text('main.dart')).dy;
       expect(pluginTop, lessThan(fileTop));
     });
+
+    testWidgets('shows directory completions with their folder name', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: FileMentionOverlay(
+              filteredFiles: const ['apps/mobile/'],
+              onSelect: (_) {},
+              onDismiss: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('mobile'), findsOneWidget);
+      expect(find.text('apps'), findsOneWidget);
+      expect(find.byIcon(Icons.folder_outlined), findsOneWidget);
+    });
   });
 }

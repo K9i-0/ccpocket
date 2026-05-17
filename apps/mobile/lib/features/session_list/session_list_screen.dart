@@ -23,6 +23,7 @@ import '../../services/bridge_service.dart';
 import '../../services/connection_url_parser.dart';
 import '../../services/platform_environment_service.dart';
 import '../../services/server_discovery_service.dart';
+import '../../services/ssh_bridge_tunnel_service.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../../widgets/adaptive_context_menu.dart';
 import '../../widgets/new_session_sheet.dart';
@@ -148,12 +149,14 @@ List<RecentSession> applyCodexApprovalDefaultsToRecentSessions(
   }
   final approvalPolicy = defaults.codexApprovalPolicy.value;
   final approvalsReviewer = defaults.codexApprovalsReviewer;
+  final codexPermissionsMode = defaults.codexPermissionsMode.value;
   return [
     for (final session in sessions)
       if (session.provider == Provider.codex.value)
         session.copyWithCodexApprovalDefaults(
           approvalPolicy: approvalPolicy,
           approvalsReviewer: approvalsReviewer,
+          codexPermissionsMode: codexPermissionsMode,
         )
       else
         session,
@@ -170,6 +173,7 @@ NewSessionParams? mergeCodexDefaultsIntoInitialSessionDefaults(
   }
   return defaults.copyWith(
     codexApprovalPolicy: codexDefaults.codexApprovalPolicy,
+    codexPermissionsMode: codexDefaults.codexPermissionsMode,
     codexAutoReviewEnabled: codexDefaults.codexAutoReviewEnabled,
     codexApprovalPolicyOverridden: codexDefaults.codexApprovalPolicyOverridden,
     codexAutoReviewOverridden: codexDefaults.codexAutoReviewOverridden,
@@ -394,6 +398,11 @@ class _SessionListScreenState extends State<SessionListScreen>
           );
           if (machine != null) {
             apiKey = await cubit?.getApiKey(machine.id);
+            if (machine.sshJumpHost?.trim().isNotEmpty == true) {
+              if (!mounted) return;
+              await _connectToMachineConfig(machine);
+              return;
+            }
           }
         }
       } catch (_) {
@@ -447,6 +456,11 @@ class _SessionListScreenState extends State<SessionListScreen>
       }
     }
 
+    if (!mounted) return;
+    final tunnelService = context.read<SshBridgeTunnelService?>();
+    if (tunnelService != null) {
+      await tunnelService.closeAll();
+    }
     if (!mounted) return;
     var connectUrl = url;
     if (trimmedApiKey.isNotEmpty) {
@@ -590,6 +604,10 @@ class _SessionListScreenState extends State<SessionListScreen>
 
   void _disconnect() {
     context.read<BridgeService>().disconnect();
+    final tunnelService = context.read<SshBridgeTunnelService?>();
+    if (tunnelService != null) {
+      unawaited(tunnelService.closeAll());
+    }
     WorkspaceShellScreen.maybeOf(context)?.resetWorkspace();
     context.read<SessionListCubit>().resetFilters();
   }
@@ -678,6 +696,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     final useCodexProfile =
         result.provider == Provider.codex &&
         (result.codexProfile?.isNotEmpty ?? false);
+    final useCodexCustomPermissions =
+        result.provider == Provider.codex &&
+        (useCodexProfile ||
+            result.codexPermissionsMode == CodexPermissionsMode.custom);
     _pendingResumeProjectPath = result.projectPath;
     _pendingResumeGitBranch = result.worktreeBranch;
     bridge.send(
@@ -690,10 +712,17 @@ class _SessionListScreenState extends State<SessionListScreen>
             ? null
             : result.executionMode.value,
         approvalPolicy: result.provider == Provider.codex
-            ? (useCodexProfile ? null : result.codexApprovalPolicy.value)
+            ? (useCodexCustomPermissions
+                  ? null
+                  : result.codexApprovalPolicy.value)
             : null,
         approvalsReviewer: result.provider == Provider.codex
-            ? (useCodexProfile ? null : result.codexApprovalsReviewer)
+            ? (useCodexCustomPermissions ? null : result.codexApprovalsReviewer)
+            : null,
+        codexPermissionsMode: result.provider == Provider.codex
+            ? (useCodexCustomPermissions
+                  ? CodexPermissionsMode.custom.value
+                  : result.codexPermissionsMode.value)
             : null,
         planMode: result.provider == Provider.codex && useCodexProfile
             ? null
@@ -723,7 +752,8 @@ class _SessionListScreenState extends State<SessionListScreen>
         model: result.provider == Provider.claude
             ? result.claudeModel
             : (useCodexProfile ? null : result.model),
-        sandboxMode: result.provider == Provider.codex && useCodexProfile
+        sandboxMode:
+            result.provider == Provider.codex && useCodexCustomPermissions
             ? null
             : result.sandboxMode?.value,
         modelReasoningEffort:
@@ -731,13 +761,14 @@ class _SessionListScreenState extends State<SessionListScreen>
             ? null
             : result.modelReasoningEffort?.value,
         networkAccessEnabled:
-            result.provider == Provider.codex && useCodexProfile
+            result.provider == Provider.codex && useCodexCustomPermissions
             ? null
             : result.networkAccessEnabled,
         webSearchMode: result.provider == Provider.codex && useCodexProfile
             ? null
             : result.webSearchMode?.value,
-        additionalWritableRoots: result.provider == Provider.codex
+        additionalWritableRoots:
+            result.provider == Provider.codex && !useCodexCustomPermissions
             ? result.additionalWritableRoots
             : null,
         autoRename: autoRenameForProvider(settings, result.provider),
@@ -1053,6 +1084,14 @@ class _SessionListScreenState extends State<SessionListScreen>
     final codexAutoReviewEnabled =
         codexDefaults?.codexAutoReviewEnabled ??
         isCodexAutoReviewApprovalsReviewer(session.codexApprovalsReviewer);
+    final codexPermissionsMode =
+        codexDefaults?.codexPermissionsMode ??
+        codexPermissionsModeFromSettings(
+          codexPermissionsMode: session.codexPermissionsMode,
+          approvalPolicy: session.codexApprovalPolicy,
+          approvalsReviewer: session.codexApprovalsReviewer,
+          sandboxMode: session.codexSandboxMode,
+        );
 
     return NewSessionParams(
       projectPath: session.projectPath,
@@ -1063,6 +1102,7 @@ class _SessionListScreenState extends State<SessionListScreen>
         permissionMode: sessionSettings?['permissionMode'] as String?,
         approvalPolicy: session.codexApprovalPolicy,
       ),
+      codexPermissionsMode: codexPermissionsMode,
       codexApprovalPolicy: codexApprovalPolicy,
       codexAutoReviewEnabled: codexAutoReviewEnabled,
       codexProfile: provider == Provider.codex ? session.codexProfile : null,
@@ -1406,6 +1446,18 @@ class _SessionListScreenState extends State<SessionListScreen>
     final codexApprovalsReviewer = codexDefaults != null
         ? codexDefaults.codexApprovalsReviewer
         : session.codexApprovalsReviewer;
+    final codexPermissionsMode =
+        codexDefaults?.codexPermissionsMode ??
+        codexPermissionsModeFromSettings(
+          codexPermissionsMode: session.codexPermissionsMode,
+          approvalPolicy: session.codexApprovalPolicy,
+          approvalsReviewer: session.codexApprovalsReviewer,
+          sandboxMode: session.codexSandboxMode,
+        );
+    final useCodexCustomPermissions =
+        isCodex &&
+        (useCodexProfile ||
+            codexPermissionsMode == CodexPermissionsMode.custom);
 
     bridge.resumeSession(
       session.sessionId,
@@ -1432,10 +1484,15 @@ class _SessionListScreenState extends State<SessionListScreen>
               permissionMode: permissionMode,
             ).value,
       approvalPolicy: isCodex
-          ? (useCodexProfile ? null : codexApprovalPolicy)
+          ? (useCodexCustomPermissions ? null : codexApprovalPolicy)
           : null,
       approvalsReviewer: isCodex
-          ? (useCodexProfile ? null : codexApprovalsReviewer)
+          ? (useCodexCustomPermissions ? null : codexApprovalsReviewer)
+          : null,
+      codexPermissionsMode: isCodex
+          ? (useCodexCustomPermissions
+                ? CodexPermissionsMode.custom.value
+                : codexPermissionsMode.value)
           : null,
       planMode: isCodex
           ? (useCodexProfile ? null : session.planMode)
@@ -1452,20 +1509,24 @@ class _SessionListScreenState extends State<SessionListScreen>
       profile: isCodex ? session.codexProfile : null,
       provider: session.provider,
       sandboxMode: isCodex
-          ? (useCodexProfile ? null : session.codexSandboxMode)
+          ? (useCodexCustomPermissions ? null : session.codexSandboxMode)
           : sandboxMode,
       model: isCodex ? (useCodexProfile ? null : codexModel) : claudeModel,
       modelReasoningEffort: isCodex
           ? (useCodexProfile ? null : session.codexModelReasoningEffort)
           : null,
       networkAccessEnabled: isCodex
-          ? (useCodexProfile ? null : session.codexNetworkAccessEnabled)
+          ? (useCodexCustomPermissions
+                ? null
+                : session.codexNetworkAccessEnabled)
           : null,
       webSearchMode: isCodex
           ? (useCodexProfile ? null : session.codexWebSearchMode)
           : null,
       additionalWritableRoots: isCodex
-          ? session.codexAdditionalWritableRoots
+          ? (useCodexCustomPermissions
+                ? null
+                : session.codexAdditionalWritableRoots)
           : null,
     );
     if (!bridge.isConnected) {
@@ -1529,6 +1590,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     final isCodex = edited.provider == Provider.codex;
     final useCodexProfile =
         isCodex && (edited.codexProfile?.isNotEmpty ?? false);
+    final useCodexCustomPermissions =
+        isCodex &&
+        (useCodexProfile ||
+            edited.codexPermissionsMode == CodexPermissionsMode.custom);
     bridge.resumeSession(
       session.sessionId,
       resumeProjectPath,
@@ -1539,10 +1604,17 @@ class _SessionListScreenState extends State<SessionListScreen>
           ? null
           : edited.executionMode.value,
       approvalPolicy: isCodex
-          ? (useCodexProfile ? null : edited.codexApprovalPolicy.value)
+          ? (useCodexCustomPermissions
+                ? null
+                : edited.codexApprovalPolicy.value)
           : null,
       approvalsReviewer: isCodex
-          ? (useCodexProfile ? null : edited.codexApprovalsReviewer)
+          ? (useCodexCustomPermissions ? null : edited.codexApprovalsReviewer)
+          : null,
+      codexPermissionsMode: isCodex
+          ? (useCodexCustomPermissions
+                ? CodexPermissionsMode.custom.value
+                : edited.codexPermissionsMode.value)
           : null,
       planMode: isCodex && useCodexProfile ? null : edited.planMode,
       effort: !isCodex ? edited.claudeEffort?.value : null,
@@ -1553,7 +1625,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       persistSession: !isCodex ? edited.claudePersistSession : null,
       profile: isCodex ? edited.codexProfile : null,
       provider: session.provider,
-      sandboxMode: isCodex && useCodexProfile
+      sandboxMode: isCodex && useCodexCustomPermissions
           ? null
           : edited.sandboxMode?.value,
       model: isCodex
@@ -1568,13 +1640,15 @@ class _SessionListScreenState extends State<SessionListScreen>
       modelReasoningEffort: isCodex && useCodexProfile
           ? null
           : (isCodex ? edited.modelReasoningEffort?.value : null),
-      networkAccessEnabled: isCodex && useCodexProfile
+      networkAccessEnabled: isCodex && useCodexCustomPermissions
           ? null
           : (isCodex ? edited.networkAccessEnabled : null),
       webSearchMode: isCodex && useCodexProfile
           ? null
           : (isCodex ? edited.webSearchMode?.value : null),
-      additionalWritableRoots: isCodex ? edited.additionalWritableRoots : null,
+      additionalWritableRoots: isCodex && !useCodexCustomPermissions
+          ? edited.additionalWritableRoots
+          : null,
     );
     if (!bridge.isConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2132,23 +2206,44 @@ class _SessionListScreenState extends State<SessionListScreen>
   // ---- Machine Management ----
 
   void _connectToMachine(MachineWithStatus m) async {
+    await _connectToMachineConfig(m.machine);
+  }
+
+  Future<void> _connectToMachineConfig(Machine machine) async {
     final cubit = context.read<MachineManagerCubit>();
     unawaited(cubit.refreshLatestBridgeVersionIfStale());
-    final wsUrl = await cubit.buildWsUrl(m.machine.id);
-    final apiKey = await cubit.getApiKey(m.machine.id);
+    late final String wsUrl;
+    try {
+      wsUrl = await cubit.buildWsUrl(
+        machine.id,
+        promptForPassword: () => _promptForPassword(machine.displayName),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+      return;
+    }
+    final apiKey = await cubit.getApiKey(machine.id);
 
     // Record connection to update lastConnected
     await cubit.recordConnection(
-      host: m.machine.host,
-      port: m.machine.port,
+      host: machine.host,
+      port: machine.port,
       apiKey: apiKey,
-      useSsl: m.machine.useSsl,
+      useSsl: machine.useSsl,
     );
 
     if (!mounted) return;
     final bridge = context.read<BridgeService>();
     bridge.connect(wsUrl);
-    bridge.savePreferences(m.machine.wsUrl);
+    bridge.savePreferences(machine.wsUrl);
+    final tunnelService = context.read<SshBridgeTunnelService?>();
+    if (tunnelService != null) {
+      unawaited(tunnelService.closeAllExcept(machine.id));
+    }
   }
 
   void _toggleFavorite(MachineWithStatus m) {
@@ -2281,7 +2376,9 @@ class _SessionListScreenState extends State<SessionListScreen>
     final cubit = context.read<MachineManagerCubit>();
     final apiKey = await cubit.getApiKey(m.machine.id);
     final sshPassword = await cubit.getSshPassword(m.machine.id);
+    final sshPrivateKey = await cubit.getSshPrivateKey(m.machine.id);
     final sshJumpPassword = await cubit.getSshJumpPassword(m.machine.id);
+    final sshJumpPrivateKey = await cubit.getSshJumpPrivateKey(m.machine.id);
 
     if (!mounted) return;
 
@@ -2294,7 +2391,9 @@ class _SessionListScreenState extends State<SessionListScreen>
         machine: m.machine,
         existingApiKey: apiKey,
         existingSshPassword: sshPassword,
+        existingSshPrivateKey: sshPrivateKey,
         existingSshJumpPassword: sshJumpPassword,
+        existingSshJumpPrivateKey: sshJumpPrivateKey,
         onSave:
             ({
               required machine,
@@ -2311,7 +2410,12 @@ class _SessionListScreenState extends State<SessionListScreen>
                 sshPrivateKey: sshPrivateKey,
                 sshJumpPassword: sshJumpPassword,
                 sshJumpPrivateKey: sshJumpPrivateKey,
-                clearJumpCredentials: machine.sshJumpHost == null,
+                clearCredentials:
+                    !machine.sshEnabled ||
+                    machine.sshAuthType != m.machine.sshAuthType,
+                clearJumpCredentials:
+                    machine.sshJumpHost == null ||
+                    machine.sshJumpAuthType != m.machine.sshJumpAuthType,
               );
             },
         onTestConnection: cubit.testConnectionWithCredentials,

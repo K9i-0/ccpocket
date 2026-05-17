@@ -29,6 +29,7 @@ import '../../services/support_banner_service.dart';
 import '../../widgets/workspace_pane_chrome.dart';
 import '../../models/machine.dart';
 import '../session_list/workspace_shell_screen.dart';
+import 'code_font_settings_screen.dart';
 import 'state/settings_cubit.dart';
 import 'state/settings_state.dart';
 import 'widgets/app_icon_bottom_sheet.dart';
@@ -395,12 +396,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             context.read<SettingsCubit>().setThemeMode(mode),
                       ),
                     ),
-                    Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: cs.outlineVariant,
-                    ),
                     // Language
                     ListTile(
                       leading: Icon(Icons.language, color: cs.primary),
@@ -706,6 +701,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       endIndent: 16,
                       color: cs.outlineVariant,
                     ),
+                    ListTile(
+                      key: const ValueKey('code_font_settings_tile'),
+                      leading: const Icon(Icons.font_download_outlined),
+                      title: Text(l.codeFontFamily),
+                      subtitle: Text(
+                        '${state.codeFontFamily.label} · ${state.codeFontSize.round()}pt',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const CodeFontSettingsScreen(),
+                        ),
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                       child: Column(
@@ -753,6 +768,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ],
                       ),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant,
+                    ),
+                    SwitchListTile(
+                      key: const ValueKey(
+                        'git_diff_focus_auto_landscape_toggle',
+                      ),
+                      title: Text(l.gitDiffFocusAutoLandscape),
+                      subtitle: Text(l.gitDiffFocusAutoLandscapeDescription),
+                      value: state.gitDiffFocusAutoLandscape,
+                      onChanged: context
+                          .read<SettingsCubit>()
+                          .setGitDiffFocusAutoLandscape,
                     ),
                     Divider(
                       height: 1,

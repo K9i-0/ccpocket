@@ -39,6 +39,8 @@ abstract class ChatSessionState with _$ChatSessionState {
     @Default(CodexApprovalPolicy.onRequest)
     CodexApprovalPolicy codexApprovalPolicy,
     @Default('user') String codexApprovalsReviewer,
+    @Default(CodexPermissionsMode.defaultPermissions)
+    CodexPermissionsMode codexPermissionsMode,
     @Default(false) bool planMode,
 
     // Sandbox mode — Freezed default is .on but Cubit constructor overrides

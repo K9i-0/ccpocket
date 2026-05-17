@@ -14,6 +14,12 @@ class FcmService {
 
   bool get isAvailable => _available;
 
+  bool get isSupportedPlatform {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android;
+  }
+
   FirebaseMessaging get _instance => _messaging ??= FirebaseMessaging.instance;
 
   Stream<String> get onTokenRefresh => _instance.onTokenRefresh;
@@ -22,13 +28,16 @@ class FcmService {
     if (kIsWeb) return 'web';
     if (defaultTargetPlatform == TargetPlatform.iOS) return 'ios';
     if (defaultTargetPlatform == TargetPlatform.android) return 'android';
-    return 'web';
+    if (defaultTargetPlatform == TargetPlatform.linux) return 'linux';
+    if (defaultTargetPlatform == TargetPlatform.macOS) return 'macos';
+    if (defaultTargetPlatform == TargetPlatform.windows) return 'windows';
+    return 'unknown';
   }
 
   Future<bool> init() async {
     if (_initAttempted) return _available;
     _initAttempted = true;
-    if (kIsWeb) {
+    if (!isSupportedPlatform) {
       _available = false;
       return false;
     }

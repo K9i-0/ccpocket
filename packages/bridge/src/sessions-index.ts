@@ -212,6 +212,8 @@ const PARALLEL_FILE_READ_LIMIT = 32;
 /** Head/Tail byte sizes for partial JSONL reads. */
 const HEAD_BYTES = 16384; // 16KB — covers first user entry + metadata
 const TAIL_BYTES = 8192;  // 8KB — covers last entries for modified/lastPrompt
+const CODEX_HEAD_BYTES = 131072; // 128KB — Codex turn_context can be large
+const CODEX_TAIL_BYTES = 16384;
 
 /**
  * Run async tasks with a concurrency limit.
@@ -250,6 +252,13 @@ const RE_IS_SIDECHAIN = /"isSidechain"\s*:\s*true/;
 const RE_PERMISSION_MODE = /"permissionMode"\s*:\s*"([^"]+)"/;
 const RE_TYPE_CUSTOM_TITLE = /"type"\s*:\s*"custom-title"/;
 const RE_CUSTOM_TITLE = /"customTitle"\s*:\s*"([^"]+)"/;
+const RE_CODEX_PARTIAL_TIMESTAMP = /"timestamp"\s*:\s*"([^"]+)"/;
+const RE_CODEX_PARTIAL_USER_MESSAGE =
+  /"type"\s*:\s*"event_msg"[\s\S]*"payload"\s*:\s*\{[\s\S]*"type"\s*:\s*"user_message"[\s\S]*"message"\s*:\s*"((?:\\.|[^"\\])*)/;
+const RE_CODEX_PARTIAL_AGENT_MESSAGE =
+  /"type"\s*:\s*"event_msg"[\s\S]*"payload"\s*:\s*\{[\s\S]*"type"\s*:\s*"agent_message"[\s\S]*"message"\s*:\s*"((?:\\.|[^"\\])*)/;
+const RE_CODEX_PARTIAL_OUTPUT_TEXT =
+  /"type"\s*:\s*"response_item"[\s\S]*"role"\s*:\s*"assistant"[\s\S]*"type"\s*:\s*"output_text"[\s\S]*"text"\s*:\s*"((?:\\.|[^"\\])*)/;
 
 /**
  * Detect system-injected messages that should be skipped when determining
@@ -265,6 +274,48 @@ function isSystemInjectedText(text: string): boolean {
 
 function isCodexAutoRenameSession(firstPrompt: string, model?: string): boolean {
   return model === CODEX_ASSIST_MODEL && isAutoRenamePromptText(firstPrompt);
+}
+
+function decodeJsonStringPrefix(fragment: string): string {
+  let candidate = fragment;
+  while (candidate.length > 0) {
+    try {
+      return JSON.parse(`"${candidate}"`) as string;
+    } catch {
+      candidate = candidate.slice(0, -1);
+    }
+  }
+  return "";
+}
+
+function parsePartialCodexLine(line: string): {
+  timestamp?: string;
+  userMessage?: string;
+  assistantText?: string;
+} {
+  const timestamp = line.match(RE_CODEX_PARTIAL_TIMESTAMP)?.[1];
+  const userMessage = line.match(RE_CODEX_PARTIAL_USER_MESSAGE)?.[1];
+  if (userMessage !== undefined) {
+    return {
+      timestamp,
+      userMessage: decodeJsonStringPrefix(userMessage),
+    };
+  }
+  const agentMessage = line.match(RE_CODEX_PARTIAL_AGENT_MESSAGE)?.[1];
+  if (agentMessage !== undefined) {
+    return {
+      timestamp,
+      assistantText: decodeJsonStringPrefix(agentMessage),
+    };
+  }
+  const outputText = line.match(RE_CODEX_PARTIAL_OUTPUT_TEXT)?.[1];
+  if (outputText !== undefined) {
+    return {
+      timestamp,
+      assistantText: decodeJsonStringPrefix(outputText),
+    };
+  }
+  return timestamp ? { timestamp } : {};
 }
 
 /** Extract user prompt text from a parsed JSONL entry. */
@@ -1119,6 +1170,11 @@ interface CodexRecentPerfStats {
   entriesReturned: number;
 }
 
+export interface CodexSessionIndexMetadata {
+  codexSettings?: SessionIndexEntry["codexSettings"];
+  resumeCwd?: string;
+}
+
 interface CodexSessionParseResult {
   entry: SessionIndexEntry;
   threadId: string;
@@ -1180,6 +1236,20 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
     try {
       entry = JSON.parse(line) as Record<string, unknown>;
     } catch {
+      const partial = parsePartialCodexLine(line);
+      if (partial.timestamp) {
+        if (!created) created = partial.timestamp;
+        modified = partial.timestamp;
+      }
+      if (partial.userMessage !== undefined) {
+        hasMessages = true;
+        if (!firstPrompt) firstPrompt = partial.userMessage;
+        lastPrompt = partial.userMessage;
+      }
+      if (partial.assistantText) {
+        hasMessages = true;
+        lastAssistantText = partial.assistantText;
+      }
       continue;
     }
 
@@ -1256,6 +1326,13 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
         hasMessages = true;
         if (!firstPrompt) firstPrompt = payload.message;
         lastPrompt = payload.message;
+      } else if (
+        payload?.type === "agent_message"
+        && typeof payload.message === "string"
+        && payload.message.trim().length > 0
+      ) {
+        hasMessages = true;
+        lastAssistantText = payload.message;
       }
       continue;
     }
@@ -1323,6 +1400,49 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
       codexSettings,
     },
   };
+}
+
+/**
+ * Fast parse a Codex JSONL file for recent-session list metadata.
+ * The first chunk contains session_meta / first prompt; the tail chunk contains
+ * the latest prompt, latest assistant summary, and modified timestamp.
+ */
+async function parseCodexSessionJsonlFast(
+  filePath: string,
+  fallbackSessionId: string,
+): Promise<CodexSessionParseResult | null> {
+  let fh;
+  try {
+    fh = await open(filePath, "r");
+  } catch {
+    return null;
+  }
+
+  try {
+    const fileStat = await fh.stat();
+    const fileSize = fileStat.size;
+    if (fileSize === 0) return null;
+
+    if (fileSize <= CODEX_HEAD_BYTES + CODEX_TAIL_BYTES) {
+      const buf = Buffer.alloc(fileSize);
+      await fh.read(buf, 0, fileSize, 0);
+      return parseCodexSessionJsonl(buf.toString("utf-8"), fallbackSessionId);
+    }
+
+    const headBuf = Buffer.alloc(CODEX_HEAD_BYTES);
+    await fh.read(headBuf, 0, CODEX_HEAD_BYTES, 0);
+
+    const tailBuf = Buffer.alloc(CODEX_TAIL_BYTES);
+    await fh.read(tailBuf, 0, CODEX_TAIL_BYTES, fileSize - CODEX_TAIL_BYTES);
+    const tailRaw = tailBuf.toString("utf-8");
+    const firstNewline = tailRaw.indexOf("\n");
+    const cleanTail = firstNewline >= 0 ? tailRaw.slice(firstNewline + 1) : "";
+
+    const partialRaw = `${headBuf.toString("utf-8")}\n${cleanTail}`;
+    return parseCodexSessionJsonl(partialRaw, fallbackSessionId);
+  } finally {
+    await fh.close();
+  }
 }
 
 function isCodexInternalSessionSource(source: unknown): boolean {
@@ -1815,6 +1935,58 @@ async function getAllRecentCodexSessions(options: CodexRecentOptions = {}): Prom
   return entries;
 }
 
+function matchingCodexThreadIdFromFilePath(
+  filePath: string,
+  wantedThreadIds: ReadonlySet<string>,
+): string | null {
+  const fallbackSessionId = basename(filePath, ".jsonl");
+  if (wantedThreadIds.has(fallbackSessionId)) return fallbackSessionId;
+  for (const threadId of wantedThreadIds) {
+    if (fallbackSessionId.endsWith(`-${threadId}`)) return threadId;
+  }
+  return null;
+}
+
+export async function getCodexSessionIndexMetadata(
+  threadIds: readonly string[],
+): Promise<Map<string, CodexSessionIndexMetadata>> {
+  const wantedThreadIds = new Set(threadIds.filter((id) => id.length > 0));
+  const result = new Map<string, CodexSessionIndexMetadata>();
+  if (wantedThreadIds.size === 0) return result;
+
+  const files = await listCodexSessionFiles();
+  const targets: string[] = [];
+  const matchedThreadIds = new Set<string>();
+  for (const filePath of files) {
+    const threadId = matchingCodexThreadIdFromFilePath(filePath, wantedThreadIds);
+    if (!threadId || matchedThreadIds.has(threadId)) continue;
+    targets.push(filePath);
+    matchedThreadIds.add(threadId);
+    if (matchedThreadIds.size === wantedThreadIds.size) break;
+  }
+
+  const parsedResults = await parallelMap(
+    targets,
+    PARALLEL_FILE_READ_LIMIT,
+    async (filePath) => {
+      const fallbackSessionId = basename(filePath, ".jsonl");
+      return parseCodexSessionJsonlFast(filePath, fallbackSessionId);
+    },
+  );
+
+  for (const parsed of parsedResults) {
+    if (!parsed || !wantedThreadIds.has(parsed.threadId)) continue;
+    result.set(parsed.threadId, {
+      ...(parsed.entry.codexSettings
+        ? { codexSettings: parsed.entry.codexSettings }
+        : {}),
+      ...(parsed.entry.resumeCwd ? { resumeCwd: parsed.entry.resumeCwd } : {}),
+    });
+  }
+
+  return result;
+}
+
 // ---- Session history from JSONL files ----
 
 type SessionHistoryContentItem = {
@@ -1843,6 +2015,10 @@ export interface SessionHistoryMessage {
 
 export function codexUserTurnUuid(ordinal: number): string {
   return `codex:user-turn:${ordinal}`;
+}
+
+export function isCodexUserTurnUuid(uuid: string | undefined): uuid is string {
+  return typeof uuid === "string" && /^codex:user-turn:\d+$/.test(uuid);
 }
 
 function numberToIsoTimestamp(value: unknown): string | undefined {
@@ -2527,7 +2703,10 @@ async function findCodexSessionJsonlPath(threadId: string): Promise<string | nul
   const files = await listCodexSessionFiles();
   for (const filePath of files) {
     const fallbackSessionId = basename(filePath, ".jsonl");
-    if (fallbackSessionId === threadId) {
+    if (
+      fallbackSessionId === threadId ||
+      fallbackSessionId.endsWith(`-${threadId}`)
+    ) {
       return filePath;
     }
     let raw: string;
@@ -2663,6 +2842,19 @@ export interface ExtractedImage {
   mimeType: string;
 }
 
+interface CodexMessageImageIndex {
+  jsonlPath: string;
+  size: number;
+  mtimeMs: number;
+  imagesByUuid: Map<string, ExtractedImage[]>;
+}
+
+const CODEX_IMAGE_INDEX_CACHE_LIMIT = 8;
+const codexMessageImageIndexCache = new Map<
+  string,
+  Promise<CodexMessageImageIndex | null>
+>();
+
 /**
  * Extract image base64 data from a Claude Code session JSONL for a specific message UUID.
  */
@@ -2670,6 +2862,10 @@ export async function extractMessageImages(
   sessionId: string,
   messageUuid: string,
 ): Promise<ExtractedImage[]> {
+  if (isCodexMessageImageUuid(messageUuid)) {
+    return extractCodexMessageImages(sessionId, messageUuid);
+  }
+
   // Try Claude Code first, then Codex
   const claudeImages = await extractClaudeMessageImages(sessionId, messageUuid);
   if (claudeImages.length > 0) return claudeImages;
@@ -2733,71 +2929,114 @@ async function extractCodexMessageImages(
   sessionId: string,
   messageUuid: string,
 ): Promise<ExtractedImage[]> {
-  const jsonlPath = await findCodexSessionJsonlPath(sessionId);
-  if (!jsonlPath) return [];
+  const index = await getCodexMessageImageIndex(sessionId);
+  return index?.imagesByUuid.get(messageUuid) ?? [];
+}
 
+function isCodexMessageImageUuid(messageUuid: string): boolean {
+  return (
+    messageUuid.startsWith("codex:user-turn:") ||
+    messageUuid.startsWith("codex-line-")
+  );
+}
+
+async function getCodexMessageImageIndex(
+  threadId: string,
+): Promise<CodexMessageImageIndex | null> {
+  const cached = codexMessageImageIndexCache.get(threadId);
+  if (cached) {
+    const index = await cached;
+    if (index && (await isFreshCodexMessageImageIndex(index))) {
+      return index;
+    }
+    codexMessageImageIndexCache.delete(threadId);
+  }
+
+  const promise = buildCodexMessageImageIndex(threadId);
+  codexMessageImageIndexCache.set(threadId, promise);
+  trimCodexMessageImageIndexCache();
+  return promise;
+}
+
+async function isFreshCodexMessageImageIndex(
+  index: CodexMessageImageIndex,
+): Promise<boolean> {
+  try {
+    const current = await stat(index.jsonlPath);
+    return current.size === index.size && current.mtimeMs === index.mtimeMs;
+  } catch {
+    return false;
+  }
+}
+
+function trimCodexMessageImageIndexCache() {
+  while (codexMessageImageIndexCache.size > CODEX_IMAGE_INDEX_CACHE_LIMIT) {
+    const oldest = codexMessageImageIndexCache.keys().next().value;
+    if (!oldest) return;
+    codexMessageImageIndexCache.delete(oldest);
+  }
+}
+
+async function buildCodexMessageImageIndex(
+  threadId: string,
+): Promise<CodexMessageImageIndex | null> {
+  const jsonlPath = await findCodexSessionJsonlPath(threadId);
+  if (!jsonlPath) return null;
+
+  let fileStat;
   let raw: string;
   try {
+    fileStat = await stat(jsonlPath);
     raw = await readFile(jsonlPath, "utf-8");
   } catch {
-    return [];
+    return null;
   }
 
-  // Codex doesn't have per-message UUIDs in the same way. Newer app history
-  // uses a stable turn ordinal (codex:user-turn:N); older builds encoded the
-  // JSONL line index (codex-line:N).
-  const lineIndex = messageUuid.startsWith("codex-line-")
-    ? parseInt(messageUuid.slice("codex-line-".length), 10)
-    : -1;
-  const lines = raw.split("\n");
-  if (lineIndex >= 0) {
-    if (lineIndex >= lines.length) return [];
+  const imagesByUuid = await collectCodexMessageImages(raw.split("\n"));
+  return {
+    jsonlPath,
+    size: fileStat.size,
+    mtimeMs: fileStat.mtimeMs,
+    imagesByUuid,
+  };
+}
 
-    const line = lines[lineIndex];
-    if (!line?.trim()) return [];
-
-    let entry: Record<string, unknown>;
-    try {
-      entry = JSON.parse(line) as Record<string, unknown>;
-    } catch {
-      return [];
-    }
-
-    if (entry.type !== "event_msg") return [];
-    const payload = asObject(entry.payload);
-    if (!payload || payload.type !== "user_message") return [];
-    return extractCodexUserMessagePayloadImages(payload);
-  }
-
-  const turnMatch = messageUuid.match(/^codex:user-turn:(\d+)$/);
-  const targetOrdinal = turnMatch ? Number(turnMatch[1]) : -1;
-  if (!Number.isInteger(targetOrdinal) || targetOrdinal <= 0) return [];
-
+async function collectCodexMessageImages(
+  lines: string[],
+): Promise<Map<string, ExtractedImage[]>> {
+  const imagesByUuid = new Map<string, ExtractedImage[]>();
   const responseItemImagesByOrdinal =
     collectCodexUserResponseItemImagesByOrdinal(lines);
   let ordinal = 0;
-  for (const line of lines) {
+
+  for (const [lineIndex, line] of lines.entries()) {
     if (!line.trim()) continue;
+
     let entry: Record<string, unknown>;
     try {
       entry = JSON.parse(line) as Record<string, unknown>;
     } catch {
       continue;
     }
+
     if (entry.type !== "event_msg") continue;
     const payload = asObject(entry.payload);
     if (!payload || payload.type !== "user_message") continue;
+
+    const lineImages = await extractCodexUserMessagePayloadImages(payload);
+    imagesByUuid.set(`codex-line-${lineIndex}`, lineImages);
+
     if (!codexUserMessagePayloadHasDisplayContent(payload)) continue;
     ordinal += 1;
-    if (ordinal === targetOrdinal) {
-      const images = await extractCodexUserMessagePayloadImages(payload);
-      return images.length > 0
-        ? images
-        : (responseItemImagesByOrdinal.get(targetOrdinal) ?? []);
-    }
+    imagesByUuid.set(
+      `codex:user-turn:${ordinal}`,
+      lineImages.length > 0
+        ? lineImages
+        : (responseItemImagesByOrdinal.get(ordinal) ?? []),
+    );
   }
 
-  return [];
+  return imagesByUuid;
 }
 
 async function extractCodexUserMessagePayloadImages(

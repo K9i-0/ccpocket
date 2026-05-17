@@ -32,6 +32,7 @@ class ChatStateUpdate {
   final ExecutionMode? executionMode;
   final CodexApprovalPolicy? codexApprovalPolicy;
   final String? codexApprovalsReviewer;
+  final CodexPermissionsMode? codexPermissionsMode;
   final bool? planMode;
   final List<ChatEntry> entriesToAdd;
   final List<ChatEntry> entriesToPrepend;
@@ -71,7 +72,15 @@ class ChatStateUpdate {
   /// UUID update for an existing user entry. When the SDK echoes back a
   /// user_input with a UUID, we update the locally-added UserChatEntry rather
   /// than creating a duplicate.
-  final ({String text, String uuid, String? clientMessageId})? userUuidUpdate;
+  final ({
+    String text,
+    String uuid,
+    String? clientMessageId,
+    int imageCount,
+    List<String> imageUrls,
+    String? timestamp,
+  })?
+  userUuidUpdate;
 
   const ChatStateUpdate({
     this.status,
@@ -79,6 +88,7 @@ class ChatStateUpdate {
     this.executionMode,
     this.codexApprovalPolicy,
     this.codexApprovalsReviewer,
+    this.codexPermissionsMode,
     this.planMode,
     this.entriesToAdd = const [],
     this.entriesToPrepend = const [],
@@ -249,6 +259,9 @@ class ChatMessageHandler {
         :final userMessageUuid,
         :final isSynthetic,
         :final isMeta,
+        :final imageCount,
+        :final imageUrls,
+        :final timestamp,
       ):
         // Skip synthetic and meta messages (e.g. plan approval, Task agent
         // prompts, skill loading prompts).
@@ -261,6 +274,9 @@ class ChatMessageHandler {
               text: text,
               uuid: userMessageUuid,
               clientMessageId: clientMessageId,
+              imageCount: imageCount,
+              imageUrls: imageUrls,
+              timestamp: timestamp,
             ),
           );
         }
@@ -701,6 +717,7 @@ class ChatMessageHandler {
     ExecutionMode? executionMode;
     CodexApprovalPolicy? codexApprovalPolicy;
     String? codexApprovalsReviewer;
+    CodexPermissionsMode? codexPermissionsMode;
     bool? inPlanMode;
     bool? planMode;
     bool hasExecutionSignals(SystemMessage message) =>
@@ -729,6 +746,9 @@ class ChatMessageHandler {
     }
     if (msg is SystemMessage && msg.permissionMode != null) {
       codexApprovalsReviewer = msg.approvalsReviewer;
+      codexPermissionsMode = codexPermissionsModeFromRaw(
+        msg.codexPermissionsMode,
+      );
       permissionMode = PermissionMode.values.cast<PermissionMode?>().firstWhere(
         (mode) => mode?.value == msg.permissionMode,
         orElse: () => null,
@@ -760,6 +780,9 @@ class ChatMessageHandler {
       }
     } else if (msg is SystemMessage) {
       codexApprovalsReviewer = msg.approvalsReviewer;
+      codexPermissionsMode = codexPermissionsModeFromRaw(
+        msg.codexPermissionsMode,
+      );
       if (hasExecutionSignals(msg)) {
         executionMode = deriveExecutionMode(
           provider: msg.provider,
@@ -799,6 +822,7 @@ class ChatMessageHandler {
       executionMode: executionMode,
       codexApprovalPolicy: codexApprovalPolicy,
       codexApprovalsReviewer: codexApprovalsReviewer,
+      codexPermissionsMode: codexPermissionsMode,
       planMode: planMode,
       inPlanMode: inPlanMode,
       slashCommands: commands,

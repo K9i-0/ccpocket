@@ -62,7 +62,13 @@ class _FileMentionOverlayState extends State<FileMentionOverlay> {
     });
   }
 
+  bool _isDirectoryPath(String path) => path.endsWith('/');
+
+  String _displayPath(String path) =>
+      _isDirectoryPath(path) ? path.substring(0, path.length - 1) : path;
+
   IconData _fileIcon(String path) {
+    if (_isDirectoryPath(path)) return Icons.folder_outlined;
     if (path.endsWith('.dart')) return Icons.code;
     if (path.endsWith('.ts') || path.endsWith('.tsx')) return Icons.javascript;
     if (path.endsWith('.json')) return Icons.data_object;
@@ -152,9 +158,10 @@ class _FileMentionOverlayState extends State<FileMentionOverlay> {
               );
             }
             final file = widget.filteredFiles[index - pluginCount];
-            final fileName = file.split('/').last;
-            final dirPath = file.contains('/')
-                ? file.substring(0, file.lastIndexOf('/'))
+            final displayPath = _displayPath(file);
+            final fileName = displayPath.split('/').last;
+            final dirPath = displayPath.contains('/')
+                ? displayPath.substring(0, displayPath.lastIndexOf('/'))
                 : '';
             final isSelected = index == widget.selectedIndex;
             return InkWell(
@@ -187,7 +194,9 @@ class _FileMentionOverlayState extends State<FileMentionOverlay> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: cs.primary,
+                              color: _isDirectoryPath(file)
+                                  ? cs.secondary
+                                  : cs.primary,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),

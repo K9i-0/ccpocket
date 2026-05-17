@@ -119,7 +119,7 @@ describe("parseClientMessage", () => {
 
   it("parses start with optional fields", () => {
     const msg = parseClientMessage(
-      '{"type":"start","projectPath":"/p","sessionId":"s1","continue":true,"permissionMode":"acceptEdits","profile":"ccpocket","approvalPolicy":"on-request","approvalsReviewer":"auto_review","additionalWritableRoots":["/tmp/extra"],"autoRename":true}',
+      '{"type":"start","projectPath":"/p","sessionId":"s1","continue":true,"permissionMode":"acceptEdits","profile":"ccpocket","approvalPolicy":"on-request","approvalsReviewer":"auto_review","codexPermissionsMode":"autoReview","additionalWritableRoots":["/tmp/extra"],"autoRename":true}',
     );
     expect(msg).toEqual({
       type: "start",
@@ -130,6 +130,7 @@ describe("parseClientMessage", () => {
       profile: "ccpocket",
       approvalPolicy: "on-request",
       approvalsReviewer: "auto_review",
+      codexPermissionsMode: "autoReview",
       additionalWritableRoots: ["/tmp/extra"],
       autoRename: true,
     });
@@ -236,13 +237,14 @@ describe("parseClientMessage", () => {
 
   it("parses set_permission_mode message", () => {
     const msg = parseClientMessage(
-      '{"type":"set_permission_mode","mode":"plan","sessionId":"s1","approvalsReviewer":"guardian_subagent"}',
+      '{"type":"set_permission_mode","mode":"plan","sessionId":"s1","approvalsReviewer":"guardian_subagent","codexPermissionsMode":"custom"}',
     );
     expect(msg).toEqual({
       type: "set_permission_mode",
       mode: "plan",
       sessionId: "s1",
       approvalsReviewer: "guardian_subagent",
+      codexPermissionsMode: "custom",
     });
   });
 
@@ -256,6 +258,19 @@ describe("parseClientMessage", () => {
     expect(
       parseClientMessage(
         '{"type":"start","projectPath":"/p","approvalsReviewer":"bot"}',
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects invalid codexPermissionsMode", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"start","projectPath":"/p","codexPermissionsMode":"reviewEverything"}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"set_permission_mode","mode":"default","codexPermissionsMode":"reviewEverything"}',
       ),
     ).toBeNull();
   });

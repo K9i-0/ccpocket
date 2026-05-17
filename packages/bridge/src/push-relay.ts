@@ -19,9 +19,11 @@ export interface PushRelayClientOptions {
 }
 
 type PushRelayOpPayload =
-  | { op: "register"; token: string; platform: PushPlatform; locale?: string; bridgeId: string }
-  | { op: "unregister"; token: string; bridgeId: string }
-  | { op: "notify"; eventType: string; title: string; body: string; locale?: string; data?: Record<string, string>; bridgeId: string };
+  | { op: "register"; token: string; platform: PushPlatform; locale?: string }
+  | { op: "unregister"; token: string }
+  | { op: "notify"; eventType: string; title: string; body: string; locale?: string; data?: Record<string, string> };
+
+type PushRelayRequestPayload = PushRelayOpPayload & { bridgeId: string };
 
 const DEFAULT_RELAY_URL = "https://us-central1-ccpocket-ca33b.cloudfunctions.net/relay";
 
@@ -48,19 +50,18 @@ export class PushRelayClient {
 
   async registerToken(token: string, platform: PushPlatform, locale?: string): Promise<void> {
     if (!this.isConfigured) return;
-    await this.post({ op: "register", token, platform, locale, bridgeId: this.bridgeId });
+    await this.post({ op: "register", token, platform, locale });
   }
 
   async unregisterToken(token: string): Promise<void> {
     if (!this.isConfigured) return;
-    await this.post({ op: "unregister", token, bridgeId: this.bridgeId });
+    await this.post({ op: "unregister", token });
   }
 
   async notify(payload: PushNotifyPayload): Promise<void> {
     if (!this.isConfigured) return;
     await this.post({
       op: "notify",
-      bridgeId: this.bridgeId,
       eventType: payload.eventType,
       title: payload.title,
       body: payload.body,
@@ -72,8 +73,12 @@ export class PushRelayClient {
   private async post(payload: PushRelayOpPayload): Promise<void> {
     if (!this.isConfigured || !this.firebaseAuth) return;
 
-    console.log(`[push-relay] ${payload.op} → ${this.relayUrl} (bridgeId: ${payload.bridgeId})`);
     const idToken = await this.firebaseAuth.getIdToken();
+    const requestPayload: PushRelayRequestPayload = {
+      ...payload,
+      bridgeId: this.bridgeId,
+    };
+    console.log(`[push-relay] ${payload.op} → ${this.relayUrl} (bridgeId: ${requestPayload.bridgeId})`);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -83,7 +88,7 @@ export class PushRelayClient {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${idToken}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(requestPayload),
         signal: controller.signal,
       });
 

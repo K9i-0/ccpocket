@@ -1,6 +1,6 @@
 ---
 name: release-app
-description: アプリのリリース（バージョンbump + CHANGELOG + タグ → GH Actions で自動ビルド・配布）。iOS / Android / macOS の任意の組み合わせでリリースできる。「リリース」「バージョン上げて」「リリースして」と言われたときに使う。
+description: アプリのリリース（バージョンbump + CHANGELOG + タグ → GH Actions で自動ビルド・配布）。iOS / Android / macOS / Linux の任意の組み合わせでリリースできる。「リリース」「バージョン上げて」「リリースして」と言われたときに使う。
 disable-model-invocation: true
 allowed-tools: Bash(git:*), Bash(grep:*), Bash(gh:*), Bash(dart analyze:*), Bash(cd apps/mobile && flutter test), Read, Edit, AskUserQuestion
 ---
@@ -28,11 +28,11 @@ grep '^version:' apps/mobile/pubspec.yaml
 前回リリースからの差分を確認する:
 
 ```bash
-# 前回のタグ（iOS/Android/macOS のいずれか新しい方）
-git tag -l 'ios/v*' 'android/v*' 'macos/v*' --sort=-v:refname | head -1
+# 前回のタグ（iOS/Android/macOS/Linux のいずれか新しい方）
+git tag -l 'ios/v*' 'android/v*' 'macos/v*' 'linux/v*' --sort=-v:refname | head -1
 
 # 差分コミット（bridge 以外）
-git log $(git tag -l 'ios/v*' 'android/v*' 'macos/v*' --sort=-v:refname | head -1)..HEAD --oneline -- apps/mobile/ CHANGELOG.md
+git log $(git tag -l 'ios/v*' 'android/v*' 'macos/v*' 'linux/v*' --sort=-v:refname | head -1)..HEAD --oneline -- apps/mobile/ CHANGELOG.md
 ```
 
 ### 2. バージョンとプラットフォームをユーザーに確認
@@ -52,9 +52,11 @@ build number は現在の値 +1 で統一する。
 #### 質問 2: プラットフォーム
 
 以下の選択肢を提示する:
-- **iOS + Android + macOS 全部** (Recommended)
+- **iOS + Android + macOS + Linux 全部** (Recommended)
 - **iOS + Android のみ**（モバイルのみ）
+- **macOS + Linux のみ**（デスクトップのみ）
 - **macOS のみ**
+- **Linux のみ**
 - **iOS のみ**
 - **Android のみ**
 
@@ -119,6 +121,10 @@ git push origin android/vX.Y.Z+N
 # macOS（選択された場合）
 git tag macos/vX.Y.Z+N
 git push origin macos/vX.Y.Z+N
+
+# Linux（選択された場合）
+git tag linux/vX.Y.Z+N
+git push origin linux/vX.Y.Z+N
 ```
 
 ### 7. 完了確認
@@ -130,12 +136,14 @@ git push origin macos/vX.Y.Z+N
 | `ios/v*` | `ios-release.yml` | Shorebird release iOS → TestFlight → GitHub Release |
 | `android/v*` | `android-release.yml` | Shorebird release Android → Google Play (internal draft) → GitHub Release |
 | `macos/v*` | `macos-release.yml` | Developer ID 署名 → 公証 → DMG → GitHub Release |
+| `linux/v*` | `linux-release.yml` | Linux release build → Xvfb smoke → tar.gz → GitHub Release |
 
 ```bash
 # 各プラットフォームのワークフロー確認（タグを打ったもののみ）
 gh run list --workflow=ios-release.yml --limit 1
 gh run list --workflow=android-release.yml --limit 1
 gh run list --workflow=macos-release.yml --limit 1
+gh run list --workflow=linux-release.yml --limit 1
 ```
 
 成功を確認したら完了。
@@ -152,11 +160,13 @@ gh run list --workflow=macos-release.yml --limit 1
 gh run list --workflow=ios-release.yml --limit 1
 gh run list --workflow=android-release.yml --limit 1
 gh run list --workflow=macos-release.yml --limit 1
+gh run list --workflow=linux-release.yml --limit 1
 
 # 10〜15分ほど待ってから再確認
 gh run list --workflow=ios-release.yml --limit 1
 gh run list --workflow=android-release.yml --limit 1
 gh run list --workflow=macos-release.yml --limit 1
+gh run list --workflow=linux-release.yml --limit 1
 ```
 
 途中確認する場合も 2〜3 分間隔を目安にする。`failure` / `cancelled` が出た場合だけ `gh run view <run-id> --log-failed` で詳細を確認する。

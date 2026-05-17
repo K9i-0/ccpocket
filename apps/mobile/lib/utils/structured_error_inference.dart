@@ -9,6 +9,15 @@ String? inferStructuredErrorCode({
   final normalized = message.toLowerCase();
 
   if (_containsAny(normalized, const [
+    'spawn codex enoent',
+    'codex cli is not installed',
+    'codex cli not installed',
+    'codex: command not found',
+  ])) {
+    return 'codex_cli_not_found';
+  }
+
+  if (_containsAny(normalized, const [
     'check openai_api_key',
     'codex authentication',
     'codex auth',

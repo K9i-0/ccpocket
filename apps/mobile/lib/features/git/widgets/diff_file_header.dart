@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_theme.dart';
+import '../../../theme/code_text_style.dart';
 import '../../../utils/diff_parser.dart';
 import '../../../widgets/adaptive_context_menu.dart';
 import 'diff_file_path_text.dart';
@@ -29,6 +30,7 @@ class DiffFileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = Theme.of(context).extension<AppColors>()!;
+    final codeSettings = codeTextSettingsOf(context);
     final stats = file.stats;
     final header = GestureDetector(
       key: ValueKey('diff_file_header_${file.filePath}'),
@@ -47,9 +49,7 @@ class DiffFileHeader extends StatelessWidget {
             Expanded(
               child: DiffFilePathText(
                 filePath: file.filePath,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontFamily: 'monospace',
+                style: codeSettings.style(
                   fontWeight: FontWeight.w600,
                   color: appColors.toolResultTextExpanded,
                 ),

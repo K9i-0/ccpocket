@@ -125,6 +125,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get none => '无';
 
   @override
+  String get dismissKeyboard => '收起键盘';
+
+  @override
   String get serverUnreachable => '无法连接服务器';
 
   @override
@@ -209,6 +212,147 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get password => '密码';
+
+  @override
+  String get machineEditAddTitle => '添加机器';
+
+  @override
+  String get machineEditEditTitle => '编辑机器';
+
+  @override
+  String get machineEditDismissKeyboardTooltip => '收起键盘';
+
+  @override
+  String get machineEditBasicInfo => '基本信息';
+
+  @override
+  String get machineEditName => '名称';
+
+  @override
+  String get machineEditNameHint => 'Home Mac';
+
+  @override
+  String get machineEditHostLabel => 'Host（IP 或主机名）';
+
+  @override
+  String get machineEditHostHint => '100.64.1.2';
+
+  @override
+  String get machineEditPort => 'Port';
+
+  @override
+  String get machineEditBridgePortHint => '8765';
+
+  @override
+  String get machineEditApiKey => 'API Key';
+
+  @override
+  String get machineEditOptional => '可选';
+
+  @override
+  String get machineEditUseSecureConnection => '使用安全连接';
+
+  @override
+  String get machineEditUseSecureConnectionSubtitle =>
+      '使用 WSS 连接，并用 HTTPS 进行健康检查';
+
+  @override
+  String get machineEditSshConfiguration => 'SSH 设置';
+
+  @override
+  String get machineEditEnableSshRemoteStartup => '启用 SSH 远程启动';
+
+  @override
+  String get machineEditEnableSshRemoteStartupSubtitle =>
+      '离线时远程启动 Bridge Server';
+
+  @override
+  String get machineEditSshUsername => 'SSH Username';
+
+  @override
+  String get machineEditSshUsernameHint => 'myuser';
+
+  @override
+  String get machineEditSshPort => 'SSH Port';
+
+  @override
+  String get machineEditSshPortHint => '22';
+
+  @override
+  String get machineEditTargetAuthentication => '目标认证';
+
+  @override
+  String get machineEditPrivateKey => 'Private Key';
+
+  @override
+  String get machineEditSshPrivateKeyPem => 'SSH Private Key (PEM)';
+
+  @override
+  String get machineEditOpenSshPrivateKeyHint =>
+      '-----BEGIN OPENSSH PRIVATE KEY-----';
+
+  @override
+  String get machineEditSavedPrivateKeyIndicator =>
+      'Private Key 已保存。输入新内容会替换它。';
+
+  @override
+  String get machineEditUseSshJumpHost => '使用 SSH Jump Host';
+
+  @override
+  String get machineEditUseSshJumpHostSubtitle => '通过 bastion 或中间 SSH 主机连接';
+
+  @override
+  String get machineEditSshJumpHost => 'SSH Jump Host';
+
+  @override
+  String get machineEditJumpHost => 'Jump Host';
+
+  @override
+  String get machineEditJumpHostHint => 'bastion.example.com';
+
+  @override
+  String get machineEditJumpPort => 'Jump Port';
+
+  @override
+  String get machineEditJumpUsername => 'Jump Username';
+
+  @override
+  String get machineEditJumpUsernameHint => '留空则使用 SSH Username';
+
+  @override
+  String get machineEditJumpHostAuthentication => 'Jump Host 认证';
+
+  @override
+  String get machineEditJumpHostAuthenticationSubtitle => '留空则复用目标 SSH 认证信息';
+
+  @override
+  String get machineEditJumpPassword => 'Jump Password';
+
+  @override
+  String get machineEditSavedJumpHostPasswordIndicator =>
+      'Jump Host 密码已保存。输入新内容会替换它。';
+
+  @override
+  String get machineEditJumpPrivateKeyPem => 'Jump Private Key (PEM)';
+
+  @override
+  String get machineEditSavedJumpHostPrivateKeyIndicator =>
+      'Jump Host Private Key 已保存。输入新内容会替换它。';
+
+  @override
+  String get machineEditTesting => '正在测试...';
+
+  @override
+  String get machineEditTestConnection => '测试连接';
+
+  @override
+  String get machineEditConnectionSuccessful => '连接成功';
+
+  @override
+  String get machineEditFillSshCredentials => '请输入 SSH 认证信息';
+
+  @override
+  String get machineEditAddAndConnect => '添加并连接';
 
   @override
   String get deleteMachine => '删除机器';
@@ -1397,6 +1541,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get textDensityDescription => '在系统文字大小的基础上再应用此应用倍率。100% 保持系统设置不变。';
 
   @override
+  String get codeFontSize => '代码字体大小';
+
+  @override
+  String get codeFontFamily => '代码字体';
+
+  @override
+  String get codeFontPreview => '预览';
+
+  @override
   String get indentSize => '缩进大小';
 
   @override
@@ -1418,6 +1571,13 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get gitDiffScrollFirstDescription =>
       '长行不换行，可按 hunk 横向滚动。Git 操作请使用长按菜单或底部按钮。';
+
+  @override
+  String get gitDiffFocusAutoLandscape => '在 diff 专注模式中切换为横屏';
+
+  @override
+  String get gitDiffFocusAutoLandscapeDescription =>
+      '在移动布局中，进入 diff 专注模式时会锁定为横屏。退出专注模式后恢复正常旋转。';
 
   @override
   String get remoteGitStatusBadge => '用浅色徽标显示未同步的 Git 提交';

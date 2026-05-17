@@ -11,6 +11,20 @@ import 'package:uuid/uuid.dart';
 import '../constants/app_constants.dart';
 import '../models/machine.dart';
 
+typedef BridgeWsUrlResolver =
+    Future<String> Function(
+      Machine machine, {
+      String? password,
+      Future<String?> Function()? promptForPassword,
+    });
+
+typedef BridgeHttpBaseUrlResolver =
+    Future<String> Function(
+      Machine machine, {
+      String? password,
+      Future<String?> Function()? promptForPassword,
+    });
+
 /// Manages machine configurations, health status, and version info.
 ///
 /// Responsibilities:
@@ -38,9 +52,19 @@ class MachineManagerService {
   final Map<String, DateTime> _lastChecked = {};
   final Map<String, String> _lastErrors = {};
   final Map<String, BridgeVersionInfo> _versionCache = {};
+  BridgeWsUrlResolver? _bridgeWsUrlResolver;
+  BridgeHttpBaseUrlResolver? _bridgeHttpBaseUrlResolver;
   Timer? _healthCheckTimer;
 
   MachineManagerService(this._prefs, this._secureStorage);
+
+  void configureBridgeTunnelResolvers({
+    BridgeWsUrlResolver? wsUrlResolver,
+    BridgeHttpBaseUrlResolver? httpBaseUrlResolver,
+  }) {
+    _bridgeWsUrlResolver = wsUrlResolver;
+    _bridgeHttpBaseUrlResolver = httpBaseUrlResolver;
+  }
 
   /// Stream of machines with their current status
   Stream<List<MachineWithStatus>> get machines => _machinesController.stream;
@@ -447,19 +471,18 @@ class MachineManagerService {
       await _secureStorage.delete(
         key: '$_secureKeyPrefix${machine.id}_ssh_key',
       );
-    } else {
-      if (sshPassword != null && sshPassword.isNotEmpty) {
-        await _secureStorage.write(
-          key: '$_secureKeyPrefix${machine.id}_ssh_pass',
-          value: sshPassword,
-        );
-      }
-      if (sshPrivateKey != null && sshPrivateKey.isNotEmpty) {
-        await _secureStorage.write(
-          key: '$_secureKeyPrefix${machine.id}_ssh_key',
-          value: sshPrivateKey,
-        );
-      }
+    }
+    if (sshPassword != null && sshPassword.isNotEmpty) {
+      await _secureStorage.write(
+        key: '$_secureKeyPrefix${machine.id}_ssh_pass',
+        value: sshPassword,
+      );
+    }
+    if (sshPrivateKey != null && sshPrivateKey.isNotEmpty) {
+      await _secureStorage.write(
+        key: '$_secureKeyPrefix${machine.id}_ssh_key',
+        value: sshPrivateKey,
+      );
     }
 
     if (clearJumpCredentials) {
@@ -469,19 +492,18 @@ class MachineManagerService {
       await _secureStorage.delete(
         key: '$_secureKeyPrefix${machine.id}_jump_ssh_key',
       );
-    } else {
-      if (sshJumpPassword != null && sshJumpPassword.isNotEmpty) {
-        await _secureStorage.write(
-          key: '$_secureKeyPrefix${machine.id}_jump_ssh_pass',
-          value: sshJumpPassword,
-        );
-      }
-      if (sshJumpPrivateKey != null && sshJumpPrivateKey.isNotEmpty) {
-        await _secureStorage.write(
-          key: '$_secureKeyPrefix${machine.id}_jump_ssh_key',
-          value: sshJumpPrivateKey,
-        );
-      }
+    }
+    if (sshJumpPassword != null && sshJumpPassword.isNotEmpty) {
+      await _secureStorage.write(
+        key: '$_secureKeyPrefix${machine.id}_jump_ssh_pass',
+        value: sshJumpPassword,
+      );
+    }
+    if (sshJumpPrivateKey != null && sshJumpPrivateKey.isNotEmpty) {
+      await _secureStorage.write(
+        key: '$_secureKeyPrefix${machine.id}_jump_ssh_key',
+        value: sshJumpPrivateKey,
+      );
     }
 
     // Update flags
@@ -537,12 +559,19 @@ class MachineManagerService {
   Future<MachineStatus> checkHealth(
     String machineId, {
     Duration timeout = const Duration(seconds: 5),
+    String? password,
+    Future<String?> Function()? promptForPassword,
   }) async {
     final machine = getMachine(machineId);
     if (machine == null) return MachineStatus.unknown;
 
     try {
-      final healthUrl = '${machine.httpUrl}/health';
+      final httpBaseUrl = await _buildHttpBaseUrl(
+        machine,
+        password: password,
+        promptForPassword: promptForPassword,
+      );
+      final healthUrl = '$httpBaseUrl/health';
       final response = await http.get(Uri.parse(healthUrl)).timeout(timeout);
 
       if (response.statusCode == 200) {
@@ -550,7 +579,11 @@ class MachineManagerService {
         _lastErrors.remove(machineId);
 
         // Fetch version info for online machines
-        await _fetchVersionInfo(machine);
+        await _fetchVersionInfo(
+          machine,
+          password: password,
+          promptForPassword: promptForPassword,
+        );
       } else {
         _statusCache[machineId] = MachineStatus.offline;
         _lastErrors[machineId] = 'HTTP ${response.statusCode}';
@@ -577,9 +610,18 @@ class MachineManagerService {
   }
 
   /// Fetch version info from /version endpoint
-  Future<void> _fetchVersionInfo(Machine machine) async {
+  Future<void> _fetchVersionInfo(
+    Machine machine, {
+    String? password,
+    Future<String?> Function()? promptForPassword,
+  }) async {
     try {
-      final versionUrl = '${machine.httpUrl}/version';
+      final httpBaseUrl = await _buildHttpBaseUrl(
+        machine,
+        password: password,
+        promptForPassword: promptForPassword,
+      );
+      final versionUrl = '$httpBaseUrl/version';
       final response = await http
           .get(Uri.parse(versionUrl))
           .timeout(const Duration(seconds: 3));
@@ -708,12 +750,60 @@ class MachineManagerService {
     final machine = getMachine(machineId);
     if (machine == null) throw ArgumentError('Machine not found: $machineId');
 
-    var url = machine.wsUrl;
+    var url = await _buildWsUrl(machine);
     final apiKey = await getApiKey(machineId);
     if (apiKey != null && apiKey.isNotEmpty) {
       url = '$url?token=$apiKey';
     }
     return url;
+  }
+
+  Future<String> buildWsUrlWithSshCredentials(
+    String machineId, {
+    String? password,
+    Future<String?> Function()? promptForPassword,
+  }) async {
+    final machine = getMachine(machineId);
+    if (machine == null) throw ArgumentError('Machine not found: $machineId');
+
+    var url = await _buildWsUrl(
+      machine,
+      password: password,
+      promptForPassword: promptForPassword,
+    );
+    final apiKey = await getApiKey(machineId);
+    if (apiKey != null && apiKey.isNotEmpty) {
+      url = '$url?token=$apiKey';
+    }
+    return url;
+  }
+
+  Future<String> _buildWsUrl(
+    Machine machine, {
+    String? password,
+    Future<String?> Function()? promptForPassword,
+  }) async {
+    final resolver = _bridgeWsUrlResolver;
+    if (resolver == null) return machine.wsUrl;
+    return await resolver(
+      machine,
+      password: password,
+      promptForPassword: promptForPassword,
+    );
+  }
+
+  Future<String> _buildHttpBaseUrl(
+    Machine machine, {
+    String? password,
+    Future<String?> Function()? promptForPassword,
+  }) async {
+    final resolver = _bridgeHttpBaseUrlResolver;
+    if (resolver == null) return machine.httpUrl;
+    return await resolver(
+      machine,
+      password: password,
+      promptForPassword: promptForPassword,
+    );
   }
 
   /// Dispose resources

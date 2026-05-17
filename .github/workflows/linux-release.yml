@@ -1,0 +1,123 @@
+name: Linux Release
+on:
+  push:
+    tags:
+      - 'linux/v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Read Flutter version from .mise.toml
+        id: mise
+        run: echo "flutter_version=$(grep 'flutter' .mise.toml | sed 's/.*= *\"//' | sed 's/\"//')" >> "$GITHUB_OUTPUT"
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ steps.mise.outputs.flutter_version }}
+          cache: true
+
+      - name: Install Linux desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libsqlite3-0 libsqlite3-dev xvfb
+
+      - name: Disable precompiled Rust artifacts for Linux CI
+        run: |
+          printf '%s\n' 'use_precompiled_binaries: false' > apps/mobile/cargokit_options.yaml
+
+      - run: flutter pub get
+        working-directory: apps/mobile
+
+      - run: dart analyze .
+        working-directory: apps/mobile
+
+      - run: flutter test
+        working-directory: apps/mobile
+
+      - name: Build Linux app
+        run: flutter build linux --release
+        working-directory: apps/mobile
+
+      - name: Smoke launch Linux app
+        run: |
+          set +e
+          xvfb-run -a timeout 20s apps/mobile/build/linux/x64/release/bundle/ccpocket
+          STATUS=$?
+          set -e
+          if [ "$STATUS" -eq 124 ]; then
+            echo "Linux app stayed alive for the smoke window."
+            exit 0
+          fi
+          echo "::error::Linux app exited before the smoke timeout with status $STATUS"
+          exit 1
+
+      - name: Extract version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/linux/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#linux/v}"
+          else
+            VERSION="$(awk '/^version:/ {print $2; exit}' apps/mobile/pubspec.yaml)"
+          fi
+          if [[ "$VERSION" != *+* ]]; then
+            echo "::error::Linux release version must include a build number, e.g. linux/v1.96.1+166"
+            exit 1
+          fi
+          {
+            echo "version=$VERSION"
+            echo "semver=${VERSION%%+*}"
+            echo "build_number=${VERSION#*+}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Package Linux bundle
+        id: package
+        run: |
+          SEMVER="${{ steps.version.outputs.semver }}"
+          DIST_DIR="$RUNNER_TEMP/linux-dist"
+          BUNDLE_NAME="CC-Pocket-linux-x64"
+          ARCHIVE_NAME="CC-Pocket-linux-x64-v${SEMVER}.tar.gz"
+          mkdir -p "$DIST_DIR"
+          cp -a apps/mobile/build/linux/x64/release/bundle "$DIST_DIR/$BUNDLE_NAME"
+          tar -czf "$ARCHIVE_NAME" -C "$DIST_DIR" "$BUNDLE_NAME"
+          echo "archive_path=$ARCHIVE_NAME" >> "$GITHUB_OUTPUT"
+          echo "archive_name=$ARCHIVE_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog section
+        if: startsWith(github.ref, 'refs/tags/')
+        id: changelog
+        run: |
+          SEMVER="${{ steps.version.outputs.semver }}"
+          NOTES=$(awk "/^## \\[${SEMVER}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md)
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
+        run: |
+          printf '%s\n' "$RELEASE_NOTES" > /tmp/release_notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "Linux ${{ steps.version.outputs.version }}" \
+              --notes-file /tmp/release_notes.md
+            gh release upload "$GITHUB_REF_NAME" \
+              "${{ steps.package.outputs.archive_path }}" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "${{ steps.package.outputs.archive_path }}" \
+              --title "Linux ${{ steps.version.outputs.version }}" \
+              --notes-file /tmp/release_notes.md
+          fi

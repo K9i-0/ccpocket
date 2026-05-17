@@ -41,10 +41,14 @@ class NotificationService extends ChangeNotifier {
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
+    const linuxSettings = LinuxInitializationSettings(
+      defaultActionName: 'Open CC Pocket',
+    );
     const settings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
       macOS: macosSettings,
+      linux: linuxSettings,
     );
 
     await _plugin.initialize(
@@ -136,10 +140,12 @@ class NotificationService extends ChangeNotifier {
     );
     const iosDetails = DarwinNotificationDetails();
     const macosDetails = DarwinNotificationDetails();
+    const linuxDetails = LinuxNotificationDetails();
     const details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
       macOS: macosDetails,
+      linux: linuxDetails,
     );
 
     await _plugin.show(

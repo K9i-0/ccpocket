@@ -16,6 +16,305 @@ Codex側の基盤が未成熟のため、実用レベルに達しないと判断
 
 結論: いま再開するなら、ユーザー向け機能ではなく `dev-only` の検証ブランチで実験を継続するのが妥当。
 
+## 2026-05-13 再検証メモ: PR #90
+
+PR #90 (`feat(bridge): support Codex shared app-server co-presence`) で、Bridge 側だけの
+managed shared app-server 実装を実機確認した。
+
+ローカル検証では以下の形で動作した。
+
+```bash
+BRIDGE_PORT=8766 \
+BRIDGE_CODEX_APP_SERVER_MODE=managed \
+BRIDGE_CODEX_SHARED_APP_SERVER_URL=ws://127.0.0.1:8767 \
+npm run bridge
+```
+
+CC Pocket から Codex セッションを開始/再開したあと、同じMac上の Codex CLI から以下で合流できる。
+
+```bash
+codex resume <thread-id> --remote ws://127.0.0.1:8767
+```
+
+`codex resume --all --remote ws://127.0.0.1:8767` も起動はできるが、これは Bridge の active
+session 一覧ではなく、Codex の保存済み履歴 picker を表示する。active ではない過去履歴も混ざるため、
+CC Pocket の合流導線としては不適切。
+
+### 現時点の成立条件
+
+- セッションは CC Pocket / Bridge 側から開始または再開されている必要がある
+- Bridge が shared app-server mode (`managed` または将来的な `external`) で動いている必要がある
+- 合流できる公式クライアントは、現実的には Codex CLI の `--remote` 対応 TUI のみ
+- Codex App / Desktop / ChatGPT から任意の local app-server URL に接続する公式導線は未確認
+- この機能は「Codex App 共有」ではなく、現時点では「Codex CLI co-presence」として扱う
+
+### UX 方針
+
+この機能は便利だが、仕組みを理解しているユーザー向けの性質が強い。
+ユーザーに `resume --all --remote ...` を覚えさせるのではなく、現在のセッションに直行する
+コマンドをアプリ内でコピーできる導線が必要。
+
+推奨 UI:
+
+- Codex session screen の AppBar に terminal / join アイコンを表示する
+- 表示条件:
+  - provider が `codex`
+  - Codex thread id が確定している
+  - Bridge が shared app-server mode で動いている
+  - Bridge から CLI join command または remote URL を受け取れている
+- タップ時:
+  - bottom sheet または dialog で join command を表示
+  - copy button を提供
+  - `ws://127.0.0.1:8767` は iPhone 用URLではなく「Bridge が動いているMac上のTerminal用」
+    であることを明記する
+
+Bridge から Flutter へ渡す情報案:
+
+```ts
+codexCliJoin?: {
+  url: string;
+  command: string;
+}
+```
+
+将来 Codex App / Desktop への別導線が確認できた場合に備え、アプリ内部では単一の
+`codexCliJoin` 前提を恒久化しすぎず、以下のような join target 配列へ拡張できる形が望ましい。
+
+```ts
+codexJoinTargets?: Array<
+  | { type: "cliRemote"; url: string; command: string }
+  | { type: "desktopRemoteControl"; /* future */ }
+  | { type: "desktopDeepLink"; /* future */ }
+>;
+```
+
+例:
+
+```bash
+codex resume <current-thread-id> --remote ws://127.0.0.1:8767
+```
+
+### 環境変数の整理案
+
+PR #90 の初期案では以下の3変数がある。
+
+```text
+BRIDGE_CODEX_APP_SERVER_MODE
+BRIDGE_CODEX_APP_SERVER_PORT
+BRIDGE_CODEX_APP_SERVER_URL
+```
+
+`PORT` と `URL` は情報が重複し、`URL` も managed / external のどちらのURLなのか曖昧。
+設定面を単純にするため、ドキュメント上は以下に寄せるのがよい。
+
+```text
+BRIDGE_CODEX_APP_SERVER_MODE=private|managed|external
+BRIDGE_CODEX_SHARED_APP_SERVER_URL=ws://127.0.0.1:8767
+```
+
+`BRIDGE_CODEX_SHARED_APP_SERVER_URL` は「Bridge と Codex CLI が共有する app-server URL」という意味。
+managed では Bridge がこのURLで app-server を起動し、external では Bridge がこのURLへ接続する。
+
+推奨挙動:
+
+- `private`: 既存通り。shared URL は不要
+- `managed`: shared URL 未指定なら `ws://127.0.0.1:8767`
+- `managed`: shared URL 指定ありなら、そのURLで Bridge が `codex app-server` を起動する
+- `external`: shared URL 必須。Bridge は app-server を起動せず、既存 app-server に接続する
+
+`BRIDGE_CODEX_APP_SERVER_PORT` は初回取り込みでは削るか、互換用 alias に留める。
+ユーザー向けドキュメントには `BRIDGE_CODEX_SHARED_APP_SERVER_URL` を案内する。
+
+### external mode の位置づけ
+
+external mode は「Bridge が `codex app-server` を起動せず、すでに起動済みの app-server に接続する」
+ための上級者向けモード。
+
+想定例:
+
+```bash
+codex app-server --listen ws://127.0.0.1:8767
+
+BRIDGE_CODEX_APP_SERVER_MODE=external \
+BRIDGE_CODEX_SHARED_APP_SERVER_URL=ws://127.0.0.1:8767 \
+npm run bridge
+```
+
+CC Pocket の通常UXでは managed だけで十分だが、将来的に Codex App / Desktop が内部で起動している
+app-server に外部接続できる場合、external mode が同期実験に使える可能性がある。
+
+ただし、external は lifecycle、port衝突、認証、ログ、誰がプロセスを落とすかが複雑になるため、
+初回のユーザー向け機能として前面に出さない。入れる場合も undocumented experimental または
+developer option 扱いが妥当。
+
+### Codex App との同期可能性
+
+2026-05-13 時点の調査では、Codex App との自然な同期はまだ難しい。
+
+公式 docs / open-source README 上の事実:
+
+- `codex app-server` は rich client 用の JSON-RPC interface
+- `stdio` がデフォルト transport
+- WebSocket (`--listen ws://IP:PORT`) は experimental / unsupported
+- open-source README と CLI help では Unix socket (`--listen unix://`) と
+  `codex app-server proxy` も存在する
+
+ローカルの Codex App (`/Applications/Codex.app`) で確認した事実:
+
+- Codex App は child process として `/Applications/Codex.app/Contents/Resources/codex app-server --analytics-default-enabled`
+  を起動していた
+- App logs では `hostId=local transport=stdio`
+- `lsof -iTCP -sTCP:LISTEN` では Codex App の local app-server は TCP port を listen していなかった
+- Electron main process と app-server child は stdio pipe / unix fd で接続されており、
+  Bridge が後から接続できる public WebSocket URL は見つからなかった
+- `codex app` CLI help にも、既存 app-server URL を指定して Desktop App を起動するオプションは見当たらない
+
+Codex App の remote SSH connection では、別の transport が使われる。
+GitHub issue の報告では、Desktop App が remote host 上で以下のような app-server を起動し、
+`codex app-server proxy` 経由で接続している。
+
+```bash
+codex app-server --listen unix://
+codex app-server proxy
+```
+
+また別の報告では、managed SSH remote が固定 remote port `127.0.0.1:9234` の WebSocket app-server を
+使っていた時期/経路もある。つまり Codex App 内部には複数の app-server transport 実装があるが、
+local Desktop App に「任意の external app-server URL へ接続する」公式UI/CLIは未確認。
+
+現時点の結論:
+
+- `external` mode は将来の実験余地として残す価値がある
+- ただし、現在の local Codex App が起動している stdio app-server に Bridge が後から合流することは現実的ではない
+- Codex App と同期するには、Codex App 側が external app-server URL / Unix socket / proxy target を
+  設定できる公式導線を持つ必要がある
+- あるいは remote SSH 経路の app-server/proxy を流用する実験は可能かもしれないが、認証・ownership・port衝突の
+  リスクが大きく、通常機能としては扱わない
+
+### 関連 Issue / 既存要望
+
+`openai/codex` には、今回の方向性に近い Issue が複数ある。
+
+- [#21743](https://github.com/openai/codex/issues/21743)
+  `Codex Desktop open thread view does not refresh after another app-server client appends a turn`
+  - 別の app-server client が Desktop-visible thread に turn を追加できるが、開いている Codex Desktop 側が
+    即時 refresh しないという報告
+  - `shared app-server transport` や `invalidate/refresh API` の必要性に近い
+- [#14722](https://github.com/openai/codex/issues/14722)
+  `Sync CLI and app-server sessions`
+  - CLI / app-server / third-party app-server system 間の session 同期要望
+- [#21551](https://github.com/openai/codex/issues/21551)
+  `App Server: peer-client co-presence with the live TUI thread (RFC)`
+  - live TUI thread に外部 peer client が合流する RFC
+  - closed だが、multi-subscriber live thread event fanout の論点が近い
+- [#13410](https://github.com/openai/codex/issues/13410)
+  `Configurable App Server WebSocket port/endpoint ...`
+  - VS Code extension から任意の app-server endpoint に接続したい要望
+- [#21779](https://github.com/openai/codex/issues/21779)
+  `Codex Desktop: stable deep link or app-server API to open a local conversation by ID`
+  - 外部 local tool から Codex Desktop の特定 conversation を開く public contract 要望
+
+ピンポイントで「Codex App が自分で起動した app-server に外部から接続したい」という Issue は未確認。
+ただし Desktop / app-server / external client の同期要求は既に複数出ている。
+
+### Codex App Connections / Remote Control 調査
+
+ユーザーが見つけた Codex App の `Settings > Connections` 画面について、手元の
+`/Applications/Codex.app` (`CFBundleShortVersionString=26.506.31421`) の bundle を確認した。
+
+確認できた UI 文言:
+
+- `settings.remoteConnections.localHost.header.title` = `Device settings`
+- `settings.remoteConnections.localHost.remoteControl.label` = `Allow other devices to connect`
+- `settings.remoteConnections.localHost.keepLive.label` = `Keep connection alive`
+- `settings.remoteConnections.deviceConnections.header.title` = `Devices you can access`
+- `settings.remoteControlConnections.authorize` / `remote_control_connections` 関連
+
+`Devices you can access` / `Connections` page の表示 gate:
+
+```toml
+[features]
+remote_connections = true
+```
+
+または Statsig gate `4114442250` が有効な場合に表示される。
+`remote_connections` は `codex features list` には出ないため、Codex CLI の canonical feature registry ではなく
+Desktop App 側の独自 gate / config fallback とみなす。
+
+`Device settings` section の表示 gate:
+
+- App bundle の `remote-connection-visibility` ではなく、`remote-connections-settings` 側で
+  Statsig gate `1042620455` により section 全体が gate されていた
+- `remote_connections = true` のような config fallback は見つからなかった
+- そのため、手元で `Connections` page が出ても `Device settings` が出ない場合、
+  account rollout / Statsig 対象外の可能性が高い
+
+`Allow other devices to connect` toggle の実体:
+
+```toml
+[features]
+remote_control = true
+```
+
+UI 実装は `featureName: "remote_control"` を local app-server feature enablement として書き込んでいる。
+ただし `remote_control = true` は toggle の状態には関係するが、`Device settings` section を強制表示する
+条件ではなさそう。
+
+`Keep connection alive` toggle の実体:
+
+- `[features]` ではなく App setting `preventSleepWhileRunning`
+- CLI feature registry には `[features].prevent_idle_sleep` もあるが、この UI が書く先は
+  `preventSleepWhileRunning`
+
+Remote Control の接続モデル:
+
+- `codex-rs/app-server-transport/src/transport/remote_control` は ChatGPT backend の
+  `.../wham/remote/control/server/enroll` と `wss://.../wham/remote/control/server` を使う
+- local raw `ws://127.0.0.1:<port>` を Codex App に指定する機能ではない
+- `native/remote-control-device-key.node` があり、device key / signed-in device 認可を使う設計に見える
+
+結論:
+
+- `Connections` は将来の Desktop / mobile / remote environment 連携として重要
+- ただし、PR #90 の shared app-server URL を Codex App にそのまま接続する機能ではない
+- 将来 Codex App と同期するなら、raw WebSocket よりも Remote Control backend / app-server daemon /
+  deep link / supported API のいずれかに寄る可能性がある
+
+### 負債化リスクと取り込み方針
+
+PR #90 の最大のリスクは、`codex --remote ws://...` を「Codex App 共有の本命 API」として
+Bridge / Flutter の公開仕様に焼き込むこと。
+
+将来 Codex App が公式に app-server 共有をサポートする場合、接続モデルは以下へ寄る可能性がある。
+
+- ChatGPT backend 経由の `remote_control`
+- Desktop-managed app-server daemon / Unix socket / proxy
+- signed bearer token または capability token 必須の WebSocket
+- device registry / discovery 経由
+- deep link / app-server API 経由で Desktop の conversation を開く方式
+
+そのため、今回の取り込みは以下の位置づけに限定する。
+
+- 機能名/説明は `Codex CLI join` または `Codex CLI co-presence`
+- `managed` は supported experimental path
+- `external` は unsupported integration hook / developer option
+- known compatible client は Codex CLI only
+- Codex App compatibility は not guaranteed
+
+避けること:
+
+- `BRIDGE_CODEX_SHARED_APP_SERVER_URL` を「Codex App と共有するURL」と説明する
+- Flutter UI に `Codex App と同期` のような文言を出す
+- `external` を通常ユーザー向け接続方式として案内する
+- 単一の `remoteUrl` を恒久プロトコルにして、将来の `remote_control` / deep link を入れにくくする
+
+許容すること:
+
+- `experimental` と明記して破壊的変更可能にする
+- Bridge 側の Codex process adapter 内に閉じ込める
+- App には join target と copy command だけを渡す
+- 将来の Codex App 連携は別 target / 別 adapter として追加する
+
 ## 概要
 
 CC PocketのBridgeが `codex app-server --listen ws://127.0.0.1:<port>` でWebSocketトランスポートを使用し、Codex TUI (`codex --remote ws://...`) が同じセッションに合流できるようにする機能。

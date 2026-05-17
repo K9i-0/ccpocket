@@ -2,28 +2,52 @@
 import { setupProxy } from "./proxy.js";
 import { platform } from "node:os";
 import { startServer } from "./index.js";
-
-// Configure global fetch proxy before any network calls
-setupProxy();
+import { getPackageVersion } from "./version.js";
+import { hasFlag, parseCliArgs, parseFlag } from "./cli-args.js";
 
 const args = process.argv.slice(2);
+const parsed = parseCliArgs(args);
 
-// Check for subcommand
-const subcommand = args.find((a) => !a.startsWith("-"));
+function printHelp(): void {
+  console.log(`ccpocket-bridge
 
-function parseFlag(name: string): string | undefined {
-  const idx = args.indexOf(`--${name}`);
-  if (idx === -1 || idx + 1 >= args.length) return undefined;
-  return args[idx + 1];
+Usage:
+  ccpocket-bridge [options]
+  ccpocket-bridge <command> [options]
+
+Commands:
+  help                  Show this help
+  version               Show the installed Bridge version
+  doctor [--json]       Check the local Bridge environment
+  setup [options]       Register Bridge as a macOS launchd or Linux systemd service
+
+Options:
+  -h, --help            Show this help
+  -v, --version         Show the installed Bridge version
+      --port <port>     WebSocket port (default: 8765)
+      --host <host>     Bind address (default: 0.0.0.0)
+      --api-key <key>   Enable API key authentication
+      --public-ws-url <url>
+                         Public ws:// or wss:// URL used in QR codes
+      --no-mdns         Disable mDNS auto-discovery advertisement
+
+Setup options:
+      --uninstall       Remove the registered service
+
+Configuration can also be provided with BRIDGE_PORT, BRIDGE_HOST,
+BRIDGE_API_KEY, BRIDGE_ALLOWED_DIRS, BRIDGE_PUBLIC_WS_URL, and
+BRIDGE_DISABLE_MDNS.`);
 }
 
-function hasFlag(name: string): boolean {
-  return args.includes(`--${name}`);
-}
-
-if (subcommand === "doctor") {
+if (parsed.helpRequested) {
+  printHelp();
+} else if (parsed.versionRequested) {
+  console.log(`ccpocket-bridge ${getPackageVersion()}`);
+} else if (parsed.command === "doctor") {
+  // Configure global fetch proxy before any network calls
+  setupProxy();
   // Doctor subcommand: check environment health
-  const jsonOutput = hasFlag("json");
+  const jsonOutput = hasFlag(parsed, "json");
   import("./doctor.js")
     .then(({ runDoctor, printReport }) =>
       runDoctor().then((report) => {
@@ -39,19 +63,25 @@ if (subcommand === "doctor") {
       console.error("Doctor failed:", err);
       process.exit(1);
     });
-} else if (subcommand === "setup") {
+} else if (parsed.command === "setup") {
   // Service setup subcommand (platform-specific)
   const opts = {
-    port: parseFlag("port"),
-    host: parseFlag("host"),
-    apiKey: parseFlag("api-key"),
-    publicWsUrl: parseFlag("public-ws-url"),
+    port: parseFlag(parsed, "port"),
+    host: parseFlag(parsed, "host"),
+    apiKey: parseFlag(parsed, "api-key"),
+    publicWsUrl: parseFlag(parsed, "public-ws-url"),
+    codexAppServerMode: parseFlag(parsed, "codex-app-server-mode"),
+    codexSharedAppServerUrl: parseFlag(parsed, "codex-shared-app-server-url"),
+    codexAppServerPort: parseFlag(parsed, "codex-app-server-port"),
+    codexAppServerUrl: parseFlag(parsed, "codex-app-server-url"),
   };
 
   if (platform() === "darwin") {
     import("./setup-launchd.js")
       .then(({ setupLaunchd, uninstallLaunchd }) => {
-        hasFlag("uninstall") ? uninstallLaunchd() : setupLaunchd(opts);
+        hasFlag(parsed, "uninstall")
+          ? uninstallLaunchd()
+          : setupLaunchd(opts);
       })
       .catch((err) => {
         console.error("Setup failed:", err);
@@ -60,7 +90,9 @@ if (subcommand === "doctor") {
   } else if (platform() === "linux") {
     import("./setup-systemd.js")
       .then(({ setupSystemd, uninstallSystemd }) => {
-        hasFlag("uninstall") ? uninstallSystemd() : setupSystemd(opts);
+        hasFlag(parsed, "uninstall")
+          ? uninstallSystemd()
+          : setupSystemd(opts);
       })
       .catch((err) => {
         console.error("Setup failed:", err);
@@ -73,17 +105,37 @@ if (subcommand === "doctor") {
     process.exit(1);
   }
 } else {
+  // Configure global fetch proxy before any network calls
+  setupProxy();
   // Server mode: set env vars from CLI flags, then start
-  const port = parseFlag("port");
-  const host = parseFlag("host");
-  const apiKey = parseFlag("api-key");
-  const publicWsUrl = parseFlag("public-ws-url");
+  const port = parseFlag(parsed, "port");
+  const host = parseFlag(parsed, "host");
+  const apiKey = parseFlag(parsed, "api-key");
+  const publicWsUrl = parseFlag(parsed, "public-ws-url");
+  const codexAppServerMode = parseFlag(parsed, "codex-app-server-mode");
+  const codexSharedAppServerUrl = parseFlag(
+    parsed,
+    "codex-shared-app-server-url",
+  );
+  const codexAppServerPort = parseFlag(parsed, "codex-app-server-port");
+  const codexAppServerUrl = parseFlag(parsed, "codex-app-server-url");
 
   if (port) process.env.BRIDGE_PORT = port;
   if (host) process.env.BRIDGE_HOST = host;
   if (apiKey) process.env.BRIDGE_API_KEY = apiKey;
   if (publicWsUrl) process.env.BRIDGE_PUBLIC_WS_URL = publicWsUrl;
-  if (hasFlag("no-mdns")) process.env.BRIDGE_DISABLE_MDNS = "1";
+  if (codexAppServerMode) {
+    process.env.BRIDGE_CODEX_APP_SERVER_MODE = codexAppServerMode;
+  }
+  if (codexAppServerPort) {
+    process.env.BRIDGE_CODEX_APP_SERVER_PORT = codexAppServerPort;
+  }
+  if (codexSharedAppServerUrl) {
+    process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL = codexSharedAppServerUrl;
+  } else if (codexAppServerUrl) {
+    process.env.BRIDGE_CODEX_APP_SERVER_URL = codexAppServerUrl;
+  }
+  if (hasFlag(parsed, "no-mdns")) process.env.BRIDGE_DISABLE_MDNS = "1";
 
   startServer();
 }
