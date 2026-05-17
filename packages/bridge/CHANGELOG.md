@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.61.0] - 2026-05-18
+
+### Added
+- Load Claude effort capabilities from the SDK so clients can match the installed CLI capabilities.
+
 ## [1.60.0] - 2026-05-17
 
 ### Added
