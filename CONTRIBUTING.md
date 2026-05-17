@@ -70,6 +70,12 @@ If you file an Issue for one of these environments, please include:
 
 ## Pull Requests
 
+### Contribution License
+
+By contributing to this repository, you agree that your contribution is
+licensed under the same license as the repository, unless explicitly stated
+otherwise in writing.
+
 ### Preferred PR Shape
 
 For most contributions, the easiest PR to review is:
@@ -196,6 +202,10 @@ If you discover a vulnerability, please report it privately via [GitHub Security
 3. **メンテナが検証・適用する** — プロンプトを再実行し、必要に応じて調整してマージ
 
 ### Pull Request
+
+#### 貢献のライセンス
+
+このリポジトリに貢献する場合、書面で明示されていない限り、その貢献はリポジトリと同じライセンスで提供されるものとします。
 
 #### 環境依存の PR — 特に歓迎
 

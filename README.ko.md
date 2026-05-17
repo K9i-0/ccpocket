@@ -112,7 +112,4 @@ cd apps/mobile && flutter pub get && cd ../..
 
 ## 라이선스
 
-[FSL-1.1-MIT](LICENSE): 소스 사용 가능. 2028-03-17에 MIT로 전환됩니다.
-
-이 저장소에는 `@ccpocket/bridge`를 위한 Bridge Redistribution Exception이 포함되어 있습니다.
-비공식이며 지원 대상이 아님을 명확히 표시하는 한, 환경별 fork나 재배포가 허용됩니다.
+[MIT](LICENSE)

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CC Pocket Technical Stack for Forks</title>
+  <meta name="description" content="A human-readable and agent-readable overview of the CC Pocket architecture, Bridge Server, Flutter app, protocol boundaries, and fork extension points.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://k9i-0.github.io/ccpocket/architecture/">
+  <link rel="alternate" type="text/markdown" title="Agent-readable Markdown" href="https://k9i-0.github.io/ccpocket/architecture/stack.md">
+  <link rel="icon" type="image/png" sizes="32x32" href="../images/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../images/apple-touch-icon.png">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://k9i-0.github.io/ccpocket/architecture/">
+  <meta property="og:title" content="CC Pocket Technical Stack for Forks">
+  <meta property="og:description" content="Understand how CC Pocket is built before forking it into a custom Codex or Claude workflow app.">
+  <meta property="og:image" content="https://k9i-0.github.io/ccpocket/images/screenshots.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="CC Pocket Technical Stack for Forks">
+  <meta name="twitter:description" content="Bridge Server, Flutter app, WebSocket protocol, persistence, and extension points for CC Pocket forks.">
+  <meta name="twitter:image" content="https://k9i-0.github.io/ccpocket/images/screenshots.png">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "headline": "CC Pocket Technical Stack for Forks",
+      "description": "Architecture and technology overview for developers and AI agents that want to fork or customize CC Pocket.",
+      "url": "https://k9i-0.github.io/ccpocket/architecture/",
+      "about": ["Flutter", "TypeScript", "WebSocket", "Codex", "Claude", "coding agents"],
+      "isBasedOn": "https://github.com/K9i-0/ccpocket"
+    }
+  </script>
+  <style>
+    :root {
+      --accent: #5fe0cf;
+      --accent-blue: #8fb6ff;
+      --bg: #050506;
+      --panel: #0d0f12;
+      --panel-2: #11151b;
+      --border: #252b35;
+      --text: #f5f7fb;
+      --muted: #a9b2c0;
+      --soft: #d9dee8;
+      --code: #071112;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(95, 224, 207, 0.14), transparent 28rem),
+        radial-gradient(circle at 86% 15%, rgba(143, 182, 255, 0.12), transparent 28rem),
+        var(--bg);
+      line-height: 1.62;
+    }
+    a { color: var(--accent); }
+    .page {
+      width: min(1120px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 28px 0 72px;
+    }
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 72px;
+    }
+    .brand {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .nav-pill, .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 800;
+    }
+    .nav-pill {
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 9px 13px;
+      background: rgba(13, 15, 18, 0.75);
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(330px, 0.95fr);
+      gap: 44px;
+      align-items: center;
+      margin-bottom: 64px;
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.82rem;
+      margin: 0 0 14px;
+    }
+    h1 {
+      font-size: clamp(3rem, 7vw, 5.6rem);
+      line-height: 0.96;
+      letter-spacing: 0;
+      margin: 0 0 24px;
+    }
+    h2 {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      line-height: 1.08;
+      margin: 0 0 18px;
+      letter-spacing: 0;
+    }
+    h3 {
+      margin: 0 0 12px;
+      font-size: 1.16rem;
+    }
+    .lead {
+      color: var(--soft);
+      font-size: 1.18rem;
+      max-width: 760px;
+      margin: 0 0 28px;
+    }
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .button {
+      min-height: 46px;
+      padding: 11px 17px;
+      background: var(--accent);
+      color: #031111;
+    }
+    .button.secondary {
+      color: var(--text);
+      background: rgba(13, 15, 18, 0.84);
+      border: 1px solid var(--border);
+    }
+    .diagram {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(13, 15, 18, 0.82);
+      padding: 18px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+    }
+    .node {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-2);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .node:last-child { margin-bottom: 0; }
+    .node strong {
+      display: block;
+      font-size: 1.04rem;
+      margin-bottom: 4px;
+    }
+    .node span {
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+    .arrow {
+      color: var(--accent);
+      text-align: center;
+      font-weight: 900;
+      margin: 0 0 12px;
+    }
+    section {
+      border-top: 1px solid var(--border);
+      padding-top: 44px;
+      margin-top: 48px;
+    }
+    .section-lead {
+      color: var(--muted);
+      max-width: 820px;
+      margin: 0 0 24px;
+      font-size: 1.04rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(13, 15, 18, 0.76);
+      padding: 18px;
+    }
+    .card p {
+      color: var(--muted);
+      margin: 0;
+    }
+    ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+    li { margin: 8px 0; }
+    code, pre {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    code {
+      color: var(--accent);
+      background: rgba(95, 224, 207, 0.08);
+      padding: 1px 5px;
+      border-radius: 6px;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      color: #d7f7f2;
+      background: var(--code);
+      border: 1px solid rgba(95, 224, 207, 0.22);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    .stack-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .stack-list div {
+      border: 1px solid var(--border);
+      background: rgba(17, 21, 27, 0.76);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--muted);
+    }
+    .stack-list strong {
+      color: var(--text);
+      display: block;
+      margin-bottom: 4px;
+    }
+    .footer {
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 56px;
+      padding-top: 24px;
+      font-size: 0.95rem;
+    }
+    @media (max-width: 880px) {
+      .hero, .grid, .grid.three, .stack-list {
+        grid-template-columns: 1fr;
+      }
+      .nav {
+        align-items: flex-start;
+        flex-direction: column;
+        margin-bottom: 44px;
+      }
+      .nav-links {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="nav" aria-label="Main navigation">
+      <a class="brand" href="../install/">CC Pocket</a>
+      <div class="nav-links">
+        <a class="nav-pill" href="../install/">Install</a>
+        <a class="nav-pill" href="https://github.com/K9i-0/ccpocket">GitHub</a>
+        <a class="nav-pill" href="./stack.md">Markdown for agents</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Forking Guide</p>
+        <h1>Build your own agent workflow on CC Pocket.</h1>
+        <p class="lead">
+          CC Pocket is a Flutter app plus a TypeScript Bridge Server for running
+          local Codex and Claude sessions from mobile and desktop clients. This
+          page explains the stack, boundaries, and extension points for forks.
+        </p>
+        <div class="cta-row">
+          <a class="button" href="./stack.md">Open Markdown version</a>
+          <a class="button secondary" href="https://github.com/K9i-0/ccpocket">View source</a>
+        </div>
+      </div>
+      <div class="diagram" aria-label="CC Pocket architecture diagram">
+        <div class="node">
+          <strong>CC Pocket app</strong>
+          <span>Flutter client for iOS, iPadOS, Android, macOS, and Linux.</span>
+        </div>
+        <div class="arrow">JSON WebSocket</div>
+        <div class="node">
+          <strong>Bridge Server</strong>
+          <span>Node.js / TypeScript process running on the user's machine.</span>
+        </div>
+        <div class="arrow">local tools, shell, git, filesystem</div>
+        <div class="node">
+          <strong>Codex / Claude</strong>
+          <span>Agent sessions keep running where the project lives.</span>
+        </div>
+      </div>
+    </header>
+
+    <section>
+      <h2>Repository Shape</h2>
+      <p class="section-lead">
+        The repository is split around one protocol boundary: app clients talk
+        to a self-hosted Bridge Server, and the Bridge talks to local agent tools
+        and the user's workspace.
+      </p>
+      <pre><code>ccpocket/
+├── apps/mobile/        Flutter app for mobile and desktop clients
+├── packages/bridge/    TypeScript Bridge Server published as @ccpocket/bridge
+├── docs/               GitHub Pages site and design notes
+├── scripts/            release, development, and asset automation
+├── functions/          Firebase Cloud Functions for push relay support
+└── package.json        npm workspace root</code></pre>
+    </section>
+
+    <section>
+      <h2>Bridge Server</h2>
+      <p class="section-lead">
+        The Bridge Server is the part most forks extend when they need new data
+        sources, private APIs, or workflow-specific operations.
+      </p>
+      <div class="stack-list">
+        <div><strong>Runtime</strong>Node.js 18+, TypeScript, ESM, NodeNext</div>
+        <div><strong>Networking</strong><code>ws</code> WebSocket server, HTTP endpoints, QR setup, mDNS</div>
+        <div><strong>Agent integration</strong>Claude Agent SDK and local Codex CLI / app-server transport</div>
+        <div><strong>Host integration</strong>git, worktrees, filesystem, screenshots, launchd, systemd, proxy support</div>
+        <div><strong>Persistence</strong>session indexes, prompt history, image gallery, debug traces, worktree metadata</div>
+        <div><strong>Validation</strong>Vitest unit tests and TypeScript type checks</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Flutter App</h2>
+      <p class="section-lead">
+        The app is organized feature-first so forks can add or remove complete
+        workflow surfaces without rewriting the transport layer.
+      </p>
+      <div class="grid">
+        <div class="card">
+          <h3>Client stack</h3>
+          <ul>
+            <li>Flutter and Dart 3.11</li>
+            <li>iOS, iPadOS, Android, macOS, Linux</li>
+            <li><code>flutter_bloc</code> / Cubit, <code>provider</code>, and hooks</li>
+            <li><code>auto_route</code>, Freezed, JSON serialization</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Device features</h3>
+          <ul>
+            <li>WebSocket connection to Bridge</li>
+            <li>QR scan, mDNS discovery, deep links, SSH host management</li>
+            <li>Firebase Messaging, RevenueCat supporter flow, Shorebird updates</li>
+            <li>Markdown, code highlighting, image picking, clipboard, drag and drop</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Protocol Boundary</h2>
+      <p class="section-lead">
+        Features cross the app/Bridge boundary through explicit JSON messages.
+        This keeps mobile, desktop, and future custom clients compatible with a
+        self-hosted Bridge.
+      </p>
+      <div class="grid">
+        <div class="card">
+          <h3>Client to Bridge</h3>
+          <ul>
+            <li><code>start</code>, <code>input</code>, <code>approve</code>, <code>reject</code></li>
+            <li><code>answer</code>, <code>list_sessions</code>, <code>stop_session</code></li>
+            <li><code>get_history</code>, <code>get_diff</code>, git and file operations</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Bridge to Client</h3>
+          <ul>
+            <li><code>system</code>, <code>assistant</code>, <code>stream_delta</code></li>
+            <li><code>permission_request</code>, <code>tool_result</code>, <code>status</code></li>
+            <li><code>history</code>, <code>session_list</code>, <code>diff_result</code>, <code>error</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>What Forks Can Reuse</h2>
+      <div class="grid three">
+        <div class="card">
+          <h3>Workflow UI</h3>
+          <p>Chat sessions, approvals, questions, prompt history, file preview, image viewing, and Git review surfaces.</p>
+        </div>
+        <div class="card">
+          <h3>Bridge Sync</h3>
+          <p>Multi-session state, local history compatibility, reconnect behavior, offline recovery, and host setup.</p>
+        </div>
+        <div class="card">
+          <h3>Private Integrations</h3>
+          <p>Add Jira, Linear, GitHub, or internal REST API panels where GUI workflows are faster than prompts or MCP.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Extension Pattern</h2>
+      <p class="section-lead">
+        A typical fork adds Bridge behavior first, then exposes it through a
+        typed app service and a feature UI.
+      </p>
+      <pre><code>1. Add Bridge-side data access or operations in packages/bridge/src/
+2. Add protocol types in parser.ts and routing in websocket.ts
+3. Add a Flutter service stream or request method in apps/mobile/lib/services/
+4. Add feature UI under apps/mobile/lib/features/&lt;feature&gt;/
+5. Add focused tests for protocol parsing, Bridge behavior, and Flutter state</code></pre>
+    </section>
+
+    <section>
+      <h2>Platform Notes</h2>
+      <p class="section-lead">
+        macOS and Linux are supported for the Bridge host and desktop app today.
+        Windows support is technically feasible with relatively low effort, but
+        it is not official yet because the project does not have a stable Windows
+        verification environment.
+      </p>
+    </section>
+
+    <footer class="footer">
+      <p>
+        CC Pocket is MIT licensed. See the
+        <a href="./stack.md">agent-readable Markdown</a> for implementation-oriented
+        details and command references.
+      </p>
+    </footer>
+  </main>
+</body>
+</html>
