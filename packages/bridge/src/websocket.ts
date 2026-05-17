@@ -641,7 +641,7 @@ export class BridgeWebSocketServer {
         const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
         const token = url.searchParams.get("token");
         if (token !== this.apiKey) {
-          console.log("[ws] Client rejected: invalid token");
+          console.log(`[ws] Client rejected: invalid token (got=${token?.slice(0, 8) ?? "null"} expected=${this.apiKey.slice(0, 8)})`);
           ws.close(4001, "Unauthorized");
           return;
         }

@@ -392,6 +392,14 @@ class _SessionListScreenState extends State<SessionListScreen>
         final uri = Uri.tryParse(url);
         if (uri != null) {
           final cubit = context.read<MachineManagerCubit?>();
+          // Wait for MachineManagerCubit to finish loading if it's still
+          // initializing. Without this, findByHostPort may return null because
+          // the machines list hasn't been populated yet (race condition).
+          if (cubit != null && cubit.state.isLoading) {
+            await cubit.stream
+                .firstWhere((s) => !s.isLoading)
+                .timeout(const Duration(seconds: 3), onTimeout: () => cubit.state);
+          }
           final machine = cubit?.findByHostPort(
             uri.host,
             uri.hasPort ? uri.port : 8765,
