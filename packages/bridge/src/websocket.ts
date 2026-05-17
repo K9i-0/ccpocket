@@ -3153,16 +3153,15 @@ export class BridgeWebSocketServer {
         );
         if (session && result) {
           if (session.pastMessages && session.pastMessages.length > 0) {
-            const splitPastHistory =
-              await this.splitPastHistoryMessages(session);
-            if (splitPastHistory.pastMessages.length > 0) {
-              this.send(ws, {
-                type: "past_history",
-                claudeSessionId: session.claudeSessionId ?? msg.sessionId,
-                sessionId: msg.sessionId,
-                messages: splitPastHistory.pastMessages,
-              } as Record<string, unknown>);
-            }
+            // Send past messages immediately without slow image registration.
+            // splitPastHistoryMessages can take 10-40s for large sessions due to
+            // disk I/O in registerPastUserMessageImages, causing the app to timeout.
+            this.send(ws, {
+              type: "past_history",
+              claudeSessionId: session.claudeSessionId ?? msg.sessionId,
+              sessionId: msg.sessionId,
+              messages: session.pastMessages,
+            } as Record<string, unknown>);
           }
           this.send(ws, {
             type:
