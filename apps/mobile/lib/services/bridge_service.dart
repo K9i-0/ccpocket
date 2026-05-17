@@ -560,6 +560,10 @@ class BridgeService implements BridgeServiceBase {
                     message == 'get_history_delta') {
                   _fallbackPendingHistoryDeltaRequests();
                 }
+                // Bridge explicitly rejected auth — stop reconnecting.
+                if (msg.errorCode == 'auth_failed') {
+                  _intentionalDisconnect = true;
+                }
                 logger.error('Bridge error: $message');
                 _taggedMessageController.add((msg, sessionId));
                 _messageController.add(msg);
@@ -587,12 +591,24 @@ class BridgeService implements BridgeServiceBase {
         },
         onDone: () {
           if (epoch != _connectionEpoch) return;
+          final closeCode = _channel?.closeCode;
           _channel = null;
           if (!_intentionalDisconnect) {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
             _requeueInFlightInputMessages();
             _requeueInFlightPendingMessages();
-            _scheduleReconnect();
+            // Don't retry on auth failure (4001) — the token is invalid and
+            // retrying with the same credentials will never succeed.
+            if (closeCode == 4001) {
+              _messageController.add(
+                ErrorMessage(
+                  message:
+                      'Authentication failed. Please reconnect with a valid API key.',
+                ),
+              );
+            } else {
+              _scheduleReconnect();
+            }
           } else {
             _setBridgeConnectionState(BridgeConnectionState.disconnected);
           }

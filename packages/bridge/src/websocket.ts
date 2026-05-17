@@ -642,6 +642,13 @@ export class BridgeWebSocketServer {
         const token = url.searchParams.get("token");
         if (token !== this.apiKey) {
           console.log(`[ws] Client rejected: invalid token (got=${token?.slice(0, 8) ?? "null"} expected=${this.apiKey.slice(0, 8)})`);
+          // Send an error message before closing so the client can distinguish
+          // auth failures from transient disconnects and stop retrying.
+          ws.send(JSON.stringify({
+            type: "error",
+            message: "Authentication failed: invalid or missing API key.",
+            errorCode: "auth_failed",
+          }));
           ws.close(4001, "Unauthorized");
           return;
         }
