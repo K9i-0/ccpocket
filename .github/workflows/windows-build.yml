@@ -27,7 +27,8 @@ jobs:
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           flutter-version: ${{ steps.mise.outputs.flutter_version }}
-          cache: true
+          cache: false
+          pub-cache: false
 
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
