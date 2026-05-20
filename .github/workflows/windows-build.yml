@@ -1,0 +1,63 @@
+name: Windows Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Read Flutter version from .mise.toml
+        id: mise
+        run: |
+          $line = Select-String -Path .mise.toml -Pattern '^flutter\s*=\s*"(.+)"$'
+          if (-not $line) {
+            throw 'Failed to read Flutter version from .mise.toml'
+          }
+          "flutter_version=$($line.Matches[0].Groups[1].Value)" >> $env:GITHUB_OUTPUT
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ steps.mise.outputs.flutter_version }}
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      - name: Generate Windows runner
+        working-directory: apps/mobile
+        run: flutter create --platforms=windows .
+
+      - name: Install Flutter dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+
+      - name: Analyze mobile app
+        working-directory: apps/mobile
+        run: dart analyze .
+
+      - name: Run Flutter tests
+        working-directory: apps/mobile
+        run: flutter test
+
+      - name: Build Windows app
+        working-directory: apps/mobile
+        run: flutter build windows --release
+
+      - name: Upload Windows bundle
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: ccpocket-windows-release
+          path: apps/mobile/build/windows/x64/runner/Release/
+          if-no-files-found: error

@@ -21,7 +21,7 @@ class PlatformDatabaseOpenConfig {
 Future<PlatformDatabaseOpenConfig?> getPlatformDatabaseOpenConfig(
   String dbName,
 ) async {
-  if (!Platform.isLinux) return null;
+  if (!Platform.isLinux && !Platform.isWindows) return null;
 
   sqfliteFfiInit();
   final supportDir = await getApplicationSupportDirectory();
