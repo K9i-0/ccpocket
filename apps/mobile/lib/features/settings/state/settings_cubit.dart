@@ -11,6 +11,7 @@ import '../../../core/logger.dart';
 import '../../../models/app_icon.dart';
 import '../../../models/code_font_family.dart';
 import '../../../models/git_diff_interaction_mode.dart';
+import '../../../models/image_paste_shortcut.dart';
 import '../../../models/messages.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../models/terminal_app.dart';
@@ -45,6 +46,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   /// Also read directly from SharedPreferences in main.dart at startup.
   static const keyShorebirdTrack = 'settings_shorebird_track';
   static const _keyHideVoiceInput = 'settings_hide_voice_input';
+  static const _keyImagePasteShortcut = 'settings_image_paste_shortcut';
   static const _keyGitDiffInteractionMode =
       'settings_git_diff_interaction_mode';
   static const _keyGitDiffFocusAutoLandscape =
@@ -190,6 +192,9 @@ class SettingsCubit extends Cubit<SettingsState> {
       prefs.getString(_keyCodeFontFamily),
     );
     final hideVoiceInput = prefs.getBool(_keyHideVoiceInput) ?? false;
+    final imagePasteShortcut = imagePasteShortcutFromRaw(
+      prefs.getString(_keyImagePasteShortcut),
+    );
     final gitDiffInteractionMode = gitDiffInteractionModeFromRaw(
       prefs.getString(_keyGitDiffInteractionMode),
     );
@@ -246,6 +251,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       codeFontSize: codeFontSize.clamp(minCodeFontSize, maxCodeFontSize),
       codeFontFamily: codeFontFamily,
       hideVoiceInput: hideVoiceInput,
+      imagePasteShortcut: imagePasteShortcut,
       gitDiffInteractionMode: gitDiffInteractionMode,
       gitDiffFocusAutoLandscape: gitDiffFocusAutoLandscape,
       showRemoteGitStatusBadge: showRemoteGitStatusBadge,
@@ -355,6 +361,11 @@ class SettingsCubit extends Cubit<SettingsState> {
   void setHideVoiceInput(bool hide) {
     _prefs.setBool(_keyHideVoiceInput, hide);
     emit(state.copyWith(hideVoiceInput: hide));
+  }
+
+  void setImagePasteShortcut(ImagePasteShortcut shortcut) {
+    _prefs.setString(_keyImagePasteShortcut, shortcut.name);
+    emit(state.copyWith(imagePasteShortcut: shortcut));
   }
 
   void setGitDiffInteractionMode(GitDiffInteractionMode mode) {

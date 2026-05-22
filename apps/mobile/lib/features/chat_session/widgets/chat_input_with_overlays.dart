@@ -1043,6 +1043,10 @@ class ChatInputWithOverlays extends HookWidget {
                     : null,
                 hintText: hintText,
                 onPasteImage: isDesktopPlatform ? tryPasteImage : null,
+                imagePasteShortcut: context
+                    .watch<SettingsCubit>()
+                    .state
+                    .imagePasteShortcut,
                 onCompletionKeyEvent: handleCompletionKeyEvent,
               ),
             ),

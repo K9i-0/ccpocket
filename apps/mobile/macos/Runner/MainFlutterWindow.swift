@@ -3,6 +3,8 @@ import FlutterMacOS
 
 class MainFlutterWindow: NSWindow {
   private var windowChromeChannel: FlutterMethodChannel?
+  private var nativePasteBridgeChannel: FlutterMethodChannel?
+  private var nativePasteBridgeEnabled = false
   private var appUpdater: AppUpdater?
 
   override func awakeFromNib() {
@@ -32,6 +34,18 @@ class MainFlutterWindow: NSWindow {
       result(nil)
     }
     windowChromeChannel = chromeChannel
+    let pasteBridgeChannel = FlutterMethodChannel(
+      name: "ccpocket/native_paste_bridge",
+      binaryMessenger: flutterViewController.engine.binaryMessenger)
+    pasteBridgeChannel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "setEnabled" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self?.nativePasteBridgeEnabled = (call.arguments as? Bool) ?? false
+      result(nil)
+    }
+    nativePasteBridgeChannel = pasteBridgeChannel
     appUpdater = AppUpdater(binaryMessenger: flutterViewController.engine.binaryMessenger)
 
     let windowFrame = self.frame
@@ -41,5 +55,28 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     super.awakeFromNib()
+  }
+
+  override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    guard nativePasteBridgeEnabled else {
+      return super.performKeyEquivalent(with: event)
+    }
+    guard isCommandV(event) else {
+      return super.performKeyEquivalent(with: event)
+    }
+    guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else {
+      return super.performKeyEquivalent(with: event)
+    }
+
+    nativePasteBridgeChannel?.invokeMethod("nativePaste", arguments: text)
+    return true
+  }
+
+  private func isCommandV(_ event: NSEvent) -> Bool {
+    event.keyCode == 9 &&
+      event.modifierFlags.contains(.command) &&
+      !event.modifierFlags.contains(.control) &&
+      !event.modifierFlags.contains(.shift) &&
+      !event.modifierFlags.contains(.option)
   }
 }

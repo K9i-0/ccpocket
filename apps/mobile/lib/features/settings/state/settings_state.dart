@@ -4,6 +4,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../../models/app_icon.dart';
 import '../../../models/code_font_family.dart';
 import '../../../models/git_diff_interaction_mode.dart';
+import '../../../models/image_paste_shortcut.dart';
 import '../../../models/new_session_tab.dart';
 import '../../../models/terminal_app.dart';
 
@@ -74,6 +75,9 @@ abstract class SettingsState with _$SettingsState {
 
     /// Whether to hide the voice input button in the chat input bar.
     @Default(false) bool hideVoiceInput,
+
+    /// Shortcut used to attach images from the clipboard on macOS.
+    @Default(ImagePasteShortcut.ctrlV) ImagePasteShortcut imagePasteShortcut,
 
     /// How the Git diff screen maps horizontal gestures to actions.
     @Default(GitDiffInteractionMode.quickActions)

@@ -16,6 +16,7 @@ import '../../services/app_update_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/app_icon.dart';
 import '../../models/git_diff_interaction_mode.dart';
+import '../../models/image_paste_shortcut.dart';
 import '../../models/new_session_tab.dart';
 import '../../providers/machine_manager_cubit.dart';
 import '../../router/app_router.dart';
@@ -715,6 +716,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                     ),
+                    if (Platform.isMacOS) ...[
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: cs.outlineVariant,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              l.imagePasteShortcut,
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            SegmentedButton<ImagePasteShortcut>(
+                              key: const ValueKey(
+                                'image_paste_shortcut_segment',
+                              ),
+                              segments: [
+                                ButtonSegment(
+                                  value: ImagePasteShortcut.ctrlV,
+                                  label: Text(l.imagePasteShortcutCtrlV),
+                                ),
+                                ButtonSegment(
+                                  value: ImagePasteShortcut.commandV,
+                                  label: Text(l.imagePasteShortcutCommandV),
+                                ),
+                              ],
+                              selected: {state.imagePasteShortcut},
+                              onSelectionChanged: (selected) {
+                                context
+                                    .read<SettingsCubit>()
+                                    .setImagePasteShortcut(selected.first);
+                              },
+                              showSelectedIcon: false,
+                              style: ButtonStyle(
+                                visualDensity: VisualDensity.compact,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _imagePasteShortcutDescription(
+                                l,
+                                state.imagePasteShortcut,
+                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: cs.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     Divider(
                       height: 1,
                       indent: 16,
@@ -1159,6 +1216,16 @@ String _gitDiffInteractionModeDescription(
   return switch (mode) {
     GitDiffInteractionMode.quickActions => l.gitDiffQuickActionsDescription,
     GitDiffInteractionMode.scrollFirst => l.gitDiffScrollFirstDescription,
+  };
+}
+
+String _imagePasteShortcutDescription(
+  AppLocalizations l,
+  ImagePasteShortcut shortcut,
+) {
+  return switch (shortcut) {
+    ImagePasteShortcut.ctrlV => l.imagePasteShortcutCtrlVDescription,
+    ImagePasteShortcut.commandV => l.imagePasteShortcutCommandVDescription,
   };
 }
 

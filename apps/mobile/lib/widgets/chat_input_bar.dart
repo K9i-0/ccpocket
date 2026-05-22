@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
+import '../models/image_paste_shortcut.dart';
 import '../models/messages.dart';
+import '../services/native_paste_bridge.dart';
 import '../utils/platform_helper.dart';
 import '../utils/diff_parser.dart';
 import 'bubbles/image_preview.dart';
@@ -44,9 +46,12 @@ class ChatInputBar extends StatelessWidget {
   final String? hintText;
 
   /// Callback to paste an image from clipboard (desktop only).
-  /// When set, Cmd/Ctrl+V will attempt image paste before text paste.
+  /// When set, [imagePasteShortcut] attempts image paste.
   /// Returns true if an image was found and pasted.
   final Future<bool> Function()? onPasteImage;
+
+  /// Shortcut used to attach an image from the clipboard on desktop.
+  final ImagePasteShortcut imagePasteShortcut;
 
   /// Handles keyboard events while an input completion overlay is open.
   final KeyEventResult Function(KeyEvent event)? onCompletionKeyEvent;
@@ -80,6 +85,7 @@ class ChatInputBar extends StatelessWidget {
     this.onTapDiffPreview,
     this.hintText,
     this.onPasteImage,
+    this.imagePasteShortcut = ImagePasteShortcut.ctrlV,
     this.onCompletionKeyEvent,
   });
 
@@ -121,6 +127,7 @@ class ChatInputBar extends StatelessWidget {
             onSend: onSend,
             hasInputText: hasInputText,
             onPasteImage: onPasteImage,
+            imagePasteShortcut: imagePasteShortcut,
             onCompletionKeyEvent: onCompletionKeyEvent,
             onIndent: onIndent,
             onDedent: onDedent,
@@ -636,6 +643,7 @@ class _InputTextField extends StatefulWidget {
     required this.onSend,
     required this.hasInputText,
     this.onPasteImage,
+    required this.imagePasteShortcut,
     this.onCompletionKeyEvent,
     this.onIndent,
     this.onDedent,
@@ -647,9 +655,11 @@ class _InputTextField extends StatefulWidget {
   final bool hasInputText;
 
   /// Callback to paste an image from clipboard.
-  /// Called on Cmd/Ctrl+V; should check clipboard for images and fall back
-  /// to text paste if no image is found. Returns true if an image was pasted.
+  /// Returns true if an image was pasted.
   final Future<bool> Function()? onPasteImage;
+
+  /// Shortcut used to attach an image from the clipboard on desktop.
+  final ImagePasteShortcut imagePasteShortcut;
 
   /// Gives active completion overlays first chance to handle navigation,
   /// dismissal, and selection shortcuts.
@@ -672,18 +682,45 @@ class _InputTextFieldState extends State<_InputTextField> {
   void initState() {
     super.initState();
     _focusNode = FocusNode(onKeyEvent: _handleKeyEvent);
+    _focusNode.addListener(_syncNativePasteBridge);
+  }
+
+  @override
+  void didUpdateWidget(covariant _InputTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imagePasteShortcut != widget.imagePasteShortcut) {
+      _syncNativePasteBridge();
+    }
   }
 
   @override
   void dispose() {
+    NativePasteBridge.instance.deactivate(this);
+    _focusNode.removeListener(_syncNativePasteBridge);
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _syncNativePasteBridge() {
+    if (_focusNode.hasFocus &&
+        widget.imagePasteShortcut != ImagePasteShortcut.commandV) {
+      NativePasteBridge.instance.activate(this, _handleNativeTextPaste);
+    } else {
+      NativePasteBridge.instance.deactivate(this);
+    }
+  }
+
+  bool _handleNativeTextPaste(String text) {
+    if (!_focusNode.hasFocus || text.isEmpty) return false;
+    _insertTextAtSelection(text);
+    return true;
   }
 
   /// On desktop: Enter sends, Shift+Enter inserts newline,
   /// Tab indents, Shift+Tab dedents.
   /// Ctrl+K deletes to end of line, Ctrl+D deletes the next character.
-  /// Cmd/Ctrl+V: attempt image paste, fall back to text paste.
+  /// Image paste shortcuts attach clipboard images without blocking normal
+  /// Cmd+V text paste unless the legacy Cmd+V mode is selected.
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
@@ -717,15 +754,15 @@ class _InputTextFieldState extends State<_InputTextField> {
       return KeyEventResult.handled;
     }
 
-    // Cmd+V (macOS) or Ctrl+V (Windows/Linux): try image paste first
     final isModifier =
         HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
-    if (widget.onPasteImage != null &&
-        event.logicalKey == LogicalKeyboardKey.keyV &&
-        isModifier &&
-        !HardwareKeyboard.instance.isShiftPressed) {
-      _handlePaste();
+    if (widget.onPasteImage != null && _isImagePasteShortcut(event)) {
+      if (widget.imagePasteShortcut == ImagePasteShortcut.commandV) {
+        _handleImagePasteWithTextFallback();
+      } else {
+        _handleImagePasteOnly();
+      }
       return KeyEventResult.handled;
     }
 
@@ -765,6 +802,7 @@ class _InputTextFieldState extends State<_InputTextField> {
     KeyEvent event, {
     required LogicalKeyboardKey key,
     required int controlCharacter,
+    bool allowNullCharacter = true,
   }) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
     if (event.logicalKey != key) return false;
@@ -781,7 +819,7 @@ class _InputTextFieldState extends State<_InputTextField> {
     // modifier set. Treat non-printing variants as shortcut input, while
     // allowing normal printable letters to be typed.
     final character = event.character;
-    if (character == null) return true;
+    if (character == null) return allowNullCharacter;
     final runes = character.runes.toList(growable: false);
     return runes.length == 1 && runes.single == controlCharacter;
   }
@@ -849,7 +887,31 @@ class _InputTextFieldState extends State<_InputTextField> {
     );
   }
 
-  Future<void> _handlePaste() async {
+  bool _isImagePasteShortcut(KeyEvent event) {
+    if (event.logicalKey != LogicalKeyboardKey.keyV ||
+        HardwareKeyboard.instance.isShiftPressed) {
+      return false;
+    }
+    final hardware = HardwareKeyboard.instance;
+    return switch (widget.imagePasteShortcut) {
+      ImagePasteShortcut.ctrlV =>
+        !hardware.isMetaPressed &&
+            _isControlStyleTextShortcut(
+              event,
+              key: LogicalKeyboardKey.keyV,
+              controlCharacter: 0x16,
+              allowNullCharacter: false,
+            ),
+      ImagePasteShortcut.commandV =>
+        hardware.isMetaPressed && !hardware.isControlPressed,
+    };
+  }
+
+  Future<void> _handleImagePasteOnly() async {
+    await widget.onPasteImage!();
+  }
+
+  Future<void> _handleImagePasteWithTextFallback() async {
     // Try image paste first
     final pasted = await widget.onPasteImage!();
     if (pasted) return;
@@ -857,18 +919,26 @@ class _InputTextFieldState extends State<_InputTextField> {
     // Fall back to text paste from system clipboard
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (data?.text != null && data!.text!.isNotEmpty) {
-      final text = widget.controller.text;
-      final selection = widget.controller.selection;
-      final start = selection.start < 0 ? text.length : selection.start;
-      final end = selection.end < 0 ? text.length : selection.end;
-      final newText =
-          text.substring(0, start) + data.text! + text.substring(end);
-      final newCursor = start + data.text!.length;
-      widget.controller.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: newCursor),
-      );
+      _insertTextAtSelection(data.text!);
     }
+  }
+
+  void _insertTextAtSelection(String insertedText) {
+    final text = widget.controller.text;
+    final selection = widget.controller.selection;
+    final start = selection.start < 0 ? text.length : selection.start;
+    final end = selection.end < 0 ? text.length : selection.end;
+    final normalizedStart = start.clamp(0, text.length);
+    final normalizedEnd = end.clamp(normalizedStart, text.length);
+    final newText =
+        text.substring(0, normalizedStart) +
+        insertedText +
+        text.substring(normalizedEnd);
+    final newCursor = normalizedStart + insertedText.length;
+    widget.controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newCursor),
+    );
   }
 
   @override
