@@ -1,10 +1,10 @@
 # CC Pocket
 
 CC Pocket은 Codex / Claude 코딩 에이전트 세션을 제어하는 모바일 및 데스크톱 클라이언트입니다.
-에이전트는 사용자의 Mac 또는 Linux 머신에 셀프 호스팅한 Bridge Server에서 실행하고,
-iPhone, iPad, Android, macOS 네이티브 앱에서 세션 시작, 승인, 질문 응답, 변경 리뷰,
+에이전트는 사용자의 Mac, Linux 또는 Windows 머신에 셀프 호스팅한 Bridge Server에서 실행하고,
+iPhone, iPad, Android, macOS 네이티브 앱, 실험적인 Linux / Windows 데스크톱 빌드에서 세션 시작, 승인, 질문 응답, 변경 리뷰,
 작업 이어받기를 할 수 있습니다.
-실험적인 Linux 데스크톱 빌드도 GitHub Releases에서 제공합니다.
+실험적인 Linux 및 Windows 데스크톱 빌드도 GitHub Releases에서 제공합니다.
 
 [English README](README.md) | [日本語 README](README.ja.md) | [简体中文 README](README.zh-CN.md)
 
@@ -32,6 +32,7 @@ npx @ccpocket/bridge@latest
 | **Android** | <a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Google Play에서 받기" src="docs/images/google-play-badge-en.svg" /></a> |
 | **macOS** | 최신 `.dmg`는 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos)에서 다운로드할 수 있습니다. `macos/v*` 태그가 붙은 릴리스를 찾으세요. |
 | **Linux(실험적)** | 최신 `.tar.gz`는 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux)에서 다운로드할 수 있습니다. `linux/v*` 태그가 붙은 릴리스를 찾으세요. |
+| **Windows(실험적)** | 최신 `.zip`은 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows)에서 다운로드할 수 있습니다. `windows/v*` 태그가 붙은 릴리스를 찾으세요. |
 
 ## 무료로 사용할 수 있습니다
 
@@ -46,7 +47,7 @@ CC Pocket은 무료로 사용할 수 있습니다. 개발 워크플로에 도움
 - **네트워크가 불안정해도 계속 작업**: 누락된 메시지 델타 복구, 오프라인 메시지 pending 처리, 재연결 후 자동 재전송을 지원합니다.
 - **병렬 작업을 안전하게 분리**: git worktree로 세션별 작업 디렉터리를 나눌 수 있습니다.
 - **머신 관리**: 저장된 호스트, QR 코드, mDNS 검색, Tailscale 연결, SSH start/stop/update, 푸시 알림을 지원합니다.
-- **큰 화면에서도 편하게 사용**: iPad / macOS / Linux에서는 채팅, Git, Explorer, 이미지, 스크린샷을 다루기 쉬운 워크스페이스 레이아웃에 맞춰집니다.
+- **큰 화면에서도 편하게 사용**: iPad / macOS / Linux / Windows에서는 채팅, Git, Explorer, 이미지, 스크린샷을 다루기 쉬운 워크스페이스 레이아웃에 맞춰집니다.
 
 ## 작동 방식
 
@@ -112,7 +113,4 @@ cd apps/mobile && flutter pub get && cd ../..
 
 ## 라이선스
 
-[FSL-1.1-MIT](LICENSE): 소스 사용 가능. 2028-03-17에 MIT로 전환됩니다.
-
-이 저장소에는 `@ccpocket/bridge`를 위한 Bridge Redistribution Exception이 포함되어 있습니다.
-비공식이며 지원 대상이 아님을 명확히 표시하는 한, 환경별 fork나 재배포가 허용됩니다.
+[MIT](LICENSE)

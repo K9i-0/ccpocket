@@ -1612,6 +1612,23 @@ class AppLocalizationsKo extends AppLocalizations {
       '변경 블록 단위로 가로 스크롤할 수 있도록 긴 줄은 줄바꿈하지 않습니다. Git 작업은 길게 누르기 메뉴나 하단 버튼을 사용하세요.';
 
   @override
+  String get imagePasteShortcut => '이미지 붙여넣기 단축키';
+
+  @override
+  String get imagePasteShortcutCtrlV => 'Ctrl+V';
+
+  @override
+  String get imagePasteShortcutCtrlVDescription =>
+      'macOS에서 권장됩니다. Cmd+V는 일반 붙여넣기와 받아쓰기 도구에 사용합니다.';
+
+  @override
+  String get imagePasteShortcutCommandV => 'Cmd+V';
+
+  @override
+  String get imagePasteShortcutCommandVDescription =>
+      '받아쓰기 앱, 클립보드 관리자, 텍스트 확장 도구와 충돌할 수 있습니다.';
+
+  @override
   String get gitDiffFocusAutoLandscape => 'diff 집중 모드에서 가로 화면으로 전환';
 
   @override

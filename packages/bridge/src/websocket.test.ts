@@ -42,6 +42,8 @@ vi.mock("./sessions-index.js", () => ({
   getAllRecentSessions: getAllRecentSessionsMock,
   getCodexSessionIndexMetadata: getCodexSessionIndexMetadataMock,
   saveCodexSessionProfile: saveCodexSessionProfileMock,
+  renameClaudeSession: vi.fn().mockResolvedValue(true),
+  renameCodexSession: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("./debug-trace-store.js", () => ({

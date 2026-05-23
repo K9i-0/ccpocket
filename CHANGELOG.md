@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.99.2] - 2026-05-22
+
+### Fixed
+- Support macOS dictation tools that paste through native AppKit shortcuts, including Wispr Flow.
+- Allow image paste shortcuts to work when Caps Lock is remapped to Control on macOS.
+
 ## [1.99.1] - 2026-05-20
 
 ### Changed

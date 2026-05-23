@@ -1,10 +1,10 @@
 # CC Pocket
 
 CC Pocket is a mobile and desktop app for controlling Codex and Claude coding-agent sessions.
-Run the agents through a self-hosted Bridge Server on your own Mac or Linux machine,
+Run the agents through a self-hosted Bridge Server on your own Mac, Linux, or Windows machine,
 then start sessions, approve actions, answer questions, review changes, and pick up work
-from iPhone, iPad, Android, or the native macOS app.
-Experimental Linux desktop builds are also available from GitHub Releases.
+from iPhone, iPad, Android, native macOS, or experimental Linux/Windows desktop builds.
+Experimental Linux and Windows desktop builds are also available from GitHub Releases.
 
 [日本語版 README](README.ja.md) | [简体中文版 README](README.zh-CN.md) | [한국어 README](README.ko.md)
 
@@ -32,6 +32,7 @@ npx @ccpocket/bridge@latest
 | **Android** | <a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Get it on Google Play" src="docs/images/google-play-badge-en.svg" /></a> |
 | **macOS** | Download the latest `.dmg` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos). Look for releases tagged `macos/v*`. |
 | **Linux (experimental)** | Download the latest `.tar.gz` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux). Look for releases tagged `linux/v*`. |
+| **Windows (experimental)** | Download the latest `.zip` from [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows). Look for releases tagged `windows/v*`. |
 
 ## Free to Use
 
@@ -48,7 +49,27 @@ New to mobile coding agents? See [How to run Codex from iPhone or Android](https
 - **Keep working on spotty networks**: recover missed streaming updates, queue outgoing messages while offline, and resend automatically after reconnecting.
 - **Work in parallel safely**: run sessions in separate git worktrees and keep long-running work isolated.
 - **Manage your machines**: save hosts, connect with QR codes or mDNS discovery, use Tailscale, start/stop/update over SSH, and receive push notifications.
-- **Use larger screens when helpful**: CC Pocket adapts to iPad, macOS, and Linux with workspace layouts for chat, Git, Explorer, screenshots, and images.
+- **Use larger screens when helpful**: CC Pocket adapts to iPad, macOS, Linux, and Windows with workspace layouts for chat, Git, Explorer, screenshots, and images.
+
+## Why Fork CC Pocket?
+
+CC Pocket is MIT licensed so you can treat it as a starting point for your own
+agent workflow, not only as a finished app.
+
+- Build an internal client that combines Codex or Claude with your team's Jira,
+  Linear, GitHub, or private REST APIs.
+- Remove surfaces you do not need and keep a focused app for your daily workflow.
+- Reuse the Bridge sync layer, approval flow, prompt history, git operations,
+  file browsing, and image/diff viewers instead of rebuilding them from scratch.
+- Keep compatibility with the local agent tools and their session history while
+  adding workflow-specific GUI features that are easier to use than prompts or MCP.
+- Extend desktop support. macOS, Linux, and Windows builds are available today;
+  Linux and Windows remain experimental because the project does not have the
+  same continuous verification coverage for those environments.
+
+For a deeper implementation overview, see the
+[technical stack page](https://k9i-0.github.io/ccpocket/architecture/) or the
+[agent-readable Markdown](https://k9i-0.github.io/ccpocket/architecture/stack.md).
 
 ## How It Works
 
@@ -117,8 +138,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 ## License
 
-[FSL-1.1-MIT](LICENSE): Source available. Converts to MIT on 2028-03-17.
-
-The repository includes a Bridge Redistribution Exception for `@ccpocket/bridge`.
-Unofficial Bridge redistributions and environment-specific forks are allowed, as long as
-they remain clearly unofficial and unsupported.
+[MIT](LICENSE)

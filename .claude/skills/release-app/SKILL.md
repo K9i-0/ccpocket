@@ -1,8 +1,8 @@
 ---
 name: release-app
-description: アプリのリリース（バージョンbump + CHANGELOG + タグ → GH Actions で自動ビルド・配布）。iOS / Android / macOS / Linux の任意の組み合わせでリリースできる。「リリース」「バージョン上げて」「リリースして」と言われたときに使う。
+description: アプリのリリース（バージョンbump + CHANGELOG + タグ → GH Actions で自動ビルド・配布）。iOS / Android / macOS / Linux / Windows の任意の組み合わせでリリースできる。「リリース」「バージョン上げて」「リリースして」と言われたときに使う。
 disable-model-invocation: true
-allowed-tools: Bash(git:*), Bash(grep:*), Bash(gh:*), Bash(dart analyze:*), Bash(cd apps/mobile && flutter test), Read, Edit, AskUserQuestion
+allowed-tools: Bash(git:*), Bash(grep:*), Bash(gh:*), Bash(jq:*), Bash(dart analyze:*), Bash(cd apps/mobile && flutter test), Read, Edit, AskUserQuestion
 ---
 
 # アプリ リリース
@@ -28,11 +28,11 @@ grep '^version:' apps/mobile/pubspec.yaml
 前回リリースからの差分を確認する:
 
 ```bash
-# 前回のタグ（iOS/Android/macOS/Linux のいずれか新しい方）
-git tag -l 'ios/v*' 'android/v*' 'macos/v*' 'linux/v*' --sort=-v:refname | head -1
+# 前回のタグ（iOS/Android/macOS/Linux/Windows のいずれか新しい方）
+git tag -l 'ios/v*' 'android/v*' 'macos/v*' 'linux/v*' 'windows/v*' --sort=-v:refname | head -1
 
 # 差分コミット（bridge 以外）
-git log $(git tag -l 'ios/v*' 'android/v*' 'macos/v*' 'linux/v*' --sort=-v:refname | head -1)..HEAD --oneline -- apps/mobile/ CHANGELOG.md
+git log $(git tag -l 'ios/v*' 'android/v*' 'macos/v*' 'linux/v*' 'windows/v*' --sort=-v:refname | head -1)..HEAD --oneline -- apps/mobile/ CHANGELOG.md
 ```
 
 ### 2. バージョンとプラットフォームをユーザーに確認
@@ -52,11 +52,12 @@ build number は現在の値 +1 で統一する。
 #### 質問 2: プラットフォーム
 
 以下の選択肢を提示する:
-- **iOS + Android + macOS + Linux 全部** (Recommended)
+- **iOS + Android + macOS + Linux + Windows 全部** (Recommended)
 - **iOS + Android のみ**（モバイルのみ）
-- **macOS + Linux のみ**（デスクトップのみ）
+- **macOS + Linux + Windows のみ**（デスクトップのみ）
 - **macOS のみ**
 - **Linux のみ**
+- **Windows のみ**
 - **iOS のみ**
 - **Android のみ**
 
@@ -125,6 +126,10 @@ git push origin macos/vX.Y.Z+N
 # Linux（選択された場合）
 git tag linux/vX.Y.Z+N
 git push origin linux/vX.Y.Z+N
+
+# Windows（選択された場合）
+git tag windows/vX.Y.Z+N
+git push origin windows/vX.Y.Z+N
 ```
 
 ### 7. 完了確認
@@ -137,6 +142,7 @@ git push origin linux/vX.Y.Z+N
 | `android/v*` | `android-release.yml` | Shorebird release Android → Google Play (internal draft) → GitHub Release |
 | `macos/v*` | `macos-release.yml` | Developer ID 署名 → 公証 → DMG → GitHub Release |
 | `linux/v*` | `linux-release.yml` | Linux release build → Xvfb smoke → tar.gz → GitHub Release |
+| `windows/v*` | `windows-release.yml` | Windows release build → smoke → zip → GitHub Release |
 
 ```bash
 # 各プラットフォームのワークフロー確認（タグを打ったもののみ）
@@ -144,9 +150,11 @@ gh run list --workflow=ios-release.yml --limit 1
 gh run list --workflow=android-release.yml --limit 1
 gh run list --workflow=macos-release.yml --limit 1
 gh run list --workflow=linux-release.yml --limit 1
+gh run list --workflow=windows-release.yml --limit 1
 ```
 
-成功を確認したら完了。
+選択した全プラットフォームの CD が `completed/success` になるまで確認を継続する。
+失敗した場合は `gh run view <run-id> --log-failed` で原因を確認し、修正後に再実行する。
 
 #### 待機の目安
 
@@ -161,12 +169,60 @@ gh run list --workflow=ios-release.yml --limit 1
 gh run list --workflow=android-release.yml --limit 1
 gh run list --workflow=macos-release.yml --limit 1
 gh run list --workflow=linux-release.yml --limit 1
+gh run list --workflow=windows-release.yml --limit 1
 
 # 10〜15分ほど待ってから再確認
 gh run list --workflow=ios-release.yml --limit 1
 gh run list --workflow=android-release.yml --limit 1
 gh run list --workflow=macos-release.yml --limit 1
 gh run list --workflow=linux-release.yml --limit 1
+gh run list --workflow=windows-release.yml --limit 1
 ```
 
 途中確認する場合も 2〜3 分間隔を目安にする。`failure` / `cancelled` が出た場合だけ `gh run view <run-id> --log-failed` で詳細を確認する。
+
+#### CD 成功までのポーリング
+
+タグを打った workflow だけを対象に、成功するまでループする。以下の例では全プラットフォームを確認するが、実行していない workflow は `release_tags` から外す。
+
+```bash
+version="X.Y.Z+N"
+declare -A release_tags=(
+  [ios-release.yml]="ios/v${version}"
+  [android-release.yml]="android/v${version}"
+  [macos-release.yml]="macos/v${version}"
+  [linux-release.yml]="linux/v${version}"
+  [windows-release.yml]="windows/v${version}"
+)
+
+while true; do
+  all_success=true
+  for workflow in "${!release_tags[@]}"; do
+    tag="${release_tags[$workflow]}"
+    run_json=$(gh run list --workflow="$workflow" --branch="$tag" --limit 1 --json databaseId,status,conclusion,url)
+    status=$(echo "$run_json" | jq -r '.[0].status')
+    conclusion=$(echo "$run_json" | jq -r '.[0].conclusion')
+    run_id=$(echo "$run_json" | jq -r '.[0].databaseId')
+    url=$(echo "$run_json" | jq -r '.[0].url')
+
+    echo "$workflow ($tag): $status/$conclusion $url"
+
+    if [ "$status" = "completed" ] && [ "$conclusion" = "success" ]; then
+      continue
+    fi
+
+    all_success=false
+    if [ "$status" = "completed" ]; then
+      gh run view "$run_id" --log-failed
+      exit 1
+    fi
+  done
+
+  if [ "$all_success" = true ]; then
+    echo "All selected release workflows completed successfully."
+    break
+  fi
+
+  sleep 180
+done
+```

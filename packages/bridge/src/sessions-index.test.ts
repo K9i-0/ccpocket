@@ -34,6 +34,10 @@ describe("pathToSlug", () => {
       "-Users-x-flutter-claude-sandbox",
     );
   });
+
+  it("matches Claude project slugs for Windows drive paths", () => {
+    expect(pathToSlug("C:\\Users\\29642")).toBe("C--Users-29642");
+  });
 });
 
 describe("codexThreadToSessionHistory", () => {
@@ -233,6 +237,41 @@ describe("scanJsonlDir", () => {
     expect(entry.gitBranch).toBe("main");
     expect(entry.projectPath).toBe("/my/project");
     expect(entry.isSidechain).toBe(false);
+  });
+
+  it("treats the last Claude custom-title entry as authoritative", async () => {
+    const lines = [
+      JSON.stringify({
+        type: "custom-title",
+        customTitle: "Old title",
+        sessionId: "test-session-title",
+      }),
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "hello title" }],
+        },
+        cwd: "/my/project",
+        gitBranch: "main",
+        sessionId: "test-session-title",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+      JSON.stringify({
+        type: "custom-title",
+        customTitle: "",
+        sessionId: "test-session-title",
+      }),
+    ];
+    writeFileSync(
+      join(testDir, "test-session-title.jsonl"),
+      lines.join("\n"),
+    );
+
+    const result = await scanJsonlDir(testDir);
+    expect(result).toHaveLength(1);
+    expect(result[0].firstPrompt).toBe("hello title");
+    expect(result[0].name).toBeUndefined();
   });
 
   it("excludes Claude auto-rename helper sessions", async () => {
@@ -2007,5 +2046,60 @@ describe("claude namedOnly optimization", () => {
     expect(result.sessions[0].projectPath).toBe("/Users/test/big-image-project");
     expect(result.sessions[0].gitBranch).toBe("main");
     expect(result.sessions[0].firstPrompt).toBe("Please inspect this screenshot.");
+  });
+
+  it("hydrates indexed Claude session names from JSONL custom-title entries", async () => {
+    const projectDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(projectDir, { recursive: true });
+
+    const sessionId = "indexed-jsonl-title";
+    writeFileSync(
+      join(projectDir, `${sessionId}.jsonl`),
+      [
+        JSON.stringify({
+          type: "user",
+          message: { role: "user", content: "hello" },
+          cwd: "/tmp/project-a",
+          gitBranch: "main",
+          timestamp: "2026-01-01T00:00:00.000Z",
+          uuid: "user-1",
+        }),
+        JSON.stringify({
+          type: "custom-title",
+          customTitle: "SDK title",
+          sessionId,
+        }),
+      ].join("\n"),
+    );
+    writeFileSync(
+      join(projectDir, "sessions-index.json"),
+      JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            sessionId,
+            fullPath: join(projectDir, `${sessionId}.jsonl`),
+            fileMtime: Date.now(),
+            firstPrompt: "hello",
+            messageCount: 1,
+            created: "2026-01-01T00:00:00.000Z",
+            modified: "2026-01-01T00:00:00.000Z",
+            gitBranch: "main",
+            projectPath: "/tmp/project-a",
+            isSidechain: false,
+          },
+        ],
+      }),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "claude",
+      projectPath: "/tmp/project-a",
+      limit: 200,
+    });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0].sessionId).toBe(sessionId);
+    expect(result.sessions[0].name).toBe("SDK title");
   });
 });

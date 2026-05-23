@@ -1,22 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ccpocket/l10n/app_localizations.dart';
+import 'package:ccpocket/models/image_paste_shortcut.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/utils/diff_parser.dart';
 import 'package:ccpocket/widgets/chat_input_bar.dart';
 
 void main() {
+  const nativePasteBridgeChannel = MethodChannel(
+    'ccpocket/native_paste_bridge',
+  );
   late TextEditingController inputController;
 
   setUp(() {
     inputController = TextEditingController();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(nativePasteBridgeChannel, (_) async => null);
   });
 
   tearDown(() {
+    debugDefaultTargetPlatformOverride = null;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(nativePasteBridgeChannel, null);
     inputController.dispose();
   });
+
+  Future<void> sendNativePaste(String text) async {
+    final data = const StandardMethodCodec().encodeMethodCall(
+      MethodCall('nativePaste', text),
+    );
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage('ccpocket/native_paste_bridge', data, (_) {});
+  }
 
   Widget buildSubject({
     ProcessStatus status = ProcessStatus.idle,
@@ -37,6 +55,8 @@ void main() {
     bool isInMentionContext = false,
     bool showDollarButton = false,
     DiffSelection? attachedDiffSelection,
+    Future<bool> Function()? onPasteImage,
+    ImagePasteShortcut imagePasteShortcut = ImagePasteShortcut.ctrlV,
     KeyEventResult Function(KeyEvent event)? onCompletionKeyEvent,
   }) {
     return MaterialApp(
@@ -64,6 +84,8 @@ void main() {
           isInMentionContext: isInMentionContext,
           showDollarButton: showDollarButton,
           attachedDiffSelection: attachedDiffSelection,
+          onPasteImage: onPasteImage,
+          imagePasteShortcut: imagePasteShortcut,
           onCompletionKeyEvent: onCompletionKeyEvent,
         ),
       ),
@@ -372,6 +394,126 @@ void main() {
 
       expect(inputController.text, 'ac');
       expect(inputController.selection.baseOffset, 1);
+    });
+
+    testWidgets('Ctrl+V triggers image paste by default', (tester) async {
+      var pasteAttempts = 0;
+      await tester.pumpWidget(
+        buildSubject(
+          onPasteImage: () async {
+            pasteAttempts++;
+            return false;
+          },
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      expect(pasteAttempts, 1);
+    });
+
+    testWidgets('control-character V triggers image paste by default', (
+      tester,
+    ) async {
+      var pasteAttempts = 0;
+      await tester.pumpWidget(
+        buildSubject(
+          onPasteImage: () async {
+            pasteAttempts++;
+            return false;
+          },
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      await tester.sendKeyDownEvent(
+        LogicalKeyboardKey.keyV,
+        character: String.fromCharCode(0x16),
+        platform: 'macos',
+      );
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV, platform: 'macos');
+      await tester.pump();
+
+      expect(pasteAttempts, 1);
+    });
+
+    testWidgets('Cmd+V is ignored for standard paste by default', (
+      tester,
+    ) async {
+      var pasteAttempts = 0;
+      await tester.pumpWidget(
+        buildSubject(
+          onPasteImage: () async {
+            pasteAttempts++;
+            return false;
+          },
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      expect(pasteAttempts, 0);
+    });
+
+    testWidgets('Cmd+V triggers image paste in Cmd+V mode', (tester) async {
+      var pasteAttempts = 0;
+      await tester.pumpWidget(
+        buildSubject(
+          imagePasteShortcut: ImagePasteShortcut.commandV,
+          onPasteImage: () async {
+            pasteAttempts++;
+            return true;
+          },
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+
+      expect(pasteAttempts, 1);
+    });
+
+    testWidgets('native paste bridge inserts text on macOS when focused', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      await tester.pumpWidget(buildSubject());
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      await tester.pump();
+
+      await sendNativePaste('wispr text');
+      await tester.pump();
+
+      expect(inputController.text, 'wispr text');
+      expect(inputController.selection.baseOffset, 'wispr text'.length);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('native paste bridge is disabled in Cmd+V image mode', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      await tester.pumpWidget(
+        buildSubject(imagePasteShortcut: ImagePasteShortcut.commandV),
+      );
+      await tester.tap(find.byKey(const ValueKey('message_input')));
+      await tester.pump();
+
+      await sendNativePaste('wispr text');
+      await tester.pump();
+
+      expect(inputController.text, isEmpty);
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('text field supports multiline input', (tester) async {

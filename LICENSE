@@ -1,107 +1,21 @@
-Functional Source License, Version 1.1, MIT Future License
+MIT License
 
-Abbreviation
+Copyright (c) 2026 K9i
 
-    FSL-1.1-MIT
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Notice
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-    Copyright 2026 K9i
-
-    Licensed under the Functional Source License, Version 1.1 (the "License");
-    you may not use this software except in compliance with the License. You may
-    obtain a copy of the License at
-
-        https://fsl.software/FSL-1.1-MIT.template.md
-
-Terms and Conditions
-
-Licensor:             K9i
-
-Licensed Work:        CC Pocket
-                      The Licensed Work is (c) 2026 K9i.
-
-Additional Use Grant: You may make use of the Licensed Work, provided that you
-                      may not use the Licensed Work for a Competing Use.
-                      A Competing Use is making the Licensed Work available to
-                      third parties as a commercial product or service that
-                      provides substantially the same functionality as the
-                      Licensed Work.
-
-                      Bridge Redistribution Exception:
-                      You may copy, modify, and redistribute the Bridge Server
-                      component of the Licensed Work, including unofficial
-                      builds, forks, and environment-specific distributions,
-                      for example to support Windows, WSL, proxy-restricted,
-                      enterprise, or other environments that the Licensor does
-                      not actively validate.
-
-                      This exception does not permit representing such
-                      distributions as official, endorsed, supported, or
-                      verified by the Licensor, Anthropic, OpenAI, or any other
-                      third party.
-
-                      Any person who redistributes the Bridge Server under this
-                      exception must preserve this License and must clearly
-                      disclose that:
-                      (1) the redistribution is unofficial,
-                      (2) the Licensed Work is provided "AS IS" without
-                      warranties or support from the Licensor, and
-                      (3) compliance with applicable third-party terms,
-                      policies, network rules, export controls, and local laws
-                      is the sole responsibility of the redistributor and end
-                      user.
-
-                      For the avoidance of doubt, this exception does not allow
-                      Competing Use.
-
-Change Date:          The earlier of 2028-03-17 or a date specified at
-                      https://github.com/K9i-0/ccpocket
-
-Change License:       MIT
-
-For information about alternative licensing arrangements for the Licensed Work,
-please contact the Licensor.
-
-Notice
-
-THE LICENSED WORK IS PROVIDED "AS IS". THE LICENSOR HEREBY DISCLAIMS ALL
-WARRANTIES, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, WITH RESPECT TO
-THE LICENSED WORK, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
-LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN
-CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
-LICENSED WORK OR THE USE OR OTHER DEALINGS IN THE LICENSED WORK.
-
----
-
-Functional Source License, Version 1.1, MIT Future License
-
-Full text: https://fsl.software/FSL-1.1-MIT.template.md
-
-Parameters
-
-  Licensor:             K9i
-  Licensed Work:        CC Pocket (https://github.com/K9i-0/ccpocket)
-  Additional Use Grant: Competing Use is not allowed. "Competing Use" means
-                        making the Licensed Work available to third parties
-                        as a commercial product or service that provides
-                        substantially the same functionality.
-                        The Bridge Server component may be copied, modified,
-                        and redistributed, including unofficial builds and
-                        environment-specific distributions, provided that such
-                        redistribution remains unofficial, preserves this
-                        License, includes clear "AS IS" / no-support notice,
-                        and leaves third-party compliance to the redistributor
-                        and end user.
-  Change Date:          2028-03-17
-  Change License:       MIT
-
-Summary
-
-  - Use, modify, and distribute for personal and internal purposes: Allowed
-  - Redistribute the Bridge Server, including unofficial environment-specific
-    builds: Allowed, subject to the Bridge Redistribution Exception above
-  - Contribute back to this project: Allowed and encouraged
-  - Use as a competing commercial product or service: Not allowed
-  - After the Change Date, the license converts to MIT automatically
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
