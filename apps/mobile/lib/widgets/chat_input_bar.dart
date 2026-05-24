@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -44,7 +46,7 @@ class ChatInputBar extends StatelessWidget {
   final String? hintText;
 
   /// Callback to paste an image from clipboard (desktop only).
-  /// When set, Cmd/Ctrl+V will attempt image paste before text paste.
+  /// When set, macOS Cmd+V will attempt image paste before text paste.
   /// Returns true if an image was found and pasted.
   final Future<bool> Function()? onPasteImage;
 
@@ -647,7 +649,7 @@ class _InputTextField extends StatefulWidget {
   final bool hasInputText;
 
   /// Callback to paste an image from clipboard.
-  /// Called on Cmd/Ctrl+V; should check clipboard for images and fall back
+  /// Called on macOS Cmd+V; should check clipboard for images and fall back
   /// to text paste if no image is found. Returns true if an image was pasted.
   final Future<bool> Function()? onPasteImage;
 
@@ -683,7 +685,11 @@ class _InputTextFieldState extends State<_InputTextField> {
   /// On desktop: Enter sends, Shift+Enter inserts newline,
   /// Tab indents, Shift+Tab dedents.
   /// Ctrl+K deletes to end of line, Ctrl+D deletes the next character.
-  /// Cmd/Ctrl+V: attempt image paste, fall back to text paste.
+  /// macOS Cmd+V: attempt image paste, fall back to text paste.
+  ///
+  /// On Windows/Linux Ctrl+V keeps the native text-editing behavior, while we
+  /// also asynchronously probe for clipboard images so screenshot paste still
+  /// works in the chat input.
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
@@ -717,16 +723,22 @@ class _InputTextFieldState extends State<_InputTextField> {
       return KeyEventResult.handled;
     }
 
-    // Cmd+V (macOS) or Ctrl+V (Windows/Linux): try image paste first
     final isModifier =
         HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
     if (widget.onPasteImage != null &&
         event.logicalKey == LogicalKeyboardKey.keyV &&
-        isModifier &&
         !HardwareKeyboard.instance.isShiftPressed) {
-      _handlePaste();
-      return KeyEventResult.handled;
+      if (HardwareKeyboard.instance.isMetaPressed) {
+        _handlePaste();
+        return KeyEventResult.handled;
+      }
+      if (HardwareKeyboard.instance.isControlPressed) {
+        // Let the framework perform normal text paste on Windows/Linux, and
+        // independently attach clipboard images such as screenshots.
+        unawaited(widget.onPasteImage!());
+        return KeyEventResult.ignored;
+      }
     }
 
     // Tab / Shift+Tab: indent / dedent (IDE-like)

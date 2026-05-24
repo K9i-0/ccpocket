@@ -2961,8 +2961,7 @@ class RecordingInfo {
   /// Short project name (last path component).
   String? get projectName {
     if (projectPath == null || projectPath!.isEmpty) return null;
-    final parts = projectPath!.split('/');
-    return parts.last;
+    return pathBasename(projectPath!);
   }
 
   String get sizeLabel {
@@ -3046,6 +3045,14 @@ enum SessionDisplayMode {
 
   final String label;
   const SessionDisplayMode(this.label);
+}
+
+String pathBasename(String path) {
+  if (path.isEmpty) return path;
+  final normalized = path.replaceAll('\\', '/');
+  final parts = normalized.split('/').where((part) => part.isNotEmpty);
+  final last = parts.isEmpty ? '' : parts.last;
+  return last.isNotEmpty ? last : path;
 }
 
 class RecentSession {
@@ -3179,8 +3186,7 @@ class RecentSession {
 
   /// Extract project name from path (last segment)
   String get projectName {
-    final parts = projectPath.split('/');
-    return parts.isNotEmpty ? parts.last : projectPath;
+    return pathBasename(projectPath);
   }
 
   /// Display text: summary if available, otherwise firstPrompt

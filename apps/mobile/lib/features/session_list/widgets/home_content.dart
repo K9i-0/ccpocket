@@ -17,6 +17,8 @@ import '../../../services/support_banner_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/provider_style.dart';
 import '../../../router/app_router.dart';
+import '../../../utils/command_parser.dart';
+import '../../../widgets/adaptive_context_menu.dart';
 import '../../../widgets/session_card.dart';
 import '../../../widgets/workspace_pane_chrome.dart';
 import '../state/session_list_cubit.dart';
@@ -30,6 +32,49 @@ import 'bridge_update_banner.dart';
 import 'macos_native_app_banner.dart';
 import 'session_reconnect_banner.dart';
 import 'support_banner.dart';
+
+class _ProjectSessionGroup {
+  final String projectPath;
+  final String projectName;
+  final List<RecentSession> sessions;
+
+  const _ProjectSessionGroup({
+    required this.projectPath,
+    required this.projectName,
+    required this.sessions,
+  });
+}
+
+List<_ProjectSessionGroup> _groupRecentSessionsByProject(
+  List<RecentSession> sessions,
+) {
+  final grouped = <String, List<RecentSession>>{};
+  final orderedPaths = <String>[];
+  for (final session in sessions) {
+    if (!grouped.containsKey(session.projectPath)) {
+      orderedPaths.add(session.projectPath);
+    }
+    grouped
+        .putIfAbsent(session.projectPath, () => <RecentSession>[])
+        .add(session);
+  }
+  return [
+    for (final path in orderedPaths)
+      _ProjectSessionGroup(
+        projectPath: path,
+        projectName: pathBasename(path),
+        sessions: grouped[path]!,
+      ),
+  ];
+}
+
+String compactProjectPath(String path) {
+  if (path.isEmpty) return path;
+  final normalized = path.replaceAll('\\', '/');
+  final parts = normalized.split('/').where((part) => part.isNotEmpty).toList();
+  if (parts.length <= 2) return normalized;
+  return '.../${parts.sublist(parts.length - 2).join('/')}';
+}
 
 class HomeContent extends StatefulWidget {
   final BridgeConnectionState connectionState;
@@ -144,6 +189,8 @@ class HomeContentState extends State<HomeContent> {
   bool _updateBannerDismissed = false;
   bool _showSupportBanner = false;
   final _searchController = TextEditingController();
+  final Set<String> _expandedProjectPaths = <String>{};
+  final Set<String> _expandedRecentSessionIds = <String>{};
   SessionDisplayMode _displayMode = SessionDisplayMode.first;
   RevenueCatService? _revenueCatService;
   VoidCallback? _catalogStateListener;
@@ -204,6 +251,26 @@ class HomeContentState extends State<HomeContent> {
     setState(() => _displayMode = next);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('session_list_display_mode', next.name);
+  }
+
+  void _toggleProjectGroup(String projectPath) {
+    setState(() {
+      if (_expandedProjectPaths.contains(projectPath)) {
+        _expandedProjectPaths.remove(projectPath);
+      } else {
+        _expandedProjectPaths.add(projectPath);
+      }
+    });
+  }
+
+  void _toggleRecentSessionDetails(String sessionId) {
+    setState(() {
+      if (_expandedRecentSessionIds.contains(sessionId)) {
+        _expandedRecentSessionIds.remove(sessionId);
+      } else {
+        _expandedRecentSessionIds.add(sessionId);
+      }
+    });
   }
 
   @override
@@ -443,6 +510,9 @@ class HomeContentState extends State<HomeContent> {
     final filteredSessions = widget.recentSessions
         .where((s) => !isDuplicate(s))
         .toList();
+    final groupedRecentSessions = _groupRecentSessionsByProject(
+      filteredSessions,
+    );
 
     final hasActiveFilter =
         widget.currentProjectFilter != null ||
@@ -653,7 +723,7 @@ class HomeContentState extends State<HomeContent> {
             providerFilter: widget.providerFilter,
             onToggleProviderFilter: widget.onToggleProvider,
             projects: widget.accumulatedProjectPaths.map((path) {
-              return (path: path, name: path.split('/').last);
+              return (path: path, name: pathBasename(path));
             }).toList(),
             currentProjectFilter: widget.currentProjectFilter,
             onProjectFilterChanged: widget.onSelectProject,
@@ -672,51 +742,121 @@ class HomeContentState extends State<HomeContent> {
                 subtitle: hasActiveFilter ? l.adjustFiltersAndSearch : null,
               )
             else
-              for (final session in filteredSessions)
-                Slidable(
-                  key: ValueKey('recent_session_${session.sessionId}'),
-                  endActionPane: ActionPane(
-                    motion: const BehindMotion(),
-                    extentRatio: 0.18,
-                    children: [
-                      CustomSlidableAction(
-                        onPressed: (_) => widget.onArchiveSession(session),
-                        backgroundColor: Colors.transparent,
-                        padding: EdgeInsets.zero,
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.error,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.archive_outlined,
-                            color: Colors.white,
-                            size: 22,
-                          ),
+              for (final group in groupedRecentSessions) ...[
+                Builder(
+                  builder: (context) {
+                    final isExpanded = _expandedProjectPaths.contains(
+                      group.projectPath,
+                    );
+                    final visibleCount = isExpanded ? group.sessions.length : 0;
+                    final visibleSessions = group.sessions.take(visibleCount);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ProjectGroupHeader(
+                          projectName: group.projectName,
+                          projectPath: group.projectPath,
+                          sessionCount: group.sessions.length,
+                          isExpanded: isExpanded,
+                          onTap: () => _toggleProjectGroup(group.projectPath),
                         ),
-                      ),
-                    ],
-                  ),
-                  child: RecentSessionCard(
-                    session: session,
-                    displayMode: _displayMode,
-                    // Only running sessions show the active selection state.
-                    isSelected: false,
-                    draftText: context.read<DraftService>().getDraft(
-                      session.sessionId,
-                    ),
-                    isProcessing: widget.archivingSessionIds.contains(
-                      session.sessionId,
-                    ),
-                    onTap: () => widget.onResumeSession(session),
-                    onLongPress: () =>
-                        widget.onLongPressRecentSession(session, null),
-                    onShowActions: (position) =>
-                        widget.onLongPressRecentSession(session, position),
-                  ),
+                        for (final session in visibleSessions)
+                          Column(
+                            children: [
+                              Slidable(
+                                key: ValueKey(
+                                  'recent_session_${session.sessionId}',
+                                ),
+                                endActionPane: ActionPane(
+                                  motion: const BehindMotion(),
+                                  extentRatio: 0.18,
+                                  children: [
+                                    CustomSlidableAction(
+                                      onPressed: (_) =>
+                                          widget.onArchiveSession(session),
+                                      backgroundColor: Colors.transparent,
+                                      padding: EdgeInsets.zero,
+                                      child: Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.error,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.archive_outlined,
+                                          color: Colors.white,
+                                          size: 22,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                child: _RecentSessionListRow(
+                                  session: session,
+                                  displayMode: _displayMode,
+                                  draftText: context
+                                      .read<DraftService>()
+                                      .getDraft(session.sessionId),
+                                  isProcessing: widget.archivingSessionIds
+                                      .contains(session.sessionId),
+                                  isDetailExpanded: _expandedRecentSessionIds
+                                      .contains(session.sessionId),
+                                  onTap: () => widget.onResumeSession(session),
+                                  onLongPress: () => widget
+                                      .onLongPressRecentSession(session, null),
+                                  onShowActions: (position) =>
+                                      widget.onLongPressRecentSession(
+                                        session,
+                                        position,
+                                      ),
+                                  onToggleDetails: () =>
+                                      _toggleRecentSessionDetails(
+                                        session.sessionId,
+                                      ),
+                                ),
+                              ),
+                              if (_expandedRecentSessionIds.contains(
+                                session.sessionId,
+                              ))
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 20,
+                                    bottom: 8,
+                                  ),
+                                  child: RecentSessionCard(
+                                    session: session,
+                                    displayMode: _displayMode,
+                                    hideProjectBadge: true,
+                                    isSelected: false,
+                                    draftText: context
+                                        .read<DraftService>()
+                                        .getDraft(session.sessionId),
+                                    isProcessing: widget.archivingSessionIds
+                                        .contains(session.sessionId),
+                                    onTap: () =>
+                                        widget.onResumeSession(session),
+                                    onLongPress: () =>
+                                        widget.onLongPressRecentSession(
+                                          session,
+                                          null,
+                                        ),
+                                    onShowActions: (position) =>
+                                        widget.onLongPressRecentSession(
+                                          session,
+                                          position,
+                                        ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                      ],
+                    );
+                  },
                 ),
+              ],
             if (widget.hasMoreSessions) ...[
               const SizedBox(height: 8),
               Center(
@@ -786,6 +926,274 @@ class _RecentSessionsEmptyResult extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ProjectGroupHeader extends StatelessWidget {
+  final String projectName;
+  final String projectPath;
+  final int sessionCount;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  const _ProjectGroupHeader({
+    required this.projectName,
+    required this.projectPath,
+    required this.sessionCount,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 6),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Row(
+              children: [
+                AnimatedRotation(
+                  turns: isExpanded ? 0.25 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  child: Icon(
+                    Icons.chevron_right,
+                    size: 18,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.folder_outlined,
+                  size: 16,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        projectName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        compactProjectPath(projectPath),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$sessionCount',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecentSessionListRow extends StatelessWidget {
+  final RecentSession session;
+  final SessionDisplayMode displayMode;
+  final String? draftText;
+  final bool isProcessing;
+  final bool isDetailExpanded;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final ValueChanged<Offset?>? onShowActions;
+  final VoidCallback onToggleDetails;
+
+  const _RecentSessionListRow({
+    required this.session,
+    required this.displayMode,
+    required this.draftText,
+    required this.isProcessing,
+    required this.isDetailExpanded,
+    required this.onTap,
+    this.onLongPress,
+    this.onShowActions,
+    required this.onToggleDetails,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final previewText = draftText != null && draftText!.trim().isNotEmpty
+        ? draftText!.trim()
+        : _displayTextForMode(session, displayMode);
+    final hasSeparateTitle =
+        session.name != null &&
+        session.name!.trim().isNotEmpty &&
+        session.name!.trim() != previewText.trim();
+    final title = hasSeparateTitle ? session.name!.trim() : previewText;
+    final subtitle = hasSeparateTitle ? previewText : null;
+
+    final content = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: isProcessing ? null : onTap,
+        onLongPress: isProcessing || onShowActions != null ? null : onLongPress,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (subtitle != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatCompactDate(session.modified, session.created),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(999),
+                        onTap: onToggleDetails,
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: AnimatedRotation(
+                            turns: isDetailExpanded ? 0.25 : 0,
+                            duration: const Duration(milliseconds: 180),
+                            child: Icon(
+                              Icons.chevron_right,
+                              size: 16,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (isProcessing)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface.withValues(alpha: 0.55),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (isProcessing || onShowActions == null) return content;
+    return AdaptiveContextMenuRegion(onOpen: onShowActions!, child: content);
+  }
+}
+
+String _displayTextForMode(RecentSession session, SessionDisplayMode mode) {
+  final String raw;
+  switch (mode) {
+    case SessionDisplayMode.first:
+      raw = session.firstPrompt.isNotEmpty
+          ? session.firstPrompt
+          : session.displayText;
+    case SessionDisplayMode.last:
+      final text = session.lastPrompt ?? session.firstPrompt;
+      raw = text.isNotEmpty ? text : '(no description)';
+    case SessionDisplayMode.summary:
+      final text = session.summary ?? session.firstPrompt;
+      raw = text.isNotEmpty ? text : '(no description)';
+  }
+  return formatCommandText(raw);
+}
+
+String _formatCompactDate(String modifiedIso, String createdIso) {
+  final iso = modifiedIso.isNotEmpty ? modifiedIso : createdIso;
+  if (iso.isEmpty) return '';
+  try {
+    final dt = DateTime.parse(iso).toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dtDate = DateTime(dt.year, dt.month, dt.day);
+    final days = today.difference(dtDate).inDays;
+    if (days <= 0) return 'Today';
+    if (days == 1) return 'Yesterday';
+    if (days < 7) return '$days d ago';
+    if (days < 30) return '${(days / 7).floor()} w ago';
+    if (days < 365) return '${(days / 30).floor()} mo ago';
+    return '${dt.year}/${dt.month}/${dt.day}';
+  } catch (_) {
+    return '';
   }
 }
 
