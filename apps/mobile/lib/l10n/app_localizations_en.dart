@@ -1659,6 +1659,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'Long lines stay unwrapped for hunk-level horizontal scrolling. Use long press menus or the bottom buttons for Git actions.';
 
   @override
+  String get imagePasteShortcut => 'Image paste shortcut';
+
+  @override
+  String get imagePasteShortcutCtrlV => 'Ctrl+V';
+
+  @override
+  String get imagePasteShortcutCtrlVDescription =>
+      'Recommended on macOS. Keeps Cmd+V for normal paste and dictation tools.';
+
+  @override
+  String get imagePasteShortcutCommandV => 'Cmd+V';
+
+  @override
+  String get imagePasteShortcutCommandVDescription =>
+      'May conflict with dictation apps, clipboard managers, and text expanders.';
+
+  @override
   String get gitDiffFocusAutoLandscape => 'Rotate diff focus mode to landscape';
 
   @override

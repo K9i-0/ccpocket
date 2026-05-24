@@ -1579,6 +1579,23 @@ class AppLocalizationsZh extends AppLocalizations {
       '长行不换行，可按 hunk 横向滚动。Git 操作请使用长按菜单或底部按钮。';
 
   @override
+  String get imagePasteShortcut => '图片粘贴快捷键';
+
+  @override
+  String get imagePasteShortcutCtrlV => 'Ctrl+V';
+
+  @override
+  String get imagePasteShortcutCtrlVDescription =>
+      'macOS 推荐使用。保留 Cmd+V 用于普通粘贴和听写工具。';
+
+  @override
+  String get imagePasteShortcutCommandV => 'Cmd+V';
+
+  @override
+  String get imagePasteShortcutCommandVDescription =>
+      '可能会与听写应用、剪贴板管理器和文本扩展工具冲突。';
+
+  @override
   String get gitDiffFocusAutoLandscape => '在 diff 专注模式中切换为横屏';
 
   @override

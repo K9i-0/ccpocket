@@ -3,6 +3,7 @@ import { createReadStream, type Dirent } from "node:fs";
 import { createInterface } from "node:readline";
 import { basename, extname, join } from "node:path";
 import { homedir } from "node:os";
+import { renameSession as renameClaudeSdkSession } from "@anthropic-ai/claude-agent-sdk";
 import { isAutoRenamePromptText } from "./auto-rename.js";
 import { CODEX_ASSIST_MODEL } from "./codex-assist.js";
 
@@ -186,7 +187,7 @@ interface ScanJsonlDirOptions {
 
 /** Convert a filesystem path to Claude's project directory slug (e.g. /foo/bar → -foo-bar). */
 export function pathToSlug(p: string): string {
-  return p.replaceAll("\\", "-").replaceAll("/", "-").replaceAll("_", "-");
+  return p.replace(/[^a-zA-Z0-9]/g, "-");
 }
 
 /**
@@ -251,7 +252,7 @@ const RE_CWD = /"cwd"\s*:\s*"([^"]+)"/;
 const RE_IS_SIDECHAIN = /"isSidechain"\s*:\s*true/;
 const RE_PERMISSION_MODE = /"permissionMode"\s*:\s*"([^"]+)"/;
 const RE_TYPE_CUSTOM_TITLE = /"type"\s*:\s*"custom-title"/;
-const RE_CUSTOM_TITLE = /"customTitle"\s*:\s*"([^"]+)"/;
+const RE_CUSTOM_TITLE = /"customTitle"\s*:\s*"([^"]*)"/;
 const RE_CODEX_PARTIAL_TIMESTAMP = /"timestamp"\s*:\s*"([^"]+)"/;
 const RE_CODEX_PARTIAL_USER_MESSAGE =
   /"type"\s*:\s*"event_msg"[\s\S]*"payload"\s*:\s*\{[\s\S]*"type"\s*:\s*"user_message"[\s\S]*"message"\s*:\s*"((?:\\.|[^"\\])*)/;
@@ -369,8 +370,8 @@ function parseFromChunks(
   for (const line of headLines) {
     if (!line.trim()) continue;
 
-    // Extract custom-title (typically the first line in the JSONL)
-    if (!customTitle && RE_TYPE_CUSTOM_TITLE.test(line)) {
+    // Extract custom-title entries. Claude treats these as last-wins metadata.
+    if (RE_TYPE_CUSTOM_TITLE.test(line)) {
       const ctMatch = line.match(RE_CUSTOM_TITLE);
       if (ctMatch) customTitle = ctMatch[1];
       continue;
@@ -446,9 +447,19 @@ function parseFromChunks(
 
     // Find last timestamp and last user prompt from tail (scan in reverse)
     let lastUserLine: string | null = null;
+    let tailCustomTitle = "";
     for (let i = tailLines.length - 1; i >= 0; i--) {
       const line = tailLines[i];
       if (!line.trim()) continue;
+
+      if (RE_TYPE_CUSTOM_TITLE.test(line)) {
+        const ctMatch = line.match(RE_CUSTOM_TITLE);
+        if (ctMatch && !tailCustomTitle) {
+          tailCustomTitle = ctMatch[1];
+          customTitle = tailCustomTitle;
+        }
+        continue;
+      }
 
       const isUser = RE_TYPE_USER.test(line);
       const isAssistant = !isUser && RE_TYPE_ASSISTANT.test(line);
@@ -677,6 +688,7 @@ async function hydrateClaudeIndexedEntry(
   return {
     ...base,
     firstPrompt: base.firstPrompt || parsed.firstPrompt,
+    ...(parsed.name ? { name: parsed.name } : base.name ? { name: base.name } : {}),
     created: base.created || parsed.created,
     modified: base.modified || parsed.modified,
     gitBranch: base.gitBranch || parsed.gitBranch,
@@ -1450,6 +1462,49 @@ function isCodexInternalSessionSource(source: unknown): boolean {
   return sourceObj?.subagent !== undefined;
 }
 
+function extractClaudeCustomTitleFromText(text: string): string | undefined {
+  let customTitle = "";
+  for (const line of text.split("\n")) {
+    if (!RE_TYPE_CUSTOM_TITLE.test(line)) continue;
+    const match = line.match(RE_CUSTOM_TITLE);
+    if (match) customTitle = match[1];
+  }
+  return customTitle || undefined;
+}
+
+async function getClaudeJsonlCustomTitle(filePath: string): Promise<string | undefined> {
+  let fh;
+  try {
+    fh = await open(filePath, "r");
+  } catch {
+    return undefined;
+  }
+
+  try {
+    const fileStat = await fh.stat();
+    const fileSize = fileStat.size;
+    if (fileSize === 0) return undefined;
+    if (fileSize <= HEAD_BYTES + TAIL_BYTES) {
+      const buf = Buffer.alloc(fileSize);
+      await fh.read(buf, 0, fileSize, 0);
+      return extractClaudeCustomTitleFromText(buf.toString("utf-8"));
+    }
+
+    const headBuf = Buffer.alloc(HEAD_BYTES);
+    await fh.read(headBuf, 0, HEAD_BYTES, 0);
+    const headTitle = extractClaudeCustomTitleFromText(headBuf.toString("utf-8"));
+
+    const tailBuf = Buffer.alloc(TAIL_BYTES);
+    await fh.read(tailBuf, 0, TAIL_BYTES, fileSize - TAIL_BYTES);
+    const tailRaw = tailBuf.toString("utf-8");
+    const firstNewline = tailRaw.indexOf("\n");
+    const cleanTail = firstNewline >= 0 ? tailRaw.slice(firstNewline + 1) : "";
+    return extractClaudeCustomTitleFromText(cleanTail) ?? headTitle;
+  } finally {
+    await fh.close();
+  }
+}
+
 /**
  * Look up the saved name (customTitle) for a Claude Code session.
  * Returns the name if found, or undefined.
@@ -1459,126 +1514,95 @@ export async function getClaudeSessionName(
   claudeSessionId: string,
 ): Promise<string | undefined> {
   const slug = pathToSlug(projectPath);
-  const indexPath = join(homedir(), ".claude", "projects", slug, "sessions-index.json");
+  const dirPath = join(homedir(), ".claude", "projects", slug);
+  const indexPath = join(dirPath, "sessions-index.json");
 
   let raw: string;
   try {
     raw = await readFile(indexPath, "utf-8");
   } catch {
-    return undefined;
+    return getClaudeJsonlCustomTitle(join(dirPath, `${claudeSessionId}.jsonl`));
   }
 
   let index: RawSessionIndexFile;
   try {
     index = JSON.parse(raw) as RawSessionIndexFile;
   } catch {
-    return undefined;
+    return getClaudeJsonlCustomTitle(join(dirPath, `${claudeSessionId}.jsonl`));
   }
 
-  if (!Array.isArray(index.entries)) return undefined;
+  if (!Array.isArray(index.entries)) {
+    return getClaudeJsonlCustomTitle(join(dirPath, `${claudeSessionId}.jsonl`));
+  }
 
   const entry = index.entries.find((e) => e.sessionId === claudeSessionId);
-  return entry?.customTitle || undefined;
+  return (
+    await getClaudeJsonlCustomTitle(entry?.fullPath || join(dirPath, `${claudeSessionId}.jsonl`))
+  ) ?? entry?.customTitle ?? undefined;
 }
 
 /**
- * Rename a Claude Code session by writing customTitle to sessions-index.json.
- * This is the same mechanism the CLI uses for /rename.
+ * Rename a Claude Code session using the Claude Agent SDK's transcript mutation.
+ * The SDK appends a custom-title entry to the session JSONL instead of creating
+ * sessions-index.json entries, matching Claude CLI storage semantics.
  */
 export async function renameClaudeSession(
   projectPath: string,
   claudeSessionId: string,
   name: string | null,
 ): Promise<boolean> {
+  if (name) {
+    try {
+      await renameClaudeSdkSession(claudeSessionId, name, { dir: projectPath });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // The SDK renameSession API intentionally rejects empty titles. For clear,
+  // write the same transcript metadata shape with an empty last-wins title,
+  // and never create a private sessions-index entry for a metadata-only
+  // mutation.
+  let changed = false;
+  try {
+    const jsonlPath = await findSessionJsonlPath(claudeSessionId);
+    if (jsonlPath) {
+      await appendFile(
+        jsonlPath,
+        JSON.stringify({
+          type: "custom-title",
+          customTitle: "",
+          sessionId: claudeSessionId,
+        }) + "\n",
+      );
+      changed = true;
+    }
+  } catch {
+    // Fall through to best-effort index cleanup.
+  }
+
   const slug = pathToSlug(projectPath);
-  const dirPath = join(homedir(), ".claude", "projects", slug);
-  const indexPath = join(dirPath, "sessions-index.json");
+  const indexPath = join(homedir(), ".claude", "projects", slug, "sessions-index.json");
 
   let index: RawSessionIndexFile | null = null;
   try {
     const raw = await readFile(indexPath, "utf-8");
     index = JSON.parse(raw) as RawSessionIndexFile;
   } catch {
-    // File doesn't exist or is invalid — will create below if needed
+    return changed;
   }
 
   if (index && Array.isArray(index.entries)) {
     const entry = index.entries.find((e) => e.sessionId === claudeSessionId);
     if (entry) {
-      if (name) {
-        entry.customTitle = name;
-      } else {
-        delete entry.customTitle;
-      }
+      delete entry.customTitle;
       await writeFile(indexPath, JSON.stringify(index, null, 2), "utf-8");
       return true;
     }
   }
 
-  // Entry not found in index (or index doesn't exist yet).
-  // The CLI may not have created the index entry for short-lived or new sessions.
-  // Create a minimal entry so customTitle is persisted and picked up by
-  // getAllRecentSessions() on next read.
-  if (!name) return false; // Nothing to persist when clearing name
-
-  if (!index || !Array.isArray(index.entries)) {
-    index = { version: 1, entries: [] };
-  }
-
-  // Build a minimal entry from the JSONL file if available
-  const jsonlPath = join(dirPath, `${claudeSessionId}.jsonl`);
-  let firstPrompt = "";
-  let created = new Date().toISOString();
-  let modified = created;
-  let gitBranch = "";
-  try {
-    const raw = await readFile(jsonlPath, "utf-8");
-    for (const line of raw.split("\n")) {
-      if (!line.trim()) continue;
-      try {
-        const entry = JSON.parse(line) as Record<string, unknown>;
-        const type = entry.type as string;
-        if (type !== "user" && type !== "assistant") continue;
-        const ts = entry.timestamp as string | undefined;
-        if (ts) {
-          if (!firstPrompt) created = ts;
-          modified = ts;
-        }
-        if (!gitBranch && entry.gitBranch) gitBranch = entry.gitBranch as string;
-        if (type === "user" && !firstPrompt) {
-          const msg = entry.message as { content?: unknown } | undefined;
-          if (msg?.content) {
-            if (typeof msg.content === "string") firstPrompt = msg.content;
-            else if (Array.isArray(msg.content)) {
-              const tb = (msg.content as Array<{ type: string; text?: string }>)
-                .find((c) => c.type === "text" && c.text);
-              if (tb?.text) firstPrompt = tb.text;
-            }
-          }
-        }
-      } catch { /* skip malformed lines */ }
-    }
-  } catch { /* JSONL not available */ }
-
-  index.entries.push({
-    sessionId: claudeSessionId,
-    fullPath: jsonlPath,
-    fileMtime: Date.now(),
-    firstPrompt,
-    customTitle: name,
-    messageCount: 0,
-    created,
-    modified,
-    gitBranch,
-    projectPath,
-    isSidechain: false,
-  });
-
-  // Ensure directory exists (may not for brand-new projects)
-  const { mkdir } = await import("node:fs/promises");
-  await mkdir(dirPath, { recursive: true });
-  await writeFile(indexPath, JSON.stringify(index, null, 2), "utf-8");
-  return true;
+  return changed;
 }
 
 /**

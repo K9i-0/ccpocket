@@ -5,6 +5,7 @@ import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/features/settings/state/settings_state.dart';
 import 'package:ccpocket/l10n/app_localizations.dart';
 import 'package:ccpocket/models/git_diff_interaction_mode.dart';
+import 'package:ccpocket/models/image_paste_shortcut.dart';
 import 'package:ccpocket/models/machine.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/providers/machine_manager_cubit.dart';
@@ -1417,6 +1418,23 @@ void main() {
       await settingsCubit.close();
       await machineManagerCubit.close();
       bridge.dispose();
+    });
+  });
+
+  group('Settings image paste shortcut', () {
+    test('persists through SettingsCubit reload', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final firstCubit = SettingsCubit(prefs);
+
+      expect(firstCubit.state.imagePasteShortcut, ImagePasteShortcut.ctrlV);
+
+      firstCubit.setImagePasteShortcut(ImagePasteShortcut.commandV);
+      await firstCubit.close();
+
+      final secondCubit = SettingsCubit(prefs);
+      expect(secondCubit.state.imagePasteShortcut, ImagePasteShortcut.commandV);
+      await secondCubit.close();
     });
   });
 }

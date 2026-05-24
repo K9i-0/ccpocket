@@ -1,0 +1,139 @@
+name: Windows Release
+on:
+  push:
+    tags:
+      - 'windows/v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Read Flutter version from .mise.toml
+        id: mise
+        shell: pwsh
+        run: |
+          $mise = Get-Content .mise.toml -Raw
+          if ($mise -notmatch 'flutter\s*=\s*"([^"]+)"') {
+            Write-Error "Could not read Flutter version from .mise.toml"
+            exit 1
+          }
+          "flutter_version=$($Matches[1])" >> $env:GITHUB_OUTPUT
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ steps.mise.outputs.flutter_version }}
+          cache: false
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - run: flutter pub get
+        working-directory: apps/mobile
+
+      - run: dart analyze .
+        working-directory: apps/mobile
+
+      - run: flutter test
+        working-directory: apps/mobile
+
+      - name: Build Windows app
+        run: flutter build windows --release
+        working-directory: apps/mobile
+
+      - name: Smoke launch Windows app
+        shell: pwsh
+        run: |
+          $exe = "apps/mobile/build/windows/x64/runner/Release/ccpocket.exe"
+          if (!(Test-Path $exe)) {
+            Write-Error "Windows app executable not found at $exe"
+            exit 1
+          }
+
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 20
+          if (!$process.HasExited) {
+            Stop-Process -Id $process.Id -Force
+            Write-Host "Windows app stayed alive for the smoke window."
+            exit 0
+          }
+
+          Write-Error "Windows app exited before the smoke timeout with status $($process.ExitCode)"
+          exit 1
+
+      - name: Extract version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like "refs/tags/windows/v*") {
+            $version = $env:GITHUB_REF_NAME -replace '^windows/v', ''
+          } else {
+            $version = (Select-String -Path apps/mobile/pubspec.yaml -Pattern '^version:\s*(.+)$').Matches[0].Groups[1].Value.Trim()
+          }
+          if ($version -notlike "*+*") {
+            Write-Error "Windows release version must include a build number, e.g. windows/v1.99.2+173"
+            exit 1
+          }
+          $semver = ($version -split '\+')[0]
+          $buildNumber = ($version -split '\+')[1]
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "semver=$semver" >> $env:GITHUB_OUTPUT
+          "build_number=$buildNumber" >> $env:GITHUB_OUTPUT
+
+      - name: Package Windows bundle
+        id: package
+        shell: pwsh
+        run: |
+          $semver = "${{ steps.version.outputs.semver }}"
+          $distDir = Join-Path $env:RUNNER_TEMP "windows-dist"
+          $bundleName = "CC-Pocket-windows-x64"
+          $archiveName = "CC-Pocket-windows-x64-v$semver.zip"
+          $sourceDir = "apps/mobile/build/windows/x64/runner/Release"
+          $bundleDir = Join-Path $distDir $bundleName
+
+          New-Item -ItemType Directory -Force -Path $bundleDir | Out-Null
+          Copy-Item -Path "$sourceDir/*" -Destination $bundleDir -Recurse -Force
+          Compress-Archive -Path $bundleDir -DestinationPath $archiveName -Force
+
+          "archive_path=$archiveName" >> $env:GITHUB_OUTPUT
+          "archive_name=$archiveName" >> $env:GITHUB_OUTPUT
+
+      - name: Extract changelog section
+        if: startsWith(github.ref, 'refs/tags/')
+        id: changelog
+        shell: bash
+        run: |
+          SEMVER="${{ steps.version.outputs.semver }}"
+          NOTES=$(awk "/^## \\[${SEMVER}\\]/{found=1; next} /^## \\[/{if(found) exit} found{print}" CHANGELOG.md)
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
+        run: |
+          printf '%s\n' "$RELEASE_NOTES" > /tmp/release_notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "Windows ${{ steps.version.outputs.version }}" \
+              --notes-file /tmp/release_notes.md
+            gh release upload "$GITHUB_REF_NAME" \
+              "${{ steps.package.outputs.archive_path }}" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "${{ steps.package.outputs.archive_path }}" \
+              --title "Windows ${{ steps.version.outputs.version }}" \
+              --notes-file /tmp/release_notes.md
+          fi

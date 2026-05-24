@@ -3042,6 +3042,36 @@ abstract class AppLocalizations {
   /// **'長い行を折り返さず、hunk 単位で横スクロールできます。Git 操作はロングタップのメニューまたは下部ボタンから実行します。'**
   String get gitDiffScrollFirstDescription;
 
+  /// No description provided for @imagePasteShortcut.
+  ///
+  /// In ja, this message translates to:
+  /// **'画像ペーストのショートカット'**
+  String get imagePasteShortcut;
+
+  /// No description provided for @imagePasteShortcutCtrlV.
+  ///
+  /// In ja, this message translates to:
+  /// **'Ctrl+V'**
+  String get imagePasteShortcutCtrlV;
+
+  /// No description provided for @imagePasteShortcutCtrlVDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'macOS で推奨。Cmd+V を通常のペーストや音声入力ツール用に残します。'**
+  String get imagePasteShortcutCtrlVDescription;
+
+  /// No description provided for @imagePasteShortcutCommandV.
+  ///
+  /// In ja, this message translates to:
+  /// **'Cmd+V'**
+  String get imagePasteShortcutCommandV;
+
+  /// No description provided for @imagePasteShortcutCommandVDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'音声入力アプリ、クリップボード管理アプリ、テキスト展開ツールと競合する可能性があります。'**
+  String get imagePasteShortcutCommandVDescription;
+
   /// No description provided for @gitDiffFocusAutoLandscape.
   ///
   /// In ja, this message translates to:

@@ -588,10 +588,9 @@ export class SessionManager {
       }
     });
 
-    // Re-persist customTitle after CLI finishes writing sessions-index.json.
-    // session_end fires after the query iterator completes (CLI has shut down
-    // and flushed its files), so writing the name here prevents the CLI from
-    // overwriting our customTitle.
+    // Retry name persistence after the SDK/CLI has flushed transcript files.
+    // This covers early renames that happened before the provider session id
+    // or JSONL file was available.
     if (proc instanceof SdkProcess) {
       proc.on("session_end", async () => {
         if (!session.name) return;
