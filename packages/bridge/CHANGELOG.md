@@ -2,6 +2,12 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.61.4] - 2026-05-25
+
+### Changed
+- Update the Claude Agent SDK to 0.3.148.
+- Switch the Bridge package license metadata to MIT.
+
 ## [1.61.3] - 2026-05-23
 
 ### Fixed
