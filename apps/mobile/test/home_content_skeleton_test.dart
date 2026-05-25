@@ -254,7 +254,20 @@ void main() {
 
       // No skeleton
       expect(find.byType(SkeletonizerScope), findsNothing);
-      // Real session cards should be visible
+      // Recent sessions are grouped by project and collapsed by default.
+      final projectHeader = find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            widget.data == 'project-a' &&
+            widget.style?.fontWeight == FontWeight.w700,
+      );
+      expect(projectHeader, findsOneWidget);
+      expect(find.text('test prompt for s1'), findsNothing);
+      expect(find.text('test prompt for s2'), findsNothing);
+
+      await tester.tap(projectHeader);
+      await tester.pump(const Duration(milliseconds: 250));
+
       expect(find.text('test prompt for s1'), findsOneWidget);
       expect(find.text('test prompt for s2'), findsOneWidget);
     });
@@ -300,7 +313,19 @@ void main() {
       expect(find.text('Running'), findsAtLeast(1));
       // No skeleton
       expect(find.byType(SkeletonizerScope), findsNothing);
-      // Real recent session visible
+      // Recent sessions are grouped by project and collapsed by default.
+      final projectHeader = find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            widget.data == 'project-a' &&
+            widget.style?.fontWeight == FontWeight.w700,
+      );
+      expect(projectHeader, findsOneWidget);
+      expect(find.text('test prompt for s1'), findsNothing);
+
+      await tester.tap(projectHeader);
+      await tester.pump(const Duration(milliseconds: 250));
+
       expect(find.text('test prompt for s1'), findsOneWidget);
     });
 
@@ -334,6 +359,19 @@ void main() {
 
         expect(find.text('Running'), findsOneWidget);
         expect(find.text('Resume pending'), findsOneWidget);
+        final projectHeader = find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              widget.data == 'project-a' &&
+              widget.style?.fontWeight == FontWeight.w700,
+        );
+        expect(projectHeader, findsOneWidget);
+        expect(find.text('test prompt for s1'), findsNothing);
+        expect(find.text('test prompt for s2'), findsNothing);
+
+        await tester.tap(projectHeader);
+        await tester.pump(const Duration(milliseconds: 250));
+
         expect(find.text('test prompt for s1'), findsNothing);
         expect(find.text('test prompt for s2'), findsOneWidget);
       },
