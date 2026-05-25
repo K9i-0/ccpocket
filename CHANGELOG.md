@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.99.3] - 2026-05-26
+
+### Changed
+- Upgrade the app toolchain to Flutter 3.44.0 and Dart 3.12.0.
+- Pin Shorebird 1.6.105 through mise for release and patch builds.
+
+### Fixed
+- Keep iOS and macOS plugin integration on CocoaPods so Darwin builds work with current plugin manifests.
+
 ## [1.99.2] - 2026-05-22
 
 ### Fixed
