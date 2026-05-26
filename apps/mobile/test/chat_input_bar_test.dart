@@ -396,7 +396,9 @@ void main() {
       expect(inputController.selection.baseOffset, 1);
     });
 
-    testWidgets('Ctrl+V triggers image paste by default', (tester) async {
+    testWidgets('Ctrl+V probes image paste without consuming paste shortcut', (
+      tester,
+    ) async {
       var pasteAttempts = 0;
       await tester.pumpWidget(
         buildSubject(
@@ -408,11 +410,12 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('message_input')));
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
+      final handled = await tester.sendKeyDownEvent(LogicalKeyboardKey.keyV);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.keyV);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pump();
 
+      expect(handled, isTrue);
       expect(pasteAttempts, 1);
     });
 

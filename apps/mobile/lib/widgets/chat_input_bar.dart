@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -721,6 +723,9 @@ class _InputTextFieldState extends State<_InputTextField> {
   /// Ctrl+K deletes to end of line, Ctrl+D deletes the next character.
   /// Image paste shortcuts attach clipboard images without blocking normal
   /// Cmd+V text paste unless the legacy Cmd+V mode is selected.
+  ///
+  /// In the default Ctrl+V mode on Windows/Linux, normal text paste stays
+  /// native while clipboard images are still probed asynchronously.
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
@@ -758,6 +763,12 @@ class _InputTextFieldState extends State<_InputTextField> {
         HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
     if (widget.onPasteImage != null && _isImagePasteShortcut(event)) {
+      if (widget.imagePasteShortcut == ImagePasteShortcut.ctrlV) {
+        // Keep native text paste on Windows/Linux, and independently attach
+        // clipboard images such as screenshots when present.
+        unawaited(_handleImagePasteOnly());
+        return KeyEventResult.ignored;
+      }
       if (widget.imagePasteShortcut == ImagePasteShortcut.commandV) {
         _handleImagePasteWithTextFallback();
       } else {

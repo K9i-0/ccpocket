@@ -653,7 +653,7 @@ class HomeContentState extends State<HomeContent> {
             providerFilter: widget.providerFilter,
             onToggleProviderFilter: widget.onToggleProvider,
             projects: widget.accumulatedProjectPaths.map((path) {
-              return (path: path, name: path.split('/').last);
+              return (path: path, name: pathBasename(path));
             }).toList(),
             currentProjectFilter: widget.currentProjectFilter,
             onProjectFilterChanged: widget.onSelectProject,

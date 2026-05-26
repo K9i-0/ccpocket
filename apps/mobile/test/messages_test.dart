@@ -3,6 +3,16 @@ import 'package:ccpocket/models/messages.dart';
 import 'dart:convert';
 
 void main() {
+  group('pathBasename', () {
+    test('handles POSIX and Windows path separators', () {
+      expect(pathBasename('/Users/me/project-a'), 'project-a');
+      expect(pathBasename(r'C:\Users\me\project-b'), 'project-b');
+      expect(pathBasename(r'C:\Users\me\project-b\'), 'project-b');
+      expect(pathBasename('project-c'), 'project-c');
+      expect(pathBasename(''), '');
+    });
+  });
+
   group('SystemMessage', () {
     test('parses Codex CLI join target', () {
       final msg = ServerMessage.fromJson({
