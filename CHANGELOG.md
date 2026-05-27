@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.100.1] - 2026-05-27
+
+### Changed
+- Require Bridge 1.62.1 for Codex permission mode preservation when toggling Plan mode.
+
+### Fixed
+- Preserve Codex Auto Review when switching a running session into Plan mode.
+
 ## [1.100.0] - 2026-05-27
 
 ### Added
