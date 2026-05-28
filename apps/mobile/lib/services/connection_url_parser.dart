@@ -60,7 +60,9 @@ class ConnectionUrlParser {
 
     // Bare host:port
     final hostPortPattern = RegExp(r'^[\w.\-]+:\d+$');
-    if (hostPortPattern.hasMatch(trimmed)) {
+    final bracketedIpv6PortPattern = RegExp(r'^\[[^\]]+\]:\d+$');
+    if (hostPortPattern.hasMatch(trimmed) ||
+        bracketedIpv6PortPattern.hasMatch(trimmed)) {
       return ConnectionParams(serverUrl: 'ws://$trimmed');
     }
 

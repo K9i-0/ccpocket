@@ -75,6 +75,20 @@ void main() {
         expect(result, isNotNull);
         expect(result!.serverUrl, 'ws://localhost:8765');
       });
+
+      test('parses bracketed IPv6 host:port', () {
+        final result =
+            ConnectionUrlParser.parse(
+                  '[fdbd:dc01:ff:321:254e:39ac:2d5d:1a67]:19000',
+                )
+                as ConnectionParams?;
+
+        expect(result, isNotNull);
+        expect(
+          result!.serverUrl,
+          'ws://[fdbd:dc01:ff:321:254e:39ac:2d5d:1a67]:19000',
+        );
+      });
     });
 
     group('deep link - connect (ccpocket://connect)', () {

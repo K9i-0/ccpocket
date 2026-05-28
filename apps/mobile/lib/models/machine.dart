@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../utils/network_endpoint.dart';
+
 part 'machine.freezed.dart';
 part 'machine.g.dart';
 
@@ -142,16 +144,24 @@ abstract class Machine with _$Machine {
       _$MachineFromJson(json);
 
   /// Display name (name if set, otherwise host:port)
-  String get displayName => name ?? '$host:$port';
+  String get displayName => name ?? formatHostPort(host, port);
 
   /// WebSocket URL for this machine
-  String get wsUrl => '${useSsl ? 'wss' : 'ws'}://$host:$port';
+  String get wsUrl => formatUriOrigin(
+        scheme: useSsl ? 'wss' : 'ws',
+        host: host,
+        port: port,
+      );
 
   /// HTTP base URL for health checks
-  String get httpUrl => '${useSsl ? 'https' : 'http'}://$host:$port';
+  String get httpUrl => formatUriOrigin(
+        scheme: useSsl ? 'https' : 'http',
+        host: host,
+        port: port,
+      );
 
   /// Unique key for deduplication (host:port)
-  String get uniqueKey => '$host:$port';
+  String get uniqueKey => formatHostPort(host, port);
 
   /// Whether this machine can be started remotely (SSH configured)
   bool get canStartRemotely => sshEnabled && sshUsername != null;

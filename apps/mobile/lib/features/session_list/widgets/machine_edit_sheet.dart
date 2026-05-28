@@ -4,6 +4,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
 import '../../../services/ssh_startup_service.dart';
 import '../../../theme/app_theme.dart';
+import '../../../utils/network_endpoint.dart';
 
 /// Bottom sheet for adding or editing a remote machine configuration.
 class MachineEditSheet extends StatefulWidget {
@@ -284,7 +285,7 @@ class _MachineEditSheetState extends State<MachineEditSheet> {
         name: _nameController.text.trim().isNotEmpty
             ? _nameController.text.trim()
             : null,
-        host: _hostController.text.trim(),
+        host: normalizeHostInput(_hostController.text),
         port: int.tryParse(_portController.text) ?? 8765,
         useSsl: _useSsl,
         sshEnabled: _sshEnabled,

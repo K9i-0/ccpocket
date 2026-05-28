@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../constants/app_constants.dart';
 import '../models/machine.dart';
+import '../utils/network_endpoint.dart';
 
 typedef BridgeWsUrlResolver =
     Future<String> Function(
@@ -284,8 +285,11 @@ class MachineManagerService {
 
   /// Find machine by host:port (unique key)
   Machine? findByHostPort(String host, int port) {
+    final normalizedHost = normalizeHostInput(host);
     try {
-      return _machines.firstWhere((m) => m.host == host && m.port == port);
+      return _machines.firstWhere(
+        (m) => normalizeHostInput(m.host) == normalizedHost && m.port == port,
+      );
     } catch (_) {
       return null;
     }
@@ -311,11 +315,13 @@ class MachineManagerService {
     String? name,
     bool? useSsl,
   }) async {
-    var machine = findByHostPort(host, port);
+    final normalizedHost = normalizeHostInput(host);
+    var machine = findByHostPort(normalizedHost, port);
 
     if (machine != null) {
       // Update existing machine
       machine = machine.copyWith(
+        host: normalizedHost,
         lastConnected: DateTime.now(),
         name: name ?? machine.name,
         useSsl: useSsl ?? machine.useSsl,
@@ -328,7 +334,7 @@ class MachineManagerService {
       // Create new machine
       machine = Machine(
         id: _uuid.v4(),
-        host: host,
+        host: normalizedHost,
         port: port,
         name: name,
         useSsl: useSsl ?? false,

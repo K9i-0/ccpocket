@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../core/logger.dart';
+import '../utils/network_endpoint.dart';
 
 import 'server_discovery_impl_stub.dart'
     if (dart.library.io) 'server_discovery_impl_io.dart'
@@ -19,7 +20,7 @@ class DiscoveredServer {
     required this.authRequired,
   });
 
-  String get wsUrl => 'ws://$host:$port';
+  String get wsUrl => formatUriOrigin(scheme: 'ws', host: host, port: port);
 
   @override
   bool operator ==(Object other) =>
@@ -48,11 +49,11 @@ class ServerDiscoveryService {
             port: port,
             authRequired: authRequired,
           );
-          _servers['$host:$port'] = server;
+          _servers[formatHostPort(host, port)] = server;
           _emit();
         },
         onLost: (host, port) {
-          _servers.remove('$host:$port');
+          _servers.remove(formatHostPort(host, port));
           _emit();
         },
       );
