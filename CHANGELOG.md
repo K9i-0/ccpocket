@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.101.0] - 2026-05-29
+
+### Added
+- Support switching Codex models from an existing session.
+
+### Changed
+- Require Bridge 1.63.0 for Codex runtime model switching.
+- Compact the Codex session mode bar and use neutral model chip styling.
+- Refresh store release notes.
+
+### Fixed
+- Show a Bridge update hint when older Bridge versions do not support session model switching.
+
 ## [1.100.1] - 2026-05-27
 
 ### Changed
