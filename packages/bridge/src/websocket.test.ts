@@ -2087,7 +2087,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
 
     expect(imageStore.registerImages).toHaveBeenCalledWith(
       ["/tmp/project-codex/local.png"],
-      "/tmp/project-codex",
+      resolve("/tmp/project-codex"),
     );
     expect(imageStore.registerFromBase64).toHaveBeenCalledWith(
       "aGVsbG8=",
