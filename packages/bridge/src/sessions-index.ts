@@ -1896,6 +1896,8 @@ type SessionHistoryContentItem = {
 export interface SessionHistoryMessage {
   role: "user" | "assistant" | "tool_result";
   uuid?: string;
+  /** Raw provider item id, when it differs from the display-safe UUID. */
+  rawItemId?: string;
   timestamp?: string;
   /** Skill loading prompt or other meta message (rendered as a chip). */
   isMeta?: boolean;
@@ -1943,9 +1945,13 @@ function codexToolResultContent(value: unknown): string {
 function codexUserInputTextAndImages(content: unknown): {
   text: string;
   imageCount: number;
+  imagePaths: string[];
+  imageBase64: Array<{ data: string; mimeType: string }>;
 } {
   const textParts: string[] = [];
   let imageCount = 0;
+  const imagePaths: string[] = [];
+  const imageBase64: Array<{ data: string; mimeType: string }> = [];
 
   for (const entry of arrayValue(content)) {
     const item = asObject(entry);
@@ -1954,10 +1960,55 @@ function codexUserInputTextAndImages(content: unknown): {
       textParts.push(item.text);
     } else if (item.type === "image" || item.type === "localImage") {
       imageCount += 1;
+      const path = codexContentImagePath(item);
+      if (path) imagePaths.push(path);
+      const base64 = codexContentImageBase64(item);
+      if (base64) imageBase64.push(base64);
     }
   }
 
-  return { text: textParts.join("\n"), imageCount };
+  return {
+    text: textParts.join("\n"),
+    imageCount,
+    imagePaths,
+    imageBase64,
+  };
+}
+
+function codexContentImagePath(
+  item: Record<string, unknown>,
+): string | undefined {
+  return (
+    stringValue(item.path) ??
+    stringValue(item.localPath) ??
+    stringValue(item.local_path)
+  );
+}
+
+function codexContentImageBase64(
+  item: Record<string, unknown>,
+): { data: string; mimeType: string } | undefined {
+  const imageUrl =
+    stringValue(item.imageUrl) ??
+    stringValue(item.image_url) ??
+    stringValue(item.url);
+  const dataUri = extractDataUriImage(imageUrl);
+  if (dataUri) return { data: dataUri.base64, mimeType: dataUri.mimeType };
+
+  const source = asObject(item.source);
+  const data =
+    stringValue(item.base64) ??
+    stringValue(item.data) ??
+    stringValue(source?.data);
+  const mimeType =
+    stringValue(item.mimeType) ??
+    stringValue(item.mime_type) ??
+    stringValue(item.media_type) ??
+    stringValue(source?.mimeType) ??
+    stringValue(source?.mime_type) ??
+    stringValue(source?.media_type);
+
+  return data && mimeType ? { data, mimeType } : undefined;
 }
 
 function appendCodexThinkingMessage(
@@ -2002,14 +2053,14 @@ export function codexThreadToSessionHistory(
     for (const rawItem of arrayValue(turn.items)) {
       const item = asObject(rawItem);
       if (!item || typeof item.type !== "string") continue;
-      const itemId = stringValue(item.id) ?? `codex-item-${messages.length}`;
+      const rawItemId = stringValue(item.id);
+      const itemId = rawItemId ?? `codex-item-${messages.length}`;
       const itemTimestamp = turnCompletedAt ?? turnStartedAt;
 
       switch (item.type) {
         case "userMessage": {
-          const { text, imageCount } = codexUserInputTextAndImages(
-            item.content,
-          );
+          const { text, imageCount, imagePaths, imageBase64 } =
+            codexUserInputTextAndImages(item.content);
           const displayText =
             text.trim().length > 0
               ? text
@@ -2021,8 +2072,11 @@ export function codexThreadToSessionHistory(
           messages.push({
             role: "user",
             uuid: codexUserTurnUuid(userTurnOrdinal),
+            ...(rawItemId ? { rawItemId } : {}),
             content: [{ type: "text", text: displayText }],
             ...(imageCount > 0 ? { imageCount } : {}),
+            ...(imagePaths.length > 0 ? { imagePaths } : {}),
+            ...(imageBase64.length > 0 ? { imageBase64 } : {}),
             ...(turnStartedAt ? { timestamp: turnStartedAt } : {}),
           });
           break;
@@ -2034,6 +2088,7 @@ export function codexThreadToSessionHistory(
             "assistant",
             stringValue(item.text) ?? "",
             itemTimestamp,
+            itemId,
           );
           break;
         }
@@ -2243,6 +2298,7 @@ function appendTextMessage(
     && last.content[0].type === "text"
     && typeof last.content[0].text === "string"
     && last.content[0].text.trim() === normalized
+    && (!uuid || last.uuid === uuid)
   ) {
     return false;
   }
@@ -2390,6 +2446,7 @@ function appendToolUseMessage(
 
   messages.push({
     role: "assistant",
+    uuid: id,
     content: [
       {
         type: "tool_use",

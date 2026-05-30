@@ -575,6 +575,8 @@ export type ServerMessage =
       isSynthetic?: boolean;
       isMeta?: boolean;
       imageCount?: number;
+      timestamp?: string;
+      images?: ImageRef[];
     }
   | { type: "window_list"; windows: WindowInfo[] }
   | {

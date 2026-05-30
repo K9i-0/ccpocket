@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   SessionManager,
+  type HistoryEntry,
   type SessionInfo,
   type WorktreeOptions,
 } from "./session.js";
@@ -22,11 +23,13 @@ import {
   CodexProcess,
   type CodexModelMetadata,
   type CodexStartOptions,
+  type CodexThreadSourceKind,
   type CodexThreadSummary,
 } from "./codex-process.js";
 import { stopManagedCodexAppServers } from "./codex-transport.js";
 import {
   parseClientMessage,
+  type AssistantContent,
   type ClientMessage,
   type DebugTraceEvent,
   type ImageChange,
@@ -135,6 +138,12 @@ const FALLBACK_CODEX_MODELS: string[] = [
 ];
 
 const FALLBACK_CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"];
+
+const CODEX_RECENT_THREAD_SOURCE_KINDS: CodexThreadSourceKind[] = [
+  "cli",
+  "vscode",
+  "appServer",
+];
 
 const CODEX_USER_TURN_UUID_RE = /^codex:user-turn:(\d+)$/;
 
@@ -1199,43 +1208,8 @@ export class BridgeWebSocketServer {
         continue;
       }
 
-      const paths = new Set<string>();
-      if (Array.isArray(msg.imagePaths)) {
-        for (const path of msg.imagePaths) {
-          if (typeof path === "string" && path.length > 0) paths.add(path);
-        }
-      }
-
       const content = typeof msg.content === "string" ? msg.content : "";
-      if (this.imageStore && content) {
-        for (const path of this.imageStore.extractImagePaths(content)) {
-          paths.add(path);
-        }
-      }
-
-      const images =
-        this.imageStore && paths.size > 0
-          ? await this.imageStore.registerImages([...paths], session.projectPath)
-          : [];
-      if (this.imageStore && Array.isArray(msg.imageBase64)) {
-        for (const image of msg.imageBase64) {
-          const rawImage = image as Record<string, unknown>;
-          if (
-            typeof rawImage.data !== "string"
-            || typeof rawImage.mimeType !== "string"
-          ) {
-            continue;
-          }
-          const ref = this.imageStore.registerFromBase64(
-            rawImage.data,
-            rawImage.mimeType,
-          );
-          if (ref) images.push(ref);
-        }
-      }
-      const existingImages = Array.isArray(msg.images)
-        ? (msg.images as ImageRef[])
-        : [];
+      const images = await this.registerPastToolResultImages(session, msg);
 
       pastMessages.push({
         role: "tool_result",
@@ -1245,13 +1219,370 @@ export class BridgeWebSocketServer {
             : `past-tool-result-${pastMessages.length}`,
         content,
         ...(typeof msg.toolName === "string" ? { toolName: msg.toolName } : {}),
-        ...(existingImages.length > 0 || images.length > 0
-          ? { images: [...existingImages, ...images] }
-          : {}),
+        ...(images.length > 0 ? { images } : {}),
       });
     }
 
     return { pastMessages, historyMessages };
+  }
+
+  private codexThreadIdForSession(session: SessionInfo): string | undefined {
+    if (session.provider !== "codex") return undefined;
+    if (session.claudeSessionId) return session.claudeSessionId;
+    if (session.process instanceof CodexProcess) {
+      return session.process.sessionId ?? undefined;
+    }
+    return undefined;
+  }
+
+  private async codexCanonicalHistoryEntries(
+    session: SessionInfo,
+  ): Promise<HistoryEntry[] | null> {
+    const threadId = this.codexThreadIdForSession(session);
+    if (!threadId) return null;
+
+    const history = await this.getCodexThreadHistory(
+      threadId,
+      session.projectPath,
+    );
+    session.claudeSessionId = threadId;
+
+    const messages = await this.codexHistoryToServerMessages(session, history);
+    const entries = messages.map((message, index) => ({
+      seq: index + 1,
+      message,
+    }));
+    this.applyCodexCanonicalHistoryBaseline(
+      session,
+      history,
+      entries,
+    );
+    return [...entries, ...session.historyEntries];
+  }
+
+  private applyCodexCanonicalHistoryBaseline(
+    session: SessionInfo,
+    history: SessionHistoryMessage[],
+    canonicalEntries: HistoryEntry[],
+  ): void {
+    const liveEntries = session.historyEntries.map((entry) => ({
+      seq: entry.seq,
+      message: entry.message,
+    }));
+    const canonicalKeys = new Set<string>();
+    const canonicalUserUuids = new Set<string>();
+    for (const entry of canonicalEntries) {
+      for (const key of this.codexHistoryMessageIdentityKeys(entry.message)) {
+        canonicalKeys.add(key);
+      }
+      const message = entry.message;
+      if (message.type === "user_input" && message.userMessageUuid) {
+        canonicalUserUuids.add(message.userMessageUuid);
+      }
+    }
+
+    this.seedCodexCanonicalUserTurnUuidMap(session, history);
+
+    let nextSeq = canonicalEntries.at(-1)?.seq ?? 0;
+    const retainedMessages: ServerMessage[] = [];
+    const retainedEntries: HistoryEntry[] = [];
+    for (const entry of liveEntries) {
+      if (!this.shouldRetainCodexLiveHistoryMessage(entry.message)) continue;
+      const keys = this.codexHistoryMessageIdentityKeys(entry.message);
+      if (keys.some((key) => canonicalKeys.has(key))) continue;
+      const seq = ++nextSeq;
+      (entry.message as Record<string, unknown>).historySeq = seq;
+      retainedMessages.push(entry.message);
+      retainedEntries.push({ seq, message: entry.message });
+    }
+
+    session.pastMessages = history;
+    session.history = retainedMessages;
+    session.historyEntries = retainedEntries;
+    session.historyRevision = nextSeq;
+    session.codexCanonicalHistoryRevision = canonicalEntries.at(-1)?.seq ?? 0;
+    session.historyLowWatermark =
+      retainedEntries[0]?.seq ?? session.historyRevision + 1;
+
+    if (session.pendingCodexUserEchoUuids) {
+      for (const uuid of canonicalUserUuids) {
+        session.pendingCodexUserEchoUuids.delete(uuid);
+      }
+      for (const uuid of [...session.pendingCodexUserEchoUuids]) {
+        const stillLive = retainedMessages.some(
+          (message) =>
+            message.type === "user_input" && message.userMessageUuid === uuid,
+        );
+        if (!stillLive) session.pendingCodexUserEchoUuids.delete(uuid);
+      }
+    }
+  }
+
+  private seedCodexCanonicalUserTurnUuidMap(
+    session: SessionInfo,
+    history: SessionHistoryMessage[],
+  ): void {
+    if (session.provider !== "codex") return;
+    for (const message of history) {
+      if (
+        message.role !== "user" ||
+        !message.rawItemId ||
+        !message.uuid
+      ) {
+        continue;
+      }
+      session.codexUserTurnUuidByRawId ??= new Map<string, string>();
+      session.codexUserTurnUuidByRawId.set(message.rawItemId, message.uuid);
+    }
+  }
+
+  private shouldRetainCodexLiveHistoryMessage(message: ServerMessage): boolean {
+    return !(
+      message.type === "system" &&
+      (message as Record<string, unknown>).subtype === "tip"
+    );
+  }
+
+  private codexHistoryMessageIdentityKeys(message: ServerMessage): string[] {
+    if (message.type === "user_input") {
+      return message.userMessageUuid ? [`user:${message.userMessageUuid}`] : [];
+    }
+    if (message.type === "assistant") {
+      const assistantId = message.messageUuid ?? message.message.id;
+      if (assistantId) return [`assistant:${assistantId}`];
+      return [
+        `assistant-content:${this.historyValueKey(message.message.content)}`,
+      ];
+    }
+    if (message.type === "tool_result") {
+      if (message.toolUseId) {
+        return [`tool-result:${message.toolUseId}:${message.toolName ?? ""}`];
+      }
+      return [
+        `tool-result-content:${message.toolName ?? ""}:${message.content}`,
+      ];
+    }
+    return [];
+  }
+
+  private historyValueKey(value: unknown): string {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+
+  private async sendCodexCanonicalHistorySnapshot(
+    ws: WebSocket,
+    sessionId: string,
+    session: SessionInfo,
+    options: { includeCachedCommands?: boolean } = {},
+  ): Promise<boolean> {
+    try {
+      const entries = await this.codexCanonicalHistoryEntries(session);
+      if (!entries) return false;
+      this.send(ws, {
+        type: "history_snapshot",
+        sessionId,
+        fromSeq: entries[0]?.seq ?? 1,
+        toSeq: entries.at(-1)?.seq ?? 0,
+        messages: entries,
+        status: session.status,
+        reason: "reset",
+      } satisfies Extract<ServerMessage, { type: "history_snapshot" }>);
+      this.sendCodexQueueState(ws, sessionId, session);
+      if (options.includeCachedCommands) {
+        this.sendCachedCommands(ws, sessionId, session);
+      }
+      return true;
+    } catch (err) {
+      this.send(ws, {
+        type: "error",
+        message: `Failed to read Codex thread history: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      });
+      return true;
+    }
+  }
+
+  private async sendCodexCanonicalLegacyHistory(
+    ws: WebSocket,
+    sessionId: string,
+    session: SessionInfo,
+  ): Promise<boolean> {
+    try {
+      const entries = await this.codexCanonicalHistoryEntries(session);
+      if (!entries) return false;
+      this.send(ws, {
+        type: "history",
+        messages: entries.map((entry) => entry.message),
+        sessionId,
+      } as Record<string, unknown>);
+      this.send(ws, {
+        type: "status",
+        status: session.status,
+        sessionId,
+      } as Record<string, unknown>);
+      this.sendCodexQueueState(ws, sessionId, session);
+      this.sendCachedCommands(ws, sessionId, session);
+      return true;
+    } catch (err) {
+      this.send(ws, {
+        type: "error",
+        message: `Failed to read Codex thread history: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      });
+      return true;
+    }
+  }
+
+  private shouldResetCodexHistoryDelta(
+    session: SessionInfo,
+    sinceSeq: number,
+    resultKind: "delta" | "snapshot",
+  ): boolean {
+    if (!this.codexThreadIdForSession(session)) return false;
+    if (typeof session.codexCanonicalHistoryRevision !== "number") return true;
+    if (sinceSeq < session.codexCanonicalHistoryRevision) return true;
+    return resultKind === "snapshot";
+  }
+
+  private async codexHistoryToServerMessages(
+    session: SessionInfo,
+    history: SessionHistoryMessage[],
+  ): Promise<ServerMessage[]> {
+    const messages: ServerMessage[] = [];
+    for (const item of history) {
+      const converted = await this.codexHistoryMessageToServerMessage(
+        session,
+        item,
+      );
+      if (converted) messages.push(converted);
+    }
+    return messages;
+  }
+
+  private async codexHistoryMessageToServerMessage(
+    session: SessionInfo,
+    item: SessionHistoryMessage,
+  ): Promise<ServerMessage | null> {
+    if (item.role === "user") {
+      const images = await this.registerPastUserMessageImages(
+        session,
+        item as unknown as Record<string, unknown>,
+      );
+      const text = this.sessionHistoryText(item.content);
+      if (!text && item.imageCount == null && images.length === 0) return null;
+      return {
+        type: "user_input",
+        text,
+        ...(item.uuid ? { userMessageUuid: item.uuid } : {}),
+        ...(item.isMeta ? { isMeta: true } : {}),
+        ...(item.imageCount != null || images.length > 0
+          ? { imageCount: Math.max(item.imageCount ?? 0, images.length) }
+          : {}),
+        ...(item.timestamp ? { timestamp: item.timestamp } : {}),
+        ...(images.length > 0 ? { images } : {}),
+      };
+    }
+
+    if (item.role === "assistant") {
+      const content = this.sessionHistoryAssistantContent(item.content);
+      if (content.length === 0) return null;
+      const messageId =
+        item.uuid ??
+        this.sessionHistorySingleToolUseId(item.content) ??
+        randomUUID();
+      return {
+        type: "assistant",
+        message: {
+          id: messageId,
+          role: "assistant",
+          content,
+          model: session.codexSettings?.model ?? "",
+        },
+        ...(item.uuid ? { messageUuid: item.uuid } : {}),
+      };
+    }
+
+    const images = await this.registerPastToolResultImages(
+      session,
+      item as unknown as Record<string, unknown>,
+    );
+    const content = this.sessionHistoryText(item.content);
+    if (!content && images.length === 0) return null;
+    return {
+      type: "tool_result",
+      toolUseId:
+        item.toolUseId ?? item.uuid ?? `codex-history-tool-${randomUUID()}`,
+      content,
+      ...(item.toolName ? { toolName: item.toolName } : {}),
+      ...(images.length > 0 ? { images } : {}),
+    };
+  }
+
+  private sessionHistoryText(content: SessionHistoryMessage["content"]): string {
+    if (typeof content === "string") return content;
+    if (!Array.isArray(content)) return "";
+    return content
+      .map((item) => {
+        if (item.type === "text" && typeof item.text === "string") {
+          return item.text;
+        }
+        if (item.type === "thinking" && typeof item.thinking === "string") {
+          return item.thinking;
+        }
+        return "";
+      })
+      .filter((text) => text.length > 0)
+      .join("\n");
+  }
+
+  private sessionHistoryAssistantContent(
+    content: SessionHistoryMessage["content"],
+  ): AssistantContent[] {
+    if (typeof content === "string") {
+      return content.trim().length > 0
+        ? [{ type: "text", text: content }]
+        : [];
+    }
+    if (!Array.isArray(content)) return [];
+    const items: AssistantContent[] = [];
+    for (const item of content) {
+      if (item.type === "text" && typeof item.text === "string") {
+        items.push({ type: "text", text: item.text });
+      } else if (
+        item.type === "thinking" &&
+        typeof item.thinking === "string"
+      ) {
+        items.push({ type: "thinking", thinking: item.thinking });
+      } else if (
+        item.type === "tool_use" &&
+        typeof item.id === "string" &&
+        typeof item.name === "string"
+      ) {
+        items.push({
+          type: "tool_use",
+          id: item.id,
+          name: item.name,
+          input: item.input ?? {},
+        });
+      }
+    }
+    return items;
+  }
+
+  private sessionHistorySingleToolUseId(
+    content: SessionHistoryMessage["content"],
+  ): string | undefined {
+    if (!Array.isArray(content) || content.length !== 1) return undefined;
+    const item = content[0];
+    return item.type === "tool_use" && typeof item.id === "string"
+      ? item.id
+      : undefined;
   }
 
   private async registerPastUserMessageImages(
@@ -1264,6 +1595,17 @@ export class BridgeWebSocketServer {
       ? (msg.images as ImageRef[])
       : [];
     const refs: ImageRef[] = [...existingImages];
+
+    if (Array.isArray(msg.imagePaths)) {
+      const paths = msg.imagePaths.filter(
+        (path): path is string => typeof path === "string" && path.length > 0,
+      );
+      if (paths.length > 0) {
+        refs.push(
+          ...(await this.imageStore.registerImages(paths, session.projectPath)),
+        );
+      }
+    }
 
     if (Array.isArray(msg.imageBase64)) {
       for (const image of msg.imageBase64) {
@@ -1313,6 +1655,56 @@ export class BridgeWebSocketServer {
     return refs;
   }
 
+  private async registerPastToolResultImages(
+    session: SessionInfo,
+    msg: Record<string, unknown>,
+  ): Promise<ImageRef[]> {
+    const existingImages = Array.isArray(msg.images)
+      ? (msg.images as ImageRef[])
+      : [];
+    if (!this.imageStore) return [...existingImages];
+
+    const paths = new Set<string>();
+    if (Array.isArray(msg.imagePaths)) {
+      for (const path of msg.imagePaths) {
+        if (typeof path === "string" && path.length > 0) paths.add(path);
+      }
+    }
+
+    const content = typeof msg.content === "string" ? msg.content : "";
+    if (content) {
+      for (const path of this.imageStore.extractImagePaths(content)) {
+        paths.add(path);
+      }
+    }
+
+    const refs: ImageRef[] = [...existingImages];
+    if (paths.size > 0) {
+      refs.push(
+        ...(await this.imageStore.registerImages([...paths], session.projectPath)),
+      );
+    }
+
+    if (Array.isArray(msg.imageBase64)) {
+      for (const image of msg.imageBase64) {
+        const rawImage = image as Record<string, unknown>;
+        if (
+          typeof rawImage.data !== "string" ||
+          typeof rawImage.mimeType !== "string"
+        ) {
+          continue;
+        }
+        const ref = this.imageStore.registerFromBase64(
+          rawImage.data,
+          rawImage.mimeType,
+        );
+        if (ref) refs.push(ref);
+      }
+    }
+
+    return refs;
+  }
+
   private async getCodexThreadHistoryFromRpc(
     threadId: string,
     projectPath?: string,
@@ -1324,11 +1716,22 @@ export class BridgeWebSocketServer {
     try {
       const thread = await process.readThread(threadId, true);
       return codexThreadToSessionHistory(thread);
+    } catch (err) {
+      if (this.isCodexThreadNotMaterializedError(err)) return [];
+      throw err;
     } finally {
       if (isStandalone) {
         process.stop();
       }
     }
+  }
+
+  private isCodexThreadNotMaterializedError(err: unknown): boolean {
+    const message = err instanceof Error ? err.message : String(err);
+    return (
+      message.includes("is not materialized yet") &&
+      message.includes("includeTurns is unavailable before first user message")
+    );
   }
 
   private async getCodexThreadHistory(
@@ -1338,16 +1741,7 @@ export class BridgeWebSocketServer {
     if (!this.getActiveCodexProcess() && process.env.NODE_ENV === "test") {
       return getCodexSessionHistory(threadId);
     }
-    try {
-      return await this.getCodexThreadHistoryFromRpc(threadId, projectPath);
-    } catch (err) {
-      console.warn(
-        `[ws] thread/read failed for ${threadId}; falling back to JSONL: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-      return getCodexSessionHistory(threadId);
-    }
+    return this.getCodexThreadHistoryFromRpc(threadId, projectPath);
   }
 
   private codexHistoryFromThreadOrFallback(params: {
@@ -1835,7 +2229,7 @@ export class BridgeWebSocketServer {
         if (
           clientMessageId &&
           baseSeq !== undefined &&
-          this.hasInputConflictSince(session.id, baseSeq)
+          this.hasInputConflictSince(session, baseSeq)
         ) {
           this.send(ws, {
             type: "input_rejected",
@@ -3138,6 +3532,17 @@ export class BridgeWebSocketServer {
       case "get_history": {
         const session = this.sessionManager.get(msg.sessionId);
         if (session) {
+          if (session.provider === "codex") {
+            const handled = await this.sendCodexCanonicalLegacyHistory(
+              ws,
+              msg.sessionId,
+              session,
+            );
+            if (handled) {
+              break;
+            }
+          }
+
           const splitPastHistory =
             session.pastMessages && session.pastMessages.length > 0
               ? await this.splitPastHistoryMessages(session)
@@ -3162,61 +3567,10 @@ export class BridgeWebSocketServer {
             sessionId: msg.sessionId,
           } as Record<string, unknown>);
           if (session.provider === "codex") {
-            const item = session.codexQueuedInput;
-            this.sendConversationQueue(ws, {
-              type: "conversation_queue",
-              sessionId: msg.sessionId,
-              limit: 1,
-              items: item
-                ? [
-                    {
-                      itemId: item.itemId,
-                      text: item.text,
-                      createdAt: item.createdAt,
-                      ...(item.updatedAt ? { updatedAt: item.updatedAt } : {}),
-                      ...(item.imageCount
-                        ? { imageCount: item.imageCount }
-                        : {}),
-                      ...(item.skills?.length ? { skills: item.skills } : {}),
-                      ...(item.mentions?.length
-                        ? { mentions: item.mentions }
-                        : {}),
-                    },
-                  ]
-                : [],
-            } as Record<string, unknown>);
+            this.sendCodexQueueState(ws, msg.sessionId, session);
           }
 
-          // Send cached slash commands so the client can restore them even when
-          // the original init/supported_commands message was evicted from the
-          // in-memory history (MAX_HISTORY_PER_SESSION overflow).
-          const cached = this.sessionManager.getCachedCommands(
-            session.projectPath,
-          );
-          if (
-            cached &&
-            (cached.slashCommands.length > 0 ||
-                cached.skills.length > 0 ||
-                cached.apps.length > 0 ||
-                cached.plugins.length > 0)
-          ) {
-            this.send(ws, {
-              type: "system",
-              subtype: "supported_commands",
-              sessionId: msg.sessionId,
-              slashCommands: cached.slashCommands,
-              skills: cached.skills,
-              ...(cached.skillMetadata
-                ? { skillMetadata: cached.skillMetadata }
-                : {}),
-              apps: cached.apps,
-              ...(cached.appMetadata ? { appMetadata: cached.appMetadata } : {}),
-              plugins: cached.plugins,
-              ...(cached.pluginMetadata
-                ? { pluginMetadata: cached.pluginMetadata }
-                : {}),
-            });
-          }
+          this.sendCachedCommands(ws, msg.sessionId, session);
         } else {
           this.send(ws, {
             type: "error",
@@ -3228,11 +3582,60 @@ export class BridgeWebSocketServer {
 
       case "get_history_delta": {
         const session = this.sessionManager.get(msg.sessionId);
-        const result = this.sessionManager.getHistorySince(
-          msg.sessionId,
-          msg.sinceSeq,
-        );
-        if (session && result) {
+        if (session?.provider === "codex") {
+          const result = this.sessionManager.getHistorySince(
+            msg.sessionId,
+            msg.sinceSeq,
+          );
+          if (!result) {
+            this.send(ws, {
+              type: "error",
+              message: `Session ${msg.sessionId} not found`,
+            });
+            break;
+          }
+
+          if (
+            this.shouldResetCodexHistoryDelta(
+              session,
+              msg.sinceSeq,
+              result.kind,
+            )
+          ) {
+            await this.sendCodexCanonicalHistorySnapshot(
+              ws,
+              msg.sessionId,
+              session,
+            );
+            break;
+          }
+
+          this.send(ws, {
+            type:
+              result.kind === "snapshot" ? "history_snapshot" : "history_delta",
+            sessionId: msg.sessionId,
+            fromSeq: result.fromSeq,
+            toSeq: result.toSeq,
+            messages: result.entries,
+            status: session.status,
+            ...(result.kind === "snapshot" ? { reason: result.reason } : {}),
+          } as ServerMessage);
+          this.sendCodexQueueState(ws, msg.sessionId, session);
+          break;
+        }
+
+        if (session) {
+          const result = this.sessionManager.getHistorySince(
+            msg.sessionId,
+            msg.sinceSeq,
+          );
+          if (!result) {
+            this.send(ws, {
+              type: "error",
+              message: `Session ${msg.sessionId} not found`,
+            });
+            break;
+          }
           if (session.pastMessages && session.pastMessages.length > 0) {
             const splitPastHistory =
               await this.splitPastHistoryMessages(session);
@@ -3257,31 +3660,6 @@ export class BridgeWebSocketServer {
             status: session.status,
             ...(result.kind === "snapshot" ? { reason: result.reason } : {}),
           } as ServerMessage);
-          if (session.provider === "codex") {
-            const item = session.codexQueuedInput;
-            this.sendConversationQueue(ws, {
-              type: "conversation_queue",
-              sessionId: msg.sessionId,
-              limit: 1,
-              items: item
-                ? [
-                    {
-                      itemId: item.itemId,
-                      text: item.text,
-                      createdAt: item.createdAt,
-                      ...(item.updatedAt ? { updatedAt: item.updatedAt } : {}),
-                      ...(item.imageCount
-                        ? { imageCount: item.imageCount }
-                        : {}),
-                      ...(item.skills?.length ? { skills: item.skills } : {}),
-                      ...(item.mentions?.length
-                        ? { mentions: item.mentions }
-                        : {}),
-                    },
-                  ]
-                : [],
-            } as Record<string, unknown>);
-          }
         } else {
           this.send(ws, {
             type: "error",
@@ -5636,25 +6014,41 @@ export class BridgeWebSocketServer {
     const isStandalone = process !== this.getActiveCodexProcess();
 
     try {
-      const result = await process.listThreads({
-        limit: limit + offset,
-        cwd: msg.projectPath,
-        searchTerm: msg.searchQuery,
-      });
       const archivedIds = this.archiveStore.archivedIds();
-      const visibleThreads = result.data
-        .filter((thread) => !archivedIds.has(thread.id))
-        .filter((thread) => !msg.namedOnly || !!thread.name)
-        .slice(offset, offset + limit);
+      const visibleThreads: CodexThreadSummary[] = [];
+      let cursor: string | null | undefined;
+      let hasServerMore = false;
+      const targetCount = offset + limit;
+
+      do {
+        const request: Parameters<CodexProcess["listThreads"]>[0] = {
+          limit: Math.max(limit, 1),
+          cwd: msg.projectPath,
+          searchTerm: msg.searchQuery,
+          sourceKinds: CODEX_RECENT_THREAD_SOURCE_KINDS,
+        };
+        if (cursor != null) request.cursor = cursor;
+
+        const result = await process.listThreads(request);
+        for (const thread of result.data) {
+          if (archivedIds.has(thread.id)) continue;
+          if (msg.namedOnly && !thread.name) continue;
+          visibleThreads.push(thread);
+        }
+        cursor = result.nextCursor;
+        hasServerMore = cursor != null;
+      } while (visibleThreads.length < targetCount && cursor != null);
+
+      const pageThreads = visibleThreads.slice(offset, offset + limit);
       const indexedById = await getCodexSessionIndexMetadata(
-        visibleThreads.map((thread) => thread.id),
+        pageThreads.map((thread) => thread.id),
       );
-      const sessions = visibleThreads.map((thread) =>
+      const sessions = pageThreads.map((thread) =>
         codexThreadToRecentSession(thread, indexedById.get(thread.id)),
       );
       return {
         sessions,
-        hasMore: result.nextCursor != null,
+        hasMore: hasServerMore || visibleThreads.length > offset + limit,
       };
     } finally {
       if (isStandalone) {
@@ -5883,8 +6277,16 @@ export class BridgeWebSocketServer {
     );
   }
 
-  private hasInputConflictSince(sessionId: string, baseSeq: number): boolean {
-    const delta = this.sessionManager.getHistorySince(sessionId, baseSeq);
+  private hasInputConflictSince(session: SessionInfo, baseSeq: number): boolean {
+    if (
+      session.provider === "codex" &&
+      typeof session.codexCanonicalHistoryRevision === "number" &&
+      baseSeq < session.codexCanonicalHistoryRevision
+    ) {
+      return true;
+    }
+
+    const delta = this.sessionManager.getHistorySince(session.id, baseSeq);
     if (!delta) return true;
     if (delta.kind === "snapshot") return true;
 
@@ -5901,6 +6303,64 @@ export class BridgeWebSocketServer {
         );
       }
       return false;
+    });
+  }
+
+  private sendCodexQueueState(
+    ws: WebSocket,
+    sessionId: string,
+    session: SessionInfo,
+  ): void {
+    const item = session.codexQueuedInput;
+    this.sendConversationQueue(ws, {
+      type: "conversation_queue",
+      sessionId,
+      limit: 1,
+      items: item
+        ? [
+            {
+              itemId: item.itemId,
+              text: item.text,
+              createdAt: item.createdAt,
+              ...(item.updatedAt ? { updatedAt: item.updatedAt } : {}),
+              ...(item.imageCount ? { imageCount: item.imageCount } : {}),
+              ...(item.skills?.length ? { skills: item.skills } : {}),
+              ...(item.mentions?.length ? { mentions: item.mentions } : {}),
+            },
+          ]
+        : [],
+    } as Record<string, unknown>);
+  }
+
+  private sendCachedCommands(
+    ws: WebSocket,
+    sessionId: string,
+    session: SessionInfo,
+  ): void {
+    // Restore command metadata when the original init/supported_commands event
+    // has fallen out of the bounded in-memory history.
+    const cached = this.sessionManager.getCachedCommands(session.projectPath);
+    if (
+      !cached ||
+      (cached.slashCommands.length === 0 &&
+        cached.skills.length === 0 &&
+        cached.apps.length === 0 &&
+        cached.plugins.length === 0)
+    ) {
+      return;
+    }
+
+    this.send(ws, {
+      type: "system",
+      subtype: "supported_commands",
+      sessionId,
+      slashCommands: cached.slashCommands,
+      skills: cached.skills,
+      ...(cached.skillMetadata ? { skillMetadata: cached.skillMetadata } : {}),
+      apps: cached.apps,
+      ...(cached.appMetadata ? { appMetadata: cached.appMetadata } : {}),
+      plugins: cached.plugins,
+      ...(cached.pluginMetadata ? { pluginMetadata: cached.pluginMetadata } : {}),
     });
   }
 

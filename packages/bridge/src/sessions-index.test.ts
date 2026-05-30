@@ -78,14 +78,17 @@ describe("codexThreadToSessionHistory", () => {
       {
         role: "user",
         uuid: "codex:user-turn:1",
+        rawItemId: "u1",
         content: [{ type: "text", text: "hello" }],
       },
       {
         role: "assistant",
+        uuid: "a1",
         content: [{ type: "text", text: "hi" }],
       },
       {
         role: "assistant",
+        uuid: "cmd1",
         content: [
           {
             type: "tool_use",
@@ -102,6 +105,81 @@ describe("codexThreadToSessionHistory", () => {
         content: "status: completed\nexitCode: 0\nclean",
       },
     ]);
+  });
+
+  it("preserves distinct official agentMessage ids with duplicate text", () => {
+    const history = codexThreadToSessionHistory({
+      turns: [
+        {
+          items: [
+            { type: "agentMessage", id: "a1", text: "same reply" },
+            { type: "agentMessage", id: "a2", text: "same reply" },
+          ],
+        },
+      ],
+    });
+
+    expect(history).toEqual([
+      {
+        role: "assistant",
+        uuid: "a1",
+        content: [{ type: "text", text: "same reply" }],
+      },
+      {
+        role: "assistant",
+        uuid: "a2",
+        content: [{ type: "text", text: "same reply" }],
+      },
+    ]);
+  });
+
+  it("preserves official tool item ids and user image refs", () => {
+    const history = codexThreadToSessionHistory({
+      turns: [
+        {
+          items: [
+            {
+              type: "userMessage",
+              id: "u1",
+              content: [
+                { type: "text", text: "inspect this" },
+                { type: "localImage", path: "/tmp/local.png" },
+                {
+                  type: "image",
+                  imageUrl: "data:image/png;base64,aW1hZ2U=",
+                },
+              ],
+            },
+            {
+              type: "imageGeneration",
+              id: "img1",
+              status: "completed",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(history[0]).toMatchObject({
+      role: "user",
+      uuid: "codex:user-turn:1",
+      rawItemId: "u1",
+      content: [{ type: "text", text: "inspect this" }],
+      imageCount: 2,
+      imagePaths: ["/tmp/local.png"],
+      imageBase64: [{ data: "aW1hZ2U=", mimeType: "image/png" }],
+    });
+    expect(history[1]).toMatchObject({
+      role: "assistant",
+      uuid: "img1",
+      content: [
+        {
+          type: "tool_use",
+          id: "img1",
+          name: "ImageGeneration",
+        },
+      ],
+    });
   });
 });
 
@@ -1229,6 +1307,7 @@ describe("codex sessions integration", () => {
     });
     expect(history[1]).toEqual({
       role: "assistant",
+      uuid: "call-1",
       content: [
         {
           type: "tool_use",
@@ -1242,6 +1321,7 @@ describe("codex sessions integration", () => {
     expect(history[2].content[0].name).toBe("apply_patch");
     expect(history[3]).toEqual({
       role: "assistant",
+      uuid: "web-search-5",
       content: [
         {
           type: "tool_use",
@@ -1709,6 +1789,7 @@ describe("codex sessions integration", () => {
       },
       {
         role: "assistant",
+        uuid: "cmd-1",
         content: [
           {
             type: "tool_use",
@@ -1720,6 +1801,7 @@ describe("codex sessions integration", () => {
       },
       {
         role: "assistant",
+        uuid: "mcp-1",
         content: [
           {
             type: "tool_use",

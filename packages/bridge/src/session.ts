@@ -84,6 +84,8 @@ export interface SessionInfo {
   pendingCodexUserEchoUuids?: Set<string>;
   /** Raw Codex app-server user item ids mapped to valid ccpocket turn UUIDs. */
   codexUserTurnUuidByRawId?: Map<string, string>;
+  /** Last Bridge history seq covered by the canonical Codex thread snapshot. */
+  codexCanonicalHistoryRevision?: number;
   /** Whether to generate a session name after the first completed turn. */
   autoRename?: boolean;
   /** Prevents automatic rename from running more than once. */
@@ -337,6 +339,9 @@ export class SessionManager {
       // can return it immediately (before the SDK sends a system/result event).
       claudeSessionId: options?.sessionId,
     };
+    if (effectiveProvider === "codex") {
+      this.seedCodexPastUserTurnUuidMap(session);
+    }
 
     // Cache tool_use id → name for enriching tool_result messages
     const toolUseNames = new Map<string, string>();
@@ -534,6 +539,9 @@ export class SessionManager {
         let mergedUserInput = false;
         let historyMsg = msg;
         if (msg.type !== "stream_delta" && msg.type !== "thinking_delta") {
+          if (this.shouldSuppressCodexCanonicalUserEcho(session, msg)) {
+            return;
+          }
           const mergedMsg = this.mergeUserInputIntoHistory(session, msg);
           if (mergedMsg) {
             mergedUserInput = true;
@@ -861,6 +869,57 @@ export class SessionManager {
       return liveMsg as ServerMessage;
     }
     return msg;
+  }
+
+  private shouldSuppressCodexCanonicalUserEcho(
+    session: SessionInfo,
+    msg: ServerMessage,
+  ): boolean {
+    if (session.provider !== "codex" || msg.type !== "user_input") {
+      return false;
+    }
+    const rawId = "userMessageUuid" in msg ? msg.userMessageUuid : undefined;
+    if (!rawId || isCodexUserTurnUuid(rawId)) return false;
+    const canonicalUuid = session.codexUserTurnUuidByRawId?.get(rawId);
+    if (!canonicalUuid) return false;
+    return this.hasPastCodexUserMessage(session, canonicalUuid);
+  }
+
+  private seedCodexPastUserTurnUuidMap(session: SessionInfo): void {
+    for (const message of session.pastMessages ?? []) {
+      if (!message || typeof message !== "object") continue;
+      const item = message as {
+        role?: unknown;
+        uuid?: unknown;
+        rawItemId?: unknown;
+        isMeta?: unknown;
+      };
+      if (
+        item.role !== "user" ||
+        item.isMeta === true ||
+        typeof item.rawItemId !== "string" ||
+        typeof item.uuid !== "string"
+      ) {
+        continue;
+      }
+      session.codexUserTurnUuidByRawId ??= new Map<string, string>();
+      session.codexUserTurnUuidByRawId.set(item.rawItemId, item.uuid);
+    }
+  }
+
+  private hasPastCodexUserMessage(
+    session: SessionInfo,
+    uuid: string,
+  ): boolean {
+    return (session.pastMessages ?? []).some((message) => {
+      if (!message || typeof message !== "object") return false;
+      const item = message as {
+        role?: unknown;
+        uuid?: unknown;
+        isMeta?: unknown;
+      };
+      return item.role === "user" && item.uuid === uuid && item.isMeta !== true;
+    });
   }
 
   private buildHistoryProcessMessage(

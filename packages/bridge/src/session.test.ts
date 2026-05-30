@@ -1089,6 +1089,59 @@ describe("SessionManager claude UUID backfill", () => {
     ).toBe(false);
   });
 
+  it("suppresses Codex raw user echo already restored from canonical history", () => {
+    const broadcasts: Array<{ id: string; msg: ServerMessage }> = [];
+    const manager = new SessionManager((id, msg) => {
+      broadcasts.push({ id, msg });
+    });
+    const sessionId = manager.create(
+      "/tmp/project-canonical-codex",
+      undefined,
+      [
+        {
+          role: "user",
+          uuid: "codex:user-turn:1",
+          rawItemId: "raw-user-1",
+          content: [{ type: "text", text: "canonical turn" }],
+        },
+      ],
+      undefined,
+      "codex",
+    );
+
+    const session = manager.get(sessionId);
+    expect(session).toBeDefined();
+    if (!session) return;
+    expect(session.codexUserTurnUuidByRawId?.get("raw-user-1")).toBe(
+      "codex:user-turn:1",
+    );
+
+    codexInstances[0].emit("message", {
+      type: "user_input",
+      text: "canonical turn",
+      userMessageUuid: "raw-user-1",
+    } as ServerMessage);
+
+    expect(
+      session.history.filter((msg) => msg.type === "user_input"),
+    ).toHaveLength(0);
+    expect(broadcasts).toHaveLength(0);
+
+    codexInstances[0].emit("message", {
+      type: "user_input",
+      text: "next remote",
+      userMessageUuid: "raw-user-2",
+    } as ServerMessage);
+
+    expect(session.history).toContainEqual(
+      expect.objectContaining({
+        type: "user_input",
+        text: "next remote",
+        userMessageUuid: "codex:user-turn:2",
+      }),
+    );
+  });
+
   it("counts queued Codex input when assigning remote user turn UUIDs", () => {
     const manager = new SessionManager(() => {});
     const sessionId = manager.create(

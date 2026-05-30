@@ -1093,6 +1093,1091 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("serves codex history deltas from canonical thread/read", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        rawItemId: "raw-user-1",
+        timestamp: "2026-05-29T00:00:00.000Z",
+        content: [{ type: "text", text: "sync this thread" }],
+      },
+      {
+        role: "assistant",
+        uuid: "assistant-1",
+        content: [{ type: "text", text: "synced" }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        model: "gpt-5.3-codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.claudeSessionId = "thr_codex_1";
+    session.codexSettings = { model: "gpt-5.3-codex" };
+    session.process.readThread.mockResolvedValue({
+      id: "thr_codex_1",
+      turns: [],
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+
+    expect(session.process.readThread).toHaveBeenCalledWith(
+      "thr_codex_1",
+      true,
+    );
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends.some((m: any) => m.type === "history_delta")).toBe(false);
+    expect(sends[0]).toMatchObject({
+      type: "history_snapshot",
+      sessionId,
+      fromSeq: 1,
+      toSeq: 2,
+      status: "idle",
+      reason: "reset",
+      messages: [
+        {
+          seq: 1,
+          message: {
+            type: "user_input",
+            text: "sync this thread",
+            userMessageUuid: "codex:user-turn:1",
+            timestamp: "2026-05-29T00:00:00.000Z",
+          },
+        },
+        {
+          seq: 2,
+          message: {
+            type: "assistant",
+            messageUuid: "assistant-1",
+            message: {
+              role: "assistant",
+              content: [{ type: "text", text: "synced" }],
+              model: "gpt-5.3-codex",
+            },
+          },
+        },
+      ],
+    });
+    expect(session.pastMessages).toHaveLength(2);
+    expect(session.history).toEqual([]);
+    expect(session.historyEntries).toEqual([]);
+    expect(session.historyRevision).toBe(2);
+    expect(session.codexCanonicalHistoryRevision).toBe(2);
+    expect(session.codexUserTurnUuidByRawId?.get("raw-user-1")).toBe(
+      "codex:user-turn:1",
+    );
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId,
+        text: "next turn",
+      },
+      ws,
+    );
+
+    const inputSends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(inputSends[0]).toMatchObject({
+      type: "user_input",
+      text: "next turn",
+      userMessageUuid: "codex:user-turn:2",
+      historySeq: 3,
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 2,
+      },
+      ws,
+    );
+
+    expect(session.process.readThread).toHaveBeenCalledTimes(1);
+    const deltaSends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(deltaSends[0]).toMatchObject({
+      type: "history_delta",
+      sessionId,
+      fromSeq: 3,
+      toSeq: 3,
+      messages: [
+        {
+          seq: 3,
+          message: {
+            type: "user_input",
+            text: "next turn",
+            userMessageUuid: "codex:user-turn:2",
+            historySeq: 3,
+          },
+        },
+      ],
+    });
+
+    bridge.close();
+  });
+
+  it("serves codex get_history as legacy history from canonical thread/read", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        timestamp: "2026-05-29T00:00:00.000Z",
+        content: [{ type: "text", text: "restore legacy shape" }],
+      },
+      {
+        role: "assistant",
+        uuid: "assistant-legacy-1",
+        content: [{ type: "text", text: "legacy history restored" }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        model: "gpt-5.3-codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.claudeSessionId = "thr_codex_legacy";
+    session.codexSettings = { model: "gpt-5.3-codex" };
+    session.process.readThread.mockResolvedValue({
+      id: "thr_codex_legacy",
+      turns: [],
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history",
+        sessionId,
+      },
+      ws,
+    );
+
+    expect(session.process.readThread).toHaveBeenCalledWith(
+      "thr_codex_legacy",
+      true,
+    );
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends.some((m: any) => m.type === "history_snapshot")).toBe(false);
+    expect(sends[0]).toMatchObject({
+      type: "history",
+      sessionId,
+      messages: [
+        {
+          type: "user_input",
+          text: "restore legacy shape",
+          userMessageUuid: "codex:user-turn:1",
+          timestamp: "2026-05-29T00:00:00.000Z",
+        },
+        {
+          type: "assistant",
+          messageUuid: "assistant-legacy-1",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "legacy history restored" }],
+            model: "gpt-5.3-codex",
+          },
+        },
+      ],
+    });
+    expect(sends[1]).toMatchObject({
+      type: "status",
+      status: "idle",
+      sessionId,
+    });
+
+    bridge.close();
+  });
+
+  it("serves empty codex history for unmaterialized threads", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        model: "gpt-5.3-codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.claudeSessionId = "thr_codex_empty";
+    session.process.readThread.mockRejectedValue(
+      new Error(
+        "thread thr_codex_empty is not materialized yet; includeTurns is unavailable before first user message",
+      ),
+    );
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+
+    expect(getCodexSessionHistoryMock).not.toHaveBeenCalled();
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends.some((m: any) => m.type === "error")).toBe(false);
+    expect(sends[0]).toMatchObject({
+      type: "history_snapshot",
+      sessionId,
+      fromSeq: 1,
+      toSeq: 0,
+      messages: [],
+      reason: "reset",
+    });
+    expect(session.pastMessages).toEqual([]);
+    expect(session.history).toEqual([]);
+    expect(session.historyRevision).toBe(0);
+    expect(session.codexCanonicalHistoryRevision).toBe(0);
+
+    bridge.close();
+  });
+
+  it("preserves codex live history when a canonical delta reset is needed", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        timestamp: "2026-05-29T00:00:00.000Z",
+        content: [{ type: "text", text: "restore this thread" }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        model: "gpt-5.3-codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const manager = (bridge as any).sessionManager;
+    const session = manager.get(sessionId);
+    session.claudeSessionId = "thr_codex_live";
+    session.codexSettings = { model: "gpt-5.3-codex" };
+    session.process.readThread.mockResolvedValue({
+      id: "thr_codex_live",
+      turns: [],
+    });
+    manager.appendHistory(sessionId, {
+      type: "assistant",
+      message: {
+        id: "live-assistant-1",
+        role: "assistant",
+        content: [{ type: "text", text: "live answer still streaming" }],
+        model: "gpt-5.3-codex",
+      },
+      messageUuid: "live-assistant-1",
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends[0]).toMatchObject({
+      type: "history_snapshot",
+      sessionId,
+      fromSeq: 1,
+      toSeq: 2,
+      reason: "reset",
+      messages: [
+        {
+          seq: 1,
+          message: {
+            type: "user_input",
+            text: "restore this thread",
+            userMessageUuid: "codex:user-turn:1",
+          },
+        },
+        {
+          seq: 2,
+          message: {
+            type: "assistant",
+            messageUuid: "live-assistant-1",
+            message: {
+              id: "live-assistant-1",
+              role: "assistant",
+              content: [{ type: "text", text: "live answer still streaming" }],
+              model: "gpt-5.3-codex",
+            },
+          },
+        },
+      ],
+    });
+    expect(session.codexCanonicalHistoryRevision).toBe(1);
+    expect(session.historyEntries).toMatchObject([
+      {
+        seq: 2,
+        message: {
+          type: "assistant",
+          messageUuid: "live-assistant-1",
+        },
+      },
+    ]);
+    expect(session.historyRevision).toBe(2);
+
+    bridge.close();
+  });
+
+  it("keeps codex live assistant with same text as canonical assistant when ids differ", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "assistant",
+        uuid: "canonical-ok",
+        content: [{ type: "text", text: "OK" }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        model: "gpt-5.3-codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const manager = (bridge as any).sessionManager;
+    const session = manager.get(sessionId);
+    session.claudeSessionId = "thr_codex_same_text";
+    session.codexSettings = { model: "gpt-5.3-codex" };
+    session.process.readThread.mockResolvedValue({
+      id: "thr_codex_same_text",
+      turns: [],
+    });
+    manager.appendHistory(sessionId, {
+      type: "assistant",
+      message: {
+        id: "live-ok",
+        role: "assistant",
+        content: [{ type: "text", text: "OK" }],
+        model: "gpt-5.3-codex",
+      },
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends[0]).toMatchObject({
+      type: "history_snapshot",
+      sessionId,
+      fromSeq: 1,
+      toSeq: 2,
+      messages: [
+        {
+          seq: 1,
+          message: {
+            type: "assistant",
+            messageUuid: "canonical-ok",
+            message: {
+              id: "canonical-ok",
+              role: "assistant",
+              content: [{ type: "text", text: "OK" }],
+              model: "gpt-5.3-codex",
+            },
+          },
+        },
+        {
+          seq: 2,
+          message: {
+            type: "assistant",
+            message: {
+              id: "live-ok",
+              role: "assistant",
+              content: [{ type: "text", text: "OK" }],
+              model: "gpt-5.3-codex",
+            },
+          },
+        },
+      ],
+    });
+    expect(session.historyEntries).toMatchObject([
+      {
+        seq: 2,
+        message: {
+          type: "assistant",
+          message: {
+            id: "live-ok",
+          },
+        },
+      },
+    ]);
+
+    bridge.close();
+  });
+
+  it("deduplicates codex live tool use by canonical item id", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "cmd-1",
+            name: "Bash",
+            input: { command: "npm test" },
+          },
+        ],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        model: "gpt-5.3-codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const manager = (bridge as any).sessionManager;
+    const session = manager.get(sessionId);
+    session.claudeSessionId = "thr_codex_tool_dedupe";
+    session.codexSettings = { model: "gpt-5.3-codex" };
+    session.process.readThread.mockResolvedValue({
+      id: "thr_codex_tool_dedupe",
+      turns: [],
+    });
+    manager.appendHistory(sessionId, {
+      type: "assistant",
+      message: {
+        id: "cmd-1",
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "cmd-1",
+            name: "Bash",
+            input: { command: "npm test" },
+          },
+        ],
+        model: "gpt-5.3-codex",
+      },
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends[0]).toMatchObject({
+      type: "history_snapshot",
+      sessionId,
+      fromSeq: 1,
+      toSeq: 1,
+      messages: [
+        {
+          seq: 1,
+          message: {
+            type: "assistant",
+            message: {
+              id: "cmd-1",
+              content: [
+                {
+                  type: "tool_use",
+                  id: "cmd-1",
+                  name: "Bash",
+                },
+              ],
+            },
+          },
+        },
+      ],
+    });
+    expect(session.historyEntries).toEqual([]);
+    expect(session.historyRevision).toBe(1);
+
+    bridge.close();
+  });
+
+  it("deduplicates codex live tool result by canonical item id when content differs", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "tool_result",
+        toolUseId: "cmd-1",
+        toolName: "Bash",
+        content: "status: completed\nexitCode: 0\nclean",
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        model: "gpt-5.3-codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const manager = (bridge as any).sessionManager;
+    const session = manager.get(sessionId);
+    session.claudeSessionId = "thr_codex_tool_result_dedupe";
+    session.codexSettings = { model: "gpt-5.3-codex" };
+    session.process.readThread.mockResolvedValue({
+      id: "thr_codex_tool_result_dedupe",
+      turns: [],
+    });
+    manager.appendHistory(sessionId, {
+      type: "tool_result",
+      toolUseId: "cmd-1",
+      toolName: "Bash",
+      content: "clean",
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends[0]).toMatchObject({
+      type: "history_snapshot",
+      sessionId,
+      fromSeq: 1,
+      toSeq: 1,
+      messages: [
+        {
+          seq: 1,
+          message: {
+            type: "tool_result",
+            toolUseId: "cmd-1",
+            toolName: "Bash",
+            content: "status: completed\nexitCode: 0\nclean",
+          },
+        },
+      ],
+    });
+    expect(session.historyEntries).toEqual([]);
+    expect(session.historyRevision).toBe(1);
+
+    bridge.close();
+  });
+
+  it("preserves codex live history appended while canonical read is pending", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        content: [{ type: "text", text: "stored before pending read" }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+        model: "gpt-5.3-codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const manager = (bridge as any).sessionManager;
+    const session = manager.get(sessionId);
+    session.claudeSessionId = "thr_codex_pending";
+    session.codexSettings = { model: "gpt-5.3-codex" };
+
+    let resolveRead!: (thread: unknown) => void;
+    const pendingRead = new Promise((resolve) => {
+      resolveRead = resolve;
+    });
+    session.process.readThread.mockReturnValue(pendingRead);
+
+    ws.send.mockClear();
+    const pendingHistory = (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    manager.appendHistory(sessionId, {
+      type: "assistant",
+      message: {
+        id: "live-during-read",
+        role: "assistant",
+        content: [{ type: "text", text: "arrived during read" }],
+        model: "gpt-5.3-codex",
+      },
+      messageUuid: "live-during-read",
+    });
+    resolveRead({ id: "thr_codex_pending", turns: [] });
+    await pendingHistory;
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends[0]).toMatchObject({
+      type: "history_snapshot",
+      sessionId,
+      fromSeq: 1,
+      toSeq: 2,
+      messages: [
+        {
+          seq: 1,
+          message: {
+            type: "user_input",
+            text: "stored before pending read",
+            userMessageUuid: "codex:user-turn:1",
+          },
+        },
+        {
+          seq: 2,
+          message: {
+            type: "assistant",
+            messageUuid: "live-during-read",
+            message: {
+              id: "live-during-read",
+              role: "assistant",
+              content: [{ type: "text", text: "arrived during read" }],
+              model: "gpt-5.3-codex",
+            },
+          },
+        },
+      ],
+    });
+    expect(session.historyEntries).toMatchObject([
+      {
+        seq: 2,
+        message: {
+          type: "assistant",
+          messageUuid: "live-during-read",
+        },
+      },
+    ]);
+
+    bridge.close();
+  });
+
+  it("keeps codex canonical tool result images in history snapshots", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "tool_result",
+        toolUseId: "ig-1",
+        toolName: "ImageGeneration",
+        content: "status: completed",
+        imageBase64: [{ data: "aGVsbG8=", mimeType: "image/png" }],
+      },
+    ]);
+    const imageStore = {
+      extractImagePaths: vi.fn(() => []),
+      registerImages: vi.fn(async () => []),
+      registerFromBase64: vi.fn(() => ({
+        id: "img-canonical",
+        url: "/images/img-canonical",
+        mimeType: "image/png",
+      })),
+    };
+
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      imageStore: imageStore as any,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.claudeSessionId = "thr_codex_images";
+    session.process.readThread.mockResolvedValue({
+      id: "thr_codex_images",
+      turns: [],
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+
+    expect(imageStore.registerFromBase64).toHaveBeenCalledWith(
+      "aGVsbG8=",
+      "image/png",
+    );
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends[0]).toMatchObject({
+      type: "history_snapshot",
+      messages: [
+        {
+          seq: 1,
+          message: {
+            type: "tool_result",
+            toolUseId: "ig-1",
+            toolName: "ImageGeneration",
+            images: [
+              {
+                id: "img-canonical",
+                url: "/images/img-canonical",
+                mimeType: "image/png",
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    bridge.close();
+  });
+
+  it("keeps codex canonical user image refs in history snapshots", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        content: [{ type: "text", text: "look at this" }],
+        imageCount: 2,
+        imagePaths: ["/tmp/project-codex/local.png"],
+        imageBase64: [{ data: "aGVsbG8=", mimeType: "image/png" }],
+      },
+    ]);
+    const imageStore = {
+      registerImages: vi.fn(async () => [
+        {
+          id: "img-local",
+          url: "/images/img-local",
+          mimeType: "image/png",
+        },
+      ]),
+      registerFromBase64: vi.fn(() => ({
+        id: "img-base64",
+        url: "/images/img-base64",
+        mimeType: "image/png",
+      })),
+    };
+
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      imageStore: imageStore as any,
+    });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.claudeSessionId = "thr_codex_user_images";
+    session.process.readThread.mockResolvedValue({
+      id: "thr_codex_user_images",
+      turns: [],
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+
+    expect(imageStore.registerImages).toHaveBeenCalledWith(
+      ["/tmp/project-codex/local.png"],
+      "/tmp/project-codex",
+    );
+    expect(imageStore.registerFromBase64).toHaveBeenCalledWith(
+      "aGVsbG8=",
+      "image/png",
+    );
+    expect(extractMessageImagesMock).not.toHaveBeenCalled();
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(sends[0]).toMatchObject({
+      type: "history_snapshot",
+      messages: [
+        {
+          seq: 1,
+          message: {
+            type: "user_input",
+            text: "look at this",
+            imageCount: 2,
+            images: [
+              {
+                id: "img-local",
+                url: "/images/img-local",
+                mimeType: "image/png",
+              },
+              {
+                id: "img-base64",
+                url: "/images/img-base64",
+                mimeType: "image/png",
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    bridge.close();
+  });
+
+  it("reports codex canonical history read failures without JSONL fallback", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.claudeSessionId = "thr_codex_error";
+    session.process.readThread.mockRejectedValue(new Error("rpc unavailable"));
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history",
+        sessionId,
+      },
+      ws,
+    );
+
+    const sends = ws.send.mock.calls.map((c: unknown[]) =>
+      JSON.parse(c[0] as string),
+    );
+    expect(getCodexSessionHistoryMock).not.toHaveBeenCalled();
+    expect(sends).toEqual([
+      {
+        type: "error",
+        message:
+          "Failed to read Codex thread history: rpc unavailable",
+      },
+    ]);
+
+    bridge.close();
+  });
+
   it("keeps restored image generation results in past history order", async () => {
     getSessionHistoryMock.mockResolvedValue([
       {
@@ -3035,6 +4120,84 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("rejects codex strict input older than canonical baseline", async () => {
+    codexThreadToSessionHistoryMock.mockReturnValue([
+      {
+        role: "user",
+        uuid: "codex:user-turn:1",
+        content: [{ type: "text", text: "canonical turn" }],
+      },
+    ]);
+
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.claudeSessionId = "thr_codex_base_seq";
+    session.process.readThread.mockResolvedValue({
+      id: "thr_codex_base_seq",
+      turns: [],
+    });
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "get_history_delta",
+        sessionId,
+        sinceSeq: 0,
+      },
+      ws,
+    );
+    expect(session.codexCanonicalHistoryRevision).toBe(1);
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId,
+        text: "offline input",
+        clientMessageId: "cm-codex-conflict",
+        baseSeq: 0,
+      },
+      ws,
+    );
+
+    const rejected = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "input_rejected");
+    expect(rejected).toMatchObject({
+      type: "input_rejected",
+      sessionId,
+      clientMessageId: "cm-codex-conflict",
+      reason: "conflict",
+    });
+    expect(
+      ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .some((m: any) => m.type === "user_input"),
+    ).toBe(false);
+
+    bridge.close();
+  });
+
   it("codex busy input is queued and included in session_list", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
@@ -3832,6 +4995,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       limit: 20,
       cwd: "/tmp/project-codex",
       searchTerm: undefined,
+      sourceKinds: ["cli", "vscode", "appServer"],
     });
     expect(getCodexSessionIndexMetadataMock).toHaveBeenCalledWith([
       "thr_codex_1",
