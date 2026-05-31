@@ -533,6 +533,32 @@ function codexThreadToRecentSession(
   };
 }
 
+function recentSessionModifiedTime(session: unknown): number {
+  const modified = (session as { modified?: unknown })?.modified;
+  return typeof modified === "string" ? new Date(modified).getTime() || 0 : 0;
+}
+
+function recentSessionDedupeKey(session: unknown, fallbackIndex: number): string {
+  const value = session as { provider?: unknown; sessionId?: unknown };
+  return typeof value.provider === "string" && typeof value.sessionId === "string"
+    ? `${value.provider}:${value.sessionId}`
+    : `unknown:${fallbackIndex}`;
+}
+
+function mergeRecentSessionPages(sessions: unknown[]): unknown[] {
+  const seen = new Set<string>();
+  const merged: unknown[] = [];
+  for (const session of sessions) {
+    const key = recentSessionDedupeKey(session, merged.length);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(session);
+  }
+  return merged.sort(
+    (a, b) => recentSessionModifiedTime(b) - recentSessionModifiedTime(a),
+  );
+}
+
 export interface BridgeServerOptions {
   server: HttpServer;
   apiKey?: string;
@@ -5767,13 +5793,11 @@ export class BridgeWebSocketServer {
     msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
   ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
     if (msg.provider === "codex") {
-      try {
-        return await this.listRecentCodexThreads(msg);
-      } catch (err) {
-        console.warn(
-          `[ws] Codex thread/list failed, falling back to rollout scan: ${err}`,
-        );
-      }
+      return this.listRecentCodexSessions(msg);
+    }
+
+    if (!msg.provider) {
+      return this.listRecentAllProviderSessions(msg);
     }
 
     return getAllRecentSessions({
@@ -5785,6 +5809,66 @@ export class BridgeWebSocketServer {
       searchQuery: msg.searchQuery,
       archivedSessionIds: this.archiveStore.archivedIds(),
     });
+  }
+
+  private async listRecentAllProviderSessions(
+    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
+  ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
+    const limit = msg.limit ?? 20;
+    const offset = msg.offset ?? 0;
+    const sourceLimit = offset + limit;
+
+    const [claudeResult, codexResult] = await Promise.all([
+      getAllRecentSessions({
+        limit: sourceLimit,
+        offset: 0,
+        projectPath: msg.projectPath,
+        provider: "claude",
+        namedOnly: msg.namedOnly,
+        searchQuery: msg.searchQuery,
+        archivedSessionIds: this.archiveStore.archivedIds(),
+      }),
+      this.listRecentCodexSessions({
+        ...msg,
+        provider: "codex",
+        limit: sourceLimit,
+        offset: 0,
+      }),
+    ]);
+
+    const merged = mergeRecentSessionPages([
+      ...claudeResult.sessions,
+      ...codexResult.sessions,
+    ]);
+
+    return {
+      sessions: merged.slice(offset, offset + limit),
+      hasMore:
+        merged.length > offset + limit ||
+        claudeResult.hasMore ||
+        codexResult.hasMore,
+    };
+  }
+
+  private async listRecentCodexSessions(
+    msg: Extract<ClientMessage, { type: "list_recent_sessions" }>,
+  ): Promise<{ sessions: unknown[]; hasMore: boolean }> {
+    try {
+      return await this.listRecentCodexThreads(msg);
+    } catch (err) {
+      console.warn(
+        `[ws] Codex thread/list failed, falling back to rollout scan: ${err}`,
+      );
+      return getAllRecentSessions({
+        limit: msg.limit,
+        offset: msg.offset,
+        projectPath: msg.projectPath,
+        provider: "codex",
+        namedOnly: msg.namedOnly,
+        searchQuery: msg.searchQuery,
+        archivedSessionIds: this.archiveStore.archivedIds(),
+      });
+    }
   }
 
   private async refreshCodexModels(projectPath?: string): Promise<void> {

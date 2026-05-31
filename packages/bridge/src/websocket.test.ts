@@ -444,6 +444,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         offset: 40,
         projectPath: "/tmp/project",
         requestScope: "project",
+        provider: "claude",
       },
       ws,
     );
@@ -499,6 +500,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         offset: 0,
         projectPath: "/tmp/project",
         requestScope: "project",
+        provider: "claude",
       },
       ws,
     );
@@ -507,6 +509,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         type: "list_recent_sessions",
         limit: 20,
         offset: 0,
+        provider: "claude",
       },
       ws,
     );
@@ -5017,6 +5020,91 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         model: "gpt-5.3-codex",
       },
     });
+
+    bridge.close();
+  });
+
+  it("uses codex thread/list for all-provider recent sessions", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-codex",
+        provider: "codex",
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const session = (bridge as any).sessionManager.get(created.sessionId);
+    session.process.listThreads.mockResolvedValue({
+      data: [
+        {
+          id: "thr_codex_all",
+          preview: "Codex all-provider result",
+          createdAt: 1771492643,
+          updatedAt: 1771496243,
+          cwd: "/tmp/project-codex",
+          agentNickname: null,
+          agentRole: null,
+          gitBranch: "main",
+          name: "Codex thread",
+        },
+      ],
+      nextCursor: null,
+    });
+    getAllRecentSessionsMock.mockClear();
+    getAllRecentSessionsMock.mockResolvedValue({
+      sessions: [
+        {
+          sessionId: "claude_recent",
+          provider: "claude",
+          firstPrompt: "Claude result",
+          created: "2026-01-01T00:00:00.000Z",
+          modified: "2026-01-01T00:00:00.000Z",
+          gitBranch: "main",
+          projectPath: "/tmp/project-claude",
+          isSidechain: false,
+        },
+      ],
+      hasMore: false,
+    });
+    getCodexSessionIndexMetadataMock.mockResolvedValue(new Map());
+
+    const payload = await (bridge as any).listRecentSessions({
+      type: "list_recent_sessions",
+      limit: 20,
+    });
+
+    expect(getAllRecentSessionsMock).toHaveBeenCalledTimes(1);
+    expect(getAllRecentSessionsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 20,
+        offset: 0,
+        provider: "claude",
+      }),
+    );
+    expect(session.process.listThreads).toHaveBeenCalledWith({
+      limit: 20,
+      cwd: undefined,
+      searchTerm: undefined,
+      sourceKinds: ["cli", "vscode", "appServer"],
+    });
+    expect(payload.hasMore).toBe(false);
+    expect(payload.sessions.map((s: any) => s.sessionId)).toEqual([
+      "thr_codex_all",
+      "claude_recent",
+    ]);
 
     bridge.close();
   });
