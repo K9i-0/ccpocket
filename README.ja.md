@@ -17,6 +17,8 @@ Linux / Windows デスクトップ版は実験的ビルドとして GitHub Relea
 
 1. セッションを実行するマシンに、少なくとも1つのエージェント CLI を入れます:
    [Codex](https://github.com/openai/codex) または [Claude Code](https://docs.anthropic.com/en/docs/claude-code)。
+   macOS / Linux の Codex は、現在は standalone installer が推奨です:
+   `curl -fsSL https://chatgpt.com/codex/install.sh | sh`。
 2. 同じマシンに [Node.js](https://nodejs.org/) 18 以上を入れます。
 3. CC Pocket Bridge Server を起動します。
 
@@ -94,6 +96,8 @@ npx @ccpocket/bridge@latest setup
 ```
 
 サービス化は macOS launchd と Linux systemd に対応しています。
+`BRIDGE_ALLOWED_DIRS` などの Bridge 設定・service setup で保存される項目は
+[Bridge package README](packages/bridge/README.md#configuration) を参照してください。
 
 ## 補足
 

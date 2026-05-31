@@ -19,10 +19,10 @@ A QR code will appear in your terminal. Scan it with the ccpocket mobile app to 
 ## Installation
 
 ```bash
-# Run directly (no install needed)
+# Recommended: run the latest Bridge directly
 npx @ccpocket/bridge@latest
 
-# Or install globally
+# Optional: install globally
 npm install -g @ccpocket/bridge
 ccpocket-bridge
 
@@ -66,6 +66,9 @@ variables are required.
 # Example: custom port with API key
 BRIDGE_PORT=9000 BRIDGE_API_KEY=my-secret npx @ccpocket/bridge@latest
 
+# Example: allow projects outside $HOME
+BRIDGE_ALLOWED_DIRS="$HOME,/scratch/$USER" npx @ccpocket/bridge@latest
+
 # Example: expose Bridge through a reverse proxy / ngrok
 BRIDGE_PUBLIC_WS_URL=wss://example.ngrok-free.app npx @ccpocket/bridge@latest
 
@@ -84,6 +87,37 @@ is reachable through a reverse proxy, tunnel, or public domain.
 
 Without it, the printed QR code is LAN-oriented by default and typically encodes
 something like `ws://192.168.x.x:8765`.
+
+## Persistent service setup
+
+Register the Bridge as a user-level background service:
+
+```bash
+npx @ccpocket/bridge@latest setup
+```
+
+Setup supports macOS launchd and Linux systemd. It persists the Bridge settings
+that affect startup:
+
+- `BRIDGE_PORT` / `--port`
+- `BRIDGE_HOST` / `--host`
+- `BRIDGE_API_KEY` / `--api-key`
+- `BRIDGE_ALLOWED_DIRS`
+- `BRIDGE_PUBLIC_WS_URL` / `--public-ws-url`
+- `BRIDGE_DISABLE_MDNS` / `--no-mdns`
+- `BRIDGE_CODEX_APP_SERVER_MODE` / `--codex-app-server-mode`
+- `BRIDGE_CODEX_SHARED_APP_SERVER_URL` / `--codex-shared-app-server-url`
+
+Example:
+
+```bash
+BRIDGE_ALLOWED_DIRS="$HOME,/scratch/$USER" \
+BRIDGE_API_KEY=my-secret \
+npx @ccpocket/bridge@latest setup
+```
+
+On Linux, setup gives standalone Codex installs priority by including
+`$HOME/.local/bin` before npm-managed Node paths in the service `PATH`.
 
 ## Experimental: Join a CC Pocket Codex Session from Codex CLI
 
@@ -124,6 +158,12 @@ future.
 
 - Node.js v18+
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) and/or [Codex CLI](https://github.com/openai/codex)
+
+Current Codex CLI docs recommend the standalone installer for macOS/Linux:
+
+```bash
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+```
 
 ## Health Check
 
