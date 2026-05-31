@@ -48,7 +48,8 @@ String? _copyableCommand(String? errorCode) {
   return switch (errorCode) {
     'auth_login_required' || 'auth_token_expired' => 'claude auth login',
     'bridge_update_required' => 'npm update -g @ccpocket/bridge',
-    'codex_cli_not_found' => 'npm install -g @openai/codex',
+    'codex_cli_not_found' =>
+      'curl -fsSL https://chatgpt.com/codex/install.sh | sh',
     _ => null,
   };
 }

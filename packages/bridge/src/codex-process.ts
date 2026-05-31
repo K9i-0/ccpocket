@@ -17,7 +17,7 @@ export { buildCodexSpawnSpec };
 const DEFAULT_CODEX_MODEL = "gpt-5.5";
 const COMPLETION_FETCH_COOLDOWN_MS = 1000;
 const CODEX_CLI_NOT_FOUND_MESSAGE =
-  "Codex CLI is not installed or not available on PATH on the Bridge machine. Install it with `npm install -g @openai/codex` or `brew install --cask codex`, then restart Bridge.";
+  "Codex CLI is not installed or not available on PATH on the Bridge machine. Install it with `curl -fsSL https://chatgpt.com/codex/install.sh | sh`, then restart Bridge.";
 
 export interface CodexStartOptions {
   threadId?: string;

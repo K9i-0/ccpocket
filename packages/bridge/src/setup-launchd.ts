@@ -33,6 +33,7 @@ interface SetupOptions {
   host?: string;
   apiKey?: string;
   publicWsUrl?: string;
+  disableMdns?: boolean;
   codexAppServerMode?: string;
   codexSharedAppServerUrl?: string;
   /** @deprecated Use codexSharedAppServerUrl. */
@@ -45,8 +46,10 @@ export function setupLaunchd(opts: SetupOptions): void {
   const port = opts.port ?? process.env.BRIDGE_PORT ?? "8765";
   const host = opts.host ?? process.env.BRIDGE_HOST ?? "0.0.0.0";
   const apiKey = opts.apiKey ?? process.env.BRIDGE_API_KEY ?? "";
+  const allowedDirs = process.env.BRIDGE_ALLOWED_DIRS ?? "";
   const publicWsUrl =
     opts.publicWsUrl ?? process.env.BRIDGE_PUBLIC_WS_URL ?? "";
+  const disableMdns = opts.disableMdns || process.env.BRIDGE_DISABLE_MDNS;
   const codexAppServerMode =
     opts.codexAppServerMode ?? process.env.BRIDGE_CODEX_APP_SERVER_MODE ?? "";
   const legacyCodexAppServerPort =
@@ -91,10 +94,22 @@ export function setupLaunchd(opts: SetupOptions): void {
         <string>${apiKey}</string>`;
   }
 
+  if (allowedDirs) {
+    envBlock += `
+        <key>BRIDGE_ALLOWED_DIRS</key>
+        <string>${allowedDirs}</string>`;
+  }
+
   if (publicWsUrl) {
     envBlock += `
         <key>BRIDGE_PUBLIC_WS_URL</key>
         <string>${publicWsUrl}</string>`;
+  }
+
+  if (disableMdns) {
+    envBlock += `
+        <key>BRIDGE_DISABLE_MDNS</key>
+        <string>1</string>`;
   }
 
   if (codexAppServerMode) {

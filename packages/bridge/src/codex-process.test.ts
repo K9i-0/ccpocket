@@ -122,7 +122,7 @@ describe("CodexProcess (app-server)", () => {
       expect(messages).toContainEqual({
         type: "error",
         message:
-          "Codex CLI is not installed or not available on PATH on the Bridge machine. Install it with `npm install -g @openai/codex` or `brew install --cask codex`, then restart Bridge.",
+          "Codex CLI is not installed or not available on PATH on the Bridge machine. Install it with `curl -fsSL https://chatgpt.com/codex/install.sh | sh`, then restart Bridge.",
         errorCode: "codex_cli_not_found",
       });
     } finally {

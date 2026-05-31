@@ -52,6 +52,7 @@ interface SetupOptions {
   host?: string;
   apiKey?: string;
   publicWsUrl?: string;
+  disableMdns?: boolean;
   codexAppServerMode?: string;
   codexSharedAppServerUrl?: string;
   /** @deprecated Use codexSharedAppServerUrl. */
@@ -60,12 +61,44 @@ interface SetupOptions {
   codexAppServerUrl?: string;
 }
 
+function uniquePathEntries(entries: string[]): string[] {
+  const seen = new Set<string>();
+  return entries.filter((entry) => {
+    if (!entry || seen.has(entry)) return false;
+    seen.add(entry);
+    return true;
+  });
+}
+
+function buildServicePath(nodeBinDir: string): string {
+  const home = homedir();
+  const systemBins = ["/usr/local/bin", "/usr/bin", "/bin"];
+  const nodeFallback = systemBins.includes(nodeBinDir) ? [] : [nodeBinDir];
+  return uniquePathEntries([
+    join(home, ".local", "bin"),
+    join(home, "bin"),
+    join(home, ".nvm", "versions", "node", "current", "bin"),
+    join(home, ".volta", "bin"),
+    join(home, ".mise", "shims"),
+    join(home, ".asdf", "shims"),
+    join(home, ".bun", "bin"),
+    join(home, ".npm-global", "bin"),
+    ...nodeFallback,
+    ...systemBins,
+  ]).join(":");
+}
+
+const START_BRIDGE_COMMAND =
+  'if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; nvm use --silent default >/dev/null 2>&1 || nvm use --silent node >/dev/null 2>&1 || true; fi; export PATH="$HOME/.local/bin:$HOME/bin:$PATH"; exec npx --yes @ccpocket/bridge@latest';
+
 export function setupSystemd(opts: SetupOptions): void {
   const port = opts.port ?? process.env.BRIDGE_PORT ?? "8765";
   const host = opts.host ?? process.env.BRIDGE_HOST ?? "0.0.0.0";
   const apiKey = opts.apiKey ?? process.env.BRIDGE_API_KEY ?? "";
+  const allowedDirs = process.env.BRIDGE_ALLOWED_DIRS ?? "";
   const publicWsUrl =
     opts.publicWsUrl ?? process.env.BRIDGE_PUBLIC_WS_URL ?? "";
+  const disableMdns = opts.disableMdns || process.env.BRIDGE_DISABLE_MDNS;
   const codexAppServerMode =
     opts.codexAppServerMode ?? process.env.BRIDGE_CODEX_APP_SERVER_MODE ?? "";
   const legacyCodexAppServerPort =
@@ -105,15 +138,21 @@ export function setupSystemd(opts: SetupOptions): void {
   const nodeBinDir = dirname(npxPath);
 
   // Build environment lines
-  let envLines = `Environment=PATH=${nodeBinDir}:/usr/local/bin:/usr/bin:/bin
+  let envLines = `Environment=PATH=${buildServicePath(nodeBinDir)}
 Environment=BRIDGE_PORT=${port}
 Environment=BRIDGE_HOST=${host}`;
 
   if (apiKey) {
     envLines += `\nEnvironment=BRIDGE_API_KEY=${apiKey}`;
   }
+  if (allowedDirs) {
+    envLines += `\nEnvironment=BRIDGE_ALLOWED_DIRS=${allowedDirs}`;
+  }
   if (publicWsUrl) {
     envLines += `\nEnvironment=BRIDGE_PUBLIC_WS_URL=${publicWsUrl}`;
+  }
+  if (disableMdns) {
+    envLines += "\nEnvironment=BRIDGE_DISABLE_MDNS=1";
   }
   if (codexAppServerMode) {
     envLines += `\nEnvironment=BRIDGE_CODEX_APP_SERVER_MODE=${codexAppServerMode}`;
@@ -123,16 +162,16 @@ Environment=BRIDGE_HOST=${host}`;
   }
 
   // Generate systemd user service unit
-  // Run npx directly with its full path. We set Environment=PATH to include
-  // the node bin directory so that npx can find node (since systemd doesn't
-  // load .bashrc/.profile where nvm/mise/volta set up PATH).
+  // Run through bash so npx is resolved when the service starts. That lets the
+  // service follow stable shims/current symlinks instead of pinning one NVM
+  // version forever, while still falling back to the npx path found at setup.
   const unit = `[Unit]
 Description=CC Pocket Bridge Server
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=${npxPath} --yes @ccpocket/bridge@latest
+ExecStart=/bin/bash -lc '${START_BRIDGE_COMMAND}'
 ${envLines}
 Restart=on-failure
 RestartSec=5

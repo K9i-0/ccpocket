@@ -30,13 +30,20 @@ Options:
       --public-ws-url <url>
                          Public ws:// or wss:// URL used in QR codes
       --no-mdns         Disable mDNS auto-discovery advertisement
+      --codex-app-server-mode <mode>
+                         Codex app-server mode: private, managed, or external
+      --codex-shared-app-server-url <url>
+                         Shared Codex app-server ws:// URL
 
 Setup options:
       --uninstall       Remove the registered service
+      setup persists --port, --host, --api-key, --public-ws-url,
+      --no-mdns, Codex app-server options, and BRIDGE_ALLOWED_DIRS
 
 Configuration can also be provided with BRIDGE_PORT, BRIDGE_HOST,
 BRIDGE_API_KEY, BRIDGE_ALLOWED_DIRS, BRIDGE_PUBLIC_WS_URL, and
-BRIDGE_DISABLE_MDNS.`);
+BRIDGE_DISABLE_MDNS. Codex app-server configuration can be provided with
+BRIDGE_CODEX_APP_SERVER_MODE and BRIDGE_CODEX_SHARED_APP_SERVER_URL.`);
 }
 
 if (parsed.helpRequested) {
@@ -70,6 +77,7 @@ if (parsed.helpRequested) {
     host: parseFlag(parsed, "host"),
     apiKey: parseFlag(parsed, "api-key"),
     publicWsUrl: parseFlag(parsed, "public-ws-url"),
+    disableMdns: hasFlag(parsed, "no-mdns"),
     codexAppServerMode: parseFlag(parsed, "codex-app-server-mode"),
     codexSharedAppServerUrl: parseFlag(parsed, "codex-shared-app-server-url"),
     codexAppServerPort: parseFlag(parsed, "codex-app-server-port"),

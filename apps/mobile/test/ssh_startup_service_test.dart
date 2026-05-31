@@ -165,10 +165,15 @@ void main() {
       expect(command, contains('npx @ccpocket/bridge@latest setup'));
     });
 
-    test('checks the npx command configured in the systemd service', () {
+    test('checks npx availability for the systemd service', () {
       final preflight = SshStartupService.startPreflightCommandForTest;
 
       expect(preflight, contains("grep -E '^ExecStart='"));
+      expect(preflight, contains('/bin/bash -lc'));
+      expect(
+        preflight,
+        contains(r'export PATH="$HOME/.local/bin:$HOME/bin:$PATH"'),
+      );
       expect(preflight, contains(r'[ ! -x "$NPX_COMMAND" ]'));
       expect(preflight, contains('command -v npx'));
       expect(preflight, contains('exit 127'));

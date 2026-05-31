@@ -444,7 +444,12 @@ elif command -v systemctl >/dev/null 2>&1; then
     echo "Bridge auto-start setup is invalid. Run: npx @ccpocket/bridge@latest setup" >&2
     exit 1
   fi
-  if [ "${NPX_COMMAND#/}" != "$NPX_COMMAND" ]; then
+  if printf '%s\n' "$EXEC_START" | grep -q "^/bin/bash -lc .*npx .*@ccpocket/bridge@latest"; then
+    if ! /bin/bash -lc 'if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; nvm use --silent default >/dev/null 2>&1 || nvm use --silent node >/dev/null 2>&1 || true; fi; export PATH="$HOME/.local/bin:$HOME/bin:$PATH"; command -v npx >/dev/null 2>&1'; then
+      echo "npx is not available to the Bridge service. Fix Node.js/npm PATH on the machine, then run: npx @ccpocket/bridge@latest setup" >&2
+      exit 127
+    fi
+  elif [ "${NPX_COMMAND#/}" != "$NPX_COMMAND" ]; then
     if [ ! -x "$NPX_COMMAND" ]; then
       echo "npx configured in the Bridge service is not executable: $NPX_COMMAND. Fix Node.js/npm PATH on the machine, then run: npx @ccpocket/bridge@latest setup" >&2
       exit 127

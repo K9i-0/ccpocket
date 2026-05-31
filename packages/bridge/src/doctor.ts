@@ -168,7 +168,8 @@ export async function checkCliProviders(): Promise<
         }
       }
     } catch {
-      remediation = "Install Codex CLI: https://github.com/openai/codex";
+      remediation =
+        "Install Codex CLI: curl -fsSL https://chatgpt.com/codex/install.sh | sh";
     }
 
     providers.push({

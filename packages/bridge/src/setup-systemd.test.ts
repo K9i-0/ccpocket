@@ -29,7 +29,9 @@ const { setupSystemd, uninstallSystemd } = await import("./setup-systemd.js");
 const SERVICE_PATH =
   "/home/testuser/.config/systemd/user/ccpocket-bridge.service";
 const originalBridgeEnv = {
+  allowedDirs: process.env.BRIDGE_ALLOWED_DIRS,
   publicWsUrl: process.env.BRIDGE_PUBLIC_WS_URL,
+  disableMdns: process.env.BRIDGE_DISABLE_MDNS,
   codexAppServerMode: process.env.BRIDGE_CODEX_APP_SERVER_MODE,
   codexSharedAppServerUrl: process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL,
   codexAppServerPort: process.env.BRIDGE_CODEX_APP_SERVER_PORT,
@@ -66,16 +68,18 @@ describe("setup-systemd", () => {
       expect(content).toContain("[Unit]");
       expect(content).toContain("Description=CC Pocket Bridge Server");
       expect(content).toContain(
-        "ExecStart=/usr/bin/npx --yes @ccpocket/bridge@latest",
+        'ExecStart=/bin/bash -lc \'if [ -s "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh"; nvm use --silent default >/dev/null 2>&1 || nvm use --silent node >/dev/null 2>&1 || true; fi; export PATH="$HOME/.local/bin:$HOME/bin:$PATH"; exec npx --yes @ccpocket/bridge@latest\'',
       );
       expect(content).toContain(
-        "Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin",
+        "Environment=PATH=/home/testuser/.local/bin:/home/testuser/bin:/home/testuser/.nvm/versions/node/current/bin:/home/testuser/.volta/bin:/home/testuser/.mise/shims:/home/testuser/.asdf/shims:/home/testuser/.bun/bin:/home/testuser/.npm-global/bin:/usr/local/bin:/usr/bin:/bin",
       );
       expect(content).toContain("Environment=BRIDGE_PORT=8765");
       expect(content).toContain("Environment=BRIDGE_HOST=0.0.0.0");
       expect(content).toContain("Restart=on-failure");
       expect(content).toContain("WantedBy=default.target");
       expect(content).not.toContain("BRIDGE_API_KEY");
+      expect(content).not.toContain("BRIDGE_ALLOWED_DIRS");
+      expect(content).not.toContain("BRIDGE_DISABLE_MDNS");
       expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_MODE");
       expect(content).not.toContain("BRIDGE_CODEX_SHARED_APP_SERVER_URL");
     });
@@ -85,6 +89,40 @@ describe("setup-systemd", () => {
 
       const content = mockWriteFileSync.mock.calls[0]![1] as string;
       expect(content).toContain("Environment=BRIDGE_API_KEY=my-secret");
+    });
+
+    it("includes BRIDGE_ALLOWED_DIRS when provided", () => {
+      process.env.BRIDGE_ALLOWED_DIRS = "/home/testuser,/scratch/testuser";
+
+      setupSystemd({});
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain(
+        "Environment=BRIDGE_ALLOWED_DIRS=/home/testuser,/scratch/testuser",
+      );
+    });
+
+    it("includes BRIDGE_DISABLE_MDNS when requested", () => {
+      setupSystemd({ disableMdns: true });
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain("Environment=BRIDGE_DISABLE_MDNS=1");
+    });
+
+    it("keeps standalone Codex paths before npm-managed Node paths", () => {
+      mockExecSync.mockImplementation((cmd: string) => {
+        if (cmd === "command -v npx") {
+          return "/home/testuser/.nvm/versions/node/v22.18.0/bin/npx\n";
+        }
+        return "";
+      });
+
+      setupSystemd({});
+
+      const content = mockWriteFileSync.mock.calls[0]![1] as string;
+      expect(content).toContain(
+        "Environment=PATH=/home/testuser/.local/bin:/home/testuser/bin:/home/testuser/.nvm/versions/node/current/bin:/home/testuser/.volta/bin:/home/testuser/.mise/shims:/home/testuser/.asdf/shims:/home/testuser/.bun/bin:/home/testuser/.npm-global/bin:/home/testuser/.nvm/versions/node/v22.18.0/bin:/usr/local/bin:/usr/bin:/bin",
+      );
     });
 
     it("includes BRIDGE_PUBLIC_WS_URL when publicWsUrl is provided", () => {
@@ -300,7 +338,9 @@ describe("setup-systemd", () => {
 });
 
 function clearBridgeEnv(): void {
+  delete process.env.BRIDGE_ALLOWED_DIRS;
   delete process.env.BRIDGE_PUBLIC_WS_URL;
+  delete process.env.BRIDGE_DISABLE_MDNS;
   delete process.env.BRIDGE_CODEX_APP_SERVER_MODE;
   delete process.env.BRIDGE_CODEX_SHARED_APP_SERVER_URL;
   delete process.env.BRIDGE_CODEX_APP_SERVER_PORT;
@@ -308,7 +348,9 @@ function clearBridgeEnv(): void {
 }
 
 function restoreBridgeEnv(): void {
+  restoreEnvVar("BRIDGE_ALLOWED_DIRS", originalBridgeEnv.allowedDirs);
   restoreEnvVar("BRIDGE_PUBLIC_WS_URL", originalBridgeEnv.publicWsUrl);
+  restoreEnvVar("BRIDGE_DISABLE_MDNS", originalBridgeEnv.disableMdns);
   restoreEnvVar(
     "BRIDGE_CODEX_APP_SERVER_MODE",
     originalBridgeEnv.codexAppServerMode,
