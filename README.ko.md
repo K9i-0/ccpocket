@@ -30,7 +30,7 @@ npx @ccpocket/bridge@latest
 |--------|------|
 | **iOS / iPadOS** | <a href="https://apps.apple.com/us/app/cc-pocket-code-anywhere/id6759188790"><img height="40" alt="App Store에서 다운로드" src="docs/images/app-store-badge.svg" /></a> |
 | **Android** | <a href="https://play.google.com/store/apps/details?id=com.k9i.ccpocket"><img height="40" alt="Google Play에서 받기" src="docs/images/google-play-badge-en.svg" /></a> |
-| **macOS** | 최신 `.dmg`는 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos)에서 다운로드할 수 있습니다. `macos/v*` 태그가 붙은 릴리스를 찾으세요. |
+| **macOS** | 최신 `.dmg`는 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=macos)에서 다운로드할 수 있습니다. `macos/v*` 태그가 붙은 릴리스를 찾으세요. Homebrew Cask를 사용해 `brew install --cask cc-pocket` 명령으로 설치할 수도 있습니다. |
 | **Linux(실험적)** | 최신 `.tar.gz`는 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=linux)에서 다운로드할 수 있습니다. `linux/v*` 태그가 붙은 릴리스를 찾으세요. |
 | **Windows(실험적)** | 최신 `.zip`은 [GitHub Releases](https://github.com/K9i-0/ccpocket/releases?q=windows)에서 다운로드할 수 있습니다. `windows/v*` 태그가 붙은 릴리스를 찾으세요. |
 
