@@ -49,6 +49,25 @@ export function resolvePlatformPathFrom(
   );
 }
 
+export function parseAllowedDirectories(
+  input: string | undefined,
+  platform: NodeJS.Platform = process.platform,
+  defaultDirs: string[] = [],
+): string[] {
+  const raw = input?.trim();
+  if (!raw) {
+    return defaultDirs.map((dir) => resolvePlatformPath(dir, platform));
+  }
+
+  if (raw === "*") return [];
+
+  return raw
+    .split(",")
+    .map((dir) => dir.trim())
+    .filter(Boolean)
+    .map((dir) => resolvePlatformPath(dir, platform));
+}
+
 export function isPathWithinAllowedDirectory(
   targetPath: string,
   allowedDir: string,

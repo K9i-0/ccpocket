@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isPathWithinAllowedDirectory,
   normalizePlatformPath,
+  parseAllowedDirectories,
   resolvePlatformPath,
   resolvePlatformPathFrom,
   stripWindowsExtendedPathPrefix,
@@ -58,5 +59,22 @@ describe("path-utils", () => {
     expect(
       resolvePlatformPathFrom("D:\\Users\\alice\\repo", "..\\shared", "win32"),
     ).toBe("D:\\Users\\alice\\shared");
+  });
+
+  it("uses default allowed directories when unset or empty", () => {
+    expect(parseAllowedDirectories(undefined, "linux", ["/home/alice"]))
+      .toEqual(["/home/alice"]);
+    expect(parseAllowedDirectories("", "linux", ["/home/alice"]))
+      .toEqual(["/home/alice"]);
+  });
+
+  it("allows explicit unrestricted mode with star", () => {
+    expect(parseAllowedDirectories("*", "linux", ["/home/alice"]))
+      .toEqual([]);
+  });
+
+  it("parses comma-separated allowed directories when configured", () => {
+    expect(parseAllowedDirectories("/home/alice, /opt/project", "linux"))
+      .toEqual(["/home/alice", "/opt/project"]);
   });
 });
