@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.63.4] - 2026-06-06
+
+### Fixed
+- Support standalone Codex installs in persistent macOS launchd and Linux systemd Bridge services.
+
 ## [1.63.3] - 2026-06-06
 
 ### Fixed
