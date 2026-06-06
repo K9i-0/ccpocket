@@ -55,5 +55,35 @@ void main() {
         'codex_cli_not_found',
       );
     });
+
+    test('does not classify non-Claude login text as Claude auth', () {
+      final code = inferStructuredErrorCode(
+        message:
+            'You are not logged into any GitHub hosts. '
+            'To log in, run: gh auth login',
+      );
+
+      expect(code, isNull);
+    });
+
+    test('classifies Claude-specific login text as Claude auth', () {
+      final code = inferStructuredErrorCode(
+        message:
+            'Claude Code authentication required. Claude is not logged in.',
+      );
+
+      expect(code, 'auth_login_required');
+    });
+
+    test('explicit error code remains authoritative', () {
+      final code = inferStructuredErrorCode(
+        message:
+            'You are not logged into any GitHub hosts. '
+            'To log in, run: gh auth login',
+        explicitErrorCode: 'auth_login_required',
+      );
+
+      expect(code, 'auth_login_required');
+    });
   });
 }

@@ -55,12 +55,13 @@ String? inferStructuredErrorCode({
     return 'auth_api_error';
   }
 
-  if (_containsAny(normalized, const [
-    'authentication required',
-    'not logged in',
-    'credentials file',
-    'no access token',
-  ])) {
+  if (_hasClaudeAuthEvidence(normalized) &&
+      _containsAny(normalized, const [
+        'authentication required',
+        'not logged in',
+        'credentials file',
+        'no access token',
+      ])) {
     return 'auth_login_required';
   }
 
@@ -72,6 +73,10 @@ bool _containsAny(String haystack, List<String> needles) {
     if (haystack.contains(needle)) return true;
   }
   return false;
+}
+
+bool _hasClaudeAuthEvidence(String normalized) {
+  return _containsAny(normalized, const ['claude', 'anthropic']);
 }
 
 bool _looksLikePathNotAllowed(String normalized) {

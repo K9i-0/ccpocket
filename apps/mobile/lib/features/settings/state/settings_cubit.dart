@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,6 +19,7 @@ import '../../../services/fcm_service.dart';
 import '../../../services/machine_manager_service.dart';
 import '../../../services/revenuecat_service.dart';
 import '../../../theme/code_text_style.dart';
+import '../../../utils/platform_helper.dart';
 import 'settings_state.dart';
 
 /// Manages user settings with SharedPreferences persistence.
@@ -414,6 +413,10 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(state.copyWith(newSessionTabs: tabs));
   }
 
+  void setEnabledAgentsMode(EnabledAgentsMode mode) {
+    setNewSessionTabs(tabsForEnabledAgentsMode(mode, state.newSessionTabs));
+  }
+
   void setUsageDisplayMode(UsageDisplayMode mode) {
     _prefs.setString(_keyUsageDisplayMode, mode.name);
     emit(state.copyWith(usageDisplayMode: mode));
@@ -514,15 +517,11 @@ class SettingsCubit extends Cubit<SettingsState> {
       return 'en';
     }
     // Fall back to system locale
-    if (!kIsWeb) {
-      try {
-        final systemLocale = Platform.localeName;
-        if (systemLocale.startsWith('ja')) return 'ja';
-        if (systemLocale.startsWith('zh')) return 'zh';
-        if (systemLocale.startsWith('ko')) return 'ko';
-      } catch (_) {
-        // Platform.localeName may throw on some platforms
-      }
+    final systemLocale = getSystemLocaleName();
+    if (systemLocale != null) {
+      if (systemLocale.startsWith('ja')) return 'ja';
+      if (systemLocale.startsWith('zh')) return 'zh';
+      if (systemLocale.startsWith('ko')) return 'ko';
     }
     return 'en';
   }

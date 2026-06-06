@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../models/messages.dart';
+import '../../../models/new_session_tab.dart';
 import '../../../services/bridge_service.dart';
 import 'session_list_state.dart';
 
@@ -142,18 +143,33 @@ class SessionListCubit extends Cubit<SessionListState> {
   }
 
   /// Toggle provider filter: All → Codex → Claude → All.
-  void toggleProviderFilter() async {
-    final next = switch (state.providerFilter) {
-      ProviderFilter.all => ProviderFilter.codex,
-      ProviderFilter.codex => ProviderFilter.claude,
-      ProviderFilter.claude => ProviderFilter.all,
-    };
+  void toggleProviderFilter({List<ProviderFilter>? allowedFilters}) {
+    final options = allowedFilters == null || allowedFilters.isEmpty
+        ? const [
+            ProviderFilter.all,
+            ProviderFilter.codex,
+            ProviderFilter.claude,
+          ]
+        : allowedFilters;
+    final currentIndex = options.indexOf(state.providerFilter);
+    final next = options[(currentIndex + 1) % options.length];
+    setProviderFilter(next);
+  }
+
+  void setProviderFilter(ProviderFilter next) {
+    if (state.providerFilter == next) return;
     emit(state.copyWith(providerFilter: next, isInitialLoading: true));
     _requestWithCurrentFilters();
     // Persist preference in background (fire-and-forget).
     SharedPreferences.getInstance().then(
       (prefs) => prefs.setString('session_list_provider', next.name),
     );
+  }
+
+  void applyEnabledAgents(List<NewSessionTab> enabledTabs) {
+    final allowed = providerFiltersForEnabledTabs(enabledTabs);
+    final next = coerceProviderFilter(state.providerFilter, allowed);
+    setProviderFilter(next);
   }
 
   /// Toggle named-only filter on/off.
@@ -286,4 +302,26 @@ class SessionListCubit extends Cubit<SessionListState> {
     _projectHistorySub?.cancel();
     return super.close();
   }
+}
+
+List<ProviderFilter> providerFiltersForEnabledTabs(
+  List<NewSessionTab> enabledTabs,
+) {
+  return switch (enabledAgentsModeFromTabs(enabledTabs)) {
+    EnabledAgentsMode.both => const [
+      ProviderFilter.all,
+      ProviderFilter.codex,
+      ProviderFilter.claude,
+    ],
+    EnabledAgentsMode.codex => const [ProviderFilter.codex],
+    EnabledAgentsMode.claude => const [ProviderFilter.claude],
+  };
+}
+
+ProviderFilter coerceProviderFilter(
+  ProviderFilter current,
+  List<ProviderFilter> allowedFilters,
+) {
+  if (allowedFilters.contains(current)) return current;
+  return allowedFilters.firstOrNull ?? ProviderFilter.all;
 }

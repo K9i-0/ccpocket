@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:auto_route/auto_route.dart';
-import '../../utils/platform_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,14 +11,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../constants/app_constants.dart';
 import '../../constants/feature_flags.dart';
-import '../../services/app_update_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/app_icon.dart';
 import '../../models/git_diff_interaction_mode.dart';
 import '../../models/image_paste_shortcut.dart';
+import '../../models/machine.dart';
 import '../../models/new_session_tab.dart';
 import '../../providers/machine_manager_cubit.dart';
 import '../../router/app_router.dart';
+import '../../services/app_update_service.dart';
 import '../../services/bridge_service.dart';
 import '../../services/in_app_review_service.dart';
 import '../../services/machine_manager_service.dart';
@@ -28,8 +27,8 @@ import '../../services/platform_environment_service.dart';
 import '../../services/prompt_history_service.dart';
 import '../../services/revenuecat_service.dart';
 import '../../services/support_banner_service.dart';
+import '../../utils/platform_helper.dart';
 import '../../widgets/workspace_pane_chrome.dart';
-import '../../models/machine.dart';
 import '../session_list/workspace_shell_screen.dart';
 import 'code_font_settings_screen.dart';
 import 'state/settings_cubit.dart';
@@ -75,7 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _highlightConnectionSection = false;
   bool _highlightSupportSection = false;
   bool _isIOSAppOnMac = false;
-  String _appIconDeviceName = Platform.isAndroid ? 'Android' : 'iPhone';
+  String _appIconDeviceName = isAndroidPlatform ? 'Android' : 'iPhone';
 
   void _maybeFocusConnectionSection() {
     if (!widget.focusConnection || _didHandleConnectionFocus) return;
@@ -178,8 +177,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<String> _resolveAppIconDeviceName(
     PlatformEnvironmentService environment,
   ) async {
-    if (Platform.isAndroid) return 'Android';
-    if (!Platform.isIOS) return 'iPhone';
+    if (isAndroidPlatform) return 'Android';
+    if (!isIOSPlatform) return 'iPhone';
 
     final idiom = await environment.iosUserInterfaceIdiom();
     return idiom == 'pad' ? 'iPad' : 'iPhone';
@@ -240,6 +239,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           final machineWithStatus = _activeMachineWithStatus(
             machineManagerCubit.state,
             state.activeMachineId,
+          );
+          final enabledAgentsMode = enabledAgentsModeFromTabs(
+            state.newSessionTabs,
+          );
+          final codexEnabled = isNewSessionTabEnabled(
+            state.newSessionTabs,
+            NewSessionTab.codex,
+          );
+          final claudeEnabled = isNewSessionTabEnabled(
+            state.newSessionTabs,
+            NewSessionTab.claude,
           );
           final machine = machineWithStatus?.machine;
           final isConnected = state.activeMachineId != null;
@@ -482,66 +492,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           .read<SettingsCubit>()
                           .setShowBridgeNameInSessionList(value),
                     ),
-                    Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: cs.outlineVariant,
-                    ),
-                    // New Session Tabs
-                    ListTile(
-                      leading: Icon(Icons.tab, color: cs.primary),
-                      title: Text(l.settingsNewSessionTabs),
-                      subtitle: Text(
-                        state.newSessionTabs
-                            .map((t) => t.localizedLabel(l))
-                            .join(', '),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => showNewSessionTabsBottomSheet(
-                        context: context,
-                        current: state.newSessionTabs,
-                        onChanged: (tabs) => context
-                            .read<SettingsCubit>()
-                            .setNewSessionTabs(tabs),
-                      ),
-                    ),
-                    Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: cs.outlineVariant,
-                    ),
-                    SwitchListTile(
-                      secondary: Icon(
-                        Icons.drive_file_rename_outline,
-                        color: cs.primary,
-                      ),
-                      title: Text(l.autoRenameCodexSessions),
-                      subtitle: Text(l.autoRenameCodexSessionsSubtitle),
-                      value: state.autoRenameCodexSessions,
-                      onChanged: (value) => context
-                          .read<SettingsCubit>()
-                          .setAutoRenameCodexSessions(value),
-                    ),
-                    Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: cs.outlineVariant,
-                    ),
-                    SwitchListTile(
-                      secondary: Icon(
-                        Icons.drive_file_rename_outline,
-                        color: cs.primary,
-                      ),
-                      title: Text(l.autoRenameClaudeSessions),
-                      subtitle: Text(l.autoRenameClaudeSessionsSubtitle),
-                      value: state.autoRenameClaudeSessions,
-                      onChanged: (value) => context
-                          .read<SettingsCubit>()
-                          .setAutoRenameClaudeSessions(value),
-                    ),
                     if (FeatureFlags.current.isEnabled(
                       AppFeature.terminalAppIntegration,
                     )) ...[
@@ -591,6 +541,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           onClear: () =>
                               context.read<SettingsCubit>().clearTerminalApp(),
                         ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              _SectionHeader(title: 'AGENTS'),
+              Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.smart_toy_outlined, color: cs.primary),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: SegmentedButton<EnabledAgentsMode>(
+                              key: const ValueKey('enabled_agents_selector'),
+                              segments: const [
+                                ButtonSegment(
+                                  value: EnabledAgentsMode.both,
+                                  label: Text('Both'),
+                                ),
+                                ButtonSegment(
+                                  value: EnabledAgentsMode.codex,
+                                  label: Text('Codex'),
+                                ),
+                                ButtonSegment(
+                                  value: EnabledAgentsMode.claude,
+                                  label: Text('Claude'),
+                                ),
+                              ],
+                              selected: {enabledAgentsMode},
+                              showSelectedIcon: false,
+                              onSelectionChanged: (selection) => context
+                                  .read<SettingsCubit>()
+                                  .setEnabledAgentsMode(selection.single),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (enabledAgentsMode == EnabledAgentsMode.both) ...[
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: cs.outlineVariant,
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.tab, color: cs.primary),
+                        title: Text(l.settingsNewSessionTabs),
+                        subtitle: Text(
+                          state.newSessionTabs
+                              .map((t) => t.localizedLabel(l))
+                              .join(', '),
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => showNewSessionTabsBottomSheet(
+                          context: context,
+                          current: state.newSessionTabs,
+                          onChanged: (tabs) => context
+                              .read<SettingsCubit>()
+                              .setNewSessionTabs(tabs),
+                        ),
+                      ),
+                    ],
+                    if (codexEnabled) ...[
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: cs.outlineVariant,
+                      ),
+                      SwitchListTile(
+                        secondary: Icon(
+                          Icons.drive_file_rename_outline,
+                          color: cs.primary,
+                        ),
+                        title: Text(l.autoRenameCodexSessions),
+                        subtitle: Text(l.autoRenameCodexSessionsSubtitle),
+                        value: state.autoRenameCodexSessions,
+                        onChanged: (value) => context
+                            .read<SettingsCubit>()
+                            .setAutoRenameCodexSessions(value),
+                      ),
+                    ],
+                    if (claudeEnabled) ...[
+                      Divider(
+                        height: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: cs.outlineVariant,
+                      ),
+                      SwitchListTile(
+                        secondary: Icon(
+                          Icons.drive_file_rename_outline,
+                          color: cs.primary,
+                        ),
+                        title: Text(l.autoRenameClaudeSessions),
+                        subtitle: Text(l.autoRenameClaudeSessionsSubtitle),
+                        value: state.autoRenameClaudeSessions,
+                        onChanged: (value) => context
+                            .read<SettingsCubit>()
+                            .setAutoRenameClaudeSessions(value),
                       ),
                     ],
                   ],
@@ -717,7 +775,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                     ),
-                    if (Platform.isMacOS) ...[
+                    if (isMacOSPlatform) ...[
                       Divider(
                         height: 1,
                         indent: 16,
@@ -916,14 +974,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             color: cs.primary,
                           ),
                           title: Text(
-                            Platform.isIOS
+                            isIOSPlatform
                                 ? l.rateOnStore
                                 : l.rateOnStoreAndroid,
                           ),
                           trailing: const Icon(Icons.open_in_new, size: 18),
                           onTap: () => launchUrl(
                             Uri.parse(
-                              Platform.isIOS
+                              isIOSPlatform
                                   ? AppConstants.appStoreUrl
                                   : AppConstants.playStoreUrl,
                             ),

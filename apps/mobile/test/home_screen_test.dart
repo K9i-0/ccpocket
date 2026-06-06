@@ -17,6 +17,12 @@ RecentSession _session({
   String modified = '2025-01-01T00:00:00Z',
   String? codexApprovalPolicy,
   String? codexApprovalsReviewer,
+  String? codexPermissionsMode,
+  String? codexSandboxMode,
+  String? codexModel,
+  String? codexModelReasoningEffort,
+  bool? codexNetworkAccessEnabled,
+  String? codexWebSearchMode,
 }) {
   return RecentSession(
     sessionId: sessionId,
@@ -30,6 +36,12 @@ RecentSession _session({
     isSidechain: false,
     codexApprovalPolicy: codexApprovalPolicy,
     codexApprovalsReviewer: codexApprovalsReviewer,
+    codexPermissionsMode: codexPermissionsMode,
+    codexSandboxMode: codexSandboxMode,
+    codexModel: codexModel,
+    codexModelReasoningEffort: codexModelReasoningEffort,
+    codexNetworkAccessEnabled: codexNetworkAccessEnabled,
+    codexWebSearchMode: codexWebSearchMode,
   );
 }
 
@@ -395,7 +407,7 @@ void main() {
       expect(restored.codexApprovalsReviewer, 'auto_review');
     });
 
-    test('Claude defaults do not override Codex recent approval reviewer', () {
+    test('preserves factual Codex recent approval reviewer', () {
       final recent = [
         _session(
           projectPath: '/tmp/project-auto-review',
@@ -410,16 +422,14 @@ void main() {
         permissionMode: PermissionMode.defaultMode,
       );
 
-      final updated = applyCodexApprovalDefaultsToRecentSessions(
-        recent,
-        claudeDefaults,
-      );
+      final updated = preserveFactualRecentSessions(recent);
 
       expect(updated.single.codexApprovalPolicy, 'on-request');
       expect(updated.single.codexApprovalsReviewer, 'auto_review');
+      expect(claudeDefaults.provider, Provider.claude);
     });
 
-    test('Codex defaults override Codex recent approval reviewer', () {
+    test('Codex defaults do not override Codex recent approval reviewer', () {
       final recent = [
         _session(
           projectPath: '/tmp/project-codex',
@@ -435,13 +445,61 @@ void main() {
         codexAutoReviewEnabled: true,
       );
 
-      final updated = applyCodexApprovalDefaultsToRecentSessions(
-        recent,
-        codexDefaults,
-      );
+      final updated = preserveFactualRecentSessions(recent);
 
       expect(updated.single.codexApprovalPolicy, 'on-request');
-      expect(updated.single.codexApprovalsReviewer, 'auto_review');
+      expect(updated.single.codexApprovalsReviewer, 'user');
+      expect(codexDefaults.codexApprovalsReviewer, 'auto_review');
+    });
+
+    test('Codex resume settings keep missing metadata unknown', () {
+      final session = _session(
+        projectPath: '/tmp/project-codex',
+        provider: Provider.codex.value,
+      );
+
+      final settings = factualCodexResumeSettings(session, const []);
+
+      expect(settings.permissionMode, isNull);
+      expect(settings.executionMode, isNull);
+      expect(settings.approvalPolicy, isNull);
+      expect(settings.approvalsReviewer, isNull);
+      expect(settings.codexPermissionsMode, isNull);
+      expect(settings.sandboxMode, isNull);
+      expect(settings.model, isNull);
+    });
+
+    test('Codex resume settings preserve factual metadata', () {
+      final session = _session(
+        projectPath: '/tmp/project-codex',
+        provider: Provider.codex.value,
+        codexApprovalPolicy: CodexApprovalPolicy.onRequest.value,
+        codexApprovalsReviewer: 'auto_review',
+        codexPermissionsMode: CodexPermissionsMode.autoReview.value,
+        codexSandboxMode: 'workspace-write',
+        codexModel: 'gpt-5.3-codex',
+        codexModelReasoningEffort: 'high',
+        codexNetworkAccessEnabled: false,
+        codexWebSearchMode: 'cached',
+      );
+
+      final settings = factualCodexResumeSettings(session, const [
+        'gpt-5.3-codex',
+      ]);
+
+      expect(settings.permissionMode, PermissionMode.acceptEdits.value);
+      expect(settings.executionMode, ExecutionMode.defaultMode.value);
+      expect(settings.approvalPolicy, CodexApprovalPolicy.onRequest.value);
+      expect(settings.approvalsReviewer, 'auto_review');
+      expect(
+        settings.codexPermissionsMode,
+        CodexPermissionsMode.autoReview.value,
+      );
+      expect(settings.sandboxMode, 'workspace-write');
+      expect(settings.model, 'gpt-5.3-codex');
+      expect(settings.modelReasoningEffort, 'high');
+      expect(settings.networkAccessEnabled, isFalse);
+      expect(settings.webSearchMode, 'cached');
     });
 
     test(

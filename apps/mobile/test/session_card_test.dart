@@ -1037,6 +1037,61 @@ void main() {
   });
 
   group('RecentSessionCard', () {
+    testWidgets('uses first, last, and summary fields by display mode', (
+      tester,
+    ) async {
+      final session = RecentSession(
+        sessionId: 'recent-display-mode',
+        summary: 'summary text',
+        firstPrompt: 'first prompt text',
+        lastPrompt: 'last prompt text',
+        created: DateTime.now().toIso8601String(),
+        modified: DateTime.now().toIso8601String(),
+        gitBranch: 'main',
+        projectPath: '/home/user/my-app',
+        isSidechain: false,
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RecentSessionCard(
+            session: session,
+            displayMode: SessionDisplayMode.first,
+            onTap: () {},
+          ),
+        ),
+      );
+      expect(find.text('first prompt text'), findsOneWidget);
+      expect(find.text('last prompt text'), findsNothing);
+      expect(find.text('summary text'), findsNothing);
+
+      await tester.pumpWidget(
+        _wrap(
+          RecentSessionCard(
+            session: session,
+            displayMode: SessionDisplayMode.last,
+            onTap: () {},
+          ),
+        ),
+      );
+      expect(find.text('last prompt text'), findsOneWidget);
+      expect(find.text('first prompt text'), findsNothing);
+      expect(find.text('summary text'), findsNothing);
+
+      await tester.pumpWidget(
+        _wrap(
+          RecentSessionCard(
+            session: session,
+            displayMode: SessionDisplayMode.summary,
+            onTap: () {},
+          ),
+        ),
+      );
+      expect(find.text('summary text'), findsOneWidget);
+      expect(find.text('first prompt text'), findsNothing);
+      expect(find.text('last prompt text'), findsNothing);
+    });
+
     testWidgets('shows codex settings summary for codex provider', (
       tester,
     ) async {

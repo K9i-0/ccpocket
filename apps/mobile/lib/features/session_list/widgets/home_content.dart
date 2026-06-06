@@ -186,9 +186,14 @@ class HomeContent extends StatefulWidget {
 }
 
 class HomeContentState extends State<HomeContent> {
+  static const _displayModePreferenceKey = 'session_list_display_mode';
+  static const _groupRecentSessionsPreferenceKey =
+      'session_list_group_recent_sessions';
+
   bool _isSearching = false;
   bool _updateBannerDismissed = false;
   bool _showSupportBanner = false;
+  bool _groupRecentSessions = true;
   final _searchController = TextEditingController();
   SessionDisplayMode _displayMode = SessionDisplayMode.first;
   RevenueCatService? _revenueCatService;
@@ -199,20 +204,24 @@ class HomeContentState extends State<HomeContent> {
   @override
   void initState() {
     super.initState();
-    _loadDisplayMode();
+    _loadPreferences();
   }
 
-  Future<void> _loadDisplayMode() async {
+  Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
-    final modeStr = prefs.getString('session_list_display_mode');
-    if (modeStr != null && mounted) {
-      setState(() {
+    final modeStr = prefs.getString(_displayModePreferenceKey);
+    final groupRecentSessions =
+        prefs.getBool(_groupRecentSessionsPreferenceKey) ?? true;
+    if (!mounted) return;
+    setState(() {
+      if (modeStr != null) {
         _displayMode = SessionDisplayMode.values.firstWhere(
           (m) => m.name == modeStr,
           orElse: () => SessionDisplayMode.first,
         );
-      });
-    }
+      }
+      _groupRecentSessions = groupRecentSessions;
+    });
   }
 
   @override
@@ -249,7 +258,14 @@ class HomeContentState extends State<HomeContent> {
     };
     setState(() => _displayMode = next);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('session_list_display_mode', next.name);
+    await prefs.setString(_displayModePreferenceKey, next.name);
+  }
+
+  void _toggleRecentGrouping() async {
+    final next = !_groupRecentSessions;
+    setState(() => _groupRecentSessions = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_groupRecentSessionsPreferenceKey, next);
   }
 
   @override
@@ -712,6 +728,8 @@ class HomeContentState extends State<HomeContent> {
           SessionFilterBar(
             displayMode: _displayMode,
             onToggleDisplayMode: _toggleDisplayMode,
+            groupRecentSessions: _groupRecentSessions,
+            onToggleRecentGrouping: _toggleRecentGrouping,
             providerFilter: widget.providerFilter,
             onToggleProviderFilter: widget.onToggleProvider,
             projects: widget.accumulatedProjectPaths.map((path) {
@@ -726,14 +744,33 @@ class HomeContentState extends State<HomeContent> {
           if (widget.isInitialLoading)
             const _SessionListSkeleton()
           else ...[
-            if (groupedRecentSessions.isEmpty)
+            if ((!_groupRecentSessions && filteredSessions.isEmpty) ||
+                (_groupRecentSessions && groupedRecentSessions.isEmpty))
               _RecentSessionsEmptyResult(
                 title: hasActiveFilter
                     ? l.noSessionsMatchFilters
                     : l.noRecentSessions,
                 subtitle: hasActiveFilter ? l.adjustFiltersAndSearch : null,
               )
-            else
+            else if (!_groupRecentSessions) ...[
+              for (final session in filteredSessions)
+                _RecentSessionSlidable(
+                  session: session,
+                  displayMode: _displayMode,
+                  archivingSessionIds: widget.archivingSessionIds,
+                  onArchiveSession: widget.onArchiveSession,
+                  onResumeSession: widget.onResumeSession,
+                  onLongPressRecentSession: widget.onLongPressRecentSession,
+                ),
+              if (widget.hasMoreSessions) ...[
+                const SizedBox(height: 8),
+                _LoadMoreRecentSessionsButton(
+                  isLoadingMore: widget.isLoadingMore,
+                  onLoadMore: widget.onLoadMore,
+                ),
+                const SizedBox(height: 8),
+              ],
+            ] else
               for (final group in groupedRecentSessions)
                 _ProjectRecentSessionGroup(
                   group: group,
@@ -762,28 +799,107 @@ class HomeContentState extends State<HomeContent> {
             if (widget.currentProjectFilter != null &&
                 widget.hasMoreSessions) ...[
               const SizedBox(height: 8),
-              Center(
-                child: widget.isLoadingMore
-                    ? const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : TextButton.icon(
-                        key: const ValueKey('load_more_button'),
-                        onPressed: widget.onLoadMore,
-                        icon: const Icon(Icons.expand_more, size: 18),
-                        label: const Text('Load More'),
-                      ),
+              _LoadMoreRecentSessionsButton(
+                isLoadingMore: widget.isLoadingMore,
+                onLoadMore: widget.onLoadMore,
               ),
               const SizedBox(height: 8),
             ],
           ],
         ],
       ],
+    );
+  }
+}
+
+class _LoadMoreRecentSessionsButton extends StatelessWidget {
+  final bool isLoadingMore;
+  final VoidCallback onLoadMore;
+
+  const _LoadMoreRecentSessionsButton({
+    required this.isLoadingMore,
+    required this.onLoadMore,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: isLoadingMore
+          ? const Padding(
+              padding: EdgeInsets.all(16),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : TextButton.icon(
+              key: const ValueKey('load_more_button'),
+              onPressed: onLoadMore,
+              icon: const Icon(Icons.expand_more, size: 18),
+              label: const Text('Load More'),
+            ),
+    );
+  }
+}
+
+class _RecentSessionSlidable extends StatelessWidget {
+  final RecentSession session;
+  final SessionDisplayMode displayMode;
+  final Set<String> archivingSessionIds;
+  final ValueChanged<RecentSession> onArchiveSession;
+  final ValueChanged<RecentSession> onResumeSession;
+  final void Function(RecentSession session, Offset? position)
+  onLongPressRecentSession;
+
+  const _RecentSessionSlidable({
+    required this.session,
+    required this.displayMode,
+    required this.archivingSessionIds,
+    required this.onArchiveSession,
+    required this.onResumeSession,
+    required this.onLongPressRecentSession,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Slidable(
+      key: ValueKey('recent_session_${session.sessionId}'),
+      endActionPane: ActionPane(
+        motion: const BehindMotion(),
+        extentRatio: 0.18,
+        children: [
+          CustomSlidableAction(
+            onPressed: (_) => onArchiveSession(session),
+            backgroundColor: Colors.transparent,
+            padding: EdgeInsets.zero,
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.error,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.archive_outlined,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+          ),
+        ],
+      ),
+      child: RecentSessionCard(
+        session: session,
+        displayMode: displayMode,
+        isSelected: false,
+        draftText: context.read<DraftService>().getDraft(session.sessionId),
+        isProcessing: archivingSessionIds.contains(session.sessionId),
+        onTap: () => onResumeSession(session),
+        onLongPress: () => onLongPressRecentSession(session, null),
+        onShowActions: (position) =>
+            onLongPressRecentSession(session, position),
+      ),
     );
   }
 }
@@ -881,46 +997,13 @@ class _ProjectRecentSessionGroup extends StatelessWidget {
           if (!isCollapsed) ...[
             const SizedBox(height: 4),
             for (final session in visibleSessions)
-              Slidable(
-                key: ValueKey('recent_session_${session.sessionId}'),
-                endActionPane: ActionPane(
-                  motion: const BehindMotion(),
-                  extentRatio: 0.18,
-                  children: [
-                    CustomSlidableAction(
-                      onPressed: (_) => onArchiveSession(session),
-                      backgroundColor: Colors.transparent,
-                      padding: EdgeInsets.zero,
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.error,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.archive_outlined,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                child: RecentSessionCard(
-                  session: session,
-                  displayMode: displayMode,
-                  // Only running sessions show the active selection state.
-                  isSelected: false,
-                  draftText: context.read<DraftService>().getDraft(
-                    session.sessionId,
-                  ),
-                  isProcessing: archivingSessionIds.contains(session.sessionId),
-                  onTap: () => onResumeSession(session),
-                  onLongPress: () => onLongPressRecentSession(session, null),
-                  onShowActions: (position) =>
-                      onLongPressRecentSession(session, position),
-                ),
+              _RecentSessionSlidable(
+                session: session,
+                displayMode: displayMode,
+                archivingSessionIds: archivingSessionIds,
+                onArchiveSession: onArchiveSession,
+                onResumeSession: onResumeSession,
+                onLongPressRecentSession: onLongPressRecentSession,
               ),
             if (isLoadingMore)
               const Center(

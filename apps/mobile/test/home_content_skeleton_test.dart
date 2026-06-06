@@ -315,6 +315,71 @@ void main() {
       },
     );
 
+    testWidgets('ungrouped toggle reveals loaded sessions and persists', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [for (var i = 1; i <= 6; i++) _session(id: 's$i')],
+          exhaustedProjectPaths: const {'/home/user/project-a'},
+          isInitialLoading: false,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('test prompt for s6'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('project_show_more_/home/user/project-a')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('recent_grouping_toggle')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('test prompt for s6', skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('project_show_more_/home/user/project-a')),
+        findsNothing,
+      );
+      expect(find.text('List'), findsOneWidget);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('session_list_group_recent_sessions'), isFalse);
+    });
+
+    testWidgets('ungrouped mode uses global load more pagination', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildHomeContent(
+          recentSessions: [_session(id: 's1')],
+          hasMoreSessions: true,
+          isInitialLoading: false,
+          cubit: cubit,
+          draftService: draftService,
+          revenueCatService: revenueCatService,
+          supportBannerService: supportBannerService,
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('recent_grouping_toggle')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('project_show_more_/home/user/project-a')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('load_more_button')), findsOneWidget);
+    });
+
     testWidgets('hides project Show more when project is exhausted', (
       tester,
     ) async {

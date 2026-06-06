@@ -1,5 +1,6 @@
 import 'package:ccpocket/features/settings/state/settings_cubit.dart';
 import 'package:ccpocket/models/code_font_family.dart';
+import 'package:ccpocket/models/new_session_tab.dart';
 import 'package:ccpocket/theme/code_text_style.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -126,6 +127,41 @@ void main() {
       final restored = SettingsCubit(prefs);
       expect(restored.state.autoRenameCodexSessions, isFalse);
       expect(restored.state.autoRenameClaudeSessions, isTrue);
+
+      await restored.close();
+    });
+
+    test('persists enabled agents through new session tabs', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final cubit = SettingsCubit(prefs);
+
+      expect(
+        enabledAgentsModeFromTabs(cubit.state.newSessionTabs),
+        EnabledAgentsMode.both,
+      );
+
+      cubit.setEnabledAgentsMode(EnabledAgentsMode.codex);
+      expect(cubit.state.newSessionTabs, [NewSessionTab.codex]);
+      expect(
+        enabledAgentsModeFromTabs(cubit.state.newSessionTabs),
+        EnabledAgentsMode.codex,
+      );
+
+      await cubit.close();
+
+      final restored = SettingsCubit(prefs);
+      expect(restored.state.newSessionTabs, [NewSessionTab.codex]);
+      expect(
+        enabledAgentsModeFromTabs(restored.state.newSessionTabs),
+        EnabledAgentsMode.codex,
+      );
+
+      restored.setEnabledAgentsMode(EnabledAgentsMode.both);
+      expect(restored.state.newSessionTabs.toSet(), {
+        NewSessionTab.codex,
+        NewSessionTab.claude,
+      });
 
       await restored.close();
     });

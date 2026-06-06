@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:ccpocket/features/session_list/state/session_list_cubit.dart';
+import 'package:ccpocket/features/session_list/state/session_list_state.dart';
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/models/new_session_tab.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -281,6 +283,26 @@ void main() {
       expect(cubit.state.providerFilter, isNot(equals(null)));
       expect(cubit.state.isInitialLoading, isTrue);
       expect(mockBridge.sentMessages, isNotEmpty);
+    });
+
+    test('enabled agents constrain provider filter', () {
+      cubit.applyEnabledAgents(const [NewSessionTab.codex]);
+
+      expect(cubit.state.providerFilter, ProviderFilter.codex);
+      expect(
+        mockBridge.sentMessages.last.toJson(),
+        contains('"provider":"codex"'),
+      );
+
+      mockBridge.sentMessages.clear();
+      cubit.toggleProviderFilter(
+        allowedFilters: providerFiltersForEnabledTabs(const [
+          NewSessionTab.codex,
+        ]),
+      );
+
+      expect(cubit.state.providerFilter, ProviderFilter.codex);
+      expect(mockBridge.sentMessages, isEmpty);
     });
 
     test('toggleNamedOnly triggers server re-fetch', () {

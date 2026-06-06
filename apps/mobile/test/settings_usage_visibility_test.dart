@@ -8,6 +8,7 @@ import 'package:ccpocket/models/git_diff_interaction_mode.dart';
 import 'package:ccpocket/models/image_paste_shortcut.dart';
 import 'package:ccpocket/models/machine.dart';
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/models/new_session_tab.dart';
 import 'package:ccpocket/providers/machine_manager_cubit.dart';
 import 'package:ccpocket/services/bridge_latest_version_service.dart';
 import 'package:ccpocket/services/bridge_service.dart';
@@ -890,16 +891,92 @@ void main() {
           .getTopLeft(find.text(l.hideVoiceInput))
           .dy;
       final textDensityTop = tester.getTopLeft(find.text(l.textDensity)).dy;
-      final newSessionTabsTop = tester
-          .getTopLeft(find.text(l.settingsNewSessionTabs))
-          .dy;
 
       expect(appIconTop, lessThan(themeTop));
       expect(themeTop, lessThan(languageTop));
       expect(languageTop, lessThan(voiceInputTop));
       expect(voiceInputTop, lessThan(hideVoiceInputTop));
       expect(hideVoiceInputTop, lessThan(textDensityTop));
-      expect(textDensityTop, lessThan(newSessionTabsTop));
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('shows both agent controls when both agents are enabled', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final bridge = _FakeBridgeService(connected: false);
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('enabled_agents_selector')),
+        180,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('enabled_agents_selector')),
+        findsOneWidget,
+      );
+      expect(find.text(l.settingsNewSessionTabs), findsOneWidget);
+      expect(find.text(l.autoRenameCodexSessions), findsOneWidget);
+      expect(find.text(l.autoRenameClaudeSessions), findsOneWidget);
+
+      await settingsCubit.close();
+      await machineManagerCubit.close();
+      bridge.dispose();
+    });
+
+    testWidgets('hides Claude agent controls when only Codex is enabled', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'settings_new_session_tabs': tabsToJson(const [NewSessionTab.codex]),
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final settingsCubit = _SeededSettingsCubit(prefs, activeMachineId: null);
+      final manager = MachineManagerService(prefs, _FakeSecureStorage());
+      final machineManagerCubit = _createMachineManagerCubit(manager);
+      final bridge = _FakeBridgeService(connected: false);
+
+      await tester.pumpWidget(
+        await _buildScreen(
+          bridge: bridge,
+          settingsCubit: settingsCubit,
+          machineManagerCubit: machineManagerCubit,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final l = AppLocalizations.of(tester.element(find.byType(Scaffold)));
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('enabled_agents_selector')),
+        180,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('enabled_agents_selector')),
+        findsOneWidget,
+      );
+      expect(find.text(l.autoRenameCodexSessions), findsOneWidget);
+      expect(find.text(l.settingsNewSessionTabs), findsNothing);
+      expect(find.text(l.autoRenameClaudeSessions), findsNothing);
 
       await settingsCubit.close();
       await machineManagerCubit.close();

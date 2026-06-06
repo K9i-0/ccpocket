@@ -88,5 +88,26 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('does not show Claude login card for GitHub CLI auth text', (
+      tester,
+    ) async {
+      const message = ErrorMessage(
+        message:
+            'You are not logged into any GitHub hosts. To log in, run: gh auth login',
+      );
+
+      await tester.pumpWidget(
+        _wrapErrorBubble(
+          locale: const Locale('en'),
+          child: const ErrorBubble(message: message),
+        ),
+      );
+
+      expect(find.text('Claude login required'), findsNothing);
+      expect(find.text('claude'), findsNothing);
+      expect(find.text('/login'), findsNothing);
+      expect(find.textContaining('gh auth login'), findsOneWidget);
+    });
   });
 }
