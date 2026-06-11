@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.101.3] - 2026-06-11
+
+### Changed
+- Refresh store release notes.
+
+### Fixed
+- Apply the Chinese system font fallback only when the app or device locale is Chinese.
+- Use the bundled Fastlane executable for store metadata upload in release automation.
+
 ## [1.101.2] - 2026-06-06
 
 ### Changed
