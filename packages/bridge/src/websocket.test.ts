@@ -4981,6 +4981,9 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
               model: "gpt-5.3-codex",
             },
             resumeCwd: "/tmp/project-codex-worktree",
+            firstPrompt: "Investigate crash in the parser",
+            lastPrompt: "add a regression test",
+            summary: "Fixed the off-by-one in the tokenizer",
           },
         ],
       ]),
@@ -5014,6 +5017,10 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       gitBranch: "feat/protocol",
       projectPath: "/tmp/project-codex",
       resumeCwd: "/tmp/project-codex-worktree",
+      // Rollout-parsed texts win over the thread/list preview blob.
+      firstPrompt: "Investigate crash in the parser",
+      lastPrompt: "add a regression test",
+      summary: "Fixed the off-by-one in the tokenizer",
       codexSettings: {
         approvalPolicy: "never",
         sandboxMode: "danger-full-access",

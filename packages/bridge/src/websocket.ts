@@ -47,6 +47,7 @@ import {
   extractMessageImages,
   getClaudeSessionName,
   getCodexSessionIndexMetadata,
+  type CodexSessionIndexMetadata,
   loadCodexSessionNames,
   renameClaudeSession,
   renameCodexSession,
@@ -513,16 +514,20 @@ function envFlagEnabled(name: string): boolean {
 
 function codexThreadToRecentSession(
   thread: CodexThreadSummary,
-  indexed?: { codexSettings?: Record<string, unknown>; resumeCwd?: string },
+  indexed?: CodexSessionIndexMetadata,
 ): Record<string, unknown> {
+  // thread/list only exposes a single preview blob; prefer the real
+  // first/last/summary texts parsed from the rollout file so display-mode
+  // switches (first prompt / last prompt / summary) show distinct content.
   return {
     sessionId: thread.id,
     provider: "codex",
     ...(thread.name ? { name: thread.name } : {}),
     ...(thread.agentNickname ? { agentNickname: thread.agentNickname } : {}),
     ...(thread.agentRole ? { agentRole: thread.agentRole } : {}),
-    summary: thread.preview || undefined,
-    firstPrompt: thread.preview || "",
+    summary: indexed?.summary || thread.preview || undefined,
+    firstPrompt: indexed?.firstPrompt || thread.preview || "",
+    ...(indexed?.lastPrompt ? { lastPrompt: indexed.lastPrompt } : {}),
     created: threadTimestampToIso(thread.createdAt),
     modified: threadTimestampToIso(thread.updatedAt),
     gitBranch: thread.gitBranch ?? "",
