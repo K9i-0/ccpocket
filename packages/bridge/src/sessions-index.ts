@@ -1185,6 +1185,14 @@ interface CodexRecentPerfStats {
 export interface CodexSessionIndexMetadata {
   codexSettings?: SessionIndexEntry["codexSettings"];
   resumeCwd?: string;
+  /** First user prompt parsed from the rollout file. The thread/list API
+   *  only exposes a preview blob, so these three text fields let recent-
+   *  session entries carry the real first/last/summary texts. */
+  firstPrompt?: string;
+  /** Last user prompt; omitted when identical to firstPrompt. */
+  lastPrompt?: string;
+  /** Last assistant message text — the closest thing to a session summary. */
+  summary?: string;
 }
 
 interface CodexSessionParseResult {
@@ -1876,6 +1884,9 @@ export async function getCodexSessionIndexMetadata(
         ? { codexSettings: parsed.entry.codexSettings }
         : {}),
       ...(parsed.entry.resumeCwd ? { resumeCwd: parsed.entry.resumeCwd } : {}),
+      ...(parsed.entry.firstPrompt ? { firstPrompt: parsed.entry.firstPrompt } : {}),
+      ...(parsed.entry.lastPrompt ? { lastPrompt: parsed.entry.lastPrompt } : {}),
+      ...(parsed.entry.summary ? { summary: parsed.entry.summary } : {}),
     });
   }
 

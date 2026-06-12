@@ -1107,6 +1107,16 @@ describe("codex sessions integration", () => {
           type: "event_msg",
           payload: { type: "user_message", message: "wanted" },
         }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:02.000Z",
+          type: "event_msg",
+          payload: { type: "agent_message", message: "done: fixed the bug" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:03.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: "thanks, now add a test" },
+        }),
       ].join("\n"),
     );
     writeFileSync(
@@ -1135,6 +1145,11 @@ describe("codex sessions integration", () => {
     expect(metadata.get(wantedThreadId)?.codexSettings?.approvalPolicy).toBe(
       "on-request",
     );
+    expect(metadata.get(wantedThreadId)?.firstPrompt).toBe("wanted");
+    expect(metadata.get(wantedThreadId)?.lastPrompt).toBe(
+      "thanks, now add a test",
+    );
+    expect(metadata.get(wantedThreadId)?.summary).toBe("done: fixed the bug");
   });
 
   it("reads codex history from jsonl", async () => {
