@@ -2818,6 +2818,19 @@ const codexMessageImageIndexCache = new Map<
   Promise<CodexMessageImageIndex | null>
 >();
 
+interface ClaudeMessageImageIndex {
+  jsonlPath: string;
+  size: number;
+  mtimeMs: number;
+  imagesByUuid: Map<string, ExtractedImage[]>;
+}
+
+const CLAUDE_IMAGE_INDEX_CACHE_LIMIT = 8;
+const claudeMessageImageIndexCache = new Map<
+  string,
+  Promise<ClaudeMessageImageIndex | null>
+>();
+
 /**
  * Extract image base64 data from a Claude Code session JSONL for a specific message UUID.
  */
@@ -2829,27 +2842,81 @@ export async function extractMessageImages(
     return extractCodexMessageImages(sessionId, messageUuid);
   }
 
-  // Try Claude Code first, then Codex
-  const claudeImages = await extractClaudeMessageImages(sessionId, messageUuid);
-  if (claudeImages.length > 0) return claudeImages;
+  // Try Claude Code first. If a Claude session JSONL exists for this id, it is
+  // authoritative — do NOT fall through to the Codex lookup, which scans every
+  // Codex session file on disk (O(codexFiles) per call) and dominated
+  // history-resume latency (~1s per message × dozens of messages). Only when no
+  // Claude session file exists (the id is likely a Codex thread) try Codex.
+  const claudeIndex = await getClaudeMessageImageIndex(sessionId);
+  if (claudeIndex) {
+    return claudeIndex.imagesByUuid.get(messageUuid) ?? [];
+  }
 
   return extractCodexMessageImages(sessionId, messageUuid);
 }
 
-async function extractClaudeMessageImages(
+/**
+ * Per-file cache of Claude Code message images keyed by sessionId.
+ *
+ * Previously the extractor re-read and re-parsed the entire session JSONL on
+ * every call. Resuming a session calls this once per user message with a uuid,
+ * so a large session paid O(messages × fileSize). The cache parses the file
+ * once and serves all subsequent lookups from memory, mirroring the Codex
+ * image index. Invalidated by file size/mtime change.
+ */
+async function getClaudeMessageImageIndex(
   sessionId: string,
-  messageUuid: string,
-): Promise<ExtractedImage[]> {
-  const jsonlPath = await findSessionJsonlPath(sessionId);
-  if (!jsonlPath) return [];
-
-  let raw: string;
-  try {
-    raw = await readFile(jsonlPath, "utf-8");
-  } catch {
-    return [];
+): Promise<ClaudeMessageImageIndex | null> {
+  const cached = claudeMessageImageIndexCache.get(sessionId);
+  if (cached) {
+    const index = await cached;
+    if (index && (await isFreshClaudeMessageImageIndex(index))) {
+      return index;
+    }
+    claudeMessageImageIndexCache.delete(sessionId);
   }
 
+  const promise = buildClaudeMessageImageIndex(sessionId);
+  claudeMessageImageIndexCache.set(sessionId, promise);
+  trimClaudeMessageImageIndexCache();
+  return promise;
+}
+
+async function isFreshClaudeMessageImageIndex(
+  index: ClaudeMessageImageIndex,
+): Promise<boolean> {
+  try {
+    const current = await stat(index.jsonlPath);
+    return current.size === index.size && current.mtimeMs === index.mtimeMs;
+  } catch {
+    return false;
+  }
+}
+
+function trimClaudeMessageImageIndexCache() {
+  while (claudeMessageImageIndexCache.size > CLAUDE_IMAGE_INDEX_CACHE_LIMIT) {
+    const oldest = claudeMessageImageIndexCache.keys().next().value;
+    if (!oldest) return;
+    claudeMessageImageIndexCache.delete(oldest);
+  }
+}
+
+async function buildClaudeMessageImageIndex(
+  sessionId: string,
+): Promise<ClaudeMessageImageIndex | null> {
+  const jsonlPath = await findSessionJsonlPath(sessionId);
+  if (!jsonlPath) return null;
+
+  let fileStat;
+  let raw: string;
+  try {
+    fileStat = await stat(jsonlPath);
+    raw = await readFile(jsonlPath, "utf-8");
+  } catch {
+    return null;
+  }
+
+  const imagesByUuid = new Map<string, ExtractedImage[]>();
   const lines = raw.split("\n");
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -2862,7 +2929,7 @@ async function extractClaudeMessageImages(
     }
 
     if (entry.type !== "user") continue;
-    if (entry.uuid !== messageUuid) continue;
+    if (typeof entry.uuid !== "string") continue;
 
     const message = entry.message as { content: unknown[] | string } | undefined;
     if (!message?.content || !Array.isArray(message.content)) continue;
@@ -2882,10 +2949,17 @@ async function extractClaudeMessageImages(
         images.push({ base64: data, mimeType: mediaType });
       }
     }
-    return images;
+    if (images.length > 0) {
+      imagesByUuid.set(entry.uuid, images);
+    }
   }
 
-  return [];
+  return {
+    jsonlPath,
+    size: fileStat.size,
+    mtimeMs: fileStat.mtimeMs,
+    imagesByUuid,
+  };
 }
 
 async function extractCodexMessageImages(

@@ -1947,6 +1947,96 @@ describe("codex sessions integration", () => {
     expect(history).toHaveLength(1);
     expect(history[0].content[0].text).toBe("correct session");
   });
+
+  it("extracts claude user images by uuid", async () => {
+    const sessionId = "claude-img-session-1";
+    const claudeProjectDir = join(
+      tempHome,
+      ".claude",
+      "projects",
+      "-tmp-project-a",
+    );
+    mkdirSync(claudeProjectDir, { recursive: true });
+    writeFileSync(
+      join(claudeProjectDir, `${sessionId}.jsonl`),
+      [
+        JSON.stringify({
+          type: "user",
+          uuid: "uuid-text-only",
+          message: { role: "user", content: "no image here" },
+        }),
+        JSON.stringify({
+          type: "user",
+          uuid: "uuid-with-image",
+          message: {
+            role: "user",
+            content: [
+              { type: "text", text: "look" },
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: "image/png",
+                  data: "aW1hZ2U=",
+                },
+              },
+            ],
+          },
+        }),
+      ].join("\n"),
+    );
+
+    await expect(
+      extractMessageImages(sessionId, "uuid-with-image"),
+    ).resolves.toEqual([{ base64: "aW1hZ2U=", mimeType: "image/png" }]);
+    await expect(
+      extractMessageImages(sessionId, "uuid-text-only"),
+    ).resolves.toEqual([]);
+  });
+
+  it("does not fall through to codex when a claude session file exists", async () => {
+    const sessionId = "claude-no-fallthrough";
+    const claudeProjectDir = join(
+      tempHome,
+      ".claude",
+      "projects",
+      "-tmp-project-a",
+    );
+    mkdirSync(claudeProjectDir, { recursive: true });
+    // Claude session with no images for the requested uuid.
+    writeFileSync(
+      join(claudeProjectDir, `${sessionId}.jsonl`),
+      JSON.stringify({
+        type: "user",
+        uuid: "uuid-no-image",
+        message: { role: "user", content: "text" },
+      }),
+    );
+    // A codex rollout that happens to contain images must NOT be consulted.
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-00-00-${sessionId}.jsonl`),
+      [
+        JSON.stringify({
+          type: "session_meta",
+          payload: { id: sessionId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          type: "event_msg",
+          payload: {
+            type: "user_message",
+            message: "with image",
+            images: ["data:image/png;base64,aW1hZ2U="],
+          },
+        }),
+      ].join("\n"),
+    );
+
+    await expect(
+      extractMessageImages(sessionId, "uuid-no-image"),
+    ).resolves.toEqual([]);
+  });
 });
 
 describe("claude namedOnly optimization", () => {
