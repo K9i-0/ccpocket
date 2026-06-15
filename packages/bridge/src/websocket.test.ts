@@ -423,6 +423,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     vi.unstubAllEnvs();
+    vi.useRealTimers();
     httpServer.close();
   });
 
@@ -3822,6 +3823,76 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       bridgeId: "bridge-test",
       eventType: "ask_user_question",
     });
+
+    bridge.close();
+  });
+
+  it("coalesces high-frequency session deltas before broadcasting", () => {
+    vi.useFakeTimers();
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).wss.clients.add(ws);
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "hel",
+    });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "lo",
+    });
+
+    expect(ws.send).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(99);
+    expect(ws.send).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+
+    expect(ws.send).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(ws.send.mock.calls[0][0] as string)).toEqual({
+      type: "stream_delta",
+      text: "hello",
+      sessionId: "s-1",
+    });
+
+    bridge.close();
+  });
+
+  it("flushes pending deltas before non-delta session messages", () => {
+    vi.useFakeTimers();
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    (bridge as any).wss.clients.add(ws);
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "thinking_delta",
+      text: "plan ",
+    });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "thinking_delta",
+      text: "next",
+    });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "status",
+      status: "idle",
+    });
+
+    const messages = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    expect(messages).toEqual([
+      { type: "thinking_delta", text: "plan next", sessionId: "s-1" },
+      { type: "status", status: "idle", sessionId: "s-1" },
+    ]);
+
+    vi.advanceTimersByTime(100);
+    expect(ws.send).toHaveBeenCalledTimes(2);
 
     bridge.close();
   });

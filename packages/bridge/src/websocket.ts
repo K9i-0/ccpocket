@@ -512,6 +512,13 @@ function envFlagEnabled(name: string): boolean {
   return value === "1" || value === "true" || value === "yes" || value === "on";
 }
 
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) ? value : fallback;
+}
+
 function codexThreadToRecentSession(
   thread: CodexThreadSummary,
   indexed?: CodexSessionIndexMetadata,
@@ -579,9 +586,22 @@ export interface BridgeServerOptions {
   platform?: NodeJS.Platform;
 }
 
+type DeltaServerMessage = Extract<
+  ServerMessage,
+  { type: "stream_delta" | "thinking_delta" }
+>;
+
+interface DeltaBatch {
+  messages: DeltaServerMessage[];
+  timer: NodeJS.Timeout | null;
+  textLength: number;
+}
+
 export class BridgeWebSocketServer {
   private static readonly MAX_DEBUG_EVENTS = 800;
   private static readonly MAX_HISTORY_SUMMARY_ITEMS = 300;
+  private static readonly DEFAULT_DELTA_BATCH_MS = 100;
+  private static readonly DEFAULT_DELTA_BATCH_MAX_CHARS = 4096;
 
   private wss: WebSocketServer;
   private sessionManager: SessionManager;
@@ -625,6 +645,18 @@ export class BridgeWebSocketServer {
     "BRIDGE_FAIL_SET_PERMISSION_MODE",
   );
   private failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
+  private deltaBatchMs = Math.max(
+    0,
+    envInt("BRIDGE_DELTA_BATCH_MS", BridgeWebSocketServer.DEFAULT_DELTA_BATCH_MS),
+  );
+  private deltaBatchMaxChars = Math.max(
+    1,
+    envInt(
+      "BRIDGE_DELTA_BATCH_MAX_CHARS",
+      BridgeWebSocketServer.DEFAULT_DELTA_BATCH_MAX_CHARS,
+    ),
+  );
+  private deltaBatches = new Map<string, DeltaBatch>();
   private platform: NodeJS.Platform;
   private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
 
@@ -1846,6 +1878,7 @@ export class BridgeWebSocketServer {
 
   close(): void {
     console.log("[ws] Shutting down...");
+    this.flushAllDeltaBatches();
     this.sessionManager.destroyAll();
     stopManagedCodexAppServers();
     this.debugEvents.clear();
@@ -5754,6 +5787,76 @@ export class BridgeWebSocketServer {
   }
 
   private broadcastSessionMessage(
+    sessionId: string,
+    msg: ServerMessage,
+    exclude?: WebSocket,
+  ): void {
+    if (this.shouldBatchDelta(msg, exclude)) {
+      this.queueDeltaBatch(sessionId, msg);
+      return;
+    }
+
+    this.flushDeltaBatch(sessionId);
+    this.broadcastSessionMessageNow(sessionId, msg, exclude);
+  }
+
+  private shouldBatchDelta(
+    msg: ServerMessage,
+    exclude?: WebSocket,
+  ): msg is DeltaServerMessage {
+    if (this.deltaBatchMs <= 0) return false;
+    if (exclude) return false;
+    return msg.type === "stream_delta" || msg.type === "thinking_delta";
+  }
+
+  private queueDeltaBatch(sessionId: string, msg: DeltaServerMessage): void {
+    let batch = this.deltaBatches.get(sessionId);
+    if (!batch) {
+      batch = { messages: [], timer: null, textLength: 0 };
+      this.deltaBatches.set(sessionId, batch);
+    }
+
+    const last = batch.messages.at(-1);
+    if (last && last.type === msg.type) {
+      last.text += msg.text;
+    } else {
+      batch.messages.push({ ...msg });
+    }
+    batch.textLength += msg.text.length;
+
+    if (batch.textLength >= this.deltaBatchMaxChars) {
+      this.flushDeltaBatch(sessionId);
+      return;
+    }
+
+    if (!batch.timer) {
+      batch.timer = setTimeout(() => {
+        this.flushDeltaBatch(sessionId);
+      }, this.deltaBatchMs);
+    }
+  }
+
+  private flushAllDeltaBatches(): void {
+    for (const sessionId of Array.from(this.deltaBatches.keys())) {
+      this.flushDeltaBatch(sessionId);
+    }
+  }
+
+  private flushDeltaBatch(sessionId: string): void {
+    const batch = this.deltaBatches.get(sessionId);
+    if (!batch) return;
+
+    if (batch.timer) {
+      clearTimeout(batch.timer);
+    }
+    this.deltaBatches.delete(sessionId);
+
+    for (const msg of batch.messages) {
+      this.broadcastSessionMessageNow(sessionId, msg);
+    }
+  }
+
+  private broadcastSessionMessageNow(
     sessionId: string,
     msg: ServerMessage,
     exclude?: WebSocket,
