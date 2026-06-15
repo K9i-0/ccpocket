@@ -231,16 +231,17 @@ CodexPermissionsMode codexPermissionsModeFromSettings({
   final explicit = codexPermissionsModeFromRaw(codexPermissionsMode);
   if (explicit != null) return explicit;
   final normalizedSandbox = switch (sandboxMode) {
-    'danger-full-access' || 'off' => SandboxMode.off,
-    'workspace-write' || 'read-only' || 'on' => SandboxMode.on,
+    'danger-full-access' || 'off' => 'off',
+    'workspace-write' || 'on' => 'workspace-write',
+    'read-only' => 'read-only',
     _ => null,
   };
   if (approvalPolicy == CodexApprovalPolicy.never.value &&
-      (normalizedSandbox == null || normalizedSandbox == SandboxMode.off)) {
+      (normalizedSandbox == null || normalizedSandbox == 'off')) {
     return CodexPermissionsMode.fullAccess;
   }
   if (approvalPolicy == CodexApprovalPolicy.onRequest.value &&
-      (normalizedSandbox == null || normalizedSandbox == SandboxMode.on)) {
+      (normalizedSandbox == null || normalizedSandbox == 'workspace-write')) {
     return isCodexAutoReviewApprovalsReviewer(approvalsReviewer)
         ? CodexPermissionsMode.autoReview
         : CodexPermissionsMode.defaultPermissions;
@@ -327,6 +328,26 @@ String? resolveCodexApprovalPolicy({
       : (executionMode?.isNotEmpty == true
             ? codexApprovalPolicyFromLegacyExecutionModeValue(executionMode)
             : null);
+}
+
+String? _resolveCodexPermissionsMode(Map<String, dynamic>? codexSettings) {
+  if (codexSettings == null) return null;
+  final explicit = codexPermissionsModeFromRaw(
+    codexSettings['codexPermissionsMode'] as String?,
+  );
+  if (explicit != null) return explicit.value;
+
+  final hasPermissionSettings =
+      codexSettings['approvalPolicy'] != null ||
+      codexSettings['approvalsReviewer'] != null ||
+      codexSettings['sandboxMode'] != null;
+  if (!hasPermissionSettings) return null;
+
+  return codexPermissionsModeFromSettings(
+    approvalPolicy: codexSettings['approvalPolicy'] as String?,
+    approvalsReviewer: codexSettings['approvalsReviewer'] as String?,
+    sandboxMode: codexSettings['sandboxMode'] as String?,
+  ).value;
 }
 
 PermissionMode legacyPermissionModeFromModes(
@@ -3181,7 +3202,7 @@ class RecentSession {
         executionMode: json['executionMode'] as String?,
       ),
       codexApprovalsReviewer: codexSettings?['approvalsReviewer'] as String?,
-      codexPermissionsMode: codexSettings?['codexPermissionsMode'] as String?,
+      codexPermissionsMode: _resolveCodexPermissionsMode(codexSettings),
       executionMode:
           json['executionMode'] as String? ??
           deriveExecutionMode(
@@ -3476,7 +3497,7 @@ class SessionInfo {
         executionMode: json['executionMode'] as String?,
       ),
       codexApprovalsReviewer: codexSettings?['approvalsReviewer'] as String?,
-      codexPermissionsMode: codexSettings?['codexPermissionsMode'] as String?,
+      codexPermissionsMode: _resolveCodexPermissionsMode(codexSettings),
       codexSandboxMode: codexSettings?['sandboxMode'] as String?,
       codexModel: sanitizeCodexModelName(codexSettings?['model'] as String?),
       codexProfile: codexSettings?['profile'] as String?,

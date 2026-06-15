@@ -13,6 +13,106 @@ void main() {
     });
   });
 
+  group('Codex permissions mode', () {
+    test('derives display mode from concrete Codex settings', () {
+      expect(
+        codexPermissionsModeFromSettings(
+          approvalPolicy: 'on-request',
+          sandboxMode: 'workspace-write',
+        ),
+        CodexPermissionsMode.defaultPermissions,
+      );
+      expect(
+        codexPermissionsModeFromSettings(
+          approvalPolicy: 'on-request',
+          approvalsReviewer: 'auto_review',
+          sandboxMode: 'workspace-write',
+        ),
+        CodexPermissionsMode.autoReview,
+      );
+      expect(
+        codexPermissionsModeFromSettings(
+          approvalPolicy: 'never',
+          sandboxMode: 'danger-full-access',
+        ),
+        CodexPermissionsMode.fullAccess,
+      );
+      expect(
+        codexPermissionsModeFromSettings(
+          approvalPolicy: 'on-request',
+          sandboxMode: 'read-only',
+        ),
+        CodexPermissionsMode.custom,
+      );
+      expect(
+        codexPermissionsModeFromSettings(
+          approvalPolicy: 'never',
+          sandboxMode: 'workspace-write',
+        ),
+        CodexPermissionsMode.custom,
+      );
+    });
+
+    test(
+      'RecentSession derives missing permissions mode from codexSettings',
+      () {
+        final session = RecentSession.fromJson({
+          'sessionId': 's-read-only',
+          'provider': 'codex',
+          'firstPrompt': 'resume',
+          'created': '2026-02-13T00:00:00Z',
+          'modified': '2026-02-13T00:00:00Z',
+          'gitBranch': 'main',
+          'projectPath': '/tmp/project',
+          'isSidechain': false,
+          'codexSettings': {
+            'approvalPolicy': 'on-request',
+            'sandboxMode': 'read-only',
+          },
+        });
+
+        expect(session.codexPermissionsMode, CodexPermissionsMode.custom.value);
+      },
+    );
+
+    test('SessionInfo derives missing permissions mode from codexSettings', () {
+      final session = SessionInfo.fromJson({
+        'id': 's-auto',
+        'provider': 'codex',
+        'projectPath': '/tmp/project',
+        'status': 'idle',
+        'createdAt': '',
+        'lastActivityAt': '',
+        'codexSettings': {
+          'approvalPolicy': 'on-request',
+          'approvalsReviewer': 'auto_review',
+          'sandboxMode': 'workspace-write',
+        },
+      });
+
+      expect(
+        session.codexPermissionsMode,
+        CodexPermissionsMode.autoReview.value,
+      );
+    });
+
+    test('does not invent a permissions mode for metadata-only settings', () {
+      final session = RecentSession.fromJson({
+        'sessionId': 's-model-only',
+        'provider': 'codex',
+        'firstPrompt': 'resume',
+        'created': '2026-02-13T00:00:00Z',
+        'modified': '2026-02-13T00:00:00Z',
+        'gitBranch': 'main',
+        'projectPath': '/tmp/project',
+        'isSidechain': false,
+        'codexSettings': {'model': 'gpt-5.3-codex'},
+      });
+
+      expect(session.codexPermissionsMode, isNull);
+    });
+  });
+
   group('SystemMessage', () {
     test('parses Codex CLI join target', () {
       final msg = ServerMessage.fromJson({

@@ -24,6 +24,7 @@ import type {
   AssistantToolUseContent,
   Provider,
   QueuedInputItem,
+  CodexPermissionsMode,
 } from "./parser.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
@@ -168,6 +169,83 @@ const MAX_HISTORY_PER_SESSION = 100;
 export type GalleryImageCallback = (meta: GalleryImageMeta) => void;
 export type SessionUpdatedCallback = (sessionId: string) => void;
 
+function normalizeCodexPermissionsMode(
+  value?: string,
+): CodexPermissionsMode | undefined {
+  switch (value) {
+    case "default":
+    case "autoReview":
+    case "fullAccess":
+    case "custom":
+      return value;
+    default:
+      return undefined;
+  }
+}
+
+function normalizeCodexSandboxMode(
+  value?: string,
+): "danger-full-access" | "workspace-write" | "read-only" | undefined {
+  switch (value) {
+    case "danger-full-access":
+    case "off":
+      return "danger-full-access";
+    case "workspace-write":
+    case "on":
+      return "workspace-write";
+    case "read-only":
+      return "read-only";
+    default:
+      return undefined;
+  }
+}
+
+function isCodexAutoReviewApprovalsReviewer(value?: string): boolean {
+  return value === "auto_review" || value === "guardian_subagent";
+}
+
+function deriveCodexPermissionsMode(
+  settings: SessionInfo["codexSettings"],
+): CodexPermissionsMode | undefined {
+  if (!settings) return undefined;
+  const explicit = normalizeCodexPermissionsMode(settings.codexPermissionsMode);
+  if (explicit) return explicit;
+
+  const hasPermissionSettings =
+    settings.approvalPolicy !== undefined ||
+    settings.approvalsReviewer !== undefined ||
+    settings.sandboxMode !== undefined;
+  if (!hasPermissionSettings) return undefined;
+
+  const sandboxMode = normalizeCodexSandboxMode(settings.sandboxMode);
+  if (
+    settings.approvalPolicy === "never" &&
+    (sandboxMode === undefined || sandboxMode === "danger-full-access")
+  ) {
+    return "fullAccess";
+  }
+
+  if (
+    settings.approvalPolicy === "on-request" &&
+    (sandboxMode === undefined || sandboxMode === "workspace-write")
+  ) {
+    return isCodexAutoReviewApprovalsReviewer(settings.approvalsReviewer)
+      ? "autoReview"
+      : "default";
+  }
+
+  return "custom";
+}
+
+function codexSettingsWithDerivedPermissionsMode(
+  settings: SessionInfo["codexSettings"],
+): SessionInfo["codexSettings"] {
+  const mode = deriveCodexPermissionsMode(settings);
+  return mode && settings
+    ? { ...settings, codexPermissionsMode: mode }
+    : settings;
+}
+
 function mergeCodexSettings(
   current: SessionInfo["codexSettings"],
   msg: Extract<ServerMessage, { type: "system" }>,
@@ -201,7 +279,7 @@ function mergeCodexSettings(
   };
 
   return Object.values(next).some((value) => value !== undefined)
-    ? next
+    ? codexSettingsWithDerivedPermissionsMode(next)
     : current;
 }
 
@@ -627,7 +705,7 @@ export class SessionManager {
     }
 
     if (effectiveProvider === "codex" && codexOptions) {
-      session.codexSettings = {
+      session.codexSettings = codexSettingsWithDerivedPermissionsMode({
         profile: codexOptions.profile,
         approvalPolicy: codexOptions.approvalPolicy,
         approvalsReviewer: codexOptions.approvalsReviewer,
@@ -638,7 +716,7 @@ export class SessionManager {
         networkAccessEnabled: codexOptions.networkAccessEnabled,
         webSearchMode: codexOptions.webSearchMode,
         additionalWritableRoots: codexOptions.additionalWritableRoots,
-      };
+      });
       // Resume starts know the thread id up front.
       if (codexOptions.threadId) {
         session.claudeSessionId = codexOptions.threadId;
@@ -723,6 +801,17 @@ export class SessionManager {
 
   list(): SessionSummary[] {
     return Array.from(this.sessions.values()).map((s) => {
+      const rawCodexSettings =
+        s.process instanceof CodexProcess
+          ? s.codexSettings ??
+            (s.process.codexPermissionsMode
+              ? { codexPermissionsMode: s.process.codexPermissionsMode }
+              : undefined)
+          : s.codexSettings;
+      const codexSettings =
+        s.process instanceof CodexProcess
+          ? codexSettingsWithDerivedPermissionsMode(rawCodexSettings)
+          : s.codexSettings;
       const processWithPending = s.process as {
         getPendingPermission?: () =>
           | {
@@ -744,8 +833,7 @@ export class SessionManager {
               ? "acceptEdits"
               : "default"
           : s.process instanceof CodexProcess
-            ? (s.codexSettings?.approvalPolicy ?? s.process.approvalPolicy) ===
-              "never"
+            ? codexSettings?.approvalPolicy === "never"
               ? "fullAccess"
               : "default"
             : undefined;
@@ -774,15 +862,14 @@ export class SessionManager {
             : s.process instanceof CodexProcess
               ? s.process.collaborationMode === "plan"
                 ? "plan"
-                : (s.codexSettings?.approvalPolicy ??
-                    s.process.approvalPolicy) === "never"
+                : codexSettings?.approvalPolicy === "never"
                   ? "bypassPermissions"
                   : "acceptEdits"
               : undefined,
         executionMode,
         planMode,
         model: s.process instanceof SdkProcess ? s.process.model : undefined,
-        codexSettings: s.codexSettings,
+        codexSettings,
         agentNickname:
           s.process instanceof CodexProcess
             ? (s.process.agentNickname ?? undefined)

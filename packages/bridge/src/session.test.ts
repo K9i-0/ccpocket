@@ -149,6 +149,75 @@ describe("SessionManager codex path", () => {
     expect(session?.provider).toBe("codex");
   });
 
+  it("derives codex permissions mode from explicit runtime settings", () => {
+    const manager = new SessionManager(() => {});
+    const readOnlyId = manager.create(
+      "/tmp/project-codex-read-only",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      {
+        approvalPolicy: "on-request",
+        sandboxMode: "read-only",
+      },
+    );
+    const autoReviewId = manager.create(
+      "/tmp/project-codex-auto-review",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      {
+        approvalPolicy: "on-request",
+        approvalsReviewer: "auto_review",
+        sandboxMode: "workspace-write",
+      },
+    );
+    const fullAccessId = manager.create(
+      "/tmp/project-codex-full-access",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      {
+        approvalPolicy: "never",
+        sandboxMode: "danger-full-access",
+      },
+    );
+    const modelOnlyId = manager.create(
+      "/tmp/project-codex-model-only",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      {
+        model: "gpt-5.3-codex",
+      },
+    );
+
+    const summariesById = new Map(manager.list().map((s) => [s.id, s]));
+    expect(summariesById.get(readOnlyId)?.codexSettings).toMatchObject({
+      approvalPolicy: "on-request",
+      sandboxMode: "read-only",
+      codexPermissionsMode: "custom",
+    });
+    expect(summariesById.get(autoReviewId)?.codexSettings).toMatchObject({
+      approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
+      sandboxMode: "workspace-write",
+      codexPermissionsMode: "autoReview",
+    });
+    expect(summariesById.get(fullAccessId)?.codexSettings).toMatchObject({
+      approvalPolicy: "never",
+      sandboxMode: "danger-full-access",
+      codexPermissionsMode: "fullAccess",
+    });
+    expect(
+      summariesById.get(modelOnlyId)?.codexSettings?.codexPermissionsMode,
+    ).toBeUndefined();
+  });
+
   it("caches codex plugin completion metadata", () => {
     const manager = new SessionManager(() => {});
     manager.create(
@@ -372,6 +441,7 @@ describe("SessionManager codex path", () => {
       model: "gpt-5.4",
       approvalPolicy: "never",
       sandboxMode: "workspace-write",
+      codexPermissionsMode: "custom",
       networkAccessEnabled: false,
     });
   });
