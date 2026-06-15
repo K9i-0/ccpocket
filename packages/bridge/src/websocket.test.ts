@@ -3963,6 +3963,63 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("claude busy snapshot uses session.status, not isWaitingForInput", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+
+    // The SDK is mid-turn (status running) but already holds a resolver for the
+    // next input (isWaitingForInput true). The old logic read this as idle and
+    // skipped the interrupt. sendInput returns a non-boolean here so the ack
+    // must fall back to isAgentBusySnapshot, which now derives from status.
+    session.status = "running";
+    session.process.isWaitingForInput = true;
+    session.process.sendInput.mockReturnValue(undefined);
+
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId,
+        text: "interrupt while running",
+      },
+      ws,
+    );
+
+    const inputAck = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "input_ack");
+    expect(inputAck).toMatchObject({
+      type: "input_ack",
+      sessionId,
+      queued: true,
+    });
+    expect(session.process.sendInput).toHaveBeenCalledWith(
+      "interrupt while running",
+    );
+    expect(session.process.interrupt).toHaveBeenCalledTimes(1);
+
+    bridge.close();
+  });
+
   it("echoes clientMessageId and acceptedSeq on input_ack", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

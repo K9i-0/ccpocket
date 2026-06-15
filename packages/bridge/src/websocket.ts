@@ -2220,8 +2220,13 @@ export class BridgeWebSocketServer {
         // Snapshot busy state before dispatch. We prefer the actual enqueue
         // result returned by SdkProcess sendInput* below, but keep this as a
         // fallback for test doubles and async paths.
+        // NOTE: use session.status, not isWaitingForInput. The Claude SDK may
+        // already hold a resolver for the next input (isWaitingForInput===true)
+        // while still streaming output / running tools, which made us misread a
+        // busy turn as idle and skip the interrupt. session.status is "running"
+        // / "waiting_approval" / "starting" whenever the turn is in flight.
         const isAgentBusySnapshot =
-          session.provider === "claude" && !session.process.isWaitingForInput;
+          session.provider === "claude" && session.status !== "idle";
 
         // Normalize images: support new `images` array and legacy single-image fields
         let images: Array<{ base64: string; mimeType: string }> = [];
