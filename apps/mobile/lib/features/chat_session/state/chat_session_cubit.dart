@@ -498,16 +498,22 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
 
     if (update.pendingPermission != null) {
-      approval = ApprovalState.permission(
-        toolUseId: update.pendingToolUseId!,
-        request: update.pendingPermission!,
-      );
+      final toolUseId = update.pendingToolUseId;
+      if (toolUseId != null && !_respondedToolUseIds.contains(toolUseId)) {
+        approval = ApprovalState.permission(
+          toolUseId: toolUseId,
+          request: update.pendingPermission!,
+        );
+      }
     }
     if (update.askToolUseId != null) {
-      approval = ApprovalState.askUser(
-        toolUseId: update.askToolUseId!,
-        input: update.askInput ?? {},
-      );
+      final toolUseId = update.askToolUseId!;
+      if (!_respondedToolUseIds.contains(toolUseId)) {
+        approval = ApprovalState.askUser(
+          toolUseId: toolUseId,
+          input: update.askInput ?? {},
+        );
+      }
     }
 
     // Stop status refresh timer when status changes from starting
@@ -1381,6 +1387,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   /// Answer an AskUserQuestion.
   void answer(String toolUseId, String result) {
+    _respondedToolUseIds.add(toolUseId);
     _bridge.send(ClientMessage.answer(toolUseId, result, sessionId: sessionId));
     emit(state.copyWith(approval: const ApprovalState.none()));
   }

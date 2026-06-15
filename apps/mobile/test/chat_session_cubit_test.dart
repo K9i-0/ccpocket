@@ -992,6 +992,84 @@ void main() {
       expect(mockBridge.sentMessages, hasLength(1));
     });
 
+    test('approved permission is not restored by replayed history', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+
+      const permMsg = PermissionRequestMessage(
+        toolUseId: 'tool-1',
+        toolName: 'bash',
+        input: {'command': 'ls'},
+      );
+      mockBridge.emitMessage(permMsg, sessionId: 's1');
+      await Future.microtask(() {});
+
+      expect(cubit.state.approval, isA<ApprovalPermission>());
+      cubit.approve('tool-1');
+      expect(cubit.state.approval, isA<ApprovalNone>());
+
+      mockBridge.emitMessage(
+        const HistoryMessage(
+          messages: [
+            permMsg,
+            StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.approval, isA<ApprovalNone>());
+    });
+
+    test(
+      'answered AskUserQuestion is not restored by replayed history',
+      () async {
+        final cubit = createCubit('s1');
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+
+        final askMessage = AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'msg-ask',
+            role: 'assistant',
+            content: [
+              const ToolUseContent(
+                id: 'ask-1',
+                name: 'AskUserQuestion',
+                input: {
+                  'questions': [
+                    {'question': 'Which option?'},
+                  ],
+                },
+              ),
+            ],
+            model: 'claude',
+          ),
+        );
+        mockBridge.emitMessage(askMessage, sessionId: 's1');
+        await Future.microtask(() {});
+
+        expect(cubit.state.approval, isA<ApprovalAskUser>());
+        cubit.answer('ask-1', 'A');
+        expect(cubit.state.approval, isA<ApprovalNone>());
+
+        mockBridge.emitMessage(
+          HistoryMessage(
+            messages: [
+              askMessage,
+              const StatusMessage(status: ProcessStatus.waitingApproval),
+            ],
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        expect(cubit.state.approval, isA<ApprovalNone>());
+      },
+    );
+
     test('approving ExitPlanMode also clears plan mode state', () async {
       final cubit = createCubit('s1', provider: Provider.codex);
       addTearDown(cubit.close);
