@@ -183,6 +183,13 @@ vi.mock("./session.js", () => ({
       return this.sessions.get(id);
     }
 
+    getByClaudeSessionId(claudeSessionId: string) {
+      for (const session of this.sessions.values()) {
+        if (session.claudeSessionId === claudeSessionId) return session;
+      }
+      return undefined;
+    }
+
     queueCodexInput(id: string, input: any) {
       const session = this.sessions.get(id);
       if (!session || session.provider !== "codex" || session.codexQueuedInput) {
@@ -752,6 +759,66 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(session.codexOptions).toMatchObject({
       profile: "ccpocket",
     });
+
+    bridge.close();
+  });
+
+  it("resolves input by claudeSessionId during resume (no message drop)", async () => {
+    // Regression: while a session is resuming, the client may still reference
+    // it by its provider (Claude) session id before learning the new bridge id.
+    // resolveSession must fall back to claudeSessionId so the input is routed
+    // to the session (and queued by SdkProcess) instead of being dropped with
+    // "No active session".
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+        sessionId: "claude-resume-1",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    // Bridge id is "s-1"; client sends input keyed by the Claude session id.
+    const session = (bridge as any).sessionManager.getByClaudeSessionId(
+      "claude-resume-1",
+    );
+    expect(session).toBeDefined();
+
+    ws.send.mockClear();
+    await (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId: "claude-resume-1",
+        text: "hello while resuming",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const sends = ws.send.mock.calls.map(
+      (c: unknown[]) => JSON.parse(c[0] as string) as Record<string, unknown>,
+    );
+    // Must NOT have been dropped as "No active session".
+    expect(
+      sends.some(
+        (m) =>
+          m.type === "error" &&
+          typeof m.message === "string" &&
+          (m.message as string).includes("No active session"),
+      ),
+    ).toBe(false);
+    // Input reached the session's process.
+    expect(session.process.sendInput).toHaveBeenCalledWith(
+      "hello while resuming",
+    );
 
     bridge.close();
   });

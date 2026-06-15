@@ -675,6 +675,19 @@ export class SessionManager {
     return this.sessions.get(id);
   }
 
+  /**
+   * Look up a session by its provider (Claude/Codex) session id rather than the
+   * internal 8-char bridge id. Used as a fallback when a client sends `input`
+   * referencing a resumed session by its `claudeSessionId` before it has
+   * learned the new bridge id from `session_created`.
+   */
+  getByClaudeSessionId(claudeSessionId: string): SessionInfo | undefined {
+    for (const session of this.sessions.values()) {
+      if (session.claudeSessionId === claudeSessionId) return session;
+    }
+    return undefined;
+  }
+
   appendHistory(sessionId: string, msg: ServerMessage): HistoryEntry | undefined {
     const session = this.sessions.get(sessionId);
     if (!session) return undefined;

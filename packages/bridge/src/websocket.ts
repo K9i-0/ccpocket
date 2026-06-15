@@ -5674,7 +5674,14 @@ export class BridgeWebSocketServer {
   private resolveSession(
     sessionId: string | undefined,
   ): SessionInfo | undefined {
-    if (sessionId) return this.sessionManager.get(sessionId);
+    if (sessionId) {
+      return (
+        this.sessionManager.get(sessionId) ??
+        // Fallback: a resumed session may still be referenced by its provider
+        // (Claude) session id before the client has learned the new bridge id.
+        this.sessionManager.getByClaudeSessionId(sessionId)
+      );
+    }
     return this.getFirstSession();
   }
 
