@@ -87,6 +87,26 @@ Future<void> _checkShorebirdUpdate(SharedPreferences prefs) async {
   }
 }
 
+@visibleForTesting
+Widget buildReleaseErrorWidget(FlutterErrorDetails details) {
+  return Material(
+    color: Colors.transparent,
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Text(
+        'Something went wrong rendering this content.',
+        style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+        textAlign: TextAlign.center,
+      ),
+    ),
+  );
+}
+
+void installReleaseErrorWidget({bool isReleaseMode = kReleaseMode}) {
+  if (!isReleaseMode) return;
+  ErrorWidget.builder = buildReleaseErrorWidget;
+}
+
 void main() async {
   if (kDebugMode && !kIsWeb) {
     MarionetteBinding.ensureInitialized();
@@ -105,6 +125,7 @@ void main() async {
       details.stack,
     );
   };
+  installReleaseErrorWidget();
   // Initialize notifications eagerly so the Android notification channel is
   // created before any FCM message arrives. Without this, FCM falls back to
   // the low-importance fcm_fallback_notification_channel and notifications
