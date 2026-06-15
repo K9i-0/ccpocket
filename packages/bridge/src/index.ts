@@ -20,9 +20,14 @@ import {
   PromptHistoryStore,
 } from "./prompt-history-store.js";
 import { resolvePlatformPath } from "./path-utils.js";
+import { parseBridgePort } from "./bridge-port.js";
+
+function startupErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 export async function startServer() {
-  const PORT = parseInt(process.env.BRIDGE_PORT ?? "8765", 10);
+  const PORT = parseBridgePort();
   const HOST = process.env.BRIDGE_HOST ?? "0.0.0.0";
   const API_KEY = process.env.BRIDGE_API_KEY;
 
@@ -209,12 +214,6 @@ export async function startServer() {
     promptHistoryStore,
   });
 
-  httpServer.listen(PORT, HOST, () => {
-    console.log(`[bridge] Ready. Listening on http://${HOST}:${PORT} (HTTP + WebSocket)`);
-    mdns?.start(PORT, API_KEY);
-    printStartupInfo(PORT, HOST, API_KEY);
-  });
-
   function shutdown() {
     console.log("\n[bridge] Shutting down gracefully...");
     mdns?.stop();
@@ -225,6 +224,21 @@ export async function startServer() {
 
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+
+  await new Promise<void>((resolve, reject) => {
+    const onError = (err: Error) => {
+      wsServer?.close();
+      reject(err);
+    };
+    httpServer.once("error", onError);
+    httpServer.listen(PORT, HOST, () => {
+      httpServer.off("error", onError);
+      console.log(`[bridge] Ready. Listening on http://${HOST}:${PORT} (HTTP + WebSocket)`);
+      mdns?.start(PORT, API_KEY);
+      printStartupInfo(PORT, HOST, API_KEY);
+      resolve();
+    });
+  });
 }
 
 // Auto-start when executed directly (node dist/index.js, tsx src/index.ts)
@@ -235,7 +249,7 @@ const isDirectExecution =
 if (isDirectExecution) {
   setupProxy();
   startServer().catch((err) => {
-    console.error("[bridge] Failed to start:", err);
+    console.error(`[bridge] Failed to start: ${startupErrorMessage(err)}`);
     process.exit(1);
   });
 }

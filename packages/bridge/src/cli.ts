@@ -46,6 +46,10 @@ BRIDGE_DISABLE_MDNS. Codex app-server configuration can be provided with
 BRIDGE_CODEX_APP_SERVER_MODE and BRIDGE_CODEX_SHARED_APP_SERVER_URL.`);
 }
 
+function startupErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 if (parsed.helpRequested) {
   printHelp();
 } else if (parsed.versionRequested) {
@@ -128,7 +132,7 @@ if (parsed.helpRequested) {
   const codexAppServerPort = parseFlag(parsed, "codex-app-server-port");
   const codexAppServerUrl = parseFlag(parsed, "codex-app-server-url");
 
-  if (port) process.env.BRIDGE_PORT = port;
+  if (port !== undefined) process.env.BRIDGE_PORT = port;
   if (host) process.env.BRIDGE_HOST = host;
   if (apiKey) process.env.BRIDGE_API_KEY = apiKey;
   if (publicWsUrl) process.env.BRIDGE_PUBLIC_WS_URL = publicWsUrl;
@@ -145,5 +149,8 @@ if (parsed.helpRequested) {
   }
   if (hasFlag(parsed, "no-mdns")) process.env.BRIDGE_DISABLE_MDNS = "1";
 
-  startServer();
+  startServer().catch((err) => {
+    console.error(`[bridge] Failed to start: ${startupErrorMessage(err)}`);
+    process.exit(1);
+  });
 }
