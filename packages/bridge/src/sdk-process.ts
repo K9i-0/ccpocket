@@ -215,6 +215,65 @@ export function buildSessionRule(toolName: string, input: Record<string, unknown
   return toolName;
 }
 
+// ---- AskUserQuestion answer mapping (exported for testing) ----
+
+/**
+ * Map the mobile app's `result` payload onto the SDK's expected
+ * `{ [questionText]: answerString }` shape for the AskUserQuestion tool.
+ *
+ * The app sends `result` as a plain string in one of two shapes:
+ *   1. Multi-question / multi-select path: a JSON-encoded `{ questions, answers }`
+ *      object where `answers` is already keyed by question text.
+ *   2. Single-question path: a bare answer string (the chosen option label).
+ *
+ * The SDK matches answers by question text, so a bogus `{ result: ... }` key
+ * (the previous behavior) caused the tool to never receive a valid answer.
+ */
+export function buildAnswersMap(
+  input: Record<string, unknown>,
+  result: string,
+): Record<string, string> {
+  const questions = Array.isArray(input.questions)
+    ? (input.questions as Array<{ question?: unknown }>)
+    : [];
+
+  // Case 1: multi-question path sends JSON `{ questions, answers }`.
+  try {
+    const parsed = JSON.parse(result) as unknown;
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "answers" in parsed &&
+      typeof (parsed as { answers: unknown }).answers === "object" &&
+      (parsed as { answers: unknown }).answers !== null
+    ) {
+      const parsedAnswers = (parsed as { answers: Record<string, unknown> })
+        .answers;
+      const map: Record<string, string> = {};
+      for (const [key, value] of Object.entries(parsedAnswers)) {
+        map[key] = typeof value === "string" ? value : String(value);
+      }
+      return map;
+    }
+  } catch {
+    // Not JSON — fall through to the single-question path.
+  }
+
+  // Case 2: single-question path sends a bare answer string. Key it by the
+  // first question's text so the SDK can match it.
+  const firstQuestion = questions[0]?.question;
+  if (typeof firstQuestion === "string" && firstQuestion.length > 0) {
+    return { [firstQuestion]: result };
+  }
+
+  // Fallback: no question text available — return an empty map rather than a
+  // bogus `{ result: ... }` key that the SDK cannot match.
+  console.warn(
+    "[sdk-process] answer() could not resolve question text; sending empty answers",
+  );
+  return {};
+}
+
 // ---- Auth error helpers (exported for testing) ----
 
 export type AuthErrorCode = "auth_login_required" | "auth_token_expired" | "auth_api_error";
@@ -900,11 +959,22 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
 
     this.pendingPermissions.delete(toolUseId);
+
+    // The SDK's AskUserQuestion tool expects `updatedInput.answers` to be a map
+    // keyed by the *question text* (question text -> answer string). The mobile
+    // app sends `result` as a plain string in one of two shapes:
+    //   1. Multi-question / multi-select path: a JSON-encoded
+    //      `{ questions, answers }` object where `answers` is already keyed by
+    //      question text.
+    //   2. Single-question path: a bare answer string (the chosen option label).
+    // Normalize both into the question-text-keyed map the SDK requires.
+    const answers = buildAnswersMap(pending.input, result);
+
     pending.resolve({
       behavior: "allow",
       updatedInput: {
         ...pending.input,
-        answers: { ...(pending.input.answers as Record<string, string> ?? {}), result },
+        answers,
       },
     });
 

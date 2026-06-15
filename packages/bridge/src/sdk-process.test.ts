@@ -3,6 +3,7 @@ import {
   parseRule,
   matchesSessionRule,
   buildSessionRule,
+  buildAnswersMap,
   ACCEPT_EDITS_AUTO_APPROVE,
   extractTokenUsage,
   buildThinkingOptions,
@@ -737,5 +738,65 @@ describe("SdkProcess.approveAlways", () => {
     );
     expect(modeMsg).toBeUndefined();
     expect(proc.permissionMode).toBe("acceptEdits");
+  });
+});
+
+// ---- buildAnswersMap (AskUserQuestion answer mapping) ----
+
+describe("buildAnswersMap", () => {
+  const singleQuestionInput = {
+    questions: [
+      {
+        question: "Which library should we use?",
+        header: "Library",
+        options: [
+          { label: "React", description: "..." },
+          { label: "Vue", description: "..." },
+        ],
+      },
+    ],
+  };
+
+  it("keys a bare answer string by the first question's text (single-question path)", () => {
+    const map = buildAnswersMap(singleQuestionInput, "React");
+    expect(map).toEqual({ "Which library should we use?": "React" });
+  });
+
+  it("does NOT produce a bogus 'result' key (regression)", () => {
+    const map = buildAnswersMap(singleQuestionInput, "React");
+    expect(map).not.toHaveProperty("result");
+  });
+
+  it("uses the parsed answers from the multi-question JSON path", () => {
+    const result = JSON.stringify({
+      questions: [{ question: "Which database?" }, { question: "Which ORM?" }],
+      answers: {
+        "Which database?": "SQLite",
+        "Which ORM?": "Drizzle, Prisma",
+      },
+    });
+    const map = buildAnswersMap({ questions: [] }, result);
+    expect(map).toEqual({
+      "Which database?": "SQLite",
+      "Which ORM?": "Drizzle, Prisma",
+    });
+  });
+
+  it("coerces non-string answer values to strings in the JSON path", () => {
+    const result = JSON.stringify({ answers: { "How many?": 3 } });
+    const map = buildAnswersMap({ questions: [] }, result);
+    expect(map).toEqual({ "How many?": "3" });
+  });
+
+  it("treats a JSON string without an answers object as a bare answer", () => {
+    const map = buildAnswersMap(singleQuestionInput, "42");
+    expect(map).toEqual({ "Which library should we use?": "42" });
+  });
+
+  it("returns an empty map when no question text is available", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const map = buildAnswersMap({ questions: [] }, "React");
+    expect(map).toEqual({});
+    warn.mockRestore();
   });
 });
