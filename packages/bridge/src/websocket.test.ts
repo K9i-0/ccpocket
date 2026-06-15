@@ -727,6 +727,53 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("does not spawn standalone codex metadata refreshes on connect without an active codex session", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const refreshCodexProfiles = vi
+      .spyOn(bridge as any, "refreshCodexProfiles")
+      .mockResolvedValue(undefined);
+    const refreshCodexModels = vi
+      .spyOn(bridge as any, "refreshCodexModels")
+      .mockResolvedValue(undefined);
+    const refreshClaudeModels = vi
+      .spyOn(bridge as any, "refreshClaudeModels")
+      .mockResolvedValue(undefined);
+
+    (bridge as any).refreshConnectionMetadata();
+
+    expect(refreshCodexProfiles).not.toHaveBeenCalled();
+    expect(refreshCodexModels).not.toHaveBeenCalled();
+    expect(refreshClaudeModels).toHaveBeenCalledTimes(1);
+
+    bridge.close();
+  });
+
+  it("refreshes codex metadata on connect only when a codex session is active", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const manager = (bridge as any).sessionManager;
+    manager.create(
+      "/tmp/project-a",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+    );
+    const refreshCodexProfiles = vi
+      .spyOn(bridge as any, "refreshCodexProfiles")
+      .mockResolvedValue(undefined);
+    const refreshCodexModels = vi
+      .spyOn(bridge as any, "refreshCodexModels")
+      .mockResolvedValue(undefined);
+    vi.spyOn(bridge as any, "refreshClaudeModels").mockResolvedValue(undefined);
+
+    (bridge as any).refreshConnectionMetadata();
+
+    expect(refreshCodexProfiles).toHaveBeenCalledTimes(1);
+    expect(refreshCodexModels).toHaveBeenCalledTimes(1);
+
+    bridge.close();
+  });
+
   it("forwards selected codex profile on start", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
@@ -752,6 +799,34 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(session.codexOptions).toMatchObject({
       profile: "ccpocket",
     });
+
+    bridge.close();
+  });
+
+  it("refreshes codex profiles after the first codex session starts", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+    const refreshCodexProfiles = vi
+      .spyOn(bridge as any, "refreshCodexProfiles")
+      .mockResolvedValue(undefined);
+    vi.spyOn(bridge as any, "refreshCodexModels").mockResolvedValue(undefined);
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "codex",
+      },
+      ws,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(refreshCodexProfiles).toHaveBeenCalledWith("/tmp/project-a");
 
     bridge.close();
   });

@@ -512,6 +512,13 @@ function envFlagEnabled(name: string): boolean {
   return value === "1" || value === "true" || value === "yes" || value === "on";
 }
 
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) ? value : fallback;
+}
+
 function codexThreadToRecentSession(
   thread: CodexThreadSummary,
   indexed?: CodexSessionIndexMetadata,
@@ -582,6 +589,8 @@ export interface BridgeServerOptions {
 export class BridgeWebSocketServer {
   private static readonly MAX_DEBUG_EVENTS = 800;
   private static readonly MAX_HISTORY_SUMMARY_ITEMS = 300;
+  private static readonly DEFAULT_CONNECT_METADATA_REFRESH_COOLDOWN_MS =
+    5 * 60 * 1000;
 
   private wss: WebSocketServer;
   private sessionManager: SessionManager;
@@ -625,6 +634,15 @@ export class BridgeWebSocketServer {
     "BRIDGE_FAIL_SET_PERMISSION_MODE",
   );
   private failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
+  private connectMetadataRefreshCooldownMs = Math.max(
+    0,
+    envInt(
+      "BRIDGE_CONNECT_METADATA_REFRESH_COOLDOWN_MS",
+      BridgeWebSocketServer.DEFAULT_CONNECT_METADATA_REFRESH_COOLDOWN_MS,
+    ),
+  );
+  private lastConnectClaudeMetadataRefreshAt = 0;
+  private lastConnectCodexMetadataRefreshAt = 0;
   private platform: NodeJS.Platform;
   private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
 
@@ -1864,9 +1882,7 @@ export class BridgeWebSocketServer {
 
   private handleConnection(ws: WebSocket): void {
     // Send session list and project history on connect
-    void this.refreshCodexProfiles();
-    void this.refreshCodexModels();
-    void this.refreshClaudeModels();
+    this.refreshConnectionMetadata();
     this.sendSessionList(ws);
     const projects = this.projectHistory?.getProjects() ?? [];
     this.send(ws, { type: "project_history", projects });
@@ -1908,6 +1924,30 @@ export class BridgeWebSocketServer {
     ws.on("error", (err) => {
       console.error("[ws] Client error:", err.message);
     });
+  }
+
+  private refreshConnectionMetadata(): void {
+    const now = Date.now();
+    const shouldRefresh = (lastRefreshAt: number) =>
+      this.connectMetadataRefreshCooldownMs <= 0 ||
+      now - lastRefreshAt >= this.connectMetadataRefreshCooldownMs;
+
+    if (shouldRefresh(this.lastConnectClaudeMetadataRefreshAt)) {
+      this.lastConnectClaudeMetadataRefreshAt = now;
+      void this.refreshClaudeModels();
+    }
+
+    // Avoid spawning standalone Codex app-server processes on every mobile
+    // reconnect. Fallback model metadata is already available at startup; when
+    // a Codex session is active, these refreshes use that active process.
+    if (
+      this.getActiveCodexProcess() &&
+      shouldRefresh(this.lastConnectCodexMetadataRefreshAt)
+    ) {
+      this.lastConnectCodexMetadataRefreshAt = now;
+      void this.refreshCodexProfiles();
+      void this.refreshCodexModels();
+    }
   }
 
   private async handleClientMessage(
@@ -2162,6 +2202,7 @@ export class BridgeWebSocketServer {
             );
             this.broadcastSessionList();
             if (provider === "codex") {
+              void this.refreshCodexProfiles(projectPath);
               void this.refreshCodexModels(projectPath);
             } else {
               void this.refreshClaudeModels(projectPath);
