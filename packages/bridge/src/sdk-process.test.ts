@@ -739,3 +739,40 @@ describe("SdkProcess.approveAlways", () => {
     expect(proc.permissionMode).toBe("acceptEdits");
   });
 });
+
+describe("SdkProcess.setPermissionMode", () => {
+  it("records the mode and emits an update when the query instance is idle", async () => {
+    const proc = new SdkProcess();
+    const internal = proc as any;
+    internal._sessionId = "test-session";
+    expect(internal.queryInstance).toBeNull();
+
+    const messages: ServerMessage[] = [];
+    proc.on("message", (msg) => messages.push(msg));
+
+    await expect(
+      proc.setPermissionMode("bypassPermissions"),
+    ).resolves.toBeUndefined();
+
+    expect(proc.permissionMode).toBe("bypassPermissions");
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "system",
+        subtype: "set_permission_mode",
+        permissionMode: "bypassPermissions",
+        sessionId: "test-session",
+      }),
+    );
+  });
+
+  it("applies the mode to a live query instance", async () => {
+    const proc = new SdkProcess();
+    const setPermissionMode = vi.fn(async () => {});
+    (proc as any).queryInstance = { setPermissionMode };
+
+    await proc.setPermissionMode("acceptEdits");
+
+    expect(setPermissionMode).toHaveBeenCalledWith("acceptEdits");
+    expect(proc.permissionMode).toBe("acceptEdits");
+  });
+});

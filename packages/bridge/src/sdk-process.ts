@@ -625,7 +625,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         cwd: projectPath,
         resume: options?.sessionId,
         continue: options?.continueMode,
-        permissionMode: options?.permissionMode ?? "default",
+        permissionMode: this._permissionMode ?? options?.permissionMode ?? "default",
         ...(options?.model ? { model: options.model } : {}),
         ...buildThinkingOptions(options?.model),
         ...(options?.effort ? { effort: options.effort } : {}),
@@ -915,13 +915,15 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   /**
    * Update permission mode for the current session.
-   * Only available while the query instance is active.
+   *
+   * When the SDK query iterator is live, apply the change in place. When the
+   * iterator is idle, record the desired mode so it is used on the next query
+   * start and still notify clients immediately.
    */
   async setPermissionMode(mode: PermissionMode): Promise<void> {
-    if (!this.queryInstance) {
-      throw new Error("No active query instance");
+    if (this.queryInstance) {
+      await this.queryInstance.setPermissionMode(mode);
     }
-    await this.queryInstance.setPermissionMode(mode);
     this._permissionMode = mode;
     this.emitMessage({
       type: "system",
