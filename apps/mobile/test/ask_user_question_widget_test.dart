@@ -545,4 +545,82 @@ void main() {
       expect(find.text('Claude is asking'), findsNothing);
     });
   });
+
+  group('AskUserQuestionWidget - malformed input does not crash', () {
+    // Regression: a malformed AskUserQuestion tool call (bad params) used to
+    // throw inside build() via an unguarded `as Map<String, dynamic>` cast,
+    // which, with no ErrorWidget boundary, blanked the entire session screen.
+    // The widget must now render without throwing for any shape of input.
+
+    testWidgets('question items are non-map (String/num/List)', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'bad-1',
+            input: {
+              'questions': ['just a string', 123, [], null],
+            },
+            onAnswer: (_, _) {},
+          ),
+        ),
+      );
+      // Must not throw; malformed items are filtered out.
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('questions is not a list', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'bad-2',
+            input: {'questions': 'oops not a list'},
+            onAnswer: (_, _) {},
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('questions key missing entirely', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'bad-3',
+            input: const {},
+            onAnswer: (_, _) {},
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('mix of well-formed and malformed items renders the good one', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'bad-4',
+            input: {
+              'questions': [
+                'garbage',
+                {
+                  'question': 'Pick one',
+                  'header': 'Choice',
+                  'options': [
+                    {'label': 'A', 'description': 'first'},
+                  ],
+                  'multiSelect': false,
+                },
+              ],
+            },
+            onAnswer: (_, _) {},
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      // The single well-formed question survives filtering.
+      expect(find.text('Pick one'), findsOneWidget);
+    });
+  });
 }

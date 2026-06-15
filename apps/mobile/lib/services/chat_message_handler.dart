@@ -1,6 +1,7 @@
 import '../core/logger.dart';
 import '../models/messages.dart';
 import '../utils/codex_plan_update.dart';
+import '../utils/request_user_input.dart';
 import '../widgets/slash_command_sheet.dart'
     show
         SlashCommand,
@@ -440,7 +441,13 @@ class ChatMessageHandler {
     bool? inPlanMode;
     for (final content in message.content) {
       if (content is ToolUseContent) {
-        if (content.name == 'AskUserQuestion') {
+        if (content.name == 'AskUserQuestion' &&
+            hasRequestUserInputQuestions(content.input)) {
+          // Only route to the AskUserQuestion UI when the tool input is
+          // well-formed (a non-empty `questions` list). A malformed call (bad
+          // params / tool-call error) otherwise reaches the widget and throws
+          // during build, blanking the whole screen. Treat malformed calls as
+          // ordinary tool uses instead.
           askToolUseId = content.id;
           askInput = content.input;
           effects.add(ChatSideEffect.mediumHaptic);
@@ -652,7 +659,8 @@ class ChatMessageHandler {
         if (m is AssistantServerMessage) {
           for (final content in m.message.content) {
             if (content is ToolUseContent &&
-                content.name == 'AskUserQuestion') {
+                content.name == 'AskUserQuestion' &&
+                hasRequestUserInputQuestions(content.input)) {
               lastAskToolUseId = content.id;
               lastAskInput = content.input;
             }

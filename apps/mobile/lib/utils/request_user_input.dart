@@ -26,12 +26,26 @@ const _mcpApprovalDeclineLabels = {mcpApprovalDeny, mcpApprovalDecline};
 Map<String, dynamic>? firstRequestUserInputQuestion(
   Map<String, dynamic> input,
 ) {
+  final questions = requestUserInputQuestions(input);
+  return questions.isEmpty ? null : questions.first;
+}
+
+List<Map<String, dynamic>> requestUserInputQuestions(
+  Map<String, dynamic> input,
+) {
   final questions = input['questions'];
-  if (questions is! List || questions.isEmpty) return null;
-  final first = questions.first;
-  return first is Map<String, dynamic>
-      ? first
-      : Map<String, dynamic>.from(first as Map);
+  if (questions is! List) return const [];
+
+  final parsed = <Map<String, dynamic>>[];
+  for (final question in questions) {
+    if (question is! Map) continue;
+    try {
+      parsed.add(Map<String, dynamic>.from(question));
+    } catch (_) {
+      // Ignore malformed entries such as maps with non-string keys.
+    }
+  }
+  return parsed;
 }
 
 List<String> requestUserInputOptionLabels(Map<String, dynamic> input) {
@@ -54,8 +68,7 @@ String? requestUserInputQuestionText(Map<String, dynamic> input) {
 }
 
 bool hasRequestUserInputQuestions(Map<String, dynamic> input) {
-  final questions = input['questions'];
-  return questions is List && questions.isNotEmpty;
+  return requestUserInputQuestions(input).isNotEmpty;
 }
 
 bool _containsAny(Set<String> labels, Set<String> candidates) =>

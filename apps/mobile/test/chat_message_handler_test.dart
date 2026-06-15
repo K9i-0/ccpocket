@@ -174,7 +174,11 @@ void main() {
               const ToolUseContent(
                 id: 'tu-ask',
                 name: 'AskUserQuestion',
-                input: {'questions': []},
+                input: {
+                  'questions': [
+                    {'question': 'Which option?'},
+                  ],
+                },
               ),
             ],
             model: 'test',
@@ -184,6 +188,33 @@ void main() {
       );
       expect(update.askToolUseId, 'tu-ask');
       expect(update.sideEffects, contains(ChatSideEffect.mediumHaptic));
+    });
+
+    test('ignores malformed AskUserQuestion tool use', () {
+      final update = handler.handle(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'msg-1',
+            role: 'assistant',
+            content: [
+              const ToolUseContent(
+                id: 'tu-ask-bad',
+                name: 'AskUserQuestion',
+                input: {
+                  'questions': ['not a question map'],
+                },
+              ),
+            ],
+            model: 'test',
+          ),
+        ),
+        isBackground: false,
+      );
+
+      expect(update.askToolUseId, isNull);
+      expect(update.askInput, isNull);
+      expect(update.pendingToolUseId, 'tu-ask-bad');
+      expect(update.sideEffects, isNot(contains(ChatSideEffect.mediumHaptic)));
     });
 
     test('detects EnterPlanMode', () {
@@ -588,7 +619,11 @@ void main() {
                   const ToolUseContent(
                     id: 'tu-ask',
                     name: 'AskUserQuestion',
-                    input: {'questions': []},
+                    input: {
+                      'questions': [
+                        {'question': 'Which option?'},
+                      ],
+                    },
                   ),
                 ],
                 model: 'test',
@@ -600,6 +635,36 @@ void main() {
         ),
         isBackground: false,
       );
+      expect(update.askToolUseId, isNull);
+      expect(update.askInput, isNull);
+    });
+
+    test('does not restore malformed AskUserQuestion state from history', () {
+      final update = handler.handle(
+        HistoryMessage(
+          messages: [
+            AssistantServerMessage(
+              message: AssistantMessage(
+                id: 'msg-1',
+                role: 'assistant',
+                content: [
+                  const ToolUseContent(
+                    id: 'tu-ask',
+                    name: 'AskUserQuestion',
+                    input: {
+                      'questions': ['not a question map'],
+                    },
+                  ),
+                ],
+                model: 'test',
+              ),
+            ),
+            const StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+
       expect(update.askToolUseId, isNull);
       expect(update.askInput, isNull);
     });
