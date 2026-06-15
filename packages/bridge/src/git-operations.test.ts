@@ -19,7 +19,9 @@ import {
   gitCommit,
   getStagedDiff,
   listGitFiles,
+  listGitFilesLimited,
   listFileSystemFiles,
+  listProjectFilesAndDirectoriesForClient,
   listProjectFilesAndDirectories,
   listProjectFiles,
   listBranches,
@@ -628,6 +630,18 @@ describe("listGitFiles", () => {
 
     expect(files).toContain("docs/line\nbreak.md");
   });
+
+  it("can stop after the requested number of files", async () => {
+    writeFileSync(join(repo, "a.md"), "a\n");
+    writeFileSync(join(repo, "b.md"), "b\n");
+    writeFileSync(join(repo, "c.md"), "c\n");
+
+    const result = await listGitFilesLimited(repo, { maxFiles: 2 });
+
+    expect(result.files).toHaveLength(2);
+    expect(result.truncated).toBe(true);
+    expect(result.totalFiles).toBeUndefined();
+  });
 });
 
 describe("listFileSystemFiles", () => {
@@ -723,6 +737,22 @@ describe("listProjectFiles", () => {
 
     expect(files).toContain("tracked.md");
     expect(files).not.toContain("ignored.log");
+  });
+
+  it("limits client file lists after adding directory candidates", async () => {
+    project = createTempRepo();
+    mkdirSync(join(project, "src", "features"), { recursive: true });
+    writeFileSync(join(project, "src", "features", "a.ts"), "a\n");
+    writeFileSync(join(project, "src", "features", "b.ts"), "b\n");
+    writeFileSync(join(project, "src", "features", "c.ts"), "c\n");
+
+    const result = await listProjectFilesAndDirectoriesForClient(project, {
+      maxEntries: 3,
+      maxBytes: 0,
+    });
+
+    expect(result.files).toHaveLength(3);
+    expect(result.truncated).toBe(true);
   });
 });
 

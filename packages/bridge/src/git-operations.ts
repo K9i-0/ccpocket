@@ -1,7 +1,8 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { realpathSync, type Dir, type Dirent } from "node:fs";
 import { opendir } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 
 // ---- Types ----
 
@@ -47,6 +48,17 @@ export interface FileSystemFileListOptions {
   maxDepth?: number;
   maxFiles?: number;
   excludedDirs?: ReadonlySet<string> | readonly string[];
+}
+
+export interface ClientFileListOptions extends FileSystemFileListOptions {
+  maxEntries?: number;
+  maxBytes?: number;
+}
+
+export interface ClientFileListResult {
+  files: string[];
+  truncated: boolean;
+  totalFiles?: number;
 }
 
 export const DEFAULT_FILESYSTEM_FILE_LIST_MAX_DEPTH = 8;
@@ -264,6 +276,105 @@ export function listGitFiles(projectPath: string): string[] {
   return output.split("\0").filter(Boolean);
 }
 
+/** Return tracked and untracked Git files with an optional early-stop limit. */
+export function listGitFilesLimited(
+  projectPath: string,
+  options: { maxFiles?: number } = {},
+): Promise<ClientFileListResult> {
+  const cwd = resolveProject(projectPath);
+  const maxFiles = Math.max(0, options.maxFiles ?? 0);
+
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(
+      "git",
+      withGitPathConfig([
+        "ls-files",
+        "-z",
+        "--cached",
+        "--others",
+        "--exclude-standard",
+      ]),
+      { cwd, stdio: ["ignore", "pipe", "pipe"] },
+    );
+
+    const decoder = new StringDecoder("utf8");
+    const files: string[] = [];
+    const stderr: string[] = [];
+    let pending = "";
+    let truncated = false;
+    let settled = false;
+
+    const settle = (result: ClientFileListResult) => {
+      if (settled) return;
+      settled = true;
+      resolvePromise(result);
+    };
+
+    const fail = (err: unknown) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    };
+
+    const acceptFile = (file: string): boolean => {
+      if (!file) return true;
+      if (maxFiles > 0 && files.length >= maxFiles) {
+        truncated = true;
+        child.kill("SIGTERM");
+        return false;
+      }
+      files.push(file);
+      if (maxFiles > 0 && files.length >= maxFiles) {
+        truncated = true;
+        child.kill("SIGTERM");
+        return false;
+      }
+      return true;
+    };
+
+    const consume = (text: string) => {
+      pending += text;
+      const parts = pending.split("\0");
+      pending = parts.pop() ?? "";
+      for (const part of parts) {
+        if (!acceptFile(part)) return;
+      }
+    };
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      if (truncated) return;
+      consume(decoder.write(chunk));
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr.push(chunk.toString("utf8"));
+    });
+    child.on("error", fail);
+    child.on("close", (code, signal) => {
+      if (!truncated) {
+        const tail = decoder.end();
+        if (tail) consume(tail);
+        if (pending) acceptFile(pending);
+      }
+
+      if (code === 0 || truncated || signal === "SIGTERM") {
+        settle({
+          files,
+          truncated,
+          totalFiles: truncated ? undefined : files.length,
+        });
+        return;
+      }
+
+      fail(
+        new Error(
+          stderr.join("").trim() ||
+            `git ls-files failed with exit code ${code ?? signal}`,
+        ),
+      );
+    });
+  });
+}
+
 /** Return project files, using Git when available and filesystem fallback otherwise. */
 export async function listProjectFiles(
   projectPath: string,
@@ -279,12 +390,85 @@ export async function listProjectFiles(
   }
 }
 
+async function listProjectFilesLimited(
+  projectPath: string,
+  options: ClientFileListOptions = {},
+): Promise<ClientFileListResult> {
+  const maxFiles =
+    options.maxFiles ??
+    options.maxEntries ??
+    DEFAULT_FILESYSTEM_FILE_LIST_MAX_FILES;
+
+  try {
+    return await listGitFilesLimited(projectPath, { maxFiles });
+  } catch (err) {
+    if (!isGitFileListingUnavailable(err)) {
+      throw err;
+    }
+    const files = await listFileSystemFiles(projectPath, {
+      ...options,
+      maxFiles,
+    });
+    const reachedLimit = maxFiles > 0 && files.length >= maxFiles;
+    return {
+      files,
+      truncated: reachedLimit,
+      totalFiles: reachedLimit ? undefined : files.length,
+    };
+  }
+}
+
 /** Return project file paths plus directory mention candidates. */
 export async function listProjectFilesAndDirectories(
   projectPath: string,
   options: FileSystemFileListOptions = {},
 ): Promise<string[]> {
   return withDirectoryCandidates(await listProjectFiles(projectPath, options));
+}
+
+export async function listProjectFilesAndDirectoriesForClient(
+  projectPath: string,
+  options: ClientFileListOptions = {},
+): Promise<ClientFileListResult> {
+  const listed = await listProjectFilesLimited(projectPath, options);
+  const filesAndDirs = withDirectoryCandidates(listed.files);
+  const limited = limitClientFileList(filesAndDirs, options);
+  return {
+    files: limited.files,
+    truncated: listed.truncated || limited.truncated,
+    totalFiles: listed.truncated ? undefined : filesAndDirs.length,
+  };
+}
+
+function limitClientFileList(
+  files: readonly string[],
+  options: ClientFileListOptions,
+): ClientFileListResult {
+  const maxEntries = Math.max(0, options.maxEntries ?? 0);
+  const maxBytes = Math.max(0, options.maxBytes ?? 0);
+  if (maxEntries === 0 && maxBytes === 0) {
+    return { files: [...files], truncated: false, totalFiles: files.length };
+  }
+
+  const limited: string[] = [];
+  let bytes = 0;
+  for (const file of files) {
+    if (maxEntries > 0 && limited.length >= maxEntries) break;
+
+    const nextBytes = Buffer.byteLength(file, "utf8") + 1;
+    if (maxBytes > 0 && limited.length > 0 && bytes + nextBytes > maxBytes) {
+      break;
+    }
+
+    limited.push(file);
+    bytes += nextBytes;
+  }
+
+  return {
+    files: limited,
+    truncated: limited.length < files.length,
+    totalFiles: files.length,
+  };
 }
 
 export function withDirectoryCandidates(files: readonly string[]): string[] {

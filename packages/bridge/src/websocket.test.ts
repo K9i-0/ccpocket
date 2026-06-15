@@ -695,6 +695,47 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("limits file list payloads before sending them to clients", async () => {
+    const repo = mkdtempSync(resolve(tmpdir(), "ccpocket-file-list-"));
+    try {
+      execFileSync("git", ["init"], { cwd: repo });
+      mkdirSync(resolve(repo, "src"), { recursive: true });
+      writeFileSync(resolve(repo, "src", "a.ts"), "a\n");
+      writeFileSync(resolve(repo, "src", "b.ts"), "b\n");
+      writeFileSync(resolve(repo, "src", "c.ts"), "c\n");
+
+      const bridge = new BridgeWebSocketServer({ server: httpServer });
+      (bridge as any).fileListMaxEntries = 2;
+      (bridge as any).fileListMaxBytes = 0;
+      const ws = {
+        readyState: OPEN_STATE,
+        send: vi.fn(),
+      } as any;
+
+      await (bridge as any).handleClientMessage(
+        { type: "list_files", projectPath: repo },
+        ws,
+      );
+
+      for (let i = 0; i < 20 && ws.send.mock.calls.length === 0; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+
+      const message = ws.send.mock.calls
+        .map((call: unknown[]) => JSON.parse(call[0] as string))
+        .find((sent: any) => sent.type === "file_list");
+      expect(message).toMatchObject({
+        type: "file_list",
+        truncated: true,
+      });
+      expect(message.files).toHaveLength(2);
+
+      bridge.close();
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   it("rejects start when selected codex profile does not exist", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

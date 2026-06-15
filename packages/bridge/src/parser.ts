@@ -531,7 +531,12 @@ export type ServerMessage =
       mimeType?: string;
       sizeBytes?: number;
     }
-  | { type: "file_list"; files: string[] }
+  | {
+      type: "file_list";
+      files: string[];
+      totalFiles?: number;
+      truncated?: boolean;
+    }
   | { type: "project_history"; projects: string[] }
   | {
       type: "diff_result";

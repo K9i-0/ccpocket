@@ -72,7 +72,7 @@ import {
   unstageHunks,
   gitCommit,
   gitPush,
-  listProjectFilesAndDirectories,
+  listProjectFilesAndDirectoriesForClient,
   listBranches,
   createBranch,
   checkoutBranch,
@@ -512,6 +512,13 @@ function envFlagEnabled(name: string): boolean {
   return value === "1" || value === "true" || value === "yes" || value === "on";
 }
 
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) ? value : fallback;
+}
+
 function codexThreadToRecentSession(
   thread: CodexThreadSummary,
   indexed?: CodexSessionIndexMetadata,
@@ -582,6 +589,8 @@ export interface BridgeServerOptions {
 export class BridgeWebSocketServer {
   private static readonly MAX_DEBUG_EVENTS = 800;
   private static readonly MAX_HISTORY_SUMMARY_ITEMS = 300;
+  private static readonly DEFAULT_FILE_LIST_MAX_ENTRIES = 5000;
+  private static readonly DEFAULT_FILE_LIST_MAX_BYTES = 512 * 1024;
 
   private wss: WebSocketServer;
   private sessionManager: SessionManager;
@@ -625,6 +634,20 @@ export class BridgeWebSocketServer {
     "BRIDGE_FAIL_SET_PERMISSION_MODE",
   );
   private failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
+  private fileListMaxEntries = Math.max(
+    0,
+    envInt(
+      "BRIDGE_FILE_LIST_MAX_ENTRIES",
+      BridgeWebSocketServer.DEFAULT_FILE_LIST_MAX_ENTRIES,
+    ),
+  );
+  private fileListMaxBytes = Math.max(
+    0,
+    envInt(
+      "BRIDGE_FILE_LIST_MAX_BYTES",
+      BridgeWebSocketServer.DEFAULT_FILE_LIST_MAX_BYTES,
+    ),
+  );
   private platform: NodeJS.Platform;
   private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
 
@@ -4451,13 +4474,19 @@ export class BridgeWebSocketServer {
         }
         void (async () => {
           try {
-            const files = await listProjectFilesAndDirectories(
+            const result = await listProjectFilesAndDirectoriesForClient(
               msg.projectPath,
+              {
+                maxEntries: this.fileListMaxEntries,
+                maxBytes: this.fileListMaxBytes,
+              },
             );
-            this.send(ws, { type: "file_list", files } as Record<
-              string,
-              unknown
-            >);
+            this.send(ws, {
+              type: "file_list",
+              files: result.files,
+              totalFiles: result.totalFiles,
+              truncated: result.truncated,
+            } as Record<string, unknown>);
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.send(ws, {
