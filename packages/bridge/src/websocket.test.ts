@@ -977,6 +977,240 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("queues input addressed to a Claude session while resume history loads", async () => {
+    let resolveHistory!: (messages: unknown[]) => void;
+    getSessionHistoryMock.mockReturnValue(
+      new Promise<unknown[]>((resolve) => {
+        resolveHistory = resolve;
+      }),
+    );
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    void (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "claude-session-pending",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId: "claude-session-pending",
+        text: "hello while resuming",
+        clientMessageId: "cm-pending",
+      },
+      ws,
+    );
+    await (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId: "claude-session-pending",
+        text: "second queued input",
+        clientMessageId: "cm-pending-2",
+      },
+      ws,
+    );
+
+    expect((bridge as any).sessionManager.get("s-1")).toBeUndefined();
+    expect(ws.send).not.toHaveBeenCalledWith(
+      expect.stringContaining("No active session"),
+    );
+
+    resolveHistory([]);
+    await vi.waitFor(() => {
+      const session = (bridge as any).sessionManager.get("s-1");
+      expect(session.process.sendInput).toHaveBeenCalledWith(
+        "hello while resuming",
+      );
+    });
+    expect(
+      (bridge as any).sessionManager.get("s-1").process.sendInput.mock.calls,
+    ).toEqual([
+      ["hello while resuming"],
+      ["second queued input"],
+    ]);
+
+    const sends = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    const createdIndex = sends.findIndex(
+      (message: any) =>
+        message.type === "system" && message.subtype === "session_created",
+    );
+    const ackIndex = sends.findIndex(
+      (message: any) =>
+        message.type === "input_ack" &&
+        message.clientMessageId === "cm-pending",
+    );
+    expect(createdIndex).toBeGreaterThanOrEqual(0);
+    expect(ackIndex).toBeGreaterThan(createdIndex);
+    expect(sends[ackIndex]).toMatchObject({
+      sessionId: "s-1",
+      clientMessageId: "cm-pending",
+    });
+    expect(
+      sends.findIndex(
+        (message: any) =>
+          message.type === "input_ack" &&
+          message.clientMessageId === "cm-pending-2",
+      ),
+    ).toBeGreaterThan(ackIndex);
+
+    bridge.close();
+  });
+
+  it("prefers an existing bridge session id over a pending resume alias", async () => {
+    let resolveHistory!: (messages: unknown[]) => void;
+    getSessionHistoryMock.mockReturnValue(
+      new Promise<unknown[]>((resolve) => {
+        resolveHistory = resolve;
+      }),
+    );
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    await (bridge as any).handleClientMessage(
+      { type: "start", projectPath: "/tmp/existing", provider: "claude" },
+      ws,
+    );
+    void (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "s-1",
+        projectPath: "/tmp/resumed",
+        provider: "claude",
+      },
+      ws,
+    );
+    await (bridge as any).handleClientMessage(
+      { type: "input", sessionId: "s-1", text: "existing session input" },
+      ws,
+    );
+
+    const existing = (bridge as any).sessionManager.get("s-1");
+    expect(existing.process.sendInput).toHaveBeenCalledWith(
+      "existing session input",
+    );
+
+    resolveHistory([]);
+    await vi.waitFor(() => {
+      expect((bridge as any).sessionManager.get("s-2")).toBeDefined();
+    });
+    const resumed = (bridge as any).sessionManager.get("s-2");
+    expect(resumed.process.sendInput).not.toHaveBeenCalled();
+
+    bridge.close();
+  });
+
+  it("does not deliver queued resume input after the client disconnects", async () => {
+    let resolveHistory!: (messages: unknown[]) => void;
+    getSessionHistoryMock.mockReturnValue(
+      new Promise<unknown[]>((resolve) => {
+        resolveHistory = resolve;
+      }),
+    );
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    void (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "claude-session-disconnected",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId: "claude-session-disconnected",
+        text: "must not run after disconnect",
+        clientMessageId: "cm-disconnected",
+      },
+      ws,
+    );
+
+    (bridge as any).clearPendingClaudeResumeInputs(ws);
+    resolveHistory([]);
+    await vi.waitFor(() => {
+      expect((bridge as any).sessionManager.get("s-1")).toBeDefined();
+    });
+    expect(
+      (bridge as any).sessionManager.get("s-1").process.sendInput,
+    ).not.toHaveBeenCalled();
+
+    bridge.close();
+  });
+
+  it("rejects queued input and clears it when Claude resume fails", async () => {
+    let rejectHistory!: (error: Error) => void;
+    getSessionHistoryMock.mockReturnValue(
+      new Promise<unknown[]>((_, reject) => {
+        rejectHistory = reject;
+      }),
+    );
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    void (bridge as any).handleClientMessage(
+      {
+        type: "resume_session",
+        sessionId: "claude-session-failed",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId: "claude-session-failed",
+        text: "input that cannot be delivered",
+        clientMessageId: "cm-failed",
+      },
+      ws,
+    );
+
+    rejectHistory(new Error("history unavailable"));
+    await vi.waitFor(() => {
+      const sends = ws.send.mock.calls.map((call: unknown[]) =>
+        JSON.parse(call[0] as string),
+      );
+      expect(sends).toContainEqual(
+        expect.objectContaining({
+          type: "input_rejected",
+          sessionId: "claude-session-failed",
+          clientMessageId: "cm-failed",
+          reason: "Session resume failed",
+        }),
+      );
+    });
+    expect(
+      (bridge as any).pendingClaudeResumeInputs
+        .get(ws)
+        ?.has("claude-session-failed"),
+    ).toBe(false);
+
+    bridge.close();
+  });
+
   it("serves get_history_delta with sequenced messages", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {

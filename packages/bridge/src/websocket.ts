@@ -101,6 +101,7 @@ import {
 } from "./path-utils.js";
 
 type SystemServerMessage = Extract<ServerMessage, { type: "system" }>;
+type InputClientMessage = Extract<ClientMessage, { type: "input" }>;
 type ClaudePermissionMode =
   | "default"
   | "auto"
@@ -627,6 +628,10 @@ export class BridgeWebSocketServer {
   private failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
   private platform: NodeJS.Platform;
   private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
+  private pendingClaudeResumeInputs = new WeakMap<
+    WebSocket,
+    Map<string, InputClientMessage[]>
+  >();
 
   constructor(options: BridgeServerOptions) {
     const {
@@ -1903,6 +1908,7 @@ export class BridgeWebSocketServer {
 
     ws.on("close", () => {
       console.log("[ws] Client disconnected");
+      this.clearPendingClaudeResumeInputs(ws);
     });
 
     ws.on("error", (err) => {
@@ -2205,6 +2211,13 @@ export class BridgeWebSocketServer {
       case "input": {
         const session = this.resolveSession(msg.sessionId);
         if (!session) {
+          const pendingInputs = msg.sessionId
+            ? this.pendingClaudeResumeInputs.get(ws)?.get(msg.sessionId)
+            : undefined;
+          if (pendingInputs) {
+            pendingInputs.push(msg);
+            return;
+          }
           this.send(ws, {
             type: "error",
             message: "No active session. Send 'start' first.",
@@ -4090,6 +4103,19 @@ export class BridgeWebSocketServer {
 
         const claudeSessionId = sessionRefId;
         const cached = this.sessionManager.getCachedCommands(resumeProjectPath);
+        let pendingResumes = this.pendingClaudeResumeInputs.get(ws);
+        if (!pendingResumes) {
+          pendingResumes = new Map();
+          this.pendingClaudeResumeInputs.set(ws, pendingResumes);
+        }
+        if (pendingResumes.has(claudeSessionId)) {
+          this.send(ws, {
+            type: "error",
+            message: `Session resume already in progress: ${claudeSessionId}`,
+          });
+          break;
+        }
+        pendingResumes.set(claudeSessionId, []);
 
         // Look up worktree mapping for this Claude session
         const wtMapping = this.worktreeStore.get(claudeSessionId);
@@ -4144,12 +4170,7 @@ export class BridgeWebSocketServer {
               worktreeOptions: worktreeOpts,
             });
             const createdSession = this.sessionManager.get(sessionId);
-            void this.loadAndSetSessionName(
-              createdSession,
-              "claude",
-              resumeProjectPath,
-              claudeSessionId,
-            ).then(() => {
+            const finishResume = () => {
               this.send(ws, {
                 ...this.buildSessionCreatedMessage({
                   sessionId,
@@ -4180,6 +4201,11 @@ export class BridgeWebSocketServer {
                 }),
                 claudeSessionId,
               });
+              const queuedInputs = pendingResumes.get(claudeSessionId) ?? [];
+              pendingResumes.delete(claudeSessionId);
+              for (const input of queuedInputs) {
+                void this.handleClientMessage({ ...input, sessionId }, ws);
+              }
               this.broadcastSessionList();
               if (autoFallbackUsed) {
                 this.sendTip(
@@ -4189,6 +4215,15 @@ export class BridgeWebSocketServer {
                   createdSession,
                 );
               }
+            };
+            void this.loadAndSetSessionName(
+              createdSession,
+              "claude",
+              resumeProjectPath,
+              claudeSessionId,
+            ).then(finishResume, (err) => {
+              console.error("[ws] Failed to load resumed session name:", err);
+              finishResume();
             });
             this.debugEvents.set(sessionId, []);
             this.recordDebugEvent(sessionId, {
@@ -4200,6 +4235,18 @@ export class BridgeWebSocketServer {
             this.projectHistory?.addProject(resumeProjectPath);
           })
           .catch((err) => {
+            const queuedInputs = pendingResumes.get(claudeSessionId) ?? [];
+            pendingResumes.delete(claudeSessionId);
+            for (const input of queuedInputs) {
+              if (input.clientMessageId) {
+                this.send(ws, {
+                  type: "input_rejected",
+                  sessionId: claudeSessionId,
+                  clientMessageId: input.clientMessageId,
+                  reason: "Session resume failed",
+                });
+              }
+            }
             this.send(ws, {
               type: "error",
               message: `Failed to load session history: ${err}`,
@@ -5573,6 +5620,11 @@ export class BridgeWebSocketServer {
         break;
       }
     }
+  }
+
+  private clearPendingClaudeResumeInputs(ws: WebSocket): void {
+    this.pendingClaudeResumeInputs.get(ws)?.clear();
+    this.pendingClaudeResumeInputs.delete(ws);
   }
 
   /**
