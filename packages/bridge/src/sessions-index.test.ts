@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -1946,6 +1953,108 @@ describe("codex sessions integration", () => {
     const history = await getCodexSessionHistory(requestedThreadId);
     expect(history).toHaveLength(1);
     expect(history[0].content[0].text).toBe("correct session");
+  });
+
+  it("indexes Claude user images by uuid", async () => {
+    const sessionId = "claude-image-index";
+    const claudeDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
+      join(claudeDir, `${sessionId}.jsonl`),
+      [
+        JSON.stringify({
+          type: "user",
+          uuid: "uuid-text",
+          message: { role: "user", content: "text only" },
+        }),
+        JSON.stringify({
+          type: "user",
+          uuid: "uuid-image",
+          message: {
+            role: "user",
+            content: [
+              { type: "text", text: "look" },
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: "image/png",
+                  data: "aW1hZ2U=",
+                },
+              },
+            ],
+          },
+        }),
+        JSON.stringify({
+          type: "user",
+          uuid: "uuid-malformed-image",
+          message: {
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: "image/png",
+                  data: { unexpected: true },
+                },
+              },
+            ],
+          },
+        }),
+      ].join("\n"),
+    );
+
+    await expect(extractMessageImages(sessionId, "uuid-image")).resolves.toEqual([
+      { base64: "aW1hZ2U=", mimeType: "image/png" },
+    ]);
+    await expect(extractMessageImages(sessionId, "uuid-text")).resolves.toEqual(
+      [],
+    );
+    await expect(
+      extractMessageImages(sessionId, "uuid-malformed-image"),
+    ).resolves.toEqual([]);
+  });
+
+  it("reuses a fresh Claude image index and invalidates it on file changes", async () => {
+    const sessionId = "claude-image-cache-reuse";
+    const claudeDir = join(tempHome, ".claude", "projects", "-tmp-project-a");
+    mkdirSync(claudeDir, { recursive: true });
+    const jsonlPath = join(claudeDir, `${sessionId}.jsonl`);
+    const entry = (data: string) =>
+      JSON.stringify({
+        type: "user",
+        uuid: "uuid-image",
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: "image/png", data },
+            },
+          ],
+        },
+      });
+    const fixedTime = new Date(1_700_000_000_000);
+    writeFileSync(jsonlPath, entry("AAAA"));
+    utimesSync(jsonlPath, fixedTime, fixedTime);
+
+    await expect(extractMessageImages(sessionId, "uuid-image")).resolves.toEqual([
+      { base64: "AAAA", mimeType: "image/png" },
+    ]);
+
+    const originalStat = statSync(jsonlPath);
+    writeFileSync(jsonlPath, entry("BBBB"));
+    utimesSync(jsonlPath, fixedTime, fixedTime);
+    expect(statSync(jsonlPath).mtimeMs).toBe(originalStat.mtimeMs);
+    await expect(extractMessageImages(sessionId, "uuid-image")).resolves.toEqual([
+      { base64: "AAAA", mimeType: "image/png" },
+    ]);
+
+    writeFileSync(jsonlPath, entry("CCCCCC"));
+    await expect(extractMessageImages(sessionId, "uuid-image")).resolves.toEqual([
+      { base64: "CCCCCC", mimeType: "image/png" },
+    ]);
   });
 });
 
