@@ -4147,7 +4147,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
-  it("claude input uses enqueue result for queued ack and interrupt", async () => {
+  it("claude input uses dispatch result for queued ack and interrupt", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
       readyState: OPEN_STATE,
@@ -4170,9 +4170,13 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sessionId = created.sessionId as string;
     const session = (bridge as any).sessionManager.get(sessionId);
 
-    // Simulate race: snapshot says idle, but SDK queues the input.
+    // Simulate race: snapshot says idle, but the SDK atomically decides to
+    // queue and interrupt based on its current state.
     session.process.isWaitingForInput = true;
-    session.process.sendInput.mockReturnValue(true);
+    session.process.dispatchInput = vi.fn(() => ({
+      queued: true,
+      shouldInterrupt: true,
+    }));
 
     ws.send.mockClear();
     (bridge as any).handleClientMessage(
@@ -4192,7 +4196,59 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       sessionId,
       queued: true,
     });
+    expect(session.process.dispatchInput).toHaveBeenCalledWith("race queued");
     expect(session.process.interrupt).toHaveBeenCalledTimes(1);
+
+    bridge.close();
+  });
+
+  it("does not interrupt queued Claude input while approval is pending", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = {
+      readyState: OPEN_STATE,
+      send: vi.fn(),
+    } as any;
+
+    (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "claude",
+      },
+      ws,
+    );
+    await Promise.resolve();
+
+    const created = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "system" && m.subtype === "session_created");
+    const sessionId = created.sessionId as string;
+    const session = (bridge as any).sessionManager.get(sessionId);
+    session.process.dispatchInput = vi.fn(() => ({
+      queued: true,
+      shouldInterrupt: false,
+    }));
+
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "input",
+        sessionId,
+        text: "after approval",
+      },
+      ws,
+    );
+
+    const inputAck = ws.send.mock.calls
+      .map((c: unknown[]) => JSON.parse(c[0] as string))
+      .find((m: any) => m.type === "input_ack");
+    expect(inputAck).toMatchObject({
+      type: "input_ack",
+      sessionId,
+      queued: true,
+    });
+    expect(session.process.dispatchInput).toHaveBeenCalledWith("after approval");
+    expect(session.process.interrupt).not.toHaveBeenCalled();
 
     bridge.close();
   });

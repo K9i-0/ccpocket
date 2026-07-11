@@ -739,3 +739,67 @@ describe("SdkProcess.approveAlways", () => {
     expect(proc.permissionMode).toBe("acceptEdits");
   });
 });
+
+describe("SdkProcess input dispatch", () => {
+  it("queues and requests interrupt while a turn is running", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = resolve;
+
+    expect(proc.dispatchInput("follow up")).toEqual({
+      queued: true,
+      shouldInterrupt: true,
+    });
+    expect(resolve).not.toHaveBeenCalled();
+    expect(proc.hasInputQueue).toBe(true);
+  });
+
+  it("queues without interrupting while approval is pending", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "waiting_approval";
+    internal.userMessageResolve = resolve;
+
+    expect(proc.dispatchInput("after approval")).toEqual({
+      queued: true,
+      shouldInterrupt: false,
+    });
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it.each(["starting", "idle"])(
+    "delivers directly through the ready resolver while %s",
+    (status) => {
+      const proc = new SdkProcess();
+      const resolve = vi.fn();
+      const internal = proc as any;
+      internal._status = status;
+      internal.userMessageResolve = resolve;
+
+      expect(proc.dispatchInput("first input")).toEqual({
+        queued: false,
+        shouldInterrupt: false,
+      });
+      expect(resolve).toHaveBeenCalledTimes(1);
+      expect(proc.hasInputQueue).toBe(false);
+    },
+  );
+
+  it("applies the running policy to image input", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "running";
+    internal.userMessageResolve = resolve;
+
+    expect(
+      proc.dispatchInputWithImages("inspect", [
+        { base64: "aW1hZ2U=", mimeType: "image/png" },
+      ]),
+    ).toEqual({ queued: true, shouldInterrupt: true });
+    expect(resolve).not.toHaveBeenCalled();
+  });
+});
