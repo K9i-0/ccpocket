@@ -2360,4 +2360,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get exitPlanModeNotificationBody => '작성된 계획을 확인해야 합니다';
+
+  @override
+  String get renderErrorFallback => '이 콘텐츠를 표시할 수 없습니다.';
 }

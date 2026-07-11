@@ -4415,6 +4415,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'作成したプランの確認が必要です'**
   String get exitPlanModeNotificationBody;
+
+  /// No description provided for @renderErrorFallback.
+  ///
+  /// In ja, this message translates to:
+  /// **'このコンテンツを表示できませんでした'**
+  String get renderErrorFallback;
 }
 
 class _AppLocalizationsDelegate

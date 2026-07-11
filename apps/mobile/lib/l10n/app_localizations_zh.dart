@@ -2310,4 +2310,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get exitPlanModeNotificationBody => '生成的计划需要你确认';
+
+  @override
+  String get renderErrorFallback => '无法显示此内容。';
 }

@@ -957,5 +957,6 @@
   "googleSearchSelectionAction": "Google 검색",
   "approvalQuestionNotificationTitle": "질문이 있습니다 - ccpocket",
   "approvalRequiredNotificationTitle": "승인 대기 중 - ccpocket",
-  "exitPlanModeNotificationBody": "작성된 계획을 확인해야 합니다"
+  "exitPlanModeNotificationBody": "작성된 계획을 확인해야 합니다",
+  "renderErrorFallback": "이 콘텐츠를 표시할 수 없습니다."
 }

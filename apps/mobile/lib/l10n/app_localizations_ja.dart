@@ -2336,4 +2336,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get exitPlanModeNotificationBody => '作成したプランの確認が必要です';
+
+  @override
+  String get renderErrorFallback => 'このコンテンツを表示できませんでした';
 }
