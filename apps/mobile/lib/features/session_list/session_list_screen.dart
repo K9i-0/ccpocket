@@ -2022,6 +2022,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               onApprovePermission:
                   (sessionId, toolUseId, {bool clearContext = false}) {
                     final bridge = context.read<BridgeService>();
+                    bridge.markToolUseResponded(sessionId, toolUseId);
                     bridge.send(
                       ClientMessage.approve(
                         toolUseId,
@@ -2033,6 +2034,7 @@ class _SessionListScreenState extends State<SessionListScreen>
                   },
               onApproveAlways: (sessionId, toolUseId) {
                 final bridge = context.read<BridgeService>();
+                bridge.markToolUseResponded(sessionId, toolUseId);
                 bridge.send(
                   ClientMessage.approveAlways(toolUseId, sessionId: sessionId),
                 );
@@ -2040,6 +2042,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               },
               onRejectPermission: (sessionId, toolUseId, {message}) {
                 final bridge = context.read<BridgeService>();
+                bridge.markToolUseResponded(sessionId, toolUseId);
                 bridge.send(
                   ClientMessage.reject(
                     toolUseId,
@@ -2051,6 +2054,7 @@ class _SessionListScreenState extends State<SessionListScreen>
               },
               onAnswerQuestion: (sessionId, toolUseId, result) {
                 final bridge = context.read<BridgeService>();
+                bridge.markToolUseResponded(sessionId, toolUseId);
                 bridge.send(
                   ClientMessage.answer(toolUseId, result, sessionId: sessionId),
                 );

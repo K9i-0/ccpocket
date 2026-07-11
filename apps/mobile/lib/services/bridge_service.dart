@@ -118,6 +118,7 @@ class BridgeService implements BridgeServiceBase {
   final Set<String> _visibleInFlightPendingKeys = {};
   final Map<String, _DeliveryPendingInputState> _deliveryPendingInputs = {};
   final Map<String, Timer> _deliveryPendingVisibilityTimers = {};
+  final Map<String, Set<String>> _respondedToolUseIds = {};
   List<OfflinePendingAction> _offlinePendingActions = const [];
 
   // Diff image cache: survives screen navigation, cleared on session stop.
@@ -668,6 +669,7 @@ class BridgeService implements BridgeServiceBase {
     _promptHistoryBridgeId = null;
     _lastUsageResult = null;
     _pendingHistoryDeltaSinceSeq.clear();
+    _respondedToolUseIds.clear();
     _deliveryPendingInputs.clear();
     for (final timer in _deliveryPendingVisibilityTimers.values) {
       timer.cancel();
@@ -1616,6 +1618,15 @@ class BridgeService implements BridgeServiceBase {
     return _runtimeStore.messages(sessionId);
   }
 
+  Set<String> respondedToolUseIds(String sessionId) =>
+      Set.unmodifiable(_respondedToolUseIds[sessionId] ?? const {});
+
+  void markToolUseResponded(String sessionId, String toolUseId) {
+    final ids = _respondedToolUseIds.putIfAbsent(sessionId, () => <String>{});
+    ids.add(toolUseId);
+    if (ids.length > 512) ids.remove(ids.first);
+  }
+
   @override
   int cachedSessionHistorySeq(String sessionId) {
     return _runtimeStore.cachedHistorySeq(sessionId);
@@ -1653,6 +1664,7 @@ class BridgeService implements BridgeServiceBase {
 
   void clearExplorerHistory(String sessionId) {
     _runtimeStore.clearSession(sessionId);
+    _respondedToolUseIds.remove(sessionId);
   }
 
   /// Rename a session. For running sessions, [sessionId] is the bridge id.

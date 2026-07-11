@@ -40,10 +40,17 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// can preserve them while replacing in-memory history entries.
   int _pastEntryCount = 0;
 
-  /// Tool use IDs that have been approved or rejected locally.
-  /// Cleared when corresponding [ToolResultMessage] arrives or session
-  /// completes ([ResultMessage]).
+  /// Tool use IDs that have already been answered locally.
+  static const _maxRespondedToolUseIds = 512;
   final _respondedToolUseIds = <String>{};
+
+  void _markToolUseResponded(String toolUseId) {
+    _bridge.markToolUseResponded(sessionId, toolUseId);
+    _respondedToolUseIds.add(toolUseId);
+    if (_respondedToolUseIds.length > _maxRespondedToolUseIds) {
+      _respondedToolUseIds.remove(_respondedToolUseIds.first);
+    }
+  }
 
   PermissionMode? _pendingPermissionRollback;
   ExecutionMode? _pendingExecutionRollback;
@@ -148,6 +155,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
            projectPath: initialProjectPath,
          ),
        ) {
+    _respondedToolUseIds.addAll(_bridge.respondedToolUseIds(sessionId));
     // Subscribe to messages for this session
     _subscription = _bridge.messagesForSession(sessionId).listen(_onMessage);
 
@@ -185,6 +193,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         history,
         isBackground: true,
         isCodex: isCodex,
+        ignoredToolUseIds: _respondedToolUseIds,
       );
       _applyUpdate(update, history);
     } catch (e, st) {
@@ -231,7 +240,12 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
 
     try {
-      final update = _handler.handle(msg, isBackground: true, isCodex: isCodex);
+      final update = _handler.handle(
+        msg,
+        isBackground: true,
+        isCodex: isCodex,
+        ignoredToolUseIds: _respondedToolUseIds,
+      );
       _applyUpdate(update, msg);
     } catch (e, st) {
       logger.error(
@@ -475,14 +489,6 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       didModifyEntries = result.didChange;
     }
 
-    // --- Cleanup responded tool use IDs ---
-    if (originalMsg is ToolResultMessage) {
-      _respondedToolUseIds.remove(originalMsg.toolUseId);
-    }
-    if (originalMsg is ResultMessage) {
-      _respondedToolUseIds.clear();
-    }
-
     // --- Build new approval state ---
     ApprovalState approval = current.approval;
     if (update.resetPending && update.resetAsk) {
@@ -498,16 +504,22 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     }
 
     if (update.pendingPermission != null) {
-      approval = ApprovalState.permission(
-        toolUseId: update.pendingToolUseId!,
-        request: update.pendingPermission!,
-      );
+      final toolUseId = update.pendingToolUseId;
+      if (toolUseId != null && !_respondedToolUseIds.contains(toolUseId)) {
+        approval = ApprovalState.permission(
+          toolUseId: toolUseId,
+          request: update.pendingPermission!,
+        );
+      }
     }
     if (update.askToolUseId != null) {
-      approval = ApprovalState.askUser(
-        toolUseId: update.askToolUseId!,
-        input: update.askInput ?? {},
-      );
+      final toolUseId = update.askToolUseId!;
+      if (!_respondedToolUseIds.contains(toolUseId)) {
+        approval = ApprovalState.askUser(
+          toolUseId: toolUseId,
+          input: update.askInput ?? {},
+        );
+      }
     }
 
     // Stop status refresh timer when status changes from starting
@@ -1255,7 +1267,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       '[session:$sessionId] approve toolUseId=$toolUseId'
       '${clearContext ? ' clearContext' : ''}',
     );
-    _respondedToolUseIds.add(toolUseId);
+    _markToolUseResponded(toolUseId);
     _bridge.send(
       ClientMessage.approve(
         toolUseId,
@@ -1272,7 +1284,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   /// Approve a tool and always allow it in the future.
   void approveAlways(String toolUseId) {
     final isExitPlanApproval = _isExitPlanApproval(toolUseId);
-    _respondedToolUseIds.add(toolUseId);
+    _markToolUseResponded(toolUseId);
     _bridge.send(ClientMessage.approveAlways(toolUseId, sessionId: sessionId));
     _emitNextApprovalOrNone(
       toolUseId,
@@ -1370,7 +1382,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       '[session:$sessionId] reject toolUseId=$toolUseId'
       '${message != null ? ' msg=$message' : ''}',
     );
-    _respondedToolUseIds.add(toolUseId);
+    _markToolUseResponded(toolUseId);
     _bridge.send(
       ClientMessage.reject(toolUseId, message: message, sessionId: sessionId),
     );
@@ -1381,6 +1393,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
   /// Answer an AskUserQuestion.
   void answer(String toolUseId, String result) {
+    _markToolUseResponded(toolUseId);
     _bridge.send(ClientMessage.answer(toolUseId, result, sessionId: sessionId));
     emit(state.copyWith(approval: const ApprovalState.none()));
   }
