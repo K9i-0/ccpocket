@@ -230,22 +230,49 @@ CodexPermissionsMode codexPermissionsModeFromSettings({
 }) {
   final explicit = codexPermissionsModeFromRaw(codexPermissionsMode);
   if (explicit != null) return explicit;
+  if (codexPermissionsMode != null && codexPermissionsMode.isNotEmpty) {
+    return CodexPermissionsMode.custom;
+  }
   final normalizedSandbox = switch (sandboxMode) {
-    'danger-full-access' || 'off' => SandboxMode.off,
-    'workspace-write' || 'read-only' || 'on' => SandboxMode.on,
+    'danger-full-access' || 'off' => 'danger-full-access',
+    'workspace-write' || 'on' => 'workspace-write',
+    'read-only' => 'read-only',
     _ => null,
   };
   if (approvalPolicy == CodexApprovalPolicy.never.value &&
-      (normalizedSandbox == null || normalizedSandbox == SandboxMode.off)) {
+      normalizedSandbox == 'danger-full-access') {
     return CodexPermissionsMode.fullAccess;
   }
   if (approvalPolicy == CodexApprovalPolicy.onRequest.value &&
-      (normalizedSandbox == null || normalizedSandbox == SandboxMode.on)) {
-    return isCodexAutoReviewApprovalsReviewer(approvalsReviewer)
-        ? CodexPermissionsMode.autoReview
-        : CodexPermissionsMode.defaultPermissions;
+      normalizedSandbox == 'workspace-write') {
+    if (isCodexAutoReviewApprovalsReviewer(approvalsReviewer)) {
+      return CodexPermissionsMode.autoReview;
+    }
+    if (approvalsReviewer == null || approvalsReviewer == 'user') {
+      return CodexPermissionsMode.defaultPermissions;
+    }
   }
   return CodexPermissionsMode.custom;
+}
+
+String? _resolveCodexPermissionsMode(Map<String, dynamic>? codexSettings) {
+  if (codexSettings == null) return null;
+  final explicit = codexPermissionsModeFromRaw(
+    codexSettings['codexPermissionsMode'] as String?,
+  );
+  if (explicit != null) return explicit.value;
+  if (codexSettings['codexPermissionsMode'] != null) {
+    return CodexPermissionsMode.custom.value;
+  }
+  if (codexSettings['approvalPolicy'] == null ||
+      codexSettings['sandboxMode'] == null) {
+    return null;
+  }
+  return codexPermissionsModeFromSettings(
+    approvalPolicy: codexSettings['approvalPolicy'] as String?,
+    approvalsReviewer: codexSettings['approvalsReviewer'] as String?,
+    sandboxMode: codexSettings['sandboxMode'] as String?,
+  ).value;
 }
 
 CodexApprovalPolicy? approvalPolicyForCodexPermissionsMode(
@@ -3187,7 +3214,7 @@ class RecentSession {
         executionMode: json['executionMode'] as String?,
       ),
       codexApprovalsReviewer: codexSettings?['approvalsReviewer'] as String?,
-      codexPermissionsMode: codexSettings?['codexPermissionsMode'] as String?,
+      codexPermissionsMode: _resolveCodexPermissionsMode(codexSettings),
       executionMode:
           json['executionMode'] as String? ??
           deriveExecutionMode(
@@ -3482,7 +3509,7 @@ class SessionInfo {
         executionMode: json['executionMode'] as String?,
       ),
       codexApprovalsReviewer: codexSettings?['approvalsReviewer'] as String?,
-      codexPermissionsMode: codexSettings?['codexPermissionsMode'] as String?,
+      codexPermissionsMode: _resolveCodexPermissionsMode(codexSettings),
       codexSandboxMode: codexSettings?['sandboxMode'] as String?,
       codexModel: sanitizeCodexModelName(codexSettings?['model'] as String?),
       codexProfile: codexSettings?['profile'] as String?,

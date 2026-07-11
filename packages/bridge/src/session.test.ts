@@ -147,6 +147,38 @@ describe("SessionManager codex path", () => {
 
     const session = manager.get(sessionId);
     expect(session?.provider).toBe("codex");
+    expect(manager.list()[0].codexSettings?.codexPermissionsMode).toBe(
+      "default",
+    );
+  });
+
+  it("re-derives permissions after incremental runtime settings", () => {
+    const manager = new SessionManager(() => {});
+    const sessionId = manager.create(
+      "/tmp/project-codex-permissions",
+      undefined,
+      undefined,
+      undefined,
+      "codex",
+      {
+        codexPermissionsMode: "default",
+        approvalPolicy: "on-request",
+        sandboxMode: "workspace-write",
+      },
+    );
+
+    codexInstances[0].emit("message", {
+      type: "system",
+      subtype: "init",
+      approvalPolicy: "on-request",
+      sandboxMode: "read-only",
+    });
+
+    expect(manager.get(sessionId)?.codexSettings?.codexPermissionsMode)
+      .toBeUndefined();
+    expect(manager.list()[0].codexSettings?.codexPermissionsMode).toBe(
+      "custom",
+    );
   });
 
   it("caches codex plugin completion metadata", () => {

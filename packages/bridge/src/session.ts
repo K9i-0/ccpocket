@@ -27,6 +27,7 @@ import type {
 } from "./parser.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
+import { withDerivedCodexPermissionsMode } from "./codex-permissions.js";
 import { createWorktree, worktreeExists } from "./worktree.js";
 import type { WorktreeStore } from "./worktree-store.js";
 import {
@@ -173,8 +174,16 @@ function mergeCodexSettings(
   msg: Extract<ServerMessage, { type: "system" }>,
 ): SessionInfo["codexSettings"] {
   const model = sanitizeCodexModel(msg.model);
+  const hasRuntimePermissionUpdate =
+    msg.approvalPolicy !== undefined ||
+    msg.approvalsReviewer !== undefined ||
+    msg.sandboxMode !== undefined;
+  const currentSettings = { ...(current ?? {}) };
+  if (hasRuntimePermissionUpdate && msg.codexPermissionsMode === undefined) {
+    delete currentSettings.codexPermissionsMode;
+  }
   const next = {
-    ...(current ?? {}),
+    ...currentSettings,
     ...(msg.approvalPolicy !== undefined
       ? { approvalPolicy: msg.approvalPolicy }
       : {}),
@@ -723,6 +732,14 @@ export class SessionManager {
 
   list(): SessionSummary[] {
     return Array.from(this.sessions.values()).map((s) => {
+      const codexSettings = s.process instanceof CodexProcess
+        ? withDerivedCodexPermissionsMode(
+            s.codexSettings ??
+              (s.process.codexPermissionsMode
+                ? { codexPermissionsMode: s.process.codexPermissionsMode }
+                : undefined),
+          )
+        : s.codexSettings;
       const processWithPending = s.process as {
         getPendingPermission?: () =>
           | {
@@ -744,7 +761,7 @@ export class SessionManager {
               ? "acceptEdits"
               : "default"
           : s.process instanceof CodexProcess
-            ? (s.codexSettings?.approvalPolicy ?? s.process.approvalPolicy) ===
+            ? (codexSettings?.approvalPolicy ?? s.process.approvalPolicy) ===
               "never"
               ? "fullAccess"
               : "default"
@@ -774,7 +791,7 @@ export class SessionManager {
             : s.process instanceof CodexProcess
               ? s.process.collaborationMode === "plan"
                 ? "plan"
-                : (s.codexSettings?.approvalPolicy ??
+                : (codexSettings?.approvalPolicy ??
                     s.process.approvalPolicy) === "never"
                   ? "bypassPermissions"
                   : "acceptEdits"
@@ -782,7 +799,7 @@ export class SessionManager {
         executionMode,
         planMode,
         model: s.process instanceof SdkProcess ? s.process.model : undefined,
-        codexSettings: s.codexSettings,
+        codexSettings,
         agentNickname:
           s.process instanceof CodexProcess
             ? (s.process.agentNickname ?? undefined)

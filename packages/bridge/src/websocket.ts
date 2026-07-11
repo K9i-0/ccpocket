@@ -99,6 +99,11 @@ import {
   resolvePlatformPath,
   resolvePlatformPathFrom,
 } from "./path-utils.js";
+import {
+  deriveCodexPermissionsMode,
+  normalizeCodexPermissionsMode,
+  withDerivedCodexPermissionsMode,
+} from "./codex-permissions.js";
 
 type SystemServerMessage = Extract<ServerMessage, { type: "system" }>;
 type InputClientMessage = Extract<ClientMessage, { type: "input" }>;
@@ -335,20 +340,6 @@ interface CodexPermissionSettings {
   sandboxMode?: CodexStartOptions["sandboxMode"];
 }
 
-function normalizeCodexPermissionsMode(
-  value?: string,
-): CodexPermissionsMode | undefined {
-  switch (value) {
-    case "default":
-    case "autoReview":
-    case "fullAccess":
-    case "custom":
-      return value;
-    default:
-      return undefined;
-  }
-}
-
 function sanitizeCodexModel(model: unknown): string | undefined {
   if (typeof model !== "string") return undefined;
   const normalized = model.trim();
@@ -384,26 +375,6 @@ function codexSettingsFromPermissionsMode(
     case "custom":
       return { codexPermissionsMode: mode };
   }
-}
-
-function inferCodexPermissionsMode(params: {
-  approvalPolicy?: string;
-  approvalsReviewer?: string;
-  sandboxMode?: string;
-}): CodexPermissionsMode | undefined {
-  const approvalPolicy = params.approvalPolicy;
-  const approvalsReviewer = params.approvalsReviewer ?? "user";
-  const sandboxMode = params.sandboxMode;
-  if (approvalPolicy === "never" && sandboxMode === "danger-full-access") {
-    return "fullAccess";
-  }
-  if (approvalPolicy === "on-request" && sandboxMode === "workspace-write") {
-    return approvalsReviewer === "auto_review" ||
-      approvalsReviewer === "guardian_subagent"
-      ? "autoReview"
-      : "default";
-  }
-  return undefined;
 }
 
 function errorMessageOf(err: unknown): string {
@@ -806,6 +777,9 @@ export class BridgeWebSocketServer {
       pluginMetadata,
       sourceSessionId,
     } = params;
+    const derivedCodexSettings = provider === "codex"
+      ? withDerivedCodexPermissionsMode(session?.codexSettings)
+      : session?.codexSettings;
 
     const msg: SystemServerMessage = {
       type: "system",
@@ -823,16 +797,16 @@ export class BridgeWebSocketServer {
               | "plan",
           }
         : {}),
-      ...((approvalsReviewer ?? session?.codexSettings?.approvalsReviewer)
+      ...((approvalsReviewer ?? derivedCodexSettings?.approvalsReviewer)
         ? {
             approvalsReviewer:
-              approvalsReviewer ?? session?.codexSettings?.approvalsReviewer,
+              approvalsReviewer ?? derivedCodexSettings?.approvalsReviewer,
           }
         : {}),
-      ...((codexPermissionsMode ?? session?.codexSettings?.codexPermissionsMode)
+      ...((codexPermissionsMode ?? derivedCodexSettings?.codexPermissionsMode)
         ? {
             codexPermissionsMode: (codexPermissionsMode ??
-              session?.codexSettings?.codexPermissionsMode) as
+              derivedCodexSettings?.codexPermissionsMode) as
               | "default"
               | "autoReview"
               | "fullAccess"
@@ -914,32 +888,32 @@ export class BridgeWebSocketServer {
       ...(sourceSessionId ? { sourceSessionId } : {}),
     };
 
-    if (provider === "codex" && session?.codexSettings) {
-      if (session.codexSettings.model !== undefined) {
-        msg.model = session.codexSettings.model;
+    if (provider === "codex" && derivedCodexSettings) {
+      if (derivedCodexSettings.model !== undefined) {
+        msg.model = derivedCodexSettings.model;
       }
-      if (session.codexSettings.approvalPolicy !== undefined) {
-        msg.approvalPolicy = session.codexSettings.approvalPolicy;
+      if (derivedCodexSettings.approvalPolicy !== undefined) {
+        msg.approvalPolicy = derivedCodexSettings.approvalPolicy;
       }
-      if (session.codexSettings.codexPermissionsMode !== undefined) {
-        msg.codexPermissionsMode = session.codexSettings.codexPermissionsMode as
+      if (derivedCodexSettings.codexPermissionsMode !== undefined) {
+        msg.codexPermissionsMode = derivedCodexSettings.codexPermissionsMode as
           | "default"
           | "autoReview"
           | "fullAccess"
           | "custom";
       }
-      if (session.codexSettings.modelReasoningEffort !== undefined) {
-        msg.modelReasoningEffort = session.codexSettings.modelReasoningEffort;
+      if (derivedCodexSettings.modelReasoningEffort !== undefined) {
+        msg.modelReasoningEffort = derivedCodexSettings.modelReasoningEffort;
       }
-      if (session.codexSettings.networkAccessEnabled !== undefined) {
-        msg.networkAccessEnabled = session.codexSettings.networkAccessEnabled;
+      if (derivedCodexSettings.networkAccessEnabled !== undefined) {
+        msg.networkAccessEnabled = derivedCodexSettings.networkAccessEnabled;
       }
-      if (session.codexSettings.webSearchMode !== undefined) {
-        msg.webSearchMode = session.codexSettings.webSearchMode;
+      if (derivedCodexSettings.webSearchMode !== undefined) {
+        msg.webSearchMode = derivedCodexSettings.webSearchMode;
       }
-      if (session.codexSettings.additionalWritableRoots !== undefined) {
+      if (derivedCodexSettings.additionalWritableRoots !== undefined) {
         msg.additionalWritableRoots =
-          session.codexSettings.additionalWritableRoots;
+          derivedCodexSettings.additionalWritableRoots;
       }
     }
 
@@ -2766,7 +2740,7 @@ export class BridgeWebSocketServer {
           const newPermissionsMode =
             codexPermissionSettings?.codexPermissionsMode ??
             (collaborationOnlyChange ? currentPermissionsMode : undefined) ??
-            inferCodexPermissionsMode({
+            deriveCodexPermissionsMode({
               approvalPolicy: newApproval,
               approvalsReviewer:
                 codexPermissionSettings?.approvalsReviewer ??

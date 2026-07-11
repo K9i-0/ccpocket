@@ -13,6 +13,119 @@ void main() {
     });
   });
 
+  group('Codex permissions mode', () {
+    test('derives only complete known presets', () {
+      expect(
+        codexPermissionsModeFromSettings(
+          approvalPolicy: 'on-request',
+          sandboxMode: 'workspace-write',
+        ),
+        CodexPermissionsMode.defaultPermissions,
+      );
+      expect(
+        codexPermissionsModeFromSettings(
+          approvalPolicy: 'on-request',
+          approvalsReviewer: 'auto_review',
+          sandboxMode: 'workspace-write',
+        ),
+        CodexPermissionsMode.autoReview,
+      );
+      expect(
+        codexPermissionsModeFromSettings(
+          approvalPolicy: 'never',
+          sandboxMode: 'danger-full-access',
+        ),
+        CodexPermissionsMode.fullAccess,
+      );
+    });
+
+    test('classifies read-only, mismatched, and unknown tuples as custom', () {
+      expect(
+        codexPermissionsModeFromSettings(
+          approvalPolicy: 'on-request',
+          sandboxMode: 'read-only',
+        ),
+        CodexPermissionsMode.custom,
+      );
+      expect(
+        codexPermissionsModeFromSettings(
+          approvalPolicy: 'never',
+          sandboxMode: 'workspace-write',
+        ),
+        CodexPermissionsMode.custom,
+      );
+      expect(
+        codexPermissionsModeFromSettings(
+          codexPermissionsMode: 'future-mode',
+          approvalPolicy: 'never',
+          sandboxMode: 'danger-full-access',
+        ),
+        CodexPermissionsMode.custom,
+      );
+    });
+
+    test(
+      'session parsers derive complete settings but not partial metadata',
+      () {
+        final complete = SessionInfo.fromJson({
+          'id': 'complete',
+          'provider': 'codex',
+          'projectPath': '/tmp/project',
+          'status': 'idle',
+          'createdAt': '',
+          'lastActivityAt': '',
+          'codexSettings': {
+            'approvalPolicy': 'on-request',
+            'sandboxMode': 'read-only',
+          },
+        });
+        final partial = SessionInfo.fromJson({
+          'id': 'partial',
+          'provider': 'codex',
+          'projectPath': '/tmp/project',
+          'status': 'idle',
+          'createdAt': '',
+          'lastActivityAt': '',
+          'codexSettings': {'approvalPolicy': 'on-request'},
+        });
+
+        expect(complete.codexPermissionsMode, 'custom');
+        expect(partial.codexPermissionsMode, isNull);
+      },
+    );
+
+    test('RecentSession follows the same complete and partial rules', () {
+      Map<String, dynamic> recentJson(
+        String id,
+        Map<String, dynamic> codexSettings,
+      ) => {
+        'sessionId': id,
+        'provider': 'codex',
+        'firstPrompt': 'resume',
+        'created': '2026-02-13T00:00:00Z',
+        'modified': '2026-02-13T00:00:00Z',
+        'gitBranch': 'main',
+        'projectPath': '/tmp/project',
+        'isSidechain': false,
+        'codexSettings': codexSettings,
+      };
+
+      final complete = RecentSession.fromJson(
+        recentJson('complete', {
+          'approvalPolicy': 'on-request',
+          'approvalsReviewer': 'auto_review',
+          'sandboxMode': 'workspace-write',
+        }),
+      );
+      final partial = RecentSession.fromJson(
+        recentJson('partial', {'approvalsReviewer': 'auto_review'}),
+      );
+
+      expect(complete.codexPermissionsMode, 'autoReview');
+      expect(partial.codexPermissionsMode, isNull);
+    });
+  });
+
   group('SystemMessage', () {
     test('parses Codex CLI join target', () {
       final msg = ServerMessage.fromJson({
