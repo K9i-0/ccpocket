@@ -50,6 +50,8 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         } else if (i + 1 < args.length) {
           flags.set(name, args[i + 1]);
           i += 1;
+        } else {
+          flags.set(name, "");
         }
         continue;
       }

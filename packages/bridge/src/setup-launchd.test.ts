@@ -24,6 +24,7 @@ const { setupLaunchd, uninstallLaunchd } = await import("./setup-launchd.js");
 
 const PLIST_PATH = "/Users/testuser/Library/LaunchAgents/com.ccpocket.bridge.plist";
 const originalBridgeEnv = {
+  port: process.env.BRIDGE_PORT,
   allowedDirs: process.env.BRIDGE_ALLOWED_DIRS,
   publicWsUrl: process.env.BRIDGE_PUBLIC_WS_URL,
   disableMdns: process.env.BRIDGE_DISABLE_MDNS,
@@ -65,6 +66,18 @@ describe("setup-launchd", () => {
       expect(content).not.toContain("BRIDGE_CODEX_APP_SERVER_MODE");
       expect(content).not.toContain("BRIDGE_CODEX_SHARED_APP_SERVER_URL");
     });
+
+    it.each(["", "123abc"])(
+      "rejects invalid port %j before writing or registering a service",
+      (port) => {
+        expect(() => setupLaunchd({ port })).toThrow(
+          `Invalid BRIDGE_PORT "${port}"`,
+        );
+
+        expect(mockWriteFileSync).not.toHaveBeenCalled();
+        expect(mockExecSync).not.toHaveBeenCalled();
+      },
+    );
 
     it("includes BRIDGE_ALLOWED_DIRS when provided", () => {
       process.env.BRIDGE_ALLOWED_DIRS = "/Users/testuser,/tmp/work";
@@ -168,6 +181,7 @@ describe("setup-launchd", () => {
 });
 
 function clearBridgeEnv(): void {
+  delete process.env.BRIDGE_PORT;
   delete process.env.BRIDGE_ALLOWED_DIRS;
   delete process.env.BRIDGE_PUBLIC_WS_URL;
   delete process.env.BRIDGE_DISABLE_MDNS;
@@ -178,6 +192,7 @@ function clearBridgeEnv(): void {
 }
 
 function restoreBridgeEnv(): void {
+  restoreEnvVar("BRIDGE_PORT", originalBridgeEnv.port);
   restoreEnvVar("BRIDGE_ALLOWED_DIRS", originalBridgeEnv.allowedDirs);
   restoreEnvVar("BRIDGE_PUBLIC_WS_URL", originalBridgeEnv.publicWsUrl);
   restoreEnvVar("BRIDGE_DISABLE_MDNS", originalBridgeEnv.disableMdns);

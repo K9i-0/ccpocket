@@ -6,6 +6,7 @@ import {
   defaultCodexSharedAppServerUrl,
   readCodexSharedAppServerUrl,
 } from "./codex-app-server-config.js";
+import { parseBridgePort } from "./bridge-port.js";
 
 const PLIST_LABEL = "com.ccpocket.bridge";
 
@@ -43,7 +44,7 @@ interface SetupOptions {
 }
 
 export function setupLaunchd(opts: SetupOptions): void {
-  const port = opts.port ?? process.env.BRIDGE_PORT ?? "8765";
+  const port = parseBridgePort(opts.port ?? process.env.BRIDGE_PORT);
   const host = opts.host ?? process.env.BRIDGE_HOST ?? "0.0.0.0";
   const apiKey = opts.apiKey ?? process.env.BRIDGE_API_KEY ?? "";
   const allowedDirs = process.env.BRIDGE_ALLOWED_DIRS ?? "";
@@ -63,7 +64,7 @@ export function setupLaunchd(opts: SetupOptions): void {
     (codexAppServerMode === "managed"
       ? legacyCodexAppServerPort
         ? `ws://127.0.0.1:${legacyCodexAppServerPort}`
-        : defaultCodexSharedAppServerUrl(port)
+        : defaultCodexSharedAppServerUrl(String(port))
       : "");
   if (codexAppServerMode === "external" && !codexAppServerUrl) {
     throw new Error(
