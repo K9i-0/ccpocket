@@ -10,7 +10,9 @@ permissions:
 
 jobs:
   release:
-    runs-on: windows-latest
+    # Pin to VS 2022 for now. windows-latest has moved to VS 2026/MSVC 14.51,
+    # which rejects <experimental/coroutine> used by current Windows plugins.
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
