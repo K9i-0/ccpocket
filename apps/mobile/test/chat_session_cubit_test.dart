@@ -992,6 +992,180 @@ void main() {
       expect(mockBridge.sentMessages, hasLength(1));
     });
 
+    test('approved permission is not restored by stale history', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+      const permission = PermissionRequestMessage(
+        toolUseId: 'tool-1',
+        toolName: 'bash',
+        input: {'command': 'ls'},
+      );
+
+      mockBridge.emitMessage(permission, sessionId: 's1');
+      await Future.microtask(() {});
+      cubit.approve('tool-1');
+      mockBridge.emitMessage(
+        const HistoryMessage(
+          messages: [
+            permission,
+            StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.approval, isA<ApprovalNone>());
+    });
+
+    test(
+      'tool result does not allow stale approval history to replay',
+      () async {
+        final cubit = createCubit('s1');
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+        const permission = PermissionRequestMessage(
+          toolUseId: 'tool-1',
+          toolName: 'bash',
+          input: {'command': 'ls'},
+        );
+
+        mockBridge.emitMessage(permission, sessionId: 's1');
+        await Future.microtask(() {});
+        cubit.reject('tool-1');
+        mockBridge.emitMessage(
+          const ToolResultMessage(toolUseId: 'tool-1', content: 'rejected'),
+          sessionId: 's1',
+        );
+        mockBridge.emitMessage(
+          const HistoryMessage(
+            messages: [
+              permission,
+              StatusMessage(status: ProcessStatus.waitingApproval),
+            ],
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        expect(cubit.state.approval, isA<ApprovalNone>());
+      },
+    );
+
+    test('answered question is not restored by stale history', () async {
+      final cubit = createCubit('s1');
+      addTearDown(cubit.close);
+      await Future.microtask(() {});
+      final ask = AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'ask-message',
+          role: 'assistant',
+          content: [
+            const ToolUseContent(
+              id: 'ask-1',
+              name: 'AskUserQuestion',
+              input: {
+                'questions': [
+                  {'question': 'Which option?'},
+                ],
+              },
+            ),
+          ],
+          model: 'claude',
+        ),
+      );
+
+      mockBridge.emitMessage(ask, sessionId: 's1');
+      await Future.microtask(() {});
+      cubit.answer('ask-1', 'A');
+      mockBridge.emitMessage(
+        HistoryMessage(
+          messages: [
+            ask,
+            const StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(cubit.state.approval, isA<ApprovalNone>());
+    });
+
+    test(
+      'stale answered permission does not hide a later pending one',
+      () async {
+        final cubit = createCubit('s1');
+        addTearDown(cubit.close);
+        await Future.microtask(() {});
+        const answered = PermissionRequestMessage(
+          toolUseId: 'tool-answered',
+          toolName: 'bash',
+          input: {'command': 'first'},
+        );
+        const pending = PermissionRequestMessage(
+          toolUseId: 'tool-pending',
+          toolName: 'bash',
+          input: {'command': 'second'},
+        );
+
+        mockBridge.emitMessage(answered, sessionId: 's1');
+        await Future.microtask(() {});
+        cubit.approve('tool-answered');
+        mockBridge.emitMessage(
+          const HistoryMessage(
+            messages: [
+              answered,
+              pending,
+              StatusMessage(status: ProcessStatus.waitingApproval),
+            ],
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        expect(cubit.state.approval, isA<ApprovalPermission>());
+        expect(
+          (cubit.state.approval as ApprovalPermission).toolUseId,
+          'tool-pending',
+        );
+      },
+    );
+
+    test(
+      'answered permission remains suppressed after cubit recreation',
+      () async {
+        final firstCubit = createCubit('s1');
+        await Future.microtask(() {});
+        const permission = PermissionRequestMessage(
+          toolUseId: 'tool-answered',
+          toolName: 'bash',
+          input: {'command': 'ls'},
+        );
+        mockBridge.emitMessage(permission, sessionId: 's1');
+        await Future.microtask(() {});
+        firstCubit.approve('tool-answered');
+        await firstCubit.close();
+
+        final recreatedCubit = createCubit('s1');
+        addTearDown(recreatedCubit.close);
+        await Future.microtask(() {});
+        mockBridge.emitMessage(
+          const HistoryMessage(
+            messages: [
+              permission,
+              StatusMessage(status: ProcessStatus.waitingApproval),
+            ],
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+
+        expect(recreatedCubit.state.approval, isA<ApprovalNone>());
+      },
+    );
+
     test('approving ExitPlanMode also clears plan mode state', () async {
       final cubit = createCubit('s1', provider: Provider.codex);
       addTearDown(cubit.close);
@@ -1127,10 +1301,7 @@ void main() {
       final cubit = createCubit('s1', provider: Provider.claude);
       addTearDown(cubit.close);
 
-      cubit.setCodexModel(
-        'gpt-5.4-mini',
-        reasoningEffort: ReasoningEffort.low,
-      );
+      cubit.setCodexModel('gpt-5.4-mini', reasoningEffort: ReasoningEffort.low);
 
       expect(cubit.state.codexModel, isNull);
       expect(cubit.state.codexModelReasoningEffort, isNull);

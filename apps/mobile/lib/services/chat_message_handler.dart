@@ -173,6 +173,7 @@ class ChatMessageHandler {
     ServerMessage msg, {
     required bool isBackground,
     bool isCodex = false,
+    Set<String> ignoredToolUseIds = const {},
   }) {
     switch (msg) {
       case StatusMessage(:final status):
@@ -192,7 +193,7 @@ class ChatMessageHandler {
       case PastHistoryMessage(:final claudeSessionId, :final messages):
         return _handlePastHistory(messages, claudeSessionId: claudeSessionId);
       case HistoryMessage(:final messages):
-        return _handleHistory(messages);
+        return _handleHistory(messages, ignoredToolUseIds: ignoredToolUseIds);
       case ConversationQueueMessage(:final items):
         return ChatStateUpdate(
           queuedInput: items.isNotEmpty ? items.first : null,
@@ -540,7 +541,10 @@ class ChatMessageHandler {
     );
   }
 
-  ChatStateUpdate _handleHistory(List<ServerMessage> messages) {
+  ChatStateUpdate _handleHistory(
+    List<ServerMessage> messages, {
+    Set<String> ignoredToolUseIds = const {},
+  }) {
     final entries = <ChatEntry>[];
     ProcessStatus? lastStatus;
     List<SlashCommand>? commands;
@@ -640,6 +644,7 @@ class ChatMessageHandler {
         }
         // Track pending permission request
         if (m is PermissionRequestMessage) {
+          if (ignoredToolUseIds.contains(m.toolUseId)) continue;
           if (m.usesAskUserUi) {
             // Codex may send question-based prompts directly as permission_request.
             lastAskToolUseId = m.toolUseId;
@@ -652,7 +657,8 @@ class ChatMessageHandler {
         if (m is AssistantServerMessage) {
           for (final content in m.message.content) {
             if (content is ToolUseContent &&
-                content.name == 'AskUserQuestion') {
+                content.name == 'AskUserQuestion' &&
+                !ignoredToolUseIds.contains(content.id)) {
               lastAskToolUseId = content.id;
               lastAskInput = content.input;
             }
