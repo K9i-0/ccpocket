@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.101.4] - 2026-07-11
+
+### Changed
+- Require Bridge 1.63.6 for the latest streaming, connection metadata, permission, and input reliability improvements.
+
+### Fixed
+- Show a localized, accessible fallback when part of the interface fails to render in a release build without exposing error details.
+- Handle IPv6 Bridge endpoints consistently across connection and display flows.
+- Handle malformed AskUserQuestion payloads without breaking the active session UI.
+- Prevent answered approvals from reappearing after session state is restored.
+- Show Codex permission settings derived from the active runtime configuration.
+
 ## [1.101.3] - 2026-06-11
 
 ### Changed
