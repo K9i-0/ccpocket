@@ -545,4 +545,60 @@ void main() {
       expect(find.text('Claude is asking'), findsNothing);
     });
   });
+
+  group('AskUserQuestionWidget - malformed input', () {
+    final malformedInputs = <Map<String, dynamic>>[
+      const {},
+      const {'questions': 'not-a-list'},
+      const {
+        'questions': ['not-a-map'],
+      },
+      const {
+        'questions': [
+          {'question': 123},
+        ],
+      },
+      const {
+        'questions': [
+          {'question': 'Pick one', 'header': 123},
+        ],
+      },
+      const {
+        'questions': [
+          {'question': 'Pick one', 'multiSelect': 'false'},
+        ],
+      },
+      const {
+        'questions': [
+          {'question': 'Pick one', 'options': 'not-a-list'},
+        ],
+      },
+      const {
+        'questions': [
+          {
+            'question': 'Pick one',
+            'options': [
+              {'label': 1},
+            ],
+          },
+        ],
+      },
+    ];
+
+    for (var i = 0; i < malformedInputs.length; i++) {
+      testWidgets('case $i does not throw during build', (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            AskUserQuestionWidget(
+              toolUseId: 'bad-$i',
+              input: malformedInputs[i],
+              onAnswer: (_, _) {},
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
 }

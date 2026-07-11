@@ -1,6 +1,7 @@
 import '../core/logger.dart';
 import '../models/messages.dart';
 import '../utils/codex_plan_update.dart';
+import '../utils/request_user_input.dart';
 import '../widgets/slash_command_sheet.dart'
     show
         SlashCommand,
@@ -438,16 +439,25 @@ class ChatMessageHandler {
     String? askToolUseId;
     Map<String, dynamic>? askInput;
     String? pendingToolUseId;
+    PermissionRequestMessage? pendingPermission;
     bool? inPlanMode;
     for (final content in message.content) {
       if (content is ToolUseContent) {
-        if (content.name == 'AskUserQuestion') {
+        if (content.name == 'AskUserQuestion' &&
+            hasRequestUserInputQuestions(content.input)) {
           askToolUseId = content.id;
           askInput = content.input;
           effects.add(ChatSideEffect.mediumHaptic);
           if (isBackground) effects.add(ChatSideEffect.notifyAskQuestion);
         } else {
           pendingToolUseId = content.id;
+          pendingPermission = content.name == 'AskUserQuestion'
+              ? PermissionRequestMessage(
+                  toolUseId: content.id,
+                  toolName: content.name,
+                  input: content.input,
+                )
+              : null;
           if (content.name == 'EnterPlanMode') {
             inPlanMode = true;
           }
@@ -465,6 +475,7 @@ class ChatMessageHandler {
       askToolUseId: askToolUseId,
       askInput: askInput,
       pendingToolUseId: pendingToolUseId,
+      pendingPermission: pendingPermission,
       inPlanMode: inPlanMode,
       sideEffects: effects,
     );
@@ -659,8 +670,16 @@ class ChatMessageHandler {
             if (content is ToolUseContent &&
                 content.name == 'AskUserQuestion' &&
                 !ignoredToolUseIds.contains(content.id)) {
-              lastAskToolUseId = content.id;
-              lastAskInput = content.input;
+              if (hasRequestUserInputQuestions(content.input)) {
+                lastAskToolUseId = content.id;
+                lastAskInput = content.input;
+              } else {
+                pendingPermissions[content.id] = PermissionRequestMessage(
+                  toolUseId: content.id,
+                  toolName: content.name,
+                  input: content.input,
+                );
+              }
             }
           }
         }

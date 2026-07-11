@@ -1488,17 +1488,23 @@ class PermissionRequestMessage implements ServerMessage {
 
   bool get isPermissionGrantRequest => toolName == 'Permissions';
 
+  bool get isMalformedAskUserQuestion =>
+      toolName == 'AskUserQuestion' && !hasQuestions;
+
   List<String> get availableDecisions =>
       _stringList(input['availableDecisions']);
 
   bool get canApprove =>
-      availableDecisions.isEmpty || availableDecisions.contains('accept');
+      !isMalformedAskUserQuestion &&
+      (availableDecisions.isEmpty || availableDecisions.contains('accept'));
 
   bool get canApproveForSession =>
-      availableDecisions.isEmpty ||
-      availableDecisions.contains('acceptForSession');
+      !isMalformedAskUserQuestion &&
+      (availableDecisions.isEmpty ||
+          availableDecisions.contains('acceptForSession'));
 
   bool get canDecline =>
+      isMalformedAskUserQuestion ||
       availableDecisions.isEmpty ||
       availableDecisions.contains('decline') ||
       availableDecisions.contains('cancel');
