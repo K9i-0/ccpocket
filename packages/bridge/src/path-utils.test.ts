@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isPathWithinAllowedDirectory,
   normalizePlatformPath,
+  parseAllowedDirectories,
   resolvePlatformPath,
   resolvePlatformPathFrom,
   stripWindowsExtendedPathPrefix,
@@ -58,5 +59,33 @@ describe("path-utils", () => {
     expect(
       resolvePlatformPathFrom("D:\\Users\\alice\\repo", "..\\shared", "win32"),
     ).toBe("D:\\Users\\alice\\shared");
+  });
+
+  it("uses default allowed directories when unset or blank", () => {
+    expect(parseAllowedDirectories(undefined, "linux", ["/home/alice"]))
+      .toEqual(["/home/alice"]);
+    expect(parseAllowedDirectories("  ", "linux", ["/home/alice"]))
+      .toEqual(["/home/alice"]);
+  });
+
+  it("allows unrestricted access only with an exact star", () => {
+    expect(parseAllowedDirectories("*", "linux", ["/home/alice"]))
+      .toEqual([]);
+    expect(() => parseAllowedDirectories("*, /opt/project", "linux"))
+      .toThrow("must be either '*'");
+  });
+
+  it("rejects non-empty configurations without a path", () => {
+    expect(() => parseAllowedDirectories(",", "linux", ["/home/alice"]))
+      .toThrow("at least one path");
+    expect(() => parseAllowedDirectories(" , , ", "linux"))
+      .toThrow("at least one path");
+  });
+
+  it("parses and resolves configured allowed directories", () => {
+    expect(parseAllowedDirectories("/home/alice, /opt/project", "linux"))
+      .toEqual(["/home/alice", "/opt/project"]);
+    expect(parseAllowedDirectories("C:\\Users\\alice", "win32"))
+      .toEqual(["C:\\Users\\alice"]);
   });
 });
