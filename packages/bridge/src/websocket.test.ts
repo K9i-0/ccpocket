@@ -951,7 +951,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(refreshCodexMetadata).toHaveBeenCalledWith("/tmp/project-a");
+    expect(refreshCodexMetadata).toHaveBeenCalledWith(resolve("/tmp/project-a"));
     bridge.close();
   });
 
