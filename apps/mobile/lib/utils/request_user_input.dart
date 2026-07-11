@@ -26,12 +26,62 @@ const _mcpApprovalDeclineLabels = {mcpApprovalDeny, mcpApprovalDecline};
 Map<String, dynamic>? firstRequestUserInputQuestion(
   Map<String, dynamic> input,
 ) {
+  final questions = requestUserInputQuestions(input);
+  return questions.isEmpty ? null : questions.first;
+}
+
+List<Map<String, dynamic>> requestUserInputQuestions(
+  Map<String, dynamic> input,
+) {
   final questions = input['questions'];
-  if (questions is! List || questions.isEmpty) return null;
-  final first = questions.first;
-  return first is Map<String, dynamic>
-      ? first
-      : Map<String, dynamic>.from(first as Map);
+  if (questions is! List || questions.isEmpty) return const [];
+
+  final parsed = <Map<String, dynamic>>[];
+  for (final value in questions) {
+    if (value is! Map) return const [];
+
+    Map<String, dynamic> question;
+    try {
+      question = Map<String, dynamic>.from(value);
+    } catch (_) {
+      return const [];
+    }
+
+    final text = question['question'];
+    if (text is! String || text.trim().isEmpty) return const [];
+    if (question.containsKey('header') && question['header'] is! String) {
+      return const [];
+    }
+    if (question.containsKey('multiSelect') &&
+        question['multiSelect'] is! bool) {
+      return const [];
+    }
+
+    if (question.containsKey('options')) {
+      final options = question['options'];
+      if (options is! List) return const [];
+      final parsedOptions = <Map<String, dynamic>>[];
+      for (final value in options) {
+        if (value is! Map) return const [];
+        Map<String, dynamic> option;
+        try {
+          option = Map<String, dynamic>.from(value);
+        } catch (_) {
+          return const [];
+        }
+        if (option['label'] is! String ||
+            (option['label'] as String).trim().isEmpty ||
+            (option.containsKey('description') &&
+                option['description'] is! String)) {
+          return const [];
+        }
+        parsedOptions.add(option);
+      }
+      question['options'] = parsedOptions;
+    }
+    parsed.add(question);
+  }
+  return parsed;
 }
 
 List<String> requestUserInputOptionLabels(Map<String, dynamic> input) {
@@ -54,8 +104,7 @@ String? requestUserInputQuestionText(Map<String, dynamic> input) {
 }
 
 bool hasRequestUserInputQuestions(Map<String, dynamic> input) {
-  final questions = input['questions'];
-  return questions is List && questions.isNotEmpty;
+  return requestUserInputQuestions(input).isNotEmpty;
 }
 
 bool _containsAny(Set<String> labels, Set<String> candidates) =>

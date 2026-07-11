@@ -174,7 +174,11 @@ void main() {
               const ToolUseContent(
                 id: 'tu-ask',
                 name: 'AskUserQuestion',
-                input: {'questions': []},
+                input: {
+                  'questions': [
+                    {'question': 'Which option?'},
+                  ],
+                },
               ),
             ],
             model: 'test',
@@ -184,6 +188,60 @@ void main() {
       );
       expect(update.askToolUseId, 'tu-ask');
       expect(update.sideEffects, contains(ChatSideEffect.mediumHaptic));
+    });
+
+    test('treats malformed AskUserQuestion as an ordinary tool use', () {
+      final update = handler.handle(
+        AssistantServerMessage(
+          message: AssistantMessage(
+            id: 'msg-bad-ask',
+            role: 'assistant',
+            content: [
+              const ToolUseContent(
+                id: 'tu-bad-ask',
+                name: 'AskUserQuestion',
+                input: {
+                  'questions': [
+                    {'question': 'Valid'},
+                    {'question': 123},
+                  ],
+                },
+              ),
+            ],
+            model: 'test',
+          ),
+        ),
+        isBackground: false,
+      );
+
+      expect(update.askToolUseId, isNull);
+      expect(update.askInput, isNull);
+      expect(update.pendingToolUseId, 'tu-bad-ask');
+      expect(update.pendingPermission?.canApprove, isFalse);
+      expect(update.pendingPermission?.canApproveForSession, isFalse);
+      expect(update.pendingPermission?.canDecline, isTrue);
+      expect(update.sideEffects, isNot(contains(ChatSideEffect.mediumHaptic)));
+    });
+
+    test('makes a malformed AskUserQuestion permission decline-only', () {
+      final update = handler.handle(
+        const PermissionRequestMessage(
+          toolUseId: 'tu-bad-ask',
+          toolName: 'AskUserQuestion',
+          input: {
+            'questions': [
+              {'question': 123},
+            ],
+          },
+        ),
+        isBackground: false,
+      );
+
+      expect(update.askToolUseId, isNull);
+      expect(update.pendingToolUseId, 'tu-bad-ask');
+      expect(update.pendingPermission?.canApprove, isFalse);
+      expect(update.pendingPermission?.canApproveForSession, isFalse);
+      expect(update.pendingPermission?.canDecline, isTrue);
     });
 
     test('detects EnterPlanMode', () {
@@ -588,7 +646,11 @@ void main() {
                   const ToolUseContent(
                     id: 'tu-ask',
                     name: 'AskUserQuestion',
-                    input: {'questions': []},
+                    input: {
+                      'questions': [
+                        {'question': 'Which option?'},
+                      ],
+                    },
                   ),
                 ],
                 model: 'test',
@@ -602,6 +664,107 @@ void main() {
       );
       expect(update.askToolUseId, isNull);
       expect(update.askInput, isNull);
+    });
+
+    test('restores malformed AskUserQuestion as decline-only', () {
+      final update = handler.handle(
+        HistoryMessage(
+          messages: [
+            AssistantServerMessage(
+              message: AssistantMessage(
+                id: 'msg-bad-ask',
+                role: 'assistant',
+                content: [
+                  const ToolUseContent(
+                    id: 'tu-bad-ask',
+                    name: 'AskUserQuestion',
+                    input: {
+                      'questions': [
+                        {'question': 'Pick one', 'options': 'not-a-list'},
+                      ],
+                    },
+                  ),
+                ],
+                model: 'test',
+              ),
+            ),
+            const StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.askToolUseId, isNull);
+      expect(update.askInput, isNull);
+      expect(update.pendingToolUseId, 'tu-bad-ask');
+      expect(update.pendingPermission?.canApprove, isFalse);
+      expect(update.pendingPermission?.canApproveForSession, isFalse);
+      expect(update.pendingPermission?.canDecline, isTrue);
+    });
+
+    test('restores a pending permission after a malformed question', () {
+      final update = handler.handle(
+        HistoryMessage(
+          messages: [
+            AssistantServerMessage(
+              message: AssistantMessage(
+                id: 'msg-bad-ask',
+                role: 'assistant',
+                content: [
+                  const ToolUseContent(
+                    id: 'tu-bad-ask',
+                    name: 'AskUserQuestion',
+                    input: {
+                      'questions': [
+                        {'question': false},
+                      ],
+                    },
+                  ),
+                ],
+                model: 'test',
+              ),
+            ),
+            const PermissionResolvedMessage(toolUseId: 'tu-bad-ask'),
+            const PermissionRequestMessage(
+              toolUseId: 'tu-pending',
+              toolName: 'Bash',
+              input: {'command': 'pwd'},
+            ),
+            const StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.askToolUseId, isNull);
+      expect(update.pendingToolUseId, 'tu-pending');
+      expect(update.pendingPermission?.toolName, 'Bash');
+    });
+
+    test('restores malformed AskUserQuestion permission as decline-only', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            PermissionRequestMessage(
+              toolUseId: 'tu-bad-ask',
+              toolName: 'AskUserQuestion',
+              input: {
+                'questions': [
+                  {'question': 'Q', 'multiSelect': 'no'},
+                ],
+              },
+            ),
+            StatusMessage(status: ProcessStatus.waitingApproval),
+          ],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.askToolUseId, isNull);
+      expect(update.pendingToolUseId, 'tu-bad-ask');
+      expect(update.pendingPermission?.canApprove, isFalse);
+      expect(update.pendingPermission?.canApproveForSession, isFalse);
+      expect(update.pendingPermission?.canDecline, isTrue);
     });
 
     test('restores first pending permission when multiple are unresolved', () {
