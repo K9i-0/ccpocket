@@ -34,6 +34,8 @@ abstract class ExploreState with _$ExploreState {
     @Default([]) List<String> allFiles,
     @Default([]) List<ExploreEntry> visibleEntries,
     @Default(ExploreStatus.loading) ExploreStatus status,
+    @Default(false) bool fileListTruncated,
+    int? totalFiles,
     String? error,
   }) = _ExploreState;
 }

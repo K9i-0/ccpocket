@@ -19,8 +19,10 @@ import {
   gitCommit,
   getStagedDiff,
   listGitFiles,
+  listGitFilesForClient,
   listFileSystemFiles,
   listProjectFilesAndDirectories,
+  listProjectFilesAndDirectoriesForClient,
   listProjectFiles,
   listBranches,
   createBranch,
@@ -628,6 +630,48 @@ describe("listGitFiles", () => {
 
     expect(files).toContain("docs/line\nbreak.md");
   });
+
+  it("does not mark an exact entry limit as truncated", async () => {
+    writeFileSync(join(repo, "a.md"), "a\n");
+    writeFileSync(join(repo, "b.md"), "b\n");
+
+    await expect(
+      listGitFilesForClient(repo, {
+        maxEntries: 3,
+        maxBytes: 1024,
+      }),
+    ).resolves.toMatchObject({
+      truncated: false,
+      totalFiles: 3,
+    });
+  });
+
+  it("stops after observing an entry beyond the limit", async () => {
+    writeFileSync(join(repo, "a.md"), "a\n");
+    writeFileSync(join(repo, "b.md"), "b\n");
+    writeFileSync(join(repo, "c.md"), "c\n");
+
+    const result = await listGitFilesForClient(repo, {
+      maxEntries: 2,
+      maxBytes: 1024,
+    });
+
+    expect(result.files).toHaveLength(2);
+    expect(result.truncated).toBe(true);
+    expect(result.totalFiles).toBeUndefined();
+  });
+
+  it("limits serialized UTF-8 file entry bytes", async () => {
+    writeFileSync(join(repo, "あ.md"), "a\n");
+
+    const result = await listGitFilesForClient(repo, {
+      maxEntries: 10,
+      maxBytes: Buffer.byteLength(JSON.stringify("あ.md"), "utf8"),
+    });
+
+    expect(result.files).toEqual(["あ.md"]);
+    expect(result.truncated).toBe(true);
+  });
 });
 
 describe("listFileSystemFiles", () => {
@@ -748,6 +792,57 @@ describe("listProjectFilesAndDirectories", () => {
       "initial.txt",
       "README.md",
     ]);
+  });
+
+  it("limits client entries after adding directory candidates", async () => {
+    project = createTempRepo();
+    mkdirSync(join(project, "src", "features"), { recursive: true });
+    writeFileSync(join(project, "src", "features", "a.ts"), "a\n");
+    writeFileSync(join(project, "src", "features", "b.ts"), "b\n");
+
+    const result = await listProjectFilesAndDirectoriesForClient(project, {
+      maxEntries: 3,
+      maxBytes: 1024,
+    });
+
+    expect(result.files).toHaveLength(3);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("does not truncate an exact filesystem fallback limit", async () => {
+    project = createTempProject();
+    writeFileSync(join(project, "a.txt"), "a\n");
+    writeFileSync(join(project, "b.txt"), "b\n");
+    writeFileSync(join(project, "c.txt"), "c\n");
+
+    await expect(
+      listProjectFilesAndDirectoriesForClient(project, {
+        maxEntries: 3,
+        maxBytes: 1024,
+      }),
+    ).resolves.toEqual({
+      files: ["a.txt", "b.txt", "c.txt"],
+      truncated: false,
+      totalFiles: 3,
+    });
+  });
+
+  it("reports a truncated filesystem fallback at the depth limit", async () => {
+    project = createTempProject();
+    mkdirSync(join(project, "a", "b", "c"), { recursive: true });
+    writeFileSync(join(project, "a", "b", "c", "deep.txt"), "deep\n");
+
+    await expect(
+      listProjectFilesAndDirectoriesForClient(project, {
+        maxDepth: 2,
+        maxEntries: 10,
+        maxBytes: 1024,
+      }),
+    ).resolves.toEqual({
+      files: [],
+      truncated: true,
+      totalFiles: undefined,
+    });
   });
 });
 

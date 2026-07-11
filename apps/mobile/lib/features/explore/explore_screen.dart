@@ -215,6 +215,11 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
                   _notifyResultChanged(cubit);
                 },
               ),
+              if (state.fileListTruncated)
+                _FileListTruncatedNotice(
+                  visibleCount: state.allFiles.length,
+                  totalFiles: state.totalFiles,
+                ),
               Expanded(child: _buildBody(context, state)),
             ],
           ),
@@ -260,6 +265,48 @@ class _ExploreScreenBodyState extends State<_ExploreScreenBody> {
           },
         );
     }
+  }
+}
+
+class _FileListTruncatedNotice extends StatelessWidget {
+  final int visibleCount;
+  final int? totalFiles;
+
+  const _FileListTruncatedNotice({
+    required this.visibleCount,
+    required this.totalFiles,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final text = totalFiles == null
+        ? 'Showing the first $visibleCount entries'
+        : 'Showing $visibleCount of $totalFiles entries';
+    return Container(
+      key: const ValueKey('explore_file_list_truncated_notice'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: colorScheme.surfaceContainerHighest,
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline,
+            size: 18,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

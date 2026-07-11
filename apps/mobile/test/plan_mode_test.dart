@@ -115,10 +115,26 @@ void main() {
       final msg = ServerMessage.fromJson({
         'type': 'file_list',
         'files': ['lib/main.dart', 'pubspec.yaml'],
+        'totalFiles': 10,
+        'truncated': true,
       });
       expect(msg, isA<FileListMessage>());
       final fl = msg as FileListMessage;
       expect(fl.files, ['lib/main.dart', 'pubspec.yaml']);
+      expect(fl.totalFiles, 10);
+      expect(fl.truncated, isTrue);
+    });
+
+    test('defaults optional file list metadata for older bridges', () {
+      final msg =
+          ServerMessage.fromJson({
+                'type': 'file_list',
+                'files': ['README.md'],
+              })
+              as FileListMessage;
+
+      expect(msg.totalFiles, isNull);
+      expect(msg.truncated, isFalse);
     });
   });
 }

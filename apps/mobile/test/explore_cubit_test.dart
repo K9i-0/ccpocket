@@ -15,10 +15,20 @@ import 'package:ccpocket/theme/app_theme.dart';
 class _TestBridgeService extends BridgeService {
   final _fileContentController =
       StreamController<FileContentMessage>.broadcast();
+  final _fileListMessageController =
+      StreamController<FileListMessage>.broadcast();
   final sentMessages = <ClientMessage>[];
 
   @override
   Stream<FileContentMessage> get fileContent => _fileContentController.stream;
+
+  @override
+  Stream<FileListMessage> get fileListMessages =>
+      _fileListMessageController.stream;
+
+  void emitFileList(FileListMessage message) {
+    _fileListMessageController.add(message);
+  }
 
   @override
   void send(ClientMessage message) {
@@ -28,6 +38,7 @@ class _TestBridgeService extends BridgeService {
   @override
   void dispose() {
     _fileContentController.close();
+    _fileListMessageController.close();
     super.dispose();
   }
 }
@@ -160,6 +171,39 @@ void main() {
   });
 
   group('Explore recent files', () {
+    testWidgets('shows when the bridge truncated the file list', (
+      tester,
+    ) async {
+      final bridge = _TestBridgeService();
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        RepositoryProvider<BridgeService>.value(
+          value: bridge,
+          child: MaterialApp(
+            theme: AppTheme.darkTheme,
+            home: const ExploreScreen(
+              sessionId: 'session-1',
+              projectPath: '/tmp/project',
+            ),
+          ),
+        ),
+      );
+      bridge.emitFileList(
+        const FileListMessage(
+          files: ['lib/main.dart', 'README.md'],
+          truncated: true,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('explore_file_list_truncated_notice')),
+        findsOneWidget,
+      );
+      expect(find.text('Showing the first 2 entries'), findsOneWidget);
+    });
+
     testWidgets('shows recent open files only and opens file peek', (
       tester,
     ) async {
@@ -195,11 +239,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byIcon(Icons.content_copy), findsOneWidget);
-      expect(bridge.sentMessages, hasLength(1));
-
-      final payload =
-          jsonDecode(bridge.sentMessages.single.toJson())
-              as Map<String, dynamic>;
+      final payload = bridge.sentMessages
+          .map(
+            (message) => jsonDecode(message.toJson()) as Map<String, dynamic>,
+          )
+          .singleWhere((message) => message['type'] == 'read_file');
       expect(payload['type'], 'read_file');
       expect(payload['projectPath'], '/tmp/project');
       expect(payload['filePath'], 'lib/main.dart');

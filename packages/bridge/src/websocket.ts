@@ -72,7 +72,7 @@ import {
   unstageHunks,
   gitCommit,
   gitPush,
-  listProjectFilesAndDirectories,
+  listProjectFilesAndDirectoriesForClient,
   listBranches,
   createBranch,
   checkoutBranch,
@@ -484,6 +484,22 @@ function envFlagEnabled(name: string): boolean {
   return value === "1" || value === "true" || value === "yes" || value === "on";
 }
 
+function positiveEnvInt(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+}
+
+function normalizePositiveLimit(
+  value: number | undefined,
+  fallback: number,
+): number {
+  return value !== undefined && Number.isSafeInteger(value) && value > 0
+    ? value
+    : fallback;
+}
+
 function codexThreadToRecentSession(
   thread: CodexThreadSummary,
   indexed?: CodexSessionIndexMetadata,
@@ -549,11 +565,15 @@ export interface BridgeServerOptions {
   promptHistoryBackup?: PromptHistoryBackupStore;
   promptHistoryStore?: PromptHistoryStore;
   platform?: NodeJS.Platform;
+  fileListMaxEntries?: number;
+  fileListMaxBytes?: number;
 }
 
 export class BridgeWebSocketServer {
   private static readonly MAX_DEBUG_EVENTS = 800;
   private static readonly MAX_HISTORY_SUMMARY_ITEMS = 300;
+  private static readonly DEFAULT_FILE_LIST_MAX_ENTRIES = 5000;
+  private static readonly DEFAULT_FILE_LIST_MAX_BYTES = 512 * 1024;
 
   private wss: WebSocketServer;
   private sessionManager: SessionManager;
@@ -597,6 +617,8 @@ export class BridgeWebSocketServer {
     "BRIDGE_FAIL_SET_PERMISSION_MODE",
   );
   private failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
+  private readonly fileListMaxEntries: number;
+  private readonly fileListMaxBytes: number;
   private platform: NodeJS.Platform;
   private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
   private pendingClaudeResumeInputs = new WeakMap<
@@ -618,6 +640,8 @@ export class BridgeWebSocketServer {
       promptHistoryBackup,
       promptHistoryStore,
       platform,
+      fileListMaxEntries,
+      fileListMaxBytes,
     } = options;
     this.apiKey = apiKey ?? null;
     this.allowedDirs = allowedDirs ?? [];
@@ -631,6 +655,20 @@ export class BridgeWebSocketServer {
     this.promptHistoryBackup = promptHistoryBackup ?? null;
     this.promptHistoryStore = promptHistoryStore ?? null;
     this.platform = platform ?? process.platform;
+    this.fileListMaxEntries = normalizePositiveLimit(
+      fileListMaxEntries,
+      positiveEnvInt(
+        "BRIDGE_FILE_LIST_MAX_ENTRIES",
+        BridgeWebSocketServer.DEFAULT_FILE_LIST_MAX_ENTRIES,
+      ),
+    );
+    this.fileListMaxBytes = normalizePositiveLimit(
+      fileListMaxBytes,
+      positiveEnvInt(
+        "BRIDGE_FILE_LIST_MAX_BYTES",
+        BridgeWebSocketServer.DEFAULT_FILE_LIST_MAX_BYTES,
+      ),
+    );
 
     this.archiveStore = new ArchiveStore();
     void this.debugTraceStore.init().catch((err) => {
@@ -4501,13 +4539,19 @@ export class BridgeWebSocketServer {
         }
         void (async () => {
           try {
-            const files = await listProjectFilesAndDirectories(
+            const result = await listProjectFilesAndDirectoriesForClient(
               msg.projectPath,
+              {
+                maxEntries: this.fileListMaxEntries,
+                maxBytes: this.fileListMaxBytes,
+              },
             );
-            this.send(ws, { type: "file_list", files } as Record<
-              string,
-              unknown
-            >);
+            this.send(ws, {
+              type: "file_list",
+              files: result.files,
+              totalFiles: result.totalFiles,
+              truncated: result.truncated,
+            } as Record<string, unknown>);
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.send(ws, {

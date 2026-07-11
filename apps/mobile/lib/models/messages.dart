@@ -874,6 +874,8 @@ sealed class ServerMessage {
       ),
       'file_list' => FileListMessage(
         files: (json['files'] as List).cast<String>(),
+        totalFiles: json['totalFiles'] as int?,
+        truncated: json['truncated'] as bool? ?? false,
       ),
       'project_history' => ProjectHistoryMessage(
         projects: (json['projects'] as List).cast<String>(),
@@ -2295,7 +2297,14 @@ class DebugBundleMessage implements ServerMessage {
 
 class FileListMessage implements ServerMessage {
   final List<String> files;
-  const FileListMessage({required this.files});
+  final int? totalFiles;
+  final bool truncated;
+
+  const FileListMessage({
+    required this.files,
+    this.totalFiles,
+    this.truncated = false,
+  });
 }
 
 class FileContentMessage implements ServerMessage {
