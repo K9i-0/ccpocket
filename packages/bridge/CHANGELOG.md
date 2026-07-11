@@ -2,6 +2,18 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.63.6] - 2026-07-11
+
+### Changed
+- Batch session delta broadcasts per client and session to reduce streaming frame overhead without delaying recording or debug output.
+- Limit client file-list payloads, cache Claude message images per session, and cool down repeated connection metadata refreshes.
+
+### Fixed
+- Validate the configured server port before startup and report invalid, missing, or unavailable ports clearly.
+- Derive Codex permission displays from runtime settings and retain permission mode changes made while a session is idle.
+- Map AskUserQuestion answers to their original questions and require explicit opt-in for unrestricted project paths.
+- Preserve queued user input when interrupting or resuming Claude sessions.
+
 ## [1.63.5] - 2026-06-12
 
 ### Fixed
