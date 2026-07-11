@@ -572,6 +572,7 @@ export interface BridgeServerOptions {
 export class BridgeWebSocketServer {
   private static readonly MAX_DEBUG_EVENTS = 800;
   private static readonly MAX_HISTORY_SUMMARY_ITEMS = 300;
+  private static readonly CONNECT_METADATA_REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
   private static readonly DEFAULT_FILE_LIST_MAX_ENTRIES = 5000;
   private static readonly DEFAULT_FILE_LIST_MAX_BYTES = 512 * 1024;
 
@@ -595,7 +596,8 @@ export class BridgeWebSocketServer {
   private archiveStore: ArchiveStore;
   private codexProfiles: string[] = [];
   private defaultCodexProfile: string | undefined;
-  private codexProfilesRequest: Promise<void> | null = null;
+  private codexMetadataRequest: Promise<void> | null = null;
+  private lastConnectMetadataRefreshAt: number | null = null;
   private claudeModels: string[] = FALLBACK_CLAUDE_MODELS;
   private claudeModelEfforts: Record<string, ClaudeEffortLevel[]> = {
     ...FALLBACK_CLAUDE_MODEL_EFFORTS,
@@ -609,7 +611,6 @@ export class BridgeWebSocketServer {
         FALLBACK_CODEX_REASONING_EFFORTS,
       ]),
     );
-  private codexModelsRequest: Promise<void> | null = null;
   /** FCM token → push notification locale */
   private tokenLocales = new Map<string, PushLocale>();
   private tokenPrivacyMode = new Map<string, boolean>();
@@ -1881,9 +1882,7 @@ export class BridgeWebSocketServer {
 
   private handleConnection(ws: WebSocket): void {
     // Send session list and project history on connect
-    void this.refreshCodexProfiles();
-    void this.refreshCodexModels();
-    void this.refreshClaudeModels();
+    this.refreshConnectionMetadata();
     this.sendSessionList(ws);
     const projects = this.projectHistory?.getProjects() ?? [];
     this.send(ws, { type: "project_history", projects });
@@ -1926,6 +1925,21 @@ export class BridgeWebSocketServer {
     ws.on("error", (err) => {
       console.error("[ws] Client error:", err.message);
     });
+  }
+
+  private refreshConnectionMetadata(now = Date.now()): void {
+    const lastRefreshAt = this.lastConnectMetadataRefreshAt;
+    if (
+      lastRefreshAt !== null &&
+      now >= lastRefreshAt &&
+      now - lastRefreshAt <
+        BridgeWebSocketServer.CONNECT_METADATA_REFRESH_COOLDOWN_MS
+    ) {
+      return;
+    }
+    this.lastConnectMetadataRefreshAt = now;
+    void this.refreshCodexMetadata();
+    void this.refreshClaudeModels();
   }
 
   private async handleClientMessage(
@@ -2180,7 +2194,7 @@ export class BridgeWebSocketServer {
             );
             this.broadcastSessionList();
             if (provider === "codex") {
-              void this.refreshCodexModels(projectPath);
+              void this.refreshCodexMetadata(projectPath);
             } else {
               void this.refreshClaudeModels(projectPath);
             }
@@ -5974,26 +5988,64 @@ export class BridgeWebSocketServer {
     }
   }
 
-  private async refreshCodexModels(projectPath?: string): Promise<void> {
-    if (this.codexModelsRequest) return this.codexModelsRequest;
-    this.codexModelsRequest = this.loadCodexModels(projectPath)
-      .then((models) => {
-        if (models.length > 0) {
-          this.applyCodexModels(models);
-        } else {
-          this.applyFallbackCodexModels();
-        }
-        this.broadcastSessionList();
-      })
+  private async refreshCodexMetadata(projectPath?: string): Promise<void> {
+    if (this.codexMetadataRequest) {
+      if (projectPath) {
+        return this.codexMetadataRequest.then(() =>
+          this.refreshCodexMetadata(projectPath),
+        );
+      }
+      return this.codexMetadataRequest;
+    }
+    this.codexMetadataRequest = this.loadAndApplyCodexMetadata(projectPath)
       .catch((err) => {
-        console.warn(`[ws] Failed to load Codex models: ${err}`);
+        console.warn(`[ws] Failed to load Codex metadata: ${err}`);
+        this.codexProfiles = [];
+        this.defaultCodexProfile = undefined;
         this.applyFallbackCodexModels();
         this.broadcastSessionList();
       })
       .finally(() => {
-        this.codexModelsRequest = null;
+        this.codexMetadataRequest = null;
       });
-    return this.codexModelsRequest;
+    return this.codexMetadataRequest;
+  }
+
+  private async loadAndApplyCodexMetadata(
+    projectPath?: string,
+  ): Promise<void> {
+    const activeProcess = this.getActiveCodexProcess();
+    const codexProcess =
+      activeProcess ?? (await this.createStandaloneCodexProcess(projectPath));
+    try {
+      const [profileResult, modelResult] = await Promise.allSettled([
+        codexProcess.readProfileConfig(projectPath),
+        this.readCodexModels(codexProcess),
+      ]);
+
+      if (profileResult.status === "fulfilled") {
+        this.codexProfiles = profileResult.value.profiles;
+        this.defaultCodexProfile = profileResult.value.defaultProfile;
+      } else {
+        console.warn(
+          `[ws] Failed to load Codex profiles: ${profileResult.reason}`,
+        );
+        this.codexProfiles = [];
+        this.defaultCodexProfile = undefined;
+      }
+
+      if (modelResult.status === "fulfilled" && modelResult.value.length > 0) {
+        this.applyCodexModels(modelResult.value);
+      } else {
+        if (modelResult.status === "rejected") {
+          console.warn(`[ws] Failed to load Codex models: ${modelResult.reason}`);
+        }
+        this.applyFallbackCodexModels();
+      }
+      this.broadcastSessionList();
+    } finally {
+      if (!activeProcess) codexProcess.stop();
+    }
   }
 
   private async refreshClaudeModels(projectPath?: string): Promise<void> {
@@ -6042,33 +6094,23 @@ export class BridgeWebSocketServer {
     this.claudeModelEfforts = { ...FALLBACK_CLAUDE_MODEL_EFFORTS };
   }
 
-  private async loadCodexModels(
-    projectPath?: string,
+  private async readCodexModels(
+    codexProcess: CodexProcess,
   ): Promise<CodexModelMetadata[]> {
-    const process =
-      this.getActiveCodexProcess() ??
-      (await this.createStandaloneCodexProcess(projectPath));
-    const isStandalone = process !== this.getActiveCodexProcess();
-    try {
-      const modelSource = process as CodexProcess & {
-        listAvailableModelMetadata?: () => Promise<CodexModelMetadata[]>;
-        listAvailableModels?: () => Promise<string[]>;
-      };
-      if (typeof modelSource.listAvailableModelMetadata === "function") {
-        return await modelSource.listAvailableModelMetadata();
-      }
-      const models = typeof modelSource.listAvailableModels === "function"
-        ? await modelSource.listAvailableModels()
-        : [];
-      return models.map((model) => ({
-        model,
-        supportedReasoningEfforts: FALLBACK_CODEX_REASONING_EFFORTS,
-      }));
-    } finally {
-      if (isStandalone) {
-        process.stop();
-      }
+    const modelSource = codexProcess as CodexProcess & {
+      listAvailableModelMetadata?: () => Promise<CodexModelMetadata[]>;
+      listAvailableModels?: () => Promise<string[]>;
+    };
+    if (typeof modelSource.listAvailableModelMetadata === "function") {
+      return modelSource.listAvailableModelMetadata();
     }
+    const models = typeof modelSource.listAvailableModels === "function"
+      ? await modelSource.listAvailableModels()
+      : [];
+    return models.map((model) => ({
+      model,
+      supportedReasoningEfforts: FALLBACK_CODEX_REASONING_EFFORTS,
+    }));
   }
 
   private applyCodexModels(models: CodexModelMetadata[]): void {
@@ -6091,25 +6133,6 @@ export class BridgeWebSocketServer {
         FALLBACK_CODEX_REASONING_EFFORTS,
       ]),
     );
-  }
-
-  private async refreshCodexProfiles(projectPath?: string): Promise<void> {
-    if (this.codexProfilesRequest) return this.codexProfilesRequest;
-    this.codexProfilesRequest = this.loadCodexProfiles(projectPath)
-      .then(({ profiles, defaultProfile }) => {
-        this.codexProfiles = profiles;
-        this.defaultCodexProfile = defaultProfile;
-        this.broadcastSessionList();
-      })
-      .catch((err) => {
-        console.warn(`[ws] Failed to load Codex profiles: ${err}`);
-        this.codexProfiles = [];
-        this.defaultCodexProfile = undefined;
-      })
-      .finally(() => {
-        this.codexProfilesRequest = null;
-      });
-    return this.codexProfilesRequest;
   }
 
   private async loadCodexProfiles(
@@ -6248,8 +6271,13 @@ export class BridgeWebSocketServer {
     projectPath?: string,
   ): Promise<CodexProcess> {
     const proc = new CodexProcess();
-    await proc.initializeOnly(projectPath ?? process.cwd());
-    return proc;
+    try {
+      await proc.initializeOnly(projectPath ?? process.cwd());
+      return proc;
+    } catch (err) {
+      proc.stop();
+      throw err;
+    }
   }
 
   /** Extract a short project label from the full projectPath (last directory name). */

@@ -137,6 +137,8 @@ vi.mock("./session.js", () => ({
         }),
         listThreads: vi.fn(async () => ({ data: [], nextCursor: null })),
         listAvailableModels: vi.fn(async () => []),
+        listAvailableModelMetadata: vi.fn(async () => []),
+        readProfileConfig: vi.fn(async () => ({ profiles: [] })),
         readThread: vi.fn(async () => ({ id: "thread-read", turns: [] })),
         rollbackThread: vi.fn(async () => ({ id: "thread-rollback", turns: [] })),
         rollbackThreadById: vi.fn(async () => ({
@@ -394,6 +396,7 @@ vi.mock("./session.js", () => ({
 }));
 
 import { BridgeWebSocketServer } from "./websocket.js";
+import { CodexProcess } from "./codex-process.js";
 
 describe("BridgeWebSocketServer resume/get_history flow", () => {
   const OPEN_STATE = 1;
@@ -575,27 +578,32 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       send: vi.fn(),
     } as any;
 
-    (bridge as any).loadCodexModels = vi.fn(async () => [
-      {
-        model: "gpt-dynamic-default",
-        supportedReasoningEfforts: ["low", "medium", "high"],
-      },
-      {
-        model: "gpt-dynamic-fast",
-        supportedReasoningEfforts: ["low"],
-      },
-    ]);
+    const codexProcess = {
+      readProfileConfig: vi.fn(async () => ({ profiles: [] })),
+      listAvailableModelMetadata: vi.fn(async () => [
+        {
+          model: "gpt-dynamic-default",
+          supportedReasoningEfforts: ["low", "medium", "high"],
+        },
+        {
+          model: "gpt-dynamic-fast",
+          supportedReasoningEfforts: ["low"],
+        },
+      ]),
+      stop: vi.fn(),
+    };
+    vi.spyOn(bridge as any, "createStandaloneCodexProcess").mockResolvedValue(
+      codexProcess,
+    );
 
-    await (bridge as any).refreshCodexModels("/tmp/project-models");
+    await (bridge as any).refreshCodexMetadata("/tmp/project-models");
     (bridge as any).sendSessionList(ws);
 
     const sessionList = ws.send.mock.calls
       .map((c: unknown[]) => JSON.parse(c[0] as string))
       .find((msg: any) => msg.type === "session_list");
 
-    expect((bridge as any).loadCodexModels).toHaveBeenCalledWith(
-      "/tmp/project-models",
-    );
+    expect(codexProcess.listAvailableModelMetadata).toHaveBeenCalledTimes(1);
     expect(sessionList.codexModels).toEqual([
       "gpt-dynamic-default",
       "gpt-dynamic-fast",
@@ -615,11 +623,18 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       send: vi.fn(),
     } as any;
 
-    (bridge as any).loadCodexModels = vi.fn(async () => {
-      throw new Error("unsupported method");
-    });
+    const codexProcess = {
+      readProfileConfig: vi.fn(async () => ({ profiles: [] })),
+      listAvailableModelMetadata: vi.fn(async () => {
+        throw new Error("unsupported method");
+      }),
+      stop: vi.fn(),
+    };
+    vi.spyOn(bridge as any, "createStandaloneCodexProcess").mockResolvedValue(
+      codexProcess,
+    );
 
-    await (bridge as any).refreshCodexModels("/tmp/project-models");
+    await (bridge as any).refreshCodexMetadata("/tmp/project-models");
     (bridge as any).sendSessionList(ws);
 
     const sessionList = ws.send.mock.calls
@@ -732,6 +747,130 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     }
   });
 
+  it("refreshes connection metadata initially and after the cooldown", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const refreshCodexMetadata = vi
+      .spyOn(bridge as any, "refreshCodexMetadata")
+      .mockResolvedValue(undefined);
+    const refreshClaudeModels = vi
+      .spyOn(bridge as any, "refreshClaudeModels")
+      .mockResolvedValue(undefined);
+
+    (bridge as any).refreshConnectionMetadata(1_000);
+    (bridge as any).refreshConnectionMetadata(2_000);
+    (bridge as any).refreshConnectionMetadata(301_000);
+
+    expect(refreshCodexMetadata).toHaveBeenCalledTimes(2);
+    expect(refreshClaudeModels).toHaveBeenCalledTimes(2);
+    bridge.close();
+  });
+
+  it("loads codex profiles and models with one standalone process", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const codexProcess = {
+      readProfileConfig: vi.fn().mockResolvedValue({
+        profiles: ["ccpocket"],
+        defaultProfile: "ccpocket",
+      }),
+      listAvailableModelMetadata: vi.fn().mockResolvedValue([
+        {
+          model: "gpt-test",
+          supportedReasoningEfforts: ["high"],
+        },
+      ]),
+      stop: vi.fn(),
+    };
+    const createStandalone = vi
+      .spyOn(bridge as any, "createStandaloneCodexProcess")
+      .mockResolvedValue(codexProcess);
+    vi.spyOn(bridge as any, "broadcastSessionList").mockImplementation(() => {});
+
+    await (bridge as any).refreshCodexMetadata("/tmp/project-a");
+
+    expect(createStandalone).toHaveBeenCalledTimes(1);
+    expect(codexProcess.readProfileConfig).toHaveBeenCalledWith(
+      "/tmp/project-a",
+    );
+    expect(codexProcess.listAvailableModelMetadata).toHaveBeenCalledTimes(1);
+    expect(codexProcess.stop).toHaveBeenCalledTimes(1);
+    expect((bridge as any).codexProfiles).toEqual(["ccpocket"]);
+    expect((bridge as any).codexModels).toEqual(["gpt-test"]);
+    bridge.close();
+  });
+
+  it("keeps codex models when profile metadata fails", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const codexProcess = {
+      readProfileConfig: vi.fn().mockRejectedValue(new Error("profile failed")),
+      listAvailableModelMetadata: vi.fn().mockResolvedValue([
+        {
+          model: "gpt-test",
+          supportedReasoningEfforts: ["medium"],
+        },
+      ]),
+      stop: vi.fn(),
+    };
+    vi.spyOn(bridge as any, "createStandaloneCodexProcess").mockResolvedValue(
+      codexProcess,
+    );
+    vi.spyOn(bridge as any, "broadcastSessionList").mockImplementation(() => {});
+
+    await (bridge as any).refreshCodexMetadata();
+
+    expect((bridge as any).codexProfiles).toEqual([]);
+    expect((bridge as any).codexModels).toEqual(["gpt-test"]);
+    expect(codexProcess.stop).toHaveBeenCalledTimes(1);
+    bridge.close();
+  });
+
+  it("runs a project metadata refresh after an in-flight connect refresh", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolvePromise) => {
+      releaseFirst = resolvePromise;
+    });
+    const paths: Array<string | undefined> = [];
+    vi.spyOn(bridge as any, "loadAndApplyCodexMetadata").mockImplementation(
+      async (projectPath?: string) => {
+        paths.push(projectPath);
+        if (paths.length === 1) await firstGate;
+      },
+    );
+
+    const connectRefresh = (bridge as any).refreshCodexMetadata();
+    const projectRefresh = (bridge as any).refreshCodexMetadata(
+      "/tmp/project-a",
+    );
+    await Promise.resolve();
+    expect(paths).toEqual([undefined]);
+
+    releaseFirst();
+    await Promise.all([connectRefresh, projectRefresh]);
+    expect(paths).toEqual([undefined, "/tmp/project-a"]);
+    bridge.close();
+  });
+
+  it("stops a standalone codex process when initialization fails", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const initializeOnly = vi
+      .spyOn(CodexProcess.prototype, "initializeOnly")
+      .mockRejectedValueOnce(new Error("initialize failed"));
+    const stop = vi
+      .spyOn(CodexProcess.prototype, "stop")
+      .mockImplementation(() => {});
+    try {
+      await expect(
+        (bridge as any).createStandaloneCodexProcess("/tmp/project-a"),
+      ).rejects.toThrow("initialize failed");
+      expect(initializeOnly).toHaveBeenCalledWith("/tmp/project-a");
+      expect(stop).toHaveBeenCalledTimes(1);
+    } finally {
+      initializeOnly.mockRestore();
+      stop.mockRestore();
+      bridge.close();
+    }
+  });
+
   it("rejects start when selected codex profile does not exist", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
@@ -790,6 +929,28 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       profile: "ccpocket",
     });
 
+    bridge.close();
+  });
+
+  it("refreshes codex metadata after a codex session starts", async () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    const refreshCodexMetadata = vi
+      .spyOn(bridge as any, "refreshCodexMetadata")
+      .mockResolvedValue(undefined);
+
+    await (bridge as any).handleClientMessage(
+      {
+        type: "start",
+        projectPath: "/tmp/project-a",
+        provider: "codex",
+      },
+      ws,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(refreshCodexMetadata).toHaveBeenCalledWith("/tmp/project-a");
     bridge.close();
   });
 
