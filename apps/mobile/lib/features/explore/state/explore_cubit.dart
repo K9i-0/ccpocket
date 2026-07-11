@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../services/bridge_service.dart';
+import '../../../models/messages.dart';
 import 'explore_state.dart';
 
 class ExploreCubit extends Cubit<ExploreState> {
   final BridgeService _bridge;
-  StreamSubscription<List<String>>? _fileListSub;
+  StreamSubscription<FileListMessage>? _fileListSub;
   List<String> _recentPeekedFiles;
 
   ExploreCubit({
@@ -19,19 +20,26 @@ class ExploreCubit extends Cubit<ExploreState> {
   }) : _bridge = bridge,
        _recentPeekedFiles = recentPeekedFiles.take(10).toList(),
        super(ExploreState(projectPath: projectPath, currentPath: initialPath)) {
-    _fileListSub = _bridge.fileList.listen(_onFileListUpdated);
+    _fileListSub = _bridge.fileListMessages.listen(_onFileListUpdated);
     if (initialFiles.isNotEmpty) {
-      _applyFiles(initialFiles);
-    } else {
-      _bridge.requestFileList(projectPath);
+      _applyFiles(initialFiles, truncated: false, totalFiles: null);
     }
+    _bridge.requestFileList(projectPath);
   }
 
-  void _onFileListUpdated(List<String> files) {
-    _applyFiles(files);
+  void _onFileListUpdated(FileListMessage message) {
+    _applyFiles(
+      message.files,
+      truncated: message.truncated,
+      totalFiles: message.totalFiles,
+    );
   }
 
-  void _applyFiles(List<String> files) {
+  void _applyFiles(
+    List<String> files, {
+    required bool truncated,
+    required int? totalFiles,
+  }) {
     final normalizedPath = normalizeExplorePath(files, state.currentPath);
     final entries = buildExploreEntries(files, currentPath: normalizedPath);
     emit(
@@ -39,6 +47,8 @@ class ExploreCubit extends Cubit<ExploreState> {
         currentPath: normalizedPath,
         allFiles: files,
         visibleEntries: entries,
+        fileListTruncated: truncated,
+        totalFiles: totalFiles,
         status: switch ((files.isEmpty, entries.isEmpty)) {
           (true, _) => ExploreStatus.empty,
           (_, false) => ExploreStatus.ready,

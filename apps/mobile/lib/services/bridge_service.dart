@@ -33,6 +33,8 @@ class BridgeService implements BridgeServiceBase {
       StreamController<List<RecentSession>>.broadcast();
   final _galleryController = StreamController<List<GalleryImage>>.broadcast();
   final _fileListController = StreamController<List<String>>.broadcast();
+  final _fileListMessageController =
+      StreamController<FileListMessage>.broadcast();
   final _projectHistoryController = StreamController<List<String>>.broadcast();
   final _diffResultController = StreamController<DiffResultMessage>.broadcast();
   final _diffImageResultController =
@@ -158,6 +160,8 @@ class BridgeService implements BridgeServiceBase {
       _projectHistoryController.stream;
   @override
   Stream<List<String>> get fileList => _fileListController.stream;
+  Stream<FileListMessage> get fileListMessages =>
+      _fileListMessageController.stream;
   Stream<FileContentMessage> get fileContent => _fileContentController.stream;
   Stream<DiffResultMessage> get diffResults => _diffResultController.stream;
   Stream<DiffImageResultMessage> get diffImageResults =>
@@ -446,6 +450,7 @@ class BridgeService implements BridgeServiceBase {
                 _fileContentController.add(msg);
               case FileListMessage(:final files):
                 _fileListController.add(files);
+                _fileListMessageController.add(msg);
               case ProjectHistoryMessage(:final projects):
                 _projectHistory = projects;
                 _projectHistoryController.add(projects);
@@ -687,6 +692,7 @@ class BridgeService implements BridgeServiceBase {
     _galleryController.add(_galleryImages);
     _projectHistoryController.add(_projectHistory);
     _fileListController.add(const []);
+    _fileListMessageController.add(const FileListMessage(files: []));
 
     if (clearOfflineQueue) {
       _clearOfflinePendingState();
@@ -2307,6 +2313,7 @@ class BridgeService implements BridgeServiceBase {
     _recentSessionsController.close();
     _galleryController.close();
     _fileListController.close();
+    _fileListMessageController.close();
     _projectHistoryController.close();
     _diffResultController.close();
     _diffImageResultController.close();
