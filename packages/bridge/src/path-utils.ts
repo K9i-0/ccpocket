@@ -49,6 +49,29 @@ export function resolvePlatformPathFrom(
   );
 }
 
+export function parseAllowedDirectories(
+  input: string | undefined,
+  platform: NodeJS.Platform = process.platform,
+  defaultDirs: string[] = [],
+): string[] {
+  const raw = input?.trim();
+  if (!raw) {
+    return defaultDirs.map((dir) => resolvePlatformPath(dir, platform));
+  }
+  if (raw === "*") return [];
+
+  const entries = raw.split(",").map((dir) => dir.trim()).filter(Boolean);
+  if (entries.length === 0) {
+    throw new Error("BRIDGE_ALLOWED_DIRS must contain at least one path");
+  }
+  if (entries.includes("*")) {
+    throw new Error(
+      "BRIDGE_ALLOWED_DIRS must be either '*' or a comma-separated path list",
+    );
+  }
+  return entries.map((dir) => resolvePlatformPath(dir, platform));
+}
+
 export function isPathWithinAllowedDirectory(
   targetPath: string,
   allowedDir: string,

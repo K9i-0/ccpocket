@@ -19,20 +19,19 @@ import {
   promptHistoryStoreFileForPort,
   PromptHistoryStore,
 } from "./prompt-history-store.js";
-import { resolvePlatformPath } from "./path-utils.js";
+import { parseAllowedDirectories } from "./path-utils.js";
 
 export async function startServer() {
   const PORT = parseInt(process.env.BRIDGE_PORT ?? "8765", 10);
   const HOST = process.env.BRIDGE_HOST ?? "0.0.0.0";
   const API_KEY = process.env.BRIDGE_API_KEY;
 
-  // Parse allowed project directories (default: $HOME)
-  const ALLOWED_DIRS: string[] = process.env.BRIDGE_ALLOWED_DIRS
-    ? process.env.BRIDGE_ALLOWED_DIRS
-      .split(",")
-      .map((d) => resolvePlatformPath(d.trim()))
-      .filter(Boolean)
-    : [homedir()];
+  // Unrestricted access requires the exact value "*".
+  const ALLOWED_DIRS = parseAllowedDirectories(
+    process.env.BRIDGE_ALLOWED_DIRS,
+    process.platform,
+    [homedir()],
+  );
 
   console.log("[bridge] Starting ccpocket bridge server...");
 
@@ -44,7 +43,11 @@ export async function startServer() {
     console.log("[bridge] mDNS advertisement disabled");
   }
 
-  console.log(`[bridge] Allowed dirs: ${ALLOWED_DIRS.join(", ")}`);
+  console.log(
+    `[bridge] Allowed dirs: ${
+      ALLOWED_DIRS.length > 0 ? ALLOWED_DIRS.join(", ") : "(unrestricted)"
+    }`,
+  );
 
   // Initialize Firebase Anonymous Auth for push notifications
   let firebaseAuth: FirebaseAuthClient | undefined;
