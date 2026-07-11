@@ -4,6 +4,7 @@ import {
   matchesSessionRule,
   buildSessionRule,
   buildAskUserAnswers,
+  resolvePermissionMode,
   ACCEPT_EDITS_AUTO_APPROVE,
   extractTokenUsage,
   buildThinkingOptions,
@@ -972,5 +973,149 @@ describe("SdkProcess.answer", () => {
       "Which database?": "SQLite",
       "Which ORM?": "Drizzle",
     });
+  });
+});
+
+describe("SdkProcess.setPermissionMode", () => {
+  it("keeps an idle mode unless the next start explicitly overrides it", () => {
+    expect(resolvePermissionMode("acceptEdits", undefined)).toBe(
+      "acceptEdits",
+    );
+    expect(resolvePermissionMode("acceptEdits", "bypassPermissions")).toBe(
+      "bypassPermissions",
+    );
+    expect(resolvePermissionMode(undefined, undefined)).toBeUndefined();
+  });
+
+  it("retains an idle mode when start omits permissionMode", async () => {
+    const proc = new SdkProcess();
+    await proc.setPermissionMode("acceptEdits");
+
+    proc.start("/tmp");
+    expect(proc.permissionMode).toBe("acceptEdits");
+    proc.stop();
+  });
+
+  it("lets an explicit start mode override the retained idle mode", async () => {
+    const proc = new SdkProcess();
+    await proc.setPermissionMode("acceptEdits");
+
+    proc.start("/tmp", { permissionMode: "bypassPermissions" });
+    expect(proc.permissionMode).toBe("bypassPermissions");
+    proc.stop();
+  });
+
+  it("records and emits a permission mode change while idle", async () => {
+    const proc = new SdkProcess();
+    const messages: ServerMessage[] = [];
+    (proc as any)._sessionId = "claude-session";
+    proc.on("message", (message) => messages.push(message));
+
+    await proc.setPermissionMode("bypassPermissions");
+
+    expect(proc.permissionMode).toBe("bypassPermissions");
+    expect(messages).toContainEqual(expect.objectContaining({
+      type: "system",
+      subtype: "set_permission_mode",
+      permissionMode: "bypassPermissions",
+      sessionId: "claude-session",
+    }));
+  });
+
+  it("applies a permission mode change to a live query before updating state", async () => {
+    const proc = new SdkProcess();
+    const setPermissionMode = vi.fn(async () => {});
+    (proc as any).queryInstance = { setPermissionMode };
+
+    await proc.setPermissionMode("acceptEdits");
+
+    expect(setPermissionMode).toHaveBeenCalledWith("acceptEdits");
+    expect(proc.permissionMode).toBe("acceptEdits");
+  });
+
+  it("does not update state when a live query rejects the change", async () => {
+    const proc = new SdkProcess();
+    (proc as any)._permissionMode = "default";
+    (proc as any).queryInstance = {
+      setPermissionMode: vi.fn(async () => {
+        throw new Error("unsupported");
+      }),
+    };
+
+    await expect(proc.setPermissionMode("auto")).rejects.toThrow("unsupported");
+    expect(proc.permissionMode).toBe("default");
+  });
+
+  it("ignores an old live update that finishes after a new start", async () => {
+    const proc = new SdkProcess();
+    let finishUpdate!: () => void;
+    const setPermissionMode = vi.fn(
+      () => new Promise<void>((resolve) => {
+        finishUpdate = resolve;
+      }),
+    );
+    (proc as any).queryInstance = {
+      setPermissionMode,
+      close: vi.fn(),
+    };
+    const messages: ServerMessage[] = [];
+    proc.on("message", (message) => messages.push(message));
+
+    const oldUpdate = proc.setPermissionMode("bypassPermissions");
+    await Promise.resolve();
+    proc.start("/tmp", { permissionMode: "default" });
+    finishUpdate();
+    await oldUpdate;
+
+    expect(proc.permissionMode).toBe("default");
+    expect(messages).not.toContainEqual(expect.objectContaining({
+      type: "system",
+      subtype: "set_permission_mode",
+      permissionMode: "bypassPermissions",
+    }));
+    proc.stop();
+  });
+
+  it("commits an earlier success when the next queued change fails", async () => {
+    const proc = new SdkProcess();
+    let finishFirst!: () => void;
+    const firstUpdate = new Promise<void>((resolve) => {
+      finishFirst = resolve;
+    });
+    const setPermissionMode = vi.fn()
+      .mockImplementationOnce(() => firstUpdate)
+      .mockRejectedValueOnce(new Error("unsupported"));
+    (proc as any)._permissionMode = "default";
+    (proc as any).queryInstance = { setPermissionMode };
+
+    const earlier = proc.setPermissionMode("bypassPermissions");
+    const later = proc.setPermissionMode("default");
+    await Promise.resolve();
+    finishFirst();
+
+    await earlier;
+    await expect(later).rejects.toThrow("unsupported");
+    expect(setPermissionMode.mock.calls).toEqual([
+      ["bypassPermissions"],
+      ["default"],
+    ]);
+    expect(proc.permissionMode).toBe("bypassPermissions");
+  });
+
+  it("does not let an unresolved old update block the new generation", async () => {
+    const proc = new SdkProcess();
+    const neverFinishes = new Promise<void>(() => {});
+    (proc as any).queryInstance = {
+      setPermissionMode: vi.fn(() => neverFinishes),
+      close: vi.fn(),
+    };
+
+    void proc.setPermissionMode("bypassPermissions");
+    await Promise.resolve();
+    proc.start("/tmp", { permissionMode: "acceptEdits" });
+    proc.stop();
+
+    await expect(proc.setPermissionMode("default")).resolves.toBeUndefined();
+    expect(proc.permissionMode).toBe("default");
   });
 });

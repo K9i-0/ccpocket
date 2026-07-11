@@ -310,6 +310,13 @@ export function buildAskUserAnswers(
   return Object.fromEntries(mapped);
 }
 
+export function resolvePermissionMode(
+  current: PermissionMode | undefined,
+  requested: PermissionMode | undefined,
+): PermissionMode | undefined {
+  return requested ?? current;
+}
+
 // ---- Auth error helpers (exported for testing) ----
 
 export type AuthErrorCode = "auth_login_required" | "auth_token_expired" | "auth_api_error";
@@ -601,6 +608,8 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   private _sessionId: string | null = null;
   private pendingPermissions = new Map<string, PendingPermission>();
   private _permissionMode: PermissionMode | undefined;
+  private permissionModeGeneration = 0;
+  private permissionModeUpdates: Promise<void> = Promise.resolve();
   get permissionMode(): PermissionMode | undefined { return this._permissionMode; }
   private _model: string | undefined;
   get model(): string | undefined { return this._model; }
@@ -653,7 +662,12 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     this._sessionId = null;
     this.sessionEndEmitted = false;
     this.pendingPermissions.clear();
-    this._permissionMode = options?.permissionMode;
+    this.permissionModeGeneration += 1;
+    this.permissionModeUpdates = Promise.resolve();
+    this._permissionMode = resolvePermissionMode(
+      this._permissionMode,
+      options?.permissionMode,
+    );
     this.sessionAllowRules.clear();
     this.toolCallsSinceLastResult = 0;
     this.fileEditsSinceLastResult = 0;
@@ -699,7 +713,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
   }
 
   private startSdkQuery(projectPath: string, options?: StartOptions): void {
-    console.log(`[sdk-process] Starting SDK query (cwd: ${projectPath}, mode: ${options?.permissionMode ?? "default"}${options?.sessionId ? `, resume: ${options.sessionId}` : ""}${options?.continueMode ? ", continue: true" : ""})`);
+    console.log(`[sdk-process] Starting SDK query (cwd: ${projectPath}, mode: ${this._permissionMode ?? "default"}${options?.sessionId ? `, resume: ${options.sessionId}` : ""}${options?.continueMode ? ", continue: true" : ""})`);
 
     // In -p mode with --input-format stream-json, Claude CLI won't emit
     // system/init until the first user input. Set a fallback timeout to
@@ -720,7 +734,7 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
         cwd: projectPath,
         resume: options?.sessionId,
         continue: options?.continueMode,
-        permissionMode: options?.permissionMode ?? "default",
+        permissionMode: this._permissionMode ?? "default",
         ...(options?.model ? { model: options.model } : {}),
         ...buildThinkingOptions(options?.model),
         ...(options?.effort ? { effort: options.effort } : {}),
@@ -1031,20 +1045,33 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
 
   /**
    * Update permission mode for the current session.
-   * Only available while the query instance is active.
+   * Idle changes are retained and applied when the next query starts.
    */
   async setPermissionMode(mode: PermissionMode): Promise<void> {
-    if (!this.queryInstance) {
-      throw new Error("No active query instance");
-    }
-    await this.queryInstance.setPermissionMode(mode);
-    this._permissionMode = mode;
-    this.emitMessage({
-      type: "system",
-      subtype: "set_permission_mode",
-      permissionMode: mode,
-      sessionId: this._sessionId ?? undefined,
+    const generation = this.permissionModeGeneration;
+    const update = this.permissionModeUpdates.then(async () => {
+      if (generation !== this.permissionModeGeneration) return;
+
+      const queryInstance = this.queryInstance;
+      if (queryInstance) {
+        await queryInstance.setPermissionMode(mode);
+        if (
+          generation !== this.permissionModeGeneration ||
+          queryInstance !== this.queryInstance
+        ) {
+          return;
+        }
+      }
+      this._permissionMode = mode;
+      this.emitMessage({
+        type: "system",
+        subtype: "set_permission_mode",
+        permissionMode: mode,
+        sessionId: this._sessionId ?? undefined,
+      });
     });
+    this.permissionModeUpdates = update.catch(() => {});
+    return update;
   }
 
   /**
