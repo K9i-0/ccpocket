@@ -3,6 +3,7 @@ import {
   parseRule,
   matchesSessionRule,
   buildSessionRule,
+  buildAskUserAnswers,
   ACCEPT_EDITS_AUTO_APPROVE,
   extractTokenUsage,
   buildThinkingOptions,
@@ -801,5 +802,175 @@ describe("SdkProcess input dispatch", () => {
       ]),
     ).toEqual({ queued: true, shouldInterrupt: true });
     expect(resolve).not.toHaveBeenCalled();
+  });
+});
+
+describe("buildAskUserAnswers", () => {
+  const multiInput = {
+    questions: [
+      { question: "Which database?" },
+      { question: "Which ORM?" },
+    ],
+  };
+  const singleInput = { questions: [{ question: "Which database?" }] };
+
+  it("maps a bare answer for a single question", () => {
+    expect(buildAskUserAnswers(singleInput, "SQLite")).toEqual({
+      "Which database?": "SQLite",
+    });
+  });
+
+  it("maps multi-question JSON answers by question text", () => {
+    const result = JSON.stringify({
+      questions: multiInput.questions,
+      answers: {
+        "Which database?": "SQLite",
+        "Which ORM?": "Drizzle, Prisma",
+      },
+    });
+    expect(buildAskUserAnswers(multiInput, result)).toEqual({
+      "Which database?": "SQLite",
+      "Which ORM?": "Drizzle, Prisma",
+    });
+  });
+
+  it("joins string arrays for multi-select and ignores invalid values", () => {
+    const result = JSON.stringify({
+      questions: multiInput.questions,
+      answers: {
+        "Which database?": ["SQLite", "Postgres"],
+        injected: "value",
+        "Which ORM?": { nested: true },
+      },
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(buildAskUserAnswers(multiInput, result)).toEqual({
+      "Which database?": "SQLite, Postgres",
+    });
+    warn.mockRestore();
+  });
+
+  it("preserves existing answers and overwrites matching new answers", () => {
+    const result = JSON.stringify({
+      questions: multiInput.questions,
+      answers: { "Which ORM?": "Drizzle" },
+    });
+    expect(buildAskUserAnswers({
+      ...multiInput,
+      answers: { "Which database?": "SQLite", injected: "value" },
+    }, result)).toEqual({
+      "Which database?": "SQLite",
+      "Which ORM?": "Drizzle",
+    });
+  });
+
+  it("does not map non-envelope input onto the first of multiple questions", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(buildAskUserAnswers(multiInput, "SQLite")).toEqual({});
+    expect(buildAskUserAnswers(multiInput, "{bad json")).toEqual({});
+    warn.mockRestore();
+  });
+
+  it("preserves JSON-shaped custom text for a single question", () => {
+    const result = JSON.stringify({ custom: true });
+    expect(buildAskUserAnswers(singleInput, result)).toEqual({
+      "Which database?": result,
+    });
+  });
+
+  it("does not mistake a mismatched envelope-shaped custom answer for app data", () => {
+    const result = JSON.stringify({
+      questions: [],
+      answers: { other: "value" },
+    });
+    expect(buildAskUserAnswers(singleInput, result)).toEqual({
+      "Which database?": result,
+    });
+  });
+
+  it("creates safe own properties for special question text", () => {
+    const answers = buildAskUserAnswers(
+      { questions: [{ question: "__proto__" }] },
+      "safe",
+    );
+    expect(Object.hasOwn(answers, "__proto__")).toBe(true);
+    expect(answers.__proto__).toBe("safe");
+  });
+
+  it("collapses duplicate question text deterministically", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const duplicateInput = {
+      questions: [{ question: "Same" }, { question: "Same" }],
+    };
+    const result = JSON.stringify({
+      questions: duplicateInput.questions,
+      answers: { Same: "answer" },
+    });
+    expect(buildAskUserAnswers(duplicateInput, result)).toEqual({
+      Same: "answer",
+    });
+    expect(buildAskUserAnswers(duplicateInput, "answer")).toEqual({});
+    warn.mockRestore();
+  });
+
+  it("returns an empty map when the pending input has no question text", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(buildAskUserAnswers({ questions: [] }, "SQLite")).toEqual({});
+    warn.mockRestore();
+  });
+});
+
+describe("SdkProcess.answer", () => {
+  it("resolves AskUserQuestion with question-keyed SDK answers", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const internal = proc as any;
+    internal._status = "waiting_approval";
+    internal.pendingPermissions.set("ask-1", {
+      resolve,
+      toolName: "AskUserQuestion",
+      input: { questions: [{ question: "Which database?" }] },
+    });
+
+    proc.answer("ask-1", "SQLite");
+
+    expect(resolve).toHaveBeenCalledWith({
+      behavior: "allow",
+      updatedInput: {
+        questions: [{ question: "Which database?" }],
+        answers: { "Which database?": "SQLite" },
+      },
+    });
+    expect(resolve.mock.calls[0][0].updatedInput.answers).not.toHaveProperty(
+      "result",
+    );
+    expect(proc.status).toBe("running");
+  });
+
+  it("resolves multi-question envelopes with every mapped answer", () => {
+    const proc = new SdkProcess();
+    const resolve = vi.fn();
+    const questions = [
+      { question: "Which database?" },
+      { question: "Which ORM?" },
+    ];
+    (proc as any).pendingPermissions.set("ask-multi", {
+      resolve,
+      toolName: "AskUserQuestion",
+      input: { questions },
+    });
+
+    proc.answer("ask-multi", JSON.stringify({
+      questions,
+      answers: {
+        "Which database?": "SQLite",
+        "Which ORM?": "Drizzle",
+      },
+    }));
+
+    expect(resolve.mock.calls[0][0].updatedInput.answers).toEqual({
+      "Which database?": "SQLite",
+      "Which ORM?": "Drizzle",
+    });
   });
 });

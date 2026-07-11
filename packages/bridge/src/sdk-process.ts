@@ -215,6 +215,101 @@ export function buildSessionRule(toolName: string, input: Record<string, unknown
   return toolName;
 }
 
+export function buildAskUserAnswers(
+  input: Record<string, unknown>,
+  result: string,
+): Record<string, string> {
+  const extractQuestionTexts = (questions: unknown): string[] =>
+    Array.isArray(questions)
+      ? questions.flatMap((question) => {
+        if (
+          !question ||
+          typeof question !== "object" ||
+          Array.isArray(question)
+        ) {
+          return [];
+        }
+        const text = (question as Record<string, unknown>).question;
+        return typeof text === "string" && text.trim().length > 0 ? [text] : [];
+      })
+      : [];
+  const rawQuestionTexts = extractQuestionTexts(input.questions);
+  const questionTexts = [...new Set(rawQuestionTexts)];
+
+  if (questionTexts.length === 0) {
+    console.warn(
+      "[sdk-process] answer() could not resolve AskUserQuestion text",
+    );
+    return {};
+  }
+  if (questionTexts.length !== rawQuestionTexts.length) {
+    console.warn("[sdk-process] AskUserQuestion contains duplicate question text");
+  }
+
+  const mapped = new Map<string, string>();
+  const existingAnswers = input.answers;
+  if (
+    existingAnswers &&
+    typeof existingAnswers === "object" &&
+    !Array.isArray(existingAnswers)
+  ) {
+    const existingRecord = existingAnswers as Record<string, unknown>;
+    for (const questionText of questionTexts) {
+      const answer = existingRecord[questionText];
+      if (typeof answer === "string") mapped.set(questionText, answer);
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(result) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const payload = parsed as Record<string, unknown>;
+      const answers = payload.answers;
+      const payloadQuestionTexts = extractQuestionTexts(payload.questions);
+      const questionsMatch =
+        payloadQuestionTexts.length === rawQuestionTexts.length &&
+        payloadQuestionTexts.every(
+          (questionText, index) => questionText === rawQuestionTexts[index],
+        );
+      if (
+        questionsMatch &&
+        answers &&
+        typeof answers === "object" &&
+        !Array.isArray(answers)
+      ) {
+        const answerRecord = answers as Record<string, unknown>;
+        for (const questionText of questionTexts) {
+          const answer = answerRecord[questionText];
+          if (typeof answer === "string") {
+            mapped.set(questionText, answer);
+          } else if (
+            Array.isArray(answer) &&
+            answer.every((value) => typeof value === "string")
+          ) {
+            mapped.set(questionText, answer.join(", "));
+          } else if (answer !== undefined) {
+            console.warn(
+              `[sdk-process] Ignoring invalid answer for question: ${questionText}`,
+            );
+          }
+        }
+        return Object.fromEntries(mapped);
+      }
+    }
+  } catch {
+    // A normal single-question answer is not JSON.
+  }
+
+  if (rawQuestionTexts.length === 1) {
+    mapped.set(questionTexts[0], result);
+  } else {
+    console.warn(
+      "[sdk-process] Ignoring non-envelope answer for multiple questions",
+    );
+  }
+  return Object.fromEntries(mapped);
+}
+
 // ---- Auth error helpers (exported for testing) ----
 
 export type AuthErrorCode = "auth_login_required" | "auth_token_expired" | "auth_api_error";
@@ -920,11 +1015,12 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     }
 
     this.pendingPermissions.delete(toolUseId);
+    const answers = buildAskUserAnswers(pending.input, result);
     pending.resolve({
       behavior: "allow",
       updatedInput: {
         ...pending.input,
-        answers: { ...(pending.input.answers as Record<string, string> ?? {}), result },
+        answers,
       },
     });
 
