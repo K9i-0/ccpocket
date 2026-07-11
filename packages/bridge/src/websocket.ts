@@ -484,6 +484,8 @@ function envFlagEnabled(name: string): boolean {
   return value === "1" || value === "true" || value === "yes" || value === "on";
 }
 
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
 function positiveEnvInt(name: string, fallback: number): number {
   const raw = process.env[name]?.trim();
   if (!raw) return fallback;
@@ -491,11 +493,34 @@ function positiveEnvInt(name: string, fallback: number): number {
   return Number.isSafeInteger(value) && value > 0 ? value : fallback;
 }
 
+function nonNegativeEnvInt(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) &&
+    value >= 0 &&
+    value <= MAX_TIMER_DELAY_MS
+    ? value
+    : fallback;
+}
+
 function normalizePositiveLimit(
   value: number | undefined,
   fallback: number,
 ): number {
   return value !== undefined && Number.isSafeInteger(value) && value > 0
+    ? value
+    : fallback;
+}
+
+function normalizeNonNegativeLimit(
+  value: number | undefined,
+  fallback: number,
+): number {
+  return value !== undefined &&
+    Number.isSafeInteger(value) &&
+    value >= 0 &&
+    value <= MAX_TIMER_DELAY_MS
     ? value
     : fallback;
 }
@@ -567,6 +592,24 @@ export interface BridgeServerOptions {
   platform?: NodeJS.Platform;
   fileListMaxEntries?: number;
   fileListMaxBytes?: number;
+  deltaBatchMs?: number;
+  deltaBatchMaxChars?: number;
+}
+
+type DeltaServerMessage = Extract<
+  ServerMessage,
+  { type: "stream_delta" | "thinking_delta" }
+>;
+
+interface DeltaBatch {
+  messages: DeltaServerMessage[];
+  timer: NodeJS.Timeout;
+  charCount: number;
+}
+
+interface DeltaTextChunk {
+  text: string;
+  charCount: number;
 }
 
 export class BridgeWebSocketServer {
@@ -575,6 +618,8 @@ export class BridgeWebSocketServer {
   private static readonly CONNECT_METADATA_REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
   private static readonly DEFAULT_FILE_LIST_MAX_ENTRIES = 5000;
   private static readonly DEFAULT_FILE_LIST_MAX_BYTES = 512 * 1024;
+  private static readonly DEFAULT_DELTA_BATCH_MS = 100;
+  private static readonly DEFAULT_DELTA_BATCH_MAX_CHARS = 4096;
 
   private wss: WebSocketServer;
   private sessionManager: SessionManager;
@@ -620,6 +665,9 @@ export class BridgeWebSocketServer {
   private failSetSandboxMode = envFlagEnabled("BRIDGE_FAIL_SET_SANDBOX_MODE");
   private readonly fileListMaxEntries: number;
   private readonly fileListMaxBytes: number;
+  private readonly deltaBatchMs: number;
+  private readonly deltaBatchMaxChars: number;
+  private deltaBatches = new Map<WebSocket, Map<string, DeltaBatch>>();
   private platform: NodeJS.Platform;
   private clientSupportedServerMessages = new WeakMap<WebSocket, Set<string>>();
   private pendingClaudeResumeInputs = new WeakMap<
@@ -643,6 +691,8 @@ export class BridgeWebSocketServer {
       platform,
       fileListMaxEntries,
       fileListMaxBytes,
+      deltaBatchMs,
+      deltaBatchMaxChars,
     } = options;
     this.apiKey = apiKey ?? null;
     this.allowedDirs = allowedDirs ?? [];
@@ -668,6 +718,20 @@ export class BridgeWebSocketServer {
       positiveEnvInt(
         "BRIDGE_FILE_LIST_MAX_BYTES",
         BridgeWebSocketServer.DEFAULT_FILE_LIST_MAX_BYTES,
+      ),
+    );
+    this.deltaBatchMs = normalizeNonNegativeLimit(
+      deltaBatchMs,
+      nonNegativeEnvInt(
+        "BRIDGE_DELTA_BATCH_MS",
+        BridgeWebSocketServer.DEFAULT_DELTA_BATCH_MS,
+      ),
+    );
+    this.deltaBatchMaxChars = normalizePositiveLimit(
+      deltaBatchMaxChars,
+      positiveEnvInt(
+        "BRIDGE_DELTA_BATCH_MAX_CHARS",
+        BridgeWebSocketServer.DEFAULT_DELTA_BATCH_MAX_CHARS,
       ),
     );
 
@@ -1067,7 +1131,7 @@ export class BridgeWebSocketServer {
       expectedUserTurns: targetOrdinal - 1,
       fallback: buildCodexHistoryPrefix(session, targetOrdinal - 1),
     });
-    this.sessionManager.destroy(sessionId);
+    this.destroySession(sessionId);
     const newSessionId = this.sessionManager.create(
       projectPath,
       undefined,
@@ -1864,7 +1928,9 @@ export class BridgeWebSocketServer {
 
   close(): void {
     console.log("[ws] Shutting down...");
+    this.flushAllDeltaBatches();
     this.sessionManager.destroyAll();
+    this.flushAllDeltaBatches();
     stopManagedCodexAppServers();
     this.debugEvents.clear();
     this.wss.close();
@@ -1919,6 +1985,7 @@ export class BridgeWebSocketServer {
 
     ws.on("close", () => {
       console.log("[ws] Client disconnected");
+      this.discardClientDeltaBatches(ws);
       this.clearPendingClaudeResumeInputs(ws);
     });
 
@@ -2878,7 +2945,7 @@ export class BridgeWebSocketServer {
           const worktreeBranch = session.worktreeBranch;
           const sessionName = session.name;
 
-          this.sessionManager.destroy(oldSessionId);
+          this.destroySession(oldSessionId);
           console.log(
             `[ws] Permission mode change: destroyed session ${oldSessionId}`,
           );
@@ -3211,7 +3278,7 @@ export class BridgeWebSocketServer {
           const permissionMode = (session.process as SdkProcess).permissionMode;
           const model = (session.process as SdkProcess).model;
 
-          this.sessionManager.destroy(oldSessionId);
+          this.destroySession(oldSessionId);
           console.log(
             `[ws] Claude sandbox change: destroyed session ${oldSessionId}`,
           );
@@ -3296,7 +3363,7 @@ export class BridgeWebSocketServer {
           planMode,
         );
 
-        this.sessionManager.destroy(oldSessionId);
+        this.destroySession(oldSessionId);
         console.log(
           `[ws] Sandbox mode change: destroyed session ${oldSessionId}`,
         );
@@ -3512,7 +3579,7 @@ export class BridgeWebSocketServer {
           const worktreePath = session.worktreePath;
           const worktreeBranch = session.worktreeBranch;
 
-          this.sessionManager.destroy(sessionId);
+          this.destroySession(sessionId);
           console.log(`[ws] Clear context: destroyed session ${sessionId}`);
 
           const newId = this.sessionManager.create(
@@ -3610,7 +3677,7 @@ export class BridgeWebSocketServer {
             subtype: "stopped",
             sessionId: session.claudeSessionId,
           });
-          this.sessionManager.destroy(msg.sessionId);
+          this.destroySession(msg.sessionId);
           this.recordDebugEvent(msg.sessionId, {
             direction: "internal",
             channel: "bridge",
@@ -5264,6 +5331,7 @@ export class BridgeWebSocketServer {
         } else if (msg.mode === "conversation") {
           // Conversation-only rewind: restart session at the target UUID
           try {
+            this.flushSessionDeltaBatches(msg.sessionId);
             this.sessionManager.rewindConversation(
               msg.sessionId,
               msg.targetUuid,
@@ -5311,6 +5379,7 @@ export class BridgeWebSocketServer {
                 return;
               }
               try {
+                this.flushSessionDeltaBatches(msg.sessionId);
                 this.sessionManager.rewindConversation(
                   msg.sessionId,
                   msg.targetUuid,
@@ -5871,6 +5940,137 @@ export class BridgeWebSocketServer {
     msg: ServerMessage,
     exclude?: WebSocket,
   ): void {
+    if (this.shouldBatchDelta(msg, exclude)) {
+      this.trackSessionMessage(sessionId, msg);
+      const chunks = this.splitDeltaText(msg.text);
+      for (const client of this.wss.clients) {
+        if (client.readyState !== WebSocket.OPEN) continue;
+        if (!this.shouldSendToClient(client, msg)) continue;
+        this.queueDeltaForClient(client, sessionId, msg.type, chunks);
+      }
+      return;
+    }
+
+    this.flushSessionDeltaBatches(sessionId);
+    this.trackSessionMessage(sessionId, msg);
+    this.broadcastSessionMessageNow(sessionId, msg, exclude);
+  }
+
+  private shouldBatchDelta(
+    msg: ServerMessage,
+    exclude?: WebSocket,
+  ): msg is DeltaServerMessage {
+    if (this.deltaBatchMs === 0 || exclude) return false;
+    return msg.type === "stream_delta" || msg.type === "thinking_delta";
+  }
+
+  private queueDeltaForClient(
+    client: WebSocket,
+    sessionId: string,
+    type: DeltaServerMessage["type"],
+    chunks: DeltaTextChunk[],
+  ): void {
+    for (const chunk of chunks) {
+      let batch = this.deltaBatches.get(client)?.get(sessionId);
+      if (
+        batch &&
+        batch.charCount > 0 &&
+        batch.charCount + chunk.charCount > this.deltaBatchMaxChars
+      ) {
+        this.flushClientDeltaBatch(client, sessionId);
+        batch = undefined;
+      }
+
+      if (!batch) {
+        const clientBatches = this.deltaBatches.get(client) ?? new Map();
+        batch = {
+          messages: [],
+          charCount: 0,
+          timer: setTimeout(() => {
+            this.flushClientDeltaBatch(client, sessionId);
+          }, this.deltaBatchMs),
+        };
+        clientBatches.set(sessionId, batch);
+        this.deltaBatches.set(client, clientBatches);
+      }
+
+      const last = batch.messages.at(-1);
+      if (last?.type === type) {
+        last.text += chunk.text;
+      } else {
+        batch.messages.push({ type, text: chunk.text });
+      }
+      batch.charCount += chunk.charCount;
+
+      if (batch.charCount >= this.deltaBatchMaxChars) {
+        this.flushClientDeltaBatch(client, sessionId);
+      }
+    }
+  }
+
+  private splitDeltaText(text: string): DeltaTextChunk[] {
+    if (text.length === 0) return [{ text, charCount: 0 }];
+
+    const chunks: DeltaTextChunk[] = [];
+    let chars: string[] = [];
+    let charCount = 0;
+    for (const char of text) {
+      chars.push(char);
+      charCount += 1;
+      if (charCount >= this.deltaBatchMaxChars) {
+        chunks.push({ text: chars.join(""), charCount });
+        chars = [];
+        charCount = 0;
+      }
+    }
+    if (chars.length > 0) {
+      chunks.push({ text: chars.join(""), charCount });
+    }
+    return chunks;
+  }
+
+  private flushSessionDeltaBatches(sessionId: string): void {
+    for (const client of Array.from(this.deltaBatches.keys())) {
+      this.flushClientDeltaBatch(client, sessionId);
+    }
+  }
+
+  private flushAllDeltaBatches(): void {
+    for (const [client, batches] of Array.from(this.deltaBatches.entries())) {
+      for (const sessionId of Array.from(batches.keys())) {
+        this.flushClientDeltaBatch(client, sessionId);
+      }
+    }
+  }
+
+  private flushClientDeltaBatch(client: WebSocket, sessionId: string): void {
+    const clientBatches = this.deltaBatches.get(client);
+    const batch = clientBatches?.get(sessionId);
+    if (!batch) return;
+
+    clearTimeout(batch.timer);
+    clientBatches?.delete(sessionId);
+    if (clientBatches?.size === 0) this.deltaBatches.delete(client);
+    if (client.readyState !== WebSocket.OPEN) return;
+
+    for (const msg of batch.messages) {
+      client.send(JSON.stringify({ ...msg, sessionId }));
+    }
+  }
+
+  private discardClientDeltaBatches(client: WebSocket): void {
+    const batches = this.deltaBatches.get(client);
+    if (!batches) return;
+    for (const batch of batches.values()) clearTimeout(batch.timer);
+    this.deltaBatches.delete(client);
+  }
+
+  private destroySession(sessionId: string): void {
+    this.flushSessionDeltaBatches(sessionId);
+    this.sessionManager.destroy(sessionId);
+  }
+
+  private trackSessionMessage(sessionId: string, msg: ServerMessage): void {
     this.maybeSendPushNotification(sessionId, msg);
     this.recordDebugEvent(sessionId, {
       direction: "outgoing",
@@ -5896,7 +6096,13 @@ export class BridgeWebSocketServer {
         });
       }
     }
-    // Wrap the message with sessionId
+  }
+
+  private broadcastSessionMessageNow(
+    sessionId: string,
+    msg: ServerMessage,
+    exclude?: WebSocket,
+  ): void {
     const data = JSON.stringify({ ...msg, sessionId });
     for (const client of this.wss.clients) {
       if (client === exclude) continue;

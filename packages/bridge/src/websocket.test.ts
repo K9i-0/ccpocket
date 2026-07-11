@@ -426,6 +426,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     vi.unstubAllEnvs();
+    vi.useRealTimers();
     httpServer.close();
   });
 
@@ -4220,6 +4221,331 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("batches deltas for clients that were connected when each delta arrived", () => {
+    vi.useFakeTimers();
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 100,
+    });
+    const first = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    const late = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(first);
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "before ",
+    });
+    (bridge as any).wss.clients.add(late);
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "after",
+    });
+    vi.advanceTimersByTime(100);
+
+    expect(first.send).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(first.send.mock.calls[0][0] as string)).toEqual({
+      type: "stream_delta",
+      text: "before after",
+      sessionId: "s-1",
+    });
+    expect(late.send).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(late.send.mock.calls[0][0] as string)).toEqual({
+      type: "stream_delta",
+      text: "after",
+      sessionId: "s-1",
+    });
+
+    bridge.close();
+  });
+
+  it("flushes alternating deltas before a non-delta session message", () => {
+    vi.useFakeTimers();
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 100,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(ws);
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "answer ",
+    });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "thinking_delta",
+      text: "thought",
+    });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "done",
+    });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "status",
+      status: "idle",
+    });
+
+    expect(
+      ws.send.mock.calls.map((call: unknown[]) => JSON.parse(call[0] as string)),
+    ).toEqual([
+      { type: "stream_delta", text: "answer ", sessionId: "s-1" },
+      { type: "thinking_delta", text: "thought", sessionId: "s-1" },
+      { type: "stream_delta", text: "done", sessionId: "s-1" },
+      { type: "status", status: "idle", sessionId: "s-1" },
+    ]);
+    vi.advanceTimersByTime(100);
+    expect(ws.send).toHaveBeenCalledTimes(4);
+
+    bridge.close();
+  });
+
+  it("keeps batches isolated by session", () => {
+    vi.useFakeTimers();
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 100,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(ws);
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "one",
+    });
+    (bridge as any).broadcastSessionMessage("s-2", {
+      type: "stream_delta",
+      text: "two",
+    });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "status",
+      status: "idle",
+    });
+
+    expect(
+      ws.send.mock.calls.map((call: unknown[]) => JSON.parse(call[0] as string)),
+    ).toEqual([
+      { type: "stream_delta", text: "one", sessionId: "s-1" },
+      { type: "status", status: "idle", sessionId: "s-1" },
+    ]);
+    vi.advanceTimersByTime(100);
+    expect(JSON.parse(ws.send.mock.calls[2][0] as string)).toEqual({
+      type: "stream_delta",
+      text: "two",
+      sessionId: "s-2",
+    });
+
+    bridge.close();
+  });
+
+  it("splits oversized deltas without breaking Unicode characters", () => {
+    vi.useFakeTimers();
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 100,
+      deltaBatchMaxChars: 2,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(ws);
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "A😀BC",
+    });
+    vi.advanceTimersByTime(100);
+
+    const messages = ws.send.mock.calls.map((call: unknown[]) =>
+      JSON.parse(call[0] as string),
+    );
+    expect(messages.map((message: { text: string }) => message.text).join(""))
+      .toBe("A😀BC");
+    expect(
+      messages.every(
+        (message: { text: string }) => Array.from(message.text).length <= 2,
+      ),
+    ).toBe(true);
+
+    bridge.close();
+  });
+
+  it("flushes pending deltas before excluding a client from a later delta", () => {
+    vi.useFakeTimers();
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 100,
+    });
+    const included = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    const excluded = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(included);
+    (bridge as any).wss.clients.add(excluded);
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "first",
+    });
+    (bridge as any).broadcastSessionMessage(
+      "s-1",
+      { type: "stream_delta", text: "second" },
+      excluded,
+    );
+
+    expect(
+      included.send.mock.calls.map((call: unknown[]) =>
+        JSON.parse(call[0] as string),
+      ),
+    ).toEqual([
+      { type: "stream_delta", text: "first", sessionId: "s-1" },
+      { type: "stream_delta", text: "second", sessionId: "s-1" },
+    ]);
+    expect(JSON.parse(excluded.send.mock.calls[0][0] as string)).toEqual({
+      type: "stream_delta",
+      text: "first",
+      sessionId: "s-1",
+    });
+
+    bridge.close();
+  });
+
+  it("flushes pending deltas before destroying a session", () => {
+    vi.useFakeTimers();
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 100,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(ws);
+    const destroy = vi.spyOn((bridge as any).sessionManager, "destroy");
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "final",
+    });
+    (bridge as any).destroySession("s-1");
+
+    expect(JSON.parse(ws.send.mock.calls[0][0] as string)).toEqual({
+      type: "stream_delta",
+      text: "final",
+      sessionId: "s-1",
+    });
+    expect(ws.send.mock.invocationCallOrder[0]).toBeLessThan(
+      destroy.mock.invocationCallOrder[0],
+    );
+
+    bridge.close();
+  });
+
+  it("discards pending deltas when a client disconnects", () => {
+    vi.useFakeTimers();
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 100,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(ws);
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "discarded",
+    });
+    (bridge as any).discardClientDeltaBatches(ws);
+    vi.advanceTimersByTime(100);
+
+    expect(ws.send).not.toHaveBeenCalled();
+
+    bridge.close();
+  });
+
+  it("records original deltas immediately instead of recording batches", () => {
+    vi.useFakeTimers();
+    const recordingStore = {
+      init: vi.fn(async () => {}),
+      record: vi.fn(),
+      saveMeta: vi.fn(),
+    };
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 100,
+      recordingStore: recordingStore as any,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(ws);
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "a",
+    });
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "b",
+    });
+
+    expect(recordingStore.record.mock.calls).toEqual([
+      ["s-1", "outgoing", { type: "stream_delta", text: "a" }],
+      ["s-1", "outgoing", { type: "stream_delta", text: "b" }],
+    ]);
+    expect(ws.send).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(100);
+    expect(JSON.parse(ws.send.mock.calls[0][0] as string).text).toBe("ab");
+
+    bridge.close();
+  });
+
+  it("supports disabled batching and strict environment defaults", () => {
+    vi.stubEnv("BRIDGE_DELTA_BATCH_MS", "100ms");
+    vi.stubEnv("BRIDGE_DELTA_BATCH_MAX_CHARS", "-1");
+    const fallbackBridge = new BridgeWebSocketServer({ server: httpServer });
+    expect((fallbackBridge as any).deltaBatchMs).toBe(100);
+    expect((fallbackBridge as any).deltaBatchMaxChars).toBe(4096);
+    fallbackBridge.close();
+
+    vi.stubEnv("BRIDGE_DELTA_BATCH_MS", "3000000000");
+    const overflowBridge = new BridgeWebSocketServer({ server: httpServer });
+    expect((overflowBridge as any).deltaBatchMs).toBe(100);
+    overflowBridge.close();
+
+    const overflowOptionBridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 3_000_000_000,
+    });
+    expect((overflowOptionBridge as any).deltaBatchMs).toBe(100);
+    overflowOptionBridge.close();
+
+    const disabledBridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 0,
+    });
+    const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (disabledBridge as any).wss.clients.add(ws);
+    (disabledBridge as any).broadcastSessionMessage("s-1", {
+      type: "stream_delta",
+      text: "now",
+    });
+    expect(JSON.parse(ws.send.mock.calls[0][0] as string).text).toBe("now");
+    disabledBridge.close();
+  });
+
+  it("flushes every client batch during shutdown", () => {
+    vi.useFakeTimers();
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 100,
+    });
+    const first = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    const second = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(first);
+    (bridge as any).wss.clients.add(second);
+
+    (bridge as any).broadcastSessionMessage("s-1", {
+      type: "thinking_delta",
+      text: "closing",
+    });
+    bridge.close();
+
+    expect(first.send).toHaveBeenCalledTimes(1);
+    expect(second.send).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(100);
+    expect(first.send).toHaveBeenCalledTimes(1);
+    expect(second.send).toHaveBeenCalledTimes(1);
+  });
+
   it("sends push notification once per permission toolUseId", async () => {
     const fetchMock = vi.fn(async () => new Response("", { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
@@ -5376,8 +5702,13 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
   });
 
   it("includes sourceSessionId in rewind conversation session_created", async () => {
-    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    vi.useFakeTimers();
+    const bridge = new BridgeWebSocketServer({
+      server: httpServer,
+      deltaBatchMs: 100,
+    });
     const ws = { readyState: OPEN_STATE, send: vi.fn() } as any;
+    (bridge as any).wss.clients.add(ws);
 
     // Create a session first
     (bridge as any).handleClientMessage(
@@ -5392,6 +5723,11 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
 
     ws.send.mockClear();
 
+    (bridge as any).broadcastSessionMessage(sessionId, {
+      type: "stream_delta",
+      text: "before rewind",
+    });
+
     // Send rewind (conversation mode)
     (bridge as any).handleClientMessage(
       { type: "rewind", sessionId, targetUuid: "user-msg-1", mode: "conversation" },
@@ -5401,6 +5737,11 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     await Promise.resolve();
 
     const rewindSends = ws.send.mock.calls.map((c: unknown[]) => JSON.parse(c[0] as string));
+    expect(rewindSends[0]).toEqual({
+      type: "stream_delta",
+      text: "before rewind",
+      sessionId,
+    });
     const rewindCreated = rewindSends.find(
       (m: any) => m.type === "system" && m.subtype === "session_created",
     );
