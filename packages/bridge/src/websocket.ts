@@ -2446,13 +2446,21 @@ export class BridgeWebSocketServer {
         // Claude Code input path — enqueue first, then interrupt if busy
         const claudeProc = session.process as SdkProcess;
         let wasQueued = false;
+        let shouldInterrupt = false;
         if (images.length > 0) {
           console.log(
             `[ws] Sending message with ${images.length} inline Base64 image(s)`,
           );
-          const result = claudeProc.sendInputWithImages(text, images);
-          wasQueued =
-            typeof result === "boolean" ? result : isAgentBusySnapshot;
+          if (typeof claudeProc.dispatchInputWithImages === "function") {
+            const result = claudeProc.dispatchInputWithImages(text, images);
+            wasQueued = result.queued;
+            shouldInterrupt = result.shouldInterrupt;
+          } else {
+            const result = claudeProc.sendInputWithImages(text, images);
+            wasQueued =
+              typeof result === "boolean" ? result : isAgentBusySnapshot;
+            shouldInterrupt = wasQueued;
+          }
         }
         // Legacy imageId mode (backward compatibility)
         else if (msg.imageId && this.galleryStore) {
@@ -2468,43 +2476,64 @@ export class BridgeWebSocketServer {
             .then((imageData) => {
               let queuedAfterResolve = false;
               if (imageData) {
-                const result = claudeProc.sendInputWithImages(text, [
-                  imageData,
-                ]);
-                queuedAfterResolve =
-                  typeof result === "boolean" ? result : isAgentBusySnapshot;
+                if (typeof claudeProc.dispatchInputWithImages === "function") {
+                  const result = claudeProc.dispatchInputWithImages(text, [
+                    imageData,
+                  ]);
+                  queuedAfterResolve = result.queued;
+                  if (result.shouldInterrupt) claudeProc.interrupt();
+                } else {
+                  const result = claudeProc.sendInputWithImages(text, [
+                    imageData,
+                  ]);
+                  queuedAfterResolve =
+                    typeof result === "boolean"
+                      ? result
+                      : isAgentBusySnapshot;
+                  if (queuedAfterResolve) claudeProc.interrupt();
+                }
               } else {
                 console.warn(`[ws] Image not found: ${msg.imageId}`);
-                const result = session.process.sendInput(text);
-                queuedAfterResolve =
-                  typeof result === "boolean" ? result : isAgentBusySnapshot;
-              }
-              if (queuedAfterResolve) {
-                console.log(
-                  `[ws] Agent is busy — will queue input and interrupt current turn`,
-                );
-                claudeProc.interrupt();
+                if (typeof claudeProc.dispatchInput === "function") {
+                  const result = claudeProc.dispatchInput(text);
+                  queuedAfterResolve = result.queued;
+                  if (result.shouldInterrupt) claudeProc.interrupt();
+                } else {
+                  const result = session.process.sendInput(text);
+                  queuedAfterResolve =
+                    typeof result === "boolean"
+                      ? result
+                      : isAgentBusySnapshot;
+                  if (queuedAfterResolve) claudeProc.interrupt();
+                }
               }
             })
             .catch((err) => {
               console.error(`[ws] Failed to load image: ${err}`);
-              const result = session.process.sendInput(text);
-              const queuedAfterResolve =
-                typeof result === "boolean" ? result : isAgentBusySnapshot;
-              if (queuedAfterResolve) {
-                console.log(
-                  `[ws] Agent is busy — will queue input and interrupt current turn`,
-                );
-                claudeProc.interrupt();
+              if (typeof claudeProc.dispatchInput === "function") {
+                const result = claudeProc.dispatchInput(text);
+                if (result.shouldInterrupt) claudeProc.interrupt();
+              } else {
+                const result = session.process.sendInput(text);
+                const queuedAfterResolve =
+                  typeof result === "boolean" ? result : isAgentBusySnapshot;
+                if (queuedAfterResolve) claudeProc.interrupt();
               }
             });
           break;
         }
         // Text-only message
         else {
-          const result = session.process.sendInput(text);
-          wasQueued =
-            typeof result === "boolean" ? result : isAgentBusySnapshot;
+          if (typeof claudeProc.dispatchInput === "function") {
+            const result = claudeProc.dispatchInput(text);
+            wasQueued = result.queued;
+            shouldInterrupt = result.shouldInterrupt;
+          } else {
+            const result = session.process.sendInput(text);
+            wasQueued =
+              typeof result === "boolean" ? result : isAgentBusySnapshot;
+            shouldInterrupt = wasQueued;
+          }
         }
 
         // Acknowledge receipt so the client can mark the message state.
@@ -2518,7 +2547,7 @@ export class BridgeWebSocketServer {
           queued: wasQueued,
         });
 
-        if (wasQueued) {
+        if (shouldInterrupt) {
           console.log(
             `[ws] Agent is busy — will queue input and interrupt current turn`,
           );

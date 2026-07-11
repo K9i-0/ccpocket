@@ -724,14 +724,17 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
     return this.pendingInputQueue.length > 0;
   }
 
-  sendInput(text: string): boolean {
-    if (!this.userMessageResolve) {
+  dispatchInput(text: string): { queued: boolean; shouldInterrupt: boolean } {
+    const shouldInterrupt =
+      this._status === "running" || this._status === "compacting";
+    const mustQueue = shouldInterrupt || this._status === "waiting_approval";
+    if (mustQueue || !this.userMessageResolve) {
       // Queue the message. The async generator (createUserMessageStream)
       // drains pendingInputQueue on each iteration, so it will be
       // delivered once the SDK is ready for the next turn.
       this.pendingInputQueue.push({ text });
       console.log(`[sdk-process] Queued input (queue depth: ${this.pendingInputQueue.length})`);
-      return true;
+      return { queued: true, shouldInterrupt };
     }
     const resolve = this.userMessageResolve;
     this.userMessageResolve = null;
@@ -744,7 +747,11 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       },
       parent_tool_use_id: null,
     });
-    return false;
+    return { queued: false, shouldInterrupt: false };
+  }
+
+  sendInput(text: string): boolean {
+    return this.dispatchInput(text).queued;
   }
 
   /**
@@ -752,11 +759,17 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
    * @param text - The text message
    * @param images - Array of base64-encoded image data with mime types
    */
-  sendInputWithImages(text: string, images: Array<{ base64: string; mimeType: string }>): boolean {
-    if (!this.userMessageResolve) {
+  dispatchInputWithImages(
+    text: string,
+    images: Array<{ base64: string; mimeType: string }>,
+  ): { queued: boolean; shouldInterrupt: boolean } {
+    const shouldInterrupt =
+      this._status === "running" || this._status === "compacting";
+    const mustQueue = shouldInterrupt || this._status === "waiting_approval";
+    if (mustQueue || !this.userMessageResolve) {
       this.pendingInputQueue.push({ text, images });
       console.log(`[sdk-process] Queued input with ${images.length} image(s) (queue depth: ${this.pendingInputQueue.length})`);
-      return true;
+      return { queued: true, shouldInterrupt };
     }
     const resolve = this.userMessageResolve;
     this.userMessageResolve = null;
@@ -790,7 +803,14 @@ export class SdkProcess extends EventEmitter<SdkProcessEvents> {
       },
       parent_tool_use_id: null,
     });
-    return false;
+    return { queued: false, shouldInterrupt: false };
+  }
+
+  sendInputWithImages(
+    text: string,
+    images: Array<{ base64: string; mimeType: string }>,
+  ): boolean {
+    return this.dispatchInputWithImages(text, images).queued;
   }
 
   /**
