@@ -4096,6 +4096,31 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     bridge.close();
   });
 
+  it("derives Codex permissions mode in session_created output", () => {
+    const bridge = new BridgeWebSocketServer({ server: httpServer });
+    const complete = (bridge as any).buildSessionCreatedMessage({
+      sessionId: "codex-read-only",
+      provider: "codex",
+      projectPath: "/tmp/project",
+      session: {
+        codexSettings: {
+          approvalPolicy: "on-request",
+          sandboxMode: "read-only",
+        },
+      },
+    });
+    const partial = (bridge as any).buildSessionCreatedMessage({
+      sessionId: "codex-partial",
+      provider: "codex",
+      projectPath: "/tmp/project",
+      session: { codexSettings: { approvalPolicy: "on-request" } },
+    });
+
+    expect(complete.codexPermissionsMode).toBe("custom");
+    expect(partial.codexPermissionsMode).toBeUndefined();
+    bridge.close();
+  });
+
   it("claude busy input is acked as queued and interrupts current turn", async () => {
     const bridge = new BridgeWebSocketServer({ server: httpServer });
     const ws = {
