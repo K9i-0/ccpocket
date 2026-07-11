@@ -55,6 +55,12 @@ describe("parseCliArgs", () => {
     expect(parseFlag(parsed, "host")).toBe("127.0.0.1");
   });
 
+  it("preserves a value flag with a missing value", () => {
+    const parsed = parseCliArgs(["--port"]);
+
+    expect(parseFlag(parsed, "port")).toBe("");
+  });
+
   it("detects setup command after valued flags", () => {
     const parsed = parseCliArgs(["--port", "9000", "setup", "--uninstall"]);
 
