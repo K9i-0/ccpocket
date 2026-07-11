@@ -40,6 +40,14 @@ void main() {
         expect(result, isNotNull);
         expect(result!.serverUrl, 'ws://192.168.1.1:8765/ws');
       });
+
+      test('rejects invalid direct IPv6 URLs and ports', () {
+        expect(
+          ConnectionUrlParser.parse('ws://[not-ipv6:address]:8765'),
+          isNull,
+        );
+        expect(ConnectionUrlParser.parse('wss://[::1]:65536'), isNull);
+      });
     });
 
     group('bare host:port', () {
@@ -74,6 +82,21 @@ void main() {
 
         expect(result, isNotNull);
         expect(result!.serverUrl, 'ws://localhost:8765');
+      });
+
+      test('parses bracketed IPv6 host:port', () {
+        final result =
+            ConnectionUrlParser.parse('[fe80::1%25en0]:19000')
+                as ConnectionParams?;
+
+        expect(result, isNotNull);
+        expect(result!.serverUrl, 'ws://[fe80::1%25en0]:19000');
+      });
+
+      test('rejects malformed bracketed IPv6 and invalid ports', () {
+        expect(ConnectionUrlParser.parse('[not-ipv6:address]:8765'), isNull);
+        expect(ConnectionUrlParser.parse('[::1]:0'), isNull);
+        expect(ConnectionUrlParser.parse('[::1]:65536'), isNull);
       });
     });
 
@@ -125,6 +148,16 @@ void main() {
 
         expect(result, isNotNull);
         expect(result!.token, isNull);
+      });
+
+      test('rejects an invalid websocket URL in a deep link', () {
+        final encoded = Uri.encodeQueryComponent(
+          'ws://[not-ipv6:address]:8765',
+        );
+        expect(
+          ConnectionUrlParser.parse('ccpocket://connect?url=$encoded'),
+          isNull,
+        );
       });
     });
 

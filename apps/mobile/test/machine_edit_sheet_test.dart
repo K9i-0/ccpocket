@@ -401,6 +401,47 @@ void main() {
       expect(call!.jumpPassword, 'jump-pw');
     });
 
+    testWidgets('normalizes IPv6 hosts for SSH test and save', (tester) async {
+      _TestConnectionCall? call;
+      Machine? savedMachine;
+
+      await pumpSheet(
+        tester,
+        machine: const Machine(
+          id: 'm-ipv6',
+          host: '[fe80::1%25en0]',
+          sshEnabled: true,
+          sshUsername: 'target-user',
+          sshJumpHost: '[fe80::2%25en0]',
+          sshJumpUsername: 'jump-user',
+        ),
+        existingSshPassword: 'target-pw',
+        existingSshJumpPassword: 'jump-pw',
+        onTestConnectionCall: (value) => call = value,
+        onSave:
+            ({
+              required machine,
+              apiKey,
+              sshPassword,
+              sshPrivateKey,
+              sshJumpPassword,
+              sshJumpPrivateKey,
+            }) async {
+              savedMachine = machine;
+            },
+      );
+
+      await tester.tap(find.text('Test Connection'));
+      await tester.pumpAndSettle();
+      expect(call?.host, 'fe80::1%en0');
+      expect(call?.jumpHost, 'fe80::2%en0');
+
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(savedMachine?.host, 'fe80::1%en0');
+      expect(savedMachine?.sshJumpHost, 'fe80::2%en0');
+    });
+
     testWidgets('replaces saved SSH jump host password only when entered', (
       tester,
     ) async {

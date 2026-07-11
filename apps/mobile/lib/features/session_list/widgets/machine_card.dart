@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../constants/app_constants.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/machine.dart';
+import '../../../utils/network_endpoint.dart';
 import '../../../theme/app_theme.dart';
 
 /// Card widget for displaying a saved remote machine.
@@ -218,7 +219,7 @@ class _MetadataLine extends StatelessWidget {
 
     // Host:Port (if name is set, show host:port; otherwise show last connected)
     if (machine.name != null) {
-      parts.add(TextSpan(text: '${machine.host}:${machine.port}'));
+      parts.add(TextSpan(text: formatHostPort(machine.host, machine.port)));
     } else {
       // For auto-saved machines, show last connected time
       parts.add(TextSpan(text: _formatLastConnected(machine.lastConnected, l)));

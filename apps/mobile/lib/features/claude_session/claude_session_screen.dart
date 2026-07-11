@@ -22,6 +22,7 @@ import '../../utils/composer_tokens.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/diff_parser.dart';
+import '../../utils/network_endpoint.dart';
 import '../../utils/terminal_launcher.dart';
 import '../session_list/workspace_shell_screen.dart';
 import '../settings/state/settings_cubit.dart';
@@ -1558,14 +1559,15 @@ Future<void> _openInTerminal(BuildContext context, String? projectPath) async {
               .replaceFirst('wss://', 'https://'),
         )
       : null;
-  final host = uri?.host ?? '';
+  final host = normalizeHostInput(uri?.host ?? '');
 
   // Resolve SSH user from machine config
   String? sshUser;
   try {
     final machines = context.read<MachineManagerCubit>().state.machines;
     for (final item in machines) {
-      if (item.machine.host == host) {
+      if (canonicalHostIdentity(item.machine.host) ==
+          canonicalHostIdentity(host)) {
         sshUser = item.machine.sshUsername;
         break;
       }

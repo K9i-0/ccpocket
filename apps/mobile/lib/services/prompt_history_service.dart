@@ -11,6 +11,7 @@ import '../core/logger.dart';
 import '../models/machine.dart';
 import '../models/messages.dart';
 import '../utils/command_parser.dart';
+import '../utils/network_endpoint.dart';
 import 'bridge_service.dart';
 import 'database_service.dart';
 import 'machine_manager_service.dart';
@@ -329,9 +330,13 @@ class PromptHistoryService {
   String? bridgeIdForUrl(String? url) {
     if (url == null || url.isEmpty) return null;
     final uri = Uri.tryParse(url);
-    if (uri == null) return null;
-    final port = uri.hasPort ? ':${uri.port}' : '';
-    return '${uri.host}$port';
+    if (uri == null || uri.host.isEmpty) return null;
+    final port = uri.hasPort
+        ? uri.port
+        : uri.scheme.toLowerCase() == 'wss'
+        ? 443
+        : 80;
+    return endpointIdentityKey(uri.host, port);
   }
 
   // ---------------------------------------------------------------------------

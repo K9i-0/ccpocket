@@ -11,6 +11,7 @@ import '../core/logger.dart';
 import '../models/messages.dart';
 import '../models/offline_pending_action.dart';
 import '../utils/codex_plan_update.dart';
+import '../utils/network_endpoint.dart';
 import 'bridge_service_base.dart';
 import 'session_runtime_store.dart';
 
@@ -309,8 +310,11 @@ class BridgeService implements BridgeServiceBase {
     final uri = Uri.tryParse(url);
     if (uri == null) return null;
     final scheme = uri.scheme == 'wss' ? 'https' : 'http';
-    final port = uri.hasPort ? ':${uri.port}' : '';
-    return '$scheme://${uri.host}$port';
+    return formatUriOrigin(
+      scheme: scheme,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : null,
+    );
   }
 
   static const _prefKeyUrl = 'bridge_url';
@@ -643,10 +647,10 @@ class BridgeService implements BridgeServiceBase {
 
   String _bridgeTargetKey(Uri uri) {
     final scheme = uri.scheme.toLowerCase();
-    final host = uri.host.toLowerCase();
+    final host = canonicalHostIdentity(uri.host);
     final port = uri.hasPort ? uri.port : (scheme == 'wss' ? 443 : 80);
     final path = uri.path.isEmpty ? '/' : uri.path;
-    return '$scheme://$host:$port$path';
+    return '${formatUriOrigin(scheme: scheme, host: host, port: port)}$path';
   }
 
   void _clearBridgeScopedState({required bool clearOfflineQueue}) {
@@ -2146,8 +2150,8 @@ class BridgeService implements BridgeServiceBase {
       final uri = Uri.tryParse(wsUrl);
       if (uri == null) return null;
       final scheme = uri.scheme == 'wss' ? 'https' : 'http';
-      final port = uri.hasPort ? ':${uri.port}' : '';
-      final healthUrl = '$scheme://${uri.host}$port/health';
+      final healthUrl =
+          '${formatUriOrigin(scheme: scheme, host: uri.host, port: uri.hasPort ? uri.port : null)}/health';
       final response = await http
           .get(Uri.parse(healthUrl))
           .timeout(const Duration(seconds: 3));
