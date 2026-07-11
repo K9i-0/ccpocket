@@ -2426,4 +2426,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get exitPlanModeNotificationBody =>
       'The generated plan needs your review';
+
+  @override
+  String get renderErrorFallback => 'This content couldn\'t be displayed.';
 }

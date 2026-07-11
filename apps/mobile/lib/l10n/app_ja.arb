@@ -1020,5 +1020,6 @@
   "googleSearchSelectionAction": "Google で検索",
   "approvalQuestionNotificationTitle": "質問があります - ccpocket",
   "approvalRequiredNotificationTitle": "承認待ち - ccpocket",
-  "exitPlanModeNotificationBody": "作成したプランの確認が必要です"
+  "exitPlanModeNotificationBody": "作成したプランの確認が必要です",
+  "renderErrorFallback": "このコンテンツを表示できませんでした"
 }

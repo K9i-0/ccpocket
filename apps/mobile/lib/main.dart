@@ -60,6 +60,7 @@ import 'theme/app_theme.dart';
 import 'services/store_screenshot_extension.dart';
 import 'theme/markdown_style.dart';
 import 'utils/platform_helper.dart';
+import 'widgets/release_error_widget.dart';
 
 /// Top-level handler for FCM background messages.
 /// Required by firebase_messaging to process messages when app is in background.
@@ -105,6 +106,7 @@ void main() async {
       details.stack,
     );
   };
+  installReleaseErrorWidget();
   // Initialize notifications eagerly so the Android notification channel is
   // created before any FCM message arrives. Without this, FCM falls back to
   // the low-importance fcm_fallback_notification_channel and notifications
@@ -473,6 +475,7 @@ class _CcpocketAppState extends State<CcpocketApp> {
             : Locale(settings.appLocaleId);
         final themeLocale =
             appLocale ?? WidgetsBinding.instance.platformDispatcher.locale;
+        updateReleaseErrorWidgetLocale(appLocale);
         return MaterialApp.router(
           title: 'CC Pocket',
           theme: AppTheme.lightThemeForLocale(themeLocale),

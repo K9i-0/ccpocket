@@ -969,5 +969,6 @@
   "googleSearchSelectionAction": "Search with Google",
   "approvalQuestionNotificationTitle": "Question - ccpocket",
   "approvalRequiredNotificationTitle": "Approval Required - ccpocket",
-  "exitPlanModeNotificationBody": "The generated plan needs your review"
+  "exitPlanModeNotificationBody": "The generated plan needs your review",
+  "renderErrorFallback": "This content couldn't be displayed."
 }

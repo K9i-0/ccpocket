@@ -1100,5 +1100,6 @@
   "googleSearchSelectionAction": "用 Google 搜索",
   "approvalQuestionNotificationTitle": "有一个问题 - ccpocket",
   "approvalRequiredNotificationTitle": "等待审批 - ccpocket",
-  "exitPlanModeNotificationBody": "生成的计划需要你确认"
+  "exitPlanModeNotificationBody": "生成的计划需要你确认",
+  "renderErrorFallback": "无法显示此内容。"
 }
