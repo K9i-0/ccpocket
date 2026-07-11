@@ -4,6 +4,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../services/bridge_service.dart';
 import '../../../services/machine_manager_service.dart';
 import '../../../services/prompt_history_service.dart';
+import '../../../utils/network_endpoint.dart';
 
 class PromptHistorySection extends StatefulWidget {
   final BridgeService bridgeService;
@@ -439,8 +440,9 @@ class _StatusTile extends StatelessWidget {
 String? _endpointFromUrl(String url) {
   final uri = Uri.tryParse(url);
   if (uri == null || uri.host.isEmpty) return url.isEmpty ? null : url;
-  final port = uri.hasPort ? ':${uri.port}' : '';
-  return '${uri.host}$port';
+  return uri.hasPort
+      ? formatHostPort(uri.host, uri.port)
+      : bracketIpv6Host(uri.host);
 }
 
 bool _isBridgeIdLike(String value, String bridgeId) {

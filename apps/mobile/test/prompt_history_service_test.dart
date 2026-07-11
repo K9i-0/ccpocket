@@ -1,8 +1,18 @@
 import 'package:ccpocket/models/messages.dart';
+import 'package:ccpocket/services/database_service.dart';
 import 'package:ccpocket/services/prompt_history_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('bridgeIdForUrl canonicalizes IPv6 and default ports', () {
+    final service = PromptHistoryService(DatabaseService());
+
+    expect(service.bridgeIdForUrl('ws://[0:0:0:0:0:0:0:1]'), '[::1]:80');
+    expect(service.bridgeIdForUrl('ws://[::1]:80'), '[::1]:80');
+    expect(service.bridgeIdForUrl('wss://EXAMPLE.com'), 'example.com:443');
+    expect(service.bridgeIdForUrl('wss://example.com:443'), 'example.com:443');
+  });
+
   group('PromptHistoryEntry', () {
     test('merges entries from multiple bridges for display', () {
       final first = PromptHistoryEntry(

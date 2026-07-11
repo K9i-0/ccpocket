@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../utils/network_endpoint.dart';
 import '../../utils/platform_helper.dart';
 
 import '../../models/messages.dart';
@@ -1716,7 +1717,10 @@ class _SessionListScreenState extends State<SessionListScreen>
     final port = uri.hasPort ? uri.port : 8765;
     for (final item in machines) {
       final machine = item.machine;
-      if (machine.host == uri.host && machine.port == port) return machine;
+      if (endpointIdentityKey(machine.host, machine.port) ==
+          endpointIdentityKey(uri.host, port)) {
+        return machine;
+      }
     }
     return null;
   }
@@ -1725,7 +1729,7 @@ class _SessionListScreenState extends State<SessionListScreen>
     final uri = _bridgeUri(url);
     if (uri == null || uri.host.isEmpty) return null;
     final port = uri.hasPort ? uri.port : 8765;
-    return '${uri.host}:$port';
+    return formatHostPort(uri.host, port);
   }
 
   Uri? _bridgeUri(String? url) {

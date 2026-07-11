@@ -22,6 +22,21 @@ void main() {
       expect(machine.wsUrl, 'wss://bridge.example.com:443');
       expect(machine.httpUrl, 'https://bridge.example.com:443');
     });
+
+    test('wraps IPv6 hosts in URLs and display endpoints', () {
+      const machine = Machine(id: 'm-ipv6', host: '[::1]', port: 19000);
+
+      expect(machine.wsUrl, 'ws://[::1]:19000');
+      expect(machine.httpUrl, 'http://[::1]:19000');
+      expect(machine.displayName, '[::1]:19000');
+      expect(machine.uniqueKey, '[::1]:19000');
+    });
+
+    test('encodes IPv6 zone IDs in URLs', () {
+      const machine = Machine(id: 'm-zone', host: 'fe80::1%en0');
+
+      expect(machine.wsUrl, 'ws://[fe80::1%25en0]:8765');
+    });
   });
 
   group('Machine JSON', () {

@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../constants/app_constants.dart';
 import '../models/machine.dart';
+import '../utils/network_endpoint.dart';
 
 typedef BridgeWsUrlResolver =
     Future<String> Function(
@@ -88,7 +89,7 @@ class MachineManagerService {
   /// Initialize service, migrate if needed, and load machines
   Future<void> init() async {
     await _migrateIfNeeded();
-    _machines = _loadFromPrefs();
+    _machines = await _loadFromPrefs();
     _sortMachines();
     _notifyListeners();
     // Start health check after loading
@@ -110,9 +111,9 @@ class MachineManagerService {
         final list = jsonDecode(oldMachinesRaw) as List;
         for (final e in list) {
           final old = e as Map<String, dynamic>;
-          final host = old['host'] as String;
+          final host = normalizeHostInput(old['host'] as String);
           final port = old['port'] as int? ?? 8765;
-          final key = '$host:$port';
+          final key = endpointIdentityKey(host, port);
 
           if (seenKeys.add(key)) {
             machines.add(
@@ -154,10 +155,10 @@ class MachineManagerService {
           final uri = Uri.tryParse(url);
           if (uri == null) continue;
 
-          final host = uri.host;
+          final host = normalizeHostInput(uri.host);
           final port = uri.hasPort ? uri.port : 8765;
           final useSsl = uri.scheme == 'wss' || uri.scheme == 'https';
-          final key = '$host:$port';
+          final key = endpointIdentityKey(host, port);
 
           if (seenKeys.add(key)) {
             // Migrate API key to secure storage
@@ -211,18 +212,90 @@ class MachineManagerService {
   }
 
   /// Load machines from SharedPreferences
-  List<Machine> _loadFromPrefs() {
+  Future<List<Machine>> _loadFromPrefs() async {
     final raw = _prefs.getString(_prefsKey);
     if (raw == null || raw.isEmpty) return [];
     try {
       final list = jsonDecode(raw) as List;
-      return list
-          .map((e) => Machine.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final machinesByEndpoint = <String, List<Machine>>{};
+      for (final entry in list) {
+        final parsed = Machine.fromJson(entry as Map<String, dynamic>);
+        final machine = parsed.copyWith(
+          host: normalizeHostInput(parsed.host),
+          sshJumpHost: parsed.sshJumpHost == null
+              ? null
+              : normalizeHostInput(parsed.sshJumpHost!),
+        );
+        machinesByEndpoint
+            .putIfAbsent(machine.uniqueKey, () => [])
+            .add(machine);
+      }
+      final result = <Machine>[];
+      for (final machines in machinesByEndpoint.values) {
+        result.add(await _mergeStoredMachines(machines));
+      }
+      return result;
     } catch (e) {
       logger.error('[MachineManager] Failed to load machines', e);
       return [];
     }
+  }
+
+  Future<Machine> _mergeStoredMachines(List<Machine> machines) async {
+    var winner = machines.first;
+    for (final candidate in machines.skip(1)) {
+      if (_preferStoredMachine(candidate, winner)) winner = candidate;
+    }
+    if (machines.length == 1) return winner;
+
+    try {
+      String? apiKey = await getApiKey(winner.id);
+      String? sshPassword = await getSshPassword(winner.id);
+      String? sshPrivateKey = await getSshPrivateKey(winner.id);
+      String? sshJumpPassword = await getSshJumpPassword(winner.id);
+      String? sshJumpPrivateKey = await getSshJumpPrivateKey(winner.id);
+      for (final machine in machines) {
+        if (machine.id == winner.id) continue;
+        apiKey ??= await getApiKey(machine.id);
+        sshPassword ??= await getSshPassword(machine.id);
+        sshPrivateKey ??= await getSshPrivateKey(machine.id);
+        sshJumpPassword ??= await getSshJumpPassword(machine.id);
+        sshJumpPrivateKey ??= await getSshJumpPrivateKey(machine.id);
+      }
+
+      await _saveCredentials(
+        winner.id,
+        apiKey: apiKey,
+        sshPassword: sshPassword,
+        sshPrivateKey: sshPrivateKey,
+        sshJumpPassword: sshJumpPassword,
+        sshJumpPrivateKey: sshJumpPrivateKey,
+      );
+      for (final machine in machines) {
+        if (machine.id != winner.id) await _deleteCredentials(machine.id);
+      }
+      return winner.copyWith(
+        hasApiKey: apiKey != null && apiKey.isNotEmpty,
+        hasCredentials:
+            (sshPassword != null && sshPassword.isNotEmpty) ||
+            (sshPrivateKey != null && sshPrivateKey.isNotEmpty),
+        hasJumpCredentials:
+            (sshJumpPassword != null && sshJumpPassword.isNotEmpty) ||
+            (sshJumpPrivateKey != null && sshJumpPrivateKey.isNotEmpty),
+      );
+    } catch (error) {
+      logger.error(
+        '[MachineManager] Failed to merge duplicate credentials',
+        error,
+      );
+      return winner;
+    }
+  }
+
+  bool _preferStoredMachine(Machine candidate, Machine current) {
+    if (candidate.isFavorite != current.isFavorite) return candidate.isFavorite;
+    return (candidate.lastConnected?.millisecondsSinceEpoch ?? 0) >
+        (current.lastConnected?.millisecondsSinceEpoch ?? 0);
   }
 
   /// Save machines to SharedPreferences
@@ -284,8 +357,12 @@ class MachineManagerService {
 
   /// Find machine by host:port (unique key)
   Machine? findByHostPort(String host, int port) {
+    final normalizedHost = normalizeHostInput(host);
+    final identity = endpointIdentityKey(normalizedHost, port);
     try {
-      return _machines.firstWhere((m) => m.host == host && m.port == port);
+      return _machines.firstWhere(
+        (m) => endpointIdentityKey(m.host, m.port) == identity,
+      );
     } catch (_) {
       return null;
     }
@@ -311,11 +388,13 @@ class MachineManagerService {
     String? name,
     bool? useSsl,
   }) async {
-    var machine = findByHostPort(host, port);
+    final normalizedHost = normalizeHostInput(host);
+    var machine = findByHostPort(normalizedHost, port);
 
     if (machine != null) {
       // Update existing machine
       machine = machine.copyWith(
+        host: normalizedHost,
         lastConnected: DateTime.now(),
         name: name ?? machine.name,
         useSsl: useSsl ?? machine.useSsl,
@@ -328,7 +407,7 @@ class MachineManagerService {
       // Create new machine
       machine = Machine(
         id: _uuid.v4(),
-        host: host,
+        host: normalizedHost,
         port: port,
         name: name,
         useSsl: useSsl ?? false,
@@ -372,7 +451,7 @@ class MachineManagerService {
     return Machine(
       id: _uuid.v4(),
       name: name,
-      host: host,
+      host: normalizeHostInput(host),
       port: port,
       useSsl: useSsl,
     );
@@ -387,20 +466,30 @@ class MachineManagerService {
     String? sshJumpPassword,
     String? sshJumpPrivateKey,
   }) async {
+    final normalizedMachine = machine.copyWith(
+      host: normalizeHostInput(machine.host),
+      sshJumpHost: machine.sshJumpHost == null
+          ? null
+          : normalizeHostInput(machine.sshJumpHost!),
+    );
     // Check if machine with same host:port already exists
     final existingIndex = _machines.indexWhere(
-      (m) => m.host == machine.host && m.port == machine.port,
+      (m) => endpointIdentityKey(m.host, m.port) == normalizedMachine.uniqueKey,
     );
+    final existing = existingIndex == -1 ? null : _machines[existingIndex];
+    final storedMachine = existing == null
+        ? normalizedMachine
+        : normalizedMachine.copyWith(id: existing.id);
     if (existingIndex != -1) {
       // Update existing machine
-      _machines[existingIndex] = machine;
+      _machines[existingIndex] = storedMachine;
     } else {
-      _machines.add(machine);
+      _machines.add(storedMachine);
     }
 
     // Save credentials securely
     await _saveCredentials(
-      machine.id,
+      storedMachine.id,
       apiKey: apiKey,
       sshPassword: sshPassword,
       sshPrivateKey: sshPrivateKey,
@@ -409,22 +498,25 @@ class MachineManagerService {
     );
 
     // Update hasApiKey and hasCredentials flags
-    final hasApiKey = apiKey != null && apiKey.isNotEmpty;
+    final hasApiKey =
+        (apiKey != null && apiKey.isNotEmpty) || (existing?.hasApiKey ?? false);
     final hasCredentials =
         (sshPassword != null && sshPassword.isNotEmpty) ||
-        (sshPrivateKey != null && sshPrivateKey.isNotEmpty);
+        (sshPrivateKey != null && sshPrivateKey.isNotEmpty) ||
+        (existing?.hasCredentials ?? false);
     final hasJumpCredentials =
         (sshJumpPassword != null && sshJumpPassword.isNotEmpty) ||
-        (sshJumpPrivateKey != null && sshJumpPrivateKey.isNotEmpty);
+        (sshJumpPrivateKey != null && sshJumpPrivateKey.isNotEmpty) ||
+        (existing?.hasJumpCredentials ?? false);
 
     if (existingIndex != -1) {
-      _machines[existingIndex] = machine.copyWith(
+      _machines[existingIndex] = storedMachine.copyWith(
         hasApiKey: hasApiKey,
         hasCredentials: hasCredentials,
         hasJumpCredentials: hasJumpCredentials,
       );
     } else {
-      _machines[_machines.length - 1] = machine.copyWith(
+      _machines[_machines.length - 1] = storedMachine.copyWith(
         hasApiKey: hasApiKey,
         hasCredentials: hasCredentials,
         hasJumpCredentials: hasJumpCredentials,
@@ -436,7 +528,7 @@ class MachineManagerService {
     _notifyListeners();
 
     // Check health for the new/updated machine
-    await checkHealth(machine.id);
+    await checkHealth(storedMachine.id);
   }
 
   /// Update an existing machine
@@ -453,6 +545,12 @@ class MachineManagerService {
   }) async {
     final index = _machines.indexWhere((m) => m.id == machine.id);
     if (index == -1) return;
+    final normalizedMachine = machine.copyWith(
+      host: normalizeHostInput(machine.host),
+      sshJumpHost: machine.sshJumpHost == null
+          ? null
+          : normalizeHostInput(machine.sshJumpHost!),
+    );
 
     // Handle credential updates
     if (clearApiKey) {
@@ -513,7 +611,7 @@ class MachineManagerService {
     final existingJumpPassword = await getSshJumpPassword(machine.id);
     final existingJumpKey = await getSshJumpPrivateKey(machine.id);
 
-    _machines[index] = machine.copyWith(
+    _machines[index] = normalizedMachine.copyWith(
       hasApiKey: existingApiKey != null && existingApiKey.isNotEmpty,
       hasCredentials:
           (existingPassword != null && existingPassword.isNotEmpty) ||
