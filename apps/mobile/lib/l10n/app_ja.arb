@@ -907,6 +907,8 @@
   "rateOnStoreAndroid": "Google Play で評価する",
   "supporterTitle": "Supporter",
   "supporterMonthlyTitle": "月額サポーター",
+  "supporterMonthlyPlusTitle": "月額サポーター Plus",
+  "supporterSnackTitle": "おやつで応援",
   "supporterCoffeeTitle": "ドリンクで応援",
   "supporterLunchTitle": "ランチで応援",
   "supporterStatusActive": "CC Pocket を応援してくれてありがとうございます。",
@@ -925,10 +927,12 @@
   },
   "supporterMonthlyDescription": "継続的な開発を後押し",
   "supporterMonthlyPerkLabel": "アプリアイコン変更特典付き",
+  "supporterSnackDescription": "おやつを1つおごる",
   "supporterCoffeeDescription": "ドリンクを1杯おごる",
   "supporterLunchDescription": "ランチを1食おごる",
   "supporterBuyButton": "応援する",
   "supporterActiveButton": "応援中",
+  "supporterSubscribedButton": "購読中",
   "supporterRestoreButton": "購入を復元",
   "supporterRetryButton": "再試行",
   "supporterProductsUnavailable": "現在利用できる応援プランがありません。",
@@ -949,6 +953,12 @@
   },
   "supporterSummaryOneTimeCount": "単発 ×{count}",
   "@supporterSummaryOneTimeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummarySnackCount": "おやつ ×{count}",
+  "@supporterSummarySnackCount": {
     "placeholders": {
       "count": { "type": "int" }
     }

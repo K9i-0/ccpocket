@@ -2174,7 +2174,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get supporterTitle => 'Supporter';
 
   @override
-  String get supporterMonthlyTitle => 'Monthly Supporter';
+  String get supporterMonthlyTitle => 'Supporter Monthly';
+
+  @override
+  String get supporterMonthlyPlusTitle => 'Supporter Monthly Plus';
+
+  @override
+  String get supporterSnackTitle => 'Snack Support';
 
   @override
   String get supporterCoffeeTitle => 'Buy Me a Drink';
@@ -2221,6 +2227,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get supporterMonthlyPerkLabel => 'Includes alternate app icon perks';
 
   @override
+  String get supporterSnackDescription =>
+      'If you feel like buying me a snack, I\'d really appreciate the support.';
+
+  @override
   String get supporterCoffeeDescription =>
       'If you feel like buying me a drink, I\'d really appreciate the support.';
 
@@ -2233,6 +2243,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get supporterActiveButton => 'Active';
+
+  @override
+  String get supporterSubscribedButton => 'Subscribed';
 
   @override
   String get supporterRestoreButton => 'Restore';
@@ -2267,6 +2280,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String supporterSummaryOneTimeCount(int count) {
     return 'One-time ×$count';
+  }
+
+  @override
+  String supporterSummarySnackCount(int count) {
+    return 'Snacks ×$count';
   }
 
   @override

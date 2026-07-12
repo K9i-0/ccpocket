@@ -987,6 +987,8 @@
   "rateOnStoreAndroid": "在 Google Play 评分",
   "supporterTitle": "Supporter",
   "supporterMonthlyTitle": "每月支持",
+  "supporterMonthlyPlusTitle": "每月支持 Plus",
+  "supporterSnackTitle": "请吃份零食",
   "supporterCoffeeTitle": "请喝杯饮料",
   "supporterLunchTitle": "请吃顿午餐",
   "supporterStatusActive": "感谢你在支持 CC Pocket。",
@@ -1005,10 +1007,12 @@
   },
   "supporterMonthlyDescription": "如果你愿意持续支持，帮助这个应用继续改进，我会很开心。",
   "supporterMonthlyPerkLabel": "包含更换应用图标特典",
+  "supporterSnackDescription": "如果你想请我吃份零食，我会很感谢这份支持。",
   "supporterCoffeeDescription": "如果你想请我喝一杯饮料，我会很感谢这份支持。",
   "supporterLunchDescription": "如果你想请我吃一顿午餐，我会很感谢这份支持。",
   "supporterBuyButton": "支持",
   "supporterActiveButton": "支持中",
+  "supporterSubscribedButton": "已订阅",
   "supporterRestoreButton": "恢复购买",
   "supporterRetryButton": "重试",
   "supporterProductsUnavailable": "当前没有可用的支持选项。",
@@ -1029,6 +1033,12 @@
   },
   "supporterSummaryOneTimeCount": "单次 ×{count}",
   "@supporterSummaryOneTimeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummarySnackCount": "零食 ×{count}",
+  "@supporterSummarySnackCount": {
     "placeholders": {
       "count": { "type": "int" }
     }

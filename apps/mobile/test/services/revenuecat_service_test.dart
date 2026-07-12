@@ -1,6 +1,7 @@
 import 'package:ccpocket/services/revenuecat_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:purchases_flutter/purchases_flutter.dart' as purchases;
 
 class FakeRevenueCatGateway implements RevenueCatGateway {
   RevenueCatOfferingData currentOffering = const RevenueCatOfferingData(
@@ -76,6 +77,46 @@ class FakeRevenueCatGateway implements RevenueCatGateway {
 }
 
 void main() {
+  test('maps Android base plan to parent product and plan identifiers', () {
+    const option = purchases.SubscriptionOption(
+      'monthly-3',
+      'supporter_monthly_10:monthly-3',
+      'supporter_monthly_10',
+      [],
+      [],
+      true,
+      null,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+    );
+    const storeProduct = purchases.StoreProduct(
+      'supporter_monthly_10:monthly-3',
+      'Monthly support',
+      'Supporter Monthly',
+      2.99,
+      r'$2.99',
+      'USD',
+      defaultOption: option,
+      subscriptionPeriod: 'P1M',
+    );
+    const package = purchases.Package(
+      r'$rc_custom_monthly_3',
+      purchases.PackageType.custom,
+      storeProduct,
+      purchases.PresentedOfferingContext('default', null, null),
+    );
+
+    final mapped = mapRevenueCatPackage(package);
+
+    expect(mapped.productId, 'supporter_monthly_10');
+    expect(mapped.subscriptionPlanId, 'monthly-3');
+    expect(mapped.kind, SupportPackageKind.monthly);
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('RevenueCatService', () {
@@ -108,10 +149,13 @@ void main() {
         )
         ..currentInfo = RevenueCatCustomerInfo(
           activeEntitlementIds: const {'supporter'},
+          activeSubscriptionProductId: 'supporter_monthly_10',
+          activeSubscriptionPlanId: 'monthly',
           historySummary: SupportHistorySummary(
             supporterSince: DateTime(2026, 1, 10),
             latestSubscriptionPurchaseAt: DateTime(2026, 4, 1),
             oneTimeSupportCount: 3,
+            snackSupportCount: 1,
             coffeeSupportCount: 2,
             lunchSupportCount: 1,
           ),
@@ -129,7 +173,13 @@ void main() {
       expect(service.supporterState.value.isSupporter, isTrue);
       expect(service.catalogState.value.packages, hasLength(1));
       expect(service.catalogState.value.summary.oneTimeSupportCount, 3);
+      expect(service.catalogState.value.summary.snackSupportCount, 1);
       expect(service.catalogState.value.summary.coffeeSupportCount, 2);
+      expect(
+        service.catalogState.value.activeSubscriptionProductId,
+        'supporter_monthly_10',
+      );
+      expect(service.catalogState.value.activeSubscriptionPlanId, 'monthly');
       expect(
         service.catalogState.value.summary.supporterSince,
         DateTime(2026, 1, 10),

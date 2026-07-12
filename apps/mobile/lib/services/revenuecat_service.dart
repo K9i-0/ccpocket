@@ -10,7 +10,7 @@ const _supporterEntitlementId = 'supporter';
 const _debugTestStorePublicKey = 'test_kxZnEyrhheCZDdsIBOOCNMwTWsR';
 const _revenueCatPublicKey = String.fromEnvironment('REVENUECAT_PUBLIC_KEY');
 
-enum SupportPackageKind { monthly, coffee, lunch, other }
+enum SupportPackageKind { monthly, snack, coffee, lunch, other }
 
 enum SupportActionResultType { success, cancelled, error }
 
@@ -31,7 +31,9 @@ class SupportPackage {
     required this.title,
     required this.priceLabel,
     required this.kind,
+    this.price,
     this.subscriptionPeriod,
+    this.subscriptionPlanId,
   });
 
   final String id;
@@ -39,9 +41,12 @@ class SupportPackage {
   final String title;
   final String priceLabel;
   final SupportPackageKind kind;
+  final double? price;
   final String? subscriptionPeriod;
+  final String? subscriptionPlanId;
 
-  bool get isSubscription => kind == SupportPackageKind.monthly;
+  bool get isSubscription =>
+      kind == SupportPackageKind.monthly || subscriptionPeriod != null;
 }
 
 @immutable
@@ -50,6 +55,7 @@ class SupportHistorySummary {
     this.supporterSince,
     this.latestSubscriptionPurchaseAt,
     this.oneTimeSupportCount = 0,
+    this.snackSupportCount = 0,
     this.coffeeSupportCount = 0,
     this.lunchSupportCount = 0,
   });
@@ -59,6 +65,7 @@ class SupportHistorySummary {
   final DateTime? supporterSince;
   final DateTime? latestSubscriptionPurchaseAt;
   final int oneTimeSupportCount;
+  final int snackSupportCount;
   final int coffeeSupportCount;
   final int lunchSupportCount;
 
@@ -110,6 +117,8 @@ class SupportCatalogState {
     this.summary = const SupportHistorySummary.empty(),
     this.isRestoring = false,
     this.purchasingPackageId,
+    this.activeSubscriptionProductId,
+    this.activeSubscriptionPlanId,
     this.errorMessage,
   });
 
@@ -134,6 +143,8 @@ class SupportCatalogState {
   final bool isSupporter;
   final bool isRestoring;
   final String? purchasingPackageId;
+  final String? activeSubscriptionProductId;
+  final String? activeSubscriptionPlanId;
   final String? errorMessage;
   final List<SupportPackage> packages;
   final SupportHistorySummary summary;
@@ -148,6 +159,8 @@ class SupportCatalogState {
     bool? isSupporter,
     bool? isRestoring,
     Object? purchasingPackageId = _copySentinel,
+    Object? activeSubscriptionProductId = _copySentinel,
+    Object? activeSubscriptionPlanId = _copySentinel,
     Object? errorMessage = _copySentinel,
     List<SupportPackage>? packages,
     SupportHistorySummary? summary,
@@ -160,6 +173,14 @@ class SupportCatalogState {
       purchasingPackageId: identical(purchasingPackageId, _copySentinel)
           ? this.purchasingPackageId
           : purchasingPackageId as String?,
+      activeSubscriptionProductId:
+          identical(activeSubscriptionProductId, _copySentinel)
+          ? this.activeSubscriptionProductId
+          : activeSubscriptionProductId as String?,
+      activeSubscriptionPlanId:
+          identical(activeSubscriptionPlanId, _copySentinel)
+          ? this.activeSubscriptionPlanId
+          : activeSubscriptionPlanId as String?,
       errorMessage: identical(errorMessage, _copySentinel)
           ? this.errorMessage
           : errorMessage as String?,
@@ -175,10 +196,14 @@ const _copySentinel = Object();
 class RevenueCatCustomerInfo {
   const RevenueCatCustomerInfo({
     required this.activeEntitlementIds,
+    this.activeSubscriptionProductId,
+    this.activeSubscriptionPlanId,
     this.historySummary = const SupportHistorySummary.empty(),
   });
 
   final Set<String> activeEntitlementIds;
+  final String? activeSubscriptionProductId;
+  final String? activeSubscriptionPlanId;
   final SupportHistorySummary historySummary;
 }
 
@@ -293,29 +318,43 @@ class PurchasesRevenueCatGateway implements RevenueCatGateway {
   RevenueCatCustomerInfo _mapInfo(purchases.CustomerInfo info) {
     final entitlement = info.entitlements.all[_supporterEntitlementId];
     final oneTimeTransactions = info.nonSubscriptionTransactions;
+    final snackCount = oneTimeTransactions
+        .where(
+          (transaction) =>
+              _supportPackageKindFor(transaction.productIdentifier, '') ==
+              SupportPackageKind.snack,
+        )
+        .length;
     final coffeeCount = oneTimeTransactions
         .where(
           (transaction) =>
-              _packageKindFor(transaction.productIdentifier, '') ==
+              _supportPackageKindFor(transaction.productIdentifier, '') ==
               SupportPackageKind.coffee,
         )
         .length;
     final lunchCount = oneTimeTransactions
         .where(
           (transaction) =>
-              _packageKindFor(transaction.productIdentifier, '') ==
+              _supportPackageKindFor(transaction.productIdentifier, '') ==
               SupportPackageKind.lunch,
         )
         .length;
 
     return RevenueCatCustomerInfo(
       activeEntitlementIds: info.entitlements.active.keys.toSet(),
+      activeSubscriptionProductId: entitlement?.isActive == true
+          ? entitlement?.productIdentifier
+          : null,
+      activeSubscriptionPlanId: entitlement?.isActive == true
+          ? entitlement?.productPlanIdentifier
+          : null,
       historySummary: SupportHistorySummary(
         supporterSince: _parseDate(entitlement?.originalPurchaseDate),
         latestSubscriptionPurchaseAt: _parseDate(
           entitlement?.latestPurchaseDate,
         ),
         oneTimeSupportCount: oneTimeTransactions.length,
+        snackSupportCount: snackCount,
         coffeeSupportCount: coffeeCount,
         lunchSupportCount: lunchCount,
       ),
@@ -323,15 +362,7 @@ class PurchasesRevenueCatGateway implements RevenueCatGateway {
   }
 
   SupportPackage _mapPackage(purchases.Package package) {
-    final product = package.storeProduct;
-    return SupportPackage(
-      id: package.identifier,
-      productId: product.identifier,
-      title: product.title,
-      priceLabel: product.priceString,
-      subscriptionPeriod: product.subscriptionPeriod,
-      kind: _packageKindFor(product.identifier, package.identifier),
-    );
+    return mapRevenueCatPackage(package);
   }
 
   Future<purchases.Package> _loadPackage(String packageId) async {
@@ -343,25 +374,47 @@ class PurchasesRevenueCatGateway implements RevenueCatGateway {
     throw StateError('Unknown support package: $packageId');
   }
 
-  SupportPackageKind _packageKindFor(String productId, String packageId) {
-    if (productId == 'supporter_monthly_10' ||
-        productId == 'supporter_monthly_10_ios' ||
-        packageId == r'$rc_monthly') {
-      return SupportPackageKind.monthly;
-    }
-    if (productId == 'support_coffee_5' || packageId == r'$rc_custom_coffee') {
-      return SupportPackageKind.coffee;
-    }
-    if (productId == 'support_lunch_10' || packageId == r'$rc_custom_lunch') {
-      return SupportPackageKind.lunch;
-    }
-    return SupportPackageKind.other;
-  }
-
   DateTime? _parseDate(String? value) {
     if (value == null || value.isEmpty) return null;
     return DateTime.tryParse(value)?.toLocal();
   }
+}
+
+@visibleForTesting
+SupportPackage mapRevenueCatPackage(purchases.Package package) {
+  final product = package.storeProduct;
+  final option = product.defaultOption;
+  return SupportPackage(
+    id: package.identifier,
+    productId: option?.productId ?? product.identifier,
+    title: product.title,
+    priceLabel: product.priceString,
+    price: product.price,
+    subscriptionPeriod: product.subscriptionPeriod,
+    subscriptionPlanId: option?.id,
+    kind: product.subscriptionPeriod != null
+        ? SupportPackageKind.monthly
+        : _supportPackageKindFor(product.identifier, package.identifier),
+  );
+}
+
+SupportPackageKind _supportPackageKindFor(String productId, String packageId) {
+  if (productId == 'supporter_monthly_10' ||
+      productId == 'supporter_monthly_10_ios' ||
+      productId == 'supporter_monthly_3_ios' ||
+      packageId == r'$rc_monthly') {
+    return SupportPackageKind.monthly;
+  }
+  if (productId == 'support_snack_3' || packageId == r'$rc_custom_snack') {
+    return SupportPackageKind.snack;
+  }
+  if (productId == 'support_coffee_5' || packageId == r'$rc_custom_coffee') {
+    return SupportPackageKind.coffee;
+  }
+  if (productId == 'support_lunch_10' || packageId == r'$rc_custom_lunch') {
+    return SupportPackageKind.lunch;
+  }
+  return SupportPackageKind.other;
 }
 
 class RevenueCatService {
@@ -573,6 +626,8 @@ class RevenueCatService {
       isAvailable: true,
       isLoading: isLoading ?? current.isLoading,
       isSupporter: isSupporter,
+      activeSubscriptionProductId: info.activeSubscriptionProductId,
+      activeSubscriptionPlanId: info.activeSubscriptionPlanId,
       isRestoring: isRestoring ?? false,
       purchasingPackageId: purchasingPackageId,
       errorMessage: errorMessage,

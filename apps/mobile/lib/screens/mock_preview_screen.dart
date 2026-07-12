@@ -622,15 +622,33 @@ const _supportPackages = [
   SupportPackage(
     id: r'$rc_monthly',
     productId: 'supporter_monthly_10_ios',
-    title: 'Supporter Monthly',
+    title: 'Supporter Monthly Plus',
     priceLabel: r'$9.99',
+    price: 9.99,
     kind: SupportPackageKind.monthly,
+  ),
+  SupportPackage(
+    id: r'$rc_custom_monthly_3',
+    productId: 'supporter_monthly_3_ios',
+    title: 'Supporter Monthly',
+    priceLabel: r'$2.99',
+    price: 2.99,
+    kind: SupportPackageKind.monthly,
+  ),
+  SupportPackage(
+    id: r'$rc_custom_snack',
+    productId: 'support_snack_3',
+    title: 'Snack Support',
+    priceLabel: r'$2.99',
+    price: 2.99,
+    kind: SupportPackageKind.snack,
   ),
   SupportPackage(
     id: r'$rc_custom_coffee',
     productId: 'support_coffee_5',
     title: 'Drink Support',
     priceLabel: r'$4.99',
+    price: 4.99,
     kind: SupportPackageKind.coffee,
   ),
   SupportPackage(
@@ -638,6 +656,7 @@ const _supportPackages = [
     productId: 'support_lunch_10',
     title: 'Lunch Support',
     priceLabel: r'$9.99',
+    price: 9.99,
     kind: SupportPackageKind.lunch,
   ),
 ];
@@ -666,6 +685,7 @@ final _activeSupportCatalog = SupportCatalogState(
   isAvailable: true,
   isLoading: false,
   isSupporter: true,
+  activeSubscriptionProductId: 'supporter_monthly_10_ios',
   packages: _supportPackages,
   summary: SupportHistorySummary(
     supporterSince: DateTime(2026, 2, 14),
@@ -680,6 +700,7 @@ final _veteranSupportCatalog = SupportCatalogState(
   isAvailable: true,
   isLoading: false,
   isSupporter: true,
+  activeSubscriptionProductId: 'supporter_monthly_10_ios',
   packages: _supportPackages,
   summary: SupportHistorySummary(
     supporterSince: DateTime(2025, 6, 3),

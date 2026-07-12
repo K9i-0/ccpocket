@@ -2119,6 +2119,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get supporterMonthlyTitle => '월간 Supporter';
 
   @override
+  String get supporterMonthlyPlusTitle => '월간 Supporter Plus';
+
+  @override
+  String get supporterSnackTitle => '간식 후원';
+
+  @override
   String get supporterCoffeeTitle => '음료 한 잔 후원';
 
   @override
@@ -2162,6 +2168,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get supporterMonthlyPerkLabel => '대체 앱 아이콘 혜택 포함';
 
   @override
+  String get supporterSnackDescription => '간식 하나를 사주고 싶은 마음이라면 큰 힘이 됩니다.';
+
+  @override
   String get supporterCoffeeDescription => '음료 한 잔을 사주고 싶은 마음이라면 큰 힘이 됩니다.';
 
   @override
@@ -2172,6 +2181,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get supporterActiveButton => '활성';
+
+  @override
+  String get supporterSubscribedButton => '구독 중';
 
   @override
   String get supporterRestoreButton => '복원';
@@ -2205,6 +2217,11 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String supporterSummaryOneTimeCount(int count) {
     return '일회성 ×$count';
+  }
+
+  @override
+  String supporterSummarySnackCount(int count) {
+    return '간식 ×$count';
   }
 
   @override

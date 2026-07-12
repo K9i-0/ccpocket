@@ -855,7 +855,9 @@
   "rateOnStore": "Rate on App Store",
   "rateOnStoreAndroid": "Rate on Google Play",
   "supporterTitle": "Supporter",
-  "supporterMonthlyTitle": "Monthly Supporter",
+  "supporterMonthlyTitle": "Supporter Monthly",
+  "supporterMonthlyPlusTitle": "Supporter Monthly Plus",
+  "supporterSnackTitle": "Snack Support",
   "supporterCoffeeTitle": "Buy Me a Drink",
   "supporterLunchTitle": "Buy Me Lunch",
   "supporterStatusActive": "Thanks for backing CC Pocket.",
@@ -874,10 +876,12 @@
   },
   "supporterMonthlyDescription": "Ongoing support to keep the app improving.",
   "supporterMonthlyPerkLabel": "Includes alternate app icon perks",
+  "supporterSnackDescription": "If you feel like buying me a snack, I'd really appreciate the support.",
   "supporterCoffeeDescription": "If you feel like buying me a drink, I'd really appreciate the support.",
   "supporterLunchDescription": "If you feel like buying me lunch, I'd really appreciate the support.",
   "supporterBuyButton": "Support",
   "supporterActiveButton": "Active",
+  "supporterSubscribedButton": "Subscribed",
   "supporterRestoreButton": "Restore",
   "supporterRetryButton": "Retry",
   "supporterProductsUnavailable": "No support options are currently available.",
@@ -898,6 +902,12 @@
   },
   "supporterSummaryOneTimeCount": "One-time ×{count}",
   "@supporterSummaryOneTimeCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "supporterSummarySnackCount": "Snacks ×{count}",
+  "@supporterSummarySnackCount": {
     "placeholders": {
       "count": { "type": "int" }
     }

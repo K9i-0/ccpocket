@@ -54,15 +54,15 @@ The purchase flow lives in `Settings > Support`.
 
 The `Support` screen shows:
 
-- Monthly support: `Supporter Monthly`
-- One-time support: `Drink Support` and `Lunch Support`
+- Monthly support: `Supporter Monthly` and `Supporter Monthly Plus`
+- One-time support: `Snack Support`, `Drink Support`, and `Lunch Support`
 - A support summary when there is any purchase history on the current store account
 
 That summary can include:
 
 - When monthly support started
 - How long support has been active
-- One-time support counts such as Drink / Lunch totals
+- One-time support counts such as Snack / Drink / Lunch totals
 
 This summary is shown for both monthly supporters and one-time supporters.
 

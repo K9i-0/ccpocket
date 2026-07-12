@@ -2106,6 +2106,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get supporterMonthlyTitle => '月額サポーター';
 
   @override
+  String get supporterMonthlyPlusTitle => '月額サポーター Plus';
+
+  @override
+  String get supporterSnackTitle => 'おやつで応援';
+
+  @override
   String get supporterCoffeeTitle => 'ドリンクで応援';
 
   @override
@@ -2148,6 +2154,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get supporterMonthlyPerkLabel => 'アプリアイコン変更特典付き';
 
   @override
+  String get supporterSnackDescription => 'おやつを1つおごる';
+
+  @override
   String get supporterCoffeeDescription => 'ドリンクを1杯おごる';
 
   @override
@@ -2158,6 +2167,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get supporterActiveButton => '応援中';
+
+  @override
+  String get supporterSubscribedButton => '購読中';
 
   @override
   String get supporterRestoreButton => '購入を復元';
@@ -2191,6 +2203,11 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String supporterSummaryOneTimeCount(int count) {
     return '単発 ×$count';
+  }
+
+  @override
+  String supporterSummarySnackCount(int count) {
+    return 'おやつ ×$count';
   }
 
   @override

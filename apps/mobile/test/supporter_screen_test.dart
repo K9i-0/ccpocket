@@ -246,4 +246,134 @@ void main() {
     );
     expect(lunchCardPosition.dy, lessThan(drinkCardPosition.dy));
   });
+
+  testWidgets('shows lower-priced monthly and one-time options first', (
+    tester,
+  ) async {
+    final service = FakeRevenueCatService(
+      catalog: const SupportCatalogState(
+        isAvailable: true,
+        isLoading: false,
+        isSupporter: true,
+        activeSubscriptionProductId: 'supporter_monthly_10_ios',
+        packages: [
+          SupportPackage(
+            id: r'$rc_monthly',
+            productId: 'supporter_monthly_10_ios',
+            title: 'Supporter Monthly Plus',
+            priceLabel: r'$9.99',
+            price: 9.99,
+            kind: SupportPackageKind.monthly,
+          ),
+          SupportPackage(
+            id: r'$rc_custom_monthly_3',
+            productId: 'supporter_monthly_3_ios',
+            title: 'Supporter Monthly',
+            priceLabel: r'$2.99',
+            price: 2.99,
+            kind: SupportPackageKind.monthly,
+          ),
+          SupportPackage(
+            id: r'$rc_custom_snack',
+            productId: 'support_snack_3',
+            title: 'Snack Support',
+            priceLabel: r'$2.99',
+            price: 2.99,
+            kind: SupportPackageKind.snack,
+          ),
+          SupportPackage(
+            id: r'$rc_custom_coffee',
+            productId: 'support_coffee_5',
+            title: 'Drink',
+            priceLabel: r'$4.99',
+            price: 4.99,
+            kind: SupportPackageKind.coffee,
+          ),
+        ],
+      ),
+      supporter: const SupporterState.active(),
+    );
+
+    await tester.pumpWidget(_wrap(service));
+    final l = _localizations(tester);
+
+    await tester.scrollUntilVisible(
+      find.text('Supporter Monthly'),
+      300,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.pumpAndSettle();
+
+    final lightPosition = tester.getTopLeft(find.text('Supporter Monthly'));
+    final fullPosition = tester.getTopLeft(find.text('Supporter Monthly Plus'));
+    expect(lightPosition.dy, lessThan(fullPosition.dy));
+
+    await tester.scrollUntilVisible(
+      find.text(l.supporterSnackTitle),
+      300,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.pumpAndSettle();
+
+    final snackPosition = tester.getTopLeft(find.text(l.supporterSnackTitle));
+    final drinkPosition = tester.getTopLeft(find.text(l.supporterCoffeeTitle));
+    expect(snackPosition.dy, lessThan(drinkPosition.dy));
+    expect(find.text(l.supporterActiveButton), findsOneWidget);
+  });
+
+  testWidgets('matches Android base plan and blocks unsupported plan changes', (
+    tester,
+  ) async {
+    final service = FakeRevenueCatService(
+      catalog: const SupportCatalogState(
+        isAvailable: true,
+        isLoading: false,
+        isSupporter: true,
+        activeSubscriptionProductId: 'supporter_monthly_10',
+        activeSubscriptionPlanId: 'monthly-3',
+        packages: [
+          SupportPackage(
+            id: r'$rc_custom_monthly_3',
+            productId: 'supporter_monthly_10',
+            title: 'Supporter Monthly',
+            priceLabel: r'$2.99',
+            price: 2.99,
+            kind: SupportPackageKind.monthly,
+            subscriptionPeriod: 'P1M',
+            subscriptionPlanId: 'monthly-3',
+          ),
+          SupportPackage(
+            id: r'$rc_monthly',
+            productId: 'supporter_monthly_10',
+            title: 'Supporter Monthly Plus',
+            priceLabel: r'$9.99',
+            price: 9.99,
+            kind: SupportPackageKind.monthly,
+            subscriptionPeriod: 'P1M',
+            subscriptionPlanId: 'monthly',
+          ),
+        ],
+      ),
+      supporter: const SupporterState.active(),
+    );
+
+    await tester.pumpWidget(_wrap(service));
+    final l = _localizations(tester);
+
+    await tester.scrollUntilVisible(
+      find.text(l.supporterMonthlyTitle),
+      300,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.pumpAndSettle();
+
+    final activeButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, l.supporterActiveButton),
+    );
+    final subscribedButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, l.supporterSubscribedButton),
+    );
+    expect(activeButton.onPressed, isNull);
+    expect(subscribedButton.onPressed, isNull);
+  });
 }

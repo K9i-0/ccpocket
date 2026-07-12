@@ -826,6 +826,8 @@
   "rateOnStoreAndroid": "Google Play에서 평가",
   "supporterTitle": "Supporter",
   "supporterMonthlyTitle": "월간 Supporter",
+  "supporterMonthlyPlusTitle": "월간 Supporter Plus",
+  "supporterSnackTitle": "간식 후원",
   "supporterCoffeeTitle": "음료 한 잔 후원",
   "supporterLunchTitle": "점심 후원",
   "supporterStatusActive": "CC Pocket을 후원해 주셔서 감사합니다.",
@@ -846,10 +848,12 @@
   },
   "supporterMonthlyDescription": "앱을 계속 개선하기 위한 정기 후원입니다.",
   "supporterMonthlyPerkLabel": "대체 앱 아이콘 혜택 포함",
+  "supporterSnackDescription": "간식 하나를 사주고 싶은 마음이라면 큰 힘이 됩니다.",
   "supporterCoffeeDescription": "음료 한 잔을 사주고 싶은 마음이라면 큰 힘이 됩니다.",
   "supporterLunchDescription": "점심 한 끼를 사주고 싶은 마음이라면 큰 힘이 됩니다.",
   "supporterBuyButton": "후원하기",
   "supporterActiveButton": "활성",
+  "supporterSubscribedButton": "구독 중",
   "supporterRestoreButton": "복원",
   "supporterRetryButton": "재시도",
   "supporterProductsUnavailable": "현재 사용할 수 있는 후원 옵션이 없습니다.",
@@ -874,6 +878,14 @@
   },
   "supporterSummaryOneTimeCount": "일회성 ×{count}",
   "@supporterSummaryOneTimeCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "supporterSummarySnackCount": "간식 ×{count}",
+  "@supporterSummarySnackCount": {
     "placeholders": {
       "count": {
         "type": "int"

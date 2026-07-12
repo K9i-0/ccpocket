@@ -2084,6 +2084,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get supporterMonthlyTitle => '每月支持';
 
   @override
+  String get supporterMonthlyPlusTitle => '每月支持 Plus';
+
+  @override
+  String get supporterSnackTitle => '请吃份零食';
+
+  @override
   String get supporterCoffeeTitle => '请喝杯饮料';
 
   @override
@@ -2125,6 +2131,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get supporterMonthlyPerkLabel => '包含更换应用图标特典';
 
   @override
+  String get supporterSnackDescription => '如果你想请我吃份零食，我会很感谢这份支持。';
+
+  @override
   String get supporterCoffeeDescription => '如果你想请我喝一杯饮料，我会很感谢这份支持。';
 
   @override
@@ -2135,6 +2144,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get supporterActiveButton => '支持中';
+
+  @override
+  String get supporterSubscribedButton => '已订阅';
 
   @override
   String get supporterRestoreButton => '恢复购买';
@@ -2168,6 +2180,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String supporterSummaryOneTimeCount(int count) {
     return '单次 ×$count';
+  }
+
+  @override
+  String supporterSummarySnackCount(int count) {
+    return '零食 ×$count';
   }
 
   @override

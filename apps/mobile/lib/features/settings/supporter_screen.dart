@@ -273,9 +273,9 @@ class _SupportPackageSection extends StatelessWidget {
     if (state.isLoading && !state.hasPackages) {
       children.add(const Card(child: _SupportLoadingTile()));
     } else if (state.hasPackages) {
-      final recurringPackages = state.packages
-          .where((package) => package.isSubscription)
-          .toList();
+      final recurringPackages =
+          state.packages.where((package) => package.isSubscription).toList()
+            ..sort(_comparePackagePrices);
       final oneTimePackages =
           state.packages.where((package) => !package.isSubscription).toList()
             ..sort(
@@ -588,10 +588,15 @@ class _SupportSummaryContent extends StatelessWidget {
     final summary = state.summary;
     final activityChips = <Widget>[
       if (summary.oneTimeSupportCount > 0 &&
+          summary.snackSupportCount == 0 &&
           summary.coffeeSupportCount == 0 &&
           summary.lunchSupportCount == 0)
         _SupportSummaryBadge(
           label: l.supporterSummaryOneTimeCount(summary.oneTimeSupportCount),
+        ),
+      if (summary.snackSupportCount > 0)
+        _SupportSummaryBadge(
+          label: l.supporterSummarySnackCount(summary.snackSupportCount),
         ),
       if (summary.lunchSupportCount > 0)
         _SupportSummaryBadge(
@@ -801,7 +806,9 @@ class _SupportPackageTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final revenueCat = context.read<RevenueCatService>();
-    final isCurrentSubscription = package.isSubscription && state.isSupporter;
+    final isCurrentSubscription = _isCurrentSubscription(package, state);
+    final isPlanChangeUnavailable =
+        package.isSubscription && state.isSupporter && !isCurrentSubscription;
     final isPurchasing = state.purchasingPackageId == package.id;
 
     return Padding(
@@ -859,7 +866,10 @@ class _SupportPackageTile extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   minimumSize: const Size(0, 44),
                 ),
-                onPressed: state.isBusy || isCurrentSubscription
+                onPressed:
+                    state.isBusy ||
+                        isCurrentSubscription ||
+                        isPlanChangeUnavailable
                     ? null
                     : () async {
                         final result = await revenueCat.purchasePackage(
@@ -877,6 +887,8 @@ class _SupportPackageTile extends StatelessWidget {
                     : Text(
                         isCurrentSubscription
                             ? l.supporterActiveButton
+                            : isPlanChangeUnavailable
+                            ? l.supporterSubscribedButton
                             : l.supporterBuyButton,
                       ),
               ),
@@ -891,6 +903,8 @@ class _SupportPackageTile extends StatelessWidget {
     switch (package.kind) {
       case SupportPackageKind.monthly:
         return l.supporterMonthlyDescription;
+      case SupportPackageKind.snack:
+        return l.supporterSnackDescription;
       case SupportPackageKind.coffee:
         return l.supporterCoffeeDescription;
       case SupportPackageKind.lunch:
@@ -903,7 +917,20 @@ class _SupportPackageTile extends StatelessWidget {
   String _titleForPackage(AppLocalizations l, SupportPackage package) {
     switch (package.kind) {
       case SupportPackageKind.monthly:
-        return l.supporterMonthlyTitle;
+        final monthlyPackageCount = state.packages
+            .where((item) => item.isSubscription)
+            .length;
+        if (package.id == r'$rc_custom_monthly_3') {
+          return l.supporterMonthlyTitle;
+        }
+        if (monthlyPackageCount > 1 && package.id == r'$rc_monthly') {
+          return l.supporterMonthlyPlusTitle;
+        }
+        return monthlyPackageCount > 1
+            ? package.title
+            : l.supporterMonthlyTitle;
+      case SupportPackageKind.snack:
+        return l.supporterSnackTitle;
       case SupportPackageKind.coffee:
         return l.supporterCoffeeTitle;
       case SupportPackageKind.lunch:
@@ -956,10 +983,36 @@ class _MonthlySupportDescription extends StatelessWidget {
 int _packageDisplayPriority(SupportPackage package) {
   return switch (package.kind) {
     SupportPackageKind.monthly => 0,
-    SupportPackageKind.lunch => 1,
-    SupportPackageKind.coffee => 2,
-    SupportPackageKind.other => 3,
+    SupportPackageKind.snack => 1,
+    SupportPackageKind.lunch => 2,
+    SupportPackageKind.coffee => 3,
+    SupportPackageKind.other => 4,
   };
+}
+
+int _comparePackagePrices(SupportPackage a, SupportPackage b) {
+  final aPrice = a.price;
+  final bPrice = b.price;
+  if (aPrice == null && bPrice == null) return 0;
+  if (aPrice == null) return 1;
+  if (bPrice == null) return -1;
+  return aPrice.compareTo(bPrice);
+}
+
+bool _isCurrentSubscription(SupportPackage package, SupportCatalogState state) {
+  if (!package.isSubscription || !state.isSupporter) return false;
+
+  final activeProductId = state.activeSubscriptionProductId;
+  if (activeProductId == null) {
+    return state.packages.where((item) => item.isSubscription).length == 1;
+  }
+  if (activeProductId != package.productId) return false;
+
+  final activePlanId = state.activeSubscriptionPlanId;
+  final packagePlanId = package.subscriptionPlanId;
+  return activePlanId == null ||
+      packagePlanId == null ||
+      activePlanId == packagePlanId;
 }
 
 class _SupportPackageLeading extends StatelessWidget {
@@ -986,6 +1039,8 @@ class _SupportPackageLeading extends StatelessWidget {
     switch (package.kind) {
       case SupportPackageKind.monthly:
         return Icons.favorite;
+      case SupportPackageKind.snack:
+        return Icons.volunteer_activism;
       case SupportPackageKind.coffee:
         return Icons.local_cafe;
       case SupportPackageKind.lunch:
@@ -997,6 +1052,7 @@ class _SupportPackageLeading extends StatelessWidget {
 
   String? _emojiForPackage(BuildContext context, SupportPackage package) {
     final candidates = switch (package.kind) {
+      SupportPackageKind.snack => ['🍪', '🍩', '🍫', '🍿', '🥨'],
       SupportPackageKind.coffee => [
         '☕',
         '🍵',

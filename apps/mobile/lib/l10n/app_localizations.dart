@@ -4002,6 +4002,18 @@ abstract class AppLocalizations {
   /// **'月額サポーター'**
   String get supporterMonthlyTitle;
 
+  /// No description provided for @supporterMonthlyPlusTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'月額サポーター Plus'**
+  String get supporterMonthlyPlusTitle;
+
+  /// No description provided for @supporterSnackTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'おやつで応援'**
+  String get supporterSnackTitle;
+
   /// No description provided for @supporterCoffeeTitle.
   ///
   /// In ja, this message translates to:
@@ -4080,6 +4092,12 @@ abstract class AppLocalizations {
   /// **'アプリアイコン変更特典付き'**
   String get supporterMonthlyPerkLabel;
 
+  /// No description provided for @supporterSnackDescription.
+  ///
+  /// In ja, this message translates to:
+  /// **'おやつを1つおごる'**
+  String get supporterSnackDescription;
+
   /// No description provided for @supporterCoffeeDescription.
   ///
   /// In ja, this message translates to:
@@ -4103,6 +4121,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'応援中'**
   String get supporterActiveButton;
+
+  /// No description provided for @supporterSubscribedButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'購読中'**
+  String get supporterSubscribedButton;
 
   /// No description provided for @supporterRestoreButton.
   ///
@@ -4157,6 +4181,12 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'単発 ×{count}'**
   String supporterSummaryOneTimeCount(int count);
+
+  /// No description provided for @supporterSummarySnackCount.
+  ///
+  /// In ja, this message translates to:
+  /// **'おやつ ×{count}'**
+  String supporterSummarySnackCount(int count);
 
   /// No description provided for @supporterSummaryCoffeeCount.
   ///

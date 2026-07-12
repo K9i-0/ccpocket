@@ -62,15 +62,15 @@ Supporter は意図的に小さくしています。
 
 `Support` 画面では次が表示されます。
 
-- 月額応援: `Supporter Monthly`
-- 単発応援: `Drink Support` と `Lunch Support`
+- 月額応援: `Supporter Monthly` と `Supporter Monthly Plus`
+- 単発応援: `Snack Support`、`Drink Support`、`Lunch Support`
 - 現在のストアアカウントに購入履歴があれば `応援サマリー`
 
 応援サマリーには、たとえば次が表示されます。
 
 - 月額応援を始めた時期
 - 継続中 / 応援期間
-- Drink / Lunch の累計回数
+- Snack / Drink / Lunch の累計回数
 
 このサマリーは、月額サポーターだけでなく、単発応援のみの人にも表示されます。
 
