@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.103.0] - 2026-07-12
+
+### Added
+- Add GPT-5.6 Max and Ultra reasoning options with localized descriptions.
+
+### Changed
+- Require Bridge 1.64.0 for the latest Codex app-server reasoning metadata.
+- Preserve model-advertised reasoning effort values so future levels remain selectable.
+
 ## [1.102.0] - 2026-07-12
 
 ### Added
