@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.64.0] - 2026-07-12
+
+### Added
+- Support GPT-5.6 `max` and `ultra` reasoning efforts, including model-specific availability for Sol, Terra, and Luna.
+
+### Changed
+- Read ordered reasoning effort metadata from the latest Codex app-server protocol while remaining compatible with legacy string responses.
+- Preserve future model-advertised reasoning effort values across session start, resume, and runtime model switching.
+
 ## [1.63.6] - 2026-07-11
 
 ### Changed
