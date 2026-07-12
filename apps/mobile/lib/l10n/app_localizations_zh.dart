@@ -846,6 +846,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reasoningEffortXhighDesc => '最深入，最慢';
 
   @override
+  String get reasoningEffortMaxDesc => '针对最难问题的最大推理深度';
+
+  @override
+  String get reasoningEffortUltraDesc => '最大推理并自动委派任务';
+
+  @override
+  String get reasoningEffortModelSpecificDesc => '模型特定的推理级别';
+
+  @override
   String get changePermissionModeTitle => '更改权限模式';
 
   @override

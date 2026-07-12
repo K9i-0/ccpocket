@@ -900,7 +900,24 @@ describe("CodexProcess (app-server)", () => {
               model: "gpt-5.5",
               id: "ignored",
               hidden: false,
-              supportedReasoningEfforts: ["low", "medium", "high", "xhigh"],
+              supportedReasoningEfforts: [
+                {
+                  reasoningEffort: "low",
+                  description: "Fast responses with lighter reasoning",
+                },
+                {
+                  reasoningEffort: "medium",
+                  description: "Balances speed and reasoning depth",
+                },
+                {
+                  reasoningEffort: "max",
+                  description: "Maximum reasoning depth",
+                },
+                {
+                  reasoningEffort: "ultra",
+                  description: "Maximum reasoning with automatic delegation",
+                },
+              ],
               defaultReasoningEffort: "medium",
             },
             { model: "gpt-hidden", hidden: true },
@@ -940,7 +957,7 @@ describe("CodexProcess (app-server)", () => {
     await expect(modelsPromise).resolves.toEqual([
       {
         model: "gpt-5.5",
-        supportedReasoningEfforts: ["low", "medium", "high", "xhigh"],
+        supportedReasoningEfforts: ["low", "medium", "max", "ultra"],
         defaultReasoningEffort: "medium",
       },
       {

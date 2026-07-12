@@ -17,6 +17,15 @@ class _MockBridgeService extends BridgeService {
   final _taggedController =
       StreamController<(ServerMessage, String?)>.broadcast();
   final sentMessages = <ClientMessage>[];
+  List<String> availableCodexModels = const [];
+  Map<String, List<String>> availableCodexReasoningEfforts = const {};
+
+  @override
+  List<String> get codexModels => availableCodexModels;
+
+  @override
+  Map<String, List<String>> get codexModelReasoningEfforts =>
+      availableCodexReasoningEfforts;
 
   void emitMessage(ServerMessage msg, {String? sessionId}) {
     _taggedController.add((msg, sessionId));
@@ -171,6 +180,44 @@ void main() {
 
     expect(cubit.state.codexModelReasoningEffort, isNull);
     expect(find.text('5.5 High'), findsOneWidget);
+  });
+
+  testWidgets('codex model menu supports GPT-5.6 max and ultra efforts', (
+    tester,
+  ) async {
+    bridge.availableCodexModels = const ['gpt-5.6-sol'];
+    bridge.availableCodexReasoningEfforts = const {
+      'gpt-5.6-sol': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+    };
+
+    await tester.pumpWidget(_wrap(cubit));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('5.6-sol High'), findsOneWidget);
+    await tester.tap(find.text('5.6-sol High'));
+    await tester.pumpAndSettle();
+
+    final ultraOption = find.byKey(
+      const ValueKey('codex_reasoning_ultra_option'),
+    );
+    await tester.scrollUntilVisible(
+      ultraOption,
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.drag(find.byType(ListView).last, const Offset(0, -100));
+    await tester.pumpAndSettle();
+    expect(find.text('Max'), findsOneWidget);
+    expect(find.text('Ultra'), findsOneWidget);
+
+    await tester.tap(ultraOption);
+    await tester.pumpAndSettle();
+
+    expect(cubit.state.codexModelReasoningEffort, ReasoningEffort.ultra);
+    expect(
+      _decode(bridge.sentMessages.last),
+      containsPair('modelReasoningEffort', 'ultra'),
+    );
   });
 
   testWidgets('shows bar-level glow when running in plan mode', (tester) async {

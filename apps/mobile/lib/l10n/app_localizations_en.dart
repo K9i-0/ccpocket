@@ -877,6 +877,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reasoningEffortXhighDesc => 'Most thorough, slowest';
 
   @override
+  String get reasoningEffortMaxDesc =>
+      'Maximum reasoning for the hardest problems';
+
+  @override
+  String get reasoningEffortUltraDesc =>
+      'Maximum reasoning with automatic task delegation';
+
+  @override
+  String get reasoningEffortModelSpecificDesc =>
+      'Model-specific reasoning level';
+
+  @override
   String get changePermissionModeTitle => 'Change Permission Mode';
 
   @override

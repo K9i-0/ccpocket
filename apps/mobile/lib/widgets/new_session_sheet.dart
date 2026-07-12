@@ -226,7 +226,7 @@ SandboxMode? sandboxModeFromRaw(String? raw) {
 }
 
 ReasoningEffort? reasoningEffortFromRaw(String? raw) =>
-    enumByValue(ReasoningEffort.values, raw, (v) => v.value);
+    reasoningEffortByValue(raw);
 
 const _fallbackCodexReasoningEfforts = <ReasoningEffort>[
   ReasoningEffort.low,
@@ -2822,6 +2822,9 @@ String _reasoningEffortDescription(ReasoningEffort effort, AppLocalizations l) {
     ReasoningEffort.medium => l.reasoningEffortMediumDesc,
     ReasoningEffort.high => l.reasoningEffortHighDesc,
     ReasoningEffort.xhigh => l.reasoningEffortXhighDesc,
+    ReasoningEffort.max => l.reasoningEffortMaxDesc,
+    ReasoningEffort.ultra => l.reasoningEffortUltraDesc,
+    _ => l.reasoningEffortModelSpecificDesc,
   };
 }
 

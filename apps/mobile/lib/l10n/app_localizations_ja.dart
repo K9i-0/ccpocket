@@ -854,6 +854,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get reasoningEffortXhighDesc => '最も丁寧、最も遅い';
 
   @override
+  String get reasoningEffortMaxDesc => '最も難しい問題向けの最大推論';
+
+  @override
+  String get reasoningEffortUltraDesc => '最大推論と自動タスク委譲';
+
+  @override
+  String get reasoningEffortModelSpecificDesc => 'モデル固有の推論レベル';
+
+  @override
   String get changePermissionModeTitle => 'Permission Mode を変更';
 
   @override

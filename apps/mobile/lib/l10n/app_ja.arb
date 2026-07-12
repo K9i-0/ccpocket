@@ -335,6 +335,9 @@
   "reasoningEffortMediumDesc": "速度と品質のバランス",
   "reasoningEffortHighDesc": "より丁寧な分析",
   "reasoningEffortXhighDesc": "最も丁寧、最も遅い",
+  "reasoningEffortMaxDesc": "最も難しい問題向けの最大推論",
+  "reasoningEffortUltraDesc": "最大推論と自動タスク委譲",
+  "reasoningEffortModelSpecificDesc": "モデル固有の推論レベル",
 
   "changePermissionModeTitle": "Permission Mode を変更",
   "changePermissionModeBody": "{mode} に切り替えるとセッションが再起動します。会話は保持されます。",

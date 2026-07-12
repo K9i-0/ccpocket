@@ -307,6 +307,9 @@
   "reasoningEffortMediumDesc": "Balanced speed and quality",
   "reasoningEffortHighDesc": "More thorough analysis",
   "reasoningEffortXhighDesc": "Most thorough, slowest",
+  "reasoningEffortMaxDesc": "Maximum reasoning for the hardest problems",
+  "reasoningEffortUltraDesc": "Maximum reasoning with automatic task delegation",
+  "reasoningEffortModelSpecificDesc": "Model-specific reasoning level",
 
   "changePermissionModeTitle": "Change Permission Mode",
   "changePermissionModeBody": "Switching to {mode} will restart the session. Your conversation will be preserved.",

@@ -853,6 +853,15 @@ class AppLocalizationsKo extends AppLocalizations {
   String get reasoningEffortXhighDesc => '가장 철저하지만 가장 느림';
 
   @override
+  String get reasoningEffortMaxDesc => '가장 어려운 문제를 위한 최대 추론';
+
+  @override
+  String get reasoningEffortUltraDesc => '최대 추론 및 자동 작업 위임';
+
+  @override
+  String get reasoningEffortModelSpecificDesc => '모델별 추론 수준';
+
+  @override
   String get changePermissionModeTitle => '권한 모드 변경';
 
   @override

@@ -266,11 +266,37 @@ describe("parseClientMessage", () => {
     });
   });
 
+  it("parses GPT-5.6 max and ultra reasoning efforts", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"start","projectPath":"/p","provider":"codex","model":"gpt-5.6-sol","modelReasoningEffort":"ultra"}',
+      ),
+    ).toMatchObject({ modelReasoningEffort: "ultra" });
+    expect(
+      parseClientMessage(
+        '{"type":"set_codex_model","model":"gpt-5.6-luna","modelReasoningEffort":"max"}',
+      ),
+    ).toMatchObject({ modelReasoningEffort: "max" });
+  });
+
+  it("accepts model-advertised reasoning effort strings", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"set_codex_model","model":"future-model","modelReasoningEffort":"future-tier"}',
+      ),
+    ).toMatchObject({ modelReasoningEffort: "future-tier" });
+  });
+
   it("rejects set_codex_model with invalid fields", () => {
     expect(parseClientMessage('{"type":"set_codex_model"}')).toBeNull();
     expect(
       parseClientMessage(
-        '{"type":"set_codex_model","model":"gpt-5.4-mini","modelReasoningEffort":"turbo"}',
+        '{"type":"set_codex_model","model":"gpt-5.4-mini","modelReasoningEffort":""}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"set_codex_model","model":"gpt-5.4-mini","modelReasoningEffort":1}',
       ),
     ).toBeNull();
   });

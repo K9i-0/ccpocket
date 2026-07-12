@@ -559,6 +559,9 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .find((msg: any) => msg.type === "session_list");
 
     expect(sessionList.codexModels).toEqual([
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-5.6-luna",
       "gpt-5.5",
       "gpt-5.4",
       "gpt-5.4-mini",
@@ -566,6 +569,21 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       "gpt-5.3-codex-spark",
     ]);
     expect(sessionList.codexModels).not.toContain("gpt-5.2-codex");
+    expect(sessionList.codexModelReasoningEfforts["gpt-5.6-sol"]).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra",
+    ]);
+    expect(sessionList.codexModelReasoningEfforts["gpt-5.6-luna"]).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ]);
     expect(sessionList.codexProfiles).toEqual(["ccpocket", "research"]);
     expect(sessionList.defaultCodexProfile).toBe("ccpocket");
 
@@ -643,6 +661,9 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       .find((msg: any) => msg.type === "session_list");
 
     expect(sessionList.codexModels).toEqual([
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-5.6-luna",
       "gpt-5.5",
       "gpt-5.4",
       "gpt-5.4-mini",

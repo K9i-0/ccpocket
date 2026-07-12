@@ -456,6 +456,7 @@ void showCodexModelMenu(BuildContext context, ChatSessionCubit chatCubit) {
               ),
               for (final effort in currentEfforts)
                 ListTile(
+                  key: ValueKey('codex_reasoning_${effort.value}_option'),
                   leading: Icon(
                     Icons.psychology,
                     color: effort == currentEffort

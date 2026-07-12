@@ -137,6 +137,9 @@ const FALLBACK_CLAUDE_MODEL_EFFORTS: Record<string, ClaudeEffortLevel[]> = {
 };
 
 const FALLBACK_CODEX_MODELS: string[] = [
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
   "gpt-5.5",
   "gpt-5.4",
   "gpt-5.4-mini",
@@ -145,6 +148,22 @@ const FALLBACK_CODEX_MODELS: string[] = [
 ];
 
 const FALLBACK_CODEX_REASONING_EFFORTS = ["low", "medium", "high", "xhigh"];
+const FALLBACK_GPT_5_6_REASONING_EFFORTS = [
+  ...FALLBACK_CODEX_REASONING_EFFORTS,
+  "max",
+];
+const FALLBACK_GPT_5_6_ULTRA_REASONING_EFFORTS = [
+  ...FALLBACK_GPT_5_6_REASONING_EFFORTS,
+  "ultra",
+];
+
+function fallbackCodexReasoningEfforts(model: string): string[] {
+  if (model === "gpt-5.6-sol" || model === "gpt-5.6-terra") {
+    return FALLBACK_GPT_5_6_ULTRA_REASONING_EFFORTS;
+  }
+  if (model === "gpt-5.6-luna") return FALLBACK_GPT_5_6_REASONING_EFFORTS;
+  return FALLBACK_CODEX_REASONING_EFFORTS;
+}
 
 const CODEX_RECENT_THREAD_SOURCE_KINDS: CodexThreadSourceKind[] = [
   "cli",
@@ -653,7 +672,7 @@ export class BridgeWebSocketServer {
     Object.fromEntries(
       FALLBACK_CODEX_MODELS.map((model) => [
         model,
-        FALLBACK_CODEX_REASONING_EFFORTS,
+        fallbackCodexReasoningEfforts(model),
       ]),
     );
   /** FCM token → push notification locale */
@@ -2186,12 +2205,8 @@ export class BridgeWebSocketServer {
                         : sandboxModeToInternal(msg.sandboxMode),
                       model: msg.model,
                       modelReasoningEffort:
-                        (msg.modelReasoningEffort as
-                          | "minimal"
-                          | "low"
-                          | "medium"
-                          | "high"
-                          | "xhigh") ?? undefined,
+                        (msg.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"]) ??
+                        undefined,
                       networkAccessEnabled: msg.networkAccessEnabled,
                       webSearchMode:
                         (msg.webSearchMode as "disabled" | "cached" | "live") ??
@@ -2978,14 +2993,8 @@ export class BridgeWebSocketServer {
                   | "danger-full-access"
                   | undefined,
                 model: oldSettings.model,
-                modelReasoningEffort: oldSettings.modelReasoningEffort as
-                  | "none"
-                  | "minimal"
-                  | "low"
-                  | "medium"
-                  | "high"
-                  | "xhigh"
-                  | undefined,
+                modelReasoningEffort:
+                  oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
                 networkAccessEnabled: oldSettings.networkAccessEnabled as
                   | boolean
                   | undefined,
@@ -3074,14 +3083,8 @@ export class BridgeWebSocketServer {
                     | "danger-full-access"
                     | undefined,
                   model: oldSettings.model,
-                  modelReasoningEffort: oldSettings.modelReasoningEffort as
-                    | "none"
-                    | "minimal"
-                    | "low"
-                    | "medium"
-                    | "high"
-                    | "xhigh"
-                    | undefined,
+                  modelReasoningEffort:
+                    oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
                   networkAccessEnabled: oldSettings.networkAccessEnabled as
                     | boolean
                     | undefined,
@@ -3192,14 +3195,8 @@ export class BridgeWebSocketServer {
           break;
         }
 
-        const modelReasoningEffort = msg.modelReasoningEffort as
-          | "none"
-          | "minimal"
-          | "low"
-          | "medium"
-          | "high"
-          | "xhigh"
-          | undefined;
+        const modelReasoningEffort =
+          msg.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"];
         const currentModel = sanitizeCodexModel(session.codexSettings?.model);
         const currentEffort = session.codexSettings?.modelReasoningEffort;
         if (model === currentModel && modelReasoningEffort === currentEffort) {
@@ -3398,14 +3395,8 @@ export class BridgeWebSocketServer {
                 | undefined,
               sandboxMode: newSandboxMode,
               model: oldSettings.model,
-              modelReasoningEffort: oldSettings.modelReasoningEffort as
-                | "none"
-                | "minimal"
-                | "low"
-                | "medium"
-                | "high"
-                | "xhigh"
-                | undefined,
+              modelReasoningEffort:
+                oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
               networkAccessEnabled: oldSettings.networkAccessEnabled as
                 | boolean
                 | undefined,
@@ -3481,14 +3472,8 @@ export class BridgeWebSocketServer {
                   | undefined,
                 sandboxMode: newSandboxMode,
                 model: oldSettings.model,
-                modelReasoningEffort: oldSettings.modelReasoningEffort as
-                  | "none"
-                  | "minimal"
-                  | "low"
-                  | "medium"
-                  | "high"
-                  | "xhigh"
-                  | undefined,
+                modelReasoningEffort:
+                  oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
                 networkAccessEnabled: oldSettings.networkAccessEnabled as
                   | boolean
                   | undefined,
@@ -4163,12 +4148,8 @@ export class BridgeWebSocketServer {
                   : sandboxModeToInternal(msg.sandboxMode),
                 model: msg.model,
                 modelReasoningEffort:
-                  (msg.modelReasoningEffort as
-                    | "minimal"
-                    | "low"
-                    | "medium"
-                    | "high"
-                    | "xhigh") ?? undefined,
+                  (msg.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"]) ??
+                  undefined,
                 networkAccessEnabled: msg.networkAccessEnabled,
                 webSearchMode:
                   (msg.webSearchMode as "disabled" | "cached" | "live") ??
@@ -6315,7 +6296,7 @@ export class BridgeWebSocketServer {
       : [];
     return models.map((model) => ({
       model,
-      supportedReasoningEfforts: FALLBACK_CODEX_REASONING_EFFORTS,
+      supportedReasoningEfforts: fallbackCodexReasoningEfforts(model),
     }));
   }
 
@@ -6326,7 +6307,7 @@ export class BridgeWebSocketServer {
         model.model,
         model.supportedReasoningEfforts.length > 0
           ? model.supportedReasoningEfforts
-          : FALLBACK_CODEX_REASONING_EFFORTS,
+          : fallbackCodexReasoningEfforts(model.model),
       ]),
     );
   }
@@ -6336,7 +6317,7 @@ export class BridgeWebSocketServer {
     this.codexModelReasoningEfforts = Object.fromEntries(
       FALLBACK_CODEX_MODELS.map((model) => [
         model,
-        FALLBACK_CODEX_REASONING_EFFORTS,
+        fallbackCodexReasoningEfforts(model),
       ]),
     );
   }

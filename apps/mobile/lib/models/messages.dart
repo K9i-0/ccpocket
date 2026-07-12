@@ -397,25 +397,47 @@ enum SandboxMode {
   const SandboxMode(this.value, this.label);
 }
 
-enum ReasoningEffort {
-  none('none', 'None'),
-  minimal('minimal', 'Minimal'),
-  low('low', 'Low'),
-  medium('medium', 'Medium'),
-  high('high', 'High'),
-  xhigh('xhigh', 'XHigh');
+final class ReasoningEffort {
+  static const none = ReasoningEffort._('none', 'None');
+  static const minimal = ReasoningEffort._('minimal', 'Minimal');
+  static const low = ReasoningEffort._('low', 'Low');
+  static const medium = ReasoningEffort._('medium', 'Medium');
+  static const high = ReasoningEffort._('high', 'High');
+  static const xhigh = ReasoningEffort._('xhigh', 'XHigh');
+  static const max = ReasoningEffort._('max', 'Max');
+  static const ultra = ReasoningEffort._('ultra', 'Ultra');
+
+  static const values = [none, minimal, low, medium, high, xhigh, max, ultra];
 
   final String value;
   final String label;
-  const ReasoningEffort(this.value, this.label);
+  const ReasoningEffort._(this.value, this.label);
+
+  factory ReasoningEffort.fromValue(String value) {
+    for (final effort in values) {
+      if (effort.value == value) return effort;
+    }
+    final words = value.split(RegExp(r'[-_\s]+'));
+    final label = words
+        .where((word) => word.isNotEmpty)
+        .map((word) => '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
+    return ReasoningEffort._(value, label.isEmpty ? value : label);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReasoningEffort && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
 }
 
 ReasoningEffort? reasoningEffortByValue(String? raw) {
-  if (raw == null) return null;
-  for (final effort in ReasoningEffort.values) {
-    if (effort.value == raw) return effort;
-  }
-  return null;
+  final value = raw?.trim();
+  if (value == null || value.isEmpty) return null;
+  return ReasoningEffort.fromValue(value);
 }
 
 enum WebSearchMode {

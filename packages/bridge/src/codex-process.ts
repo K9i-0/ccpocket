@@ -28,13 +28,7 @@ export interface CodexStartOptions {
   codexPermissionsMode?: "default" | "autoReview" | "fullAccess" | "custom";
   sandboxMode?: "read-only" | "workspace-write" | "danger-full-access";
   model?: string;
-  modelReasoningEffort?:
-    | "none"
-    | "minimal"
-    | "low"
-    | "medium"
-    | "high"
-    | "xhigh";
+  modelReasoningEffort?: string;
   networkAccessEnabled?: boolean;
   webSearchMode?: "disabled" | "cached" | "live";
   collaborationMode?: "plan" | "default";
@@ -2881,8 +2875,15 @@ function extractReasoningEfforts(raw: Record<string, unknown>): string[] {
   const seen = new Set<string>();
   const efforts: string[] = [];
   for (const value of values) {
-    if (typeof value !== "string") continue;
-    const normalized = value.trim();
+    const effort =
+      typeof value === "string"
+        ? value
+        : value && typeof value === "object"
+          ? ((value as Record<string, unknown>).reasoningEffort ??
+            (value as Record<string, unknown>).effort)
+          : undefined;
+    if (typeof effort !== "string") continue;
+    const normalized = effort.trim();
     if (!normalized || seen.has(normalized)) continue;
     seen.add(normalized);
     efforts.push(normalized);

@@ -3,6 +3,14 @@ import 'package:ccpocket/models/messages.dart';
 import 'dart:convert';
 
 void main() {
+  test('ReasoningEffort preserves model-advertised future values', () {
+    final effort = reasoningEffortByValue('future-tier');
+
+    expect(effort?.value, 'future-tier');
+    expect(effort?.label, 'Future Tier');
+    expect(reasoningEffortByValue('  '), isNull);
+  });
+
   group('pathBasename', () {
     test('handles POSIX and Windows path separators', () {
       expect(pathBasename('/Users/me/project-a'), 'project-a');
@@ -426,7 +434,7 @@ void main() {
         },
         'codexModels': ['gpt-5.5'],
         'codexModelReasoningEfforts': {
-          'gpt-5.5': ['low', 'medium', 'high', 'xhigh'],
+          'gpt-5.5': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
         },
         'codexProfiles': ['ccpocket', 'research'],
         'defaultCodexProfile': 'ccpocket',
@@ -449,6 +457,8 @@ void main() {
         'medium',
         'high',
         'xhigh',
+        'max',
+        'ultra',
       ]);
       expect(sessionList.codexProfiles, ['ccpocket', 'research']);
       expect(sessionList.defaultCodexProfile, 'ccpocket');

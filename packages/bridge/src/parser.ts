@@ -886,9 +886,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         if (
           msg.modelReasoningEffort !== undefined &&
-          !["none", "minimal", "low", "medium", "high", "xhigh"].includes(
-            String(msg.modelReasoningEffort),
-          )
+          (typeof msg.modelReasoningEffort !== "string" ||
+            msg.modelReasoningEffort.trim().length === 0)
         )
           return null;
         if (
@@ -1094,9 +1093,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         if (
           msg.modelReasoningEffort !== undefined &&
-          !["none", "minimal", "low", "medium", "high", "xhigh"].includes(
-            String(msg.modelReasoningEffort),
-          )
+          (typeof msg.modelReasoningEffort !== "string" ||
+            msg.modelReasoningEffort.trim().length === 0)
         )
           return null;
         if (msg.sessionId !== undefined && typeof msg.sessionId !== "string")
@@ -1197,9 +1195,8 @@ export function parseClientMessage(data: string): ClientMessage | null {
           return null;
         if (
           msg.modelReasoningEffort !== undefined &&
-          !["none", "minimal", "low", "medium", "high", "xhigh"].includes(
-            String(msg.modelReasoningEffort),
-          )
+          (typeof msg.modelReasoningEffort !== "string" ||
+            msg.modelReasoningEffort.trim().length === 0)
         )
           return null;
         if (

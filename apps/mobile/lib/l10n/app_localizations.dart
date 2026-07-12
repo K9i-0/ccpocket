@@ -1704,6 +1704,24 @@ abstract class AppLocalizations {
   /// **'最も丁寧、最も遅い'**
   String get reasoningEffortXhighDesc;
 
+  /// No description provided for @reasoningEffortMaxDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'最も難しい問題向けの最大推論'**
+  String get reasoningEffortMaxDesc;
+
+  /// No description provided for @reasoningEffortUltraDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'最大推論と自動タスク委譲'**
+  String get reasoningEffortUltraDesc;
+
+  /// No description provided for @reasoningEffortModelSpecificDesc.
+  ///
+  /// In ja, this message translates to:
+  /// **'モデル固有の推論レベル'**
+  String get reasoningEffortModelSpecificDesc;
+
   /// No description provided for @changePermissionModeTitle.
   ///
   /// In ja, this message translates to:

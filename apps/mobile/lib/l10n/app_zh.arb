@@ -325,6 +325,9 @@
   "reasoningEffortMediumDesc": "速度与质量的平衡",
   "reasoningEffortHighDesc": "更深入的分析",
   "reasoningEffortXhighDesc": "最深入，最慢",
+  "reasoningEffortMaxDesc": "针对最难问题的最大推理深度",
+  "reasoningEffortUltraDesc": "最大推理并自动委派任务",
+  "reasoningEffortModelSpecificDesc": "模型特定的推理级别",
 
   "changeSandboxModeTitle": "更改沙箱模式",
   "changeSandboxModeBody": "切换到 {mode} 会重启当前会话。你的对话会被保留。",
