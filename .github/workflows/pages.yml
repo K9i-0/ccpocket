@@ -38,53 +38,62 @@ jobs:
             "$SPARKLE_APPCAST_URL" \
             --output "$TMP_APPCAST"
 
-          python3 - "$TMP_APPCAST" <<'PY'
+          python3 - "$TMP_APPCAST" "$APPCAST_PATH" <<'PY'
+          import shutil
           import sys
           import xml.etree.ElementTree as ET
 
-          path = sys.argv[1]
           sparkle = "{http://www.andymatuschak.org/xml-namespaces/sparkle}"
-          root = ET.parse(path).getroot()
-          channel = root.find("channel")
-          item = channel.find("item") if channel is not None else None
-          enclosure = item.find("enclosure") if item is not None else None
-          version = item.find(f"{sparkle}version") if item is not None else None
-          short_version = (
-              item.find(f"{sparkle}shortVersionString")
-              if item is not None
-              else None
-          )
 
-          missing = []
-          if root.tag != "rss":
-              missing.append("rss root")
-          if channel is None:
-              missing.append("channel")
-          if item is None:
-              missing.append("item")
-          if version is None or not (version.text or "").strip():
-              missing.append("sparkle:version")
-          if short_version is None or not (short_version.text or "").strip():
-              missing.append("sparkle:shortVersionString")
-          if enclosure is None:
-              missing.append("enclosure")
-          elif not enclosure.attrib.get(f"{sparkle}edSignature"):
-              missing.append("enclosure/@sparkle:edSignature")
-
-          if missing:
-              raise SystemExit(
-                  "Invalid published Sparkle appcast; missing "
-                  + ", ".join(missing)
+          def read_version(path):
+              root = ET.parse(path).getroot()
+              channel = root.find("channel")
+              item = channel.find("item") if channel is not None else None
+              enclosure = item.find("enclosure") if item is not None else None
+              version = item.find(f"{sparkle}version") if item is not None else None
+              short_version = (
+                  item.find(f"{sparkle}shortVersionString")
+                  if item is not None
+                  else None
               )
+              missing = []
+              if root.tag != "rss":
+                  missing.append("rss root")
+              if channel is None:
+                  missing.append("channel")
+              if item is None:
+                  missing.append("item")
+              if version is None or not (version.text or "").strip():
+                  missing.append("sparkle:version")
+              if short_version is None or not (short_version.text or "").strip():
+                  missing.append("sparkle:shortVersionString")
+              if enclosure is None:
+                  missing.append("enclosure")
+              elif not enclosure.attrib.get(f"{sparkle}edSignature"):
+                  missing.append("enclosure/@sparkle:edSignature")
+              if missing:
+                  raise SystemExit(
+                      f"Invalid Sparkle appcast at {path}; missing "
+                      + ", ".join(missing)
+                  )
+              return int(version.text.strip()), short_version.text.strip()
 
-          print(
-              "Preserving Sparkle appcast "
-              f"{short_version.text.strip()}+{version.text.strip()}"
-          )
+          published_path, repository_path = sys.argv[1:]
+          published_build, published_semver = read_version(published_path)
+          repository_build, repository_semver = read_version(repository_path)
+
+          if published_build > repository_build:
+              shutil.copyfile(published_path, repository_path)
+              print(
+                  "Preserving newer published Sparkle appcast "
+                  f"{published_semver}+{published_build}"
+              )
+          else:
+              print(
+                  "Keeping repository Sparkle appcast "
+                  f"{repository_semver}+{repository_build}"
+              )
           PY
-
-          mkdir -p "$(dirname "$APPCAST_PATH")"
-          cp "$TMP_APPCAST" "$APPCAST_PATH"
 
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

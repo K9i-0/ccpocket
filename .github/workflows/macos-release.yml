@@ -473,6 +473,13 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
 
+  verify-sparkle-appcast:
+    if: startsWith(github.ref, 'refs/tags/macos/v')
+    needs:
+      - release
+      - deploy-sparkle-appcast
+    runs-on: ubuntu-latest
+    steps:
       - name: Verify published Sparkle appcast
         env:
           EXPECTED_BUILD_NUMBER: ${{ needs.release.outputs.build_number }}
