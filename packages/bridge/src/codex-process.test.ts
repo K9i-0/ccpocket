@@ -36,7 +36,11 @@ vi.mock("node:child_process", () => ({
   spawn: spawnMock,
 }));
 
-import { buildCodexSpawnSpec, CodexProcess } from "./codex-process.js";
+import {
+  buildCodexSpawnSpec,
+  CodexProcess,
+  parseCodexGoal,
+} from "./codex-process.js";
 import { stopManagedCodexAppServers } from "./codex-transport.js";
 
 const originalCodexAppServerEnv = {
@@ -85,6 +89,93 @@ describe("CodexProcess (app-server)", () => {
         child.kill();
       }
     }
+  });
+
+  it("maps goal get, set, and clear to app-server RPCs", async () => {
+    const proc = new CodexProcess("linux");
+    (proc as any)._threadId = "thread-1";
+    const goal = {
+      threadId: "thread-1",
+      objective: "Ship Goal support",
+      status: "active",
+      tokenBudget: null,
+      tokensUsed: 12,
+      timeUsedSeconds: 3,
+      createdAt: 100,
+      updatedAt: 101,
+    };
+    const request = vi
+      .spyOn(proc as any, "request")
+      .mockResolvedValueOnce({ goal })
+      .mockResolvedValueOnce({ goal: { ...goal, status: "paused" } })
+      .mockResolvedValueOnce({ cleared: true });
+
+    await expect(proc.getGoal()).resolves.toEqual(goal);
+    await expect(
+      proc.setGoal({ objective: "  Ship Goal support  ", status: "paused" }),
+    ).resolves.toMatchObject({ status: "paused" });
+    await expect(proc.clearGoal()).resolves.toBe(true);
+
+    expect(request).toHaveBeenNthCalledWith(1, "thread/goal/get", {
+      threadId: "thread-1",
+    });
+    expect(request).toHaveBeenNthCalledWith(2, "thread/goal/set", {
+      threadId: "thread-1",
+      objective: "Ship Goal support",
+      status: "paused",
+    });
+    expect(request).toHaveBeenNthCalledWith(3, "thread/goal/clear", {
+      threadId: "thread-1",
+    });
+  });
+
+  it("validates goal payloads received from app-server", () => {
+    expect(() => parseCodexGoal({ status: "active" })).toThrow(
+      "invalid shape",
+    );
+    expect(() =>
+      parseCodexGoal({
+        threadId: "thread-1",
+        objective: "Goal",
+        status: "unknown",
+        tokenBudget: null,
+        tokensUsed: 0,
+        timeUsedSeconds: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+    ).toThrow("invalid shape");
+  });
+
+  it("emits goal state for app-server goal notifications", () => {
+    const proc = new CodexProcess("linux");
+    (proc as any)._threadId = "thread-1";
+    const messages: unknown[] = [];
+    proc.on("message", (message) => messages.push(message));
+    const goal = {
+      threadId: "thread-1",
+      objective: "Ship Goal support",
+      status: "active",
+      tokenBudget: null,
+      tokensUsed: 0,
+      timeUsedSeconds: 0,
+      createdAt: 1,
+      updatedAt: 2,
+    };
+
+    (proc as any).handleNotification("thread/goal/updated", {
+      threadId: "thread-1",
+      turnId: null,
+      goal,
+    });
+    (proc as any).handleNotification("thread/goal/cleared", {
+      threadId: "thread-1",
+    });
+
+    expect(messages).toEqual([
+      { type: "goal_state", goal },
+      { type: "goal_state", goal: null },
+    ]);
   });
 
   it("moves the default managed app-server port when Bridge uses 8767", () => {

@@ -3,7 +3,12 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rm, writeFile } from "node:fs/promises";
-import type { ServerMessage, ProcessStatus } from "./parser.js";
+import type {
+  CodexGoal,
+  CodexGoalStatus,
+  ServerMessage,
+  ProcessStatus,
+} from "./parser.js";
 import {
   createCodexTransport,
   buildCodexSpawnSpec,
@@ -439,6 +444,49 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       threadId: this._threadId,
       name,
     });
+  }
+
+  /** Read the persisted goal attached to this Codex thread. */
+  async getGoal(): Promise<CodexGoal | null> {
+    if (!this._threadId) {
+      throw new Error("No thread ID available for goal lookup");
+    }
+    const response = (await this.request("thread/goal/get", {
+      threadId: this._threadId,
+    })) as Record<string, unknown>;
+    return response.goal == null ? null : parseCodexGoal(response.goal);
+  }
+
+  /** Create or update the persisted goal attached to this Codex thread. */
+  async setGoal(update: {
+    objective?: string;
+    status?: CodexGoalStatus;
+  }): Promise<CodexGoal> {
+    if (!this._threadId) {
+      throw new Error("No thread ID available for goal update");
+    }
+    const response = (await this.request("thread/goal/set", {
+      threadId: this._threadId,
+      ...(update.objective !== undefined
+        ? { objective: update.objective.trim() }
+        : {}),
+      ...(update.status !== undefined ? { status: update.status } : {}),
+    })) as Record<string, unknown>;
+    return parseCodexGoal(response.goal);
+  }
+
+  /** Remove the persisted goal attached to this Codex thread. */
+  async clearGoal(): Promise<boolean> {
+    if (!this._threadId) {
+      throw new Error("No thread ID available for goal clear");
+    }
+    const response = (await this.request("thread/goal/clear", {
+      threadId: this._threadId,
+    })) as Record<string, unknown>;
+    if (typeof response.cleared !== "boolean") {
+      throw new Error("thread/goal/clear returned an invalid response");
+    }
+    return response.cleared;
   }
 
   /**
@@ -1984,6 +2032,25 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         break;
       }
 
+      case "thread/goal/updated": {
+        try {
+          this.emitMessage({
+            type: "goal_state",
+            goal: parseCodexGoal(params.goal),
+          });
+        } catch (err) {
+          console.warn(
+            `[codex-process] Ignoring invalid goal notification: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+        break;
+      }
+
+      case "thread/goal/cleared": {
+        this.emitMessage({ type: "goal_state", goal: null });
+        break;
+      }
+
       case "thread/tokenUsage/updated": {
         const usage = params.usage as Record<string, unknown> | undefined;
         if (usage) {
@@ -2982,6 +3049,55 @@ function notificationThreadId(params: Record<string, unknown>): string | null {
   }
 
   return null;
+}
+
+const CODEX_GOAL_STATUSES = new Set<CodexGoalStatus>([
+  "active",
+  "paused",
+  "blocked",
+  "usageLimited",
+  "budgetLimited",
+  "complete",
+]);
+
+/** Validate the app-server ThreadGoal payload at the process boundary. */
+export function parseCodexGoal(value: unknown): CodexGoal {
+  if (!value || typeof value !== "object") {
+    throw new Error("Goal payload is missing");
+  }
+  const goal = value as Record<string, unknown>;
+  const status = goal.status as CodexGoalStatus;
+  const requiredNumbers = [
+    "tokensUsed",
+    "timeUsedSeconds",
+    "createdAt",
+    "updatedAt",
+  ] as const;
+  if (
+    typeof goal.threadId !== "string" ||
+    typeof goal.objective !== "string" ||
+    !CODEX_GOAL_STATUSES.has(status) ||
+    requiredNumbers.some(
+      (field) =>
+        typeof goal[field] !== "number" ||
+        !Number.isFinite(goal[field] as number),
+    ) ||
+    (goal.tokenBudget !== null &&
+      (typeof goal.tokenBudget !== "number" ||
+        !Number.isFinite(goal.tokenBudget)))
+  ) {
+    throw new Error("Goal payload has an invalid shape");
+  }
+  return {
+    threadId: goal.threadId,
+    objective: goal.objective,
+    status,
+    tokenBudget: goal.tokenBudget as number | null,
+    tokensUsed: goal.tokensUsed as number,
+    timeUsedSeconds: goal.timeUsedSeconds as number,
+    createdAt: goal.createdAt as number,
+    updatedAt: goal.updatedAt as number,
+  };
 }
 
 function numberOrUndefined(value: unknown): number | undefined {

@@ -83,6 +83,7 @@ final List<MockScenario> mockScenarios = [
   _codexAskUserQuestion,
   _codexWebSearch,
   _codexFullConversation,
+  codexGoalPreviewScenario,
   _codexQueuedInput,
   // Session list scenarios — Claude
   _sessionListAllStatuses,
@@ -2132,7 +2133,85 @@ final _codexFullConversation = MockScenario(
 );
 
 // ---------------------------------------------------------------------------
-// 6i. Codex Queued Input
+// 6i. Codex Goal
+// ---------------------------------------------------------------------------
+final codexGoalPreviewScenario = MockScenario(
+  name: 'Codex Goal',
+  icon: Icons.track_changes,
+  description: 'Active Goal card integrated above the Codex composer',
+  provider: MockScenarioProvider.codex,
+  steps: [
+    MockStep(
+      delay: const Duration(milliseconds: 200),
+      message: const SystemMessage(
+        subtype: 'init',
+        sessionId: 'mock-session-codex-goal',
+        model: 'gpt-5.5',
+        projectPath: '/Users/demo/ccpocket',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 350),
+      message: const UserInputMessage(text: 'Goal機能をCC Pocketに追加して、UIと動作を検証する'),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 500),
+      message: const StatusMessage(status: ProcessStatus.running),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 750),
+      message: const AssistantServerMessage(
+        message: AssistantMessage(
+          id: 'mock-codex-goal-1',
+          role: 'assistant',
+          content: [
+            TextContent(
+              text:
+                  'Goalを設定しました。既存のチャットUIを確認しながら、'
+                  'コンポーザーに統合する実装を進めています。',
+            ),
+            ToolUseContent(
+              id: 'tool-codex-goal-search',
+              name: 'Bash',
+              input: {
+                'command':
+                    'rg -n "ChatInputBar|CodexSessionScreen" apps/mobile/lib',
+              },
+            ),
+          ],
+          model: 'gpt-5.5',
+        ),
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1000),
+      message: const ToolResultMessage(
+        toolUseId: 'tool-codex-goal-search',
+        toolName: 'Bash',
+        content:
+            'apps/mobile/lib/widgets/chat_input_bar.dart:22:class ChatInputBar\n'
+            'apps/mobile/lib/features/codex_session/codex_session_screen.dart:85:class CodexSessionScreen',
+      ),
+    ),
+    MockStep(
+      delay: const Duration(milliseconds: 1150),
+      message: const ConversationQueueMessage(
+        sessionId: 'mock-session-codex-goal',
+        limit: 1,
+        items: [
+          QueuedInputItem(
+            itemId: 'queued-goal-1',
+            text: 'Goal UIをモバイル幅で確認する',
+            createdAt: '2026-07-13T00:00:00.000Z',
+          ),
+        ],
+      ),
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// 6j. Codex Queued Input
 // ---------------------------------------------------------------------------
 final _codexQueuedInput = MockScenario(
   name: 'Codex Queued Input',

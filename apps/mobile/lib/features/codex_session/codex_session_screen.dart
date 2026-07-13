@@ -52,6 +52,7 @@ import '../../router/app_router.dart';
 import '../claude_session/widgets/rewind_message_list_sheet.dart'
     show UserMessageHistorySheet;
 import 'state/codex_session_cubit.dart';
+import 'widgets/codex_goal_card.dart';
 import 'widgets/codex_rewind_dialog.dart';
 
 const _fileListRefreshToolNames = {
@@ -784,7 +785,9 @@ class _CodexChatBody extends HookWidget {
       final bridge = context.read<BridgeService>();
       bridge.ensureConnected();
       if (bridge.isConnected) {
-        context.read<ChatSessionCubit>().refreshHistory();
+        final cubit = context.read<ChatSessionCubit>();
+        cubit.refreshHistory();
+        cubit.requestGoal();
       }
     });
 
@@ -793,6 +796,7 @@ class _CodexChatBody extends HookWidget {
     final approval = sessionState.approval;
     final inPlanMode = sessionState.inPlanMode;
     final queuedInput = sessionState.queuedInput;
+    final currentGoal = _goalCardData(sessionState.goal);
 
     // Approval state pattern matching (Codex: permission + ask-user only)
     String? pendingToolUseId;
@@ -1315,6 +1319,20 @@ class _CodexChatBody extends HookWidget {
                     ),
                   ),
                 ),
+                if (approval is ApprovalNone)
+                  if (currentGoal != null)
+                    CodexGoalCard(
+                      goal: currentGoal,
+                      onEdit: () => unawaited(
+                        _showCodexGoalEditor(
+                          context,
+                          sessionState.goal?.objective ?? currentGoal.objective,
+                        ),
+                      ),
+                      onTogglePaused: () =>
+                          context.read<ChatSessionCubit>().toggleGoalPaused(),
+                      onClear: () => unawaited(_confirmCodexGoalClear(context)),
+                    ),
                 if (approval is ApprovalNone)
                   if (queuedInput != null)
                     CodexQueuedInputPanel(
@@ -1899,6 +1917,94 @@ class CodexQueuedInputPanel extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+CodexGoalCardData? _goalCardData(CodexGoal? goal) {
+  if (goal == null) return null;
+  return CodexGoalCardData(
+    objective: goal.objective,
+    status: switch (goal.status) {
+      CodexThreadGoalStatus.active => CodexGoalStatus.active,
+      CodexThreadGoalStatus.paused => CodexGoalStatus.paused,
+      CodexThreadGoalStatus.blocked => CodexGoalStatus.blocked,
+      CodexThreadGoalStatus.usageLimited => CodexGoalStatus.usageLimited,
+      CodexThreadGoalStatus.budgetLimited => CodexGoalStatus.budgetLimited,
+      CodexThreadGoalStatus.complete => CodexGoalStatus.complete,
+    },
+  );
+}
+
+Future<void> _showCodexGoalEditor(
+  BuildContext context,
+  String objective,
+) async {
+  final formKey = GlobalKey<FormState>();
+  var nextObjective = objective;
+  final saved = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Edit goal'),
+      content: Form(
+        key: formKey,
+        child: TextFormField(
+          key: const ValueKey('goal_objective_field'),
+          initialValue: objective,
+          onChanged: (value) => nextObjective = value,
+          autofocus: true,
+          minLines: 2,
+          maxLines: 5,
+          maxLength: 4000,
+          decoration: const InputDecoration(
+            labelText: 'Objective',
+            hintText: 'What should Codex keep pursuing?',
+          ),
+          validator: (value) => value == null || value.trim().isEmpty
+              ? 'Enter a goal objective.'
+              : null,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const ValueKey('goal_save_button'),
+          onPressed: () {
+            if (formKey.currentState?.validate() != true) return;
+            Navigator.of(dialogContext).pop(true);
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+  if (saved != true || !context.mounted) return;
+  context.read<ChatSessionCubit>().setGoalObjective(nextObjective);
+}
+
+Future<void> _confirmCodexGoalClear(BuildContext context) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Clear goal?'),
+      content: const Text('Codex will stop pursuing this goal.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.tonal(
+          key: const ValueKey('goal_clear_confirm_button'),
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Clear'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true && context.mounted) {
+    context.read<ChatSessionCubit>().clearGoal();
   }
 }
 

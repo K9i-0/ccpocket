@@ -64,6 +64,9 @@ abstract class ChatSessionState with _$ChatSessionState {
 
     // Codex conversation queue (Bridge is the source of truth).
     QueuedInputItem? queuedInput,
+
+    // Persisted Codex thread goal (Bridge/app-server is the source of truth).
+    CodexGoal? goal,
   }) = _ChatSessionState;
 }
 

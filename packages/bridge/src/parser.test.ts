@@ -301,6 +301,48 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 
+  it("parses Codex goal messages", () => {
+    expect(
+      parseClientMessage('{"type":"get_goal","sessionId":"s1"}'),
+    ).toEqual({ type: "get_goal", sessionId: "s1" });
+    expect(
+      parseClientMessage(
+        '{"type":"set_goal","sessionId":"s1","objective":"Ship Goal UI","status":"active"}',
+      ),
+    ).toEqual({
+      type: "set_goal",
+      sessionId: "s1",
+      objective: "Ship Goal UI",
+      status: "active",
+    });
+    expect(
+      parseClientMessage(
+        '{"type":"set_goal","sessionId":"s1","status":"paused"}',
+      ),
+    ).toEqual({ type: "set_goal", sessionId: "s1", status: "paused" });
+    expect(
+      parseClientMessage('{"type":"clear_goal","sessionId":"s1"}'),
+    ).toEqual({ type: "clear_goal", sessionId: "s1" });
+  });
+
+  it("rejects invalid Codex goal messages", () => {
+    expect(parseClientMessage('{"type":"get_goal"}')).toBeNull();
+    expect(
+      parseClientMessage('{"type":"set_goal","sessionId":"s1"}'),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"set_goal","sessionId":"s1","objective":"   "}',
+      ),
+    ).toBeNull();
+    expect(
+      parseClientMessage(
+        '{"type":"set_goal","sessionId":"s1","status":"unknown"}',
+      ),
+    ).toBeNull();
+    expect(parseClientMessage('{"type":"clear_goal"}')).toBeNull();
+  });
+
   it("rejects invalid approvalsReviewer", () => {
     expect(
       parseClientMessage(

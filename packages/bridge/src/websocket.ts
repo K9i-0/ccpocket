@@ -175,6 +175,7 @@ const CODEX_USER_TURN_UUID_RE = /^codex:user-turn:(\d+)$/;
 
 const OPT_IN_SERVER_MESSAGES = new Set<string>([
   "conversation_queue",
+  "goal_state",
   "prompt_history_status",
 ]);
 
@@ -3233,6 +3234,89 @@ export class BridgeWebSocketServer {
         console.log(
           `[ws] set_codex_model(codex): model=${model} effort=${modelReasoningEffort ?? ""}`,
         );
+        break;
+      }
+
+      case "get_goal": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session || session.provider !== "codex") {
+          this.send(ws, {
+            type: "error",
+            message: "Goal lookup is only supported for active Codex sessions.",
+            errorCode: "goal_get_unsupported",
+          });
+          break;
+        }
+        try {
+          const goal = await (session.process as CodexProcess).getGoal();
+          session.codexGoal = goal;
+          this.send(ws, { type: "goal_state", sessionId: session.id, goal });
+        } catch (err) {
+          this.send(ws, {
+            type: "error",
+            message: `Failed to get goal: ${errorMessageOf(err)}`,
+            errorCode: "goal_get_failed",
+          });
+        }
+        break;
+      }
+
+      case "set_goal": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session || session.provider !== "codex") {
+          this.send(ws, {
+            type: "error",
+            message: "Goal updates are only supported for active Codex sessions.",
+            errorCode: "goal_set_unsupported",
+          });
+          break;
+        }
+        try {
+          const goal = await (session.process as CodexProcess).setGoal({
+            ...(msg.objective !== undefined
+              ? { objective: msg.objective }
+              : {}),
+            ...(msg.status !== undefined ? { status: msg.status } : {}),
+          });
+          session.codexGoal = goal;
+          this.broadcastSessionMessage(session.id, {
+            type: "goal_state",
+            goal,
+          });
+        } catch (err) {
+          this.send(ws, {
+            type: "error",
+            message: `Failed to set goal: ${errorMessageOf(err)}`,
+            errorCode: "goal_set_failed",
+          });
+        }
+        break;
+      }
+
+      case "clear_goal": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session || session.provider !== "codex") {
+          this.send(ws, {
+            type: "error",
+            message: "Goal clearing is only supported for active Codex sessions.",
+            errorCode: "goal_clear_unsupported",
+          });
+          break;
+        }
+        try {
+          await (session.process as CodexProcess).clearGoal();
+          session.codexGoal = null;
+          this.broadcastSessionMessage(session.id, {
+            type: "goal_state",
+            goal: null,
+          });
+        } catch (err) {
+          this.send(ws, {
+            type: "error",
+            message: `Failed to clear goal: ${errorMessageOf(err)}`,
+            errorCode: "goal_clear_failed",
+          });
+        }
         break;
       }
 

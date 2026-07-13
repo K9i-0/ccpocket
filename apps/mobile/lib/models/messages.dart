@@ -104,6 +104,85 @@ enum ProcessStatus {
   }
 }
 
+enum CodexThreadGoalStatus {
+  active('active'),
+  paused('paused'),
+  blocked('blocked'),
+  usageLimited('usageLimited'),
+  budgetLimited('budgetLimited'),
+  complete('complete');
+
+  final String value;
+  const CodexThreadGoalStatus(this.value);
+
+  static CodexThreadGoalStatus fromString(String value) => switch (value) {
+    'paused' => CodexThreadGoalStatus.paused,
+    'blocked' => CodexThreadGoalStatus.blocked,
+    'usageLimited' => CodexThreadGoalStatus.usageLimited,
+    'budgetLimited' => CodexThreadGoalStatus.budgetLimited,
+    'complete' => CodexThreadGoalStatus.complete,
+    _ => CodexThreadGoalStatus.active,
+  };
+}
+
+class CodexGoal {
+  final String threadId;
+  final String objective;
+  final CodexThreadGoalStatus status;
+  final int? tokenBudget;
+  final int tokensUsed;
+  final int timeUsedSeconds;
+  final int createdAt;
+  final int updatedAt;
+
+  const CodexGoal({
+    required this.threadId,
+    required this.objective,
+    required this.status,
+    required this.tokenBudget,
+    required this.tokensUsed,
+    required this.timeUsedSeconds,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory CodexGoal.fromJson(Map<String, dynamic> json) => CodexGoal(
+    threadId: json['threadId'] as String,
+    objective: json['objective'] as String,
+    status: CodexThreadGoalStatus.fromString(json['status'] as String),
+    tokenBudget: json['tokenBudget'] as int?,
+    tokensUsed: json['tokensUsed'] as int? ?? 0,
+    timeUsedSeconds: json['timeUsedSeconds'] as int? ?? 0,
+    createdAt: json['createdAt'] as int? ?? 0,
+    updatedAt: json['updatedAt'] as int? ?? 0,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CodexGoal &&
+          threadId == other.threadId &&
+          objective == other.objective &&
+          status == other.status &&
+          tokenBudget == other.tokenBudget &&
+          tokensUsed == other.tokensUsed &&
+          timeUsedSeconds == other.timeUsedSeconds &&
+          createdAt == other.createdAt &&
+          updatedAt == other.updatedAt;
+
+  @override
+  int get hashCode => Object.hash(
+    threadId,
+    objective,
+    status,
+    tokenBudget,
+    tokensUsed,
+    timeUsedSeconds,
+    createdAt,
+    updatedAt,
+  );
+}
+
 // ---- Provider ----
 
 enum Provider {
@@ -772,6 +851,12 @@ sealed class ServerMessage {
                 )
                 .toList() ??
             const [],
+      ),
+      'goal_state' => GoalStateMessage(
+        sessionId: json['sessionId'] as String?,
+        goal: json['goal'] is Map<String, dynamic>
+            ? CodexGoal.fromJson(json['goal'] as Map<String, dynamic>)
+            : null,
       ),
       'permission_request' => PermissionRequestMessage(
         toolUseId: json['toolUseId'] as String,
@@ -2554,6 +2639,12 @@ class ConversationQueueMessage implements ServerMessage {
   });
 }
 
+class GoalStateMessage implements ServerMessage {
+  final String? sessionId;
+  final CodexGoal? goal;
+  const GoalStateMessage({this.sessionId, required this.goal});
+}
+
 class InputRejectedMessage implements ServerMessage {
   final String? sessionId;
   final String? clientMessageId;
@@ -3581,6 +3672,7 @@ class ClientMessage {
     int protocolVersion = 1,
     List<String> supportedServerMessages = const [
       'conversation_queue',
+      'goal_state',
       'history_delta',
       'history_snapshot',
       'git_status_result',
@@ -3779,6 +3871,23 @@ class ClientMessage {
       'sessionId': ?sessionId,
     });
   }
+
+  factory ClientMessage.getGoal(String sessionId) =>
+      ClientMessage._({'type': 'get_goal', 'sessionId': sessionId});
+
+  factory ClientMessage.setGoal({
+    required String sessionId,
+    String? objective,
+    CodexThreadGoalStatus? status,
+  }) => ClientMessage._({
+    'type': 'set_goal',
+    'sessionId': sessionId,
+    'objective': ?objective,
+    if (status != null) 'status': status.value,
+  });
+
+  factory ClientMessage.clearGoal(String sessionId) =>
+      ClientMessage._({'type': 'clear_goal', 'sessionId': sessionId});
 
   factory ClientMessage.setSandboxMode(
     String sandboxMode, {

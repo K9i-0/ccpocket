@@ -161,6 +161,15 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
 
     _restoreCachedRuntimeMessages();
     _restoreDeliveryPendingInput();
+    if (isCodex &&
+        _bridge
+            .cachedSessionMessages(sessionId)
+            .any(
+              (message) =>
+                  message is SystemMessage && message.subtype == 'init',
+            )) {
+      requestGoal();
+    }
 
     // Request in-memory history from the bridge server
     _bridge.requestSessionHistory(sessionId);
@@ -226,6 +235,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
       logger.error('[session:$sessionId] Error from bridge: ${msg.message}');
       _rollbackFailedModeChange(msg);
     }
+    if (isCodex && msg is SystemMessage && msg.subtype == 'init') {
+      requestGoal();
+    }
 
     // Prevent duplicate past_history processing
     if (msg is PastHistoryMessage) {
@@ -236,6 +248,10 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     // Handle rewind preview separately — store in dedicated state field
     if (msg is RewindPreviewMessage) {
       emit(state.copyWith(rewindPreview: msg));
+      return;
+    }
+    if (msg is GoalStateMessage) {
+      emit(state.copyWith(goal: msg.goal));
       return;
     }
 
@@ -1060,6 +1076,28 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
     Iterable<String>? mentionablePaths,
   }) {
     if (text.trim().isEmpty && (images == null || images.isEmpty)) return;
+    if (isCodex && (images == null || images.isEmpty)) {
+      final command = text.trim();
+      switch (command) {
+        case '/goal':
+          requestGoal();
+          return;
+        case '/goal pause':
+          setGoalStatus(CodexThreadGoalStatus.paused);
+          return;
+        case '/goal resume':
+          setGoalStatus(CodexThreadGoalStatus.active);
+          return;
+        case '/goal clear':
+          clearGoal();
+          return;
+        default:
+          if (command.startsWith('/goal ')) {
+            setGoalObjective(command.substring('/goal '.length));
+            return;
+          }
+      }
+    }
     if (isCodex && state.queuedInput != null) return;
 
     final clientMessageId = _uuid.v4();
@@ -1153,6 +1191,38 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         item: deliveryPendingItem!,
       );
     }
+  }
+
+  void requestGoal() {
+    if (!isCodex) return;
+    _bridge.send(ClientMessage.getGoal(sessionId));
+  }
+
+  void setGoalObjective(String objective) {
+    if (!isCodex) return;
+    final normalized = objective.trim();
+    if (normalized.isEmpty || normalized.length > 4000) return;
+    _bridge.send(
+      ClientMessage.setGoal(sessionId: sessionId, objective: normalized),
+    );
+  }
+
+  void toggleGoalPaused() {
+    if (!isCodex || state.goal == null) return;
+    final next = state.goal!.status == CodexThreadGoalStatus.paused
+        ? CodexThreadGoalStatus.active
+        : CodexThreadGoalStatus.paused;
+    setGoalStatus(next);
+  }
+
+  void setGoalStatus(CodexThreadGoalStatus status) {
+    if (!isCodex) return;
+    _bridge.send(ClientMessage.setGoal(sessionId: sessionId, status: status));
+  }
+
+  void clearGoal() {
+    if (!isCodex) return;
+    _bridge.send(ClientMessage.clearGoal(sessionId));
   }
 
   void _scheduleDeliveryPendingQueue({

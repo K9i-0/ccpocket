@@ -24,6 +24,7 @@ import type {
   AssistantToolUseContent,
   Provider,
   QueuedInputItem,
+  CodexGoal,
 } from "./parser.js";
 import type { ImageRef, ImageStore } from "./image-store.js";
 import type { GalleryStore, GalleryImageMeta } from "./gallery-store.js";
@@ -81,6 +82,8 @@ export interface SessionInfo {
   sandboxEnabled?: boolean;
   /** Codex-only pending input waiting for the next turn. */
   codexQueuedInput?: QueuedCodexInput;
+  /** Latest Codex goal state. Kept out of chat history. */
+  codexGoal?: CodexGoal | null;
   /** Synthetic Codex user UUIDs waiting for their app-server echo. */
   pendingCodexUserEchoUuids?: Set<string>;
   /** Raw Codex app-server user item ids mapped to valid ccpocket turn UUIDs. */
@@ -359,6 +362,12 @@ export class SessionManager {
       try {
         session.lastActivityAt = new Date();
 
+        if (msg.type === "goal_state") {
+          session.codexGoal = msg.goal;
+          this.onMessage(id, msg);
+          return;
+        }
+
         if (
           msg.type === "system" &&
           (msg.subtype === "init" || msg.subtype === "supported_commands") &&
@@ -546,7 +555,7 @@ export class SessionManager {
 
         // Don't add streaming deltas to history
         let mergedUserInput = false;
-        let historyMsg = msg;
+        let historyMsg: ServerMessage = msg;
         if (msg.type !== "stream_delta" && msg.type !== "thinking_delta") {
           if (this.shouldSuppressCodexCanonicalUserEcho(session, msg)) {
             return;

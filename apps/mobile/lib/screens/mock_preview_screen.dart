@@ -747,6 +747,18 @@ class _MockChatWrapperState extends State<_MockChatWrapper> {
   @override
   void initState() {
     super.initState();
+    if (widget.scenario == codexGoalPreviewScenario) {
+      widget.mockService.mockGoal = const CodexGoal(
+        threadId: 'mock-thread-goal',
+        objective: 'Goal機能をCC Pocketに追加する',
+        status: CodexThreadGoalStatus.active,
+        tokenBudget: null,
+        tokensUsed: 0,
+        timeUsedSeconds: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      );
+    }
     // Start playback after the frame so ClaudeSessionScreen's listener is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.mockService.playScenario(widget.scenario);

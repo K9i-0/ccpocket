@@ -3,6 +3,43 @@ import 'package:ccpocket/models/messages.dart';
 import 'dart:convert';
 
 void main() {
+  test('parses Codex goal state and serializes goal actions', () {
+    final message =
+        ServerMessage.fromJson({
+              'type': 'goal_state',
+              'sessionId': 's1',
+              'goal': {
+                'threadId': 'thread-1',
+                'objective': 'Ship Goal support',
+                'status': 'usageLimited',
+                'tokenBudget': 80000,
+                'tokensUsed': 12400,
+                'timeUsedSeconds': 1080,
+                'createdAt': 1,
+                'updatedAt': 2,
+              },
+            })
+            as GoalStateMessage;
+
+    expect(message.sessionId, 's1');
+    expect(message.goal?.objective, 'Ship Goal support');
+    expect(message.goal?.status, CodexThreadGoalStatus.usageLimited);
+    expect(message.goal?.tokenBudget, 80000);
+    expect(
+      jsonDecode(
+        ClientMessage.setGoal(
+          sessionId: 's1',
+          status: CodexThreadGoalStatus.paused,
+        ).toJson(),
+      ),
+      {'type': 'set_goal', 'sessionId': 's1', 'status': 'paused'},
+    );
+    expect(jsonDecode(ClientMessage.clearGoal('s1').toJson()), {
+      'type': 'clear_goal',
+      'sessionId': 's1',
+    });
+  });
+
   test('ReasoningEffort preserves model-advertised future values', () {
     final effort = reasoningEffortByValue('future-tier');
 
@@ -251,6 +288,7 @@ void main() {
       expect(json['protocolVersion'], 1);
       expect(json['supportedServerMessages'], [
         'conversation_queue',
+        'goal_state',
         'history_delta',
         'history_snapshot',
         'git_status_result',

@@ -69,6 +69,25 @@ export type CodexPermissionsMode =
 
 export type Provider = "claude" | "codex";
 
+export type CodexGoalStatus =
+  | "active"
+  | "paused"
+  | "blocked"
+  | "usageLimited"
+  | "budgetLimited"
+  | "complete";
+
+export interface CodexGoal {
+  threadId: string;
+  objective: string;
+  status: CodexGoalStatus;
+  tokenBudget: number | null;
+  tokensUsed: number;
+  timeUsedSeconds: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface QueuedInputItem {
   itemId: string;
   text: string;
@@ -164,6 +183,14 @@ export type ClientMessage =
       modelReasoningEffort?: string;
       sessionId?: string;
     }
+  | { type: "get_goal"; sessionId: string }
+  | {
+      type: "set_goal";
+      sessionId: string;
+      objective?: string;
+      status?: CodexGoalStatus;
+    }
+  | { type: "clear_goal"; sessionId: string }
   | { type: "set_sandbox_mode"; sandboxMode: string; sessionId?: string }
   | {
       type: "approve";
@@ -508,6 +535,11 @@ export type ServerMessage =
       sessionId?: string;
       limit: number;
       items: QueuedInputItem[];
+    }
+  | {
+      type: "goal_state";
+      sessionId?: string;
+      goal: CodexGoal | null;
     }
   | {
       type: "permission_request";
@@ -1100,6 +1132,38 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (msg.sessionId !== undefined && typeof msg.sessionId !== "string")
           return null;
         break;
+      case "get_goal":
+      case "clear_goal":
+        if (typeof msg.sessionId !== "string") return null;
+        break;
+      case "set_goal": {
+        if (typeof msg.sessionId !== "string") return null;
+        const hasObjective = msg.objective !== undefined;
+        const hasStatus = msg.status !== undefined;
+        if (!hasObjective && !hasStatus) return null;
+        if (
+          hasObjective &&
+          (typeof msg.objective !== "string" ||
+            msg.objective.trim().length === 0 ||
+            msg.objective.length > 4000)
+        ) {
+          return null;
+        }
+        if (
+          hasStatus &&
+          ![
+            "active",
+            "paused",
+            "blocked",
+            "usageLimited",
+            "budgetLimited",
+            "complete",
+          ].includes(String(msg.status))
+        ) {
+          return null;
+        }
+        break;
+      }
       case "set_sandbox_mode":
         if (typeof msg.sandboxMode !== "string") return null;
         break;

@@ -83,6 +83,7 @@ class CodexPluginInfo {
 const knownCommands = <String, ({String description, IconData icon})>{
   'compact': (description: 'Compact conversation', icon: Icons.compress),
   'plan': (description: 'Switch to Plan mode', icon: Icons.map_outlined),
+  'goal': (description: 'Set or manage a goal', icon: Icons.track_changes),
   'clear': (description: 'Clear conversation', icon: Icons.delete_outline),
   'help': (description: 'Show help', icon: Icons.help_outline),
   'context': (
@@ -235,6 +236,11 @@ const fallbackSlashCommands = [
 /// Codex SDK does not expose supportedCommands(), so use a conservative
 /// fallback set that is known to work in local sessions.
 const fallbackCodexSlashCommands = [
+  SlashCommand(
+    command: '/goal',
+    description: 'Set or manage a goal',
+    icon: Icons.track_changes,
+  ),
   SlashCommand(
     command: '/plan',
     description: 'Switch to planning-oriented responses',

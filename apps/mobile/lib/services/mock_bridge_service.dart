@@ -14,12 +14,15 @@ class MockBridgeService extends BridgeService {
   /// Original diff text split by file for stateful stage/unstage tracking.
   String? _mockDiff;
   final Set<String> _stagedFiles = {};
+  CodexGoal? _mockGoal;
 
   /// Set mock diff data for projectPath-mode GitScreen previews.
   set mockDiff(String value) {
     _mockDiff = value;
     _stagedFiles.clear();
   }
+
+  set mockGoal(CodexGoal? value) => _mockGoal = value;
 
   @override
   Stream<ServerMessage> get messages => _mockMessageController.stream;
@@ -129,6 +132,44 @@ class MockBridgeService extends BridgeService {
     final type = json['type'] as String;
 
     switch (type) {
+      case 'get_goal':
+        _scheduleMessage(
+          Duration.zero,
+          GoalStateMessage(
+            sessionId: json['sessionId'] as String?,
+            goal: _mockGoal,
+          ),
+        );
+      case 'set_goal':
+        final current = _mockGoal;
+        final objective =
+            json['objective'] as String? ?? current?.objective ?? '';
+        final status = CodexThreadGoalStatus.fromString(
+          json['status'] as String? ?? current?.status.value ?? 'active',
+        );
+        _mockGoal = CodexGoal(
+          threadId: current?.threadId ?? 'mock-thread-goal',
+          objective: objective,
+          status: status,
+          tokenBudget: current?.tokenBudget,
+          tokensUsed: current?.tokensUsed ?? 0,
+          timeUsedSeconds: current?.timeUsedSeconds ?? 0,
+          createdAt: current?.createdAt ?? 1,
+          updatedAt: (current?.updatedAt ?? 1) + 1,
+        );
+        _scheduleMessage(
+          Duration.zero,
+          GoalStateMessage(
+            sessionId: json['sessionId'] as String?,
+            goal: _mockGoal,
+          ),
+        );
+      case 'clear_goal':
+        _mockGoal = null;
+        _scheduleMessage(
+          Duration.zero,
+          GoalStateMessage(sessionId: json['sessionId'] as String?, goal: null),
+        );
       case 'approve':
         // Simulate tool execution result after approval
         _scheduleMessage(

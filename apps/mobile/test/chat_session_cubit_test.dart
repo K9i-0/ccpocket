@@ -366,6 +366,132 @@ void main() {
       expect(payload.containsKey('baseSeq'), isFalse);
     });
 
+    test('Codex /goal command sets goal without creating a chat turn', () {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+
+      cubit.sendMessage('/goal Goal機能をCC Pocketに追加する');
+
+      expect(cubit.state.entries, isEmpty);
+      expect(mockBridge.sentMessages, hasLength(1));
+      expect(
+        jsonDecode(mockBridge.sentMessages.single.toJson()),
+        <String, dynamic>{
+          'type': 'set_goal',
+          'sessionId': 's1',
+          'objective': 'Goal機能をCC Pocketに追加する',
+        },
+      );
+    });
+
+    test('Codex /goal subcommands use goal RPCs instead of objectives', () {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+
+      cubit.sendMessage('/goal pause');
+      cubit.sendMessage('/goal resume');
+      cubit.sendMessage('/goal clear');
+
+      expect(cubit.state.entries, isEmpty);
+      expect(
+        mockBridge.sentMessages
+            .map((message) => jsonDecode(message.toJson()))
+            .toList(),
+        [
+          {'type': 'set_goal', 'sessionId': 's1', 'status': 'paused'},
+          {'type': 'set_goal', 'sessionId': 's1', 'status': 'active'},
+          {'type': 'clear_goal', 'sessionId': 's1'},
+        ],
+      );
+    });
+
+    test('Codex requests persisted goal after app-server init', () async {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+
+      mockBridge.emitMessage(
+        const SystemMessage(subtype: 'init', sessionId: 'thread-1'),
+        sessionId: 's1',
+      );
+      await Future.microtask(() {});
+
+      expect(jsonDecode(mockBridge.sentMessages.single.toJson()), {
+        'type': 'get_goal',
+        'sessionId': 's1',
+      });
+    });
+
+    test(
+      'Codex goal state supports refresh, pause, resume, and clear',
+      () async {
+        final cubit = createCubit('s1', provider: Provider.codex);
+        addTearDown(cubit.close);
+
+        cubit.sendMessage('/goal');
+        expect(jsonDecode(mockBridge.sentMessages.single.toJson()), {
+          'type': 'get_goal',
+          'sessionId': 's1',
+        });
+
+        const goal = CodexGoal(
+          threadId: 'thread-1',
+          objective: 'Persisted goal',
+          status: CodexThreadGoalStatus.active,
+          tokenBudget: null,
+          tokensUsed: 10,
+          timeUsedSeconds: 5,
+          createdAt: 1,
+          updatedAt: 2,
+        );
+        mockBridge.emitMessage(
+          const GoalStateMessage(sessionId: 's1', goal: goal),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        expect(cubit.state.goal, goal);
+
+        mockBridge.sentMessages.clear();
+        cubit.toggleGoalPaused();
+        expect(jsonDecode(mockBridge.sentMessages.single.toJson()), {
+          'type': 'set_goal',
+          'sessionId': 's1',
+          'status': 'paused',
+        });
+
+        mockBridge.emitMessage(
+          const GoalStateMessage(
+            sessionId: 's1',
+            goal: CodexGoal(
+              threadId: 'thread-1',
+              objective: 'Persisted goal',
+              status: CodexThreadGoalStatus.paused,
+              tokenBudget: null,
+              tokensUsed: 10,
+              timeUsedSeconds: 5,
+              createdAt: 1,
+              updatedAt: 3,
+            ),
+          ),
+          sessionId: 's1',
+        );
+        await Future.microtask(() {});
+        mockBridge.sentMessages.clear();
+        cubit.toggleGoalPaused();
+        expect(jsonDecode(mockBridge.sentMessages.single.toJson()), {
+          'type': 'set_goal',
+          'sessionId': 's1',
+          'status': 'active',
+        });
+
+        mockBridge.sentMessages.clear();
+        cubit.clearGoal();
+        expect(jsonDecode(mockBridge.sentMessages.single.toJson()), {
+          'type': 'clear_goal',
+          'sessionId': 's1',
+        });
+      },
+    );
+
     test('sendMessage while disconnected queues entry with baseSeq', () async {
       mockBridge.connected = false;
       mockBridge.historySeqBySession['s1'] = 9;

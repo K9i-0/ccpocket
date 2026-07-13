@@ -212,7 +212,8 @@ class SessionRuntimeStore {
         message is StreamDeltaMessage ||
         message is ThinkingDeltaMessage ||
         message is InputAckMessage ||
-        message is InputRejectedMessage;
+        message is InputRejectedMessage ||
+        message is GoalStateMessage;
   }
 
   bool _representsHistoryEntry(ServerMessage message) =>

@@ -144,6 +144,8 @@ const _unsupportedActions = <String, UnsupportedAction>{
   'read_file': UnsupportedAction.showUpdateHint,
   'steer_queued_input': UnsupportedAction.showUpdateHint,
   'set_codex_model': UnsupportedAction.showUpdateHint,
+  'set_goal': UnsupportedAction.showUpdateHint,
+  'clear_goal': UnsupportedAction.showUpdateHint,
   'mutate_prompt_history': UnsupportedAction.showUpdateHint,
   'import_prompt_history_v1': UnsupportedAction.showUpdateHint,
   // Git Operations (Phase 1-3)
@@ -317,6 +319,10 @@ class ChatMessageHandler {
         }
         return const ChatStateUpdate();
       case ErrorMessage(:final message, :final errorCode):
+        if (errorCode == 'goal_get_failed') {
+          logger.warning('[handler] goal lookup unavailable: $message');
+          return const ChatStateUpdate();
+        }
         // Suppress duplicate git errors when the tip was already shown
         if (errorCode == 'git_not_available' && _gitTipShown) {
           return const ChatStateUpdate();

@@ -170,6 +170,18 @@ void main() {
     });
   });
 
+  group('fallbackCodexSlashCommands', () {
+    test('offers the goal command', () {
+      final goal = fallbackCodexSlashCommands.firstWhere(
+        (command) => command.command == '/goal',
+      );
+
+      expect(goal.insertText, '/goal ');
+      expect(goal.description, 'Set or manage a goal');
+      expect(goal.category, SlashCommandCategory.builtin);
+    });
+  });
+
   group('ChatMessageHandler slash command restoration from history', () {
     test('restores slash commands from system.init in history', () {
       final handler = ChatMessageHandler();
