@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.104.0] - 2026-07-14
+
+### Added
+- Add persisted Codex Goals with `/goal` completion and compact controls to edit, pause, resume, and clear the active goal.
+
+### Changed
+- Require Bridge 1.65.0 for Codex Goal state synchronization.
+
 ## [1.103.0] - 2026-07-12
 
 ### Added
