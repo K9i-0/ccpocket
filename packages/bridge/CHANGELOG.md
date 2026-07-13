@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.65.0] - 2026-07-14
+
+### Added
+- Add persisted Codex Goal support through the app-server, including get, set, pause, resume, clear, and live goal state notifications.
+
 ## [1.64.0] - 2026-07-12
 
 ### Added
