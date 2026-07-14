@@ -275,14 +275,10 @@ class _SupportPackageSection extends StatelessWidget {
     } else if (state.hasPackages) {
       final recurringPackages =
           state.packages.where((package) => package.isSubscription).toList()
-            ..sort(_comparePackagePrices);
+            ..sort(_comparePackagesByPrice);
       final oneTimePackages =
           state.packages.where((package) => !package.isSubscription).toList()
-            ..sort(
-              (a, b) => _packageDisplayPriority(
-                a,
-              ).compareTo(_packageDisplayPriority(b)),
-            );
+            ..sort(_comparePackagesByPrice);
 
       if (recurringPackages.isNotEmpty) {
         children.add(
@@ -598,13 +594,13 @@ class _SupportSummaryContent extends StatelessWidget {
         _SupportSummaryBadge(
           label: l.supporterSummarySnackCount(summary.snackSupportCount),
         ),
-      if (summary.lunchSupportCount > 0)
-        _SupportSummaryBadge(
-          label: l.supporterSummaryLunchCount(summary.lunchSupportCount),
-        ),
       if (summary.coffeeSupportCount > 0)
         _SupportSummaryBadge(
           label: l.supporterSummaryCoffeeCount(summary.coffeeSupportCount),
+        ),
+      if (summary.lunchSupportCount > 0)
+        _SupportSummaryBadge(
+          label: l.supporterSummaryLunchCount(summary.lunchSupportCount),
         ),
     ];
 
@@ -755,11 +751,13 @@ class _SupportTextLink extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: cs.primary,
-                fontWeight: FontWeight.w700,
+            Flexible(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             const SizedBox(width: 4),
@@ -829,8 +827,6 @@ class _SupportPackageTile extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 6),
                 if (package.kind == SupportPackageKind.monthly)
@@ -917,18 +913,14 @@ class _SupportPackageTile extends StatelessWidget {
   String _titleForPackage(AppLocalizations l, SupportPackage package) {
     switch (package.kind) {
       case SupportPackageKind.monthly:
-        final monthlyPackageCount = state.packages
-            .where((item) => item.isSubscription)
-            .length;
-        if (package.id == r'$rc_custom_monthly_3') {
+        final monthlyPackages =
+            state.packages.where((item) => item.isSubscription).toList()
+              ..sort(_comparePackagesByPrice);
+        if (monthlyPackages.length <= 1 ||
+            monthlyPackages.first.id == package.id) {
           return l.supporterMonthlyTitle;
         }
-        if (monthlyPackageCount > 1 && package.id == r'$rc_monthly') {
-          return l.supporterMonthlyPlusTitle;
-        }
-        return monthlyPackageCount > 1
-            ? package.title
-            : l.supporterMonthlyTitle;
+        return l.supporterMonthlyPlusTitle;
       case SupportPackageKind.snack:
         return l.supporterSnackTitle;
       case SupportPackageKind.coffee:
@@ -984,19 +976,49 @@ int _packageDisplayPriority(SupportPackage package) {
   return switch (package.kind) {
     SupportPackageKind.monthly => 0,
     SupportPackageKind.snack => 1,
-    SupportPackageKind.lunch => 2,
-    SupportPackageKind.coffee => 3,
+    SupportPackageKind.coffee => 2,
+    SupportPackageKind.lunch => 3,
     SupportPackageKind.other => 4,
   };
 }
 
-int _comparePackagePrices(SupportPackage a, SupportPackage b) {
+int _comparePackagesByPrice(SupportPackage a, SupportPackage b) {
   final aPrice = a.price;
   final bPrice = b.price;
-  if (aPrice == null && bPrice == null) return 0;
+  if (aPrice == null && bPrice == null) return _comparePackageTiebreakers(a, b);
   if (aPrice == null) return 1;
   if (bPrice == null) return -1;
-  return aPrice.compareTo(bPrice);
+  final priceComparison = aPrice.compareTo(bPrice);
+  if (priceComparison != 0) return priceComparison;
+  return _comparePackageTiebreakers(a, b);
+}
+
+int _comparePackageTiebreakers(SupportPackage a, SupportPackage b) {
+  final kindComparison = _packageDisplayPriority(
+    a,
+  ).compareTo(_packageDisplayPriority(b));
+  if (kindComparison != 0) return kindComparison;
+  if (a.isSubscription && b.isSubscription) {
+    final tierComparison = _monthlyPackagePriority(
+      a,
+    ).compareTo(_monthlyPackagePriority(b));
+    if (tierComparison != 0) return tierComparison;
+  }
+  return a.id.compareTo(b.id);
+}
+
+int _monthlyPackagePriority(SupportPackage package) {
+  if (package.subscriptionPlanId == 'monthly-3' ||
+      package.productId == 'supporter_monthly_3_ios' ||
+      package.id == r'$rc_custom_monthly_3') {
+    return 0;
+  }
+  if (package.subscriptionPlanId == 'monthly' ||
+      package.productId == 'supporter_monthly_10_ios' ||
+      package.id == r'$rc_monthly') {
+    return 1;
+  }
+  return 2;
 }
 
 bool _isCurrentSubscription(SupportPackage package, SupportCatalogState state) {
