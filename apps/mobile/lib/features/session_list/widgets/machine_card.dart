@@ -326,8 +326,8 @@ class _MenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     return SizedBox(
-      width: 32,
-      height: 32,
+      width: kMinInteractiveDimension,
+      height: kMinInteractiveDimension,
       child: PopupMenuButton<String>(
         key: ValueKey('machine_menu_${machine.id}'),
         icon: Icon(Icons.more_horiz, color: colorScheme.outline, size: 20),

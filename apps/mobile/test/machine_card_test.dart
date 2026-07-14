@@ -35,6 +35,9 @@ Future<void> _pumpCard(
   String? latestBridgeVersion,
   bool sshEnabled = true,
   String? sshUsername = 'k9i',
+  VoidCallback? onConnect,
+  VoidCallback? onEdit,
+  VoidCallback? onDelete,
 }) async {
   await tester.pumpWidget(
     _wrap(
@@ -46,10 +49,10 @@ Future<void> _pumpCard(
               ? null
               : BridgeVersionInfo(version: version),
         ),
-        onConnect: () {},
+        onConnect: onConnect ?? () {},
         onStart: () {},
-        onEdit: () {},
-        onDelete: () {},
+        onEdit: onEdit ?? () {},
+        onDelete: onDelete ?? () {},
         onUpdate: () {},
         onStop: () {},
         latestBridgeVersion: latestBridgeVersion,
@@ -61,6 +64,43 @@ Future<void> _pumpCard(
 
 void main() {
   group('MachineCard menu', () {
+    testWidgets('uses a full touch target and routes edit and delete taps', (
+      tester,
+    ) async {
+      var connectCount = 0;
+      var editCount = 0;
+      var deleteCount = 0;
+      await _pumpCard(
+        tester,
+        status: MachineStatus.online,
+        onConnect: () => connectCount++,
+        onEdit: () => editCount++,
+        onDelete: () => deleteCount++,
+      );
+
+      final menuButton = find.byKey(const ValueKey('machine_menu_m1'));
+      expect(
+        tester.getSize(menuButton),
+        const Size.square(kMinInteractiveDimension),
+      );
+
+      await tester.tap(menuButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+
+      expect(editCount, 1);
+      expect(connectCount, 0);
+
+      await tester.tap(menuButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(deleteCount, 1);
+      expect(connectCount, 0);
+    });
+
     testWidgets('shows stop server only while bridge is online', (
       tester,
     ) async {
