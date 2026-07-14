@@ -1,6 +1,6 @@
 AIコーディングエージェントが、機能まるごと実装できる時代。開発者に必要なのは、指示・承認・回答・レビューという判断です。CC Pocket は、その操作画面をスマホ、タブレット、Mac に持ち出せるアプリです。
 
-CC Pocket は、OpenAI Codex / Claude Code のモバイル・デスクトップクライアントです。エージェントは自分の Mac / Linux マシン上のセルフホスト Bridge Server で動き、iPhone、iPad、Android、macOS からセッション開始、承認、ファイル確認、変更レビュー、コミットまで行えます。
+CC Pocket は、OpenAI Codex / Claude Code のモバイル・デスクトップクライアントです。エージェントは自分の Mac / Linux マシン上のセルフホスト Bridge Server で動き、iPhone、iPad、macOS からセッション開始、承認、ファイル確認、変更レビュー、コミットまで行えます。
 
 本アプリはAnthropic・OpenAIとは無関係であり、両社の公認・推薦を受けたものではありません。
 

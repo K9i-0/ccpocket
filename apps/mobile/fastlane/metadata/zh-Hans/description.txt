@@ -1,6 +1,6 @@
 AI 编程代理已经能够实现完整功能。开发者需要做的是指导、审批、回答和审查。CC Pocket 把这个控制界面带到你的手机、平板和 Mac 上。
 
-CC Pocket 是 OpenAI Codex / Claude Code 的移动与桌面客户端。代理通过你自己的 Mac / Linux 主机上的自托管 Bridge Server 运行，你可以从 iPhone、iPad、Android 或 macOS 启动会话、做出决策、查看文件并交付变更。
+CC Pocket 是 OpenAI Codex / Claude Code 的移动与桌面客户端。代理通过你自己的 Mac / Linux 主机上的自托管 Bridge Server 运行，你可以从 iPhone、iPad 或 macOS 启动会话、做出决策、查看文件并交付变更。
 
 本应用与 Anthropic、OpenAI 无关，未获得两家公司的认可或推荐。
 
