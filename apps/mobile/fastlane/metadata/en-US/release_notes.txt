@@ -1,4 +1,1 @@
-• Switch Codex models from an existing session when you need to adjust how the task continues.
-• Choose whether new sessions and filters show Codex, Claude, or both providers.
-• View Recent Sessions as a simple list in addition to project grouping.
-• Fixed Settings on Flutter Web and improved Codex/Claude session display details.
+• Added lower-priced $2.99 monthly and one-time Snack Support options.
