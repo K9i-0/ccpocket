@@ -1,0 +1,4 @@
+interface:
+  display_name: "ストア審査提出"
+  short_description: "安定した既存ビルドをApp Store・Google Play審査へ提出"
+  default_prompt: "$submit-store-review を使って、安定した既存ビルドを確認し、対象ストアの審査へ提出してください。"
