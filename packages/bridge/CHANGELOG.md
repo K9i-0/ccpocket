@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.65.1] - 2026-07-15
+
+### Fixed
+- Disable mDNS advertising on macOS to prevent repeated Bonjour local hostname renaming after Bridge restarts.
+
 ## [1.65.0] - 2026-07-14
 
 ### Added
