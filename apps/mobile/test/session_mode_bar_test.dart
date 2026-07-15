@@ -134,6 +134,53 @@ void main() {
     expect(codexSupportsFast('gpt-5.4-mini', const {}), isFalse);
   });
 
+  testWidgets('codex settings header fits narrow layouts with large text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(280, 600),
+            textScaler: TextScaler.linear(3),
+          ),
+          child: Scaffold(
+            body: SizedBox(
+              width: 280,
+              child: CodexSettingsPanel(
+                model: 'gpt-a-very-long-future-model-name',
+                effort: ReasoningEffort.fromValue(
+                  'a-very-long-future-effort-name',
+                ),
+                speed: CodexSpeed.standard,
+                supportsFast: false,
+                onSpeedChanged: (_) {},
+                speedButtonKey: 'speed',
+                showAdvanced: false,
+                advancedLabel: 'Advanced',
+                toggleButtonKey: 'advanced',
+                onToggleMode: () {},
+                quickPanelKey: 'quick-panel',
+                advancedPanelKey: 'advanced-panel',
+                modelLabelKey: 'model-label',
+                effortLabelKey: 'effort-label',
+                quickChild: const SizedBox(height: 32),
+                advancedChild: const SizedBox(height: 96),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('effort-label'))).overflow,
+      TextOverflow.ellipsis,
+    );
+  });
+
   testWidgets('claude keeps permission and sandbox grouped', (tester) async {
     final claudeCubit = ChatSessionCubit(
       sessionId: 'claude-session',
@@ -237,9 +284,53 @@ void main() {
     );
     expect(find.text('Ultra'), findsNothing);
     expect(find.byKey(const ValueKey('codex_effort_slider')), findsOneWidget);
+    final modeButton = find.byKey(const ValueKey('codex_settings_advanced'));
+    expect(
+      find.descendant(
+        of: modeButton,
+        matching: find.byIcon(Icons.tune_rounded),
+      ),
+      findsOneWidget,
+    );
+    final headerY = tester
+        .getCenter(find.byKey(const ValueKey('codex_speed_button')))
+        .dy;
+    for (final key in const [
+      'codex_settings_model_label',
+      'codex_settings_effort_label',
+      'codex_settings_advanced',
+    ]) {
+      expect(
+        tester.getCenter(find.byKey(ValueKey(key))).dy,
+        closeTo(headerY, 1),
+      );
+    }
+    final modelBounds = tester.getRect(
+      find.byKey(const ValueKey('codex_settings_model_label')),
+    );
+    final effortBounds = tester.getRect(
+      find.byKey(const ValueKey('codex_settings_effort_label')),
+    );
+    expect(effortBounds.left - modelBounds.right, closeTo(8, 1));
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('codex_settings_effort_label')),
+          )
+          .style
+          ?.fontWeight,
+      FontWeight.w400,
+    );
 
     await tester.tap(find.byKey(const ValueKey('codex_settings_advanced')));
     await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: modeButton,
+        matching: find.byIcon(Icons.linear_scale_rounded),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('codex_settings_quick_panel')),
       findsNothing,
@@ -284,10 +375,13 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('codex_effort_slider_advanced_value_badge')),
-      findsOneWidget,
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('codex_settings_effort_label')),
+          )
+          .data,
+      'Ultra',
     );
-    expect(find.text('Ultra'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('codex_settings_advanced_panel')),
       findsNothing,

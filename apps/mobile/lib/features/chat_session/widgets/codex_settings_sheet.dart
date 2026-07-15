@@ -94,7 +94,6 @@ class _CodexSettingsSheetState extends State<CodexSettingsSheet> {
           advancedPanelKey: 'codex_settings_advanced_panel',
           modelLabelKey: 'codex_settings_model_label',
           effortLabelKey: 'codex_settings_effort_label',
-          advancedEffortBadgeKey: 'codex_effort_slider_advanced_value_badge',
           quickChild: CodexEffortSlider(
             efforts: _efforts,
             value: _effort,

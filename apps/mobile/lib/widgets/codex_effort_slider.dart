@@ -81,7 +81,6 @@ class CodexSettingsPanel extends StatelessWidget {
   final String advancedPanelKey;
   final String modelLabelKey;
   final String effortLabelKey;
-  final String advancedEffortBadgeKey;
   final Widget quickChild;
   final Widget advancedChild;
 
@@ -101,7 +100,6 @@ class CodexSettingsPanel extends StatelessWidget {
     required this.advancedPanelKey,
     required this.modelLabelKey,
     required this.effortLabelKey,
-    required this.advancedEffortBadgeKey,
     required this.quickChild,
     required this.advancedChild,
   });
@@ -119,16 +117,19 @@ class CodexSettingsPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _CodexSettingsSummary(
+          _CodexSettingsHeader(
             model: model,
             effort: effort,
             speed: speed,
             supportsFast: supportsFast,
             onSpeedChanged: onSpeedChanged,
             speedButtonKey: speedButtonKey,
+            showAdvanced: showAdvanced,
+            advancedLabel: advancedLabel,
+            toggleButtonKey: toggleButtonKey,
+            onToggleMode: onToggleMode,
             modelLabelKey: modelLabelKey,
             effortLabelKey: effortLabelKey,
-            advancedEffortBadgeKey: advancedEffortBadgeKey,
           ),
           AnimatedSize(
             duration: const Duration(milliseconds: 260),
@@ -155,133 +156,131 @@ class CodexSettingsPanel extends StatelessWidget {
               ),
             ),
           ),
-          const Divider(height: 1),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: TextButton.icon(
-                key: ValueKey(toggleButtonKey),
-                onPressed: () {
-                  HapticFeedback.selectionClick();
-                  onToggleMode();
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: cs.onSurfaceVariant,
-                  visualDensity: VisualDensity.compact,
-                ),
-                iconAlignment: IconAlignment.end,
-                icon: Icon(
-                  showAdvanced ? Icons.expand_less : Icons.expand_more,
-                  size: 18,
-                ),
-                label: Text(
-                  advancedLabel,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _CodexSettingsSummary extends StatelessWidget {
+class _CodexSettingsHeader extends StatelessWidget {
   final String model;
   final ReasoningEffort effort;
   final CodexSpeed speed;
   final bool supportsFast;
   final ValueChanged<CodexSpeed> onSpeedChanged;
   final String speedButtonKey;
+  final bool showAdvanced;
+  final String advancedLabel;
+  final String toggleButtonKey;
+  final VoidCallback onToggleMode;
   final String modelLabelKey;
   final String effortLabelKey;
-  final String advancedEffortBadgeKey;
 
-  const _CodexSettingsSummary({
+  const _CodexSettingsHeader({
     required this.model,
     required this.effort,
     required this.speed,
     required this.supportsFast,
     required this.onSpeedChanged,
     required this.speedButtonKey,
+    required this.showAdvanced,
+    required this.advancedLabel,
+    required this.toggleButtonKey,
+    required this.onToggleMode,
     required this.modelLabelKey,
     required this.effortLabelKey,
-    required this.advancedEffortBadgeKey,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isAdvancedOnly = !_quickEffortOrder.contains(effort);
     final effortText = Text(
       effort.label,
       key: ValueKey(effortLabelKey),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        color: isAdvancedOnly ? cs.primary : cs.onSurfaceVariant,
+        color: cs.onSurfaceVariant,
         fontSize: 12,
-        fontWeight: isAdvancedOnly ? FontWeight.w600 : FontWeight.w500,
+        fontWeight: FontWeight.w400,
       ),
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+      padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
       child: Row(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  codexModelDisplayName(model),
-                  key: ValueKey(modelLabelKey),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Text(
-                      'Effort',
-                      style: TextStyle(
-                        color: cs.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    if (isAdvancedOnly)
-                      Container(
-                        key: ValueKey(advancedEffortBadgeKey),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cs.primary.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: effortText,
-                      )
-                    else
-                      effortText,
-                  ],
-                ),
-              ],
-            ),
-          ),
           CodexSpeedButton(
             speed: speed,
             enabled: supportsFast,
             onChanged: onSpeedChanged,
             buttonKey: speedButtonKey,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    codexModelDisplayName(model),
+                    key: ValueKey(modelLabelKey),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Semantics(
+                  label: 'Effort',
+                  value: effort.label,
+                  excludeSemantics: true,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 112),
+                    child: effortText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 2),
+          Semantics(
+            toggled: showAdvanced,
+            child: Tooltip(
+              message: advancedLabel,
+              child: IconButton(
+                key: ValueKey(toggleButtonKey),
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  onToggleMode();
+                },
+                style: IconButton.styleFrom(
+                  backgroundColor: showAdvanced
+                      ? cs.primary.withValues(alpha: 0.14)
+                      : Colors.transparent,
+                  foregroundColor: showAdvanced
+                      ? cs.primary
+                      : cs.onSurfaceVariant,
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(scale: animation, child: child),
+                  ),
+                  child: Icon(
+                    showAdvanced
+                        ? Icons.linear_scale_rounded
+                        : Icons.tune_rounded,
+                    key: ValueKey(showAdvanced),
+                    size: 19,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

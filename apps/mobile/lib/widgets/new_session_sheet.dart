@@ -2672,10 +2672,6 @@ class _OptionsSection extends StatelessWidget {
               speed: codexSpeed,
               supportsFast: codexSupportsFast,
               onSpeedChanged: onCodexSpeedChanged,
-              webSearchMode: webSearchMode,
-              onWebSearchModeChanged: onWebSearchModeChanged,
-              networkAccessEnabled: networkAccessEnabled,
-              onNetworkAccessChanged: onNetworkAccessChanged,
             ),
           const SizedBox(height: 8),
           // Worktree toggle (shared) + inline options when expanded
@@ -2695,39 +2691,28 @@ class _OptionsSection extends StatelessWidget {
                   )
                 : null,
           ),
-          if (provider == Provider.claude) ...[
-            const SizedBox(height: 8),
-            _AdvancedOptions(
-              provider: provider,
-              buildInputDecoration: buildInputDecoration,
-              claudeModels: claudeModels,
-              claudeMaxTurnsController: claudeMaxTurnsController,
-              maxTurnsError: maxTurnsError,
-              onMaxTurnsChanged: onMaxTurnsChanged,
-              claudeMaxBudgetController: claudeMaxBudgetController,
-              maxBudgetError: maxBudgetError,
-              onMaxBudgetChanged: onMaxBudgetChanged,
-              selectedClaudeFallbackModel: selectedClaudeFallbackModel,
-              onClaudeFallbackModelChanged: onClaudeFallbackModelChanged,
-              claudeForkSession: claudeForkSession,
-              onClaudeForkSessionChanged: onClaudeForkSessionChanged,
-              claudePersistSession: claudePersistSession,
-              onClaudePersistSessionChanged: onClaudePersistSessionChanged,
-              codexModels: codexModels,
-              selectedCodexModel: selectedModel ?? codexModels.firstOrNull,
-              onCodexModelChanged: onSelectedModelChanged,
-              codexReasoningEfforts: codexReasoningEfforts,
-              codexReasoningEffort: modelReasoningEffort,
-              onCodexReasoningEffortChanged: onModelReasoningEffortChanged,
-              codexSpeed: codexSpeed,
-              codexSupportsFast: codexSupportsFast,
-              onCodexSpeedChanged: onCodexSpeedChanged,
-              webSearchMode: webSearchMode,
-              onWebSearchModeChanged: onWebSearchModeChanged,
-              networkAccessEnabled: networkAccessEnabled,
-              onNetworkAccessChanged: onNetworkAccessChanged,
-            ),
-          ],
+          const SizedBox(height: 8),
+          _AdvancedOptions(
+            provider: provider,
+            buildInputDecoration: buildInputDecoration,
+            claudeModels: claudeModels,
+            claudeMaxTurnsController: claudeMaxTurnsController,
+            maxTurnsError: maxTurnsError,
+            onMaxTurnsChanged: onMaxTurnsChanged,
+            claudeMaxBudgetController: claudeMaxBudgetController,
+            maxBudgetError: maxBudgetError,
+            onMaxBudgetChanged: onMaxBudgetChanged,
+            selectedClaudeFallbackModel: selectedClaudeFallbackModel,
+            onClaudeFallbackModelChanged: onClaudeFallbackModelChanged,
+            claudeForkSession: claudeForkSession,
+            onClaudeForkSessionChanged: onClaudeForkSessionChanged,
+            claudePersistSession: claudePersistSession,
+            onClaudePersistSessionChanged: onClaudePersistSessionChanged,
+            webSearchMode: webSearchMode,
+            onWebSearchModeChanged: onWebSearchModeChanged,
+            networkAccessEnabled: networkAccessEnabled,
+            onNetworkAccessChanged: onNetworkAccessChanged,
+          ),
         ],
       ),
     );
@@ -2870,10 +2855,6 @@ class _CodexSettingsSwitcher extends StatefulWidget {
   final CodexSpeed speed;
   final bool supportsFast;
   final ValueChanged<CodexSpeed> onSpeedChanged;
-  final WebSearchMode? webSearchMode;
-  final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
-  final bool networkAccessEnabled;
-  final ValueChanged<bool> onNetworkAccessChanged;
 
   const _CodexSettingsSwitcher({
     required this.buildInputDecoration,
@@ -2886,10 +2867,6 @@ class _CodexSettingsSwitcher extends StatefulWidget {
     required this.speed,
     required this.supportsFast,
     required this.onSpeedChanged,
-    required this.webSearchMode,
-    required this.onWebSearchModeChanged,
-    required this.networkAccessEnabled,
-    required this.onNetworkAccessChanged,
   });
 
   @override
@@ -2916,13 +2893,12 @@ class _CodexSettingsSwitcherState extends State<_CodexSettingsSwitcher> {
       speedButtonKey: 'dialog_codex_speed_button',
       showAdvanced: _showAdvanced,
       advancedLabel: l.advanced,
-      toggleButtonKey: 'dialog_advanced_codex',
+      toggleButtonKey: 'dialog_codex_settings_mode',
       onToggleMode: () => setState(() => _showAdvanced = !_showAdvanced),
       quickPanelKey: 'dialog_codex_quick_panel',
       advancedPanelKey: 'dialog_codex_advanced_panel',
       modelLabelKey: 'dialog_codex_model_label',
       effortLabelKey: 'dialog_codex_effort_label',
-      advancedEffortBadgeKey: 'dialog_codex_effort_slider_advanced_value_badge',
       quickChild: CodexEffortSlider(
         key: const ValueKey('dialog_codex_effort_control'),
         efforts: widget.reasoningEfforts,
@@ -2933,7 +2909,7 @@ class _CodexSettingsSwitcherState extends State<_CodexSettingsSwitcher> {
       advancedChild: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
         child: Column(
-          children: _CodexAdvancedOptions(
+          children: _CodexModelOptions(
             buildInputDecoration: widget.buildInputDecoration,
             models: widget.models,
             selectedModel: widget.selectedModel,
@@ -2944,10 +2920,6 @@ class _CodexSettingsSwitcherState extends State<_CodexSettingsSwitcher> {
             speed: widget.speed,
             supportsFast: widget.supportsFast,
             onSpeedChanged: widget.onSpeedChanged,
-            webSearchMode: widget.webSearchMode,
-            onWebSearchModeChanged: widget.onWebSearchModeChanged,
-            networkAccessEnabled: widget.networkAccessEnabled,
-            onNetworkAccessChanged: widget.onNetworkAccessChanged,
           ).buildChildren(context),
         ),
       ),
@@ -2980,16 +2952,6 @@ class _AdvancedOptions extends StatelessWidget {
   final bool claudePersistSession;
   final ValueChanged<bool> onClaudePersistSessionChanged;
 
-  // Codex
-  final List<String> codexModels;
-  final String? selectedCodexModel;
-  final ValueChanged<String?> onCodexModelChanged;
-  final List<ReasoningEffort> codexReasoningEfforts;
-  final ReasoningEffort codexReasoningEffort;
-  final ValueChanged<ReasoningEffort> onCodexReasoningEffortChanged;
-  final CodexSpeed codexSpeed;
-  final bool codexSupportsFast;
-  final ValueChanged<CodexSpeed> onCodexSpeedChanged;
   final WebSearchMode? webSearchMode;
   final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
   final bool networkAccessEnabled;
@@ -3011,15 +2973,6 @@ class _AdvancedOptions extends StatelessWidget {
     required this.onClaudeForkSessionChanged,
     required this.claudePersistSession,
     required this.onClaudePersistSessionChanged,
-    required this.codexModels,
-    required this.selectedCodexModel,
-    required this.onCodexModelChanged,
-    required this.codexReasoningEfforts,
-    required this.codexReasoningEffort,
-    required this.onCodexReasoningEffortChanged,
-    required this.codexSpeed,
-    required this.codexSupportsFast,
-    required this.onCodexSpeedChanged,
     required this.webSearchMode,
     required this.onWebSearchModeChanged,
     required this.networkAccessEnabled,
@@ -3064,15 +3017,6 @@ class _AdvancedOptions extends StatelessWidget {
               ).buildChildren(context)
             : _CodexAdvancedOptions(
                 buildInputDecoration: buildInputDecoration,
-                models: codexModels,
-                selectedModel: selectedCodexModel,
-                onModelChanged: onCodexModelChanged,
-                reasoningEfforts: codexReasoningEfforts,
-                reasoningEffort: codexReasoningEffort,
-                onReasoningEffortChanged: onCodexReasoningEffortChanged,
-                speed: codexSpeed,
-                supportsFast: codexSupportsFast,
-                onSpeedChanged: onCodexSpeedChanged,
                 webSearchMode: webSearchMode,
                 onWebSearchModeChanged: onWebSearchModeChanged,
                 networkAccessEnabled: networkAccessEnabled,
@@ -3212,7 +3156,7 @@ class _ClaudeAdvancedOptions extends StatelessWidget {
   }
 }
 
-class _CodexAdvancedOptions extends StatelessWidget {
+class _CodexModelOptions extends StatelessWidget {
   final InputDecoration Function(
     String, {
     String? hintText,
@@ -3229,12 +3173,8 @@ class _CodexAdvancedOptions extends StatelessWidget {
   final CodexSpeed speed;
   final bool supportsFast;
   final ValueChanged<CodexSpeed> onSpeedChanged;
-  final WebSearchMode? webSearchMode;
-  final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
-  final bool networkAccessEnabled;
-  final ValueChanged<bool> onNetworkAccessChanged;
 
-  const _CodexAdvancedOptions({
+  const _CodexModelOptions({
     required this.buildInputDecoration,
     required this.models,
     required this.selectedModel,
@@ -3245,10 +3185,6 @@ class _CodexAdvancedOptions extends StatelessWidget {
     required this.speed,
     required this.supportsFast,
     required this.onSpeedChanged,
-    required this.webSearchMode,
-    required this.onWebSearchModeChanged,
-    required this.networkAccessEnabled,
-    required this.onNetworkAccessChanged,
   });
 
   List<Widget> buildChildren(BuildContext context) {
@@ -3314,7 +3250,39 @@ class _CodexAdvancedOptions extends StatelessWidget {
           },
         ),
       ),
-      const SizedBox(height: 8),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: buildChildren(context));
+  }
+}
+
+class _CodexAdvancedOptions extends StatelessWidget {
+  final InputDecoration Function(
+    String, {
+    String? hintText,
+    Widget? prefixIcon,
+    String? errorText,
+  })
+  buildInputDecoration;
+  final WebSearchMode? webSearchMode;
+  final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
+  final bool networkAccessEnabled;
+  final ValueChanged<bool> onNetworkAccessChanged;
+
+  const _CodexAdvancedOptions({
+    required this.buildInputDecoration,
+    required this.webSearchMode,
+    required this.onWebSearchModeChanged,
+    required this.networkAccessEnabled,
+    required this.onNetworkAccessChanged,
+  });
+
+  List<Widget> buildChildren(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return [
       DropdownButtonFormField<WebSearchMode?>(
         key: const ValueKey('dialog_codex_web_search_mode'),
         initialValue: webSearchMode,

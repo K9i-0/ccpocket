@@ -846,7 +846,25 @@ void main() {
         findsOneWidget,
       );
       expect(
+        find.byKey(const ValueKey('dialog_codex_settings_mode')),
+        findsOneWidget,
+      );
+      expect(
         find.byKey(const ValueKey('dialog_advanced_codex')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_codex_web_search_mode')),
+        findsNothing,
+      );
+      final modeButton = find.byKey(
+        const ValueKey('dialog_codex_settings_mode'),
+      );
+      expect(
+        find.descendant(
+          of: modeButton,
+          matching: find.byIcon(Icons.tune_rounded),
+        ),
         findsOneWidget,
       );
       expect(
@@ -866,8 +884,24 @@ void main() {
         'High',
       );
 
-      await tester.tap(find.byKey(const ValueKey('dialog_advanced_codex')));
+      await tester.tap(
+        find.byKey(const ValueKey('dialog_codex_settings_mode')),
+      );
       await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        find.descendant(
+          of: modeButton,
+          matching: find.byIcon(Icons.tune_rounded),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: modeButton,
+          matching: find.byIcon(Icons.linear_scale_rounded),
+        ),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('dialog_codex_quick_panel')),
         findsOneWidget,
@@ -877,6 +911,13 @@ void main() {
         findsOneWidget,
       );
       await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: modeButton,
+          matching: find.byIcon(Icons.linear_scale_rounded),
+        ),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('dialog_codex_effort_slider')),
         findsNothing,
@@ -890,10 +931,37 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('dialog_codex_model')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('dialog_codex_web_search_mode')),
+        findsNothing,
+      );
       expect(find.text('5.5'), findsNWidgets(2));
       expect(find.text('gpt-5.5'), findsNothing);
 
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('dialog_advanced_codex')),
+      );
       await tester.tap(find.byKey(const ValueKey('dialog_advanced_codex')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('dialog_codex_web_search_mode')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_codex_network_access')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_codex_advanced_panel')),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('dialog_codex_settings_mode')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('dialog_codex_settings_mode')),
+      );
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('dialog_codex_effort_slider')),
@@ -902,6 +970,14 @@ void main() {
       expect(
         find.byKey(const ValueKey('dialog_codex_advanced_panel')),
         findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_codex_web_search_mode')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_codex_network_access')),
+        findsOneWidget,
       );
 
       Navigator.of(
@@ -1004,7 +1080,9 @@ void main() {
 
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('dialog_advanced_codex')));
+      await tester.tap(
+        find.byKey(const ValueKey('dialog_codex_settings_mode')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('dialog_codex_model')));
       await tester.pumpAndSettle();
@@ -1066,13 +1144,14 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(
-          const ValueKey('dialog_codex_effort_slider_advanced_value_badge'),
-        ),
-        findsOneWidget,
+      final effortLabel = find.byKey(
+        const ValueKey('dialog_codex_effort_label'),
       );
-      expect(find.text('Ultra'), findsOneWidget);
+      expect(tester.widget<Text>(effortLabel).data, 'Ultra');
+      expect(
+        find.ancestor(of: effortLabel, matching: find.byType(ConstrainedBox)),
+        findsWidgets,
+      );
     });
   });
 }
