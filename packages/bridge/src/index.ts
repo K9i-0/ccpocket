@@ -6,7 +6,7 @@ import { BridgeWebSocketServer } from "./websocket.js";
 import { ImageStore } from "./image-store.js";
 import { GalleryStore } from "./gallery-store.js";
 import { printStartupInfo } from "./startup-info.js";
-import { MdnsAdvertiser } from "./mdns.js";
+import { MdnsAdvertiser, shouldAdvertiseMdns } from "./mdns.js";
 import { ProjectHistory } from "./project-history.js";
 import { getVersionInfo } from "./version.js";
 import { fetchAllUsage } from "./usage.js";
@@ -31,6 +31,10 @@ export async function startServer() {
   const PORT = parseBridgePort();
   const HOST = process.env.BRIDGE_HOST ?? "0.0.0.0";
   const API_KEY = process.env.BRIDGE_API_KEY;
+  const MDNS_ENABLED = shouldAdvertiseMdns(
+    process.platform,
+    !!process.env.BRIDGE_DISABLE_MDNS,
+  );
 
   // Unrestricted access requires the exact value "*".
   const ALLOWED_DIRS = parseAllowedDirectories(
@@ -45,8 +49,12 @@ export async function startServer() {
     console.log("[bridge] API key authentication enabled");
   }
 
-  if (process.env.BRIDGE_DISABLE_MDNS) {
-    console.log("[bridge] mDNS advertisement disabled");
+  if (!MDNS_ENABLED) {
+    console.log(
+      process.platform === "darwin"
+        ? "[bridge] mDNS advertisement disabled on macOS"
+        : "[bridge] mDNS advertisement disabled",
+    );
   }
 
   console.log(
@@ -79,8 +87,7 @@ export async function startServer() {
       process.env.BRIDGE_PROMPT_HISTORY_FILE,
     ),
   );
-  const MDNS_DISABLED = !!process.env.BRIDGE_DISABLE_MDNS;
-  const mdns = MDNS_DISABLED ? undefined : new MdnsAdvertiser();
+  const mdns = MDNS_ENABLED ? new MdnsAdvertiser() : undefined;
 
   // Initialize stores (async)
   galleryStore.init().then(() => {

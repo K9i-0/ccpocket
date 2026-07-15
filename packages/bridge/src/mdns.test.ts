@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveBonjourConstructor } from "./mdns.js";
+import {
+  resolveBonjourConstructor,
+  shouldAdvertiseMdns,
+} from "./mdns.js";
 
 class BonjourV14 {
   publish(): never {
@@ -50,5 +53,20 @@ describe("resolveBonjourConstructor", () => {
     expect(() => resolveBonjourConstructor({})).toThrow(
       "Unsupported bonjour-service export shape",
     );
+  });
+});
+
+describe("shouldAdvertiseMdns", () => {
+  it("disables advertising on macOS regardless of configuration", () => {
+    expect(shouldAdvertiseMdns("darwin", false)).toBe(false);
+    expect(shouldAdvertiseMdns("darwin", true)).toBe(false);
+  });
+
+  it("enables advertising on Linux by default", () => {
+    expect(shouldAdvertiseMdns("linux", false)).toBe(true);
+  });
+
+  it("honors the explicit disable setting on other platforms", () => {
+    expect(shouldAdvertiseMdns("linux", true)).toBe(false);
   });
 });

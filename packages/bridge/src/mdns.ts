@@ -50,6 +50,13 @@ export function resolveBonjourConstructor(
   return constructor;
 }
 
+export function shouldAdvertiseMdns(
+  platform: NodeJS.Platform,
+  disabledByConfig: boolean,
+): boolean {
+  return platform !== "darwin" && !disabledByConfig;
+}
+
 export class MdnsAdvertiser {
   private bonjour: BonjourClient | null = null;
   private service: PublishedService | null = null;
