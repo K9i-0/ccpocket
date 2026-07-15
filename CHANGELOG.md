@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.105.0] - 2026-07-16
+
+### Added
+- Add Codex Effort and Speed controls to active sessions and the new-session flow, including slider-based Effort selection and a Fast mode toggle.
+- Add compact and advanced Codex settings layouts with animated transitions and current Model, Effort, and Speed context.
+
+### Changed
+- Keep frequent Effort and Speed controls prominent while moving model selection into the advanced Codex settings flow.
+- Require Bridge 1.66.0 for live Codex Speed changes and settings synchronization.
+
+### Fixed
+- Correct Fast mode availability and refine the compact settings layout, advanced selector, and Effort presentation.
+- Remove Android-specific wording from iOS store descriptions.
+
 ## [1.104.1] - 2026-07-14
 
 ### Fixed
