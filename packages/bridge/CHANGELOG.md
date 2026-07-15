@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.66.0] - 2026-07-16
+
+### Added
+- Support selecting and changing Codex Standard and Fast service tiers for new and active sessions.
+- Expose Codex service-tier availability and current Model, Effort, and Speed settings to connected clients.
+
+### Changed
+- Persist Codex Speed across session resumes and restore Standard when the runtime no longer reports Fast mode.
+
 ## [1.65.1] - 2026-07-15
 
 ### Fixed
