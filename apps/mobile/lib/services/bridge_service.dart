@@ -108,6 +108,7 @@ class BridgeService implements BridgeServiceBase {
   Map<String, List<String>> _claudeModelEfforts = {};
   List<String> _codexModels = [];
   Map<String, List<String>> _codexModelReasoningEfforts = {};
+  Map<String, List<String>> _codexModelServiceTiers = {};
   List<String> _codexProfiles = [];
   String? _defaultCodexProfile;
   String? _bridgeVersion;
@@ -237,6 +238,8 @@ class BridgeService implements BridgeServiceBase {
   List<String> get codexModels => _codexModels;
   Map<String, List<String>> get codexModelReasoningEfforts =>
       _codexModelReasoningEfforts;
+  Map<String, List<String>> get codexModelServiceTiers =>
+      _codexModelServiceTiers;
   List<String> get codexProfiles => _codexProfiles;
   String? get defaultCodexProfile => _defaultCodexProfile;
   String? get bridgeVersion => _bridgeVersion;
@@ -398,6 +401,7 @@ class BridgeService implements BridgeServiceBase {
                 :final claudeModelEfforts,
                 :final codexModels,
                 :final codexModelReasoningEfforts,
+                :final codexModelServiceTiers,
                 :final codexProfiles,
                 :final defaultCodexProfile,
                 :final bridgeVersion,
@@ -410,6 +414,7 @@ class BridgeService implements BridgeServiceBase {
                 _claudeModelEfforts = claudeModelEfforts;
                 _codexModels = codexModels;
                 _codexModelReasoningEfforts = codexModelReasoningEfforts;
+                _codexModelServiceTiers = codexModelServiceTiers;
                 _codexProfiles = codexProfiles;
                 _defaultCodexProfile = defaultCodexProfile;
                 _bridgeVersion = bridgeVersion;
@@ -672,6 +677,7 @@ class BridgeService implements BridgeServiceBase {
     _claudeModelEfforts = const {};
     _codexModels = const [];
     _codexModelReasoningEfforts = const {};
+    _codexModelServiceTiers = const {};
     _codexProfiles = const [];
     _defaultCodexProfile = null;
     _bridgeVersion = null;
@@ -1522,6 +1528,7 @@ class BridgeService implements BridgeServiceBase {
     String? sandboxMode,
     String? model,
     String? modelReasoningEffort,
+    String? serviceTier,
     bool? networkAccessEnabled,
     String? webSearchMode,
     List<String>? additionalWritableRoots,
@@ -1547,6 +1554,7 @@ class BridgeService implements BridgeServiceBase {
         sandboxMode: sandboxMode,
         model: model,
         modelReasoningEffort: modelReasoningEffort,
+        serviceTier: serviceTier,
         networkAccessEnabled: networkAccessEnabled,
         webSearchMode: webSearchMode,
         additionalWritableRoots: additionalWritableRoots,
@@ -2044,6 +2052,16 @@ class BridgeService implements BridgeServiceBase {
         codexModelReasoningEffort:
             modelReasoningEffort ?? current.codexModelReasoningEffort,
       );
+    _sessionListController.add(_sessions);
+  }
+
+  void patchSessionCodexSpeed(String sessionId, String serviceTier) {
+    final idx = _sessions.indexWhere((s) => s.id == sessionId);
+    if (idx < 0) return;
+    final current = _sessions[idx];
+    if (current.codexServiceTier == serviceTier) return;
+    _sessions = List.of(_sessions)
+      ..[idx] = current.copyWith(codexServiceTier: serviceTier);
     _sessionListController.add(_sessions);
   }
 

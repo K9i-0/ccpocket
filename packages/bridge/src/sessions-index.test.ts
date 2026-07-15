@@ -1031,6 +1031,81 @@ describe("codex sessions integration", () => {
     );
   });
 
+  it("uses the latest turn_context when restoring Codex speed", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68013";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-00-00-${threadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.000Z",
+          type: "session_meta",
+          payload: { id: threadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.500Z",
+          type: "turn_context",
+          payload: { model: "gpt-5.6-sol", service_tier: "fast" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:01.000Z",
+          type: "turn_context",
+          payload: { model: "gpt-5.6-sol" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:02.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: "standard again" },
+        }),
+      ].join("\n"),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "codex",
+      limit: 200,
+    });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0].codexSettings?.serviceTier).toBe("standard");
+  });
+
+  it("preserves non-UI Codex service tiers from turn_context", async () => {
+    const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68014";
+    const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");
+    mkdirSync(codexDir, { recursive: true });
+
+    writeFileSync(
+      join(codexDir, `rollout-2026-02-13T12-00-00-${threadId}.jsonl`),
+      [
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.000Z",
+          type: "session_meta",
+          payload: { id: threadId, cwd: "/tmp/project-a" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:00.500Z",
+          type: "turn_context",
+          payload: { model: "gpt-5.6-sol", service_tier: "flex" },
+        }),
+        JSON.stringify({
+          timestamp: "2026-02-13T12:00:01.000Z",
+          type: "event_msg",
+          payload: { type: "user_message", message: "keep flex" },
+        }),
+      ].join("\n"),
+    );
+
+    const result = await getAllRecentSessions({
+      provider: "codex",
+      limit: 200,
+    });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0].codexSettings?.serviceTier).toBe("flex");
+  });
+
   it("includes codex sessions when early turn context is large", async () => {
     const threadId = "019c56c0-d4d8-7b22-9e3c-200664d68012";
     const codexDir = join(tempHome, ".codex", "sessions", "2026", "02", "13");

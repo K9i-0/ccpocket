@@ -36,6 +36,7 @@ class ChatStateUpdate {
   final CodexPermissionsMode? codexPermissionsMode;
   final String? codexModel;
   final ReasoningEffort? codexModelReasoningEffort;
+  final CodexSpeed? codexSpeed;
   final bool? planMode;
   final List<ChatEntry> entriesToAdd;
   final List<ChatEntry> entriesToPrepend;
@@ -94,6 +95,7 @@ class ChatStateUpdate {
     this.codexPermissionsMode,
     this.codexModel,
     this.codexModelReasoningEffort,
+    this.codexSpeed,
     this.planMode,
     this.entriesToAdd = const [],
     this.entriesToPrepend = const [],
@@ -144,6 +146,7 @@ const _unsupportedActions = <String, UnsupportedAction>{
   'read_file': UnsupportedAction.showUpdateHint,
   'steer_queued_input': UnsupportedAction.showUpdateHint,
   'set_codex_model': UnsupportedAction.showUpdateHint,
+  'set_codex_speed': UnsupportedAction.showUpdateHint,
   'set_goal': UnsupportedAction.showUpdateHint,
   'clear_goal': UnsupportedAction.showUpdateHint,
   'mutate_prompt_history': UnsupportedAction.showUpdateHint,
@@ -574,6 +577,9 @@ class ChatMessageHandler {
     Map<String, dynamic>? lastAskInput;
     String? claudeSessionId;
     String? projectPath;
+    String? codexModel;
+    ReasoningEffort? codexModelReasoningEffort;
+    CodexSpeed? codexSpeed;
     QueuedInputItem? queuedInput;
     var clearQueuedInput = false;
 
@@ -659,6 +665,16 @@ class ChatMessageHandler {
         if (m is SystemMessage && m.projectPath?.trim().isNotEmpty == true) {
           projectPath = m.projectPath;
         }
+        if (m is SystemMessage) {
+          if (m.model?.trim().isNotEmpty == true) {
+            codexModel = m.model;
+          }
+          final effort = reasoningEffortByValue(m.modelReasoningEffort);
+          if (effort != null) codexModelReasoningEffort = effort;
+          if (m.serviceTier != null) {
+            codexSpeed = codexSpeedFromRaw(m.serviceTier);
+          }
+        }
         // Track pending permission request
         if (m is PermissionRequestMessage) {
           if (ignoredToolUseIds.contains(m.toolUseId)) continue;
@@ -731,6 +747,9 @@ class ChatMessageHandler {
       askInput: isWaiting ? lastAskInput : null,
       claudeSessionId: claudeSessionId,
       projectPath: projectPath,
+      codexModel: codexModel,
+      codexModelReasoningEffort: codexModelReasoningEffort,
+      codexSpeed: codexSpeed,
       queuedInput: queuedInput,
       clearQueuedInput: clearQueuedInput,
     );
@@ -758,6 +777,7 @@ class ChatMessageHandler {
     bool? planMode;
     String? codexModel;
     ReasoningEffort? codexModelReasoningEffort;
+    CodexSpeed? codexSpeed;
     bool hasExecutionSignals(SystemMessage message) =>
         message.executionMode != null ||
         message.permissionMode != null ||
@@ -844,6 +864,9 @@ class ChatMessageHandler {
       codexModelReasoningEffort = reasoningEffortByValue(
         msg.modelReasoningEffort,
       );
+      if (msg.serviceTier != null) {
+        codexSpeed = codexSpeedFromRaw(msg.serviceTier);
+      }
     }
     // Extract claudeSessionId from session_created or init messages.
     // Prefer the full Claude CLI UUID (claudeSessionId) over the Bridge's
@@ -869,6 +892,7 @@ class ChatMessageHandler {
       codexPermissionsMode: codexPermissionsMode,
       codexModel: codexModel,
       codexModelReasoningEffort: codexModelReasoningEffort,
+      codexSpeed: codexSpeed,
       planMode: planMode,
       inPlanMode: inPlanMode,
       slashCommands: commands,

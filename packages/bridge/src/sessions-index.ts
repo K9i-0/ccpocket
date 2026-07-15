@@ -33,6 +33,7 @@ export interface SessionIndexEntry {
     sandboxMode?: string;
     model?: string;
     modelReasoningEffort?: string;
+    serviceTier?: string;
     networkAccessEnabled?: boolean;
     webSearchMode?: string;
     additionalWritableRoots?: string[];
@@ -1247,6 +1248,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
   let sandboxMode: string | undefined;
   let model: string | undefined;
   let modelReasoningEffort: string | undefined;
+  let serviceTier: string | undefined;
   let networkAccessEnabled: boolean | undefined;
   let webSearchMode: string | undefined;
 
@@ -1330,6 +1332,15 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
         if (typeof collaborationSettings?.reasoning_effort === "string") {
           modelReasoningEffort = collaborationSettings.reasoning_effort;
         }
+        // Codex omits service_tier from standard-speed turn_context records.
+        // Treat every new context as authoritative so Fast -> Standard clears
+        // a previous persisted "fast" value.
+        serviceTier =
+          typeof payload.service_tier === "string" &&
+          payload.service_tier.trim().length > 0 &&
+          payload.service_tier !== "default"
+            ? payload.service_tier
+            : "standard";
         if (typeof sp?.network_access === "boolean") {
           networkAccessEnabled = sp.network_access;
         }
@@ -1387,6 +1398,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
     || sandboxMode
     || model
     || modelReasoningEffort
+    || serviceTier
     || networkAccessEnabled !== undefined
     || webSearchMode
   )
@@ -1396,6 +1408,7 @@ function parseCodexSessionJsonl(raw: string, fallbackSessionId: string): CodexSe
         sandboxMode,
         model,
         modelReasoningEffort,
+        serviceTier,
         networkAccessEnabled,
         webSearchMode,
       }

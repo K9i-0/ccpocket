@@ -135,6 +135,9 @@ vi.mock("./session.js", () => ({
           this.model = model;
           this.modelReasoningEffort = modelReasoningEffort;
         }),
+        setServiceTier: vi.fn(function (this: any, value: string) {
+          this.serviceTier = value;
+        }),
         listThreads: vi.fn(async () => ({ data: [], nextCursor: null })),
         listAvailableModels: vi.fn(async () => []),
         listAvailableModelMetadata: vi.fn(async () => []),
@@ -1602,7 +1605,11 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sessionId = created.sessionId as string;
     const session = (bridge as any).sessionManager.get(sessionId);
     session.claudeSessionId = "thr_codex_1";
-    session.codexSettings = { model: "gpt-5.3-codex" };
+    session.codexSettings = {
+      model: "gpt-5.3-codex",
+      modelReasoningEffort: "xhigh",
+      serviceTier: "fast",
+    };
     session.process.readThread.mockResolvedValue({
       id: "thr_codex_1",
       turns: [],
@@ -1656,6 +1663,14 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
           },
         },
       ],
+    });
+    expect(sends[1]).toMatchObject({
+      type: "system",
+      subtype: "codex_settings",
+      sessionId,
+      model: "gpt-5.3-codex",
+      modelReasoningEffort: "xhigh",
+      serviceTier: "fast",
     });
     expect(session.pastMessages).toHaveLength(2);
     expect(session.history).toEqual([]);
@@ -1717,6 +1732,14 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         },
       ],
     });
+    expect(deltaSends[1]).toMatchObject({
+      type: "system",
+      subtype: "codex_settings",
+      sessionId,
+      model: "gpt-5.3-codex",
+      modelReasoningEffort: "xhigh",
+      serviceTier: "fast",
+    });
 
     bridge.close();
   });
@@ -1760,7 +1783,11 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     const sessionId = created.sessionId as string;
     const session = (bridge as any).sessionManager.get(sessionId);
     session.claudeSessionId = "thr_codex_legacy";
-    session.codexSettings = { model: "gpt-5.3-codex" };
+    session.codexSettings = {
+      model: "gpt-5.3-codex",
+      modelReasoningEffort: "xhigh",
+      serviceTier: "fast",
+    };
     session.process.readThread.mockResolvedValue({
       id: "thr_codex_legacy",
       turns: [],
@@ -1805,6 +1832,15 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ],
     });
     expect(sends[1]).toMatchObject({
+      type: "system",
+      subtype: "codex_settings",
+      sessionId,
+      provider: "codex",
+      model: "gpt-5.3-codex",
+      modelReasoningEffort: "xhigh",
+      serviceTier: "fast",
+    });
+    expect(sends[2]).toMatchObject({
       type: "status",
       status: "idle",
       sessionId,
@@ -3709,6 +3745,26 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
       ]),
     });
 
+    ws.send.mockClear();
+    (bridge as any).handleClientMessage(
+      {
+        type: "set_codex_speed",
+        sessionId,
+        serviceTier: "fast",
+      },
+      ws,
+    );
+
+    expect(session.process.setServiceTier).toHaveBeenCalledWith("fast");
+    expect(session.codexSettings).toMatchObject({ serviceTier: "fast" });
+    expect(
+      ws.send.mock.calls
+        .map((c: unknown[]) => JSON.parse(c[0] as string))
+        .find(
+          (m: any) => m.type === "system" && m.subtype === "set_codex_speed",
+        ),
+    ).toMatchObject({ sessionId, serviceTier: "fast" });
+
     bridge.close();
   });
 
@@ -4052,6 +4108,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
         projectPath: "/tmp/project-codex",
         provider: "codex",
         permissionMode: "bypassPermissions",
+        serviceTier: "fast",
       },
       ws,
     );
@@ -4062,6 +4119,7 @@ describe("BridgeWebSocketServer resume/get_history flow", () => {
     expect(created).toMatchObject({
       provider: "codex",
       permissionMode: "bypassPermissions",
+      serviceTier: "fast",
     });
 
     bridge.close();

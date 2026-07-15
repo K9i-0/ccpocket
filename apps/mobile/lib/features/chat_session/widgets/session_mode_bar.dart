@@ -7,8 +7,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../models/messages.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/codex_effort_slider.dart';
 import '../state/chat_session_state.dart';
 import '../state/chat_session_cubit.dart';
+import 'codex_settings_sheet.dart';
 
 class SessionModeBar extends StatelessWidget {
   final Future<void> Function()? onBeforeRestart;
@@ -64,6 +66,7 @@ class SessionModeBar extends StatelessWidget {
                   CodexModelChip(
                     model: codexModel!,
                     reasoningEffort: codexReasoningEffort,
+                    speed: chatCubit.state.codexSpeed,
                     onTap: () => showCodexModelMenu(context, chatCubit),
                   ),
                   Padding(
@@ -357,11 +360,7 @@ List<ReasoningEffort> _codexReasoningEffortsForModel(
 ReasoningEffort _effectiveCodexReasoningEffort(
   ReasoningEffort? current,
   List<ReasoningEffort> efforts,
-) {
-  if (current != null && efforts.contains(current)) return current;
-  if (efforts.contains(ReasoningEffort.high)) return ReasoningEffort.high;
-  return efforts.first;
-}
+) => preferredCodexEffort(efforts, current: current);
 
 void showCodexModelMenu(BuildContext context, ChatSessionCubit chatCubit) {
   final models = chatCubit.codexModels.isNotEmpty
@@ -373,116 +372,27 @@ void showCodexModelMenu(BuildContext context, ChatSessionCubit chatCubit) {
     chatCubit.state.codexModelReasoningEffort,
     currentEfforts,
   );
+  final modelEfforts = {
+    for (final model in models)
+      model: _codexReasoningEffortsForModel(context, model),
+  };
 
-  showModalBottomSheet(
+  showModalBottomSheet<void>(
     context: context,
-    builder: (sheetContext) {
-      final sheetCs = Theme.of(sheetContext).colorScheme;
-      return SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(sheetContext).size.height * 0.8,
-          ),
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppLocalizations.of(context).model,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: sheetCs.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Applies to the next Codex message.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: sheetCs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              for (final model in models)
-                ListTile(
-                  leading: Icon(
-                    Icons.smart_toy_outlined,
-                    color: model == currentModel
-                        ? sheetCs.primary
-                        : sheetCs.onSurfaceVariant,
-                  ),
-                  title: Text(model),
-                  subtitle: model == currentModel
-                      ? Text('Reasoning: ${currentEffort.label}')
-                      : null,
-                  trailing: model == currentModel
-                      ? Icon(Icons.check, color: sheetCs.primary, size: 20)
-                      : null,
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    if (model == currentModel) return;
-                    HapticFeedback.lightImpact();
-                    final efforts = _codexReasoningEffortsForModel(
-                      context,
-                      model,
-                    );
-                    chatCubit.setCodexModel(
-                      model,
-                      reasoningEffort: _effectiveCodexReasoningEffort(
-                        chatCubit.state.codexModelReasoningEffort,
-                        efforts,
-                      ),
-                    );
-                  },
-                ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Text(
-                  AppLocalizations.of(context).reasoning,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: sheetCs.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              for (final effort in currentEfforts)
-                ListTile(
-                  key: ValueKey('codex_reasoning_${effort.value}_option'),
-                  leading: Icon(
-                    Icons.psychology,
-                    color: effort == currentEffort
-                        ? sheetCs.primary
-                        : sheetCs.onSurfaceVariant,
-                  ),
-                  title: Text(effort.label),
-                  trailing: effort == currentEffort
-                      ? Icon(Icons.check, color: sheetCs.primary, size: 20)
-                      : null,
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    if (effort == currentEffort) return;
-                    HapticFeedback.lightImpact();
-                    chatCubit.setCodexModel(
-                      currentModel,
-                      reasoningEffort: effort,
-                    );
-                  },
-                ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      );
-    },
+    isScrollControlled: true,
+    builder: (_) => CodexSettingsSheet(
+      models: models,
+      modelEfforts: modelEfforts,
+      modelServiceTiers: chatCubit.codexModelServiceTiers,
+      initialModel: currentModel,
+      initialEffort: currentEffort,
+      initialSpeed: chatCubit.state.codexSpeed,
+      onModelChanged: (model, effort) =>
+          chatCubit.setCodexModel(model, reasoningEffort: effort),
+      onEffortChanged: (model, effort) =>
+          chatCubit.setCodexModel(model, reasoningEffort: effort),
+      onSpeedChanged: chatCubit.setCodexSpeed,
+    ),
   );
 }
 
@@ -1102,12 +1012,14 @@ class ExecutionModeChip extends StatelessWidget {
 class CodexModelChip extends StatelessWidget {
   final String model;
   final ReasoningEffort? reasoningEffort;
+  final CodexSpeed speed;
   final VoidCallback onTap;
 
   const CodexModelChip({
     super.key,
     required this.model,
     this.reasoningEffort,
+    required this.speed,
     required this.onTap,
   });
 
@@ -1115,7 +1027,7 @@ class CodexModelChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final fg = cs.onSurfaceVariant;
-    final label = model.replaceFirst(RegExp(r'^gpt-'), '');
+    final label = codexModelDisplayName(model);
     final suffix = reasoningEffort == null ? '' : ' ${reasoningEffort!.label}';
 
     return Material(
@@ -1129,12 +1041,21 @@ class CodexModelChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '$label$suffix',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: fg,
+              if (speed == CodexSpeed.fast) ...[
+                Icon(Icons.bolt, size: 13, color: cs.primary),
+                const SizedBox(width: 2),
+              ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 130),
+                child: Text(
+                  '$label$suffix',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
+                  ),
                 ),
               ),
               Icon(

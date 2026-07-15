@@ -8,6 +8,7 @@ import 'package:ccpocket/features/chat_session/widgets/session_mode_bar.dart';
 import 'package:ccpocket/models/messages.dart';
 import 'package:ccpocket/services/bridge_service.dart';
 import 'package:ccpocket/theme/app_theme.dart';
+import 'package:ccpocket/widgets/codex_effort_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +20,7 @@ class _MockBridgeService extends BridgeService {
   final sentMessages = <ClientMessage>[];
   List<String> availableCodexModels = const [];
   Map<String, List<String>> availableCodexReasoningEfforts = const {};
+  Map<String, List<String>> availableCodexServiceTiers = const {};
 
   @override
   List<String> get codexModels => availableCodexModels;
@@ -26,6 +28,10 @@ class _MockBridgeService extends BridgeService {
   @override
   Map<String, List<String>> get codexModelReasoningEfforts =>
       availableCodexReasoningEfforts;
+
+  @override
+  Map<String, List<String>> get codexModelServiceTiers =>
+      availableCodexServiceTiers;
 
   void emitMessage(ServerMessage msg, {String? sessionId}) {
     _taggedController.add((msg, sessionId));
@@ -111,6 +117,23 @@ void main() {
     bridge.dispose();
   });
 
+  test('Codex Fast mode supports current and legacy metadata', () {
+    expect(
+      codexSupportsFast('gpt-5.6-sol', const {
+        'gpt-5.6-sol': ['fast'],
+      }),
+      isTrue,
+    );
+    expect(
+      codexSupportsFast('gpt-5.6-sol', const {
+        'gpt-5.6-sol': ['priority'],
+      }),
+      isTrue,
+    );
+    expect(codexSupportsFast('gpt-5.5', const {}), isFalse);
+    expect(codexSupportsFast('gpt-5.4-mini', const {}), isFalse);
+  });
+
   testWidgets('claude keeps permission and sandbox grouped', (tester) async {
     final claudeCubit = ChatSessionCubit(
       sessionId: 'claude-session',
@@ -193,23 +216,58 @@ void main() {
     await tester.pumpWidget(_wrap(cubit));
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('5.6-sol High'), findsOneWidget);
-    await tester.tap(find.text('5.6-sol High'));
+    expect(find.text('5.6 Sol High'), findsOneWidget);
+    await tester.tap(find.text('5.6 Sol High'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('codex_settings_model_label')),
+          )
+          .data,
+      '5.6 Sol',
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('codex_settings_effort_label')),
+          )
+          .data,
+      'High',
+    );
+    expect(find.text('Ultra'), findsNothing);
+    expect(find.byKey(const ValueKey('codex_effort_slider')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('codex_settings_advanced')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('codex_settings_quick_panel')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('codex_settings_advanced_panel')),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('codex_effort_advanced')),
+    );
+    await tester.tap(find.byKey(const ValueKey('codex_effort_advanced')));
     await tester.pumpAndSettle();
 
     final ultraOption = find.byKey(
-      const ValueKey('codex_reasoning_ultra_option'),
+      const ValueKey('codex_effort_ultra_option'),
+      skipOffstage: false,
     );
-    await tester.scrollUntilVisible(
-      ultraOption,
-      200,
-      scrollable: find.byType(Scrollable).last,
+    expect(
+      find.byKey(
+        const ValueKey('codex_effort_max_option'),
+        skipOffstage: false,
+      ),
+      findsOneWidget,
     );
-    await tester.drag(find.byType(ListView).last, const Offset(0, -100));
+    expect(ultraOption, findsOneWidget);
+    await tester.ensureVisible(ultraOption);
     await tester.pumpAndSettle();
-    expect(find.text('Max'), findsOneWidget);
-    expect(find.text('Ultra'), findsOneWidget);
-
     await tester.tap(ultraOption);
     await tester.pumpAndSettle();
 
@@ -217,6 +275,108 @@ void main() {
     expect(
       _decode(bridge.sentMessages.last),
       containsPair('modelReasoningEffort', 'ultra'),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('codex_settings_advanced')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('codex_settings_quick_panel')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('codex_effort_slider_advanced_value_badge')),
+      findsOneWidget,
+    );
+    expect(find.text('Ultra'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('codex_settings_advanced_panel')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('codex speed toggles Fast for the next turn', (tester) async {
+    bridge.availableCodexModels = const ['gpt-5.6-sol'];
+    bridge.availableCodexReasoningEfforts = const {
+      'gpt-5.6-sol': ['low', 'medium', 'high', 'xhigh', 'ultra'],
+    };
+    bridge.availableCodexServiceTiers = const {
+      'gpt-5.6-sol': ['priority'],
+    };
+
+    await tester.pumpWidget(_wrap(cubit));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('5.6 Sol High'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('codex_speed_button')));
+    await tester.pumpAndSettle();
+
+    expect(cubit.state.codexSpeed, CodexSpeed.fast);
+    expect(_decode(bridge.sentMessages.last), {
+      'type': 'set_codex_speed',
+      'serviceTier': 'fast',
+      'sessionId': 'codex-session',
+    });
+  });
+
+  testWidgets('codex advanced Speed picker includes Fast', (tester) async {
+    bridge.availableCodexModels = const ['gpt-5.6-sol'];
+    bridge.availableCodexReasoningEfforts = const {
+      'gpt-5.6-sol': ['low', 'medium', 'high', 'xhigh'],
+    };
+    bridge.availableCodexServiceTiers = const {
+      'gpt-5.6-sol': ['priority'],
+    };
+
+    await tester.pumpWidget(_wrap(cubit));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('5.6 Sol High'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('codex_settings_advanced')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('codex_speed_advanced')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('codex_speed_fast_option')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('codex model change prefers the first non-None Effort', (
+    tester,
+  ) async {
+    bridge.availableCodexModels = const ['gpt-5.6-sol', 'gpt-5.4-mini'];
+    bridge.availableCodexReasoningEfforts = const {
+      'gpt-5.6-sol': ['xhigh', 'ultra'],
+      'gpt-5.4-mini': ['low', 'medium'],
+    };
+
+    await tester.pumpWidget(_wrap(cubit));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('5.6 Sol Extra High'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('codex_settings_advanced')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('codex_model_advanced')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('5.4 Mini').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      _decode(bridge.sentMessages.last),
+      containsPair('model', 'gpt-5.4-mini'),
+    );
+    expect(
+      _decode(bridge.sentMessages.last),
+      containsPair('modelReasoningEffort', 'low'),
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('codex_settings_effort_label')),
+          )
+          .data,
+      'Light',
     );
   });
 

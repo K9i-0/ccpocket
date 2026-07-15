@@ -68,6 +68,9 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
   Map<String, List<String>> get codexModelReasoningEfforts =>
       _bridge.codexModelReasoningEfforts;
 
+  Map<String, List<String>> get codexModelServiceTiers =>
+      _bridge.codexModelServiceTiers;
+
   String _nextOptimisticCodexUserTurnUuid() {
     final userTurnCount = state.entries.whereType<UserChatEntry>().length;
     return 'codex:user-turn:${userTurnCount + 1}';
@@ -674,6 +677,7 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         codexModelReasoningEffort:
             update.codexModelReasoningEffort ??
             current.codexModelReasoningEffort,
+        codexSpeed: update.codexSpeed ?? current.codexSpeed,
         planMode: update.planMode ?? current.planMode,
         slashCommands: update.slashCommands ?? current.slashCommands,
         queuedInput: nextQueuedInput,
@@ -1705,6 +1709,16 @@ class ChatSessionCubit extends Cubit<ChatSessionState> {
         modelReasoningEffort: nextReasoningEffort?.value,
         sessionId: sessionId,
       ),
+    );
+  }
+
+  void setCodexSpeed(CodexSpeed speed) {
+    if (!isCodex || speed == state.codexSpeed) return;
+    logger.info('[session:$sessionId] setCodexSpeed=${speed.value}');
+    emit(state.copyWith(codexSpeed: speed));
+    _bridge.patchSessionCodexSpeed(sessionId, speed.value);
+    _bridge.send(
+      ClientMessage.setCodexSpeed(speed.value, sessionId: sessionId),
     );
   }
 

@@ -447,6 +447,7 @@ void main() {
         'codexSettings': {
           'profile': 'ccpocket',
           'modelReasoningEffort': 'medium',
+          'serviceTier': 'fast',
           'networkAccessEnabled': false,
           'webSearchMode': 'cached',
           'additionalWritableRoots': ['/tmp/shared'],
@@ -455,6 +456,7 @@ void main() {
 
       expect(session.codexProfile, 'ccpocket');
       expect(session.codexModelReasoningEffort, 'medium');
+      expect(session.codexServiceTier, 'fast');
       expect(session.codexNetworkAccessEnabled, false);
       expect(session.codexWebSearchMode, 'cached');
       expect(session.codexAdditionalWritableRoots, ['/tmp/shared']);
@@ -473,6 +475,9 @@ void main() {
         'codexModels': ['gpt-5.5'],
         'codexModelReasoningEfforts': {
           'gpt-5.5': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+        },
+        'codexModelServiceTiers': {
+          'gpt-5.5': ['fast'],
         },
         'codexProfiles': ['ccpocket', 'research'],
         'defaultCodexProfile': 'ccpocket',
@@ -498,6 +503,7 @@ void main() {
         'max',
         'ultra',
       ]);
+      expect(sessionList.codexModelServiceTiers['gpt-5.5'], ['fast']);
       expect(sessionList.codexProfiles, ['ccpocket', 'research']);
       expect(sessionList.defaultCodexProfile, 'ccpocket');
     });

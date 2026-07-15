@@ -1434,6 +1434,20 @@ void main() {
       expect(mockBridge.sentMessages, isEmpty);
     });
 
+    test('setCodexSpeed updates state and sends bridge message', () async {
+      final cubit = createCubit('s1', provider: Provider.codex);
+      addTearDown(cubit.close);
+
+      cubit.setCodexSpeed(CodexSpeed.fast);
+
+      expect(cubit.state.codexSpeed, CodexSpeed.fast);
+      expect(jsonDecode(mockBridge.sentMessages.single.toJson()), {
+        'type': 'set_codex_speed',
+        'serviceTier': 'fast',
+        'sessionId': 's1',
+      });
+    });
+
     test('permission mode rolls back on mode-change error', () async {
       final cubit = createCubit('s1');
       addTearDown(cubit.close);

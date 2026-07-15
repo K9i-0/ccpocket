@@ -165,6 +165,18 @@ function fallbackCodexReasoningEfforts(model: string): string[] {
   return FALLBACK_CODEX_REASONING_EFFORTS;
 }
 
+function fallbackCodexServiceTiers(model: string): string[] {
+  return [
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.5",
+    "gpt-5.4",
+  ].includes(model)
+    ? ["fast"]
+    : [];
+}
+
 const CODEX_RECENT_THREAD_SOURCE_KINDS: CodexThreadSourceKind[] = [
   "cli",
   "vscode",
@@ -676,6 +688,12 @@ export class BridgeWebSocketServer {
         fallbackCodexReasoningEfforts(model),
       ]),
     );
+  private codexModelServiceTiers: Record<string, string[]> = Object.fromEntries(
+    FALLBACK_CODEX_MODELS.map((model) => [
+      model,
+      fallbackCodexServiceTiers(model),
+    ]),
+  );
   /** FCM token → push notification locale */
   private tokenLocales = new Map<string, PushLocale>();
   private tokenPrivacyMode = new Map<string, boolean>();
@@ -1027,6 +1045,9 @@ export class BridgeWebSocketServer {
       }
       if (derivedCodexSettings.modelReasoningEffort !== undefined) {
         msg.modelReasoningEffort = derivedCodexSettings.modelReasoningEffort;
+      }
+      if (derivedCodexSettings.serviceTier !== undefined) {
+        msg.serviceTier = derivedCodexSettings.serviceTier;
       }
       if (derivedCodexSettings.networkAccessEnabled !== undefined) {
         msg.networkAccessEnabled = derivedCodexSettings.networkAccessEnabled;
@@ -1506,6 +1527,33 @@ export class BridgeWebSocketServer {
     }
   }
 
+  private sendCodexCurrentSettings(
+    ws: WebSocket,
+    sessionId: string,
+    session: SessionInfo,
+  ): void {
+    const process = session.process instanceof CodexProcess
+      ? session.process
+      : undefined;
+    const settings = session.codexSettings;
+    this.send(ws, {
+      type: "system",
+      subtype: "codex_settings",
+      sessionId,
+      provider: "codex",
+      ...(settings?.model ?? process?.model
+        ? { model: settings?.model ?? process?.model }
+        : {}),
+      ...(settings?.modelReasoningEffort ?? process?.modelReasoningEffort
+        ? {
+            modelReasoningEffort:
+              settings?.modelReasoningEffort ?? process?.modelReasoningEffort,
+          }
+        : {}),
+      serviceTier: settings?.serviceTier ?? process?.serviceTier ?? "standard",
+    });
+  }
+
   private async sendCodexCanonicalHistorySnapshot(
     ws: WebSocket,
     sessionId: string,
@@ -1524,6 +1572,7 @@ export class BridgeWebSocketServer {
         status: session.status,
         reason: "reset",
       } satisfies Extract<ServerMessage, { type: "history_snapshot" }>);
+      this.sendCodexCurrentSettings(ws, sessionId, session);
       this.sendCodexQueueState(ws, sessionId, session);
       if (options.includeCachedCommands) {
         this.sendCachedCommands(ws, sessionId, session);
@@ -1553,6 +1602,7 @@ export class BridgeWebSocketServer {
         messages: entries.map((entry) => entry.message),
         sessionId,
       } as Record<string, unknown>);
+      this.sendCodexCurrentSettings(ws, sessionId, session);
       this.send(ws, {
         type: "status",
         status: session.status,
@@ -2208,6 +2258,7 @@ export class BridgeWebSocketServer {
                       modelReasoningEffort:
                         (msg.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"]) ??
                         undefined,
+                      serviceTier: msg.serviceTier,
                       networkAccessEnabled: msg.networkAccessEnabled,
                       webSearchMode:
                         (msg.webSearchMode as "disabled" | "cached" | "live") ??
@@ -2996,6 +3047,7 @@ export class BridgeWebSocketServer {
                 model: oldSettings.model,
                 modelReasoningEffort:
                   oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
+                serviceTier: oldSettings.serviceTier,
                 networkAccessEnabled: oldSettings.networkAccessEnabled as
                   | boolean
                   | undefined,
@@ -3086,6 +3138,7 @@ export class BridgeWebSocketServer {
                   model: oldSettings.model,
                   modelReasoningEffort:
                     oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
+                  serviceTier: oldSettings.serviceTier,
                   networkAccessEnabled: oldSettings.networkAccessEnabled as
                     | boolean
                     | undefined,
@@ -3233,6 +3286,41 @@ export class BridgeWebSocketServer {
         });
         console.log(
           `[ws] set_codex_model(codex): model=${model} effort=${modelReasoningEffort ?? ""}`,
+        );
+        break;
+      }
+
+      case "set_codex_speed": {
+        const session = this.resolveSession(msg.sessionId);
+        if (!session || session.provider !== "codex") {
+          this.send(ws, {
+            type: "error",
+            message: "No active Codex session.",
+            errorCode: "set_codex_speed_unsupported",
+          });
+          return;
+        }
+
+        const serviceTier = msg.serviceTier === "fast" ? "fast" : "standard";
+        if (session.codexSettings?.serviceTier === serviceTier) break;
+
+        const process = session.process as CodexProcess;
+        process.setServiceTier(serviceTier);
+        session.codexSettings = {
+          ...(session.codexSettings ?? {}),
+          serviceTier,
+        };
+        session.lastActivityAt = new Date();
+        this.broadcastSessionMessage(session.id, {
+          type: "system",
+          subtype: "set_codex_speed",
+          sessionId: session.id,
+          provider: "codex",
+          serviceTier,
+        });
+        this.broadcastSessionList();
+        console.log(
+          `[ws] set_codex_speed(codex): serviceTier=${serviceTier}`,
         );
         break;
       }
@@ -3481,6 +3569,7 @@ export class BridgeWebSocketServer {
               model: oldSettings.model,
               modelReasoningEffort:
                 oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
+              serviceTier: oldSettings.serviceTier,
               networkAccessEnabled: oldSettings.networkAccessEnabled as
                 | boolean
                 | undefined,
@@ -3558,6 +3647,7 @@ export class BridgeWebSocketServer {
                 model: oldSettings.model,
                 modelReasoningEffort:
                   oldSettings.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"],
+                serviceTier: oldSettings.serviceTier,
                 networkAccessEnabled: oldSettings.networkAccessEnabled as
                   | boolean
                   | undefined,
@@ -3796,6 +3886,9 @@ export class BridgeWebSocketServer {
             messages: [...splitPastHistory.historyMessages, ...session.history],
             sessionId: msg.sessionId,
           } as Record<string, unknown>);
+          if (session.provider === "codex") {
+            this.sendCodexCurrentSettings(ws, msg.sessionId, session);
+          }
           this.send(ws, {
             type: "status",
             status: session.status,
@@ -3855,6 +3948,7 @@ export class BridgeWebSocketServer {
             status: session.status,
             ...(result.kind === "snapshot" ? { reason: result.reason } : {}),
           } as ServerMessage);
+          this.sendCodexCurrentSettings(ws, msg.sessionId, session);
           this.sendCodexQueueState(ws, msg.sessionId, session);
           break;
         }
@@ -4234,6 +4328,7 @@ export class BridgeWebSocketServer {
                 modelReasoningEffort:
                   (msg.modelReasoningEffort as CodexStartOptions["modelReasoningEffort"]) ??
                   undefined,
+                serviceTier: msg.serviceTier,
                 networkAccessEnabled: msg.networkAccessEnabled,
                 webSearchMode:
                   (msg.webSearchMode as "disabled" | "cached" | "live") ??
@@ -5942,6 +6037,7 @@ export class BridgeWebSocketServer {
       claudeModelEfforts: this.claudeModelEfforts,
       codexModels: this.codexModels,
       codexModelReasoningEfforts: this.codexModelReasoningEfforts,
+      codexModelServiceTiers: this.codexModelServiceTiers,
       codexProfiles: this.codexProfiles,
       defaultCodexProfile: this.defaultCodexProfile,
       bridgeVersion: getPackageVersion(),
@@ -5977,6 +6073,7 @@ export class BridgeWebSocketServer {
       claudeModelEfforts: this.claudeModelEfforts,
       codexModels: this.codexModels,
       codexModelReasoningEfforts: this.codexModelReasoningEfforts,
+      codexModelServiceTiers: this.codexModelServiceTiers,
       codexProfiles: this.codexProfiles,
       defaultCodexProfile: this.defaultCodexProfile,
       bridgeVersion: getPackageVersion(),
@@ -6381,6 +6478,7 @@ export class BridgeWebSocketServer {
     return models.map((model) => ({
       model,
       supportedReasoningEfforts: fallbackCodexReasoningEfforts(model),
+      supportedServiceTiers: fallbackCodexServiceTiers(model),
     }));
   }
 
@@ -6394,6 +6492,14 @@ export class BridgeWebSocketServer {
           : fallbackCodexReasoningEfforts(model.model),
       ]),
     );
+    this.codexModelServiceTiers = Object.fromEntries(
+      models.map((model) => [
+        model.model,
+        (model.supportedServiceTiers?.length ?? 0) > 0
+          ? model.supportedServiceTiers
+          : fallbackCodexServiceTiers(model.model),
+      ]),
+    );
   }
 
   private applyFallbackCodexModels(): void {
@@ -6402,6 +6508,12 @@ export class BridgeWebSocketServer {
       FALLBACK_CODEX_MODELS.map((model) => [
         model,
         fallbackCodexReasoningEfforts(model),
+      ]),
+    );
+    this.codexModelServiceTiers = Object.fromEntries(
+      FALLBACK_CODEX_MODELS.map((model) => [
+        model,
+        fallbackCodexServiceTiers(model),
       ]),
     );
   }
@@ -7459,6 +7571,9 @@ export class BridgeWebSocketServer {
       }
       if (session.codexSettings.modelReasoningEffort !== undefined) {
         msg.modelReasoningEffort = session.codexSettings.modelReasoningEffort;
+      }
+      if (session.codexSettings.serviceTier !== undefined) {
+        msg.serviceTier = session.codexSettings.serviceTier;
       }
       if (session.codexSettings.networkAccessEnabled !== undefined) {
         msg.networkAccessEnabled = session.codexSettings.networkAccessEnabled;

@@ -14,6 +14,7 @@ import '../services/bridge_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/provider_style.dart';
 import 'workspace_pane_chrome.dart';
+import 'codex_effort_slider.dart';
 
 /// Result returned when the user submits the new session sheet.
 class NewSessionParams {
@@ -39,6 +40,7 @@ class NewSessionParams {
   final String? model;
   final SandboxMode? sandboxMode;
   final ReasoningEffort? modelReasoningEffort;
+  final CodexSpeed codexSpeed;
   final bool? networkAccessEnabled;
   final WebSearchMode? webSearchMode;
   final List<String> additionalWritableRoots;
@@ -74,6 +76,7 @@ class NewSessionParams {
     this.model,
     this.sandboxMode,
     this.modelReasoningEffort,
+    this.codexSpeed = CodexSpeed.standard,
     this.networkAccessEnabled,
     this.webSearchMode,
     this.additionalWritableRoots = const [],
@@ -151,6 +154,7 @@ class NewSessionParams {
     String? model,
     SandboxMode? sandboxMode,
     ReasoningEffort? modelReasoningEffort,
+    CodexSpeed? codexSpeed,
     bool? networkAccessEnabled,
     WebSearchMode? webSearchMode,
     List<String>? additionalWritableRoots,
@@ -192,6 +196,7 @@ class NewSessionParams {
       model: model ?? this.model,
       sandboxMode: sandboxMode ?? this.sandboxMode,
       modelReasoningEffort: modelReasoningEffort ?? this.modelReasoningEffort,
+      codexSpeed: codexSpeed ?? this.codexSpeed,
       networkAccessEnabled: networkAccessEnabled ?? this.networkAccessEnabled,
       webSearchMode: webSearchMode ?? this.webSearchMode,
       additionalWritableRoots:
@@ -340,6 +345,7 @@ Map<String, dynamic> sessionStartDefaultsToJson(NewSessionParams params) {
     'model': params.model,
     'sandboxMode': params.sandboxMode?.value,
     'modelReasoningEffort': params.modelReasoningEffort?.value,
+    'serviceTier': params.codexSpeed.value,
     'networkAccessEnabled': params.networkAccessEnabled,
     'webSearchMode': params.webSearchMode?.value,
     'claudeModel': params.claudeModel,
@@ -390,6 +396,7 @@ NewSessionParams? sessionStartDefaultsFromJson(Map<String, dynamic> json) {
     modelReasoningEffort: reasoningEffortFromRaw(
       json['modelReasoningEffort'] as String?,
     ),
+    codexSpeed: codexSpeedFromRaw(json['serviceTier'] as String?),
     networkAccessEnabled: json['networkAccessEnabled'] as bool?,
     webSearchMode: webSearchModeFromRaw(json['webSearchMode'] as String?),
     claudeModel: json['claudeModel'] as String?,
@@ -536,6 +543,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   late final Map<String, List<ClaudeEffort>> _claudeModelEfforts;
   late final List<String> _codexModelList;
   late final Map<String, List<ReasoningEffort>> _codexModelReasoningEfforts;
+  late final Map<String, List<String>> _codexModelServiceTiers;
   late final List<String> _codexProfiles;
 
   // Codex-specific options
@@ -544,6 +552,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
   var _claudeSandboxMode = SandboxMode.off; // Claude default = OFF
   var _codexSandboxMode = SandboxMode.on; // Codex default = ON
   ReasoningEffort _modelReasoningEffort = ReasoningEffort.high;
+  CodexSpeed _codexSpeed = CodexSpeed.standard;
   bool _networkAccessEnabled = true;
   WebSearchMode? _webSearchMode;
   bool _codexApprovalPolicyTouched = false;
@@ -673,6 +682,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
     _codexModelReasoningEfforts = _normalizeCodexModelReasoningEfforts(
       widget.bridge?.codexModelReasoningEfforts ?? const {},
     );
+    _codexModelServiceTiers = widget.bridge?.codexModelServiceTiers ?? const {};
     _codexProfiles = widget.bridge?.codexProfiles ?? const [];
     final defaultCodexProfile = widget.bridge?.defaultCodexProfile;
     if (_codexProfiles.contains(defaultCodexProfile)) {
@@ -758,9 +768,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       _codexModelReasoningEfforts,
     );
     if (efforts.isNotEmpty && !efforts.contains(_modelReasoningEffort)) {
-      _modelReasoningEffort = efforts.contains(ReasoningEffort.high)
-          ? ReasoningEffort.high
-          : efforts.first;
+      _modelReasoningEffort = preferredCodexEffort(efforts);
     }
   }
 
@@ -811,6 +819,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       _codexSandboxModeTouched = p.codexSandboxModeOverridden;
     }
     _modelReasoningEffort = p.modelReasoningEffort ?? _modelReasoningEffort;
+    _codexSpeed = p.codexSpeed;
     _normalizeSelectedCodexReasoningEffort();
     _networkAccessEnabled = p.networkAccessEnabled ?? _networkAccessEnabled;
     _webSearchMode = p.webSearchMode;
@@ -1094,6 +1103,7 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
       model: isCodex ? (_selectedModel ?? _codexModelList.firstOrNull) : null,
       sandboxMode: _sandboxMode,
       modelReasoningEffort: isCodex ? _modelReasoningEffort : null,
+      codexSpeed: isCodex ? _codexSpeed : CodexSpeed.standard,
       networkAccessEnabled: isCodex ? _networkAccessEnabled : null,
       webSearchMode: isCodex ? _webSearchMode : null,
       additionalWritableRoots: isCodex ? _additionalWritableRoots : const [],
@@ -1298,6 +1308,9 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 _selectedModel = value;
                 _codexModelTouched = true;
                 _normalizeSelectedCodexReasoningEffort();
+                if (!codexSupportsFast(value, _codexModelServiceTiers)) {
+                  _codexSpeed = CodexSpeed.standard;
+                }
               });
             },
             sandboxMode: _sandboxMode,
@@ -1315,6 +1328,15 @@ class _NewSessionSheetContentState extends State<_NewSessionSheetContent> {
                 _modelReasoningEffort = value;
                 _codexReasoningEffortTouched = true;
               });
+            },
+            codexSpeed: _codexSpeed,
+            codexSupportsFast: codexSupportsFast(
+              _selectedModel ?? _codexModelList.firstOrNull,
+              _codexModelServiceTiers,
+              speed: _codexSpeed,
+            ),
+            onCodexSpeedChanged: (value) {
+              setState(() => _codexSpeed = value);
             },
             webSearchMode: _webSearchMode,
             onWebSearchModeChanged: (value) {
@@ -2142,6 +2164,9 @@ class _OptionsSection extends StatelessWidget {
   final ValueChanged<SandboxMode> onSandboxModeChanged;
   final ReasoningEffort modelReasoningEffort;
   final ValueChanged<ReasoningEffort> onModelReasoningEffortChanged;
+  final CodexSpeed codexSpeed;
+  final bool codexSupportsFast;
+  final ValueChanged<CodexSpeed> onCodexSpeedChanged;
   final WebSearchMode? webSearchMode;
   final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
   final bool networkAccessEnabled;
@@ -2196,6 +2221,9 @@ class _OptionsSection extends StatelessWidget {
     required this.onSandboxModeChanged,
     required this.modelReasoningEffort,
     required this.onModelReasoningEffortChanged,
+    required this.codexSpeed,
+    required this.codexSupportsFast,
+    required this.onCodexSpeedChanged,
     required this.webSearchMode,
     required this.onWebSearchModeChanged,
     required this.networkAccessEnabled,
@@ -2590,43 +2618,30 @@ class _OptionsSection extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 8),
-          // -- Model selector --
-          modeSelectorField(
-            key: ValueKey(
-              provider == Provider.claude
-                  ? 'dialog_claude_model'
-                  : 'dialog_codex_model',
+          // Model stays prominent for Claude, but is under Advanced for Codex.
+          if (provider == Provider.claude)
+            modeSelectorField(
+              key: const ValueKey('dialog_claude_model'),
+              label: l.model,
+              icon: Icons.smart_toy_outlined,
+              title: selectedClaudeModel ?? claudeModels.firstOrNull ?? '',
+              subtitle: '',
+              onTap: () {
+                showModeSheet<String>(
+                  title: l.model,
+                  subtitle: l.sheetSubtitleModel,
+                  modes: claudeModels,
+                  currentMode:
+                      selectedClaudeModel ?? claudeModels.firstOrNull ?? '',
+                  iconFor: (_) => Icons.smart_toy_outlined,
+                  labelFor: (m) => m,
+                  descriptionFor: (_) => '',
+                  onSelected: onClaudeModelChanged,
+                );
+              },
             ),
-            label: l.model,
-            icon: Icons.smart_toy_outlined,
-            title: provider == Provider.claude
-                ? (selectedClaudeModel ?? claudeModels.firstOrNull ?? '')
-                : (selectedModel ?? codexModels.firstOrNull ?? ''),
-            subtitle: '',
-            onTap: () {
-              final models = provider == Provider.claude
-                  ? claudeModels
-                  : codexModels;
-              final current = provider == Provider.claude
-                  ? (selectedClaudeModel ?? models.firstOrNull)
-                  : (selectedModel ?? models.firstOrNull);
-              final onChanged = provider == Provider.claude
-                  ? onClaudeModelChanged
-                  : onSelectedModelChanged;
-              showModeSheet<String>(
-                title: l.model,
-                subtitle: l.sheetSubtitleModel,
-                modes: models,
-                currentMode: current ?? '',
-                iconFor: (_) => Icons.smart_toy_outlined,
-                labelFor: (m) => m,
-                descriptionFor: (_) => '',
-                onSelected: (m) => onChanged(m),
-              );
-            },
-          ),
           const SizedBox(height: 8),
-          // -- Effort / Reasoning selector --
+          // -- Effort selector --
           if (provider == Provider.claude && selectedClaudeEfforts.isNotEmpty)
             modeSelectorField(
               key: const ValueKey('dialog_claude_effort'),
@@ -2646,34 +2661,21 @@ class _OptionsSection extends StatelessWidget {
               ),
             ),
           if (provider == Provider.codex && codexReasoningEfforts.isNotEmpty)
-            modeSelectorField(
-              key: const ValueKey('dialog_codex_reasoning_effort'),
-              label: l.reasoning,
-              icon: Icons.psychology,
-              title:
-                  (codexReasoningEfforts.contains(modelReasoningEffort)
-                          ? modelReasoningEffort
-                          : codexReasoningEfforts.first)
-                      .label,
-              subtitle: _reasoningEffortDescription(
-                codexReasoningEfforts.contains(modelReasoningEffort)
-                    ? modelReasoningEffort
-                    : codexReasoningEfforts.first,
-                l,
-              ),
-              onTap: () => showModeSheet<ReasoningEffort>(
-                title: l.reasoning,
-                subtitle: l.sheetSubtitleEffort,
-                modes: codexReasoningEfforts,
-                currentMode:
-                    codexReasoningEfforts.contains(modelReasoningEffort)
-                    ? modelReasoningEffort
-                    : codexReasoningEfforts.first,
-                iconFor: (_) => Icons.psychology,
-                labelFor: (e) => e.label,
-                descriptionFor: (e) => _reasoningEffortDescription(e, l),
-                onSelected: onModelReasoningEffortChanged,
-              ),
+            _CodexSettingsSwitcher(
+              buildInputDecoration: buildInputDecoration,
+              models: codexModels,
+              selectedModel: selectedModel ?? codexModels.firstOrNull,
+              onModelChanged: onSelectedModelChanged,
+              reasoningEfforts: codexReasoningEfforts,
+              reasoningEffort: modelReasoningEffort,
+              onReasoningEffortChanged: onModelReasoningEffortChanged,
+              speed: codexSpeed,
+              supportsFast: codexSupportsFast,
+              onSpeedChanged: onCodexSpeedChanged,
+              webSearchMode: webSearchMode,
+              onWebSearchModeChanged: onWebSearchModeChanged,
+              networkAccessEnabled: networkAccessEnabled,
+              onNetworkAccessChanged: onNetworkAccessChanged,
             ),
           const SizedBox(height: 8),
           // Worktree toggle (shared) + inline options when expanded
@@ -2693,31 +2695,39 @@ class _OptionsSection extends StatelessWidget {
                   )
                 : null,
           ),
-          // Advanced section (unified for both providers)
-          const SizedBox(height: 8),
-          _AdvancedOptions(
-            provider: provider,
-            buildInputDecoration: buildInputDecoration,
-            // Claude
-            claudeModels: claudeModels,
-            claudeMaxTurnsController: claudeMaxTurnsController,
-            maxTurnsError: maxTurnsError,
-            onMaxTurnsChanged: onMaxTurnsChanged,
-            claudeMaxBudgetController: claudeMaxBudgetController,
-            maxBudgetError: maxBudgetError,
-            onMaxBudgetChanged: onMaxBudgetChanged,
-            selectedClaudeFallbackModel: selectedClaudeFallbackModel,
-            onClaudeFallbackModelChanged: onClaudeFallbackModelChanged,
-            claudeForkSession: claudeForkSession,
-            onClaudeForkSessionChanged: onClaudeForkSessionChanged,
-            claudePersistSession: claudePersistSession,
-            onClaudePersistSessionChanged: onClaudePersistSessionChanged,
-            // Codex
-            webSearchMode: webSearchMode,
-            onWebSearchModeChanged: onWebSearchModeChanged,
-            networkAccessEnabled: networkAccessEnabled,
-            onNetworkAccessChanged: onNetworkAccessChanged,
-          ),
+          if (provider == Provider.claude) ...[
+            const SizedBox(height: 8),
+            _AdvancedOptions(
+              provider: provider,
+              buildInputDecoration: buildInputDecoration,
+              claudeModels: claudeModels,
+              claudeMaxTurnsController: claudeMaxTurnsController,
+              maxTurnsError: maxTurnsError,
+              onMaxTurnsChanged: onMaxTurnsChanged,
+              claudeMaxBudgetController: claudeMaxBudgetController,
+              maxBudgetError: maxBudgetError,
+              onMaxBudgetChanged: onMaxBudgetChanged,
+              selectedClaudeFallbackModel: selectedClaudeFallbackModel,
+              onClaudeFallbackModelChanged: onClaudeFallbackModelChanged,
+              claudeForkSession: claudeForkSession,
+              onClaudeForkSessionChanged: onClaudeForkSessionChanged,
+              claudePersistSession: claudePersistSession,
+              onClaudePersistSessionChanged: onClaudePersistSessionChanged,
+              codexModels: codexModels,
+              selectedCodexModel: selectedModel ?? codexModels.firstOrNull,
+              onCodexModelChanged: onSelectedModelChanged,
+              codexReasoningEfforts: codexReasoningEfforts,
+              codexReasoningEffort: modelReasoningEffort,
+              onCodexReasoningEffortChanged: onModelReasoningEffortChanged,
+              codexSpeed: codexSpeed,
+              codexSupportsFast: codexSupportsFast,
+              onCodexSpeedChanged: onCodexSpeedChanged,
+              webSearchMode: webSearchMode,
+              onWebSearchModeChanged: onWebSearchModeChanged,
+              networkAccessEnabled: networkAccessEnabled,
+              onNetworkAccessChanged: onNetworkAccessChanged,
+            ),
+          ],
         ],
       ),
     );
@@ -2814,20 +2824,6 @@ String _claudeEffortDescription(ClaudeEffort effort, AppLocalizations l) {
   };
 }
 
-String _reasoningEffortDescription(ReasoningEffort effort, AppLocalizations l) {
-  return switch (effort) {
-    ReasoningEffort.none => l.reasoningEffortNoneDesc,
-    ReasoningEffort.minimal => l.reasoningEffortMinimalDesc,
-    ReasoningEffort.low => l.reasoningEffortLowDesc,
-    ReasoningEffort.medium => l.reasoningEffortMediumDesc,
-    ReasoningEffort.high => l.reasoningEffortHighDesc,
-    ReasoningEffort.xhigh => l.reasoningEffortXhighDesc,
-    ReasoningEffort.max => l.reasoningEffortMaxDesc,
-    ReasoningEffort.ultra => l.reasoningEffortUltraDesc,
-    _ => l.reasoningEffortModelSpecificDesc,
-  };
-}
-
 class _ResponsiveOptionRow extends StatelessWidget {
   final Widget leading;
   final Widget trailing;
@@ -2853,6 +2849,108 @@ class _ResponsiveOptionRow extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _CodexSettingsSwitcher extends StatefulWidget {
+  final InputDecoration Function(
+    String, {
+    String? hintText,
+    Widget? prefixIcon,
+    String? errorText,
+  })
+  buildInputDecoration;
+  final List<String> models;
+  final String? selectedModel;
+  final ValueChanged<String?> onModelChanged;
+  final List<ReasoningEffort> reasoningEfforts;
+  final ReasoningEffort reasoningEffort;
+  final ValueChanged<ReasoningEffort> onReasoningEffortChanged;
+  final CodexSpeed speed;
+  final bool supportsFast;
+  final ValueChanged<CodexSpeed> onSpeedChanged;
+  final WebSearchMode? webSearchMode;
+  final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
+  final bool networkAccessEnabled;
+  final ValueChanged<bool> onNetworkAccessChanged;
+
+  const _CodexSettingsSwitcher({
+    required this.buildInputDecoration,
+    required this.models,
+    required this.selectedModel,
+    required this.onModelChanged,
+    required this.reasoningEfforts,
+    required this.reasoningEffort,
+    required this.onReasoningEffortChanged,
+    required this.speed,
+    required this.supportsFast,
+    required this.onSpeedChanged,
+    required this.webSearchMode,
+    required this.onWebSearchModeChanged,
+    required this.networkAccessEnabled,
+    required this.onNetworkAccessChanged,
+  });
+
+  @override
+  State<_CodexSettingsSwitcher> createState() => _CodexSettingsSwitcherState();
+}
+
+class _CodexSettingsSwitcherState extends State<_CodexSettingsSwitcher> {
+  bool _showAdvanced = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final effectiveEffort =
+        widget.reasoningEfforts.contains(widget.reasoningEffort)
+        ? widget.reasoningEffort
+        : widget.reasoningEfforts.first;
+
+    return CodexSettingsPanel(
+      model: widget.selectedModel ?? widget.models.firstOrNull ?? 'gpt-5.5',
+      effort: effectiveEffort,
+      speed: widget.speed,
+      supportsFast: widget.supportsFast,
+      onSpeedChanged: widget.onSpeedChanged,
+      speedButtonKey: 'dialog_codex_speed_button',
+      showAdvanced: _showAdvanced,
+      advancedLabel: l.advanced,
+      toggleButtonKey: 'dialog_advanced_codex',
+      onToggleMode: () => setState(() => _showAdvanced = !_showAdvanced),
+      quickPanelKey: 'dialog_codex_quick_panel',
+      advancedPanelKey: 'dialog_codex_advanced_panel',
+      modelLabelKey: 'dialog_codex_model_label',
+      effortLabelKey: 'dialog_codex_effort_label',
+      advancedEffortBadgeKey: 'dialog_codex_effort_slider_advanced_value_badge',
+      quickChild: CodexEffortSlider(
+        key: const ValueKey('dialog_codex_effort_control'),
+        efforts: widget.reasoningEfforts,
+        value: effectiveEffort,
+        onChanged: widget.onReasoningEffortChanged,
+        sliderKey: 'dialog_codex_effort_slider',
+      ),
+      advancedChild: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+        child: Column(
+          children: _CodexAdvancedOptions(
+            buildInputDecoration: widget.buildInputDecoration,
+            models: widget.models,
+            selectedModel: widget.selectedModel,
+            onModelChanged: widget.onModelChanged,
+            reasoningEfforts: widget.reasoningEfforts,
+            reasoningEffort: effectiveEffort,
+            onReasoningEffortChanged: widget.onReasoningEffortChanged,
+            speed: widget.speed,
+            supportsFast: widget.supportsFast,
+            onSpeedChanged: widget.onSpeedChanged,
+            webSearchMode: widget.webSearchMode,
+            onWebSearchModeChanged: widget.onWebSearchModeChanged,
+            networkAccessEnabled: widget.networkAccessEnabled,
+            onNetworkAccessChanged: widget.onNetworkAccessChanged,
+          ).buildChildren(context),
+        ),
+      ),
     );
   }
 }
@@ -2883,6 +2981,15 @@ class _AdvancedOptions extends StatelessWidget {
   final ValueChanged<bool> onClaudePersistSessionChanged;
 
   // Codex
+  final List<String> codexModels;
+  final String? selectedCodexModel;
+  final ValueChanged<String?> onCodexModelChanged;
+  final List<ReasoningEffort> codexReasoningEfforts;
+  final ReasoningEffort codexReasoningEffort;
+  final ValueChanged<ReasoningEffort> onCodexReasoningEffortChanged;
+  final CodexSpeed codexSpeed;
+  final bool codexSupportsFast;
+  final ValueChanged<CodexSpeed> onCodexSpeedChanged;
   final WebSearchMode? webSearchMode;
   final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
   final bool networkAccessEnabled;
@@ -2904,6 +3011,15 @@ class _AdvancedOptions extends StatelessWidget {
     required this.onClaudeForkSessionChanged,
     required this.claudePersistSession,
     required this.onClaudePersistSessionChanged,
+    required this.codexModels,
+    required this.selectedCodexModel,
+    required this.onCodexModelChanged,
+    required this.codexReasoningEfforts,
+    required this.codexReasoningEffort,
+    required this.onCodexReasoningEffortChanged,
+    required this.codexSpeed,
+    required this.codexSupportsFast,
+    required this.onCodexSpeedChanged,
     required this.webSearchMode,
     required this.onWebSearchModeChanged,
     required this.networkAccessEnabled,
@@ -2948,6 +3064,15 @@ class _AdvancedOptions extends StatelessWidget {
               ).buildChildren(context)
             : _CodexAdvancedOptions(
                 buildInputDecoration: buildInputDecoration,
+                models: codexModels,
+                selectedModel: selectedCodexModel,
+                onModelChanged: onCodexModelChanged,
+                reasoningEfforts: codexReasoningEfforts,
+                reasoningEffort: codexReasoningEffort,
+                onReasoningEffortChanged: onCodexReasoningEffortChanged,
+                speed: codexSpeed,
+                supportsFast: codexSupportsFast,
+                onSpeedChanged: onCodexSpeedChanged,
                 webSearchMode: webSearchMode,
                 onWebSearchModeChanged: onWebSearchModeChanged,
                 networkAccessEnabled: networkAccessEnabled,
@@ -3095,6 +3220,15 @@ class _CodexAdvancedOptions extends StatelessWidget {
     String? errorText,
   })
   buildInputDecoration;
+  final List<String> models;
+  final String? selectedModel;
+  final ValueChanged<String?> onModelChanged;
+  final List<ReasoningEffort> reasoningEfforts;
+  final ReasoningEffort reasoningEffort;
+  final ValueChanged<ReasoningEffort> onReasoningEffortChanged;
+  final CodexSpeed speed;
+  final bool supportsFast;
+  final ValueChanged<CodexSpeed> onSpeedChanged;
   final WebSearchMode? webSearchMode;
   final ValueChanged<WebSearchMode?> onWebSearchModeChanged;
   final bool networkAccessEnabled;
@@ -3102,6 +3236,15 @@ class _CodexAdvancedOptions extends StatelessWidget {
 
   const _CodexAdvancedOptions({
     required this.buildInputDecoration,
+    required this.models,
+    required this.selectedModel,
+    required this.onModelChanged,
+    required this.reasoningEfforts,
+    required this.reasoningEffort,
+    required this.onReasoningEffortChanged,
+    required this.speed,
+    required this.supportsFast,
+    required this.onSpeedChanged,
     required this.webSearchMode,
     required this.onWebSearchModeChanged,
     required this.networkAccessEnabled,
@@ -3110,7 +3253,68 @@ class _CodexAdvancedOptions extends StatelessWidget {
 
   List<Widget> buildChildren(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final effectiveEffort = reasoningEfforts.contains(reasoningEffort)
+        ? reasoningEffort
+        : reasoningEfforts.firstOrNull;
     return [
+      DropdownButtonFormField<String>(
+        key: const ValueKey('dialog_codex_model'),
+        initialValue: models.contains(selectedModel)
+            ? selectedModel
+            : models.firstOrNull,
+        isExpanded: true,
+        decoration: buildInputDecoration(l.model),
+        items: [
+          for (final model in models)
+            DropdownMenuItem(
+              value: model,
+              child: Text(codexModelDisplayName(model)),
+            ),
+        ],
+        onChanged: onModelChanged,
+      ),
+      const SizedBox(height: 8),
+      KeyedSubtree(
+        key: ValueKey('codex_effort_field_${selectedModel ?? 'default'}'),
+        child: DropdownButtonFormField<ReasoningEffort>(
+          key: const ValueKey('dialog_codex_effort_advanced'),
+          initialValue: effectiveEffort,
+          isExpanded: true,
+          decoration: buildInputDecoration(l.effort),
+          items: [
+            for (final effort in reasoningEfforts)
+              DropdownMenuItem(value: effort, child: Text(effort.label)),
+          ],
+          onChanged: (value) {
+            if (value != null) onReasoningEffortChanged(value);
+          },
+        ),
+      ),
+      const SizedBox(height: 8),
+      KeyedSubtree(
+        key: ValueKey('codex_speed_field_${selectedModel ?? 'default'}'),
+        child: DropdownButtonFormField<CodexSpeed>(
+          key: const ValueKey('dialog_codex_speed_advanced'),
+          initialValue: speed,
+          isExpanded: true,
+          decoration: buildInputDecoration('Speed'),
+          items: [
+            const DropdownMenuItem(
+              value: CodexSpeed.standard,
+              child: Text('Standard'),
+            ),
+            if (supportsFast)
+              const DropdownMenuItem(
+                value: CodexSpeed.fast,
+                child: Text('Fast — 1.5× speed, more usage'),
+              ),
+          ],
+          onChanged: (value) {
+            if (value != null) onSpeedChanged(value);
+          },
+        ),
+      ),
+      const SizedBox(height: 8),
       DropdownButtonFormField<WebSearchMode?>(
         key: const ValueKey('dialog_codex_web_search_mode'),
         initialValue: webSearchMode,

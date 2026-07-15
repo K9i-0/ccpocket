@@ -34,6 +34,7 @@ export interface CodexStartOptions {
   sandboxMode?: "read-only" | "workspace-write" | "danger-full-access";
   model?: string;
   modelReasoningEffort?: string;
+  serviceTier?: string;
   networkAccessEnabled?: boolean;
   webSearchMode?: "disabled" | "cached" | "live";
   collaborationMode?: "plan" | "default";
@@ -192,6 +193,7 @@ interface CodexResolvedSettings {
   codexPermissionsMode?: string;
   sandboxMode?: string;
   modelReasoningEffort?: string;
+  serviceTier?: string;
   networkAccessEnabled?: boolean;
   webSearchMode?: string;
 }
@@ -205,6 +207,8 @@ export interface CodexModelMetadata {
   model: string;
   supportedReasoningEfforts: string[];
   defaultReasoningEffort?: string;
+  supportedServiceTiers: string[];
+  defaultServiceTier?: string;
 }
 
 interface CodexModelListResponse {
@@ -299,6 +303,7 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
   private _runtimeModelReasoningEffort:
     | CodexStartOptions["modelReasoningEffort"]
     | undefined;
+  private _runtimeServiceTier: string | null | undefined;
   private lastPlanItemText: string | null = null;
   /** Last assistant text message — used as `result` in completion notification. */
   private lastResultText: string | null = null;
@@ -372,6 +377,10 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     return this._runtimeModelReasoningEffort;
   }
 
+  get serviceTier(): string {
+    return this._runtimeServiceTier ?? "standard";
+  }
+
   /**
    * Update Codex model at runtime.
    * Takes effect on the next `turn/start` RPC call.
@@ -395,6 +404,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           ? ` (${this._runtimeModelReasoningEffort})`
           : ""),
     );
+  }
+
+  /** Update Codex speed for the next turn without restarting the thread. */
+  setServiceTier(serviceTier: string): void {
+    this._runtimeServiceTier = normalizeServiceTier(serviceTier);
+    console.log(`[codex-process] Speed changed to: ${this.serviceTier}`);
   }
 
   /**
@@ -629,6 +644,13 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
                 : typeof raw.default_reasoning_effort === "string"
                   ? raw.default_reasoning_effort
                   : undefined,
+            supportedServiceTiers: extractServiceTiers(raw),
+            defaultServiceTier:
+              typeof raw.defaultServiceTier === "string"
+                ? raw.defaultServiceTier
+                : typeof raw.default_service_tier === "string"
+                  ? raw.default_service_tier
+                  : undefined,
           });
         }
       }
@@ -707,6 +729,12 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
     this.cleanupSteerTempPaths();
     this.lastTokenUsage = null;
     this.startModel = sanitizeCodexModel(options?.model);
+    this._runtimeModel = undefined;
+    this._runtimeModelReasoningEffort = options?.modelReasoningEffort;
+    this._runtimeServiceTier =
+      options?.serviceTier === undefined
+        ? undefined
+        : normalizeServiceTier(options.serviceTier);
     this._approvalPolicy = options?.approvalPolicy;
     this._approvalsReviewer =
       options?.approvalsReviewer === undefined
@@ -1206,6 +1234,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         ? normalizeReasoningEffort(options.modelReasoningEffort)
         : undefined;
       if (requestedModel) threadParams.model = requestedModel;
+      if (options?.serviceTier !== undefined) {
+        threadParams.serviceTier = normalizeServiceTier(options.serviceTier);
+      }
       if (requestedReasoningEffort) {
         // app-server applies reasoning effort on thread start via config overrides,
         // not the top-level thread/start payload.
@@ -1316,6 +1347,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
           : requestedReasoningEffort
             ? { modelReasoningEffort: requestedReasoningEffort }
           : {}),
+        serviceTier: normalizeServiceTierForClient(
+          resolvedSettings.serviceTier ?? options?.serviceTier,
+        ),
         ...(resolvedSettings.networkAccessEnabled !== undefined
           ? { networkAccessEnabled: resolvedSettings.networkAccessEnabled }
           : {}),
@@ -1686,6 +1720,9 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         if (requestedModel) params.model = requestedModel;
         if (requestedReasoningEffort) {
           params.effort = requestedReasoningEffort;
+        }
+        if (this._runtimeServiceTier !== undefined) {
+          params.serviceTier = this._runtimeServiceTier;
         }
 
         // Always send collaborationMode so the server switches modes correctly.
@@ -2958,6 +2995,53 @@ function extractReasoningEfforts(raw: Record<string, unknown>): string[] {
   return efforts;
 }
 
+function extractServiceTiers(raw: Record<string, unknown>): string[] {
+  // Recent app-server versions expose the user-facing Fast option as
+  // `additionalSpeedTiers: ["fast"]`, while the lower-level service tier is
+  // advertised as `{ id: "priority", name: "Fast" }`. Merge both shapes and
+  // normalize them to the value accepted by `service_tier` in config/RPCs.
+  const values = [
+    ...(Array.isArray(raw.additionalSpeedTiers)
+      ? raw.additionalSpeedTiers
+      : []),
+    ...(Array.isArray(raw.serviceTiers) ? raw.serviceTiers : []),
+  ];
+  const seen = new Set<string>();
+  const tiers: string[] = [];
+  for (const value of values) {
+    const metadata =
+      value && typeof value === "object"
+        ? (value as Record<string, unknown>)
+        : undefined;
+    const rawTier = typeof value === "string" ? value : metadata?.id;
+    const rawName = metadata?.name;
+    const tier =
+      rawTier === "priority" ||
+      (typeof rawName === "string" && rawName.toLowerCase() === "fast")
+        ? "fast"
+        : rawTier;
+    if (typeof tier !== "string") continue;
+    const normalized = tier.trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    tiers.push(normalized);
+  }
+  return tiers;
+}
+
+function normalizeServiceTier(value: string): string | null {
+  const normalized = value.trim();
+  return !normalized || normalized === "standard" || normalized === "default"
+    ? null
+    : normalized;
+}
+
+function normalizeServiceTierForClient(value: unknown): string {
+  if (typeof value !== "string") return "standard";
+  const normalized = value.trim();
+  return !normalized || normalized === "default" ? "standard" : normalized;
+}
+
 function sanitizeCodexModel(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim();
@@ -2994,6 +3078,10 @@ function extractResolvedSettingsFromThreadResponse(
         ? response.reasoningEffort
         : typeof collaborationSettings?.reasoning_effort === "string"
           ? collaborationSettings.reasoning_effort
+        : undefined,
+    serviceTier:
+      typeof response.serviceTier === "string"
+        ? response.serviceTier
         : undefined,
     networkAccessEnabled:
       typeof sandbox?.networkAccess === "boolean"

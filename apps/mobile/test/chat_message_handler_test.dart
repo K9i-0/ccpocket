@@ -521,6 +521,38 @@ void main() {
       expect(update.projectPath, '/repo');
     });
 
+    test('restores the latest Codex model, effort, and speed from history', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            SystemMessage(
+              subtype: 'init',
+              provider: 'codex',
+              model: 'gpt-5.6-sol',
+              modelReasoningEffort: 'high',
+              serviceTier: 'fast',
+            ),
+            SystemMessage(
+              subtype: 'set_codex_model',
+              provider: 'codex',
+              model: 'gpt-5.6-terra',
+              modelReasoningEffort: 'xhigh',
+            ),
+            SystemMessage(
+              subtype: 'set_codex_speed',
+              provider: 'codex',
+              serviceTier: 'standard',
+            ),
+          ],
+        ),
+        isBackground: false,
+      );
+
+      expect(update.codexModel, 'gpt-5.6-terra');
+      expect(update.codexModelReasoningEffort, ReasoningEffort.xhigh);
+      expect(update.codexSpeed, CodexSpeed.standard);
+    });
+
     test('restores pending permission when status is waitingApproval', () {
       final update = handler.handle(
         const HistoryMessage(
@@ -1680,6 +1712,21 @@ void main() {
       final message = entry.message as ErrorMessage;
       expect(message.errorCode, 'bridge_update_required');
       expect(message.message, contains('newer Bridge server'));
+    });
+
+    test('set_codex_speed shows bridge update hint', () {
+      final update = handler.handle(
+        const ErrorMessage(
+          message: 'set_codex_speed',
+          errorCode: 'unsupported_message',
+        ),
+        isBackground: false,
+      );
+
+      expect(update.entriesToAdd, hasLength(1));
+      final entry = update.entriesToAdd.single as ServerChatEntry;
+      final message = entry.message as ErrorMessage;
+      expect(message.errorCode, 'bridge_update_required');
     });
   });
 }

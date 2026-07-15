@@ -127,6 +127,7 @@ export type ClientMessage =
       persistSession?: boolean;
       profile?: string;
       modelReasoningEffort?: string;
+      serviceTier?: string;
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
       additionalWritableRoots?: string[];
@@ -181,6 +182,11 @@ export type ClientMessage =
       type: "set_codex_model";
       model: string;
       modelReasoningEffort?: string;
+      sessionId?: string;
+    }
+  | {
+      type: "set_codex_speed";
+      serviceTier: string;
       sessionId?: string;
     }
   | { type: "get_goal"; sessionId: string }
@@ -244,6 +250,7 @@ export type ClientMessage =
       persistSession?: boolean;
       profile?: string;
       modelReasoningEffort?: string;
+      serviceTier?: string;
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
       additionalWritableRoots?: string[];
@@ -477,6 +484,7 @@ export type ServerMessage =
       permissionMode?: PermissionMode;
       sandboxMode?: string;
       modelReasoningEffort?: string;
+      serviceTier?: string;
       networkAccessEnabled?: boolean;
       webSearchMode?: string;
       additionalWritableRoots?: string[];
@@ -923,6 +931,12 @@ export function parseClientMessage(data: string): ClientMessage | null {
         )
           return null;
         if (
+          msg.serviceTier !== undefined &&
+          (typeof msg.serviceTier !== "string" ||
+            msg.serviceTier.trim().length === 0)
+        )
+          return null;
+        if (
           msg.permissionMode !== undefined &&
           !["default", "auto", "acceptEdits", "bypassPermissions", "plan"].includes(
             String(msg.permissionMode),
@@ -1132,6 +1146,15 @@ export function parseClientMessage(data: string): ClientMessage | null {
         if (msg.sessionId !== undefined && typeof msg.sessionId !== "string")
           return null;
         break;
+      case "set_codex_speed":
+        if (
+          typeof msg.serviceTier !== "string" ||
+          msg.serviceTier.trim().length === 0
+        )
+          return null;
+        if (msg.sessionId !== undefined && typeof msg.sessionId !== "string")
+          return null;
+        break;
       case "get_goal":
       case "clear_goal":
         if (typeof msg.sessionId !== "string") return null;
@@ -1261,6 +1284,12 @@ export function parseClientMessage(data: string): ClientMessage | null {
           msg.modelReasoningEffort !== undefined &&
           (typeof msg.modelReasoningEffort !== "string" ||
             msg.modelReasoningEffort.trim().length === 0)
+        )
+          return null;
+        if (
+          msg.serviceTier !== undefined &&
+          (typeof msg.serviceTier !== "string" ||
+            msg.serviceTier.trim().length === 0)
         )
           return null;
         if (

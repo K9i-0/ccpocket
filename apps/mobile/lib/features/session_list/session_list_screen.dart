@@ -164,6 +164,7 @@ class CodexRecentResumeSettings {
   final String? sandboxMode;
   final String? model;
   final String? modelReasoningEffort;
+  final String? serviceTier;
   final bool? networkAccessEnabled;
   final String? webSearchMode;
   final List<String>? additionalWritableRoots;
@@ -177,6 +178,7 @@ class CodexRecentResumeSettings {
     this.sandboxMode,
     this.model,
     this.modelReasoningEffort,
+    this.serviceTier,
     this.networkAccessEnabled,
     this.webSearchMode,
     this.additionalWritableRoots,
@@ -227,6 +229,7 @@ CodexRecentResumeSettings factualCodexResumeSettings(
     modelReasoningEffort: useCodexProfile
         ? null
         : session.codexModelReasoningEffort,
+    serviceTier: session.codexServiceTier,
     networkAccessEnabled: useCustomPermissions
         ? null
         : session.codexNetworkAccessEnabled,
@@ -829,6 +832,9 @@ class _SessionListScreenState extends State<SessionListScreen>
             result.provider == Provider.codex && useCodexProfile
             ? null
             : result.modelReasoningEffort?.value,
+        serviceTier: result.provider == Provider.codex
+            ? result.codexSpeed.value
+            : null,
         networkAccessEnabled:
             result.provider == Provider.codex && useCodexCustomPermissions
             ? null
@@ -1173,6 +1179,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       modelReasoningEffort: reasoningEffortFromRaw(
         session.codexModelReasoningEffort,
       ),
+      codexSpeed: codexSpeedFromRaw(session.codexServiceTier),
       networkAccessEnabled: session.codexNetworkAccessEnabled,
       webSearchMode: webSearchModeFromRaw(session.codexWebSearchMode),
       additionalWritableRoots: provider == Provider.codex
@@ -1515,6 +1522,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       modelReasoningEffort: isCodex
           ? codexResumeSettings?.modelReasoningEffort
           : null,
+      serviceTier: isCodex ? codexResumeSettings?.serviceTier : null,
       networkAccessEnabled: isCodex
           ? codexResumeSettings?.networkAccessEnabled
           : null,
@@ -1634,6 +1642,7 @@ class _SessionListScreenState extends State<SessionListScreen>
       modelReasoningEffort: isCodex && useCodexProfile
           ? null
           : (isCodex ? edited.modelReasoningEffort?.value : null),
+      serviceTier: isCodex ? edited.codexSpeed.value : null,
       networkAccessEnabled: isCodex && useCodexCustomPermissions
           ? null
           : (isCodex ? edited.networkAccessEnabled : null),

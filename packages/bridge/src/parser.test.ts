@@ -301,6 +301,21 @@ describe("parseClientMessage", () => {
     ).toBeNull();
   });
 
+  it("parses set_codex_speed messages", () => {
+    expect(
+      parseClientMessage(
+        '{"type":"set_codex_speed","serviceTier":"fast","sessionId":"s1"}',
+      ),
+    ).toEqual({
+      type: "set_codex_speed",
+      serviceTier: "fast",
+      sessionId: "s1",
+    });
+    expect(
+      parseClientMessage('{"type":"set_codex_speed","serviceTier":""}'),
+    ).toBeNull();
+  });
+
   it("parses Codex goal messages", () => {
     expect(
       parseClientMessage('{"type":"get_goal","sessionId":"s1"}'),

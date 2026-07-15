@@ -27,6 +27,22 @@ class _BridgeWithCodexProfiles extends BridgeService {
   String? get defaultCodexProfile => defaultProfile;
 }
 
+class _BridgeWithCodexModels extends BridgeService {
+  @override
+  List<String> get codexModels => const ['gpt-5.6-sol', 'gpt-5.4-mini'];
+
+  @override
+  Map<String, List<String>> get codexModelReasoningEfforts => const {
+    'gpt-5.6-sol': ['xhigh', 'ultra'],
+    'gpt-5.4-mini': ['low', 'medium'],
+  };
+
+  @override
+  Map<String, List<String>> get codexModelServiceTiers => const {
+    'gpt-5.6-sol': ['fast'],
+  };
+}
+
 Widget _wrap(Widget child) {
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -739,6 +755,7 @@ void main() {
                       provider: Provider.codex,
                       permissionMode: PermissionMode.acceptEdits,
                       model: 'gpt-5.3-codex',
+                      codexSpeed: CodexSpeed.fast,
                       useWorktree: true,
                       worktreeBranch: 'feature/default',
                     ),
@@ -761,6 +778,10 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('feature/default'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('dialog_codex_speed_button')),
+        findsOneWidget,
+      );
 
       final startButton = find.byKey(const ValueKey('dialog_start_button'));
       await tester.ensureVisible(startButton);
@@ -771,83 +792,287 @@ void main() {
       expect(result!.provider, Provider.codex);
       expect(result!.useWorktree, isTrue);
       expect(result!.worktreeBranch, 'feature/default');
+      expect(result!.codexSpeed, CodexSpeed.fast);
     });
 
-    testWidgets(
-      'primary model controls stay visible without opening advanced',
-      (tester) async {
-        _enlargeViewport(tester);
-        await tester.pumpWidget(
-          _wrap(
-            Builder(
-              builder: (context) => Column(
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      showNewSessionSheet(
-                        context: context,
-                        recentProjects: [(path: '/test/proj', name: 'proj')],
-                      );
-                    },
-                    child: const Text('Open Codex'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      showNewSessionSheet(
-                        context: context,
-                        recentProjects: [(path: '/test/proj', name: 'proj')],
-                        initialParams: NewSessionParams(
-                          projectPath: '/test/proj',
-                          provider: Provider.claude,
-                          permissionMode: PermissionMode.acceptEdits,
-                        ),
-                      );
-                    },
-                    child: const Text('Open Claude'),
-                  ),
-                ],
-              ),
+    testWidgets('Codex keeps Effort visible and moves Model under advanced', (
+      tester,
+    ) async {
+      _enlargeViewport(tester);
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => Column(
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    showNewSessionSheet(
+                      context: context,
+                      recentProjects: [(path: '/test/proj', name: 'proj')],
+                    );
+                  },
+                  child: const Text('Open Codex'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    showNewSessionSheet(
+                      context: context,
+                      recentProjects: [(path: '/test/proj', name: 'proj')],
+                      initialParams: NewSessionParams(
+                        projectPath: '/test/proj',
+                        provider: Provider.claude,
+                        permissionMode: PermissionMode.acceptEdits,
+                      ),
+                    );
+                  },
+                  child: const Text('Open Claude'),
+                ),
+              ],
             ),
           ),
-        );
+        ),
+      );
 
-        await tester.tap(find.text('Open Codex'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Open Codex'));
+      await tester.pumpAndSettle();
 
-        expect(
-          find.byKey(const ValueKey('dialog_codex_model')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('dialog_codex_reasoning_effort')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('dialog_advanced_codex')),
-          findsOneWidget,
-        );
+      expect(find.byKey(const ValueKey('dialog_codex_model')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('dialog_codex_effort_slider')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_codex_speed_button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_advanced_codex')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('dialog_codex_model_label')),
+            )
+            .data,
+        '5.5',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('dialog_codex_effort_label')),
+            )
+            .data,
+        'High',
+      );
 
-        Navigator.of(
-          tester.element(find.byKey(const ValueKey('dialog_codex_model'))),
-        ).pop();
-        await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('dialog_advanced_codex')));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        find.byKey(const ValueKey('dialog_codex_quick_panel')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_codex_advanced_panel')),
+        findsOneWidget,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('dialog_codex_effort_slider')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_codex_speed_button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_codex_advanced_panel')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('dialog_codex_model')), findsOneWidget);
+      expect(find.text('5.5'), findsNWidgets(2));
+      expect(find.text('gpt-5.5'), findsNothing);
 
-        await tester.tap(find.text('Open Claude'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('dialog_advanced_codex')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('dialog_codex_effort_slider')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_codex_advanced_panel')),
+        findsNothing,
+      );
 
-        expect(
-          find.byKey(const ValueKey('dialog_claude_model')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('dialog_claude_effort')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('dialog_advanced_claude')),
-          findsOneWidget,
-        );
-      },
-    );
+      Navigator.of(
+        tester.element(
+          find.byKey(const ValueKey('dialog_codex_effort_slider')),
+        ),
+      ).pop();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open Claude'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('dialog_claude_model')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('dialog_claude_effort')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('dialog_advanced_claude')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Codex quick Speed button toggles Fast mode', (tester) async {
+      _enlargeViewport(tester);
+      final bridge = _BridgeWithCodexModels();
+      addTearDown(bridge.dispose);
+      NewSessionParams? result;
+
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                result = await showNewSessionSheet(
+                  context: context,
+                  bridge: bridge,
+                  recentProjects: [(path: '/test/proj', name: 'proj')],
+                  initialParams: NewSessionParams(
+                    projectPath: '/test/proj',
+                    provider: Provider.codex,
+                    permissionMode: PermissionMode.acceptEdits,
+                    model: 'gpt-5.6-sol',
+                    codexSpeed: CodexSpeed.standard,
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('dialog_codex_speed_button')));
+      await tester.pumpAndSettle();
+
+      final startButton = find.byKey(const ValueKey('dialog_start_button'));
+      await tester.ensureVisible(startButton);
+      await tester.tap(startButton);
+      await tester.pumpAndSettle();
+
+      expect(result, isNotNull);
+      expect(result!.codexSpeed, CodexSpeed.fast);
+    });
+
+    testWidgets('Codex advanced model change normalizes Effort and Speed', (
+      tester,
+    ) async {
+      _enlargeViewport(tester);
+      final bridge = _BridgeWithCodexModels();
+      addTearDown(bridge.dispose);
+      NewSessionParams? result;
+
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                result = await showNewSessionSheet(
+                  context: context,
+                  bridge: bridge,
+                  recentProjects: [(path: '/test/proj', name: 'proj')],
+                  initialParams: NewSessionParams(
+                    projectPath: '/test/proj',
+                    provider: Provider.codex,
+                    permissionMode: PermissionMode.acceptEdits,
+                    model: 'gpt-5.6-sol',
+                    modelReasoningEffort: ReasoningEffort.xhigh,
+                    codexSpeed: CodexSpeed.fast,
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('dialog_advanced_codex')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('dialog_codex_model')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('5.4 Mini').last);
+      await tester.pumpAndSettle();
+
+      final effortField = tester
+          .widget<DropdownButtonFormField<ReasoningEffort>>(
+            find.byKey(const ValueKey('dialog_codex_effort_advanced')),
+          );
+      final speedField = tester.widget<DropdownButtonFormField<CodexSpeed>>(
+        find.byKey(const ValueKey('dialog_codex_speed_advanced')),
+      );
+      expect(effortField.initialValue?.value, 'low');
+      expect(speedField.initialValue, CodexSpeed.standard);
+
+      final startButton = find.byKey(const ValueKey('dialog_start_button'));
+      await tester.ensureVisible(startButton);
+      await tester.tap(startButton);
+      await tester.pumpAndSettle();
+
+      expect(result, isNotNull);
+      expect(result!.model, 'gpt-5.4-mini');
+      expect(result!.modelReasoningEffort?.value, 'low');
+      expect(result!.codexSpeed, CodexSpeed.standard);
+    });
+
+    testWidgets('Codex quick UI identifies an Advanced-only Effort', (
+      tester,
+    ) async {
+      _enlargeViewport(tester);
+      final bridge = _BridgeWithCodexModels();
+      addTearDown(bridge.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                showNewSessionSheet(
+                  context: context,
+                  bridge: bridge,
+                  recentProjects: [(path: '/test/proj', name: 'proj')],
+                  initialParams: NewSessionParams(
+                    projectPath: '/test/proj',
+                    provider: Provider.codex,
+                    permissionMode: PermissionMode.acceptEdits,
+                    model: 'gpt-5.6-sol',
+                    modelReasoningEffort: ReasoningEffort.ultra,
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(
+          const ValueKey('dialog_codex_effort_slider_advanced_value_badge'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Ultra'), findsOneWidget);
+    });
   });
 }

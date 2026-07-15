@@ -369,6 +369,7 @@ void main() {
         model: 'gpt-5.3-codex',
         sandboxMode: SandboxMode.on,
         modelReasoningEffort: ReasoningEffort.high,
+        codexSpeed: CodexSpeed.fast,
         networkAccessEnabled: true,
         webSearchMode: WebSearchMode.live,
       );
@@ -386,6 +387,7 @@ void main() {
       // Provider settings ARE persisted
       expect(restored.codexApprovalPolicy, CodexApprovalPolicy.onRequest);
       expect(restored.codexAutoReviewEnabled, isFalse);
+      expect(restored.codexSpeed, CodexSpeed.fast);
       expect(restored.webSearchMode, WebSearchMode.live);
     });
 

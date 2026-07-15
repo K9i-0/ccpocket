@@ -479,10 +479,10 @@ enum SandboxMode {
 final class ReasoningEffort {
   static const none = ReasoningEffort._('none', 'None');
   static const minimal = ReasoningEffort._('minimal', 'Minimal');
-  static const low = ReasoningEffort._('low', 'Low');
+  static const low = ReasoningEffort._('low', 'Light');
   static const medium = ReasoningEffort._('medium', 'Medium');
   static const high = ReasoningEffort._('high', 'High');
-  static const xhigh = ReasoningEffort._('xhigh', 'XHigh');
+  static const xhigh = ReasoningEffort._('xhigh', 'Extra High');
   static const max = ReasoningEffort._('max', 'Max');
   static const ultra = ReasoningEffort._('ultra', 'Ultra');
 
@@ -518,6 +518,20 @@ ReasoningEffort? reasoningEffortByValue(String? raw) {
   if (value == null || value.isEmpty) return null;
   return ReasoningEffort.fromValue(value);
 }
+
+enum CodexSpeed {
+  standard('standard', 'Standard'),
+  fast('fast', 'Fast');
+
+  final String value;
+  final String label;
+  const CodexSpeed(this.value, this.label);
+}
+
+CodexSpeed codexSpeedFromRaw(String? raw) => switch (raw?.trim()) {
+  'fast' => CodexSpeed.fast,
+  _ => CodexSpeed.standard,
+};
 
 enum WebSearchMode {
   disabled('disabled', 'Disabled'),
@@ -725,6 +739,7 @@ sealed class ServerMessage {
         planMode: json['planMode'] as bool?,
         sandboxMode: json['sandboxMode'] as String?,
         modelReasoningEffort: json['modelReasoningEffort'] as String?,
+        serviceTier: json['serviceTier'] as String?,
         networkAccessEnabled: json['networkAccessEnabled'] as bool?,
         webSearchMode: json['webSearchMode'] as String?,
         slashCommands:
@@ -891,6 +906,14 @@ sealed class ServerMessage {
             const [],
         codexModelReasoningEfforts:
             (json['codexModelReasoningEfforts'] as Map?)?.map(
+              (key, value) => MapEntry(
+                key as String,
+                (value as List?)?.whereType<String>().toList() ?? const [],
+              ),
+            ) ??
+            const {},
+        codexModelServiceTiers:
+            (json['codexModelServiceTiers'] as Map?)?.map(
               (key, value) => MapEntry(
                 key as String,
                 (value as List?)?.whereType<String>().toList() ?? const [],
@@ -1419,6 +1442,7 @@ class SystemMessage implements ServerMessage {
   final bool? planMode;
   final String? sandboxMode;
   final String? modelReasoningEffort;
+  final String? serviceTier;
   final bool? networkAccessEnabled;
   final String? webSearchMode;
   final List<String> slashCommands;
@@ -1449,6 +1473,7 @@ class SystemMessage implements ServerMessage {
     this.planMode,
     this.sandboxMode,
     this.modelReasoningEffort,
+    this.serviceTier,
     this.networkAccessEnabled,
     this.webSearchMode,
     this.slashCommands = const [],
@@ -2180,6 +2205,7 @@ class SessionListMessage implements ServerMessage {
   final Map<String, List<String>> claudeModelEfforts;
   final List<String> codexModels;
   final Map<String, List<String>> codexModelReasoningEfforts;
+  final Map<String, List<String>> codexModelServiceTiers;
   final List<String> codexProfiles;
   final String? defaultCodexProfile;
   final String? bridgeVersion;
@@ -2190,6 +2216,7 @@ class SessionListMessage implements ServerMessage {
     this.claudeModelEfforts = const {},
     this.codexModels = const [],
     this.codexModelReasoningEfforts = const {},
+    this.codexModelServiceTiers = const {},
     this.codexProfiles = const [],
     this.defaultCodexProfile,
     this.bridgeVersion,
@@ -3260,6 +3287,7 @@ class RecentSession {
   final String? codexModel;
   final String? codexProfile;
   final String? codexModelReasoningEffort;
+  final String? codexServiceTier;
   final bool? codexNetworkAccessEnabled;
   final String? codexWebSearchMode;
   final List<String> codexAdditionalWritableRoots;
@@ -3289,6 +3317,7 @@ class RecentSession {
     this.codexModel,
     this.codexProfile,
     this.codexModelReasoningEffort,
+    this.codexServiceTier,
     this.codexNetworkAccessEnabled,
     this.codexWebSearchMode,
     this.codexAdditionalWritableRoots = const [],
@@ -3353,6 +3382,7 @@ class RecentSession {
       codexProfile: codexSettings?['profile'] as String?,
       codexModelReasoningEffort:
           codexSettings?['modelReasoningEffort'] as String?,
+      codexServiceTier: codexSettings?['serviceTier'] as String?,
       codexNetworkAccessEnabled:
           codexSettings?['networkAccessEnabled'] as bool?,
       codexWebSearchMode: codexSettings?['webSearchMode'] as String?,
@@ -3400,6 +3430,7 @@ class RecentSession {
       codexModel: codexModel,
       codexProfile: codexProfile,
       codexModelReasoningEffort: codexModelReasoningEffort,
+      codexServiceTier: codexServiceTier,
       codexNetworkAccessEnabled: codexNetworkAccessEnabled,
       codexWebSearchMode: codexWebSearchMode,
       codexAdditionalWritableRoots: codexAdditionalWritableRoots,
@@ -3436,6 +3467,7 @@ class RecentSession {
       codexModel: codexModel,
       codexProfile: codexProfile,
       codexModelReasoningEffort: codexModelReasoningEffort,
+      codexServiceTier: codexServiceTier,
       codexNetworkAccessEnabled: codexNetworkAccessEnabled,
       codexWebSearchMode: codexWebSearchMode,
       codexAdditionalWritableRoots: codexAdditionalWritableRoots,
@@ -3473,6 +3505,7 @@ class SessionInfo {
   final String? codexModel;
   final String? codexProfile;
   final String? codexModelReasoningEffort;
+  final String? codexServiceTier;
   final bool? codexNetworkAccessEnabled;
   final String? codexWebSearchMode;
   final List<String> codexAdditionalWritableRoots;
@@ -3505,6 +3538,7 @@ class SessionInfo {
     this.codexModel,
     this.codexProfile,
     this.codexModelReasoningEffort,
+    this.codexServiceTier,
     this.codexNetworkAccessEnabled,
     this.codexWebSearchMode,
     this.codexAdditionalWritableRoots = const [],
@@ -3546,6 +3580,7 @@ class SessionInfo {
     String? codexModel,
     String? codexProfile,
     String? codexModelReasoningEffort,
+    String? codexServiceTier,
     bool? codexNetworkAccessEnabled,
     String? codexWebSearchMode,
     List<String>? codexAdditionalWritableRoots,
@@ -3582,6 +3617,7 @@ class SessionInfo {
       codexProfile: codexProfile ?? this.codexProfile,
       codexModelReasoningEffort:
           codexModelReasoningEffort ?? this.codexModelReasoningEffort,
+      codexServiceTier: codexServiceTier ?? this.codexServiceTier,
       codexNetworkAccessEnabled:
           codexNetworkAccessEnabled ?? this.codexNetworkAccessEnabled,
       codexWebSearchMode: codexWebSearchMode ?? this.codexWebSearchMode,
@@ -3637,6 +3673,7 @@ class SessionInfo {
       codexProfile: codexSettings?['profile'] as String?,
       codexModelReasoningEffort:
           codexSettings?['modelReasoningEffort'] as String?,
+      codexServiceTier: codexSettings?['serviceTier'] as String?,
       codexNetworkAccessEnabled:
           codexSettings?['networkAccessEnabled'] as bool?,
       codexWebSearchMode: codexSettings?['webSearchMode'] as String?,
@@ -3712,6 +3749,7 @@ class ClientMessage {
     String? model,
     String? sandboxMode,
     String? modelReasoningEffort,
+    String? serviceTier,
     bool? networkAccessEnabled,
     String? webSearchMode,
     List<String>? additionalWritableRoots,
@@ -3743,6 +3781,7 @@ class ClientMessage {
       'model': ?model,
       'sandboxMode': ?sandboxMode,
       'modelReasoningEffort': ?modelReasoningEffort,
+      'serviceTier': ?serviceTier,
       'networkAccessEnabled': ?networkAccessEnabled,
       'webSearchMode': ?webSearchMode,
       if (additionalWritableRoots != null && additionalWritableRoots.isNotEmpty)
@@ -3868,6 +3907,14 @@ class ClientMessage {
       'type': 'set_codex_model',
       'model': model,
       'modelReasoningEffort': ?modelReasoningEffort,
+      'sessionId': ?sessionId,
+    });
+  }
+
+  factory ClientMessage.setCodexSpeed(String serviceTier, {String? sessionId}) {
+    return ClientMessage._(<String, dynamic>{
+      'type': 'set_codex_speed',
+      'serviceTier': serviceTier,
       'sessionId': ?sessionId,
     });
   }
@@ -4038,6 +4085,7 @@ class ClientMessage {
     String? sandboxMode,
     String? model,
     String? modelReasoningEffort,
+    String? serviceTier,
     bool? networkAccessEnabled,
     String? webSearchMode,
     List<String>? additionalWritableRoots,
@@ -4063,6 +4111,7 @@ class ClientMessage {
       'sandboxMode': ?sandboxMode,
       'model': ?model,
       'modelReasoningEffort': ?modelReasoningEffort,
+      'serviceTier': ?serviceTier,
       'networkAccessEnabled': ?networkAccessEnabled,
       'webSearchMode': ?webSearchMode,
       if (additionalWritableRoots != null && additionalWritableRoots.isNotEmpty)

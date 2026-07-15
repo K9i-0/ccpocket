@@ -43,6 +43,7 @@ abstract class ChatSessionState with _$ChatSessionState {
     CodexPermissionsMode codexPermissionsMode,
     String? codexModel,
     ReasoningEffort? codexModelReasoningEffort,
+    @Default(CodexSpeed.standard) CodexSpeed codexSpeed,
     @Default(false) bool planMode,
 
     // Sandbox mode - Freezed default is .on but Cubit constructor overrides

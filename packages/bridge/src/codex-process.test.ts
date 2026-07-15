@@ -1010,6 +1010,11 @@ describe("CodexProcess (app-server)", () => {
                 },
               ],
               defaultReasoningEffort: "medium",
+              additionalSpeedTiers: ["fast"],
+              serviceTiers: [
+                { id: "priority", name: "Fast", description: "1.5x speed" },
+              ],
+              defaultServiceTier: "fast",
             },
             { model: "gpt-hidden", hidden: true },
             { model: "gpt-5.5", hidden: false },
@@ -1050,11 +1055,14 @@ describe("CodexProcess (app-server)", () => {
         model: "gpt-5.5",
         supportedReasoningEfforts: ["low", "medium", "max", "ultra"],
         defaultReasoningEffort: "medium",
+        supportedServiceTiers: ["fast"],
+        defaultServiceTier: "fast",
       },
       {
         model: "gpt-5.4-mini",
         supportedReasoningEfforts: ["low", "medium"],
         defaultReasoningEffort: "low",
+        supportedServiceTiers: [],
       },
     ]);
     proc.stop();
@@ -1155,6 +1163,7 @@ describe("CodexProcess (app-server)", () => {
     drainSkillsList(child);
 
     proc.setModel("gpt-5.4-mini", "low");
+    proc.setServiceTier("fast");
     proc.sendInput("continue with a smaller model");
     await tick();
 
@@ -1163,6 +1172,7 @@ describe("CodexProcess (app-server)", () => {
     expect(turnReq.params).toMatchObject({
       model: "gpt-5.4-mini",
       effort: "low",
+      serviceTier: "fast",
       collaborationMode: {
         mode: "default",
         settings: {
