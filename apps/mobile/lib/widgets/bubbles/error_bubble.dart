@@ -21,6 +21,7 @@ String? _errorTitle(String? errorCode, AppLocalizations l) {
     'git_not_available' => l.gitUnavailableTitle,
     'bridge_update_required' => 'Bridge Update Required',
     'auto_mode_unavailable' => 'Auto Mode Unavailable',
+    'codex_warning' => 'Codex Warning',
     _ => null,
   };
 }
@@ -67,7 +68,8 @@ bool _isApiKeyRequired(String? errorCode) {
 bool _isWarning(String? errorCode) {
   return errorCode == 'git_not_available' ||
       errorCode == 'bridge_update_required' ||
-      errorCode == 'auto_mode_unavailable';
+      errorCode == 'auto_mode_unavailable' ||
+      errorCode == 'codex_warning';
 }
 
 class ErrorBubble extends StatelessWidget {

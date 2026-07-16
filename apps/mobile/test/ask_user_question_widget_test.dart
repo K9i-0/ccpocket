@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -72,7 +74,11 @@ void main() {
                   'question': 'Pick one',
                   'header': 'Choice',
                   'options': [
-                    {'label': 'A', 'description': 'Option A'},
+                    {
+                      'label': 'Choice A',
+                      'value': 'A',
+                      'description': 'Option A',
+                    },
                     {'label': 'B', 'description': 'Option B'},
                   ],
                   'multiSelect': false,
@@ -87,8 +93,7 @@ void main() {
         ),
       );
 
-      // Tap option A
-      await tester.tap(find.text('A'));
+      await tester.tap(find.text('Choice A'));
       await tester.pumpAndSettle();
 
       expect(answeredId, 'test-2');
@@ -505,6 +510,50 @@ void main() {
         find.byIcon(Icons.check_box_outline_blank),
         findsOneWidget,
       ); // DB unselected
+    });
+
+    testWidgets('submits structured values for a multi-select question', (
+      tester,
+    ) async {
+      String? answeredResult;
+      await tester.pumpWidget(
+        _wrap(
+          AskUserQuestionWidget(
+            toolUseId: 'test-structured-multi',
+            input: {
+              'questions': [
+                {
+                  'id': 'channels',
+                  'question': 'Pick channels',
+                  'header': 'Channels',
+                  'options': [
+                    {'label': 'Issues', 'value': 'issues', 'description': ''},
+                    {
+                      'label': 'Pull requests',
+                      'value': 'pulls',
+                      'description': '',
+                    },
+                  ],
+                  'multiSelect': true,
+                },
+              ],
+            },
+            onAnswer: (_, result) => answeredResult = result,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Issues'));
+      await tester.tap(find.text('Pull requests'));
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('ask_submit_multi_single_button')),
+      );
+      await tester.pump();
+
+      expect(jsonDecode(answeredResult!)['answers'], {
+        'channels': ['issues', 'pulls'],
+      });
     });
   });
 

@@ -17,6 +17,23 @@ Widget _wrapErrorBubble({required Widget child, required Locale locale}) {
 }
 
 void main() {
+  testWidgets('renders Codex warnings with a warning title', (tester) async {
+    await tester.pumpWidget(
+      _wrapErrorBubble(
+        locale: const Locale('en'),
+        child: const ErrorBubble(
+          message: ErrorMessage(
+            message: 'Check your Codex configuration.',
+            errorCode: 'codex_warning',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Codex Warning'), findsOneWidget);
+    expect(find.text('Check your Codex configuration.'), findsOneWidget);
+  });
+
   group('ErrorBubble auth UI', () {
     testWidgets('shows API key guidance for auth_api_error', (tester) async {
       const message = ErrorMessage(

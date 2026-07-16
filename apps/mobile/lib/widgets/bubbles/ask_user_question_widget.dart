@@ -81,19 +81,21 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
 
   void _sendAllAnswers() {
     if (_answered) return;
-    final answers = <String, String>{};
+    final answers = <String, dynamic>{};
     for (var i = 0; i < _questions.length; i++) {
       final q = _questions[i];
       final question = q['question'] as String? ?? '';
+      final answerKey = q['id'] as String? ?? question;
       final multiSelect = q['multiSelect'] as bool? ?? false;
       if (multiSelect) {
         final selected = _multiAnswers[i] ?? <String>{};
         final custom = _customControllers[i]?.text.trim() ?? '';
         final merged = <String>[...selected];
         if (custom.isNotEmpty) merged.add(custom);
-        answers[question] = merged.join(', ');
+        if (merged.isNotEmpty) answers[answerKey] = merged;
       } else {
-        answers[question] = _singleAnswers[i] ?? '';
+        final answer = _singleAnswers[i]?.trim() ?? '';
+        if (answer.isNotEmpty) answers[answerKey] = answer;
       }
     }
     _sendAnswer(jsonEncode({'questions': _questions, 'answers': answers}));
@@ -102,6 +104,8 @@ class _AskUserQuestionWidgetState extends State<AskUserQuestionWidget> {
   bool get _allQuestionsAnswered {
     for (var i = 0; i < _questions.length; i++) {
       final q = _questions[i];
+      final required = q['required'] as bool? ?? true;
+      if (!required) continue;
       final multiSelect = q['multiSelect'] as bool? ?? false;
       if (multiSelect) {
         final selected = _multiAnswers[i] ?? <String>{};
@@ -595,17 +599,24 @@ class _AskQuestionLayout extends StatelessWidget {
                   description: opt['description'] as String? ?? '',
                   isSelected: isMulti
                       ? (multiAnswers[questionIndex] ?? {}).contains(
-                          opt['label'] as String? ?? '',
+                          opt['value'] as String? ??
+                              opt['label'] as String? ??
+                              '',
                         )
                       : singleAnswers[questionIndex] ==
-                            (opt['label'] as String? ?? ''),
+                            (opt['value'] as String? ??
+                                opt['label'] as String? ??
+                                ''),
                   isMulti: isMulti,
                   onTap: () {
-                    final label = opt['label'] as String? ?? '';
+                    final value =
+                        opt['value'] as String? ??
+                        opt['label'] as String? ??
+                        '';
                     if (isMulti) {
-                      onToggleMultiSelectLabel(questionIndex, label);
+                      onToggleMultiSelectLabel(questionIndex, value);
                     } else {
-                      onAnswerSingle(questionIndex, label);
+                      onAnswerSingle(questionIndex, value);
                     }
                   },
                 ),

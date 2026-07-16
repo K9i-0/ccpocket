@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -866,6 +868,7 @@ void main() {
               {
                 'question': 'Foreground?',
                 'header': 'Foreground',
+                'required': true,
                 'options': [
                   {'label': 'A', 'description': ''},
                   {'label': 'B', 'description': ''},
@@ -875,6 +878,7 @@ void main() {
               {
                 'question': 'Background?',
                 'header': 'Background',
+                'required': true,
                 'options': [
                   {'label': 'C', 'description': ''},
                   {'label': 'D', 'description': ''},
@@ -915,6 +919,81 @@ void main() {
       nextButton().onPressed!.call();
       await tester.pump();
       expect(answered, isNull);
+    });
+
+    testWidgets('submits multi-question answers as structured JSON', (
+      tester,
+    ) async {
+      String? answered;
+      final session = SessionInfo(
+        id: 'ask-multi-structured',
+        projectPath: '/home/user/my-app',
+        status: 'waiting_approval',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        pendingPermission: const PermissionRequestMessage(
+          toolUseId: 'ask-multi-structured-tool',
+          toolName: 'AskUserQuestion',
+          input: {
+            'questions': [
+              {
+                'id': 'foreground',
+                'question': 'Foreground?',
+                'header': 'Foreground',
+                'options': [
+                  {'label': 'Choice A', 'value': 'A', 'description': ''},
+                ],
+                'multiSelect': false,
+              },
+              {
+                'id': 'background',
+                'question': 'Background?',
+                'header': 'Background',
+                'options': [
+                  {'label': 'Choice B', 'value': 'B', 'description': ''},
+                ],
+                'multiSelect': false,
+              },
+            ],
+          },
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          RunningSessionCard(
+            session: session,
+            onTap: () {},
+            onAnswer: (_, result) => answered = result,
+          ),
+        ),
+      );
+
+      tester
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'Choice A'),
+          )
+          .onPressed!();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      tester
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'Choice B'),
+          )
+          .onPressed!();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('ask_submit_summary_button')),
+          )
+          .onPressed!();
+      await tester.pump();
+
+      expect(jsonDecode(answered!)['answers'], {
+        'foreground': 'A',
+        'background': 'B',
+      });
     });
 
     testWidgets('MCP tool approval prompt uses approval controls', (

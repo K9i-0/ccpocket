@@ -2178,9 +2178,22 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         break;
       }
 
-      default:
-        this.respondToServerRequest(id, {});
+      case "currentTime/read": {
+        this.respondToServerRequest(id, {
+          currentTimeAt: Math.floor(Date.now() / 1000),
+        });
         break;
+      }
+
+      default: {
+        console.warn(`[codex-process] unsupported server request: ${method}`);
+        this.respondToServerRequestError(
+          id,
+          -32601,
+          `Unsupported server request: ${method}`,
+        );
+        break;
+      }
     }
   }
 
@@ -2343,6 +2356,44 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
 
       case "serverRequest/resolved": {
         this.handleServerRequestResolved(params);
+        break;
+      }
+
+      case "warning":
+      case "guardianWarning": {
+        const message = stringValue(params.message);
+        if (message) {
+          this.emitMessage({
+            type: "error",
+            errorCode: "codex_warning",
+            message,
+          });
+        }
+        break;
+      }
+
+      case "configWarning":
+      case "deprecationNotice": {
+        const summary = stringValue(params.summary);
+        const details = stringValue(params.details);
+        if (summary || details) {
+          this.emitMessage({
+            type: "error",
+            errorCode: "codex_warning",
+            message: [summary, details].filter(Boolean).join("\n"),
+          });
+        }
+        break;
+      }
+
+      case "error": {
+        const error = asRecord(params.error);
+        const message = stringValue(error?.message) ?? "Codex runtime error";
+        this.emitMessage({
+          type: "error",
+          errorCode: params.willRetry ? "codex_warning" : "codex_runtime_error",
+          message: params.willRetry ? `${message}\nCodex will retry.` : message,
+        });
         break;
       }
 
@@ -2778,6 +2829,22 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
         break;
       }
 
+      case "exitedreviewmode": {
+        const text = typeof item.review === "string" ? item.review : "";
+        if (!text) break;
+        this.lastResultText = text;
+        this.emitMessage({
+          type: "assistant",
+          message: {
+            id: itemId,
+            role: "assistant",
+            content: [{ type: "text", text }],
+            model: this.getMessageModel(),
+          },
+        });
+        break;
+      }
+
       case "error": {
         const message =
           typeof item.message === "string" ? item.message : "Codex item error";
@@ -2883,6 +2950,22 @@ export class CodexProcess extends EventEmitter<CodexProcessEvents> {
       if (!this.stopped) {
         console.warn(
           `[codex-process] failed to respond to server request: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+  }
+
+  private respondToServerRequestError(
+    id: number | string,
+    code: number,
+    message: string,
+  ): void {
+    try {
+      this.writeEnvelope({ id, error: { code, message } });
+    } catch (err) {
+      if (!this.stopped) {
+        console.warn(
+          `[codex-process] failed to reject server request: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
@@ -3754,10 +3837,8 @@ function parseResultObject(rawResult: string): {
 
 function normalizeAnswerValues(value: unknown): string[] {
   if (typeof value === "string") {
-    return value
-      .split(",")
-      .map((part) => part.trim())
-      .filter((part) => part.length > 0);
+    const normalized = value.trim();
+    return normalized ? [normalized] : [];
   }
 
   if (Array.isArray(value)) {
@@ -3807,24 +3888,26 @@ function buildElicitationResponse(
 
   const parsed = parseResultObject(rawResult);
   const content: Record<string, unknown> = {};
+  const schema = asRecord(pending.input.requestedSchema);
+  const properties = asRecord(schema?.properties) ?? {};
 
   for (const question of pending.questions) {
     const candidate =
       parsed.byId[question.id] ?? parsed.byQuestion[question.question];
-    const answers = normalizeAnswerValues(candidate);
-    if (answers.length === 1) {
-      content[question.id] = answers[0];
-    } else if (answers.length > 1) {
-      content[question.id] = answers;
+    const value = coerceElicitationValue(candidate, asRecord(properties[question.id]));
+    if (value !== undefined) {
+      content[question.id] = value;
     }
   }
 
   if (Object.keys(content).length === 0 && pending.questions.length === 1) {
-    const answers = normalizeAnswerValues(rawResult);
-    if (answers.length === 1) {
-      content[pending.questions[0].id] = answers[0];
-    } else if (answers.length > 1) {
-      content[pending.questions[0].id] = answers;
+    const questionId = pending.questions[0].id;
+    const value = coerceElicitationValue(
+      rawResult,
+      asRecord(properties[questionId]),
+    );
+    if (value !== undefined) {
+      content[questionId] = value;
     }
   }
 
@@ -3833,6 +3916,47 @@ function buildElicitationResponse(
     content: Object.keys(content).length > 0 ? content : null,
     _meta: null,
   };
+}
+
+function coerceElicitationValue(
+  value: unknown,
+  field: Record<string, unknown> | undefined,
+): unknown {
+  if (value == null) return undefined;
+  const type = stringValue(field?.type) ?? "string";
+
+  if (type === "array") {
+    if (Array.isArray(value)) {
+      const entries = value.map((entry) => String(entry));
+      return entries.length > 0 ? entries : undefined;
+    }
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
+    return [String(value)];
+  }
+
+  const scalar = Array.isArray(value) ? value[0] : value;
+  if (scalar == null) return undefined;
+  if (typeof scalar === "string" && scalar.trim().length === 0) {
+    return undefined;
+  }
+  if (type === "boolean") {
+    if (typeof scalar === "boolean") return scalar;
+    if (String(scalar).toLowerCase() === "true") return true;
+    if (String(scalar).toLowerCase() === "false") return false;
+    return undefined;
+  }
+  if (type === "number" || type === "integer") {
+    const number = typeof scalar === "number" ? scalar : Number(scalar);
+    if (!Number.isFinite(number)) return undefined;
+    if (type === "integer" && !Number.isInteger(number)) return undefined;
+    return number;
+  }
+  return String(scalar);
 }
 
 function buildApprovalElicitationResponse(
@@ -4027,28 +4151,16 @@ function createElicitationInput(params: Record<string, unknown>): {
       const title = typeof field.title === "string" ? field.title : key;
       const description =
         typeof field.description === "string" ? field.description : message;
-      const enumValues = Array.isArray(field.enum)
-        ? field.enum.map((entry) => String(entry))
-        : [];
       const type = typeof field.type === "string" ? field.type : "";
-      const options =
-        enumValues.length > 0
-          ? enumValues.map((entry, index) => ({
-              label: entry,
-              description: index === 0 ? description : "",
-            }))
-          : type === "boolean"
-            ? [
-                { label: "true", description: description },
-                { label: "false", description: "" },
-              ]
-            : [];
+      const options = buildElicitationFieldOptions(field, description);
 
       return {
         id: key,
         question: requiredFields.has(key) ? `${title} (required)` : title,
         header: serverName,
         options,
+        required: requiredFields.has(key),
+        multiSelect: type === "array",
         isOther: options.length === 0,
         isSecret: false,
       };
@@ -4062,7 +4174,13 @@ function createElicitationInput(params: Record<string, unknown>): {
             id: "value",
             question: message,
             header: serverName,
-            options: [] as Array<{ label: string; description: string }>,
+            options: [] as Array<{
+              label: string;
+              value: string;
+              description: string;
+            }>,
+            required: true,
+            multiSelect: false,
             isOther: true,
             isSecret: false,
           },
@@ -4073,6 +4191,7 @@ function createElicitationInput(params: Record<string, unknown>): {
     questions: normalizedQuestions.map((question) => ({
       id: question.id,
       question: question.question,
+      required: question.required,
     })),
     input: {
       mode: "form",
@@ -4085,12 +4204,59 @@ function createElicitationInput(params: Record<string, unknown>): {
         header: question.header,
         question: question.question,
         options: question.options,
-        multiSelect: false,
+        required: question.required,
+        multiSelect: question.multiSelect,
         isOther: question.isOther,
         isSecret: question.isSecret,
       })),
     },
   };
+}
+
+function buildElicitationFieldOptions(
+  field: Record<string, unknown>,
+  description: string,
+): Array<{ label: string; value: string; description: string }> {
+  const type = stringValue(field.type);
+  const source = type === "array" ? asRecord(field.items) ?? {} : field;
+  const rawOptions = Array.isArray(source.oneOf)
+    ? source.oneOf
+    : Array.isArray(source.anyOf)
+      ? source.anyOf
+      : null;
+  if (rawOptions) {
+    return rawOptions.flatMap((entry, index) => {
+      const option = asRecord(entry);
+      const value = stringValue(option?.const);
+      if (!value) return [];
+      return [
+        {
+          label: stringValue(option?.title) ?? value,
+          value,
+          description: index === 0 ? description : "",
+        },
+      ];
+    });
+  }
+
+  if (Array.isArray(source.enum)) {
+    return source.enum.map((entry, index) => {
+      const value = String(entry);
+      return {
+        label: value,
+        value,
+        description: index === 0 ? description : "",
+      };
+    });
+  }
+
+  if (type === "boolean") {
+    return [
+      { label: "true", value: "true", description },
+      { label: "false", value: "false", description: "" },
+    ];
+  }
+  return [];
 }
 
 function isApprovalActionElicitation(

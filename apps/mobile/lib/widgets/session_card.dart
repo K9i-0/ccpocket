@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:expandable_page_view/expandable_page_view.dart';
 import 'package:flutter/material.dart';
 
@@ -1248,6 +1250,8 @@ class _AskUserAreaState extends State<_AskUserArea> {
     if (!_isMultiQuestion) {
       // Single question → send immediately
       widget.onAnswer(label);
+    } else {
+      _goToPage(questionIndex + 1);
     }
   }
 
@@ -1256,7 +1260,16 @@ class _AskUserAreaState extends State<_AskUserArea> {
     if (selected == null || selected.isEmpty) return;
     final answer = selected.join(', ');
     if (!_isMultiQuestion) {
-      widget.onAnswer(answer);
+      final question = _questions[questionIndex] as Map<String, dynamic>;
+      final answerKey =
+          question['id'] as String? ??
+          question['question'] as String? ??
+          'question_$questionIndex';
+      widget.onAnswer(
+        jsonEncode({
+          'answers': {answerKey: selected.toList(growable: false)},
+        }),
+      );
     } else {
       setState(() {
         _singleAnswers[questionIndex] = answer;
@@ -1286,7 +1299,21 @@ class _AskUserAreaState extends State<_AskUserArea> {
     if (finalAnswer.isEmpty) return;
 
     if (!_isMultiQuestion) {
-      widget.onAnswer(finalAnswer);
+      if (isMulti) {
+        final answerKey =
+            q['id'] as String? ??
+            q['question'] as String? ??
+            'question_$questionIndex';
+        final answer = <String>[...(_multiAnswers[questionIndex] ?? {})];
+        if (customText.isNotEmpty) answer.add(customText);
+        widget.onAnswer(
+          jsonEncode({
+            'answers': {answerKey: answer},
+          }),
+        );
+      } else {
+        widget.onAnswer(finalAnswer);
+      }
       return;
     }
 
@@ -1297,26 +1324,40 @@ class _AskUserAreaState extends State<_AskUserArea> {
   }
 
   void _submitAll() {
-    final parts = <String>[];
+    final answers = <String, dynamic>{};
     for (var i = 0; i < _questions.length; i++) {
       final q = _questions[i] as Map<String, dynamic>;
       final isMulti = q['multiSelect'] as bool? ?? false;
-      final header = q['header'] as String? ?? 'Q${i + 1}';
+      final answerKey =
+          q['id'] as String? ?? q['question'] as String? ?? 'question_$i';
 
-      String answer = '';
       if (isMulti) {
         final selected = _multiAnswers[i] ?? {};
-        final subParts = [...selected];
+        final answer = <String>[...selected];
         final customText = _customControllers[i]?.text.trim() ?? '';
-        if (customText.isNotEmpty) subParts.add(customText);
-        answer = subParts.isNotEmpty ? subParts.join(', ') : '(skipped)';
+        if (customText.isNotEmpty) answer.add(customText);
+        if (answer.isNotEmpty) answers[answerKey] = answer;
       } else {
-        answer = _singleAnswers[i] ?? '(skipped)';
+        final answer = _singleAnswers[i]?.trim() ?? '';
+        if (answer.isNotEmpty) answers[answerKey] = answer;
       }
-
-      parts.add('$header: $answer');
     }
-    widget.onAnswer(parts.join('\n'));
+    widget.onAnswer(jsonEncode({'answers': answers}));
+  }
+
+  bool get _allRequiredAnswered {
+    for (var i = 0; i < _questions.length; i++) {
+      final question = _questions[i] as Map<String, dynamic>;
+      if (!(question['required'] as bool? ?? true)) continue;
+      if (question['multiSelect'] as bool? ?? false) {
+        final selected = _multiAnswers[i] ?? {};
+        final customText = _customControllers[i]?.text.trim() ?? '';
+        if (selected.isEmpty && customText.isEmpty) return false;
+      } else if ((_singleAnswers[i]?.trim() ?? '').isEmpty) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void _resetAll() {
@@ -1441,6 +1482,7 @@ class _AskUserAreaState extends State<_AskUserArea> {
               onGoToPage: _goToPage,
               onResetAll: _resetAll,
               onSubmitAll: _submitAll,
+              canSubmitAll: _allRequiredAnswered,
             ),
           ] else if (options.isNotEmpty) ...[
             _QuestionLayout(
@@ -1548,9 +1590,10 @@ class _SingleSelectChips extends StatelessWidget {
               child: Builder(
                 builder: (context) {
                   final label = opt['label'] as String? ?? '';
-                  final isChosen = selectedLabel == label;
+                  final value = opt['value'] as String? ?? label;
+                  final isChosen = selectedLabel == value;
                   return OutlinedButton.icon(
-                    onPressed: () => onAnswerSingle(questionIndex, label),
+                    onPressed: () => onAnswerSingle(questionIndex, value),
                     icon: isChosen
                         ? Icon(Icons.check_circle, size: 16, color: statusColor)
                         : const SizedBox.shrink(),
@@ -1611,9 +1654,10 @@ class _MultiSelectChips extends StatelessWidget {
               child: Builder(
                 builder: (context) {
                   final label = opt['label'] as String? ?? '';
-                  final isSelected = selected.contains(label);
+                  final value = opt['value'] as String? ?? label;
+                  final isSelected = selected.contains(value);
                   return OutlinedButton.icon(
-                    onPressed: () => onToggleLabel(questionIndex, label),
+                    onPressed: () => onToggleLabel(questionIndex, value),
                     icon: Icon(
                       isSelected
                           ? Icons.check_box
@@ -1928,6 +1972,7 @@ class _QuestionPageView extends StatelessWidget {
   final ValueChanged<int> onGoToPage;
   final VoidCallback onResetAll;
   final VoidCallback onSubmitAll;
+  final bool canSubmitAll;
 
   const _QuestionPageView({
     required this.questions,
@@ -1950,6 +1995,7 @@ class _QuestionPageView extends StatelessWidget {
     required this.onGoToPage,
     required this.onResetAll,
     required this.onSubmitAll,
+    required this.canSubmitAll,
   });
 
   @override
@@ -2017,7 +2063,7 @@ class _QuestionPageView extends StatelessWidget {
                 customControllers: getOrCreateController,
                 onGoToPage: onGoToPage,
                 onResetAll: onResetAll,
-                onSubmitAll: onSubmitAll,
+                onSubmitAll: canSubmitAll ? onSubmitAll : null,
               );
             }
             return _QuestionLayout(
@@ -2053,7 +2099,7 @@ class _SummaryPage extends StatelessWidget {
   final TextEditingController Function(int) customControllers;
   final ValueChanged<int> onGoToPage;
   final VoidCallback onResetAll;
-  final VoidCallback onSubmitAll;
+  final VoidCallback? onSubmitAll;
 
   const _SummaryPage({
     required this.questions,
@@ -2121,6 +2167,7 @@ class _SummaryPage extends StatelessWidget {
                 child: SizedBox(
                   height: 36,
                   child: FilledButton(
+                    key: const ValueKey('ask_submit_summary_button'),
                     onPressed: onSubmitAll,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 16),

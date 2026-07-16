@@ -1549,8 +1549,30 @@ describe("CodexProcess (app-server)", () => {
                 title: "Confirmed",
                 description: "Whether to continue",
               },
+              count: { type: "number", title: "Count" },
+              location: { type: "string", title: "Location" },
+              retries: { type: "integer", title: "Retries" },
+              note: { type: "string", title: "Note" },
+              scope: {
+                type: "string",
+                title: "Scope",
+                oneOf: [
+                  { const: "repo", title: "Repository" },
+                  { const: "org", title: "Organization" },
+                ],
+              },
+              channels: {
+                type: "array",
+                title: "Channels",
+                items: {
+                  anyOf: [
+                    { const: "issues", title: "Issues" },
+                    { const: "pulls", title: "Pull requests" },
+                  ],
+                },
+              },
             },
-            required: ["confirmed"],
+            required: ["confirmed", "count", "location"],
           },
         },
       })}\n`,
@@ -1568,9 +1590,37 @@ describe("CodexProcess (app-server)", () => {
     expect(proc.getPendingPermission("req-elicit-1")).toMatchObject({
       toolUseId: "req-elicit-1",
       toolName: "McpElicitation",
+      input: {
+        questions: expect.arrayContaining([
+          expect.objectContaining({
+            id: "scope",
+            required: false,
+            options: expect.arrayContaining([
+              expect.objectContaining({ label: "Repository", value: "repo" }),
+            ]),
+          }),
+          expect.objectContaining({
+            id: "channels",
+            multiSelect: true,
+          }),
+        ]),
+      },
     });
 
-    proc.answer("req-elicit-1", "true");
+    proc.answer(
+      "req-elicit-1",
+      JSON.stringify({
+        answers: {
+          confirmed: "true",
+          count: "3.5",
+          location: "Tokyo, Japan",
+          retries: "2.5",
+          note: "",
+          scope: "repo",
+          channels: ["issues", "pulls"],
+        },
+      }),
+    );
     await tick();
 
     const response = nextOutgoingResponse(child);
@@ -1579,11 +1629,82 @@ describe("CodexProcess (app-server)", () => {
       result: {
         action: "accept",
         content: {
-          confirmed: "true",
+          confirmed: true,
+          count: 3.5,
+          location: "Tokyo, Japan",
+          scope: "repo",
+          channels: ["issues", "pulls"],
         },
       },
     });
+    expect((response.result as any).content).not.toHaveProperty("retries");
+    expect((response.result as any).content).not.toHaveProperty("note");
 
+    proc.stop();
+  });
+
+  it("responds to current time requests with Unix seconds", () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+
+    (proc as any).handleServerRequest("time-1", "currentTime/read", {
+      threadId: "thr_time",
+    });
+
+    expect(nextOutgoingResponse(child)).toEqual({
+      id: "time-1",
+      result: { currentTimeAt: expect.any(Number) },
+    });
+    proc.stop();
+  });
+
+  it("rejects unsupported server requests instead of returning empty success", () => {
+    const proc = new CodexProcess("linux");
+    const child = new FakeChildProcess();
+    attachFakeTransport(proc as any, child);
+
+    (proc as any).handleServerRequest("unknown-1", "future/request", {});
+
+    expect(nextOutgoingError(child)).toEqual({
+      id: "unknown-1",
+      error: {
+        code: -32601,
+        message: "Unsupported server request: future/request",
+      },
+    });
+    proc.stop();
+  });
+
+  it("surfaces Codex warnings and completed review output", () => {
+    const proc = new CodexProcess("linux");
+    const messages: unknown[] = [];
+    proc.on("message", (message) => messages.push(message));
+
+    (proc as any).handleNotification("configWarning", {
+      summary: "Invalid rule",
+      details: "Check .codex/rules/default.rules",
+    });
+    (proc as any).processItemCompleted({
+      type: "exitedReviewMode",
+      id: "review-1",
+      review: "Review complete: no findings.",
+    });
+
+    expect(messages).toContainEqual({
+      type: "error",
+      errorCode: "codex_warning",
+      message: "Invalid rule\nCheck .codex/rules/default.rules",
+    });
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: "assistant",
+        message: expect.objectContaining({
+          id: "review-1",
+          content: [{ type: "text", text: "Review complete: no findings." }],
+        }),
+      }),
+    );
     proc.stop();
   });
 
@@ -2896,6 +3017,16 @@ function nextOutgoingResponse(
     (value) =>
       value.id !== undefined &&
       value.result !== undefined &&
+      value.method === undefined,
+  );
+}
+
+function nextOutgoingError(child: FakeChildProcess): Record<string, unknown> {
+  return consumeOutgoing(
+    child,
+    (value) =>
+      value.id !== undefined &&
+      value.error !== undefined &&
       value.method === undefined,
   );
 }
