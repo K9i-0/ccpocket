@@ -140,8 +140,7 @@ void main() {
         const ValueKey('running_session_pin_pinned-running_button'),
       );
       expect(pinButton, findsOneWidget);
-      expect(tester.getSize(pinButton).width, greaterThanOrEqualTo(44));
-      expect(tester.getSize(pinButton).height, greaterThanOrEqualTo(44));
+      expect(tester.getSize(pinButton), const Size(28, 18));
       expect(
         find.descendant(
           of: pinButton,
@@ -1251,8 +1250,7 @@ void main() {
         const ValueKey('recent_session_pin_pinned-recent_button'),
       );
       expect(pinButton, findsOneWidget);
-      expect(tester.getSize(pinButton).width, greaterThanOrEqualTo(44));
-      expect(tester.getSize(pinButton).height, greaterThanOrEqualTo(44));
+      expect(tester.getSize(pinButton), const Size(28, 18));
       expect(
         find.descendant(
           of: pinButton,

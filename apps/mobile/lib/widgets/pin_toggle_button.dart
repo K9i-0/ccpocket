@@ -21,8 +21,11 @@ class PinToggleButton extends StatelessWidget {
     return IconButton(
       onPressed: onPressed,
       tooltip: isPinned ? unpinTooltip : pinTooltip,
+      style: IconButton.styleFrom(
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      constraints: const BoxConstraints.tightFor(width: 28, height: 18),
       icon: Icon(
         isPinned ? Icons.push_pin : Icons.push_pin_outlined,
         size: 17,
