@@ -1,4 +1,4 @@
-• Switch Codex models from an existing session when you need to adjust how the task continues.
-• Choose whether new sessions and filters show Codex, Claude, or both providers.
-• View Recent Sessions as a simple list in addition to project grouping.
-• Fixed Settings on Flutter Web and improved Codex/Claude session display details.
+• Added model-aware Codex Effort options, including Ultra where supported.
+• Added persistent Codex Goals with quick controls to edit, pause, resume, and clear them.
+• Added Effort and Speed controls to new and active Codex sessions, including an Effort slider, Fast mode, and compact or advanced layouts.
+• Improved touch targets, supporter plan presentation, and Codex settings reliability.
