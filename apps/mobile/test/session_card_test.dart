@@ -177,6 +177,37 @@ void main() {
       );
     });
 
+    testWidgets('keeps the pin at the right edge while waiting approval', (
+      tester,
+    ) async {
+      final session = SessionInfo(
+        id: 'approval-pin-alignment',
+        provider: 'codex',
+        projectPath: '/home/user/my-app',
+        status: 'waiting_approval',
+        createdAt: DateTime.now().toIso8601String(),
+        lastActivityAt: DateTime.now().toIso8601String(),
+        pendingPermission: const PermissionRequestMessage(
+          toolUseId: 'approval-pin-tool',
+          toolName: 'Bash',
+          input: {'command': 'flutter test'},
+        ),
+      );
+
+      await tester.pumpWidget(
+        _wrap(RunningSessionCard(session: session, onTap: () {})),
+      );
+
+      final cardRect = tester.getRect(find.byType(Card));
+      final pinRect = tester.getRect(
+        find.byKey(
+          const ValueKey('running_session_pin_approval-pin-alignment_button'),
+        ),
+      );
+
+      expect(cardRect.right - pinRect.right, 12);
+    });
+
     test('maps visual status for running plan session', () {
       final visual = sessionVisualStatusFor(
         rawStatus: 'running',

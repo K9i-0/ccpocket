@@ -174,39 +174,45 @@ class _RunningSessionCardState extends State<RunningSessionCard> {
               ),
               child: Row(
                 children: [
-                  _StatusDot(
-                    color: statusColor,
-                    animate: visualStatus.animate,
-                    glow: isReadyUnseen,
-                    inPlanMode:
-                        visualStatus.showPlanBadge && visualStatus.animate,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    visualStatus.label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isReadyUnseen
-                          ? FontWeight.w800
-                          : FontWeight.w600,
-                      color: statusColor,
-                    ),
-                  ),
-                  if (visualStatus.detail != null) ...[
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        visualStatus.detail!,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: statusColor.withValues(alpha: 0.82),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        _StatusDot(
+                          color: statusColor,
+                          animate: visualStatus.animate,
+                          glow: isReadyUnseen,
+                          inPlanMode:
+                              visualStatus.showPlanBadge &&
+                              visualStatus.animate,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        const SizedBox(width: 6),
+                        Text(
+                          visualStatus.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isReadyUnseen
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: statusColor,
+                          ),
+                        ),
+                        if (visualStatus.detail != null) ...[
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              visualStatus.detail!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: statusColor.withValues(alpha: 0.82),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                  const Spacer(),
+                  ),
                   PinToggleButton(
                     key: ValueKey('running_session_pin_${session.id}_button'),
                     isPinned: widget.isPinned,
