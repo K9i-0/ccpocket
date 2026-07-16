@@ -2,6 +2,11 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.67.1] - 2026-07-16
+
+### Fixed
+- Suppress all approved Codex auto-review notifications regardless of reported risk while continuing to surface actionable warnings.
+
 ## [1.67.0] - 2026-07-16
 
 ### Changed
