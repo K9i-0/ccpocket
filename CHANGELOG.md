@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.106.1] - 2026-07-16
+
+### Changed
+- Refresh app store screenshots.
+- Require Bridge 1.67.1 to suppress all approved Codex auto-review notifications consistently.
+
+### Fixed
+- Keep running-session pin actions aligned to the right edge when status details are shown.
+
 ## [1.106.0] - 2026-07-16
 
 ### Added
