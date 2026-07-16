@@ -2,6 +2,15 @@
 
 All notable changes to `@ccpocket/bridge` will be documented in this file.
 
+## [1.67.0] - 2026-07-16
+
+### Changed
+- Limit retained idle sessions to the 30 most recently active sessions so stale processes release background resources.
+
+### Fixed
+- Read Codex history through the process that owns the session instead of an unrelated active process.
+- Suppress informational Codex auto-review approval notifications while continuing to surface actionable warnings.
+
 ## [1.66.2] - 2026-07-16
 
 ### Fixed
