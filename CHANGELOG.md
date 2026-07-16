@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.106.0] - 2026-07-16
+
+### Added
+- Add persistent pinning for sessions and projects, with pinned items prioritized in session lists.
+
+### Changed
+- Preserve the current reading position while new message content streams into an active session.
+- Reduce unnecessary background refresh work and handle hidden app lifecycle transitions consistently.
+- Require Bridge 1.67.0 for the latest session resource lifecycle and Codex history fixes.
+
+### Fixed
+- Restore the compact pin control layout on session cards and project headers.
+
 ## [1.105.2] - 2026-07-16
 
 ### Fixed
