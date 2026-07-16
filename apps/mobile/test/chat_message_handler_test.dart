@@ -553,6 +553,29 @@ void main() {
       expect(update.codexSpeed, CodexSpeed.standard);
     });
 
+    test('restores codex settings metadata without adding a chat entry', () {
+      final update = handler.handle(
+        const HistoryMessage(
+          messages: [
+            SystemMessage(
+              subtype: 'codex_settings',
+              provider: 'codex',
+              model: 'gpt-5.6-terra',
+              modelReasoningEffort: 'xhigh',
+              serviceTier: 'fast',
+            ),
+          ],
+        ),
+        isBackground: false,
+        isCodex: true,
+      );
+
+      expect(update.entriesToAdd, isEmpty);
+      expect(update.codexModel, 'gpt-5.6-terra');
+      expect(update.codexModelReasoningEffort, ReasoningEffort.xhigh);
+      expect(update.codexSpeed, CodexSpeed.fast);
+    });
+
     test('restores pending permission when status is waitingApproval', () {
       final update = handler.handle(
         const HistoryMessage(

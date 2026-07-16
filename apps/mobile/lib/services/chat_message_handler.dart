@@ -621,10 +621,12 @@ class ChatMessageHandler {
           ),
         );
       } else {
-        // Don't add internal metadata messages as visible entries
+        // Don't add internal metadata messages as visible entries.
+        // codex_settings is re-sent after every history sync.
         if (m is! SystemMessage ||
             (m.subtype != 'supported_commands' &&
-                m.subtype != 'session_created')) {
+                m.subtype != 'session_created' &&
+                m.subtype != 'codex_settings')) {
           entries.add(ServerChatEntry(m, timestamp: lastKnownTs));
         }
         // Restore slash commands from history (init, supported_commands, or
