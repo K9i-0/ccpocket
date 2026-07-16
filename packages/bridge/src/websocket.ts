@@ -1395,9 +1395,10 @@ export class BridgeWebSocketServer {
     const threadId = this.codexThreadIdForSession(session);
     if (!threadId) return null;
 
-    const history = await this.getCodexThreadHistory(
+    const history = await this.getCodexThreadHistoryFromRpc(
       threadId,
       session.projectPath,
+      session.process as CodexProcess,
     );
     session.claudeSessionId = threadId;
 
@@ -1891,8 +1892,9 @@ export class BridgeWebSocketServer {
   private async getCodexThreadHistoryFromRpc(
     threadId: string,
     projectPath?: string,
+    preferredProcess?: CodexProcess,
   ): Promise<SessionHistoryMessage[]> {
-    const activeProcess = this.getActiveCodexProcess();
+    const activeProcess = preferredProcess ?? this.getActiveCodexProcess();
     const process =
       activeProcess ?? (await this.createStandaloneCodexProcess(projectPath));
     const isStandalone = process !== activeProcess;
